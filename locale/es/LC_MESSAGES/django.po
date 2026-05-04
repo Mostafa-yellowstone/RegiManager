@@ -1,0 +1,277 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: RegiManager\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-05-03 01:30+0300\n"
+"PO-Revision-Date: 2026-05-03 01:30+0300\n"
+"Last-Translator: Antigravity\n"
+"Language-Team: Spanish\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Home"
+msgstr "Inicio"
+
+msgid "Solutions"
+msgstr "Soluciones"
+
+msgid "Pricing"
+msgstr "Precios"
+
+msgid "Contact Us"
+msgstr "Contáctenos"
+
+msgid "Modern DMV-PSB Portal"
+msgstr "Portal Moderno DMV-PSB"
+
+msgid "One Platform For Registration Teams, Owners, And Operations"
+msgstr "Una Plataforma Para Equipos De Registro, Propietarios Y Operaciones"
+
+msgid "RegiManager gives private service bureaus a clean workflow for service intake, dealer balances, reports, receipts, and document management while keeping every action tracked."
+msgstr "RegiManager ofrece a las oficinas de servicios privados un flujo de trabajo limpio para la recepción de servicios, balances de concesionarios, informes, recibos y gestión de documentos, manteniendo cada acción rastreada."
+
+msgid "Go To Dashboard"
+msgstr "Ir Al Panel"
+
+msgid "See Plans"
+msgstr "Ver Planes"
+
+msgid "Sign In"
+msgstr "Iniciar Sesión"
+
+msgid "Create Agent Account"
+msgstr "Crear Cuenta De Agente"
+
+msgid "Role Based"
+msgstr "Basado en Roles"
+
+msgid "Owner and agent controls"
+msgstr "Controles de propietario y agente"
+
+msgid "Audit Ready"
+msgstr "Listo para Auditoría"
+
+msgid "Trace every change safely"
+msgstr "Rastree cada cambio de forma segura"
+
+msgid "Dealer Friendly"
+msgstr "Amigable para Concesionarios"
+
+msgid "Track balances and payments"
+msgstr "Seguimiento de balances y pagos"
+
+msgid "Automation Included"
+msgstr "Automatización Incluida"
+
+msgid "Smart workflows & alerts"
+msgstr "Flujos de trabajo y alertas inteligentes"
+
+msgid "Everything your DMV service operation needs in one organized flow."
+msgstr "Todo lo que su operación de servicios de DMV necesita en un flujo organizado."
+
+msgid "Service Processing"
+msgstr "Procesamiento de Servicios"
+
+msgid "Handle registrations, renewals, title operations, transfers, and plate requests from a single dashboard."
+msgstr "Gestione registros, renovaciones, operaciones de títulos, transferencias y solicitudes de placas desde un único panel."
+
+msgid "Team Permissions"
+msgstr "Permisos de Equipo"
+
+msgid "Control owner and member access for reports, net profit visibility, and dealer management permissions."
+msgstr "Controle el acceso de propietarios y miembros para informes, visibilidad de beneficios netos y permisos de gestión de concesionarios."
+
+msgid "Financial Reporting"
+msgstr "Informes Financieros"
+
+msgid "Export daily, monthly, and owner PDFs with totals for processing fees, DMV fees, taxes, and card fees."
+msgstr "Exporte PDFs diarios, mensuales y de propietario con totales de tarifas de procesamiento, tarifas de DMV, impuestos y tarifas de tarjeta."
+
+msgid "Dealer Operations"
+msgstr "Operaciones de Concesionarios"
+
+msgid "Manage dealer profiles, monitor outstanding balances, and apply bulk or invoice-level payments quickly."
+msgstr "Gestione perfiles de concesionarios, supervise balances pendientes y aplique pagos por volumen o a nivel de factura rápidamente."
+
+msgid "Client Profiles"
+msgstr "Perfiles de Clientes"
+
+msgid "Review customer service history, vehicle details, insurance dates, and spending insights in one place."
+msgstr "Revise el historial de servicio al cliente, detalles del vehículo, fechas de seguro y conocimientos de gastos en un solo lugar."
+
+msgid "Document Storage"
+msgstr "Almacenamiento de Documentos"
+
+msgid "Upload and retrieve service documents with clear type mapping and secure access checks."
+msgstr "Cargue y recupere documentos de servicio con un mapeo de tipos claro y verificaciones de acceso seguras."
+
+msgid "Simple plans for growing DMV bureaus and high-volume operations."
+msgstr "Planes sencillos para oficinas de DMV en crecimiento y operaciones de alto volumen."
+
+msgid "Starter"
+msgstr "Básico"
+
+msgid "/month"
+msgstr "/mes"
+
+msgid "Up to 5 agents"
+msgstr "Hasta 5 agentes"
+
+msgid "Core service dashboard"
+msgstr "Panel de servicios básicos"
+
+msgid "Receipt and audit logs"
+msgstr "Recibos y registros de auditoría"
+
+msgid "Get Started"
+msgstr "Empezar"
+
+msgid "Popular"
+msgstr "Popular"
+
+msgid "Professional"
+msgstr "Profesional"
+
+msgid "Up to 20 agents"
+msgstr "Hasta 20 agentes"
+
+msgid "Advanced owner reports"
+msgstr "Informes avanzados de propietario"
+
+msgid "Dealer management tools"
+msgstr "Herramientas de gestión de concesionarios"
+
+msgid "Start Professional"
+msgstr "Empezar Profesional"
+
+msgid "Enterprise"
+msgstr "Empresarial"
+
+msgid "Custom"
+msgstr "Personalizado"
+
+msgid "Unlimited agents"
+msgstr "Agentes ilimitados"
+
+msgid "Priority support"
+msgstr "Soporte prioritario"
+
+msgid "Custom process configuration"
+msgstr "Configuración de procesos personalizada"
+
+msgid "Contact Sales"
+msgstr "Contactar Ventas"
+
+msgid "Built For High-Trust Service Operations"
+msgstr "Construido Para Operaciones De Servicio De Alta Confianza"
+
+msgid "From agent onboarding to dealer settlements, RegiManager keeps your processes structured, accountable, and easy to scale."
+msgstr "Desde la incorporación de agentes hasta las liquidaciones de concesionarios, RegiManager mantiene sus procesos estructurados, responsables y fáciles de escalar."
+
+msgid "Role-aware workflows for owners and members"
+msgstr "Flujos de trabajo conscientes de los roles para propietarios y miembros"
+
+msgid "Instant reporting snapshots and printable exports"
+msgstr "Instantáneas de informes y exportaciones imprimibles"
+
+msgid "Reliable audit trail for operational confidence"
+msgstr "Rastro de auditoría fiable para la confianza operativa"
+
+msgid "Ready To Run A Cleaner DMV Operation?"
+msgstr "¿Listo Para Ejecutar Una Operación De DMV Más Limpia?"
+
+msgid "Bring your team, services, and reporting into one well-organized workspace."
+msgstr "Traiga a su equipo, servicios e informes a un espacio de trabajo bien organizado."
+
+msgid "Open Dashboard"
+msgstr "Abrir Panel"
+
+msgid "Get In Touch"
+msgstr "Póngase en Contacto"
+
+msgid "We're Here To Help Your Bureau Scale"
+msgstr "Estamos Aquí Para Ayudar A Su Oficina A Escalar"
+
+msgid "Have questions about our platform, custom integrations, or pricing? Our team of DMV operations experts is ready to assist you."
+msgstr "¿Tiene preguntas sobre nuestra plataforma, integraciones personalizadas o precios? Nuestro equipo de expertos en operaciones de DMV está listo para ayudarle."
+
+msgid "Contact Information"
+msgstr "Información de Contacto"
+
+msgid "Reach out through any of these channels or use the form."
+msgstr "Comuníquese a través de cualquiera de estos canales o use el formulario."
+
+msgid "Email Us"
+msgstr "Envíanos un Correo"
+
+msgid "Call Us"
+msgstr "Llámanos"
+
+msgid "Main Office"
+msgstr "Oficina Principal"
+
+msgid "123 PSB Plaza, Suite 400"
+msgstr "123 PSB Plaza, Suite 400"
+
+msgid "Albany, NY 12207"
+msgstr "Albany, NY 12207"
+
+msgid "Full Name"
+msgstr "Nombre Completo"
+
+msgid "Email Address"
+msgstr "Correo Electrónico"
+
+msgid "Subject"
+msgstr "Asunto"
+
+msgid "General Inquiry"
+msgstr "Consulta General"
+
+msgid "Sales & Pricing"
+msgstr "Ventas y Precios"
+
+msgid "Technical Support"
+msgstr "Soporte Técnico"
+
+msgid "Request a Demo"
+msgstr "Solicitar una Demostración"
+
+msgid "Your Message"
+msgstr "Tu Mensaje"
+
+msgid "How can we help you today?"
+msgstr "¿Cómo podemos ayudarte hoy?"
+
+msgid "Send Message"
+msgstr "Enviar Mensaje"
+
+msgid "Operations software for Private Service Bureaus—records, receipts, dealers, and reporting in one workspace."
+msgstr "Software de operaciones para Oficinas de Servicios Privados: registros, recibos, concesionarios e informes en un solo espacio de trabajo."
+
+msgid "Platform"
+msgstr "Plataforma"
+
+msgid "Overview"
+msgstr "Resumen"
+
+msgid "Access"
+msgstr "Acceso"
+
+msgid "Dashboard"
+msgstr "Panel"
+
+msgid "Sign out"
+msgstr "Cerrar sesión"
+
+msgid "Sign in"
+msgstr "Iniciar sesión"
+
+msgid "Create agent account"
+msgstr "Crear cuenta de agente"
+
+msgid "This is a licensed Private Service Bureau software solution but is not an official agency of the Department of Motor Vehicles."
+msgstr "Esta es una solución de software de Oficina de Servicios Privados con licencia, pero no es una agencia oficial del Departamento de Vehículos Motorizados."

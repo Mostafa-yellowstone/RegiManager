@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Add New Client | RegiManager{% endblock %}
+
+{% block content %}
+<style>
+    .alert-msg { padding: 0.8rem 1.2rem; border-radius: 10px; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem; }
+    .alert-msg.error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    .alert-msg.success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    #name-warning { padding: 0.8rem 1.2rem; border-radius: 10px; margin-bottom: 1.5rem; background: #fff7ed; color: #9a3412; border: 1px solid #ffedd5; font-weight: 600; font-size: 0.9rem; border-left: 4px solid #f97316; }
+</style>
+<main class="dashboard-shell">
+    <section class="dashboard-layout">
+        <header class="dashboard-hero service-list-hero" style="background: linear-gradient(135deg, #1e293b, #0f172a); padding-bottom: 2rem;">
+            <div>
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary back-btn" style="margin-bottom: 1rem; display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white;">&larr; Back to Dashboard</a>
+                <h1>Add New Client</h1>
+            </div>
+        </header>
+
+        <article class="dashboard-panel" style="margin-top: -2rem; position: relative; z-index: 5;">
+            <form method="post" class="auth-form" id="client-form">
+                {% csrf_token %}
+
+                {% if messages %}
+                <div style="margin-bottom: 1.5rem;">
+                    {% for message in messages %}
+                    <div class="alert-msg {% if message.tags == 'error' %}error{% else %}success{% endif %}">
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div id="name-warning" style="display: none;"></div>
+                
+                <!-- Row 1: Source & Agency -->
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="field-wrap">
+                        <label>{{ form.source.label }}</label>
+                        {{ form.source }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>{{ form.organization.label }}</label>
+                        {{ form.organization }}
+                    </div>
+                </div>
+
+                <!-- Dealer Logic Expansion -->
+                <div id="dealer-logic-section" style="display: none; background: #f8fafc; padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem; border: 1px solid #e2e8f0;">
+                    <h4 style="margin-top: 0; margin-bottom: 1rem; color: #1e293b;">Dealership Information</h4>
+                    <div class="field-wrap" style="margin-bottom: 1rem;">
+                        <label>Select Dealership</label>
+                        {{ form.dealer_select }}
+                    </div>
+                    <div id="new-dealer-fields" style="display: none; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="field-wrap">
+                            <label>Dealer Name</label>
+                            {{ form.dealer_name }}
+                        </div>
+                        <div class="field-wrap">
+                            <label>Dealer Email</label>
+                            {{ form.dealer_email }}
+                        </div>
+                        <div class="field-wrap">
+                            <label>Dealer Phone</label>
+                            {{ form.dealer_phone_no }}
+                        </div>
+                        <div class="field-wrap">
+                            <label>Dealer Address</label>
+                            {{ form.dealer_address }}
+                        </div>
+                        <!-- Partner Checkbox moved here -->
+                        <div class="field-wrap" style="display: flex; align-items: center; gap: 1rem; padding-top: 1.5rem; grid-column: span 2;">
+                            <label class="switch">
+                                {{ form.is_partner }}
+                                <span class="slider round"></span>
+                            </label>
+                            <span style="font-weight: 600; color: #475569;">Is Partner Dealer?</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 2: Names -->
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="field-wrap">
+                        <label>Last Name</label>
+                        {{ form.last_name }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>First Name</label>
+                        {{ form.first_name }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Middle Name</label>
+                        {{ form.middle_name }}
+                    </div>
+                </div>
+
+                <!-- Row 3: Identity & Contact -->
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="field-wrap">
+                        <label>SSN</label>
+                        {{ form.ssn }}
+                    </div>
+                    <div class="field-wrap">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                            <label style="margin: 0;">Driver License</label>
+                            <div style="display: flex; gap: 10px;">
+                                <!-- Handheld Scanner -->
+                                <button type="button" id="dl-scan-trigger" style="cursor: pointer; color: #10b981; display: flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 700; background: #f0fdf4; padding: 2px 10px; border-radius: 8px; border: 1px solid #dcfce7; transition: all 0.2s; box-shadow: 0 2px 4px rgba(16,185,129,0.1);" title="Scan DL Barcode">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                                    SCAN DL
+                                </button>
+                            </div>
+                        </div>
+                        {{ form.driver_license }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Date of Birth</label>
+                        {{ form.dob }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Phone Number</label>
+                        {{ form.phone_number }}
+                    </div>
+                </div>
+
+                <!-- Row 4: Address 1 -->
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="field-wrap">
+                        <label>Building No</label>
+                        {{ form.building_no }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Street Address</label>
+                        {{ form.street_address }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Apartment</label>
+                        {{ form.apartment }}
+                    </div>
+                </div>
+
+                <!-- Row 5: Location Details -->
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="field-wrap">
+                        <label>City</label>
+                        {{ form.city }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>State</label>
+                        {{ form.state }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Zip Code</label>
+                        {{ form.zip_code }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>County</label>
+                        {{ form.county }}
+                    </div>
+                </div>
+
+                <!-- Row 6: Final Details -->
+                <div class="form-row" style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="field-wrap">
+                        <label>Email Address</label>
+                        {{ form.email }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Gender</label>
+                        {{ form.gender }}
+                    </div>
+                </div>
+
+                <div class="form-actions" style="border-top: 1px solid #e2e8f0; padding-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
+                    <a href="{% url 'dashboard' %}" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary" style="padding: 0.8rem 3rem;">Register Client</button>
+                </div>
+            </form>
+        </article>
+    </section>
+</main>
+
+<!-- Scanner Modal -->
+<div id="scannerModal" class="drawer-overlay" style="display: none; z-index: 2000; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px);">
+    <div class="drawer-panel" style="width: 90%; max-width: 450px; height: auto; border-radius: 24px; position: relative; transform: none; padding: 2.5rem; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
+        <div style="background: #f0fdf4; color: #10b981; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+        </div>
+        <h2 style="margin-bottom: 0.5rem; color: #1e293b; font-weight: 800;">Scan Driver License</h2>
+        <p style="color: #64748b; margin-bottom: 2rem; font-size: 0.95rem; line-height: 1.5;">Please scan the <strong>barcode</strong> on the back of the Driver License using your handheld scanner.</p>
+        
+        <input type="password" id="barcode-input" style="width: 100%; border: 2px solid #e2e8f0; padding: 1.2rem; border-radius: 16px; font-size: 1.1rem; text-align: center; background: #f8fafc;" placeholder="Waiting for scan...">
+        
+        <div style="margin-top: 2rem;">
+            <button type="button" class="btn btn-secondary" onclick="closeScannerModal()" style="width: 100%; padding: 1rem; border-radius: 12px; font-weight: 600;">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const sourceSelect = document.querySelector('select[name="source"]');
+    const dealerSection = document.getElementById('dealer-logic-section');
+    const dealerSelect = document.querySelector('select[name="dealer_select"]');
+    const newDealerFields = document.getElementById('new-dealer-fields');
+
+    function toggleDealerSection() {
+        if (sourceSelect.value === 'car dealer') {
+            dealerSection.style.display = 'block';
+        } else {
+            dealerSection.style.display = 'none';
+        }
+    }
+
+    function toggleNewDealerFields() {
+        if (dealerSelect.value === 'new') {
+            newDealerFields.style.display = 'grid';
+        } else {
+            newDealerFields.style.display = 'none';
+        }
+    }
+
+    if (sourceSelect) sourceSelect.addEventListener('change', toggleDealerSection);
+    if (dealerSelect) dealerSelect.addEventListener('change', toggleNewDealerFields);
+
+    toggleDealerSection();
+    toggleNewDealerFields();
+
+    // Phone masking (000) 000 - 0000
+    const phoneInput = document.querySelector('.phone-mask');
+    if (phoneInput) {
+        phoneInput.addEventListener('input', function(e) {
+            let x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
+            e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? ' - ' + x[3] : '');
+        });
+    }
+
+    // Scanner Logic
+    const scannerModal = document.getElementById('scannerModal');
+    const barcodeInput = document.getElementById('barcode-input');
+    const scanTrigger = document.getElementById('dl-scan-trigger');
+
+    function openScannerModal() {
+        scannerModal.style.display = 'flex';
+        barcodeInput.value = '';
+        setTimeout(() => barcodeInput.focus(), 100);
+    }
+
+    window.closeScannerModal = function() {
+        scannerModal.style.display = 'none';
+    };
+
+    if (scanTrigger) scanTrigger.addEventListener('click', openScannerModal);
+
+    if (barcodeInput) {
+        barcodeInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const data = barcodeInput.value.trim();
+                if (data.length > 10) {
+                    processScannerData({ barcode_data: data });
+                }
+                closeScannerModal();
+            }
+        });
+    }
+
+    function processScannerData(bodyData) {
+        const params = new URLSearchParams();
+        for (const key in bodyData) params.append(key, bodyData[key]);
+
+        fetch("{% url 'ocr-dl' %}", {
+            method: 'POST',
+            headers: { 
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: params
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.status === 'success' && res.data) {
+                const d = res.data;
+                // Auto-fill logic
+                if (d.first_name) document.getElementById('id_first_name').value = d.first_name;
+                if (d.last_name) document.getElementById('id_last_name').value = d.last_name;
+                if (d.middle_name) document.getElementById('id_middle_name').value = d.middle_name;
+                if (d.driver_license) document.getElementById('id_driver_license').value = d.driver_license;
+                if (d.dob) document.getElementById('id_dob').value = d.dob;
+                if (d.gender) document.getElementById('id_gender').value = d.gender;
+                if (d.street_address) document.getElementById('id_street_address').value = d.street_address;
+                if (d.city) document.getElementById('id_city').value = d.city;
+                if (d.state) document.getElementById('id_state').value = d.state;
+                if (d.zip_code) document.getElementById('id_zip_code').value = d.zip_code;
+                
+                // Visual success pulse
+                const form = document.getElementById('client-form');
+                form.style.transition = 'background 0.5s';
+                form.style.background = '#f0fdf4';
+                setTimeout(() => form.style.background = '', 500);
+            }
+        })
+        .catch(err => console.error('Scanner Error:', err));
+    }
+
+    // Real-time Name Duplicate Check
+    const firstNameInput = document.getElementById('id_first_name');
+    const lastNameInput = document.getElementById('id_last_name');
+    const orgSelect = document.getElementById('id_organization');
+    const nameWarning = document.getElementById('name-warning');
+
+    function checkClientName() {
+        const first = firstNameInput?.value.trim() || '';
+        const last = lastNameInput?.value.trim() || '';
+        const org = orgSelect?.value || '';
+
+        if (first.length >= 2 && last.length >= 2 && org) {
+            fetch(`/dashboard/check-client-name/?first_name=${encodeURIComponent(first)}&last_name=${encodeURIComponent(last)}&org_id=${org}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.exists) {
+                    nameWarning.innerHTML = `⚠️ <strong>Attention:</strong> A client named "<strong>${first} ${last}</strong>" is already registered in this Agency. Please verify if this is a duplicate before proceeding.`;
+                    nameWarning.style.display = 'block';
+                } else {
+                    nameWarning.style.display = 'none';
+                }
+            })
+            .catch(() => {});
+        } else {
+            if (nameWarning) nameWarning.style.display = 'none';
+        }
+    }
+
+    if (firstNameInput && lastNameInput) {
+        firstNameInput.addEventListener('blur', checkClientName);
+        lastNameInput.addEventListener('blur', checkClientName);
+        if (orgSelect) orgSelect.addEventListener('change', checkClientName);
+    }
+});
+</script>
+{% endblock %}

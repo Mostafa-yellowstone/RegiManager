@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} | RegiManager{% endblock %}
+
+{% block content %}
+<main class="auth-shell">
+    <section class="auth-card">
+        <div class="brand-pill">Modern DMV-Agency Portal</div>
+        <h1>{{ title }}</h1>
+        <p class="subtitle">{{ subtitle }}</p>
+
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="message {{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post" class="auth-form">
+            {% csrf_token %}
+            {% for field in form %}
+                <div class="field-wrap">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                        <div class="field-error">{{ field.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            {% if form.non_field_errors %}
+                <div class="field-error">{{ form.non_field_errors|striptags }}</div>
+            {% endif %}
+            <button type="submit" class="btn btn-primary full">{{ submit_text }}</button>
+        </form>
+
+        <div class="switch-links">
+            <p>{{ switch_label }} <a href="{% url switch_url %}">{{ switch_text }}</a></p>
+            {% if secondary_switch_label and secondary_switch_url and secondary_switch_text %}
+                <p>{{ secondary_switch_label }} <a href="{% url secondary_switch_url %}">{{ secondary_switch_text }}</a></p>
+            {% endif %}
+            <p><a href="{% url 'home' %}">Back to landing page</a></p>
+        </div>
+    </section>
+</main>
+{% endblock %}

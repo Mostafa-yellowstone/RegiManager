@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}RegiManager | DMV Service Platform{% endblock %}
+
+{% block content %}
+<div class="page-loader" data-page-loader>
+    <div class="loader-ring"></div>
+</div>
+
+<div class="cursor-glow" data-cursor-glow></div>
+
+<main class="site-shell">
+    <header class="site-header">
+        <div class="site-header-inner">
+            <a href="{% url 'home' %}" class="site-brand">
+                <img src="{% static 'core/img/dmv-logo.svg' %}" alt="RegiManager DMV Logo" class="site-logo">
+                <span>RegiManager</span>
+            </a>
+
+            <button class="nav-toggle" type="button" aria-expanded="false" aria-label="Toggle navigation" data-nav-toggle>
+                <span></span><span></span><span></span>
+            </button>
+
+            <nav class="site-nav" data-site-nav>
+                <a href="#home">{{ txt.home }}</a>
+                <a href="#solutions">{{ txt.solutions }}</a>
+                <a href="#pricing">{{ txt.pricing }}</a>
+                <a href="{% url 'contact' %}">{{ txt.contact_us }}</a>
+            </nav>
+
+            <div class="header-actions">
+                <div class="language-menu" data-language-menu>
+                    <button class="language-trigger flag-only" type="button" aria-expanded="false" data-language-trigger title="Change Language">
+                        <span class="flag-icon">{% if request.LANGUAGE_CODE == 'es' %}🇪🇸{% else %}🇺🇸{% endif %}</span> 
+                        <span class="chevron">▾</span>
+                    </button>
+                    <div class="language-dropdown" data-language-dropdown>
+                        <form action="{% url 'set_language' %}" method="post" id="lang-form" style="display: none;">
+                            {% csrf_token %}
+                            <input name="next" type="hidden" value="{{ request.get_full_path }}">
+                            <input name="language" type="hidden" id="lang-input">
+                        </form>
+                        <a href="#" class="lang-option" data-lang="en"><span class="flag-icon">🇺🇸</span> English</a>
+                        <a href="#" class="lang-option" data-lang="es"><span class="flag-icon">🇪🇸</span> Español</a>
+                    </div>
+                </div>
+
+                <div class="account-menu" data-account-menu>
+                    <button class="account-trigger" type="button" aria-expanded="false" aria-label="Open account menu" data-account-trigger>
+                        Account
+                        <span class="account-chevron">▾</span>
+                    </button>
+                    <div class="account-dropdown" data-account-dropdown>
+                        {% if user.is_authenticated %}
+                            <a href="{% url 'dashboard' %}">Dashboard</a>
+                            <a href="{% url 'logout' %}">Sign Out</a>
+                        {% else %}
+                            <a href="{% url 'login' %}">Sign In</a>
+                            <a href="{% url 'member-signup' %}">Create Agent Account</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section class="site-hero" id="home">
+        <div class="site-hero-content reveal fade-up">
+            <span class="brand-pill">{{ txt.modern_portal }}</span>
+            <h1>{{ txt.hero_title }}</h1>
+            <p>
+                {{ txt.hero_desc }}
+            </p>
+            <div class="hero-actions">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'dashboard' %}" class="btn btn-primary">{{ txt.dashboard }}</a>
+                    <a href="#pricing" class="btn btn-secondary">{{ txt.see_plans }}</a>
+                {% else %}
+                    <a href="{% url 'login' %}" class="btn btn-primary">{{ txt.sign_in }}</a>
+                    <a href="{% url 'member-signup' %}" class="btn btn-secondary">{{ txt.create_agent }}</a>
+                {% endif %}
+            </div>
+            <div class="hero-metrics">
+                <div><strong>{{ txt.role_based }}</strong><span>{{ txt.role_desc }}</span></div>
+                <div><strong>{{ txt.audit_ready }}</strong><span>{{ txt.audit_desc }}</span></div>
+                <div><strong>{{ txt.dealer_friendly }}</strong><span>{{ txt.dealer_desc }}</span></div>
+                <div><strong>{{ txt.automation }}</strong><span>{{ txt.auto_desc }}</span></div>
+            </div>
+        </div>
+
+        <div class="site-hero-visual reveal fade-up delay-1" data-tilt>
+            <div class="floating-3d-orb" data-float-orb>
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <img src="{% static 'core/img/dmv-hero.svg' %}" alt="DMV operations illustration" loading="lazy">
+        </div>
+    </section>
+
+    <section class="site-section reveal fade-up" id="solutions">
+        <div class="section-heading">
+            <h2>{{ txt.solutions }}</h2>
+            <p>{{ txt.sol_desc }}</p>
+        </div>
+        <div class="solution-grid">
+            <article>
+                <h3>{{ txt.sol_proc }}</h3>
+                <p>{{ txt.sol_proc_desc }}</p>
+            </article>
+            <article>
+                <h3>{{ txt.sol_team }}</h3>
+                <p>{{ txt.sol_team_desc }}</p>
+            </article>
+            <article>
+                <h3>{{ txt.sol_fin }}</h3>
+                <p>{{ txt.sol_fin_desc }}</p>
+            </article>
+            <article>
+                <h3>{{ txt.sol_deal }}</h3>
+                <p>{{ txt.sol_deal_desc }}</p>
+            </article>
+            <article>
+                <h3>{{ txt.sol_client }}</h3>
+                <p>{{ txt.sol_client_desc }}</p>
+            </article>
+            <article>
+                <h3>{{ txt.sol_doc }}</h3>
+                <p>{{ txt.sol_doc_desc }}</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="site-section pricing-section reveal fade-up" id="pricing">
+        <div class="section-heading">
+            <h2>{{ txt.pricing }}</h2>
+            <p>{{ txt.price_desc }}</p>
+        </div>
+        <div class="pricing-grid">
+            <article class="price-card">
+                <div class="price-header">
+                    <h3>{{ txt.starter }}</h3>
+                    <p class="price">$99<span>{{ txt.per_month }}</span></p>
+                </div>
+                <ul class="price-features">
+                    <li><span class="check">✓</span> {{ txt.up_to_3 }}</li>
+                    <li><span class="check">✓</span> {{ txt.core_dash }}</li>
+                    <li><span class="check">✓</span> {{ txt.audit_logs }}</li>
+                    <li><span class="check">✓</span> {{ txt.vin_basic }}</li>
+                </ul>
+                <a href="{% url 'member-signup' %}" class="btn btn-secondary">{{ txt.get_started }}</a>
+            </article>
+
+            <article class="price-card featured">
+                <span class="plan-badge">{{ txt.popular }}</span>
+                <div class="price-header">
+                    <h3>{{ txt.professional }}</h3>
+                    <p class="price">$199<span>{{ txt.per_month }}</span></p>
+                </div>
+                <ul class="price-features">
+                    <li><span class="check">✓</span> {{ txt.up_to_7 }}</li>
+                    <li><span class="check">✓</span> {{ txt.adv_reports }}</li>
+                    <li><span class="check">✓</span> {{ txt.dealer_tools }}</li>
+                    <li><span class="check">✓</span> {{ txt.vin_decoding }}</li>
+                    <li><span class="check">✓</span> {{ txt.auto_alerts }}</li>
+                </ul>
+                <a href="{% url 'member-signup' %}" class="btn btn-primary">{{ txt.start_prof }}</a>
+            </article>
+
+            <article class="price-card">
+                <div class="price-header">
+                    <h3>{{ txt.enterprise }}</h3>
+                    <p class="price">{{ txt.custom }}</p>
+                </div>
+                <ul class="price-features">
+                    <li><span class="check">✓</span> {{ txt.unlimit_agents }}</li>
+                    <li><span class="check">✓</span> {{ txt.priority_sup }}</li>
+                    <li><span class="check">✓</span> {{ txt.custom_conf }}</li>
+                    <li><span class="check">✓</span> {{ txt.dedicated_acc }}</li>
+                </ul>
+                <a href="{% url 'contact' %}" class="btn btn-secondary">{{ txt.contact_sales }}</a>
+            </article>
+        </div>
+    </section>
+
+    <section class="site-section about-section reveal fade-up" id="about">
+        <div class="about-grid">
+            <div class="about-visual">
+                <img src="{% static 'core/img/services/vehicle_registration.svg' %}" alt="Vehicle registration flow illustration" loading="lazy">
+            </div>
+            <div class="about-content">
+                <div class="section-heading">
+                    <h2>{{ txt.about_title }}</h2>
+                    <p>
+                        {{ txt.about_desc }}
+                    </p>
+                </div>
+                <ul class="about-list">
+                    <li>{{ txt.about_l1 }}</li>
+                    <li>{{ txt.about_l2 }}</li>
+                    <li>{{ txt.about_l3 }}</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section class="site-section faq-section reveal fade-up" id="faq">
+        <div class="section-heading">
+            <h2>FAQ</h2>
+            <p>Quick answers for onboarding and daily operations.</p>
+        </div>
+        <div class="faq-grid">
+            <article>
+                <h3>Can I keep existing records and workflows?</h3>
+                <p>Yes. Existing backend routes and logic stay unchanged. This homepage is a modern front-door update.</p>
+            </article>
+            <article>
+                <h3>Is dashboard access secure?</h3>
+                <p>Yes. Sign in and role checks continue to use your current authentication and agent permissions.</p>
+            </article>
+            <article>
+                <h3>Can owners manage agents and dealers?</h3>
+                <p>Yes. Owner capabilities and delegated permissions remain exactly as currently implemented.</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="site-cta reveal fade-up">
+        <h2>{{ txt.ready_cta }}</h2>
+        <p>{{ txt.cta_desc }}</p>
+        <div class="hero-actions">
+            {% if user.is_authenticated %}
+                <a href="{% url 'dashboard' %}" class="btn btn-primary">{{ txt.open_dashboard }}</a>
+            {% else %}
+                <a href="{% url 'login' %}" class="btn btn-primary">{{ txt.sign_in }}</a>
+                <a href="{% url 'member-signup' %}" class="btn btn-secondary">{{ txt.create_agent }}</a>
+            {% endif %}
+        </div>
+    </section>
+</main>
+
+<script src="{% static 'core/js/home.js' %}?v=no-hero-video" defer></script>
+{% endblock %}

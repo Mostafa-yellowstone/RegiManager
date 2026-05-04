@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Audit Logs | RegiManager{% endblock %}
+
+{% block content %}
+<style>
+    .log-action { padding: 0.3rem 0.6rem; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
+    .log-action.created { background: #dcfce7; color: #166534; }
+    .log-action.updated { background: #dbeafe; color: #1e40af; }
+    .log-action.deleted { background: #fee2e2; color: #991b1b; }
+    .log-action.default { background: #f1f5f9; color: #475569; }
+</style>
+<main class="dashboard-shell">
+    <section class="dashboard-layout">
+        <header class="dashboard-hero service-list-hero" style="background: linear-gradient(135deg, #1e293b, #0f172a);">
+            <div>
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary back-btn" style="margin-bottom: 1rem; display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white;">&larr; Back to Dashboard</a>
+                <h1>System Audit Logs</h1>
+                <p class="subtitle" style="color: #cbd5e1;">Comprehensive track of all service record actions across your Agencies.</p>
+            </div>
+            <div class="hero-stats">
+                <div class="metric-card" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;">
+                    <span style="color: #cbd5e1;">Total Logs Filtered</span>
+                    <strong style="color: white;">{{ audit_logs|length }}</strong>
+                </div>
+            </div>
+        </header>
+
+        <section class="dashboard-panel" style="margin-top: 2rem;">
+            <form method="get" class="search-form" style="display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 2rem; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 200px;">
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 0.3rem;">Search User or Receipt</label>
+                    <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Search..." class="form-control" style="padding: 0.5rem;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 0.3rem;">Action</label>
+                    <select name="action" class="form-control" style="padding: 0.5rem; width: 150px;">
+                        <option value="">All Actions</option>
+                        <option value="created" {% if request.GET.action == 'created' %}selected{% endif %}>Created</option>
+                        <option value="updated" {% if request.GET.action == 'updated' %}selected{% endif %}>Updated</option>
+                        <option value="deleted" {% if request.GET.action == 'deleted' %}selected{% endif %}>Deleted</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 0.3rem;">Start Date</label>
+                    <input type="date" name="date_from" value="{{ request.GET.date_from }}" class="form-control" style="padding: 0.5rem;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 0.3rem;">End Date</label>
+                    <input type="date" name="date_to" value="{{ request.GET.date_to }}" class="form-control" style="padding: 0.5rem;">
+                </div>
+                <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1.5rem; height: 38px;">Filter Logs</button>
+            </form>
+
+            <div class="table-responsive">
+                <table class="data-table" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Date & Time</th>
+                            <th>Action</th>
+                            <th>User (Agent)</th>
+                            <th>Receipt Number</th>
+                            <th>Agency</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in audit_logs %}
+                            <tr>
+                                <td style="white-space: nowrap;">{{ log.created_at|date:"M d, Y g:i A" }}</td>
+                                <td>
+                                    <span class="log-action {{ log.action|default:'default' }}">
+                                        {{ log.get_action_display }}
+                                    </span>
+                                </td>
+                                <td>{{ log.actor.username }}</td>
+                                <td>{{ log.service_record.receipt_number|default:"-" }}</td>
+                                <td>{{ log.organization.name }}</td>
+                                <td>{{ log.details }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6" class="empty-state" style="text-align: center; padding: 2rem;">No audit logs found matching your criteria.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </section>
+</main>
+{% endblock %}

@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ service_label }} Records | RegiManager{% endblock %}
+
+{% block content %}
+<main class="dashboard-shell">
+    <section class="dashboard-layout">
+        <header class="dashboard-hero service-list-hero">
+            <div>
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary back-btn">&larr; Back to Dashboard</a>
+                <h1>{{ service_label }} Records</h1>
+                <p class="subtitle">View, search, and filter all {{ service_label|lower }} transactions across your accessible Agencies.</p>
+            </div>
+        </header>
+
+        <section class="dashboard-panels">
+            <article class="dashboard-panel full-width-panel">
+                <div class="list-controls">
+                    <form method="get" class="search-filter-form">
+                        <div class="form-group search-group">
+                            <label for="search-input">Search Client / Receipt</label>
+                            <input type="text" id="search-input" name="q" value="{{ search_query }}" placeholder="Search by name, ID, or receipt...">
+                        </div>
+                        <div class="form-group filter-group">
+                            <label for="status-select">Filter by Status</label>
+                            <select id="status-select" name="status">
+                                <option value="">All Statuses</option>
+                                {% for val, label in status_choices %}
+                                    <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group filter-group">
+                            <label for="date-from">From Date</label>
+                            <input type="date" id="date-from" name="date_from" value="{{ date_from }}">
+                        </div>
+                        <div class="form-group filter-group">
+                            <label for="date-to">To Date</label>
+                            <input type="date" id="date-to" name="date_to" value="{{ date_to }}">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Apply</button>
+                        <a href="{% url 'service-list' service_type %}" class="btn btn-secondary">Clear</a>
+                    </form>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Receipt No</th>
+                                <th>Client Name</th>
+                                <th>Number</th>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th>Agent</th>
+                                {% if service_type == "all" %}<th>Service Type</th>{% endif %}
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="service-table-body">
+                            {% for record in records %}
+                                <tr>
+                                    <td>{{ record.created_at|date:"Y-m-d H:i" }}</td>
+                                    <td><strong>{{ record.receipt_number }}</strong></td>
+                                    <td>
+                                        {% if record.vehicle and record.vehicle.client %}
+                                            <a href="{% url 'client-detail' record.vehicle.client.id %}" class="client-link" style="text-decoration: none; color: #2563eb; font-weight: 700;">
+                                                {{ record.vehicle.client.first_name }} {{ record.vehicle.client.last_name }}
+                                            </a>
+                                        {% else %}
+                                            {{ record.client_name|default:"-" }}
+                                        {% endif %}
+                                    </td>
+                                    <td style="font-weight: 600; color: #475569;">
+                                        {% if record.vehicle and record.vehicle.client %}
+                                            {{ record.vehicle.client.phone_number|default:"-" }}
+                                        {% else %}
+                                            {{ record.phone_no|default:"-" }}
+                                        {% endif %}
+                                    </td>
+                                    <td style="font-size: 0.85rem; color: #64748b;">
+                                        {% if record.vehicle and record.vehicle.client %}
+                                            {{ record.vehicle.client.email|default:"-" }}
+                                        {% else %}
+                                            {{ record.email|default:"-" }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="status-badge status-{{ record.status }}">{{ record.get_status_display }}</span>
+                                    </td>
+                                    <td>{{ record.handled_by.get_full_name|default:record.handled_by.username }}</td>
+                                    {% if service_type == "all" %}
+                                        <td>{{ record.service_type_label }}</td>
+                                    {% endif %}
+                                    <td>
+                                        <div class="action-col" style="display: flex; gap: 8px;">
+                                            <button type="button" class="btn btn-sm btn-primary doc-upload-trigger" data-id="{{ record.id }}" data-receipt="{{ record.receipt_number }}">Docs</button>
+                                            <a href="{% url 'service-receipt-pdf' record.id %}" class="btn btn-sm btn-secondary">Receipt</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="8" class="empty-state">No records found matching your criteria.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </section>
+    </section>
+</main>
+
+<div id="docUploadDrawer" class="drawer-overlay" style="display: none;">
+    <div class="drawer-panel">
+        <div class="drawer-header">
+            <h2>Upload Documents</h2>
+            <button type="button" class="close-drawer" onclick="closeDocUploadModal()">&times;</button>
+        </div>
+        <div class="drawer-body">
+            <p>Documents for <strong id="modalReceiptDisplay"></strong>.</p>
+            
+            <div id="existing-docs-container" style="display: none; margin-bottom: 2rem;">
+                <h3 style="font-size: 1.1rem; margin-bottom: 1rem; border-bottom: 1px solid #e4e9f3; padding-bottom: 0.5rem;">Attached Documents</h3>
+                <ul class="agent-list" id="existing-docs-list" style="margin-bottom: 0;">
+                </ul>
+            </div>
+            
+            <div class="doc-grid">
+                <!-- Dropzones will be generated here by JS -->
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search-input');
+    const statusSelect = document.getElementById('status-select');
+    const dateFrom = document.getElementById('date-from');
+    const dateTo = document.getElementById('date-to');
+    const tableBody = document.getElementById('service-table-body');
+    const serviceType = "{{ service_type }}";
+    
+    let searchTimer = null;
+
+    function performSearch() {
+        const query = searchInput.value.trim();
+        const status = statusSelect.value;
+        const from = dateFrom.value;
+        const to = dateTo.value;
+
+        // Show loading state
+        tableBody.style.opacity = '0.5';
+        tableBody.style.transition = 'opacity 0.2s';
+
+        const params = new URLSearchParams({
+            'q': query,
+            'status': status,
+            'date_from': from,
+            'date_to': to,
+            'service_type': serviceType
+        });
+
+        fetch(`/dashboard/service-search/?${params.toString()}`)
+            .then(response => response.json())
+            .then(data => {
+                tableBody.innerHTML = data.html;
+                tableBody.style.opacity = '1';
+                
+                // Re-initialize any JS listeners that were attached to the rows
+                if (window.initializeDocUploadTriggers) {
+                    window.initializeDocUploadTriggers();
+                }
+            })
+            .catch(error => {
+                console.error('Search error:', error);
+                tableBody.style.opacity = '1';
+            });
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(performSearch, 300);
+        });
+    }
+
+    [statusSelect, dateFrom, dateTo].forEach(el => {
+        if (el) {
+            el.addEventListener('change', performSearch);
+        }
+    });
+
+    // Prevent form submission to stay on page
+    const form = document.querySelector('.search-filter-form');
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            performSearch();
+        });
+    }
+});
+</script>
+
+<script src="{% static 'core/js/dashboard.js' %}"></script>
+{% endblock %}

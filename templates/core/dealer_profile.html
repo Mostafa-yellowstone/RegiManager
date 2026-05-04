@@ -1,0 +1,407 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ dealer.name }} | Dealership Portal{% endblock %}
+
+{% block content %}
+<style>
+    .metric-card.is-unpaid { border-color: #ef4444; }
+    .metric-card.is-unpaid strong { color: #ef4444; }
+    .metric-card.is-paid strong { color: #10b981; }
+    .alert-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .alert-danger, .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+</style>
+
+<main class="dashboard-shell">
+    <section class="dashboard-layout">
+        <header class="dashboard-hero service-list-hero" style="background: linear-gradient(135deg, #1e293b, #0f172a);">
+            <div>
+                <a href="{% url 'all-dealers' %}" class="btn btn-secondary back-btn" style="margin-bottom: 1rem; display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white;">&larr; Back to Dealerships</a>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <div style="width: 60px; height: 60px; border-radius: 12px; background: #f1f5f9; color: #475569; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; flex-shrink: 0;">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+                    </div>
+                    <div>
+                        <h1 style="margin-bottom: 0.2rem; display: flex; align-items: center; gap: 0.8rem;">
+                            {{ dealer.name }}
+                            {% if dealer.is_partner %}
+                                <span style="background: #eef2ff; color: #4338ca; font-size: 0.75rem; padding: 0.2rem 0.7rem; border-radius: 99px; font-weight: 700; border: 1px solid #c7d2fe; text-transform: uppercase; letter-spacing: 0.5px;">Partner</span>
+                            {% endif %}
+                        </h1>
+                        <p class="subtitle" style="color: #cbd5e1; margin: 0;">{{ dealer.email|default:"No email" }} • {{ dealer.phone_no|default:"No phone" }} • {{ dealer.address|default:"No address" }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="hero-stats">
+                <div class="metric-card {% if outstanding_balance > 0 %}glow is-unpaid{% else %}is-paid{% endif %}">
+                    <span>Outstanding Balance</span>
+                    <strong>${{ outstanding_balance|floatformat:2 }}</strong>
+                </div>
+                <div class="metric-card">
+                    <span>Lifetime Revenue</span>
+                    <strong>${{ total_revenue|floatformat:2 }}</strong>
+                </div>
+                <div class="metric-card">
+                    <span>Last 30 Days Volume</span>
+                    <strong>{{ monthly_volume }} records</strong>
+                </div>
+            </div>
+        </header>
+
+        {% if messages %}
+        <div class="messages" style="margin-top: 1rem;">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}" style="padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-top: 2rem;">
+            
+            <section class="dashboard-panel">
+                <h3>Client Service Records</h3>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Client Info</th>
+                                <th>Service Type</th>
+                                <th>Total Fee</th>
+                                <th>Dealer Owed</th>
+                                <th>Payment Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in records %}
+                                <tr>
+                                    <td>{{ record.created_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        {% if record.vehicle and record.vehicle.client %}
+                                            <a href="{% url 'client-detail' record.vehicle.client.id %}" style="font-weight: 700; color: #2563eb; text-decoration: none;">
+                                                {{ record.vehicle.client.first_name }} {{ record.vehicle.client.last_name }}
+                                            </a>
+                                        {% else %}
+                                            <strong>{{ record.client_name }}</strong>
+                                        {% endif %}
+                                        <br>
+                                        <span style="font-size: 0.8rem; color: #64748b;">{% if record.plate_number %}{{ record.plate_number }}{% else %}{{ record.vin }}{% endif %}</span>
+                                    </td>
+                                    <td>{{ record.get_service_type_display|default:record.service_type }}</td>
+                                    <td><strong>${{ record.service_fee|floatformat:2 }}</strong></td>
+                                    <td><strong style="color: #ef4444;">${{ record.dealer_balance|floatformat:2 }}</strong></td>
+                                    <td>
+                                        {% if record.is_dealer_paid or record.dealer_balance <= 0 %}
+                                            <span class="status-badge status-completed">Paid</span>
+                                        {% else %}
+                                            <span class="status-badge status-failed" style="background: #fee2e2; color: #991b1b;">Unpaid</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if not record.is_dealer_paid and record.dealer_balance > 0 %}
+                                            <button type="button" class="btn btn-primary btn-sm payment-trigger" 
+                                                    style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" 
+                                                    data-id="{{ record.id }}" 
+                                                    data-balance="{{ record.dealer_balance|floatformat:2 }}" 
+                                                    data-client="{{ record.client_name|escapejs }}">
+                                                Mark Paid
+                                            </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="6" class="empty-state">No service records found for this dealership.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="dashboard-panel" style="margin-top: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                    <h3 style="margin: 0; border-bottom: none; font-size: 1.25rem; color: #1e293b;">Transactions</h3>
+                    <div style="display: flex; gap: 0.75rem; align-items: center;">
+                        <div style="position: relative;">
+                            <svg style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" id="ledgerSearch" placeholder="Search transactions..." class="form-control" style="padding-left: 32px; width: 220px; font-size: 0.85rem;" onkeyup="filterLedger()">
+                        </div>
+                        <select id="ledgerStatusFilter" class="form-control" style="width: auto; font-size: 0.85rem; padding-right: 2rem; cursor: pointer;" onchange="filterLedger()">
+                            <option value="all">All Statuses</option>
+                            <option value="paid">Paid</option>
+                            <option value="unpaid">Not Paid</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table" id="ledgerTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payment in payments %}
+                                <tr>
+                                    <td>{{ payment.payment_date|date:"M d, Y" }}</td>
+                                    <td><strong style="color: #10b981;">${{ payment.amount|floatformat:2 }}</strong></td>
+                                    <td>
+                                        {% if payment.status == 'completed' %}
+                                            <span class="status-badge status-completed">Paid</span>
+                                        {% elif payment.status == 'pending' %}
+                                            <span class="status-badge status-pending">Not Paid (Pending)</span>
+                                        {% else %}
+                                            <span class="status-badge status-failed">Not Paid (Failed)</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="ledger-notes">{{ payment.notes|default:"-" }}</td>
+                                </tr>
+                            {% empty %}
+                                <tr class="empty-row">
+                                    <td colspan="4" class="empty-state">No payments recorded yet.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <aside>
+                <div class="dashboard-panel" style="position: sticky; top: 20px;">
+                    <h3 style="border-bottom: none; margin-bottom: 1rem;">Service Distribution</h3>
+                    {% if records.count > 0 %}
+                        <div style="position: relative; height: 300px; width: 100%; display: flex; align-items: center; justify-content: center;">
+                            <canvas id="typeChart"></canvas>
+                        </div>
+                    {% else %}
+                        <div class="empty-state" style="text-align: center; padding: 2rem 0; color: #64748b;">
+                            Not enough data to generate charts.
+                        </div>
+                    {% endif %}
+                </div>
+            </aside>
+            
+        </div>
+    </section>
+</main>
+
+<!-- Payment Modal -->
+<div id="paymentModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div style="background: white; border-radius: 16px; padding: 2rem; width: 100%; max-width: 400px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); transform: scale(0.95); opacity: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);" id="paymentModalContent">
+        <h3 style="margin-top: 0; margin-bottom: 0.5rem; color: #1e293b; font-size: 1.25rem;">Record Payment</h3>
+        <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 1.5rem;">Enter the payment amount for <strong id="paymentClientName" style="color: #334155;"></strong>.</p>
+        
+        <form method="post" action="{% url 'dealer-profile' dealer.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="record_id" id="paymentRecordId">
+            
+            <div style="margin-bottom: 1rem; background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: #475569; font-weight: 500;">Amount Owed:</span>
+                <strong style="color: #ef4444; font-size: 1.2rem;">$<span id="paymentAmountOwed">0.00</span></strong>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 0.5rem;">Payment Amount</label>
+                <div style="position: relative;">
+                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #64748b; font-weight: bold;">$</span>
+                    <input type="number" step="0.01" min="0.01" name="payment_amount" id="paymentAmountInput" class="form-control" style="padding-left: 28px; width: 100%; box-sizing: border-box; font-size: 1.1rem;" required>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem;">
+                <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closePaymentModal()">Cancel</button>
+                <button type="submit" name="mark_paid" class="btn btn-primary" style="flex: 1;">Submit Payment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Bulk Payment Modal -->
+<div id="bulkPaymentModal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div style="background: white; border-radius: 16px; padding: 2rem; width: 100%; max-width: 400px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); transform: scale(0.95); opacity: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);" id="bulkPaymentModalContent">
+        <h3 style="margin-top: 0; margin-bottom: 0.5rem; color: #1e293b; font-size: 1.25rem;">Log Bulk Payment</h3>
+        <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 1.5rem;">Record a lump sum payment from the dealership.</p>
+        
+        <form method="post" action="{% url 'dealer-profile' dealer.id %}">
+            {% csrf_token %}
+            
+            <div style="margin-bottom: 1rem; background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: #475569; font-weight: 500;">Total Outstanding:</span>
+                <strong style="color: #ef4444; font-size: 1.2rem;">${{ outstanding_balance|floatformat:2 }}</strong>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 0.5rem;">Payment Amount</label>
+                <div style="position: relative;">
+                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #64748b; font-weight: bold;">$</span>
+                    <input type="number" step="0.01" min="0.01" name="bulk_payment_amount" id="bulkPaymentAmountInput" class="form-control" style="padding-left: 28px; width: 100%; box-sizing: border-box; font-size: 1.1rem;" required>
+                </div>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 0.5rem;">Notes (Optional)</label>
+                <input type="text" name="payment_notes" placeholder="e.g., Check #12345" class="form-control" style="width: 100%; box-sizing: border-box;">
+            </div>
+
+            <div style="display: flex; gap: 1rem;">
+                <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closeBulkPaymentModal()">Cancel</button>
+                <button type="submit" name="log_bulk_payment" class="btn btn-primary" style="flex: 1;">Submit Payment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if records.count > 0 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const pieLabels = JSON.parse('{{ chart_labels|escapejs }}');
+    const pieCounts = JSON.parse('{{ chart_data|escapejs }}');
+
+    const ctxType = document.getElementById('typeChart').getContext('2d');
+    new Chart(ctxType, {
+        type: 'doughnut',
+        data: {
+            labels: pieLabels,
+            datasets: [{
+                data: pieCounts,
+                backgroundColor: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899'],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+            }
+        }
+    });
+
+    // Add event listeners for payment triggers
+    document.querySelectorAll('.payment-trigger').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            const balance = parseFloat(this.getAttribute('data-balance'));
+            const client = this.getAttribute('data-client');
+            openPaymentModal(id, balance, client);
+        });
+    });
+});
+
+function openPaymentModal(recordId, amountOwed, clientName) {
+    document.getElementById('paymentRecordId').value = recordId;
+    document.getElementById('paymentAmountOwed').textContent = amountOwed.toFixed(2);
+    document.getElementById('paymentAmountInput').value = amountOwed.toFixed(2);
+    document.getElementById('paymentAmountInput').max = amountOwed;
+    document.getElementById('paymentClientName').textContent = clientName;
+    
+    const modal = document.getElementById('paymentModal');
+    const modalContent = document.getElementById('paymentModalContent');
+    
+    modal.style.display = 'flex';
+    // Trigger reflow
+    void modal.offsetWidth;
+    
+    modalContent.style.transform = 'scale(1)';
+    modalContent.style.opacity = '1';
+}
+
+function closePaymentModal() {
+    const modal = document.getElementById('paymentModal');
+    const modalContent = document.getElementById('paymentModalContent');
+    
+    modalContent.style.transform = 'scale(0.95)';
+    modalContent.style.opacity = '0';
+    
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 300);
+}
+
+function openBulkPaymentModal() {
+    const modal = document.getElementById('bulkPaymentModal');
+    const modalContent = document.getElementById('bulkPaymentModalContent');
+    const input = document.getElementById('bulkPaymentAmountInput');
+    
+    // Default to the full outstanding balance, but bounded to > 0
+    let outstanding = parseFloat('{{ outstanding_balance }}');
+    if (isNaN(outstanding) || outstanding < 0) outstanding = 0;
+    input.value = outstanding > 0 ? outstanding.toFixed(2) : "0.01";
+    
+    modal.style.display = 'flex';
+    void modal.offsetWidth; // trigger reflow
+    modalContent.style.transform = 'scale(1)';
+    modalContent.style.opacity = '1';
+}
+
+function closeBulkPaymentModal() {
+    const modal = document.getElementById('bulkPaymentModal');
+    const modalContent = document.getElementById('bulkPaymentModalContent');
+    
+    modalContent.style.transform = 'scale(0.95)';
+    modalContent.style.opacity = '0';
+    
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 300);
+}
+
+// Close bulk modal when clicking outside
+document.getElementById('bulkPaymentModal').addEventListener('click', function(e) {
+    if (e.target === this) closeBulkPaymentModal();
+});
+
+// Close payment modal when clicking outside
+document.getElementById('paymentModal').addEventListener('click', function(e) {
+    if (e.target === this) closePaymentModal();
+});
+
+function filterLedger() {
+    const searchVal = document.getElementById('ledgerSearch').value.toLowerCase();
+    const statusVal = document.getElementById('ledgerStatusFilter').value.toLowerCase();
+    const table = document.getElementById('ledgerTable');
+    const trs = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    
+    for (let i = 0; i < trs.length; i++) {
+        if (trs[i].classList.contains('empty-row')) continue;
+        
+        const dateTd = trs[i].getElementsByTagName('td')[0];
+        const statusTd = trs[i].getElementsByTagName('td')[2];
+        const notesTd = trs[i].getElementsByTagName('td')[3];
+        
+        if (dateTd && statusTd && notesTd) {
+            const dateTxt = dateTd.textContent || dateTd.innerText;
+            const statusTxt = (statusTd.textContent || statusTd.innerText).toLowerCase();
+            const notesTxt = notesTd.textContent || notesTd.innerText;
+            
+            const combined = (dateTxt + " " + statusTxt + " " + notesTxt).toLowerCase();
+            const matchesSearch = combined.indexOf(searchVal) > -1;
+            
+            let matchesStatus = true;
+            if (statusVal === 'paid') {
+                matchesStatus = statusTxt.includes('paid') && !statusTxt.includes('not paid');
+            } else if (statusVal === 'unpaid') {
+                matchesStatus = statusTxt.includes('not paid');
+            }
+            
+            if (matchesSearch && matchesStatus) {
+                trs[i].style.display = "";
+            } else {
+                trs[i].style.display = "none";
+            }
+        }
+    }
+}
+</script>
+{% endif %}
+{% endblock %}

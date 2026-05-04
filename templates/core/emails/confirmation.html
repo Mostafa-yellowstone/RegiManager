@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; }
+        .header { background: #093de6; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+        .content { padding: 20px; }
+        .footer { font-size: 0.8rem; color: #64748b; text-align: center; padding: 20px; }
+        .btn { display: inline-block; padding: 12px 24px; background: #093de6; color: white !important; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Case Confirmation</h1>
+        </div>
+        <div class="content">
+            <p>Dear {{ client_name }},</p>
+            <p>This is a confirmation that we have started processing your request for <strong>{{ service_type }}</strong>.</p>
+            <p><strong>Case ID:</strong> {{ case_id }}</p>
+            <p>Our team is now working on it. You will receive further updates as we progress.</p>
+            <p>Thank you for choosing RegiManager.</p>
+        </div>
+        <div class="footer">
+            <p>&copy; 2026 RegiManager - Private Service Bureau Solution</p>
+        </div>
+    </div>
+</body>
+</html>

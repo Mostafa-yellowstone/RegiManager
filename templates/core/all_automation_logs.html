@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Automation History | RegiManager{% endblock %}
+
+{% block content %}
+<main class="dashboard-shell">
+    <section class="dashboard-layout">
+        <header class="dashboard-hero" style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 3rem 2rem; border-radius: 24px; margin-bottom: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <nav style="margin-bottom: 1rem;">
+                        <a href="{% url 'dashboard' %}" style="color: #94a3b8; text-decoration: none; display: flex; align-items: center; gap: 8px; font-size: 0.9rem;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                            Back to Dashboard
+                        </a>
+                    </nav>
+                    <h1 style="color: white; margin: 0; font-size: 2.5rem;">Automation Audit Trail</h1>
+                    <p style="color: #94a3b8; margin-top: 0.5rem; font-size: 1.1rem;">Full historical record of all automated communications and scans.</p>
+                </div>
+                <div style="background: rgba(255,255,255,0.05); padding: 1.5rem; border-radius: 16px; text-align: center; border: 1px solid rgba(255,255,255,0.1);">
+                    <span style="display: block; color: #94a3b8; font-size: 0.8rem; font-weight: 700; text-transform: uppercase;">Total Events</span>
+                    <strong style="color: #3b82f6; font-size: 2rem;">{{ logs.count }}</strong>
+                </div>
+            </div>
+        </header>
+
+        <section class="dashboard-panel" style="background: white; border-radius: 20px; padding: 2rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);">
+            <div class="table-responsive">
+                <table class="data-table" style="width: 100%; border-collapse: separate; border-spacing: 0 10px;">
+                    <thead>
+                        <tr style="background: #f8fafc;">
+                            <th style="padding: 1rem; border-radius: 10px 0 0 10px; color: #64748b; font-weight: 600;">TIMESTAMP</th>
+                            <th style="padding: 1rem; color: #64748b; font-weight: 600;">OPERATION</th>
+                            <th style="padding: 1rem; color: #64748b; font-weight: 600;">CLIENT / VEHICLE</th>
+                            <th style="padding: 1rem; color: #64748b; font-weight: 600;">SENT TO</th>
+                            <th style="padding: 1rem; border-radius: 0 10px 10px 0; color: #64748b; font-weight: 600;">STATUS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr style="transition: transform 0.2s; cursor: default;">
+                            <td style="padding: 1.2rem 1rem; border-bottom: 1px solid #f1f5f9;">
+                                <div style="font-weight: 600; color: #0f172a;">{{ log.timestamp|date:"M d, Y" }}</div>
+                                <div style="font-size: 0.8rem; color: #94a3b8;">{{ log.timestamp|date:"H:i" }}</div>
+                            </td>
+                            <td style="padding: 1.2rem 1rem; border-bottom: 1px solid #f1f5f9;">
+                                <div style="background: #eff6ff; color: #1e40af; padding: 4px 10px; border-radius: 6px; display: inline-block; font-size: 0.8rem; font-weight: 700;">
+                                    {{ log.get_log_type_display|upper }}
+                                </div>
+                            </td>
+                            <td style="padding: 1.2rem 1rem; border-bottom: 1px solid #f1f5f9;">
+                                <div style="font-weight: 600; color: #334155;">{{ log.client.name }}</div>
+                                <div style="font-size: 0.8rem; color: #64748b;">{{ log.vehicle|default:"General Scan" }}</div>
+                            </td>
+                            <td style="padding: 1.2rem 1rem; border-bottom: 1px solid #f1f5f9;">
+                                <code style="background: #f8fafc; padding: 2px 6px; border-radius: 4px; color: #475569;">{{ log.sent_to }}</code>
+                            </td>
+                            <td style="padding: 1.2rem 1rem; border-bottom: 1px solid #f1f5f9;">
+                                <span style="background: #dcfce7; color: #15803d; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    EXECUTED
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 4rem; color: #94a3b8;">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin-bottom: 1rem;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                <p>No automation history found.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </section>
+</main>
+
+<style>
+    .data-table tr:hover {
+        background-color: #f8fafc;
+        transform: scale(1.002);
+    }
+</style>
+{% endblock %}

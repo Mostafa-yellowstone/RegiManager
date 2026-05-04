@@ -1,0 +1,867 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Dashboard | RegiManager{% endblock %}
+
+{% block content %}
+<style>
+/* Elite Top Navigation Bar */
+.top-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 2.5rem;
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    transition: transform 0.2s;
+}
+
+.nav-brand:hover {
+    transform: scale(1.02);
+}
+
+.nav-brand span {
+    font-size: 1.1rem;
+    font-weight: 900;
+    color: #0f172a;
+    letter-spacing: -0.5px;
+}
+
+.nav-menu {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-left: 1rem;
+}
+
+.nav-link {
+    text-decoration: none;
+    color: #64748b;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    padding: 6px 12px;
+    border-radius: 8px;
+}
+
+.nav-link:hover {
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 12px;
+    border-radius: 14px;
+    transition: background 0.2s;
+    cursor: pointer;
+}
+
+.user-profile:hover {
+    background: rgba(255,255,255,0.5);
+}
+
+.avatar-circle {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.1rem;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
+.logout-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    background: white;
+    color: #e11d48;
+    text-decoration: none;
+    border-radius: 14px;
+    font-weight: 800;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid #fecdd3;
+    box-shadow: 0 2px 4px rgba(225, 29, 72, 0.05);
+}
+
+.logout-pill:hover {
+    background: #e11d48;
+    color: white;
+    border-color: #e11d48;
+    box-shadow: 0 8px 20px rgba(225, 29, 72, 0.25);
+    transform: translateY(-2px);
+}
+
+/* Toggle Switches */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+}
+
+.switch input { 
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #e2e8f0;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #3b82f6;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #3b82f6;
+}
+
+input:checked + .slider:before {
+  transform: translateX(16px);
+}
+
+.slider.round {
+  border-radius: 20px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+@keyframes pulse-profit {
+    0% { transform: scale(1); text-shadow: 0 0 0 rgba(46, 125, 50, 0.4); color: #2e7d32; }
+    50% { transform: scale(1.05); text-shadow: 0 0 10px rgba(46, 125, 50, 0.6); color: #1b5e20; }
+    100% { transform: scale(1); text-shadow: 0 0 0 rgba(46, 125, 50, 0.4); color: #2e7d32; }
+}
+.profit-animated {
+    animation: pulse-profit 2s infinite ease-in-out;
+    display: inline-block;
+    font-size: 1.5rem !important;
+}
+</style>
+
+<nav class="top-nav">
+    <div class="nav-left">
+        <a href="#overview" class="nav-brand">
+            <img src="{% static 'core/img/dmv-logo.svg' %}" width="32" height="32" alt="Logo">
+            <span>RegiManager</span>
+        </a>
+        
+        <div class="nav-menu">
+            <a href="#overview" class="nav-link">Overview</a>
+            <a href="#services" class="nav-link">Services</a>
+            {% if is_owner or user_can_view_reports %}
+            <a href="#reports" class="nav-link">Reports & Finance</a>
+            {% endif %}
+            {% if user_can_trigger_automation %}
+            <a href="#automation" class="nav-link">Automation</a>
+            {% endif %}
+            <a href="#ops" class="nav-link">Agency Ops</a>
+        </div>
+    </div>
+    
+    <div class="nav-right">
+        <div class="user-profile">
+            <div class="avatar-circle">{{ request.user.username|make_list|first|upper }}</div>
+            <div style="text-align: left;">
+                <div style="font-weight: 800; color: #0f172a; font-size: 0.9rem; line-height: 1;">{{ request.user.get_full_name|default:request.user.username }}</div>
+                <div style="font-size: 0.7rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 2px;">{% if is_owner %}Agency Owner{% else %}Service Agent{% endif %}</div>
+            </div>
+        </div>
+
+        <a href="{% url 'logout' %}" class="logout-pill">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            Log Out
+        </a>
+    </div>
+</nav>
+
+<main class="dashboard-shell">
+    <section class="dashboard-layout">
+        <header class="dashboard-hero" id="overview" style="scroll-margin-top: 100px;">
+            <div>
+                <div class="header-badges">
+                    <div class="brand-pill">{% if is_owner %}Owner's Workspace{% else %}Agent Service Workspace{% endif %}</div>
+                    {% for membership in memberships %}
+                        <div class="brand-pill agency-pill">
+                            {% if membership.organization.logo %}
+                                <img src="{{ membership.organization.logo.url }}" alt="Logo" style="height:18px; width:18px; border-radius:50%; vertical-align:middle; margin-right:6px; object-fit:cover;">
+                            {% endif %}
+                            {{ membership.organization.name }} ({% if membership.role == "owner" %}Owner{% else %}Agent{% endif %})
+                        </div>
+                    {% endfor %}
+                </div>
+                <h1>Welcome, {{ request.user.first_name|default:request.user.username }}</h1>
+                <p class="subtitle" style="color: #ffffff; opacity: 0.95; font-weight: 500;">
+                    {% if is_owner %}
+                        Full-screen operational dashboard with daily performance, monthly progress, net-profit insight, and export-ready reports.
+                    {% else %}
+                        Track your daily services, monthly output, and receipts in one modern workspace.
+                    {% endif %}
+                </p>
+                {% if is_owner or user_can_manage_dealers %}
+                <div style="margin-top: 1rem;">
+                    <a href="{% url 'all-dealers' %}" class="btn btn-secondary" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 6px;"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+                        Access Dealership Portal
+                    </a>
+                </div>
+                {% endif %}
+                {% if total_outstanding_dealer_balance and total_outstanding_dealer_balance > 0 %}
+                <div style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; padding: 1.5rem 2rem; border-radius: 12px; margin-top: 1.5rem; box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.5), 0 4px 6px -4px rgba(239, 68, 68, 0.5); border: 1px solid #f87171; display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <div>
+                            <strong style="display: block; font-size: 1.3rem; letter-spacing: 0.5px;">Outstanding Dealer Balance</strong>
+                            <span style="font-size: 0.95rem; opacity: 0.9;">Total unpaid amount across all dealerships you manage.</span>
+                        </div>
+                    </div>
+                    <strong style="font-size: 2rem;">${{ total_outstanding_dealer_balance|floatformat:2 }}</strong>
+                </div>
+                {% endif %}
+            </div>
+            <div class="hero-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem;">
+                <div class="metric-card" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 1.5rem; border-radius: 18px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
+                    <span style="color: rgba(255,255,255,0.7); font-weight: 600; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase;">Today</span>
+                    <strong style="display: block; font-size: 1.8rem; margin-top: 8px; color: #fff;">{{ daily_report.total_records|default:0 }} <small style="font-size: 0.9rem; opacity: 0.7; font-weight: 400;">records</small></strong>
+                </div>
+                <div class="metric-card" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 1.5rem; border-radius: 18px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
+                    <span style="color: rgba(255,255,255,0.7); font-weight: 600; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase;">This Month</span>
+                    <strong style="display: block; font-size: 1.8rem; margin-top: 8px; color: #fff;">{{ monthly_report.total_records|default:0 }} <small style="font-size: 0.9rem; opacity: 0.7; font-weight: 400;">records</small></strong>
+                </div>
+                <div class="metric-card" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 1.5rem; border-radius: 18px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
+                    <span style="color: rgba(255,255,255,0.7); font-weight: 600; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase;">This Year</span>
+                    <strong style="display: block; font-size: 1.8rem; margin-top: 8px; color: #fff;">{{ yearly_report.total_records|default:0 }} <small style="font-size: 0.9rem; opacity: 0.7; font-weight: 400;">records</small></strong>
+                </div>
+                {% if is_owner or user_can_view_net_profit %}
+                <div class="metric-card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(21, 128, 61, 0.2)); border: 1px solid rgba(74, 222, 128, 0.3); backdrop-filter: blur(10px); padding: 1.5rem; border-radius: 18px; box-shadow: 0 8px 32px 0 rgba(22, 101, 52, 0.2); transition: all 0.3s ease;">
+                    <span style="color: #4ade80; font-weight: 800; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase;">Total Net Profit</span>
+                    <strong style="display: block; font-size: 2rem; margin-top: 8px; color: #86efac; text-shadow: 0 0 20px rgba(74, 222, 128, 0.4);">${{ overall_net_profit|floatformat:2 }}</strong>
+                </div>
+                {% endif %}
+            </div>
+        </header>
+
+        <div style="margin: 2rem 0; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
+            <a href="{% url 'add-client' %}" class="btn btn-primary" style="padding: 1.2rem 3rem; font-size: 1.2rem; border-radius: 14px; display: inline-flex; align-items: center; gap: 1rem; box-shadow: 0 10px 25px -5px rgba(9, 61, 230, 0.3); transition: transform 0.2s; background: linear-gradient(135deg, #093de6, #2563eb);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
+                Add New Client
+            </a>
+            <a href="{% url 'all-clients' %}" class="btn btn-secondary" style="padding: 1.2rem 3rem; font-size: 1.2rem; border-radius: 14px; display: inline-flex; align-items: center; gap: 1rem; background: white; border: 2px solid #e2e8f0; color: #1e293b; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); transition: transform 0.2s;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                View All Clients
+            </a>
+            {% if user_can_trigger_automation %}
+            <button type="button" class="btn btn-secondary" style="padding: 1.2rem 3rem; font-size: 1.2rem; border-radius: 14px; display: inline-flex; align-items: center; gap: 1rem; background: #fffbeb; border: 2px solid #fef3c7; color: #92400e; box-shadow: 0 10px 15px -3px rgba(245, 158, 11, 0.1); transition: transform 0.2s; cursor: pointer;" onclick="openAutomationModal()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                Run Automation Scan
+            </button>
+            {% endif %}
+        </div>
+
+        <section class="service-cards-grid" id="services" style="scroll-margin-top: 100px;">
+            {% for card in service_cards %}
+                <a href="{% url 'service-list' card.key %}" class="service-stat-card-link" style="text-decoration: none; color: inherit;">
+                    <article class="service-stat-card">
+                        {% if card.is_custom %}
+                        <div class="service-card-image" style="display: flex; align-items: center; justify-content: center; background: #e0e7ff; color: #4338ca; border-radius: 12px; margin-bottom: 1rem;">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                        </div>
+                        {% else %}
+                        <img src="{% static 'core/img/services/'|add:card.key|add:'.svg' %}" alt="{{ card.label }} icon" class="service-card-image">
+                        {% endif %}
+                        <h3>{{ card.label }}</h3>
+                        <p><strong>{{ card.daily_count }}</strong> today</p>
+                        <p><strong>{{ card.monthly_count }}</strong> this month</p>
+                        <p><strong>{{ card.yearly_count }}</strong> this year</p>
+                        <p><strong>{{ card.total_count }}</strong> total</p>
+                    </article>
+                </a>
+            {% endfor %}
+            {% if show_all_services_card %}
+                <a href="{% url 'all-service-types' %}" class="service-stat-card-link" style="text-decoration: none; color: inherit;">
+                    <article class="service-stat-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border: 2px dashed #cbd5e1; background: #f8fafc; cursor: pointer; height: 100%;">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 0.5rem;"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                        <h3 style="color: #475569; margin: 0;">All Services</h3>
+                        <p style="color: #64748b; font-size: 0.9rem;">View entire list</p>
+                    </article>
+                </a>
+            {% elif is_owner %}
+                <article class="service-stat-card" onclick="openAddServiceModal()" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border: 2px dashed #93c5fd; background: #eff6ff; cursor: pointer; transition: all 0.2s; height: 100%;">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 0.5rem;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <h3 style="color: #2563eb; margin: 0;">Add Service</h3>
+                    <p style="color: #3b82f6; font-size: 0.9rem;">Create custom type</p>
+                </article>
+            {% endif %}
+        </section>
+
+        {% if is_owner or user_can_view_reports %}
+        <section class="dashboard-panels" id="reports" style="scroll-margin-top: 100px;">
+            <!-- Daily Insights Widget -->
+            <article class="dashboard-panel" style="background: white; border-radius: 20px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); transition: transform 0.3s ease;">
+                <div style="background: linear-gradient(135deg, #0f172a, #1e293b); padding: 1.5rem; color: white; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="background: rgba(255,255,255,0.1); padding: 8px; border-radius: 10px;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        </div>
+                        <h3 style="margin: 0; font-size: 1.1rem; color: white; letter-spacing: 0.5px;">Daily Performance</h3>
+                    </div>
+                    <span style="font-size: 0.8rem; background: #3b82f6; padding: 4px 10px; border-radius: 20px; font-weight: 600;">LIVE</span>
+                </div>
+                
+                <div style="padding: 1.5rem;">
+                    <div style="display: grid; gap: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.8rem; border-bottom: 1px solid #f1f5f9;">
+                            <span style="color: #64748b; font-size: 0.95rem;">Gross Collections</span>
+                            <strong style="color: #0f172a; font-size: 1.1rem;">${{ daily_report.total_amount|floatformat:2 }}</strong>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div style="background: #f8fafc; padding: 1rem; border-radius: 12px;">
+                                <span style="display: block; color: #94a3b8; font-size: 0.75rem; font-weight: 700; margin-bottom: 4px;">DMV FEES</span>
+                                <strong style="color: #334155;">${{ daily_report.dmv_fee|floatformat:2 }}</strong>
+                            </div>
+                            <div style="background: #f8fafc; padding: 1rem; border-radius: 12px;">
+                                <span style="display: block; color: #94a3b8; font-size: 0.75rem; font-weight: 700; margin-bottom: 4px;">SALES TAX</span>
+                                <strong style="color: #334155;">${{ daily_report.sales_tax|floatformat:2 }}</strong>
+                            </div>
+                        </div>
+                        <div style="background: #f0fdf4; padding: 1.2rem; border-radius: 15px; border: 1px solid #dcfce7; display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+                            <div>
+                                <span style="display: block; color: #166534; font-size: 0.85rem; font-weight: 600;">Agency Net Profit</span>
+                                <small style="color: #15803d; font-size: 0.75rem;">Processing fees only</small>
+                            </div>
+                            <strong class="profit-animated" style="font-size: 1.6rem !important; color: #16a34a;">${{ daily_report.net_profit|floatformat:2 }}</strong>
+                        </div>
+                    </div>
+                    
+                    {% if is_owner %}
+                    <a href="{% url 'daily-report-pdf' %}" class="btn btn-secondary" style="width: 100%; margin-top: 1.5rem; justify-content: center; background: white; border: 1px solid #e2e8f0; color: #475569; border-radius: 12px; font-weight: 600;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Export Daily PDF
+                    </a>
+                    {% endif %}
+                </div>
+            </article>
+
+            <!-- Monthly Insights Widget -->
+            <article class="dashboard-panel" style="background: white; border-radius: 20px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); transition: transform 0.3s ease;">
+                <div style="background: linear-gradient(135deg, #1e1b4b, #312e81); padding: 1.5rem; color: white; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="background: rgba(255,255,255,0.1); padding: 8px; border-radius: 10px;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
+                        </div>
+                        <h3 style="margin: 0; font-size: 1.1rem; color: white; letter-spacing: 0.5px;">Monthly Progress</h3>
+                    </div>
+                    <span style="font-size: 0.8rem; background: #6366f1; padding: 4px 10px; border-radius: 20px; font-weight: 600;">SUMMARY</span>
+                </div>
+                
+                <div style="padding: 1.5rem;">
+                    <div style="display: grid; gap: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.8rem; border-bottom: 1px solid #f1f5f9;">
+                            <span style="color: #64748b; font-size: 0.95rem;">Total Collections</span>
+                            <strong style="color: #0f172a; font-size: 1.1rem;">${{ monthly_report.total_amount|floatformat:2 }}</strong>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div style="background: #f5f3ff; padding: 1rem; border-radius: 12px;">
+                                <span style="display: block; color: #a78bfa; font-size: 0.75rem; font-weight: 700; margin-bottom: 4px;">DMV PORTION</span>
+                                <strong style="color: #5b21b6;">${{ monthly_report.dmv_fee|floatformat:2 }}</strong>
+                            </div>
+                            <div style="background: #f5f3ff; padding: 1rem; border-radius: 12px;">
+                                <span style="display: block; color: #a78bfa; font-size: 0.75rem; font-weight: 700; margin-bottom: 4px;">CARD FEES</span>
+                                <strong style="color: #5b21b6;">${{ monthly_report.credit_card_fee|floatformat:2 }}</strong>
+                            </div>
+                        </div>
+                        <div style="background: #eef2ff; padding: 1.2rem; border-radius: 15px; border: 1px solid #e0e7ff; display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+                            <div>
+                                <span style="display: block; color: #3730a3; font-size: 0.85rem; font-weight: 600;">Net Monthly Profit</span>
+                                <small style="color: #4338ca; font-size: 0.75rem;">Agency revenue stream</small>
+                            </div>
+                            <strong class="profit-animated" style="font-size: 1.6rem !important; color: #4f46e5;">${{ monthly_report.net_profit|floatformat:2 }}</strong>
+                        </div>
+                    </div>
+                    
+                    {% if is_owner %}
+                    <a href="{% url 'monthly-report-pdf' %}" class="btn btn-secondary" style="width: 100%; margin-top: 1.5rem; justify-content: center; background: white; border: 1px solid #e2e8f0; color: #475569; border-radius: 12px; font-weight: 600;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Download Insights (PDF)
+                    </a>
+                    {% endif %}
+                </div>
+            </article>
+        </section>
+
+        {% if is_owner %}
+            <section class="dashboard-panel" style="background: #f8fafc; border: 1px solid #e2e8f0; margin-top: 2.5rem; padding: 2.5rem; border-radius: 32px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h3 style="margin: 0; color: #1e293b; font-size: 1.5rem; font-weight: 700;">Owner Financial Insights</h3>
+                    <a href="{% url 'owner-report-pdf' %}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; border-radius: 10px; padding: 0.8rem 1.5rem;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Full Report (PDF)
+                    </a>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem;">
+                    <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 0.5rem;">
+                            <div style="background: #ecfdf5; color: #059669; padding: 8px; border-radius: 10px;">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                            </div>
+                            <span style="color: #64748b; font-weight: 600; font-size: 0.9rem;">Gross Collections</span>
+                        </div>
+                        <div style="font-size: 1.85rem; font-weight: 800; color: #0f172a;">${{ overall_amount|floatformat:2 }}</div>
+                    </div>
+
+                    <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 2px solid #3b82f6; box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.1);">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 0.5rem;">
+                            <div style="background: #eff6ff; color: #2563eb; padding: 8px; border-radius: 10px;">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 12-4-4-4 4M2 12l4 4 4-4"/></svg>
+                            </div>
+                            <span style="color: #64748b; font-weight: 600; font-size: 0.9rem;">Net Profit</span>
+                        </div>
+                        <div style="font-size: 1.85rem; font-weight: 800; color: #1e3a8a;">${{ overall_net_profit|floatformat:2 }}</div>
+                    </div>
+
+                    <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 0.5rem;">
+                            <div style="background: #fff1f2; color: #e11d48; padding: 8px; border-radius: 10px;">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                            </div>
+                            <span style="color: #64748b; font-weight: 600; font-size: 0.9rem;">CC Fees</span>
+                        </div>
+                        <div style="font-size: 1.85rem; font-weight: 800; color: #9f1239;">${{ overall_card_fees|floatformat:2 }}</div>
+                    </div>
+                </div>
+            </section>
+        {% endif %}
+        {% endif %}
+
+        {% if user_can_trigger_automation %}
+        <section class="dashboard-panels" id="automation" style="scroll-margin-top: 100px;">
+            <article class="dashboard-panel" style="flex: 1.5;">
+                <h3 style="display: flex; justify-content: space-between; align-items: center; color: #b91c1c;">
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        Upcoming Expirations (Next 45 Days)
+                    </span>
+                </h3>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Client</th>
+                                <th>Vehicle</th>
+                                <th>Expiration</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for vehicle in upcoming_expirations %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ vehicle.client.name }}</strong>
+                                        {% if vehicle.is_priority %}
+                                            <span title="Priority Escalation" style="color: #ef4444; margin-left: 5px;">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22L12 2zm1 14h-2v-2h2v2zm0-4h-2V8h2v4z"/></svg>
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</td>
+                                    <td>
+                                        <span class="badge {% if vehicle.registration_expiration_date <= today %}badge-danger{% else %}badge-warning{% endif %}">
+                                            {{ vehicle.registration_expiration_date }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if vehicle.registration_expiration_date <= today %}
+                                            <span style="color: #ef4444; font-weight: 600;">EXPIRED</span>
+                                        {% else %}
+                                            <span style="color: #f59e0b; font-weight: 600;">Pending Renewal</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'start-process' vehicle.id %}" class="btn btn-primary btn-sm">Start Process</a>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="5" class="empty-state">No upcoming expirations in the next 45 days.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+
+            <article class="dashboard-panel" style="flex: 1; background: white; border-radius: 20px; border: 1px solid #e2e8f0; overflow: hidden; display: flex; flex-direction: column;">
+                <div style="background: #f8fafc; padding: 1.2rem 1.5rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1e293b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                        <h3 style="margin: 0; font-size: 1.1rem; color: #1e293b; font-weight: 700;">Recent Automations</h3>
+                    </div>
+                    <a href="{% url 'all-automation-logs' %}" title="View Full History" style="color: #64748b; transition: color 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='#64748b'">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                    </a>
+                </div>
+                
+                <ul class="agent-list" style="list-style: none; padding: 0; margin: 0;">
+                    {% for log in automation_logs %}
+                        <li style="padding: 1.2rem 1.5rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: flex-start; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <div style="font-weight: 700; color: #334155; font-size: 0.95rem;">
+                                    {{ log.get_log_type_display }}
+                                </div>
+                                <div style="font-size: 0.85rem; color: #64748b;">
+                                    To <strong>{{ log.client.name }}</strong> &middot; {{ log.vehicle|default:"General" }}
+                                </div>
+                                <div style="font-size: 0.75rem; color: #94a3b8; font-weight: 500;">
+                                    {{ log.timestamp|date:"M d, H:i" }} &middot; via {{ log.sent_to|truncatechars:20 }}
+                                </div>
+                            </div>
+                            <span style="background: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Sent</span>
+                        </li>
+                    {% empty %}
+                        <li style="padding: 3rem; text-align: center; color: #94a3b8;">
+                            <p style="margin: 0;">No activity logs found.</p>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </article>
+        </section>
+        {% endif %}
+
+        </section>
+
+        <!-- Agency Operations Zone -->
+        <section class="dashboard-layout" id="ops" style="scroll-margin-top: 100px; border-top: 2px solid #f1f5f9; padding-top: 3rem;">
+            {% if is_owner %}
+            <article class="dashboard-panel" style="margin-bottom: 2rem;">
+                <h3 style="display: flex; justify-content: space-between; align-items: center; color: #0f172a; font-weight: 800;">
+                    Agency Team Management
+                    <a href="{% url 'all-agents-directory' %}" class="btn btn-secondary btn-sm">
+                        Team Directory
+                    </a>
+                </h3>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Agent</th>
+                                <th>Role</th>
+                                <th>Reports</th>
+                                <th>Profit</th>
+                                <th>Dealers</th>
+                                {% if user_can_trigger_automation %}
+                                <th>Auto</th>
+                                {% endif %}
+                                <th>Audit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for agent_mem in owner_agents %}
+                                <tr>
+                                    <td style="font-weight: 700;">{{ agent_mem.user.get_full_name|default:agent_mem.user.username }}</td>
+                                    <td>
+                                        <select class="form-control agent-role-select" data-id="{{ agent_mem.id }}" style="padding: 4px; height: auto;">
+                                            <option value="owner" {% if agent_mem.role == 'owner' %}selected{% endif %}>Owner</option>
+                                            <option value="member" {% if agent_mem.role == 'member' %}selected{% endif %}>Agent</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <label class="switch">
+                                            <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_view_reports" {% if agent_mem.can_view_reports %}checked{% endif %}>
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </td>
+                                    <td>
+                                        <label class="switch">
+                                            <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_view_net_profit" {% if agent_mem.can_view_net_profit %}checked{% endif %}>
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </td>
+                                    <td>
+                                        <label class="switch">
+                                            <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_manage_dealers" {% if agent_mem.can_manage_dealers %}checked{% endif %}>
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </td>
+                                    {% if user_can_trigger_automation %}
+                                    <td>
+                                        <label class="switch">
+                                            <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_trigger_automation" {% if agent_mem.can_trigger_automation %}checked{% endif %}>
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </td>
+                                    {% endif %}
+                                    <td>
+                                        <a href="{% url 'agent-audit' agent_mem.id %}" class="btn btn-secondary btn-sm" title="Audit Log">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+            {% endif %}
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                <article class="dashboard-panel">
+                    <h3 style="display: flex; justify-content: space-between; align-items: center;">
+                        Global Audit Trail
+                        <a href="{% url 'all-audit-logs' %}" style="color: #3b82f6;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg></a>
+                    </h3>
+                    <ul class="agent-list">
+                        {% for log in audit_logs %}
+                            <li>
+                                <span>
+                                    <strong>{{ log.actor.username }}</strong> {{ log.get_action_display }}<br>
+                                    {{ log.service_record.receipt_number }}
+                                </span>
+                                <strong style="font-size: 0.8rem;">{{ log.created_at|date:"H:i" }}</strong>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </article>
+
+                <article class="dashboard-panel">
+                    <h3 style="display: flex; justify-content: space-between; align-items: center;">
+                        Recent Receipts
+                        <a href="{% url 'service-list' 'all' %}" style="color: #3b82f6;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg></a>
+                    </h3>
+                    <ul class="agent-list">
+                        {% for record in service_records %}
+                            <li>
+                                <span>
+                                    <strong>{{ record.receipt_number }}</strong> - {{ record.client_name|truncatechars:12 }}<br>
+                                    <small>${{ record.service_fee }} ({{ record.get_status_display }})</small>
+                                </span>
+                                <div style="display: flex; gap: 4px;">
+                                    <a href="{% url 'service-receipt-pdf' record.id %}" class="btn btn-primary btn-sm" style="padding: 4px 8px; font-size: 0.7rem; font-weight: 800;">PDF</a>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </article>
+            </div>
+        </section>
+
+    </section>
+</main>
+
+<div id="docUploadDrawer" class="drawer-overlay" style="display: none;">
+    <div class="drawer-panel">
+        <div class="drawer-header">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 40px; height: 40px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                </div>
+                <div>
+                    <h2 style="font-size: 1.1rem; margin: 0; color: #1e293b;">Upload Documents</h2>
+                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 500;" id="modalReceiptDisplay"></div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeDocUploadModal()" style="min-height: auto; padding: 0.4rem 1rem; border-radius: 8px; font-weight: 600;">Done</button>
+        </div>
+        <div class="drawer-body">
+            
+            <div id="existing-docs-container" style="display: none; margin-bottom: 2rem;">
+                <h3 style="font-size: 1rem; margin-bottom: 1rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Attached Documents</h3>
+                <ul class="drawer-docs-list" id="existing-docs-list">
+                </ul>
+            </div>
+            
+            <div class="doc-grid">
+                <!-- Dropzones will be generated here by JS -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="addServiceModal" class="drawer-overlay" style="display: none;">
+    <div class="drawer-panel" style="max-width: 450px;">
+        <div class="drawer-header">
+            <h2>Add Custom Service</h2>
+            <button type="button" class="close-drawer" onclick="closeAddServiceModal()">&times;</button>
+        </div>
+        <div class="drawer-body">
+            <p style="margin-bottom: 1.5rem; color: #64748b;">Create a new service type for your Agency. This will appear as a new card and be available when creating records.</p>
+            <form id="add-service-form" class="auth-form" onsubmit="submitCustomService(event)">
+                {% csrf_token %}
+                <div class="field-wrap">
+                    <label for="custom-service-org">Select Agency</label>
+                    <select id="custom-service-org" class="form-control" required {% if owner_orgs|length == 1 %}style="background-color: #f8fafc; cursor: not-allowed; color: #475569; border-color: #e2e8f0; appearance: none; -webkit-appearance: none; -moz-appearance: none; pointer-events: none;"{% endif %}>
+                        {% for org in owner_orgs %}
+                            <option value="{{ org.id }}">{{ org.name }}</option>
+                        {% empty %}
+                            <option value="">No Agencies owned</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field-wrap">
+                    <label for="custom-service-name">Service Name</label>
+                    <input type="text" id="custom-service-name" class="form-control" placeholder="e.g. Insurance Lapse" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Create Service</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openAutomationModal() {
+    console.log("Opening Automation Modal...");
+    const modal = document.getElementById('automationModal');
+    const panel = modal.querySelector('.drawer-panel');
+    if (!modal || !panel) {
+        console.error("Modal elements not found!");
+        return;
+    }
+    modal.style.display = 'block';
+    void modal.offsetWidth;
+    modal.classList.add('open');
+    panel.style.opacity = '1';
+    panel.style.transform = 'translate(-50%, -50%) scale(1)';
+}
+
+function closeAutomationModal() {
+    const modal = document.getElementById('automationModal');
+    const panel = modal.querySelector('.drawer-panel');
+    modal.classList.remove('open');
+    panel.style.opacity = '0';
+    panel.style.transform = 'translate(-50%, -50%) scale(0.9)';
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 300);
+}
+
+function startAutomationScan() {
+    const btn = document.getElementById('startAutomationBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-pulse"></span> Scanning & Dispatching...';
+    btn.style.opacity = '0.7';
+    btn.style.cursor = 'not-allowed';
+    
+    window.location.href = '/dashboard/run-automation/';
+}
+</script>
+
+<script src="{% static 'core/js/dashboard.js' %}"></script>
+
+    <!-- Automation Trigger Modal -->
+    <div id="automationModal" class="drawer-overlay" style="display:none; z-index: 2000;">
+        <div class="drawer-panel" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); width: 90%; max-width: 500px; height: auto; border-radius: 24px; padding: 2.5rem; text-align: center; opacity: 0; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);">
+            <div style="background: #fffbeb; color: #d97706; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            </div>
+            <h2 style="font-size: 1.75rem; font-weight: 800; color: #1e293b; margin-bottom: 1rem;">Launch Automation?</h2>
+            <p style="color: #64748b; font-size: 1.1rem; line-height: 1.6; margin-bottom: 2rem;">
+                This will scan all vehicle records, identify upcoming expirations, and dispatch scheduled email reminders to your clients.
+            </p>
+            
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button id="startAutomationBtn" class="btn btn-primary" style="width: 100%; padding: 1.2rem; font-size: 1.1rem; border-radius: 14px; font-weight: 700;" onclick="startAutomationScan()">
+                    Start Automation Engine
+                </button>
+                <button class="btn btn-secondary" style="width: 100%; padding: 1rem; border-radius: 12px; background: transparent; border: none; color: #94a3b8;" onclick="closeAutomationModal()">
+                    Maybe Later
+                </button>
+            </div>
+        </div>
+    </div>
+
+<script>
+// Sync Role Updates via AJAX
+document.querySelectorAll('.agent-role-select').forEach(select => {
+    select.addEventListener('change', function() {
+        const membershipId = this.dataset.id;
+        const newRole = this.value;
+        fetch("{% url 'update-agent-role' %}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify({ membership_id: membershipId, role: newRole })
+        }).then(r => r.json()).then(data => {
+            if(data.status !== 'success') alert(data.message);
+        });
+    });
+});
+
+// Sync Permissions via AJAX
+document.querySelectorAll('.agent-permission-toggle').forEach(toggle => {
+    toggle.addEventListener('change', function() {
+        const membershipId = this.dataset.id;
+        const field = this.dataset.field;
+        const value = this.checked;
+        fetch("{% url 'update-agent-permissions' %}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+            body: JSON.stringify({ membership_id: membershipId, field: field, value: value })
+        }).then(r => r.json()).then(data => {
+            if(data.status !== 'success') alert(data.message);
+        });
+    });
+});
+</script>
+{% endblock %}

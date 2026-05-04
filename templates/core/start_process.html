@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Start Process | {{ vehicle.vin }}{% endblock %}
+
+{% block content %}
+<main class="dashboard-shell">
+    <section class="dashboard-layout">
+        <header class="dashboard-hero service-list-hero" style="background: linear-gradient(135deg, #1e293b, #0f172a); padding-bottom: 2rem;">
+            <div>
+                <a href="{% url 'client-detail' vehicle.client.id %}" class="btn btn-secondary back-btn" style="margin-bottom: 1rem; display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white;">&larr; Back to Client</a>
+                <h1>Start Service for {{ vehicle.year }} {{ vehicle.make }}</h1>
+                <p class="subtitle" style="color: #cbd5e1;">VIN: {{ vehicle.vin }} | Owner: {{ vehicle.client.first_name }} {{ vehicle.client.last_name }}</p>
+            </div>
+        </header>
+
+        <article class="dashboard-panel" style="margin-top: -2rem; position: relative; z-index: 5;">
+            <form method="post" action="{% url 'start-process' vehicle.id %}" class="auth-form" id="process-form">
+                {% csrf_token %}
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                    <div class="field-wrap">
+                        <label>Service Type</label>
+                        {{ form.service_type }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Status</label>
+                        {{ form.status }}
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                    <div class="field-wrap">
+                        <label>Terminal Number</label>
+                        {{ form.terminal_number }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Transaction Type</label>
+                        {{ form.transaction_type }}
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                    <div class="field-wrap">
+                        <label>Payment Method</label>
+                        {{ form.payment_method }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Total Paid Today</label>
+                        {{ form.total_paid }}
+                    </div>
+                    <div class="field-wrap" id="dealer-balance-wrap" {% if not vehicle.client.dealer %}style="display:none;"{% endif %}>
+                        <label>Dealer Outstanding Balance</label>
+                        {{ form.dealer_balance }}
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; background: #f8fafc; padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0;">
+                    <div class="field-wrap">
+                        <label>Processing Fee</label>
+                        {{ form.processing_fee }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>DMV Fee</label>
+                        {{ form.dmv_fee }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Sales Tax</label>
+                        {{ form.sales_tax }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Credit Card Fee</label>
+                        {{ form.credit_card_fee }}
+                    </div>
+                </div>
+
+                <div class="field-wrap" style="margin-bottom: 2rem;">
+                    <label>Notes</label>
+                    {{ form.notes }}
+                </div>
+
+                <div class="form-actions" style="border-top: 1px solid #e2e8f0; padding-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
+                    <a href="{% url 'client-detail' vehicle.client.id %}" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary" style="padding: 0.8rem 3rem;">Create Transaction</button>
+                </div>
+            </form>
+        </article>
+    </section>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const processingFee = document.querySelector('input[name="processing_fee"]');
+    const dmvFee = document.querySelector('input[name="dmv_fee"]');
+    const salesTax = document.querySelector('input[name="sales_tax"]');
+    const ccFee = document.querySelector('input[name="credit_card_fee"]');
+    const totalPaid = document.querySelector('input[name="total_paid"]');
+    const dealerBalance = document.querySelector('input[name="dealer_balance"]');
+    const paymentMethod = document.querySelector('select[name="payment_method"]');
+    
+    const isDealer = "{{ vehicle.client.dealer|yesno:'true,false' }}" === "true";
+
+    function updateCalculations() {
+        // 1. Calculate CC Fee if needed
+        const baseTotal = parseFloat(processingFee.value || 0) + 
+                          parseFloat(dmvFee.value || 0) + 
+                          parseFloat(salesTax.value || 0);
+        
+        if (['visa', 'mastercard', 'discover', 'diners_club', 'american_express'].includes(paymentMethod.value)) {
+            ccFee.value = (baseTotal * 0.04).toFixed(2);
+        } else {
+            ccFee.value = "0.00";
+        }
+
+        const grandTotal = baseTotal + parseFloat(ccFee.value || 0);
+
+        // 2. Default Total Paid to Grand Total if it hasn't been manually touched yet
+        if (!totalPaid.dataset.manual) {
+            totalPaid.value = grandTotal.toFixed(2);
+        }
+
+        // 3. Calculate Dealer Balance if applicable
+        if (isDealer) {
+            const paid = parseFloat(totalPaid.value || 0);
+            const balance = grandTotal - paid;
+            dealerBalance.value = balance > 0 ? balance.toFixed(2) : "0.00";
+        }
+    }
+
+    // Track if user manually edits the Total Paid field
+    totalPaid.addEventListener('input', () => {
+        totalPaid.dataset.manual = "true";
+        updateCalculations();
+    });
+
+    [processingFee, dmvFee, salesTax, paymentMethod].forEach(el => {
+        el.addEventListener('input', updateCalculations);
+        el.addEventListener('change', updateCalculations);
+    });
+
+    // Run once on load
+    updateCalculations();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% load static i18n %}
+<!DOCTYPE html>
+<html lang="{{ request.LANGUAGE_CODE }}">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}RegiManager DMV Portal{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'core/css/dmv-auth.css' %}?v=footer-1">
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+    <div style="display:none;">{% csrf_token %}</div>
+    {% block content %}{% endblock %}
+
+    {% block site_footer %}
+    <footer class="site-footer" role="contentinfo">
+        <div class="site-footer-inner">
+            <div class="site-footer-top">
+                <div class="site-footer-brand">
+                    <a href="{% url 'home' %}" class="site-footer-logo-link">
+                        <img src="{% static 'core/img/dmv-logo.svg' %}" alt="" width="36" height="36"
+                            class="site-footer-logo">
+                        <span>RegiManager</span>
+                    </a>
+                    <p class="site-footer-tagline">{% trans "Operations software for Agencies—records, receipts, dealers, and reporting in one workspace." %}</p>
+                </div>
+                <nav class="site-footer-nav" aria-label="Footer navigation">
+                    <div class="site-footer-col">
+                        <h3 class="site-footer-heading">{% trans "Platform" %}</h3>
+                        <a href="{% url 'home' %}#home">{% trans "Overview" %}</a>
+                        <a href="{% url 'home' %}#solutions">{% trans "Solutions" %}</a>
+                        <a href="{% url 'home' %}#pricing">{% trans "Pricing" %}</a>
+                        <a href="{% url 'contact' %}">{% trans "Contact Us" %}</a>
+                    </div>
+                    <div class="site-footer-col">
+                        <h3 class="site-footer-heading">{% trans "Access" %}</h3>
+                        {% if user.is_authenticated %}
+                        <a href="{% url 'dashboard' %}">{% trans "Dashboard" %}</a>
+                        <a href="{% url 'logout' %}">{% trans "Sign out" %}</a>
+                        {% else %}
+                        <a href="{% url 'login' %}">{% trans "Sign in" %}</a>
+                        <a href="{% url 'member-signup' %}">{% trans "Create agent account" %}</a>
+                        {% endif %}
+                    </div>
+                </nav>
+            </div>
+
+            <p class="site-footer-disclaimer">{% trans "This is a licensed Private Service Bureau Software Solution but is not an official agency of the Department of Motor Vehicles." %}</p>
+        </div>
+    </footer>
+    {% endblock site_footer %}
+</body>
+
+</html>

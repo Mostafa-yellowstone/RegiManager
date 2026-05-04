@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Dealership Portal | RegiManager{% endblock %}
+
+{% block content %}
+<style>
+    .alert-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .alert-danger, .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    .dealer-card.is-unpaid { border-color: #f87171; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.1); }
+    .dealer-card.is-unpaid .top-bar { background: #ef4444; }
+    .dealer-card.is-paid .top-bar { background: #10b981; }
+    .outstanding-amount.is-unpaid { color: #dc2626; }
+    .outstanding-amount.is-paid { color: #10b981; }
+</style>
+
+<main class="dashboard-shell">
+    <section class="dashboard-layout">
+        <header class="dashboard-hero service-list-hero" style="background: linear-gradient(135deg, #1e293b, #0f172a);">
+            <div>
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary back-btn" style="margin-bottom: 1rem; display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white;">&larr; Back to Dashboard</a>
+                <h1>Dealership Portal</h1>
+                <p class="subtitle" style="color: #cbd5e1;">Manage your dealership accounts, track balances, and analyze performance.</p>
+            </div>
+        </header>
+
+        {% if messages %}
+        <div class="messages" style="margin-top: 1rem;">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}" style="padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div style="display: grid; grid-template-columns: 1fr 300px; gap: 2rem; margin-top: 2rem;">
+            
+            <section class="service-cards-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+                {% for dealer in dealers %}
+                    <a href="{% url 'dealer-profile' dealer.id %}" class="service-stat-card-link" style="text-decoration: none; color: inherit;">
+                        <article class="service-stat-card dealer-card {% if dealer.outstanding > 0 %}is-unpaid{% else %}is-paid{% endif %}" style="border: 1px solid #e2e8f0; transition: transform 0.2s, box-shadow 0.2s; position: relative; overflow: hidden;">
+                            
+                            <div class="top-bar" style="position: absolute; top: 0; left: 0; right: 0; height: 4px;"></div>
+                            
+                            <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                                <div style="width: 48px; height: 48px; border-radius: 8px; background: #f1f5f9; color: #475569; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: bold; margin-right: 1rem;">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+                                </div>
+                                <div>
+                                    <h3 style="margin: 0; font-size: 1.1rem; color: #1e293b; display: flex; align-items: center; gap: 0.5rem;">
+                                        {{ dealer.name }}
+                                        {% if dealer.is_partner %}
+                                            <span style="background: #eef2ff; color: #4338ca; font-size: 0.65rem; padding: 0.1rem 0.5rem; border-radius: 99px; font-weight: 700; border: 1px solid #c7d2fe; text-transform: uppercase;">Partner</span>
+                                        {% endif %}
+                                    </h3>
+                                    <p style="margin: 0; font-size: 0.85rem; color: #64748b;">{{ dealer.email|default:"No email provided" }}</p>
+                                </div>
+                            </div>
+                            
+                            <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                                <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #475569;"><strong>Phone:</strong> {{ dealer.phone_no|default:"N/A" }}</p>
+                                <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #475569;"><strong>Total Records:</strong> {{ dealer.record_count }}</p>
+                            </div>
+                            
+                            <div style="display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
+                                <div>
+                                    <p style="margin: 0; font-size: 0.8rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Outstanding</p>
+                                    <strong class="outstanding-amount {% if dealer.outstanding > 0 %}is-unpaid{% else %}is-paid{% endif %}" style="font-size: 1.2rem;">${{ dealer.outstanding|floatformat:2 }}</strong>
+                                </div>
+                                <div style="text-align: right; display: flex; align-items: center;">
+                                    <span style="font-size: 0.85rem; font-weight: 500; color: #3b82f6;">View Details &rarr;</span>
+                                </div>
+                            </div>
+                        </article>
+                    </a>
+                {% empty %}
+                    <div class="empty-state" style="grid-column: 1 / -1; padding: 4rem; text-align: center; background: white; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                        <h3 style="color: #475569; margin-bottom: 0.5rem;">No Dealerships Found</h3>
+                        <p style="color: #64748b;">You haven't registered any car dealerships yet.</p>
+                    </div>
+                {% endfor %}
+            </section>
+
+            <aside>
+                <div class="dashboard-panel" style="position: sticky; top: 20px;">
+                    <h3>Register New Dealership</h3>
+                    <form method="post" action="{% url 'all-dealers' %}" style="margin-top: 1rem;">
+                        {% csrf_token %}
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 0.3rem;">Dealership Name *</label>
+                            <input type="text" name="name" class="form-control" placeholder="e.g. Empire Motors" required style="width: 100%; box-sizing: border-box;">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 0.3rem;">Email</label>
+                            <input type="email" name="email" class="form-control" placeholder="contact@empiremotors.com" style="width: 100%; box-sizing: border-box;">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 0.3rem;">Phone Number</label>
+                            <input type="text" name="phone" class="form-control" placeholder="(555) 123-4567" style="width: 100%; box-sizing: border-box;">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 0.3rem;">Address</label>
+                            <textarea name="address" class="form-control" rows="2" placeholder="123 Dealer Row, City, ST" style="width: 100%; box-sizing: border-box;"></textarea>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.8rem;">
+                            <label class="switch">
+                                <input type="checkbox" name="is_partner">
+                                <span class="slider round"></span>
+                            </label>
+                            <span style="font-size: 0.85rem; font-weight: 600; color: #475569;">Partner Dealership</span>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Register Dealership</button>
+                    </form>
+                </div>
+            </aside>
+            
+        </div>
+    </section>
+</main>
+{% endblock %}

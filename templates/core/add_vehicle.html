@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Add Vehicle | {{ client }}{% endblock %}
+
+{% block content %}
+<style>
+    .alert-msg { padding: 0.8rem 1.2rem; border-radius: 10px; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem; }
+    .alert-msg.error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    .alert-msg.success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    #vin-warning { padding: 0.8rem 1.2rem; border-radius: 10px; margin-bottom: 1.5rem; background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; font-weight: 600; font-size: 0.9rem; }
+    #id_vin { width: 100% !important; }
+</style>
+<main class="dashboard-shell">
+    <section class="dashboard-layout">
+        <header class="dashboard-hero service-list-hero" style="background: linear-gradient(135deg, #1e293b, #0f172a); padding-bottom: 2rem;">
+            <div>
+                <a href="{% url 'client-detail' client.id %}" class="btn btn-secondary back-btn" style="margin-bottom: 1rem; display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white;">&larr; Back to Client</a>
+                <h1>Add Vehicle for {{ client.first_name }} {{ client.last_name }}</h1>
+            </div>
+        </header>
+
+        <article class="dashboard-panel" style="margin-top: -2rem; position: relative; z-index: 5;">
+            <form method="post" class="auth-form" id="vehicle-form">
+                {% csrf_token %}
+
+                {% if messages %}
+                <div style="margin-bottom: 1.5rem;">
+                    {% for message in messages %}
+                    <div class="alert-msg {% if message.tags == 'error' %}error{% else %}success{% endif %}">
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div id="vin-warning" style="display: none;"></div>
+
+                <!-- Row 1: Type, VIN, Plate -->
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="field-wrap">
+                        <label>Type of Vehicle</label>
+                        {{ form.vehicle_type }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>VIN (Mandatory)</label>
+                        <div style="position: relative; width: 100%;">
+                            {{ form.vin }}
+                            <div id="vin-status-badge" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 0.75rem; font-weight: 800; text-transform: uppercase; padding: 4px 8px; border-radius: 6px; display: none; pointer-events: none;"></div>
+                        </div>
+                    </div>
+                    <div class="field-wrap">
+                        <label>Plate Number</label>
+                        {{ form.plate_number }}
+                    </div>
+                </div>
+
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="field-wrap">
+                        <label>Vehicle Number</label>
+                        {{ form.vehicle_number }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>DL Number</label>
+                        {{ form.dl_number }}
+                    </div>
+                </div>
+
+                <!-- Row 2: Year, Make, Model -->
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="field-wrap">
+                        <label>Year</label>
+                        {{ form.year }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Make</label>
+                        {{ form.make }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Model</label>
+                        {{ form.model }}
+                    </div>
+                </div>
+
+                <!-- Row 3: Body Type -->
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="field-wrap">
+                        <label>Body Type</label>
+                        {{ form.body_type }}
+                    </div>
+                </div>
+
+                <!-- Row 4: Specs -->
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="field-wrap">
+                        <label>Color</label>
+                        {{ form.color }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Weight</label>
+                        {{ form.weight }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Fuel Type</label>
+                        {{ form.fuel_type }}
+                    </div>
+                </div>
+
+                <!-- Row 5: Capacity -->
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="field-wrap">
+                        <label>Cylinders</label>
+                        {{ form.cylinders }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Seats</label>
+                        {{ form.seats }}
+                    </div>
+                </div>
+
+                <!-- Row 6: Dates -->
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="field-wrap">
+                        <label>Reg. Effective Date</label>
+                        {{ form.registration_effective_date }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Reg. Expiration Date</label>
+                        {{ form.registration_expiration_date }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Insurance Exp. Date</label>
+                        {{ form.insurance_expiration_date }}
+                    </div>
+                </div>
+
+                <div class="form-actions" style="border-top: 1px solid #e2e8f0; padding-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
+                    <a href="{% url 'client-detail' client.id %}" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary" style="padding: 0.8rem 3rem;">Save Vehicle</button>
+                </div>
+            </form>
+        </article>
+    </section>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const vinInput = document.getElementById('id_vin');
+    const warning = document.getElementById('vin-warning');
+    // More robust button selector
+    const submitBtn = document.querySelector('button[type="submit"]');
+    const badge = document.getElementById('vin-status-badge');
+    let checkTimer = null;
+
+    function updateBadge(state, text) {
+        if (!badge) return;
+        badge.style.display = 'block';
+        badge.textContent = text;
+        
+        if (state === 'loading') {
+            badge.style.background = '#f1f5f9';
+            badge.style.color = '#64748b';
+            badge.style.border = '1px solid #e2e8f0';
+        } else if (state === 'success') {
+            badge.style.background = '#dcfce7';
+            badge.style.color = '#15803d';
+            badge.style.border = '1px solid #bbf7d0';
+        } else if (state === 'warning') {
+            badge.style.background = '#fff7ed';
+            badge.style.color = '#c2410c';
+            badge.style.border = '1px solid #fed7aa';
+        } else if (state === 'error') {
+            badge.style.background = '#fee2e2';
+            badge.style.color = '#b91c1c';
+            badge.style.border = '1px solid #fecaca';
+        }
+    }
+
+    if (vinInput) {
+        vinInput.addEventListener('input', function() {
+            clearTimeout(checkTimer);
+            const vin = this.value.trim().toUpperCase();
+            
+            if (vin.length === 0) {
+                if (badge) badge.style.display = 'none';
+                if (warning) warning.style.display = 'none';
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                }
+                vinInput.style.border = '';
+                return;
+            }
+
+            if (vin.length < 17) {
+                updateBadge('warning', `${vin.length}/17`);
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.7';
+                }
+                if (warning) warning.style.display = 'none';
+                return;
+            }
+
+            updateBadge('loading', 'Checking...');
+            checkTimer = setTimeout(() => checkVin(vin), 300);
+        });
+    }
+
+    function checkVin(vin) {
+        // Use relative URL to ensure it works regardless of domain setup
+        fetch('/dashboard/check-vin/?vin=' + encodeURIComponent(vin))
+        .then(r => r.json())
+        .then(data => {
+            if (data.exists) {
+                if (warning) {
+                    warning.innerHTML = `⚠️ This VIN already exists! It belongs to <strong>${data.owner}</strong> — ${data.vehicle} (Plate: ${data.plate}).`;
+                    warning.style.display = 'block';
+                }
+                updateBadge('error', 'DUPLICATE');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.5';
+                }
+                vinInput.style.border = '2px solid #ef4444';
+            } else if (!data.is_valid) {
+                if (warning) {
+                    warning.innerHTML = `⚠️ Invalid VIN Format! A modern VIN must be exactly 17 characters and cannot contain letters I, O, or Q.`;
+                    warning.style.display = 'block';
+                }
+                updateBadge('error', 'INVALID');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.5';
+                }
+                vinInput.style.border = '2px solid #ef4444';
+            } else {
+                if (warning) warning.style.display = 'none';
+                updateBadge('success', 'VALID & UNIQUE');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                }
+                vinInput.style.border = '2px solid #10b981';
+
+                // AUTO-FILL LOGIC
+                if (data.decoded) {
+                    const d = data.decoded;
+                    const fieldMap = {
+                        'id_year': d.year,
+                        'id_make': d.make,
+                        'id_model': d.model,
+                        'id_body_type': d.body_type,
+                        'id_fuel_type': d.fuel_type,
+                        'id_cylinders': d.cylinders,
+                        'id_weight': d.weight,
+                        'id_seats': d.seats,
+                        'id_color': d.color
+                    };
+
+                    for (let [id, value] of Object.entries(fieldMap)) {
+                        const el = document.getElementById(id);
+                        if (!el || !value) continue;
+                        
+                        // Clean data (e.g. NHTSA often returns "4 - DOOR" or "Class 1: 0-6000 lb")
+                        let cleanValue = String(value).trim();
+                        
+                        if (id === 'id_weight') {
+                            // NHTSA format: "Class 8: 33,001 lb and above (14,969 kg and above)"
+                            // We want the primary numeric value. 
+                            // Let's try to find the number specifically associated with 'lb' or just the first major number.
+                            const lbMatch = cleanValue.match(/([\d,]+)\s*lb/i);
+                            const kgMatch = cleanValue.match(/\(([\d,]+)\s*kg/i);
+                            
+                            if (lbMatch) {
+                                cleanValue = lbMatch[1].replace(/,/g, '');
+                            } else if (kgMatch) {
+                                cleanValue = kgMatch[1].replace(/,/g, '');
+                            } else {
+                                // Fallback: just take the largest number found
+                                const numbers = cleanValue.match(/\d+/g);
+                                if (numbers) {
+                                    cleanValue = Math.max(...numbers.map(Number)).toString();
+                                }
+                            }
+                        }
+
+                        if (el.tagName === 'SELECT') {
+                            // Smart dropdown selection
+                            const options = Array.from(el.options);
+                            const valLower = cleanValue.toLowerCase();
+                            
+                            // Try exact match first
+                            let found = options.find(opt => opt.value.toLowerCase() === valLower || opt.text.toLowerCase() === valLower);
+                            
+                            // Try partial match if not found
+                            if (!found) {
+                                found = options.find(opt => valLower.includes(opt.text.toLowerCase()) || opt.text.toLowerCase().includes(valLower));
+                            }
+                            
+                            if (found && !el.value) {
+                                el.value = found.value;
+                                el.style.backgroundColor = '#f0fdf4';
+                                setTimeout(() => { el.style.backgroundColor = ''; }, 2000);
+                            }
+                        } else if (!el.value) {
+                            // Standard input fill
+                            el.value = cleanValue;
+                            el.style.backgroundColor = '#f0fdf4';
+                            setTimeout(() => { el.style.backgroundColor = ''; }, 2000);
+                        }
+                    }
+                }
+            }
+        })
+        .catch(() => {
+            updateBadge('warning', 'OFFLINE');
+        });
+    }
+});
+</script>
+{% endblock %}

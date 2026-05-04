@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Client Profile | {{ client }}{% endblock %}
+
+{% block content %}
+<main class="dashboard-shell">
+    <section class="dashboard-layout">
+        <header class="dashboard-hero" style="padding-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-end;">
+            <div>
+                <div class="brand-pill" style="margin-bottom: 0.5rem;">Client Profile</div>
+                <h1>{{ client.first_name }} {{ client.last_name }}</h1>
+                <p class="subtitle" style="color: white; opacity: 0.9;">{{ client.city }}, {{ client.state }} | {{ client.email|default:"No Email" }}</p>
+            </div>
+            <div class="header-actions">
+                <a href="{% url 'add-vehicle' client.id %}" class="btn btn-primary" style="background: white; color: #093de6; font-weight: 700; display: inline-flex; align-items: center; gap: 0.5rem; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                    Add Vehicle
+                </a>
+            </div>
+        </header>
+
+        <div class="dashboard-panels" style="margin-top: -2rem;">
+            <!-- Client Info Panel -->
+            <article class="dashboard-panel">
+                <h3>Client Information</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <div>
+                        <small style="color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 0.7rem;">Personal Details</small>
+                        <p style="margin: 0.3rem 0 1rem 0;">
+                            <strong>SSN:</strong> {{ client.ssn|default:"---" }}<br>
+                            <strong>DL:</strong> {{ client.driver_license|default:"---" }}<br>
+                            <strong>DOB:</strong> {{ client.dob|date:"M d, Y"|default:"---" }}<br>
+                            <strong>Gender:</strong> {{ client.get_gender_display|default:"---" }}
+                        </p>
+                        <small style="color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 0.7rem;">Contact Info</small>
+                        <p style="margin: 0.3rem 0 0 0;">
+                            <strong>Phone:</strong> {{ client.phone_number }}<br>
+                            <strong>Email:</strong> {{ client.email|default:"---" }}
+                        </p>
+                    </div>
+                    <div>
+                        <small style="color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 0.7rem;">Address</small>
+                        <p style="margin: 0.3rem 0 1rem 0;">
+                            {{ client.building_no }} {{ client.street_address }}<br>
+                            {% if client.apartment %}Apt: {{ client.apartment }}<br>{% endif %}
+                            {{ client.city }}, {{ client.state }} {{ client.zip_code }}<br>
+                            {{ client.county }} County
+                        </p>
+                        <small style="color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 0.7rem;">Registration Meta</small>
+                        <p style="margin: 0.3rem 0 0 0;">
+                            <strong>Source:</strong> {{ client.source|title }}<br>
+                            {% if client.dealer %}
+                                <strong>Dealer:</strong> {{ client.dealer.name }} 
+                                {% if client.is_partner %}<span class="brand-pill" style="padding: 0.1rem 0.4rem; font-size: 0.6rem; vertical-align: middle;">PARTNER</span>{% endif %}
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </article>
+
+            <!-- Vehicles List Panel -->
+            <article class="dashboard-panel">
+                <h3>Registered Vehicles</h3>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Year/Make/Model</th>
+                                <th>VIN</th>
+                                <th>Plate</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for vehicle in vehicles %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'vehicle-detail' vehicle.id %}" style="font-weight: 600; color: #093de6;">
+                                            {{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}
+                                        </a>
+                                    </td>
+                                    <td><code style="background: #f1f5f9; padding: 0.2rem 0.4rem; border-radius: 4px;">{{ vehicle.vin }}</code></td>
+                                    <td>{{ vehicle.plate_number|default:"---" }}</td>
+                                    <td>
+                                        <a href="{% url 'vehicle-detail' vehicle.id %}" class="btn btn-secondary btn-sm">View Profile</a>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="4" class="empty-state">No vehicles registered for this client yet.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </div>
+    </section>
+</main>
+{% endblock %}

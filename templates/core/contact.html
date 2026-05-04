@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}Contact Us | RegiManager{% endblock %}
+
+{% block content %}
+<main class="site-shell">
+    <header class="site-header scrolled">
+        <div class="site-header-inner">
+            <a href="{% url 'home' %}" class="site-brand">
+                <img src="{% static 'core/img/dmv-logo.svg' %}" alt="RegiManager DMV Logo" class="site-logo">
+                <span>RegiManager</span>
+            </a>
+
+            <button class="nav-toggle" type="button" aria-expanded="false" aria-label="Toggle navigation" data-nav-toggle>
+                <span></span><span></span><span></span>
+            </button>
+
+            <nav class="site-nav" data-site-nav>
+                <a href="{% url 'home' %}#home">{{ txt.home }}</a>
+                <a href="{% url 'home' %}#solutions">{{ txt.solutions }}</a>
+                <a href="{% url 'home' %}#pricing">{{ txt.pricing }}</a>
+                <a href="{% url 'contact' %}" class="active">{{ txt.contact_us }}</a>
+            </nav>
+
+            <nav class="site-nav" data-site-nav>
+                <a href="{% url 'home' %}#home">{{ txt.home }}</a>
+                <a href="{% url 'home' %}#solutions">{{ txt.solutions }}</a>
+                <a href="{% url 'home' %}#pricing">{{ txt.pricing }}</a>
+                <a href="{% url 'contact' %}" class="active">{{ txt.contact_us }}</a>
+            </nav>
+
+            <div class="header-actions">
+                <div class="language-menu" data-language-menu>
+                    <button class="language-trigger flag-only" type="button" aria-expanded="false" data-language-trigger title="Change Language">
+                        <span class="flag-icon">{% if request.LANGUAGE_CODE == 'es' %}🇪🇸{% else %}🇺🇸{% endif %}</span> 
+                        <span class="chevron">▾</span>
+                    </button>
+                    <div class="language-dropdown" data-language-dropdown>
+                        <form action="{% url 'set_language' %}" method="post" id="lang-form" style="display: none;">
+                            {% csrf_token %}
+                            <input name="next" type="hidden" value="{{ request.get_full_path }}">
+                            <input name="language" type="hidden" id="lang-input">
+                        </form>
+                        <a href="#" class="lang-option" data-lang="en"><span class="flag-icon">🇺🇸</span> English</a>
+                        <a href="#" class="lang-option" data-lang="es"><span class="flag-icon">🇪🇸</span> Español</a>
+                    </div>
+                </div>
+
+                <div class="account-menu" data-account-menu>
+                    <button class="account-trigger" type="button" aria-expanded="false" aria-label="Open account menu" data-account-trigger>
+                        Account
+                        <span class="account-chevron">▾</span>
+                    </button>
+                    <div class="account-dropdown" data-account-dropdown>
+                        {% if user.is_authenticated %}
+                            <a href="{% url 'dashboard' %}">Dashboard</a>
+                            <a href="{% url 'logout' %}">Sign Out</a>
+                        {% else %}
+                            <a href="{% url 'login' %}">Sign In</a>
+                            <a href="{% url 'member-signup' %}">Create Agent Account</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section class="site-hero contact-hero">
+        <div class="site-hero-content reveal visible">
+            <span class="brand-pill">{{ txt.get_in_touch }}</span>
+            <h1>{{ txt.help_scale }}</h1>
+            <p>
+                {{ txt.contact_p }}
+            </p>
+        </div>
+    </section>
+
+    <section class="site-section contact-section reveal visible">
+        <div class="contact-grid">
+            <div class="contact-info">
+                <div class="section-heading">
+                    <h2>{{ txt.contact_info }}</h2>
+                    <p>{{ txt.reach_out }}</p>
+                </div>
+                <div class="info-items">
+                    <div class="info-item">
+                        <div class="info-icon">📧</div>
+                        <div>
+                            <strong>{{ txt.email_us }}</strong>
+                            <p>support@regimanager.com</p>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon">📞</div>
+                        <div>
+                            <strong>{{ txt.call_us }}</strong>
+                            <p>(555) 123-4567</p>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon">📍</div>
+                        <div>
+                            <strong>{{ txt.main_office }}</strong>
+                            <p>{{ txt.address_l1 }}<br>{{ txt.address_l2 }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="contact-form-container">
+                <form class="contact-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="name">{{ txt.full_name }}</label>
+                            <input type="text" id="name" placeholder="John Doe" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">{{ txt.email_addr }}</label>
+                            <input type="email" id="email" placeholder="john@example.com" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="subject">{{ txt.subject }}</label>
+                        <select id="subject">
+                            <option value="general">{{ txt.sub_gen }}</option>
+                            <option value="sales">{{ txt.sub_sales }}</option>
+                            <option value="support">{{ txt.sub_support }}</option>
+                            <option value="demo">{{ txt.sub_demo }}</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="message">{{ txt.your_msg }}</label>
+                        <textarea id="message" rows="5" placeholder="{{ txt.msg_placeholder }}" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">{{ txt.send_msg }}</button>
+                </form>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script src="{% static 'core/js/home.js' %}" defer></script>
+{% endblock %}

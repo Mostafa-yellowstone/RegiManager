@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Client Directory | RegiManager{% endblock %}
+
+{% block content %}
+<style>
+    .alert-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .alert-danger, .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+</style>
+<main class="dashboard-shell">
+    <section class="dashboard-layout">
+        <header class="dashboard-hero service-list-hero" style="background: linear-gradient(135deg, #1e293b, #0f172a);">
+            <div>
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary back-btn" style="margin-bottom: 1rem; display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white;">&larr; Back to Dashboard</a>
+                <h1>Client Directory</h1>
+                <p class="subtitle" style="color: #cbd5e1;">View and manage all registered clients and their vehicle fleets.</p>
+            </div>
+        </header>
+
+        {% if messages %}
+        <div class="messages" style="margin-top: 1rem;">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}" style="padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <article class="dashboard-panel full-width-panel">
+            <div class="list-controls" style="display: flex; justify-content: space-between; align-items: flex-end; gap: 1.5rem; flex-wrap: wrap;">
+                <form method="get" class="search-filter-form" style="flex: 1; min-width: 300px; gap: 1rem;">
+                    <div class="form-group search-group" style="margin: 0;">
+                        <label for="search-input">Search Clients</label>
+                        <input type="text" id="search-input" name="q" value="{{ search_query }}" placeholder="Search by name, email, phone or city...">
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button type="submit" class="btn btn-primary">Search</button>
+                        {% if search_query %}
+                            <a href="{% url 'all-clients' %}" class="btn btn-secondary">Clear</a>
+                        {% endif %}
+                    </div>
+                </form>
+                <div class="action-group">
+                    <a href="{% url 'add-client' %}" class="btn btn-primary" style="background: #10b981; border: none; height: 40px; display: flex; align-items: center;">+ Add New Client</a>
+                </div>
+            </div>
+
+            <div id="client-results-container" class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Client Name</th>
+                            <th>Contact Info</th>
+                            <th>Location</th>
+                            <th>Vehicles</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="client-table-body">
+                        {% for client in clients %}
+                            <tr>
+                                <td>
+                                    <div style="display: flex; align-items: center; gap: 1rem;">
+                                        <div style="width: 36px; height: 36px; border-radius: 8px; background: #f1f5f9; color: #1e293b; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; flex-shrink: 0;">
+                                            {{ client.first_name|slice:":1"|upper }}
+                                        </div>
+                                        <div>
+                                            <a href="{% url 'client-detail' client.id %}" style="font-weight: 600; color: #1e293b; text-decoration: none;">{{ client.first_name }} {{ client.last_name }}</a>
+                                            {% if client.dealer %}
+                                                <div style="font-size: 0.75rem; color: #64748b;">via {{ client.dealer.name }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="font-size: 0.9rem; color: #1e293b;">{{ client.phone_number }}</div>
+                                    <div style="font-size: 0.8rem; color: #64748b;">{{ client.email|default:"No email" }}</div>
+                                </td>
+                                <td>
+                                    <div style="font-size: 0.9rem; color: #1e293b;">{{ client.city }}, {{ client.state }}</div>
+                                    <div style="font-size: 0.8rem; color: #64748b;">{{ client.county }} County</div>
+                                </td>
+                                <td>
+                                    <span class="brand-pill" style="background: #e0e7ff; color: #4338ca; border: none;">{{ client.vehicles.count }} Vehicles</span>
+                                </td>
+                                <td>{{ client.created_at|date:"M d, Y" }}</td>
+                                <td>
+                                    <div style="display: flex; gap: 0.5rem;">
+                                        <a href="{% url 'client-detail' client.id %}" class="btn btn-secondary btn-sm" style="padding: 0.3rem 0.6rem; min-height: auto;">Profile</a>
+                                        <a href="{% url 'add-vehicle' client.id %}" class="btn btn-primary btn-sm" style="padding: 0.3rem 0.6rem; min-height: auto; background: #3b82f6; border: none;">+ Vehicle</a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6">
+                                    <div style="padding: 5rem 2rem; text-align: center; background: #f8fafc; border-radius: 20px; border: 2px dashed #e2e8f0; margin: 1rem;">
+                                        <div style="width: 80px; height: 80px; background: #f1f5f9; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;">
+                                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+                                        </div>
+                                        <h3 style="color: #1e293b; font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;">No Clients Found</h3>
+                                        <p style="color: #64748b; font-size: 0.95rem; max-width: 300px; margin: 0 auto;">We couldn't find any clients matching "<strong>{{ search_query }}</strong>". Try a different name, phone number, or email.</p>
+                                        <div style="margin-top: 1.5rem;">
+                                            <a href="{% url 'all-clients' %}" style="color: #3b82f6; font-weight: 600; text-decoration: none;">Clear Search</a>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </article>
+    </section>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search-input');
+    const resultsContainer = document.getElementById('client-results-container');
+    let timeout = null;
+
+    searchInput.addEventListener('input', function() {
+        clearTimeout(timeout);
+        const query = searchInput.value;
+
+        // Debounce search to prevent excessive server calls
+        timeout = setTimeout(() => {
+            const url = new URL(window.location.href);
+            url.searchParams.set('q', query);
+
+            // Fetch results using AJAX
+            fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newTable = doc.getElementById('client-results-container').innerHTML;
+                resultsContainer.innerHTML = newTable;
+            })
+            .catch(error => console.error('Error fetching search results:', error));
+        }, 250);
+    });
+});
+</script>
+{% endblock %}

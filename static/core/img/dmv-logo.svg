@@ -1,0 +1,15 @@
+<svg width="140" height="140" viewBox="0 0 140 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="140" height="140" rx="28" fill="url(#paint0_linear)"/>
+  <rect x="16" y="16" width="108" height="108" rx="20" fill="#0B2D54"/>
+  <path d="M38 84C38 71.2975 48.2975 61 61 61H79C91.7025 61 102 71.2975 102 84V90H38V84Z" fill="#1F7AE0"/>
+  <path d="M49 56C49 44.402 58.402 35 70 35C81.598 35 91 44.402 91 56V60H49V56Z" fill="#8DC4FF"/>
+  <circle cx="54" cy="90" r="7" fill="#EAF3FF"/>
+  <circle cx="86" cy="90" r="7" fill="#EAF3FF"/>
+  <text x="70" y="112" text-anchor="middle" fill="#EAF3FF" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">DMV</text>
+  <defs>
+    <linearGradient id="paint0_linear" x1="12" y1="8" x2="122" y2="132" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#39A0FF"/>
+      <stop offset="1" stop-color="#114A89"/>
+    </linearGradient>
+  </defs>
+</svg>

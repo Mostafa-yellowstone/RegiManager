@@ -1,0 +1,55 @@
+{% for record in records %}
+    <tr>
+        <td>{{ record.created_at|date:"Y-m-d H:i" }}</td>
+        <td><strong>{{ record.receipt_number }}</strong></td>
+        <td>
+            {% if record.vehicle and record.vehicle.client %}
+                <a href="{% url 'client-detail' record.vehicle.client.id %}" class="client-link" style="text-decoration: none; color: #2563eb; font-weight: 700;">
+                    {{ record.vehicle.client.first_name }} {{ record.vehicle.client.last_name }}
+                </a>
+            {% else %}
+                {{ record.client_name|default:"-" }}
+            {% endif %}
+        </td>
+        <td style="font-weight: 600; color: #475569;">
+            {% if record.vehicle and record.vehicle.client %}
+                {{ record.vehicle.client.phone_number|default:"-" }}
+            {% else %}
+                {{ record.phone_no|default:"-" }}
+            {% endif %}
+        </td>
+        <td style="font-size: 0.85rem; color: #64748b;">
+            {% if record.vehicle and record.vehicle.client %}
+                {{ record.vehicle.client.email|default:"-" }}
+            {% else %}
+                {{ record.email|default:"-" }}
+            {% endif %}
+        </td>
+        <td>
+            <span class="status-badge status-{{ record.status }}">{{ record.get_status_display }}</span>
+        </td>
+        <td>{{ record.handled_by.get_full_name|default:record.handled_by.username }}</td>
+        {% if service_type == "all" %}
+            <td>{{ record.service_type_label }}</td>
+        {% endif %}
+        <td>
+            <div class="action-col" style="display: flex; gap: 8px;">
+                <button type="button" class="btn btn-sm btn-primary doc-upload-trigger" data-id="{{ record.id }}" data-receipt="{{ record.receipt_number }}">Docs</button>
+                <a href="{% url 'service-receipt-pdf' record.id %}" class="btn btn-sm btn-secondary">Receipt</a>
+            </div>
+        </td>
+    </tr>
+{% empty %}
+    <tr>
+        <td colspan="9" class="empty-state" style="text-align: center; padding: 3rem; color: #64748b;">
+            <div style="margin-bottom: 1rem;">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.3;">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+            </div>
+            <p style="font-weight: 600; font-size: 1.1rem;">No matching service records found</p>
+            <p style="font-size: 0.9rem;">Try adjusting your search or filters to find what you're looking for.</p>
+        </td>
+    </tr>
+{% endfor %}
