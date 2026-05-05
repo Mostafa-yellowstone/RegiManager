@@ -56,12 +56,30 @@ from core.views import (
     ocr_dl_ajax,
     run_automation_scan,
     all_automation_logs,
+    session_heartbeat,
 )
+
+from rest_framework.routers import DefaultRouter
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from core.api import ClientViewSet, VehicleViewSet, ServiceRecordViewSet
+
+router = DefaultRouter()
+router.register(r'clients', ClientViewSet, basename='api-client')
+router.register(r'vehicles', VehicleViewSet, basename='api-vehicle')
+router.register(r'service-records', ServiceRecordViewSet, basename='api-service')
 
 urlpatterns = [
     path('i18n/', include('django.conf.urls.i18n')),
     path('admin/', admin.site.urls),
+    
+    # API Routes
+    path('api/', include(router.urls)),
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/docs/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+
     path("", home, name="home"),
+
     path("contact/", contact, name="contact"),
     path("auth/login/", login_view, name="login"),
     path("auth/logout/", logout_view, name="logout"),
@@ -97,6 +115,7 @@ urlpatterns = [
     path("dashboard/ocr-dl/", ocr_dl_ajax, name="ocr-dl"),
     path("dashboard/run-automation/", run_automation_scan, name="run-automation"),
     path("dashboard/automation-history/", all_automation_logs, name="all-automation-logs"),
+    path("api/session-heartbeat/", session_heartbeat, name="session-heartbeat"),
 ]
 
 if settings.DEBUG:

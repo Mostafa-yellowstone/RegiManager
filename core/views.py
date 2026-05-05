@@ -2304,4 +2304,11 @@ def ocr_dl_ajax(request):
         except Exception as e:
             return JsonResponse({"status": "error", "message": "OCR Error: " + str(e)})
             
-    return JsonResponse({"status": "success", "data": data})
+@login_required
+def session_heartbeat(request):
+    """
+    Lightweight endpoint for the frontend to check if the session is still active.
+    If the SingleSessionMiddleware has logged the user out, this will return a redirect
+    which the frontend will detect.
+    """
+    return JsonResponse({"status": "active", "user": request.user.username})

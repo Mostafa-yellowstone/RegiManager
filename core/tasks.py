@@ -29,126 +29,107 @@ def send_automation_email(to_email, subject, template_name, context):
     )
 
 @shared_task
-def check_registration_reminders():
+def process_vehicle_reminder(vehicle_id, days, log_type):
     """
-    Periodic task to check for upcoming registration expirations and send reminders.
-    Runs every 6-12 hours.
+    Atomic task to process a reminder for a single vehicle.
+    Allows for parallel processing and individual retries.
     """
-    now = timezone.localdate()
-    
-    # 1. Confirmation logic is handled in the view when process starts.
-    
-    # 2. Automation Logic (Reminders)
-    # 45 days, 30 days, 15 days, Same day (0 days)
-    intervals = [45, 30, 15, 0]
-    
-    for days in intervals:
-        target_date = now + timedelta(days=days)
-        
-        # Find vehicles expiring on the target date
-        vehicles = Vehicle.objects.filter(registration_expiration_date=target_date)
-        
-        for vehicle in vehicles:
-            client = vehicle.client
-            if not client.email:
-                continue
-                
-            # Check if reminders should be stopped (if there's a completed renewal record)
-            # Or if it's explicitly stopped
-            is_renewed = ServiceRecord.objects.filter(
-                vehicle=vehicle,
-                status='completed',
-                service_type__in=['registration_renewal', 'vehicle_registration']
-            ).exists()
-            
-            # Check if any associated record has reminders_stopped=True
-            explicitly_stopped = ServiceRecord.objects.filter(
-                vehicle=vehicle,
-                reminders_stopped=True
-            ).exists()
-
-            if is_renewed or explicitly_stopped:
-                continue
-
-            # Determine log type
-            log_type = f"reminder_{days}" if days > 0 else "final_warning"
-            
-            # Prevent duplicate reminders for the same day/type
-            if AutomationLog.objects.filter(
-                vehicle=vehicle, 
-                log_type=log_type, 
-                timestamp__date=now
-            ).exists():
-                continue
-
-            # Send Email
-            subject = f"Reminder: Your vehicle registration expires in {days} days" if days > 0 else "URGENT: Your vehicle registration expires TODAY"
-            template = "core/emails/reminder.html"
-            
-            context = {
-                "client_name": client.name,
-                "vehicle_name": str(vehicle),
-                "expiration_date": vehicle.registration_expiration_date.strftime("%B %d, %Y"),
-                "days_left": days,
-                "cta_link": f"{settings.BASE_URL}/dashboard/vehicles/{vehicle.id}/" if hasattr(settings, 'BASE_URL') else "#",
-            }
-            
-            send_automation_email.delay(client.email, subject, template, context)
-            
-            # Log the automation
-            AutomationLog.objects.create(
-                organization=client.organization,
-                vehicle=vehicle,
-                client=client,
-                log_type=log_type,
-                sent_to=client.email,
-                details=f"Automated {days}-day reminder sent."
-            )
-
-    # 3. Post-Expiration Logic (Expired Warning)
-    expired_vehicles = Vehicle.objects.filter(registration_expiration_date__lt=now)
-    for vehicle in expired_vehicles:
+    try:
+        vehicle = Vehicle.objects.get(id=vehicle_id)
         client = vehicle.client
         if not client.email:
-            continue
-            
-        # Stop if renewed
-        if ServiceRecord.objects.filter(
+            return f"No email for client of vehicle {vehicle_id}"
+
+        # 1. Check if reminders should be stopped
+        is_renewed = ServiceRecord.objects.filter(
             vehicle=vehicle,
             status='completed',
             service_type__in=['registration_renewal', 'vehicle_registration']
-        ).exists() or ServiceRecord.objects.filter(vehicle=vehicle, reminders_stopped=True).exists():
-            continue
+        ).exists()
+        
+        explicitly_stopped = ServiceRecord.objects.filter(
+            vehicle=vehicle,
+            reminders_stopped=True
+        ).exists()
 
-        # Check if already sent expired warning recently (once after expiration)
-        if AutomationLog.objects.filter(vehicle=vehicle, log_type="expired_warning").exists():
-            continue
-            
-        # Send Expired Warning
-        subject = "URGENT: Your registration has expired"
-        template = "core/emails/expired_warning.html"
+        if is_renewed or explicitly_stopped:
+            return f"Reminders stopped for vehicle {vehicle_id}"
+
+        # 2. Prevent duplicate reminders for the same day/type
+        now = timezone.localdate()
+        if AutomationLog.objects.filter(
+            vehicle=vehicle, 
+            log_type=log_type, 
+            timestamp__date=now
+        ).exists():
+            return f"Reminder {log_type} already sent today for vehicle {vehicle_id}"
+
+        # 3. Send Email
+        if days == 0:
+            subject = "URGENT: Your vehicle registration expires TODAY"
+        elif days < 0:
+            subject = "URGENT: Your registration has expired"
+        else:
+            subject = f"Reminder: Your vehicle registration expires in {days} days"
+
+        template = "core/emails/reminder.html" if days >= 0 else "core/emails/expired_warning.html"
         
         context = {
             "client_name": client.name,
             "vehicle_name": str(vehicle),
             "expiration_date": vehicle.registration_expiration_date.strftime("%B %d, %Y"),
+            "days_left": days,
             "cta_link": f"{settings.BASE_URL}/dashboard/vehicles/{vehicle.id}/" if hasattr(settings, 'BASE_URL') else "#",
         }
         
         send_automation_email.delay(client.email, subject, template, context)
         
+        # 4. Log the automation
         AutomationLog.objects.create(
             organization=client.organization,
             vehicle=vehicle,
             client=client,
-            log_type="expired_warning",
+            log_type=log_type,
             sent_to=client.email,
-            details="Expired registration warning sent."
+            details=f"Automated {days}-day reminder sent." if days >= 0 else "Expired registration warning sent."
         )
+
+        # 5. Smart Escalation
+        if days >= 0:
+            reminder_count = AutomationLog.objects.filter(vehicle=vehicle, log_type__startswith="reminder_").count()
+            if reminder_count >= 2:
+                vehicle.is_priority = True
+                vehicle.save()
+
+        return f"Successfully processed {log_type} for vehicle {vehicle_id}"
+    except Vehicle.DoesNotExist:
+        return f"Vehicle {vehicle_id} not found"
+
+
+@shared_task
+def check_registration_reminders():
+    """
+    Main orchestrator task. Finds vehicles needing reminders and spawns atomic sub-tasks.
+    Runs every 6-12 hours.
+    """
+    now = timezone.localdate()
+    intervals = [45, 30, 15, 0]
+    
+    # 1. Process upcoming expirations
+    for days in intervals:
+        target_date = now + timedelta(days=days)
+        vehicle_ids = Vehicle.objects.filter(registration_expiration_date=target_date).values_list('id', flat=True)
         
-        # 4. Smart Escalation (Optional preferred)
-        # Escalate to agent if client ignores 2+ reminders
-        reminder_count = AutomationLog.objects.filter(vehicle=vehicle, log_type__startswith="reminder_").count()
-        if reminder_count >= 2:
-            vehicle.is_priority = True
-            vehicle.save()
+        log_type = f"reminder_{days}" if days > 0 else "final_warning"
+        for vid in vehicle_ids:
+            process_vehicle_reminder.delay(vid, days, log_type)
+
+    # 2. Process post-expiration logic
+    expired_vehicle_ids = Vehicle.objects.filter(
+        registration_expiration_date__lt=now
+    ).exclude(
+        automation_logs__log_type="expired_warning"
+    ).distinct().values_list('id', flat=True)
+
+    for vid in expired_vehicle_ids:
+        process_vehicle_reminder.delay(vid, -1, "expired_warning")

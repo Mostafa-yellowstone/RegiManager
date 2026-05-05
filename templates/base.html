@@ -51,6 +51,23 @@
         </div>
     </footer>
     {% endblock site_footer %}
+    {% if user.is_authenticated %}
+    <script>
+        // Enterprise Security Heartbeat: Checks session status every 15 seconds
+        setInterval(function() {
+            fetch("{% url 'session-heartbeat' %}")
+            .then(response => {
+                // If we get a 302 or if the response URL is different (login page), redirect
+                if (response.redirected) {
+                    window.location.href = "{% url 'login' %}?msg=session_expired";
+                }
+            })
+            .catch(error => {
+                console.error('Heartbeat failed:', error);
+            });
+        }, 15000); // 15 seconds
+    </script>
+    {% endif %}
 </body>
 
 </html>

@@ -10,6 +10,28 @@ def generate_invite_code():
     return get_random_string(8).upper()
 
 
+class SoftDeleteManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
+
+class SoftDeleteModel(models.Model):
+    deleted_at = models.DateTimeField(blank=True, null=True, db_index=True)
+
+    objects = SoftDeleteManager()
+    all_objects = models.Manager()
+
+    class Meta:
+        abstract = True
+
+    def delete(self, using=None, keep_parents=False):
+        self.deleted_at = timezone.now()
+        self.save()
+
+    def hard_delete(self, using=None, keep_parents=False):
+        super().delete(using=using, keep_parents=keep_parents)
+
+
 class Organization(models.Model):
     name = models.CharField(max_length=120)
     logo = models.ImageField(upload_to="organization_logos/", blank=True, null=True)
@@ -85,7 +107,7 @@ class CustomSourceType(models.Model):
         return self.label
 
 
-class CarDealer(models.Model):
+class CarDealer(SoftDeleteModel):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="car_dealers")
     name = models.CharField(max_length=150)
     address = models.TextField(blank=True, default="")
@@ -113,7 +135,7 @@ class CustomServiceType(models.Model):
         return f"{self.label} ({self.organization.name})"
 
 
-class Client(models.Model):
+class Client(SoftDeleteModel):
     GENDER_CHOICES = [
         ("male", "Male"),
         ("female", "Female"),
@@ -139,14 +161,14 @@ class Client(models.Model):
     dealer = models.ForeignKey(CarDealer, on_delete=models.SET_NULL, null=True, blank=True, related_name="clients")
     is_partner = models.BooleanField(default=False, help_text="Is this dealer a partner?")
     
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
+    first_name = models.CharField(max_length=100, db_index=True)
+    last_name = models.CharField(max_length=100, db_index=True)
     middle_name = models.CharField(max_length=100, blank=True, default="")
     
     ssn = models.CharField(max_length=11, blank=True, default="")
     driver_license = models.CharField(max_length=50, blank=True, default="")
     dob = models.DateField(blank=True, null=True)
-    phone_number = models.CharField(max_length=20, blank=True, default="")
+    phone_number = models.CharField(max_length=20, blank=True, default="", db_index=True)
     
     building_no = models.CharField(max_length=20, blank=True, default="")
     street_address = models.CharField(max_length=200, blank=True, default="")
@@ -156,7 +178,7 @@ class Client(models.Model):
     zip_code = models.CharField(max_length=10, blank=True, default="")
     county = models.CharField(max_length=100, blank=True, default="")
     
-    email = models.EmailField(blank=True, null=True)
+    email = models.EmailField(blank=True, null=True, db_index=True)
     gender = models.CharField(max_length=20, choices=GENDER_CHOICES, blank=True, null=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -177,7 +199,7 @@ class Client(models.Model):
         ordering = ["-created_at"]
 
 
-class Vehicle(models.Model):
+class Vehicle(SoftDeleteModel):
     VEHICLE_TYPES = [
         ("passenger", "Passenger Car"),
         ("truck", "Truck"),
@@ -207,8 +229,8 @@ class Vehicle(models.Model):
 
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="vehicles")
     vehicle_type = models.CharField(max_length=50, choices=VEHICLE_TYPES, default="passenger")
-    vin = models.CharField(max_length=50, unique=True)
-    plate_number = models.CharField(max_length=50, blank=True, default="")
+    vin = models.CharField(max_length=50, unique=True, db_index=True)
+    plate_number = models.CharField(max_length=50, blank=True, default="", db_index=True)
     
     year = models.IntegerField(blank=True, null=True)
     make = models.CharField(max_length=100, blank=True, default="")
@@ -239,7 +261,7 @@ class Vehicle(models.Model):
         ordering = ["-created_at"]
 
 
-class ServiceRecord(models.Model):
+class ServiceRecord(SoftDeleteModel):
     SERVICE_TYPES = [
         ("vehicle_registration", "Vehicle Registration"),
         ("registration_renewal", "Registration Renewal"),
@@ -291,8 +313,8 @@ class ServiceRecord(models.Model):
     insurance_expiration_date = models.DateField(blank=True, null=True)
     registration_expiration_date = models.DateField(blank=True, null=True)
     
-    service_type = models.CharField(max_length=100)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    service_type = models.CharField(max_length=100, db_index=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending", db_index=True)
     payment_method = models.CharField(max_length=50, choices=PAYMENT_METHODS, default="cash")
     source = models.CharField(max_length=100, default="walk-in")
     dealer = models.ForeignKey(CarDealer, on_delete=models.SET_NULL, null=True, blank=True, related_name="service_records")
@@ -308,10 +330,10 @@ class ServiceRecord(models.Model):
     expected_payment_date = models.DateField(blank=True, null=True, help_text="When is the dealer expected to pay?")
     
     notes = models.TextField(blank=True, default="")
-    receipt_number = models.CharField(max_length=60, unique=True, blank=True)
+    receipt_number = models.CharField(max_length=60, unique=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    case_id = models.CharField(max_length=60, unique=True, blank=True, null=True)
+    case_id = models.CharField(max_length=60, unique=True, blank=True, null=True, db_index=True)
     reminders_stopped = models.BooleanField(default=False)
 
 
@@ -487,3 +509,4 @@ class AutomationLog(models.Model):
 
     def __str__(self):
         return f"{self.get_log_type_display()} - {self.client.name} - {self.timestamp}"
+
