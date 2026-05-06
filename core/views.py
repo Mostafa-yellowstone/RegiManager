@@ -1,7 +1,9 @@
 from decimal import Decimal
 
 from django.db.models import Count, Sum, Q
+from django.core.paginator import Paginator
 from django.http import HttpResponse, HttpResponseForbidden
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
@@ -33,6 +35,7 @@ from django.views.decorators.http import require_POST
 from datetime import timedelta
 from .tasks import send_automation_email
 from .models import AutomationLog
+import io
 
 
 def _currency(value):
@@ -78,6 +81,10 @@ def home(request):
 
 def contact(request):
     return render(request, "core/contact.html")
+
+
+def privacy(request):
+    return render(request, "core/privacy.html")
 
 
 
@@ -260,9 +267,13 @@ def all_clients(request):
             Q(phone_number__icontains=query) |
             Q(city__icontains=query)
         ).distinct()
+    
+    paginator = Paginator(clients, 12)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
         
     return render(request, "core/all_clients.html", {
-        "clients": clients,
+        "page_obj": page_obj,
         "search_query": query or "",
     })
 
@@ -370,13 +381,27 @@ def vehicle_detail(request, vehicle_id):
     documents = ServiceDocument.objects.filter(
         Q(vehicle__client=vehicle.client) | 
         Q(service_record__vehicle__client=vehicle.client)
-    ).distinct()
-    service_records = vehicle.service_records.all()
+    ).distinct().order_by("-uploaded_at")
+    service_records = vehicle.service_records.order_by("-created_at")
+    latest_service = service_records.first()
+    
+    # Paginate documents (docs tab)
+    doc_paginator = Paginator(documents, 12)
+    doc_page_number = request.GET.get('doc_page')
+    page_obj = doc_paginator.get_page(doc_page_number)
+    
+    # Paginate service records (transactions tab)
+    svc_paginator = Paginator(service_records, 12)
+    svc_page_number = request.GET.get('svc_page')
+    services_page_obj = svc_paginator.get_page(svc_page_number)
+    # Keep latest_service from full queryset (not paginated)
+    latest_service = service_records.first()
     
     return render(request, "core/vehicle_detail.html", {
         "vehicle": vehicle,
-        "documents": documents,
-        "service_records": service_records
+        "page_obj": page_obj,
+        "services_page_obj": services_page_obj,
+        "latest_service": latest_service
     })
 
 
@@ -1392,6 +1417,191 @@ def logout_view(request):
     return redirect("login")
 
 
+from django.views.decorators.clickjacking import xframe_options_exempt
+from pypdf import PdfReader, PdfWriter
+import os
+
+@xframe_options_exempt
+def generate_dmv_form(request, form_type, service_id):
+    """
+    Brilliant central hub for generating all official NYS DMV forms.
+    """
+    service = get_object_or_404(ServiceRecord, id=service_id)
+    if not OrganizationMembership.objects.filter(user=request.user, organization=service.organization).exists():
+        return HttpResponseForbidden("Access denied.")
+
+    vehicle = service.vehicle
+    if not vehicle and service.vin:
+        vehicle = Vehicle.objects.filter(vin=service.vin).first()
+    client = vehicle.client if vehicle else None
+    
+    # Path mapping
+    form_map = {
+        "mv82": "core/static/core/pdf/mv82_template.pdf",
+        "dtf802": "core/static/core/pdf/dtf802_template.pdf",
+        "dtf803": "core/static/core/pdf/dtf803_template.pdf",
+        "mv82b": "core/static/core/pdf/mv82b_template.pdf",
+    }
+    
+    template_path = os.path.join(settings.BASE_DIR, form_map.get(form_type, form_map["mv82"]))
+    if not os.path.exists(template_path):
+        template_path = os.path.join(settings.BASE_DIR, form_map["mv82"])
+
+    packet = io.BytesIO()
+    can = canvas.Canvas(packet, pagesize=letter)
+    can.setFont("Helvetica-Bold", 10)
+    
+    if form_type == "mv82":
+        _fill_mv82_overlay(can, service, client, vehicle)
+    elif form_type == "dtf802":
+        _fill_dtf802_overlay(can, service, client, vehicle)
+    elif form_type == "dtf803":
+        _fill_dtf803_overlay(can, service, client, vehicle)
+    elif form_type == "mv82b":
+        _fill_mv82b_overlay(can, service, client, vehicle)
+    
+    can.save()
+    packet.seek(0)
+    new_pdf = PdfReader(packet)
+    template_pdf = PdfReader(template_path)
+    output = PdfWriter()
+    from pypdf.generic import NameObject
+
+    page1 = template_pdf.pages[0]
+    page1.merge_page(new_pdf.pages[0])
+    output.add_page(page1)
+    if len(template_pdf.pages) > 1:
+        output.add_page(template_pdf.pages[1])
+
+    if "/AcroForm" in template_pdf.trailer["/Root"]:
+        output._root_object.update({
+            NameObject("/AcroForm"): template_pdf.trailer["/Root"]["/AcroForm"]
+        })
+        dob_m, dob_d, dob_y = ("", "", "")
+        if client and client.dob:
+            dob_m, dob_d, dob_y = client.dob.strftime("%m"), client.dob.strftime("%d"), client.dob.strftime("%Y")
+        
+        # Combined field mapping for MV-82 and MV-82B
+        fields = {
+            # MV-82 Fields
+            "NYS New York State driver license ID Identification number of PRIMARY REGISTRANT": client.driver_license if client else "",
+            "PRIMARY REGISTRANT DATE OF BIRTH Month": dob_m,
+            "PRIMARY REGISTRANT DATE OF BIRTH Day": dob_d,
+            "PRIMARY REGISTRANT DATE OF BIRTH Year": dob_y,
+            "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL": client.street_address.upper() if client else "",
+            "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL City or Town": client.city.upper() if client else "",
+            "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL State": client.state.upper() if client else "NY",
+            "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL Zip Code": client.zip_code if client else "",
+            
+            # MV-82B Specific Fields
+            "NAME OF PRIMARY REGISTRANT Last First Middle": f"{client.last_name}, {client.first_name} {client.middle_name or ''}".upper() if client else "",
+            "NYS driver license number of PRIMARY": client.driver_license if client else "",
+            "STREET ADDRESS": client.street_address.upper() if client else "",
+            "CITY OR TOWN": client.city.upper() if client else "",
+            "STATE": client.state.upper() if client else "NY",
+            "ZIP CODE": client.zip_code if client else "",
+            "YEAR": str(vehicle.year) if vehicle else "",
+            "MAKE": vehicle.make.upper() if vehicle else "",
+            "MODEL": vehicle.model.upper() if vehicle else "",
+            "HIN": service.vin.upper() if service else "",
+        }
+        for page in output.pages:
+            output.update_page_form_field_values(page, fields)
+
+    final_output = io.BytesIO()
+    output.write(final_output)
+    final_output.seek(0)
+    response = HttpResponse(final_output.read(), content_type="application/pdf")
+    filename = f"PREFILLED-{form_type.upper()}-{service.vin or service.id}.pdf"
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    return response
+
+def _fill_mv82_overlay(can, service, client, vehicle):
+    st = service.service_type
+    if st == "vehicle_registration": can.drawString(170, 644, "X")
+    elif st == "registration_renewal": can.drawString(304, 644, "X")
+    elif st == "get_title": can.drawString(601, 644, "X")
+    elif st == "replace_lost_item": can.drawString(344, 629, "X")
+    elif st == "transfer_plate": can.drawString(536, 629, "X")
+    if service.plate_number: can.drawString(465, 615, service.plate_number.upper())
+    name_str = f"{client.last_name if client else ''}, {client.first_name if client else ''} {client.middle_name or ''}"
+    can.drawString(40, 588, name_str.upper())
+    phone = (client.phone_number if client and client.phone_number else "").replace("-", "").replace("(", "").replace(")", "").replace(" ", "")
+    for i, char in enumerate(phone[:3]): can.drawString(463 + (i * 9), 560, char)
+    for i, char in enumerate(phone[3:10]): can.drawString(493 + (i * 14.5), 560, char)
+    if client and client.email:
+        can.setFont("Helvetica", 8)
+        can.drawString(398, 535, client.email)
+        can.setFont("Helvetica-Bold", 10)
+    can.drawString(535, 442, client.county.upper() if client else "")
+    can.setFont("Courier-Bold", 12)
+    vin_str = (service.vin or "").upper()
+    for i, char in enumerate(vin_str[:17]): can.drawString(38 + (i * 18.4), 407, char)
+    can.setFont("Helvetica-Bold", 10)
+    can.drawString(358, 407, str(vehicle.year) if vehicle else "")
+    can.drawString(400, 407, vehicle.make.upper() if vehicle else "")
+    if vehicle and vehicle.body_type:
+        bt = vehicle.body_type.lower()
+        if "2door" in bt: can.drawString(493, 413, "X")
+        elif "4door" in bt: can.drawString(493, 402, "X")
+        elif "suv" in bt: can.drawString(549, 402, "X")
+        elif "van" in bt: can.drawString(493, 379, "X")
+        elif "convertible" in bt: can.drawString(549, 413, "X")
+    can.drawString(40, 381, vehicle.color.upper() if vehicle else "")
+    can.drawString(90, 381, str(vehicle.weight) if vehicle else "")
+    can.drawString(34, 355, str(vehicle.cylinders) if vehicle else "")
+
+def _fill_dtf802_overlay(can, service, client, vehicle):
+    """
+    DTF-802 Overlay cleared per user request.
+    """
+    pass
+
+def _fill_dtf803_overlay(can, service, client, vehicle):
+    """
+    DTF-803 Overlay cleared per user request.
+    """
+    pass
+
+def _fill_mv82b_overlay(can, service, client, vehicle):
+    """
+    Overlay for MV-82B (Boat Registration)
+    Note: Most fields are handled via AcroForm for this document.
+    """
+    pass
+
+@xframe_options_exempt
+def mv82_form_pdf(request, service_id):
+    return generate_dmv_form(request, "mv82", service_id)
+
+
+@login_required
+def mv82_interactive(request, service_id):
+    """
+    Renders an interactive, editable MV-82 form pre-filled with data.
+    Allows agents to check marks and type before final printing.
+    """
+    service = get_object_or_404(ServiceRecord, pk=service_id)
+    vehicle = Vehicle.objects.filter(vin=service.vin).first()
+    client = vehicle.client if vehicle else None
+    
+    # Permission Check
+    can_access = OrganizationMembership.objects.filter(
+        user=request.user,
+        organization=service.organization,
+    ).exists()
+    if not can_access:
+        return HttpResponseForbidden("Access Denied.")
+
+    context = {
+        "service": service,
+        "vehicle": vehicle,
+        "client": client,
+        "today": timezone.now().date(),
+    }
+    return render(request, "core/mv82_interactive.html", context)
+
+
 @login_required
 def service_list(request, service_type):
     organizations = Organization.objects.filter(memberships__user=request.user).distinct()
@@ -1449,11 +1659,15 @@ def service_list(request, service_type):
             else:
                 service_label = service_type.replace('_', ' ').title()
 
+    paginator = Paginator(records, 12)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     return render(
         request,
         "core/service_list.html",
         {
-            "records": records,
+            "page_obj": page_obj,
             "service_label": service_label,
             "service_type": service_type,
             "search_query": search_query,
@@ -1988,13 +2202,16 @@ def audit_log_list(request):
         except ValueError:
             pass
 
-    logs = scope_qs.order_by("-created_at")[:500]
+    logs = scope_qs.order_by("-created_at")
+    paginator = Paginator(logs, 12)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
 
     return render(
         request,
         "core/all_audit_logs.html",
         {
-            "audit_logs": logs,
+            "page_obj": page_obj,
         }
     )
 
@@ -2199,10 +2416,108 @@ def run_automation_scan(request):
 
 @login_required
 def all_automation_logs(request):
-    memberships = OrganizationMembership.objects.filter(user=request.user)
+    logs = AutomationLog.objects.filter(
+        organization__memberships__user=request.user
+    ).select_related('client', 'vehicle', 'organization').order_by('-timestamp').distinct()
+    
+    paginator = Paginator(logs, 12)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    return render(request, 'core/all_automation_logs.html', {'page_obj': page_obj})
+
+@login_required
+def upcoming_expirations_view(request):
     organizations = Organization.objects.filter(memberships__user=request.user).distinct()
-    logs = AutomationLog.objects.filter(organization__in=organizations).select_related('vehicle', 'client', 'organization').order_by('-timestamp')
-    return render(request, 'core/all_automation_logs.html', {'logs': logs})
+    today = timezone.now().date()
+    forty_five_days_later = today + timezone.timedelta(days=45)
+    
+    upcoming_expirations = Vehicle.objects.filter(
+        client__organization__in=organizations,
+        registration_expiration_date__isnull=False,
+        registration_expiration_date__lte=forty_five_days_later
+    ).select_related('client').order_by('registration_expiration_date')
+    
+    paginator = Paginator(upcoming_expirations, 12)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    return render(request, 'core/upcoming_expirations.html', {
+        'page_obj': page_obj,
+        'today': today,
+    })
+@login_required
+@require_POST
+def bulk_send_reminders(request):
+    import json
+    from .tasks import process_vehicle_reminder
+    
+    try:
+        data = json.loads(request.body)
+        vehicle_ids = data.get('vehicle_ids', [])
+    except Exception:
+        return JsonResponse({"status": "error", "message": "Invalid request data."}, status=400)
+
+    if not vehicle_ids:
+        return JsonResponse({"status": "error", "message": "No vehicles selected."}, status=400)
+
+    count = 0
+    today = timezone.now().date()
+    
+    for v_id in vehicle_ids:
+        try:
+            vehicle = Vehicle.objects.get(id=v_id)
+            # Permission check per vehicle
+            if OrganizationMembership.objects.filter(user=request.user, organization=vehicle.client.organization).exists():
+                days_left = (vehicle.registration_expiration_date - today).days
+                
+                if days_left <= 0: log_type = "expired_warning"
+                elif days_left <= 15: log_type = "reminder_15"
+                elif days_left <= 30: log_type = "reminder_30"
+                else: log_type = "reminder_45"
+                
+                process_vehicle_reminder(vehicle.id, days_left, log_type, force_sync=True)
+                count += 1
+        except Exception:
+            continue
+            
+    return JsonResponse({"status": "success", "count": count})
+
+
+@login_required
+def send_manual_reminder(request, vehicle_id):
+    from .tasks import process_vehicle_reminder
+    vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+    
+    # Check permission
+    memberships = OrganizationMembership.objects.filter(user=request.user, organization=vehicle.client.organization)
+    if not memberships.exists():
+        messages.error(request, "You do not have permission to send reminders for this client.")
+        return redirect('dashboard')
+
+    today = timezone.now().date()
+    days_left = (vehicle.registration_expiration_date - today).days
+    
+    # Determine log type based on proximity
+    if days_left <= 0:
+        log_type = "expired_warning"
+    elif days_left <= 15:
+        log_type = "reminder_15"
+    elif days_left <= 30:
+        log_type = "reminder_30"
+    else:
+        log_type = "reminder_45"
+        
+    try:
+        process_vehicle_reminder(vehicle.id, days_left, log_type, force_sync=True)
+        messages.success(request, f"Registration reminder successfully sent to {vehicle.client.name}.")
+    except Exception as e:
+        messages.error(request, f"Failed to send email: {str(e)}")
+    
+    # Redirect back to where they came from
+    referer = request.META.get('HTTP_REFERER')
+    if referer:
+        return redirect(referer)
+    return redirect('upcoming-expirations')
 
 @login_required
 @require_POST
@@ -2304,6 +2619,143 @@ def ocr_dl_ajax(request):
         except Exception as e:
             return JsonResponse({"status": "error", "message": "OCR Error: " + str(e)})
             
+@login_required
+def finance_hub(request):
+    """
+    Brilliant Financial & BI Hub for Agency Analytics.
+    """
+    organizations = Organization.objects.filter(memberships__user=request.user).distinct()
+    records = ServiceRecord.objects.filter(organization__in=organizations)
+    
+    # KPIs
+    total_revenue = records.aggregate(Sum('service_fee'))['service_fee__sum'] or Decimal("0")
+    total_services = records.count()
+    
+    now = timezone.now()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0)
+    month_revenue = records.filter(created_at__gte=month_start).aggregate(Sum('service_fee'))['service_fee__sum'] or Decimal("0")
+    
+    # Last 6 Months Chart Data
+    import datetime
+    chart_labels = []
+    chart_data = []
+    for i in range(5, -1, -1):
+        d = now - datetime.timedelta(days=i*30)
+        m_start = d.replace(day=1, hour=0, minute=0, second=0)
+        if i == 0:
+            m_end = now
+        else:
+            m_end = (m_start + datetime.timedelta(days=32)).replace(day=1)
+        
+        m_label = m_start.strftime("%b %Y")
+        m_rev = records.filter(created_at__range=(m_start, m_end)).aggregate(Sum('service_fee'))['service_fee__sum'] or Decimal("0")
+        
+        chart_labels.append(m_label)
+        chart_data.append(float(m_rev))
+
+    # Service Type Breakdown
+    service_counts = records.values('service_type').annotate(count=Count('id')).order_by('-count')[:5]
+    pie_labels = [s['service_type'].replace('_', ' ').title() for s in service_counts]
+    pie_data = [s['count'] for s in service_counts]
+
+    avg_order_value = total_revenue / total_services if total_services > 0 else Decimal("0")
+
+    context = {
+        "total_revenue": total_revenue,
+        "total_services": total_services,
+        "month_revenue": month_revenue,
+        "avg_order_value": avg_order_value,
+        "chart_labels": json.dumps(chart_labels),
+        "chart_data": json.dumps(chart_data),
+        "pie_labels": json.dumps(pie_labels),
+        "pie_data": json.dumps(pie_data),
+        "today": now.date(),
+    }
+    return render(request, "core/finance_hub.html", context)
+
+
+@login_required
+def yearly_report_pdf(request):
+    owner_org_ids = OrganizationMembership.objects.filter(user=request.user, role=OrganizationMembership.Role.OWNER).values_list("organization_id", flat=True)
+    if not owner_org_ids: return HttpResponseForbidden("Owner access required.")
+    
+    today = timezone.localdate()
+    qs = ServiceRecord.objects.filter(organization_id__in=owner_org_ids, created_at__year=today.year)
+    return _generate_report_v2(request, qs, "Annual Audit", f"Fiscal Year Summary | {today.year}", f"yearly-audit-{today.year}.pdf")
+
+
+@login_required
+def custom_range_report_pdf(request):
+    start_str, end_str = request.GET.get('from'), request.GET.get('to')
+    if not start_str or not end_str: return HttpResponse("Missing date parameters.", status=400)
+    
+    from datetime import datetime
+    start, end = datetime.strptime(start_str, '%Y-%m-%d').date(), datetime.strptime(end_str, '%Y-%m-%d').date()
+    owner_org_ids = OrganizationMembership.objects.filter(user=request.user, role=OrganizationMembership.Role.OWNER).values_list("organization_id", flat=True)
+    
+    qs = ServiceRecord.objects.filter(organization_id__in=owner_org_ids, created_at__date__range=(start, end))
+    return _generate_report_v2(request, qs, "Custom Audit", f"Range: {start} to {end}", f"custom-audit-{start}-to-{end}.pdf")
+
+def _generate_report_v2(request, qs, title, subtitle, filename):
+    from decimal import Decimal
+    totals = qs.aggregate(rev=Sum('service_fee'), prof=Sum('processing_fee'))
+    status_counts = {"total": qs.count(), "comp": qs.filter(status='completed').count()}
+    
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    pdf = canvas.Canvas(response, pagesize=A4)
+    width, height = A4
+    margin = 40
+    
+    # Elite Navy Theme
+    navy, gold = colors.Color(0.06, 0.09, 0.16), colors.Color(0.85, 0.65, 0.13)
+    
+    # Header
+    pdf.setFillColor(navy)
+    pdf.rect(0, height-120, width, 120, fill=1, stroke=0)
+    pdf.setFillColor(gold); pdf.rect(0, height-123, width, 3, fill=1, stroke=0)
+    
+    pdf.setFillColor(colors.white)
+    pdf.setFont("Helvetica-Bold", 24); pdf.drawString(margin, height-60, title)
+    pdf.setFont("Helvetica", 11); pdf.setFillColor(colors.Color(0.8,0.8,0.8))
+    pdf.drawString(margin, height-80, subtitle)
+    
+    # Stats
+    y = height - 180
+    pdf.setFillColor(colors.Color(0.97,0.98,1.0)); pdf.roundRect(margin, y-60, width-(margin*2), 70, 10, fill=1, stroke=0)
+    pdf.setFillColor(navy); pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(margin+20, y-10, "GROSS REVENUE"); pdf.drawString(width/2 - 40, y-10, "AGENCY PROFIT"); pdf.drawString(width-margin-100, y-10, "TOTAL VOLUME")
+    
+    pdf.setFont("Helvetica-Bold", 18)
+    pdf.drawString(margin+20, y-35, _currency(totals['rev'] or 0))
+    pdf.drawString(width/2 - 40, y-35, _currency(totals['prof'] or 0))
+    pdf.drawString(width-margin-100, y-35, str(status_counts['total']))
+    
+    # Table
+    y -= 120
+    pdf.setFont("Helvetica-Bold", 12); pdf.setFillColor(navy); pdf.drawString(margin, y, "Service Breakdown")
+    pdf.setFillColor(gold); pdf.rect(margin, y-4, 40, 2, fill=1, stroke=0)
+    
+    y -= 40
+    pdf.setFillColor(navy); pdf.roundRect(margin, y-5, width-(margin*2), 25, 5, fill=1, stroke=0)
+    pdf.setFillColor(colors.white); pdf.setFont("Helvetica-Bold", 9)
+    pdf.drawString(margin+10, y+2, "SERVICE TYPE"); pdf.drawRightString(width-margin-10, y+2, "REVENUE")
+    
+    y -= 30
+    rows = qs.values('service_type').annotate(t=Count('id'), a=Sum('service_fee')).order_by('-t')
+    service_map = dict(ServiceRecord.SERVICE_TYPES)
+    for row in rows:
+        pdf.setFillColor(navy); pdf.setFont("Helvetica", 10)
+        pdf.drawString(margin+10, y, service_map.get(row['service_type'], row['service_type']).upper())
+        pdf.drawRightString(width-margin-10, y, _currency(row['a']))
+        pdf.setStrokeColor(colors.lightgrey); pdf.line(margin, y-5, width-margin, y-5)
+        y -= 25
+        if y < 50: pdf.showPage(); y = height - 50
+        
+    pdf.save()
+    return response
+
+
 @login_required
 def session_heartbeat(request):
     """

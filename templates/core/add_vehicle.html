@@ -36,11 +36,15 @@
 
                 <div id="vin-warning" style="display: none;"></div>
 
-                <!-- Row 1: Type, VIN, Plate -->
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                <!-- Row 1: Type, Plate Type, VIN, Plate -->
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
                     <div class="field-wrap">
-                        <label>Type of Vehicle</label>
+                        <label>Vehicle Type</label>
                         {{ form.vehicle_type }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Plates Type</label>
+                        {{ form.plate_type }}
                     </div>
                     <div class="field-wrap">
                         <label>VIN (Mandatory)</label>
@@ -52,6 +56,29 @@
                     <div class="field-wrap">
                         <label>Plate Number</label>
                         {{ form.plate_number }}
+                    </div>
+                </div>
+
+                <!-- Row 2: Insurance Details (New Section) -->
+                <div style="background: #f8fafc; padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem; border: 1px solid #e2e8f0;">
+                    <h3 style="font-size: 0.9rem; color: #64748b; text-transform: uppercase; margin-bottom: 1rem; letter-spacing: 0.5px;">Insurance Information</h3>
+                    <div class="form-row" style="display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 1.5rem;">
+                        <div class="field-wrap">
+                            <label>Insurance Company</label>
+                            {{ form.insurance_company }}
+                        </div>
+                        <div class="field-wrap">
+                            <label>Policy Number</label>
+                            {{ form.insurance_policy_number }}
+                        </div>
+                        <div class="field-wrap">
+                            <label>Effective Date</label>
+                            {{ form.insurance_effective_date }}
+                        </div>
+                        <div class="field-wrap">
+                            <label>Expiration Date</label>
+                            {{ form.insurance_expiration_date }}
+                        </div>
                     </div>
                 </div>
 
@@ -119,7 +146,7 @@
                 </div>
 
                 <!-- Row 6: Dates -->
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
                     <div class="field-wrap">
                         <label>Reg. Effective Date</label>
                         {{ form.registration_effective_date }}
@@ -127,10 +154,6 @@
                     <div class="field-wrap">
                         <label>Reg. Expiration Date</label>
                         {{ form.registration_expiration_date }}
-                    </div>
-                    <div class="field-wrap">
-                        <label>Insurance Exp. Date</label>
-                        {{ form.insurance_expiration_date }}
                     </div>
                 </div>
 

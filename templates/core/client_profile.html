@@ -119,9 +119,10 @@
                                                 data-receipt="{{ record.receipt_number|escapejs }}">
                                                 Docs
                                             </button>
+                                            
                                             <a href="{% url 'service-receipt-pdf' record.id %}"
                                                 class="btn btn-sm btn-secondary"
-                                                style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">Receipt</a>
+                                                style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" title="View Receipt">Receipt</a>
                                         </div>
                                     </td>
                                 </tr>
@@ -250,6 +251,34 @@
                     trs[i].style.display = "";
                 } else {
                     trs[i].style.display = "none";
+                }
+            }
+        }
+    }
+
+    function toggleFormDropdown(id) {
+        const dropdown = document.getElementById(`dropdown-${id}`);
+        const allDropdowns = document.querySelectorAll('.dropdown-content');
+        
+        allDropdowns.forEach(d => {
+            if (d.id !== `dropdown-${id}`) d.style.display = 'none';
+        });
+
+        if (dropdown.style.display === 'none' || dropdown.style.display === '') {
+            dropdown.style.display = 'block';
+        } else {
+            dropdown.style.display = 'none';
+        }
+    }
+
+    // Close dropdowns when clicking outside
+    window.onclick = function(event) {
+        if (!event.target.matches('.btn')) {
+            const dropdowns = document.getElementsByClassName("dropdown-content");
+            for (let i = 0; i < dropdowns.length; i++) {
+                const openDropdown = dropdowns[i];
+                if (openDropdown.style.display === 'block') {
+                    openDropdown.style.display = 'none';
                 }
             }
         }

@@ -4,7 +4,7 @@ from .models import Organization, OrganizationMembership, ServiceAuditLog, Servi
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
-    list_display = ("name", "address_line", "city", "state", "slug", "created_at")
+    list_display = ("name", "address_line", "city", "state", "slug", "is_automation_enabled", "created_at")
     list_filter = ("state", "city")
     search_fields = ("name", "address_line", "city", "state", "slug")
 

@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}">
+<style>
+    .policy-content {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 4rem 2rem;
+        color: var(--text-muted-light);
+        line-height: 1.8;
+    }
+    .policy-content h2 {
+        color: var(--text-main-light);
+        margin-top: 3rem;
+        margin-bottom: 1.5rem;
+    }
+    .disclaimer-box {
+        background: #fff5f5;
+        border: 1px solid #feb2b2;
+        padding: 2rem;
+        border-radius: 16px;
+        margin: 3rem 0;
+        display: flex;
+        gap: 1.5rem;
+        align-items: center;
+    }
+    .disclaimer-icon {
+        font-size: 2rem;
+    }
+    .disclaimer-text {
+        color: #c53030;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="site-shell">
+    <div class="contact-hero-wrapper">
+        <header class="site-header">
+            <div class="site-header-inner">
+                <a href="{% url 'home' %}" class="site-brand">
+                    <img src="{% static 'core/img/regimanager-logo.svg' %}" alt="RegiManager" class="site-logo" style="height: 45px; width: auto;">
+                </a>
+
+                <nav class="site-nav">
+                    <a href="{% url 'home' %}#home">Platform</a>
+                    <a href="{% url 'home' %}#solutions">Solutions</a>
+                    <a href="{% url 'home' %}#pricing">Pricing</a>
+                    <a href="{% url 'contact' %}">Contact</a>
+                </nav>
+
+                <div class="header-actions">
+                    {% if user.is_authenticated %}
+                        <a href="{% url 'dashboard' %}" class="btn btn-primary btn-sm">Dashboard</a>
+                    {% else %}
+                        <a href="{% url 'login' %}" class="btn btn-secondary btn-sm" style="margin-right: 1rem;">Sign In</a>
+                        <a href="{% url 'member-signup' %}" class="btn btn-primary btn-sm">Get Started</a>
+                    {% endif %}
+                </div>
+            </div>
+        </header>
+
+        <section class="site-hero contact-hero">
+            <div class="site-hero-content reveal active">
+                <span class="brand-pill">Legal & Privacy</span>
+                <h1 style="color: white !important;">Your Privacy is our Priority.</h1>
+                <p>Learn how we protect your agency data and maintain the highest standards of operational security.</p>
+            </div>
+        </section>
+    </div>
+
+    <div class="contact-content-wrapper">
+        <section class="site-section reveal active">
+            <div class="policy-content">
+                <div class="policy-visual reveal active" style="text-align: center; margin-bottom: 4rem;">
+                    <img src="{% static 'core/img/privacy_premium.png' %}" alt="Privacy and Security" style="max-width: 500px; width: 100%; border-radius: 32px; box-shadow: 0 40px 80px rgba(0,0,0,0.05);">
+                </div>
+
+                <div class="disclaimer-box reveal active">
+                    <div class="disclaimer-icon">⚠️</div>
+                    <div class="disclaimer-text">
+                        IMPORTANT LEGAL DISCLAIMER: This software solution is not affiliated with or operated by or endorsed by the DMV. RegiManager is an independent platform designed for private agency management.
+                    </div>
+                </div>
+
+                <h2>1. Information We Collect</h2>
+                <p>
+                    We collect information necessary to provide professional DMV agency management services. This includes agent credentials, client registration data, and vehicle transaction details. All data is handled with enterprise-grade encryption.
+                </p>
+
+                <h2>2. How We Use Data</h2>
+                <p>
+                    Data is used exclusively for the operation of your agency portal, including VIN decoding, report generation, and automated notifications. We do not sell or share your operational data with third-party marketing entities.
+                </p>
+
+                <h2>3. Security Standards</h2>
+                <p>
+                    Our platform utilizes SSL/TLS encryption for all data in transit and AES-256 encryption for sensitive data at rest. We conduct regular security audits to ensure your agency data remains protected against unauthorized access.
+                </p>
+
+                <h2>4. Compliance</h2>
+                <p>
+                    Users are responsible for ensuring that their use of RegiManager complies with local state laws and DMV regulations. As stated above, this platform is an independent tool and not an official government system.
+                </p>
+            </div>
+        </section>
+    </div>
+</main>
+
+<script>
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) entry.target.classList.add('active');
+        });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+{% endblock %}

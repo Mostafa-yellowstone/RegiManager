@@ -28,8 +28,7 @@ def send_automation_email(to_email, subject, template_name, context):
         fail_silently=False,
     )
 
-@shared_task
-def process_vehicle_reminder(vehicle_id, days, log_type):
+def process_vehicle_reminder(vehicle_id, days, log_type, force_sync=False):
     """
     Atomic task to process a reminder for a single vehicle.
     Allows for parallel processing and individual retries.
@@ -55,9 +54,9 @@ def process_vehicle_reminder(vehicle_id, days, log_type):
         if is_renewed or explicitly_stopped:
             return f"Reminders stopped for vehicle {vehicle_id}"
 
-        # 2. Prevent duplicate reminders for the same day/type
+        # 2. Prevent duplicate reminders for the same day/type (unless forced sync)
         now = timezone.localdate()
-        if AutomationLog.objects.filter(
+        if not force_sync and AutomationLog.objects.filter(
             vehicle=vehicle, 
             log_type=log_type, 
             timestamp__date=now
@@ -77,12 +76,15 @@ def process_vehicle_reminder(vehicle_id, days, log_type):
         context = {
             "client_name": client.name,
             "vehicle_name": str(vehicle),
-            "expiration_date": vehicle.registration_expiration_date.strftime("%B %d, %Y"),
+            "expiration_date": vehicle.registration_expiration_date.strftime("%B %d, %Y") if vehicle.registration_expiration_date else "N/A",
             "days_left": days,
             "cta_link": f"{settings.BASE_URL}/dashboard/vehicles/{vehicle.id}/" if hasattr(settings, 'BASE_URL') else "#",
         }
         
-        send_automation_email.delay(client.email, subject, template, context)
+        if force_sync:
+            send_automation_email(client.email, subject, template, context)
+        else:
+            send_automation_email.delay(client.email, subject, template, context)
         
         # 4. Log the automation
         AutomationLog.objects.create(

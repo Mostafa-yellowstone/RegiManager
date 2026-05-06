@@ -1,46 +1,106 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}{{ title }} | RegiManager{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}">
+{% endblock %}
 
 {% block content %}
-<main class="auth-shell">
-    <section class="auth-card">
-        <div class="brand-pill">Modern DMV-Agency Portal</div>
-        <h1>{{ title }}</h1>
-        <p class="subtitle">{{ subtitle }}</p>
+<main class="site-shell">
+    <div class="auth-hero-wrapper">
+        <header class="site-header">
+            <div class="site-header-inner">
+                <a href="{% url 'home' %}" class="site-brand">
+                    <img src="{% static 'core/img/regimanager-logo.svg' %}" alt="RegiManager" class="site-logo" style="height: 52px; width: auto;">
+                    
+                </a>
 
-        {% if messages %}
-            <div class="messages">
-                {% for message in messages %}
-                    <div class="message {{ message.tags }}">{{ message }}</div>
-                {% endfor %}
-            </div>
-        {% endif %}
+                <nav class="site-nav">
+                    <a href="{% url 'home' %}#home">Platform</a>
+                    <a href="{% url 'home' %}#solutions">Solutions</a>
+                    <a href="{% url 'home' %}#pricing">Pricing</a>
+                    <a href="{% url 'contact' %}">Support</a>
+                </nav>
 
-        <form method="post" class="auth-form">
-            {% csrf_token %}
-            {% for field in form %}
-                <div class="field-wrap">
-                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.errors %}
-                        <div class="field-error">{{ field.errors|striptags }}</div>
-                    {% endif %}
+                <div class="header-actions">
+                    <a href="{% url 'home' %}" class="btn btn-secondary btn-sm">Back to Home</a>
                 </div>
-            {% endfor %}
-            {% if form.non_field_errors %}
-                <div class="field-error">{{ form.non_field_errors|striptags }}</div>
-            {% endif %}
-            <button type="submit" class="btn btn-primary full">{{ submit_text }}</button>
-        </form>
+            </div>
+        </header>
 
-        <div class="switch-links">
-            <p>{{ switch_label }} <a href="{% url switch_url %}">{{ switch_text }}</a></p>
-            {% if secondary_switch_label and secondary_switch_url and secondary_switch_text %}
-                <p>{{ secondary_switch_label }} <a href="{% url secondary_switch_url %}">{{ secondary_switch_text }}</a></p>
-            {% endif %}
-            <p><a href="{% url 'home' %}">Back to landing page</a></p>
-        </div>
-    </section>
+        <section class="site-hero auth-hero">
+            <div class="site-hero-content reveal active">
+                <span class="brand-pill">Secure Access</span>
+                <h1 style="color: white !important;">Welcome to RegiManager.</h1>
+                <p>Enterprise DMV management starts here. Securely sign in or create your agent account.</p>
+            </div>
+        </section>
+    </div>
+
+    <div class="auth-content-wrapper">
+        <section class="site-section">
+            <div class="auth-container">
+                <div class="auth-visual-card reveal active">
+                    <img src="{% static 'core/img/auth_premium.png' %}" alt="Secure Authentication" style="width: 100%; border-radius: 32px; box-shadow: 0 40px 80px rgba(0,0,0,0.1);">
+                    <div style="margin-top: 3rem; text-align: center;">
+                        <h3 style="color: var(--text-main-light); margin-bottom: 1rem;">Bank-Level Security</h3>
+                        <p style="color: var(--text-muted-light);">All agency data is encrypted with AES-256 and protected by enterprise-grade firewalls.</p>
+                    </div>
+                </div>
+
+                <div class="auth-form-card reveal active">
+                    <div class="auth-header">
+                        <h2>{{ title }}</h2>
+                        <p>{{ subtitle }}</p>
+                    </div>
+
+                    {% if messages %}
+                        <style>
+                            .alert-msg-error { padding: 1rem; border-radius: 12px; margin-bottom: 2rem; background: #fff5f5; border: 1px solid #feb2b2; color: #c53030; }
+                            .alert-msg-success { padding: 1rem; border-radius: 12px; margin-bottom: 2rem; background: #f0fff4; border: 1px solid #9ae6b4; color: #276749; }
+                        </style>
+                        {% for message in messages %}
+                            <div class="{% if message.tags == 'error' %}alert-msg-error{% else %}alert-msg-success{% endif %}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <form method="post" class="auth-form">
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <div class="form-group">
+                                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                {{ field }}
+                                {% if field.errors %}
+                                    <p style="color: #c53030; font-size: 0.85rem; margin-top: 0.5rem;">{{ field.errors.0 }}</p>
+                                {% endif %}
+                                {% if field.help_text %}
+                                    <p style="color: var(--text-muted-light); font-size: 0.8rem; margin-top: 0.5rem;">{{ field.help_text }}</p>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+
+                        <button type="submit" class="btn btn-primary">
+                            {{ submit_text }}
+                        </button>
+                    </form>
+
+                    <div class="auth-footer">
+                        <p>{{ switch_label }} <a href="{% url switch_url %}">{{ switch_text }}</a></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
 </main>
+
+<script>
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) entry.target.classList.add('active');
+        });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
 {% endblock %}

@@ -36,6 +36,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://0.0.0.0:8000",
 ]
 
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
 
 # Application definition
 
@@ -107,6 +109,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "core.translations.translation_processor",
+                "core.context_processors.automation_status",
             ],
         },
     },

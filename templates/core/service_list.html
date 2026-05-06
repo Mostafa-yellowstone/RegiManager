@@ -60,7 +60,7 @@
                             </tr>
                         </thead>
                         <tbody id="service-table-body">
-                            {% for record in records %}
+                            {% for record in page_obj %}
                                 <tr>
                                     <td>{{ record.created_at|date:"Y-m-d H:i" }}</td>
                                     <td><strong>{{ record.receipt_number }}</strong></td>
@@ -103,12 +103,40 @@
                                 </tr>
                             {% empty %}
                                 <tr>
-                                    <td colspan="8" class="empty-state">No records found matching your criteria.</td>
+                                    <td colspan="9" class="empty-state">No records found matching your criteria.</td>
                                 </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Premium Pagination Controls -->
+                {% if page_obj.has_other_pages %}
+                <div class="pagination-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-top: 1px solid #f1f5f9; background: #f8fafc; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">
+                        Showing <span style="color: #0f172a;">{{ page_obj.start_index }}-{{ page_obj.end_index }}</span> of <span style="color: #0f172a;">{{ page_obj.paginator.count }}</span> records
+                    </div>
+                    <div class="pagination-nav" style="display: flex; gap: 0.5rem; align-items: center;">
+                        {% if page_obj.has_previous %}
+                            <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="btn btn-secondary btn-sm" style="background: white; border: 1px solid #e2e8f0;">Previous</a>
+                        {% endif %}
+
+                        <div style="display: flex; gap: 0.25rem;">
+                            {% for i in page_obj.paginator.page_range %}
+                                {% if page_obj.number == i %}
+                                    <span class="btn btn-primary btn-sm" style="background: #0f172a; border: none; min-width: 32px;">{{ i }}</span>
+                                {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+                                    <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="btn btn-secondary btn-sm" style="background: white; border: 1px solid #e2e8f0; min-width: 32px;">{{ i }}</a>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+
+                        {% if page_obj.has_next %}
+                            <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="btn btn-secondary btn-sm" style="background: white; border: 1px solid #e2e8f0;">Next</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
             </article>
         </section>
     </section>

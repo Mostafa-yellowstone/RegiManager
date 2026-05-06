@@ -20,7 +20,7 @@
                 </div>
                 <div style="background: rgba(255,255,255,0.05); padding: 1.5rem; border-radius: 16px; text-align: center; border: 1px solid rgba(255,255,255,0.1);">
                     <span style="display: block; color: #94a3b8; font-size: 0.8rem; font-weight: 700; text-transform: uppercase;">Total Events</span>
-                    <strong style="color: #3b82f6; font-size: 2rem;">{{ logs.count }}</strong>
+                    <strong style="color: #3b82f6; font-size: 2rem;">{{ page_obj.paginator.count }}</strong>
                 </div>
             </div>
         </header>
@@ -38,7 +38,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for log in logs %}
+                        {% for log in page_obj %}
                         <tr style="transition: transform 0.2s; cursor: default;">
                             <td style="padding: 1.2rem 1rem; border-bottom: 1px solid #f1f5f9;">
                                 <div style="font-weight: 600; color: #0f172a;">{{ log.timestamp|date:"M d, Y" }}</div>
@@ -73,7 +73,34 @@
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
+
+                <!-- Premium Pagination Controls -->
+                {% if page_obj.has_other_pages %}
+                <div class="pagination-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-top: 1px solid #f1f5f9; background: #f8fafc; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; margin-top: 2rem;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">
+                        Showing <span style="color: #0f172a;">{{ page_obj.start_index }}-{{ page_obj.end_index }}</span> of <span style="color: #0f172a;">{{ page_obj.paginator.count }}</span> events
+                    </div>
+                    <div class="pagination-nav" style="display: flex; gap: 0.5rem; align-items: center;">
+                        {% if page_obj.has_previous %}
+                            <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-secondary btn-sm" style="background: white; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; border-radius: 8px; text-decoration: none; color: #475569; font-size: 0.85rem; font-weight: 600;">Previous</a>
+                        {% endif %}
+
+                        <div style="display: flex; gap: 0.25rem;">
+                            {% for i in page_obj.paginator.page_range %}
+                                {% if page_obj.number == i %}
+                                    <span style="background: #0f172a; color: white; padding: 0.5rem 0.8rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600;">{{ i }}</span>
+                                {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+                                    <a href="?page={{ i }}" style="background: white; border: 1px solid #e2e8f0; padding: 0.5rem 0.8rem; border-radius: 8px; text-decoration: none; color: #475569; font-size: 0.85rem; font-weight: 600;">{{ i }}</a>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+
+                        {% if page_obj.has_next %}
+                            <a href="?page={{ page_obj.next_page_number }}" class="btn btn-secondary btn-sm" style="background: white; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; border-radius: 8px; text-decoration: none; color: #475569; font-size: 0.85rem; font-weight: 600;">Next</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
         </section>
     </section>
 </main>

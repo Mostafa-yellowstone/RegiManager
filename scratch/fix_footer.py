@@ -1,23 +1,10 @@
-{% load static i18n %}
-<!DOCTYPE html>
-<html lang="{{ request.LANGUAGE_CODE }}">
+import sys
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}RegiManager DMV Portal{% endblock %}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'core/css/dmv-auth.css' %}?v=footer-1">
-    {% block extra_head %}{% endblock %}
-</head>
+file_path = r'c:\Users\mystr\RegiManager\templates\base.html'
+with open(file_path, 'r', encoding='utf-8') as f:
+    lines = f.readlines()
 
-<body>
-    <div style="display:none;">{% csrf_token %}</div>
-    {% block content %}{% endblock %}
-
-    {% block site_footer %}
+new_footer = """    {% block site_footer %}
     <footer class="site-footer" role="contentinfo" style="background: #0f172a; padding: 4rem 0 2rem; color: #94a3b8; font-family: 'Inter', sans-serif;">
         <div class="site-footer-inner" style="max-width: 1200px; margin: 0 auto; padding: 0 2rem;">
             <div class="site-footer-top" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 4rem; padding-bottom: 3rem; border-bottom: 1px solid rgba(255,255,255,0.1);">
@@ -36,12 +23,6 @@
                         </a>
                         <a href="#" style="color: #94a3b8; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#94a3b8'">
                             <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z"/></svg>
-                        </a>
-                        <a href="#" aria-label="X (formerly Twitter)" style="color: #94a3b8; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#94a3b8'">
-                            <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.045 4.126H5.078z"/></svg>
-                        </a>
-                        <a href="#" aria-label="YouTube" style="color: #94a3b8; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#94a3b8'">
-                            <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
                         </a>
                     </div>
                 </div>
@@ -76,61 +57,12 @@
         </div>
     </footer>
     {% endblock site_footer %}
-    {% if user.is_authenticated %}
-    <script>
-        // Enterprise Security Heartbeat: Checks session status every 15 seconds
-        setInterval(function () {
-            fetch("{% url 'session-heartbeat' %}")
-                .then(response => {
-                    // If we get a 302 or if the response URL is different (login page), redirect
-                    if (response.redirected) {
-                        window.location.href = "{% url 'login' %}?msg=session_expired";
-                    }
-                })
-                .catch(error => {
-                    console.error('Heartbeat failed:', error);
-                });
-        }, 15000); // 15 seconds
-    </script>
-    {% endif %}
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    {% if messages %}
-    <script id="django-messages" type="application/json">
-        [
-            {% for message in messages %}
-                {
-                    "tags": "{{ message.tags|escapejs }}",
-                    "text": "{{ message|escapejs }}"
-                }{% if not forloop.last %},{% endif %}
-            {% endfor %}
-        ]
-    </script>
-    {% endif %}
+"""
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const messageElement = document.getElementById('django-messages');
-            if (messageElement) {
-                const messages = JSON.parse(messageElement.textContent);
-                messages.forEach(msg => {
-                    let icon = 'info';
-                    let title = 'Attention';
-                    if (msg.tags.includes('success')) { icon = 'success'; title = 'Operation Successful'; }
-                    else if (msg.tags.includes('error') || msg.tags.includes('danger')) { icon = 'error'; title = 'System Error'; }
-                    else if (msg.tags.includes('warning')) { icon = 'warning'; }
+out_lines = lines[:19] + [new_footer] + lines[80:]
 
-                    Swal.fire({
-                        icon: icon,
-                        title: title,
-                        text: msg.text,
-                        confirmButtonColor: '#093de6',
-                        timer: 5000,
-                        timerProgressBar: true
-                    });
-                });
-            }
-        });
-    </script>
-</body>
-
-</html>
+with open(file_path, 'w', encoding='utf-8') as f:
+    for line in out_lines:
+        if not line.endswith('\n'):
+            line += '\n'
+        f.write(line)

@@ -60,7 +60,7 @@
                         </tr>
                     </thead>
                     <tbody id="client-table-body">
-                        {% for client in clients %}
+                        {% for client in page_obj %}
                             <tr>
                                 <td>
                                     <div style="display: flex; align-items: center; gap: 1rem;">
@@ -112,6 +112,34 @@
                         {% endfor %}
                     </tbody>
                 </table>
+
+                <!-- Premium Pagination Controls -->
+                {% if page_obj.has_other_pages %}
+                <div class="pagination-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-top: 1px solid #f1f5f9; background: #f8fafc; border-bottom-left-radius: 24px; border-bottom-right-radius: 24px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">
+                        Showing <span style="color: #0f172a;">{{ page_obj.start_index }}-{{ page_obj.end_index }}</span> of <span style="color: #0f172a;">{{ page_obj.paginator.count }}</span> clients
+                    </div>
+                    <div class="pagination-nav" style="display: flex; gap: 0.5rem; align-items: center;">
+                        {% if page_obj.has_previous %}
+                            <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary btn-sm" style="background: white; border: 1px solid #e2e8f0;">Previous</a>
+                        {% endif %}
+
+                        <div style="display: flex; gap: 0.25rem;">
+                            {% for i in page_obj.paginator.page_range %}
+                                {% if page_obj.number == i %}
+                                    <span class="btn btn-primary btn-sm" style="background: #0f172a; border: none; min-width: 32px;">{{ i }}</span>
+                                {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+                                    <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary btn-sm" style="background: white; border: 1px solid #e2e8f0; min-width: 32px;">{{ i }}</a>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+
+                        {% if page_obj.has_next %}
+                            <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary btn-sm" style="background: white; border: 1px solid #e2e8f0;">Next</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </article>
     </section>

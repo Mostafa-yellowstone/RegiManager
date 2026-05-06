@@ -1,0 +1,9 @@
+<svg width="240" height="50" viewBox="0 0 240 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Stylized Icon (R + Checkmark) -->
+  <path d="M10 40V10H25C32 10 35 14 35 18C35 22 32 26 25 26H18L28 40" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M30 25L38 33L50 15" stroke="#1f7ae0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Text: RegiManager -->
+  <text x="60" y="35" font-family="Inter, sans-serif" font-size="24" font-weight="800" fill="#ffffff">Regi</text>
+  <text x="115" y="35" font-family="Inter, sans-serif" font-size="24" font-weight="800" fill="#1f7ae0">Manager</text>
+</svg>

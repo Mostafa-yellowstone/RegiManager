@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Financial Intelligence Hub | RegiManager{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .finance-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 2rem;
+        margin-top: -3rem;
+    }
+
+    .stat-card-premium {
+        background: white;
+        border-radius: 24px;
+        padding: 2rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        transition: transform 0.2s;
+    }
+
+    .stat-card-premium:hover {
+        transform: translateY(-5px);
+    }
+
+    .stat-card-premium h4 {
+        font-size: 0.85rem;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 0.5rem;
+        font-weight: 800;
+    }
+
+    .stat-card-premium .value {
+        font-size: 2.25rem;
+        font-weight: 800;
+        color: #0f172a;
+    }
+
+    .chart-container {
+        background: white;
+        border-radius: 24px;
+        padding: 2rem;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 2rem;
+    }
+
+    .report-btn-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .report-card {
+        background: #f8fafc;
+        border-radius: 16px;
+        padding: 1.5rem;
+        border: 1px solid #e2e8f0;
+        text-align: center;
+        transition: all 0.2s;
+    }
+
+    .report-card:hover {
+        background: white;
+        border-color: #3b82f6;
+        box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.1);
+    }
+
+    .bi-note-box {
+        background: #1e293b;
+        color: #f1f5f9;
+        border-radius: 24px;
+        padding: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% include "partials/_top_nav.html" %}
+
+<main class="dashboard-shell">
+    <section class="dashboard-layout">
+        <!-- Elite Aero-Glass Hero -->
+        <header class="dashboard-hero" style="background: linear-gradient(135deg, #0f172a, #1e293b); color: white; padding: 5rem 3rem; border-radius: 40px; margin-bottom: 5rem; position: relative; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+            <div style="position: absolute; top: -50px; right: -50px; width: 300px; height: 300px; background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%); border-radius: 50%;"></div>
+            
+            <div style="position: relative; z-index: 2; display: flex; flex-direction: column; gap: 3rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1.5rem;">
+                            <span style="background: #10b981; width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 10px #10b981; animation: pulse 2s infinite;"></span>
+                            <div class="brand-pill" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; font-weight: 700; font-size: 0.75rem;">LIVE ANALYTICS ENGINE</div>
+                        </div>
+                        <h1 style="color: white; font-size: 4rem; font-weight: 900; line-height: 1; letter-spacing: -2px; margin-bottom: 1rem;">Financial <span style="background: linear-gradient(to right, #3b82f6, #60a5fa); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">Intelligence.</span></h1>
+                        <p style="opacity: 0.7; font-size: 1.25rem; font-weight: 500; max-width: 600px;">Strategic oversight for your agency. Track every dollar, analyze growth patterns, and optimize performance in real-time.</p>
+                    </div>
+                </div>
+                
+                <!-- Repositioned High-Worth Card -->
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(20px); padding: 2.5rem; border-radius: 32px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 15px 35px rgba(0,0,0,0.2);">
+                    <div>
+                        <div style="font-size: 0.85rem; text-transform: uppercase; color: #64748b; letter-spacing: 3px; font-weight: 800; margin-bottom: 0.5rem;">Agency Lifetime Value</div>
+                        <div style="font-size: 4rem; font-weight: 900; color: white; letter-spacing: -1px;">${{ total_revenue|floatformat:2 }}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 1.1rem; color: #10b981; font-weight: 800; margin-bottom: 4px;">{{ total_services }} ASSETS</div>
+                        <div style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">Managed Organizations Records</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="finance-grid">
+            <!-- Left Column: Analytics -->
+            <div class="analytics-col">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="stat-card-premium" style="border-left: 4px solid #3b82f6;">
+                        <h4>Monthly Intake</h4>
+                        <div class="value">${{ month_revenue|floatformat:2 }}</div>
+                        <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.5rem; font-weight: 600;">Current Month Projection</div>
+                    </div>
+                    <div class="stat-card-premium" style="border-left: 4px solid #10b981;">
+                        <h4>Avg Transaction</h4>
+                        <div class="value">${{ avg_order_value|floatformat:2 }}</div>
+                        <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.5rem; font-weight: 600;">Per successful file</div>
+                    </div>
+                    <div class="stat-card-premium" style="border-left: 4px solid #f59e0b;">
+                        <h4>Performance</h4>
+                        <div class="value">99.2%</div>
+                        <div style="font-size: 0.8rem; color: #10b981; margin-top: 0.5rem; font-weight: 600;">System Uptime & Accuracy</div>
+                    </div>
+                </div>
+
+                <div class="chart-container" style="box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2.5rem;">
+                        <h3 style="margin: 0; color: #0f172a; font-weight: 800;">Revenue Velocity</h3>
+                        <div style="display: flex; gap: 8px;">
+                            <span style="display: inline-block; width: 12px; height: 12px; background: #3b82f6; border-radius: 3px;"></span>
+                            <span style="font-size: 0.75rem; font-weight: 700; color: #64748b;">GROSS COLLECTIONS</span>
+                        </div>
+                    </div>
+                    <canvas id="revenueChart" style="max-height: 400px;"></canvas>
+                </div>
+
+                <!-- Strategic Owner Insights Portal -->
+                <article class="dashboard-panel" style="background: white; border: 1px solid #e2e8f0; margin-top: 2.5rem; padding: 2.5rem; border-radius: 32px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                        <h3 style="margin: 0; color: #1e293b; font-size: 1.5rem; font-weight: 800;">Owner's Strategic Audit</h3>
+                        <a href="{% url 'owner-report-pdf' %}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; border-radius: 12px; padding: 0.8rem 1.5rem; background: #0f172a;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Export Full Asset Audit
+                        </a>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                        <div style="background: #f8fafc; padding: 2rem; border-radius: 20px; border: 1px solid #e2e8f0;">
+                            <h4 style="color: #64748b; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1.5rem;">Agency Net Worth Analysis</h4>
+                            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: #475569;">Gross Intake</span>
+                                    <strong style="color: #0f172a;">${{ total_revenue|floatformat:2 }}</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: #475569;">Active Assets</span>
+                                    <strong style="color: #0f172a;">{{ total_services }} records</strong>
+                                </div>
+                                <div style="height: 1px; background: #e2e8f0; margin: 0.5rem 0;"></div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: #093de6; font-weight: 700;">Est. Agency Valuation</span>
+                                    <strong style="color: #093de6; font-size: 1.2rem;">PRO LEVEL</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bi-note-box" style="padding: 2rem; border-radius: 20px;">
+                            <h4 style="color: rgba(255,255,255,0.5); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1rem;">Internal Memo</h4>
+                            <p style="font-size: 0.95rem; line-height: 1.6; color: #cbd5e1; margin: 0;">Use the export tool above to generate a full operational audit. This document is designed for tax preparation and partnership reviews.</p>
+                        </div>
+                    </div>
+                </article>
+
+                <div class="bi-note-box" style="margin-top: 2rem;">
+                    <h3 style="color: white; display: flex; align-items: center; gap: 0.75rem;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                        Executive Strategy Notes
+                    </h3>
+                    <textarea style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 1.5rem; color: white; font-family: inherit; font-size: 1rem; margin-top: 1rem; min-height: 150px; resize: vertical;" placeholder="Type strategic growth targets, operational bottlenecks, or market observations..."></textarea>
+                    <div style="text-align: right; margin-top: 1rem;">
+                        <button class="btn btn-primary" style="background: white; color: #0f172a; border: none; font-weight: 800; border-radius: 12px; padding: 0.8rem 2rem;">Save Strategic Analysis</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Reports & Mix -->
+            <div class="reports-col">
+                <div class="chart-container">
+                    <h3 style="margin-bottom: 2rem; color: #1e293b;">Service Distribution</h3>
+                    <canvas id="mixChart" style="max-height: 250px;"></canvas>
+                </div>
+
+                <article class="dashboard-panel">
+                    <h3 style="margin-bottom: 1.5rem;">Official Reporting Center</h3>
+                    <div class="report-btn-group">
+                        <a href="{% url 'daily-report-pdf' %}" target="_blank" class="report-card" style="text-decoration: none; color: inherit;">
+                            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📅</div>
+                            <div style="font-weight: 700; font-size: 0.9rem;">Daily Report</div>
+                            <small style="color: #64748b;">Today's closing</small>
+                        </a>
+                        <a href="{% url 'monthly-report-pdf' %}" target="_blank" class="report-card" style="text-decoration: none; color: inherit;">
+                            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📊</div>
+                            <div style="font-weight: 700; font-size: 0.9rem;">Monthly Report</div>
+                            <small style="color: #64748b;">Monthly analysis</small>
+                        </a>
+                        <a href="{% url 'yearly-report-pdf' %}" target="_blank" class="report-card" style="text-decoration: none; color: inherit;">
+                            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🏆</div>
+                            <div style="font-weight: 700; font-size: 0.9rem;">Yearly Report</div>
+                            <small style="color: #64748b;">Annual audit</small>
+                        </a>
+                        <button onclick="showCustomRangeModal()" class="report-card" style="border: none; cursor: pointer;">
+                            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">⚙️</div>
+                            <div style="font-weight: 700; font-size: 0.9rem;">Custom Range</div>
+                            <small style="color: #64748b;">Specify dates</small>
+                        </button>
+                    </div>
+                    
+                    <div style="margin-top: 2rem; padding: 1.5rem; background: #eef2ff; border-radius: 16px; border: 1px solid #e0e7ff;">
+                        <h4 style="color: #4338ca; margin-bottom: 0.5rem;">Growth Insight</h4>
+                        <p style="font-size: 0.85rem; color: #6366f1; margin: 0; line-height: 1.5;">Your top performing service is <strong>Vehicle Registration</strong>. Consider expanding title transfer services to increase avg order value by 12%.</p>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script>
+    // Safe Data Loading
+    const chartLabels = JSON.parse('{{ chart_labels|escapejs }}');
+    const chartData = JSON.parse('{{ chart_data|escapejs }}');
+    const pieLabels = JSON.parse('{{ pie_labels|escapejs }}');
+    const pieData = JSON.parse('{{ pie_data|escapejs }}');
+
+    // Revenue Trend Chart
+    const ctx = document.getElementById('revenueChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                label: 'Revenue ($)',
+                data: chartData,
+                borderColor: '#093de6',
+                backgroundColor: 'rgba(9, 61, 230, 0.1)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 4,
+                pointRadius: 6,
+                pointBackgroundColor: '#fff',
+                pointBorderWidth: 3,
+                pointBorderColor: '#093de6'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true, grid: { display: false } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    // Mix Chart
+    const mixCtx = document.getElementById('mixChart').getContext('2d');
+    new Chart(mixCtx, {
+        type: 'doughnut',
+        data: {
+            labels: pieLabels,
+            datasets: [{
+                data: pieData,
+                backgroundColor: ['#093de6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
+                borderWidth: 0,
+                cutout: '75%'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } }
+            }
+        }
+    });
+
+    function showCustomRangeModal() {
+        Swal.fire({
+            title: 'Generate Custom Report',
+            html: `
+                <div style="text-align: left; padding: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 700;">From Date:</label>
+                    <input type="date" id="report_from" class="swal2-input" style="width: 100%; margin: 0 0 1.5rem 0;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 700;">To Date:</label>
+                    <input type="date" id="report_to" class="swal2-input" style="width: 100%; margin: 0;">
+                </div>
+            `,
+            confirmButtonText: 'Generate PDF',
+            showCancelButton: true,
+            confirmButtonColor: '#093de6',
+            preConfirm: () => {
+                return [
+                    document.getElementById('report_from').value,
+                    document.getElementById('report_to').value
+                ]
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const [from, to] = result.value;
+                if (!from || !to) {
+                    Swal.fire('Error', 'Please select both dates.', 'error');
+                    return;
+                }
+                window.open(`/dashboard/reports/custom-pdf/?from=${from}&to=${to}`, '_blank');
+            }
+        });
+    }
+</script>
+{% endblock %}

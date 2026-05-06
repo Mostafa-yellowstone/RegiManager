@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Official MV-82 PDF Viewer | {{ service.receipt_number }}{% endblock %}
+
+{% block content %}
+<style>
+    .pdf-workspace {
+        background: #323639;
+        height: calc(100vh - 60px);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .pdf-toolbar {
+        background: #202124;
+        padding: 10px 25px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: white;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }
+
+    .pdf-container {
+        flex: 1;
+        width: 100%;
+        border: none;
+    }
+
+    .status-badge {
+        background: #10b981;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+</style>
+
+<div class="pdf-workspace">
+    <div class="pdf-toolbar">
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <a href="{% url 'client-detail' client.id %}" class="btn btn-secondary btn-sm" style="background: transparent; border: 1px solid #555; color: #ccc;">&larr; Exit Viewer</a>
+            <div style="display: flex; flex-direction: column;">
+                <span style="font-weight: 800; font-size: 14px; letter-spacing: 0.5px;">OFFICIAL DMV MV-82 WORKSPACE</span>
+                <span style="font-size: 10px; color: #9aa0a6;">Live Data Integration: {{ client.name }} | {{ vehicle.vin }}</span>
+            </div>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <span class="status-badge">Pre-filled by RegiManager</span>
+            <a href="{% url 'mv82-form-pdf' service.id %}" class="btn btn-primary btn-sm" style="font-weight: 800; background: #3b82f6; border: none;">DOWNLOAD FINAL COPY</a>
+        </div>
+    </div>
+
+    <!-- Embedding the Official Generated PDF -->
+    <div style="flex: 1; background: #525659; display: flex; justify-content: center;">
+        <object data="{% url 'mv82-form-pdf' service.id %}" type="application/pdf" class="pdf-container">
+            <div style="color: white; padding: 40px; text-align: center;">
+                <h3>Unable to display PDF directly</h3>
+                <p>Your browser might be blocking the embedded viewer.</p>
+                <a href="{% url 'mv82-form-pdf' service.id %}" class="btn btn-primary" style="margin-top: 20px;">Open Official PDF in New Tab</a>
+            </div>
+        </object>
+    </div>
+</div>
+
+<script>
+    // Adjust height for full screen
+    document.addEventListener('DOMContentLoaded', function() {
+        const nav = document.querySelector('.top-nav');
+        if (nav) nav.style.marginBottom = '0';
+    });
+</script>
+{% endblock %}

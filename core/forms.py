@@ -75,8 +75,6 @@ class ServiceRecordForm(forms.ModelForm):
             "driver_license_number",
             "phone_no",
             "email",
-            "insurance_expiration_date",
-            "registration_expiration_date",
             "service_type",
             "source",
             "payment_method",
@@ -90,8 +88,6 @@ class ServiceRecordForm(forms.ModelForm):
         ]
         widgets = {
             "notes": forms.TextInput(attrs={"placeholder": "Any additional notes"}),
-            "insurance_expiration_date": forms.DateInput(attrs={"type": "date"}),
-            "registration_expiration_date": forms.DateInput(attrs={"type": "date"}),
         }
         
     field_order = [
@@ -108,8 +104,6 @@ class ServiceRecordForm(forms.ModelForm):
         "driver_license_number",
         "phone_no",
         "email",
-        "insurance_expiration_date",
-        "registration_expiration_date",
         "service_type",
         "source",
         "payment_method",
@@ -285,16 +279,19 @@ class VehicleForm(forms.ModelForm):
     class Meta:
         model = Vehicle
         fields = [
-            "vehicle_type", "vin", "plate_number",
+            "vehicle_type", "plate_type", "vin", "plate_number",
             "vehicle_number", "dl_number",
             "year", "make", "model",
             "body_type", "color", "weight", "fuel_type",
             "cylinders", "seats",
-            "registration_effective_date", "registration_expiration_date", "insurance_expiration_date"
+            "registration_effective_date", "registration_expiration_date", 
+            "insurance_company", "insurance_policy_number", 
+            "insurance_effective_date", "insurance_expiration_date"
         ]
         widgets = {
             "registration_effective_date": forms.DateInput(attrs={"type": "date"}),
             "registration_expiration_date": forms.DateInput(attrs={"type": "date"}),
+            "insurance_effective_date": forms.DateInput(attrs={"type": "date"}),
             "insurance_expiration_date": forms.DateInput(attrs={"type": "date"}),
         }
 
@@ -337,6 +334,7 @@ class VehicleServiceForm(forms.ModelForm):
             "processing_fee", "dmv_fee", "sales_tax", "credit_card_fee",
             "total_paid", "dealer_balance", "notes"
         ]
+
 
     def __init__(self, *args, **kwargs):
         organization = kwargs.pop("organization", None)

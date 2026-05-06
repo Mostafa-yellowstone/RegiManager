@@ -41,6 +41,7 @@ class Organization(models.Model):
     slug = models.SlugField(max_length=180, unique=True, blank=True)
     invite_code = models.CharField(max_length=20, unique=True, default=generate_invite_code)
     max_agents = models.IntegerField(default=5, help_text="Maximum number of agents allowed for this Agency.")
+    is_automation_enabled = models.BooleanField(default=False, help_text="Enable Automation Hub features for this Agency.")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -249,6 +250,16 @@ class Vehicle(SoftDeleteModel):
     
     registration_effective_date = models.DateField(blank=True, null=True)
     registration_expiration_date = models.DateField(blank=True, null=True)
+    
+    PLATE_TYPES = [
+        ("personal", "Personal Plates"),
+        ("commercial", "Commercial Plates"),
+    ]
+    plate_type = models.CharField(max_length=20, choices=PLATE_TYPES, default="personal")
+    
+    insurance_company = models.CharField(max_length=150, blank=True, default="")
+    insurance_policy_number = models.CharField(max_length=100, blank=True, default="")
+    insurance_effective_date = models.DateField(blank=True, null=True)
     insurance_expiration_date = models.DateField(blank=True, null=True)
     is_priority = models.BooleanField(default=False)
     
@@ -310,8 +321,7 @@ class ServiceRecord(SoftDeleteModel):
     driver_license_number = models.CharField(max_length=50, blank=True, default="")
     phone_no = models.CharField(max_length=20, blank=True, default="")
     email = models.EmailField(blank=True, null=True)
-    insurance_expiration_date = models.DateField(blank=True, null=True)
-    registration_expiration_date = models.DateField(blank=True, null=True)
+
     
     service_type = models.CharField(max_length=100, db_index=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending", db_index=True)

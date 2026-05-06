@@ -1,0 +1,152 @@
+{% load static %}
+<nav class="top-nav">
+    <div class="nav-left">
+        <a href="{% url 'dashboard' %}" class="nav-brand">
+            <img src="{% static 'core/img/regimanager-logo.svg' %}" alt="RegiManager" style="height: 42px; width: auto;">
+        </a>
+        <div class="nav-menu">
+            <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Dashboard</a>
+            <a href="{% url 'all-clients' %}" class="nav-link {% if 'client' in request.path %}active{% endif %}">Clients</a>
+            {% if automation_enabled %}
+            <a href="{% url 'upcoming-expirations' %}" class="nav-link {% if 'automation' in request.path %}active{% endif %}">Automation Hub</a>
+            {% endif %}
+            <a href="{% url 'finance-hub' %}" class="nav-link {% if 'finance' in request.path %}active{% endif %}">Finance & BI</a>
+            {% if can_view_partners %}
+            <a href="{% url 'all-dealers' %}" class="nav-link {% if 'dealer' in request.path %}active{% endif %}">Partners</a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="nav-right" style="display: flex; align-items: center; gap: 1rem;">
+        <div class="user-profile-mini">
+            <div class="avatar-circle">{{ user.first_name|slice:":1"|upper }}</div>
+            <div class="user-info">
+                <span class="user-name">{{ user.get_full_name|default:user.username }}</span>
+                <span class="user-role">{{ user_nav_role }}</span>
+            </div>
+        </div>
+        <a href="{% url 'logout' %}" class="logout-icon-btn" title="Sign Out">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+        </a>
+    </div>
+</nav>
+
+<style>
+.top-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 2.5rem;
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    transition: transform 0.2s;
+}
+
+.nav-brand:hover {
+    transform: scale(1.02);
+}
+
+.nav-brand span {
+    font-size: 1.1rem;
+    font-weight: 900;
+    color: #0f172a;
+    letter-spacing: -0.5px;
+}
+
+.nav-menu {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-left: 1rem;
+}
+
+.nav-link {
+    text-decoration: none;
+    color: #64748b;
+    font-weight: 700;
+    font-size: 0.9rem;
+    padding: 0.5rem 0;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.nav-link:hover, .nav-link.active {
+    color: #093de6;
+    border-bottom-color: #093de6;
+}
+
+.user-profile-mini {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 14px;
+    background: white;
+    border-radius: 99px;
+    border: 1px solid #e2e8f0;
+}
+
+.avatar-circle {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #093de6, #4f46e5);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.85rem;
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1.2;
+}
+
+.user-role {
+    font-size: 0.7rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.logout-icon-btn {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff1f2;
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+
+.logout-icon-btn:hover {
+    background: #ffe4e6;
+    transform: translateY(-2px);
+}
+</style>
