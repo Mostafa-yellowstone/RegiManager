@@ -1,17 +1,47 @@
 from django.contrib import admin
+from django.utils.html import format_html
 from .models import Organization, OrganizationMembership, ServiceAuditLog, ServiceRecord, CustomServiceType
+
+
+class MembershipInline(admin.TabularInline):
+    model = OrganizationMembership
+    extra = 0
+    fields = (
+        'user',
+        'role',
+        'can_view_reports',
+        'can_view_net_profit',
+        'can_manage_dealers',
+        'can_trigger_automation',
+    )
+    readonly_fields = ('user',)
+    verbose_name = "Agent / Member"
+    verbose_name_plural = "Agents & Members"
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
     list_display = ("name", "address_line", "city", "state", "slug", "is_automation_enabled", "created_at")
-    list_filter = ("state", "city")
+    list_filter = ("state", "city", "is_automation_enabled")
     search_fields = ("name", "address_line", "city", "state", "slug")
+    inlines = [MembershipInline]
+
+    class Media:
+        js = ('core/js/admin_automation_toggle.js',)
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        # If automation is disabled for this agency, revoke the permission from ALL members
+        if not obj.is_automation_enabled:
+            obj.memberships.filter(can_trigger_automation=True).update(can_trigger_automation=False)
 
 
 @admin.register(OrganizationMembership)
 class OrganizationMembershipAdmin(admin.ModelAdmin):
-    list_display = ("organization", "user", "role", "created_at")
+    list_display = ("organization", "user", "role", "can_trigger_automation", "created_at")
     list_filter = ("role", "organization")
     search_fields = ("organization__name", "user__username", "user__email")
 
@@ -48,4 +78,3 @@ class CustomServiceTypeAdmin(admin.ModelAdmin):
     list_display = ("label", "key", "organization", "created_at")
     list_filter = ("organization",)
     search_fields = ("label", "key", "organization__name")
-

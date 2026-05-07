@@ -650,11 +650,17 @@ def dashboard(request):
         )['total'] or Decimal("0")
 
     # Automation data
-    automation_logs = AutomationLog.objects.filter(organization__in=organizations).select_related("vehicle", "client").order_by("-timestamp")[:5]
+    # Only show logs from agencies that have automation enabled
+    automation_logs = AutomationLog.objects.filter(
+        organization__in=organizations,
+        organization__is_automation_enabled=True
+    ).select_related("vehicle", "client").order_by("-timestamp")[:5]
     
     # Upcoming expirations (next 45 days)
+    # Only show vehicles from agencies that have automation enabled
     upcoming_expirations = Vehicle.objects.filter(
         client__organization__in=organizations,
+        client__organization__is_automation_enabled=True,
         registration_expiration_date__gte=today,
         registration_expiration_date__lte=today + timedelta(days=45)
     ).select_related("client").order_by("registration_expiration_date")[:5]
@@ -2274,6 +2280,27 @@ def all_dealers(request):
     )
 
 @login_required
+@require_POST
+def toggle_dealer_partner(request):
+    dealer_id = request.POST.get("dealer_id")
+    is_partner = request.POST.get("is_partner") == "true"
+    
+    memberships = request.user.organization_memberships.select_related("organization")
+    is_owner = memberships.filter(role=OrganizationMembership.Role.OWNER).exists()
+    user_can_manage_dealers = any(m.can_manage_dealers for m in memberships)
+
+    if not is_owner and not user_can_manage_dealers:
+        return JsonResponse({"status": "error", "message": "Permission denied"}, status=403)
+
+    organizations = [m.organization for m in memberships]
+    dealer = get_object_or_404(CarDealer, id=dealer_id, organization__in=organizations)
+    
+    dealer.is_partner = is_partner
+    dealer.save()
+    
+    return JsonResponse({"status": "success", "is_partner": dealer.is_partner})
+
+@login_required
 def dealer_profile(request, dealer_id):
     memberships = request.user.organization_memberships.select_related("organization")
     if not memberships.exists():
@@ -2764,3 +2791,31 @@ def session_heartbeat(request):
     which the frontend will detect.
     """
     return JsonResponse({"status": "active", "user": request.user.username})
+
+@require_POST
+@login_required
+def toggle_agency_automation(request):
+    """
+    Toggles the is_automation_enabled field for an Organization.
+    Only accessible by the Organization Owner.
+    """
+    data = json.loads(request.body)
+    agency_id = data.get("agency_id")
+    enabled = data.get("enabled")
+
+    membership = get_object_or_404(
+        OrganizationMembership, 
+        organization_id=agency_id, 
+        user=request.user, 
+        role=OrganizationMembership.Role.OWNER
+    )
+    
+    agency = membership.organization
+    agency.is_automation_enabled = enabled
+    agency.save()
+
+    return JsonResponse({
+        "status": "success",
+        "agency_id": agency.id,
+        "is_automation_enabled": agency.is_automation_enabled
+    })

@@ -48,11 +48,15 @@
                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
                                 </div>
                                 <div>
-                                    <h3 style="margin: 0; font-size: 1.1rem; color: #1e293b; display: flex; align-items: center; gap: 0.5rem;">
-                                        {{ dealer.name }}
-                                        {% if dealer.is_partner %}
-                                            <span style="background: #eef2ff; color: #4338ca; font-size: 0.65rem; padding: 0.1rem 0.5rem; border-radius: 99px; font-weight: 700; border: 1px solid #c7d2fe; text-transform: uppercase;">Partner</span>
-                                        {% endif %}
+                                    <h3 style="margin: 0; font-size: 1.1rem; color: #1e293b; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%;">
+                                        <span>{{ dealer.name }}</span>
+                                        <div style="display: flex; align-items: center; gap: 0.8rem;" onclick="event.stopPropagation();">
+                                            <label class="switch" style="transform: scale(0.7); transform-origin: right;">
+                                                <input type="checkbox" class="partner-toggle" data-dealer-id="{{ dealer.id }}" {% if dealer.is_partner %}checked{% endif %}>
+                                                <span class="slider round"></span>
+                                            </label>
+                                            <span class="partner-badge" style="{% if not dealer.is_partner %}display: none;{% endif %} background: #eef2ff; color: #4338ca; font-size: 0.65rem; padding: 0.1rem 0.5rem; border-radius: 99px; font-weight: 700; border: 1px solid #c7d2fe; text-transform: uppercase;">Partner</span>
+                                        </div>
                                     </h3>
                                     <p style="margin: 0; font-size: 0.85rem; color: #64748b;">{{ dealer.email|default:"No email provided" }}</p>
                                 </div>
@@ -118,4 +122,49 @@
         </div>
     </section>
 </main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const partnerToggles = document.querySelectorAll('.partner-toggle');
+    
+    partnerToggles.forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            const dealerId = this.dataset.dealerId;
+            const isPartner = this.checked;
+            const badge = this.closest('div').querySelector('.partner-badge');
+            
+            const params = new URLSearchParams();
+            params.append('dealer_id', dealerId);
+            params.append('is_partner', isPartner);
+            
+            fetch("{% url 'toggle-dealer-partner' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-CSRFToken": "{{ csrf_token }}"
+                },
+                body: params
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    if (data.is_partner) {
+                        badge.style.display = 'inline-block';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                } else {
+                    alert('Error updating status: ' + data.message);
+                    this.checked = !isPartner; // Revert
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+                this.checked = !isPartner; // Revert
+            });
+        });
+    });
+});
+</script>
 {% endblock %}

@@ -45,6 +45,7 @@ from core.views import (
     all_service_types,
     audit_log_list,
     all_dealers,
+    toggle_dealer_partner,
     dealer_profile,
     add_client,
     all_clients,
@@ -67,6 +68,7 @@ from core.views import (
     custom_range_report_pdf,
     send_manual_reminder,
     session_heartbeat,
+    toggle_agency_automation,
 )
 
 from rest_framework.routers import DefaultRouter
@@ -114,6 +116,7 @@ urlpatterns = [
     path("dashboard/service/<int:service_id>/upload/", upload_document_ajax, name="upload-document-ajax"),
     path("dashboard/service/<int:service_id>/docs/", get_documents, name="get-documents"),
     path("dashboard/dealers/", all_dealers, name="all-dealers"),
+    path("dashboard/dealers/toggle-partner/", toggle_dealer_partner, name="toggle-dealer-partner"),
     path("dashboard/dealers/<int:dealer_id>/", dealer_profile, name="dealer-profile"),
     path("dashboard/clients/", all_clients, name="all-clients"),
     path("dashboard/clients/add/", add_client, name="add-client"),
@@ -135,6 +138,7 @@ urlpatterns = [
     path("dashboard/finance/", finance_hub, name="finance-hub"),
     path("dashboard/reports/yearly-pdf/", yearly_report_pdf, name="yearly-report-pdf"),
     path("dashboard/reports/custom-pdf/", custom_range_report_pdf, name="custom-pdf"),
+    path("dashboard/agency/toggle-automation/", toggle_agency_automation, name="toggle-agency-automation"),
     path("api/session-heartbeat/", session_heartbeat, name="session-heartbeat"),
 ]
 
