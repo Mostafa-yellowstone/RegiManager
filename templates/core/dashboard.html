@@ -71,6 +71,7 @@ input:checked + .slider:before {
     display: inline-block;
     font-size: 1.5rem !important;
 }
+.d-none { display: none; }
 </style>
 
 {% include "partials/_top_nav.html" %}
@@ -150,7 +151,7 @@ input:checked + .slider:before {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                 View All Clients
             </a>
-            {% if user_can_trigger_automation %}
+            {% if automation_enabled %}
             <button type="button" class="btn btn-secondary" style="padding: 1.2rem 3rem; font-size: 1.2rem; border-radius: 14px; display: inline-flex; align-items: center; gap: 1rem; background: #fffbeb; border: 2px solid #fef3c7; color: #92400e; box-shadow: 0 10px 15px -3px rgba(245, 158, 11, 0.1); transition: transform 0.2s; cursor: pointer;" onclick="confirmAutomationScan()">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                 Run Automation Scan
@@ -297,32 +298,6 @@ input:checked + .slider:before {
         <!-- Agency Operations Zone -->
         <section class="dashboard-layout" id="ops" style="scroll-margin-top: 100px; border-top: 2px solid #f1f5f9; padding-top: 3rem;">
             {% if is_owner %}
-            <article class="dashboard-panel" style="margin-bottom: 2rem; background: #fffdf5; border: 1px solid #fef3c7;">
-                <h3 style="display: flex; align-items: center; gap: 10px; color: #92400e; font-weight: 800; border-bottom: none; margin-bottom: 1.5rem;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                    Agency Master Controls
-                </h3>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-                    {% for org in owner_orgs %}
-                    <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid #fef3c7; display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <strong style="display: block; color: #1e293b; font-size: 1.05rem;">{{ org.name }}</strong>
-                            <span style="font-size: 0.85rem; color: #64748b;">Toggle Automation Hub for all agents</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <span style="font-size: 0.75rem; font-weight: 800; color: {% if org.is_automation_enabled %}#10b981{% else %}#94a3b8{% endif %}; text-transform: uppercase;">
-                                {% if org.is_automation_enabled %}Enabled{% else %}Disabled{% endif %}
-                            </span>
-                            <label class="switch">
-                                <input type="checkbox" class="agency-automation-toggle" data-id="{{ org.id }}" {% if org.is_automation_enabled %}checked{% endif %}>
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </article>
-
             <article class="dashboard-panel" style="margin-bottom: 2rem;">
                 <h3 style="display: flex; justify-content: space-between; align-items: center; color: #0f172a; font-weight: 800;">
                     Agency Team Management
@@ -340,7 +315,7 @@ input:checked + .slider:before {
                                 <th>Profit</th>
                                 <th>Dealers</th>
                                 {% if user_can_trigger_automation %}
-                                <th class="auto-header" style="{% if not automation_enabled %}display: none;{% endif %}">Auto</th>
+                                <th class="auto-header{% if not automation_enabled %} d-none{% endif %}">Auto</th>
                                 {% endif %}
                                 <th>Audit</th>
                             </tr>
@@ -374,7 +349,7 @@ input:checked + .slider:before {
                                         </label>
                                     </td>
                                     {% if user_can_trigger_automation %}
-                                    <td class="automation-perm-col" style="{% if not agent_mem.organization.is_automation_enabled %}display: none;{% endif %}">
+                                    <td class="automation-perm-col{% if not agent_mem.organization.is_automation_enabled %} d-none{% endif %}">
                                         <label class="switch">
                                             <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_trigger_automation" {% if agent_mem.can_trigger_automation %}checked{% endif %}>
                                             <span class="slider round"></span>
@@ -580,54 +555,7 @@ document.querySelectorAll('.agent-role-select').forEach(select => {
     });
 });
 
-// Sync Agency Automation Toggle via AJAX
-document.querySelectorAll('.agency-automation-toggle').forEach(toggle => {
-    toggle.addEventListener('change', function() {
-        const agencyId = this.dataset.id;
-        const isEnabled = this.checked;
-        const statusLabel = this.closest('div').querySelector('span');
-        
-        fetch("{% url 'toggle-agency-automation' %}", {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json', 
-                'X-CSRFToken': '{{ csrf_token }}' 
-            },
-            body: JSON.stringify({ agency_id: agencyId, enabled: isEnabled })
-        })
-        .then(r => r.json())
-        .then(data => {
-            if(data.status === 'success') {
-                if(data.is_automation_enabled) {
-                    statusLabel.textContent = 'Enabled';
-                    statusLabel.style.color = '#10b981';
-                } else {
-                    statusLabel.textContent = 'Disabled';
-                    statusLabel.style.color = '#94a3b8';
-                }
-                
-                // Update agent table toggles
-                document.querySelectorAll(`.agent-row[data-agency-id="${agencyId}"] .automation-perm-col`).forEach(col => {
-                    col.style.display = data.is_automation_enabled ? '' : 'none';
-                });
-                
-                // Also show/hide the header if no agency has it enabled anymore
-                const anyEnabled = Array.from(document.querySelectorAll('.agency-automation-toggle')).some(t => t.checked);
-                document.querySelectorAll('.auto-header').forEach(h => {
-                    h.style.display = anyEnabled ? '' : 'none';
-                });
-            } else {
-                alert(data.message);
-                this.checked = !isEnabled;
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred while updating agency settings.');
-            this.checked = !isEnabled;
-        });
-    });
-});
+
 
 // Sync Permissions via AJAX
 document.querySelectorAll('.agent-permission-toggle').forEach(toggle => {

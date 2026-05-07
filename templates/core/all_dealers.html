@@ -12,6 +12,7 @@
     .dealer-card.is-paid .top-bar { background: #10b981; }
     .outstanding-amount.is-unpaid { color: #dc2626; }
     .outstanding-amount.is-paid { color: #10b981; }
+    .d-none { display: none; }
 </style>
 
 <main class="dashboard-shell">
@@ -55,7 +56,7 @@
                                                 <input type="checkbox" class="partner-toggle" data-dealer-id="{{ dealer.id }}" {% if dealer.is_partner %}checked{% endif %}>
                                                 <span class="slider round"></span>
                                             </label>
-                                            <span class="partner-badge" style="{% if not dealer.is_partner %}display: none;{% endif %} background: #eef2ff; color: #4338ca; font-size: 0.65rem; padding: 0.1rem 0.5rem; border-radius: 99px; font-weight: 700; border: 1px solid #c7d2fe; text-transform: uppercase;">Partner</span>
+                                            <span class="partner-badge{% if not dealer.is_partner %} d-none{% endif %}" style="background: #eef2ff; color: #4338ca; font-size: 0.65rem; padding: 0.1rem 0.5rem; border-radius: 99px; font-weight: 700; border: 1px solid #c7d2fe; text-transform: uppercase;">Partner</span>
                                         </div>
                                     </h3>
                                     <p style="margin: 0; font-size: 0.85rem; color: #64748b;">{{ dealer.email|default:"No email provided" }}</p>
@@ -149,9 +150,9 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.status === 'success') {
                     if (data.is_partner) {
-                        badge.style.display = 'inline-block';
+                        badge.classList.remove('d-none');
                     } else {
-                        badge.style.display = 'none';
+                        badge.classList.add('d-none');
                     }
                 } else {
                     alert('Error updating status: ' + data.message);
