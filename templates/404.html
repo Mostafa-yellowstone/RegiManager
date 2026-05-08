@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Page Not Found - RegiManager{% endblock %}
+
+{% block content %}
+<main class="site-shell" style="min-height: 80vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 2rem; background-color: #faf8f5;">
+    <div class="error-container" style="display: flex; flex-direction: column; align-items: center;">
+        <!-- Animated SVG for 404 -->
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="100%" style="max-width: 500px; height: auto; margin-bottom: 1.5rem;">
+            <style>
+                .ghost {
+                    animation: float 3.5s ease-in-out infinite;
+                }
+                .eye {
+                    animation: blink 4s infinite;
+                }
+                .shadow {
+                    animation: scaleShadow 3.5s ease-in-out infinite;
+                    transform-origin: center;
+                }
+                .number {
+                    animation: subtlePulse 5s ease-in-out infinite;
+                }
+                @keyframes float {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-25px); }
+                }
+                @keyframes blink {
+                    0%, 96%, 98%, 100% { transform: scaleY(1); }
+                    97% { transform: scaleY(0.1); }
+                }
+                @keyframes scaleShadow {
+                    0%, 100% { transform: scale(1); opacity: 0.2; }
+                    50% { transform: scale(0.7); opacity: 0.1; }
+                }
+                @keyframes subtlePulse {
+                    0%, 100% { transform: scale(1) translateY(0); }
+                    50% { transform: scale(1.02) translateY(-5px); }
+                }
+            </style>
+
+            <!-- Background Elements -->
+            <circle cx="400" cy="200" r="160" fill="#f1f5f9" />
+            <path d="M 240 280 L 260 260 M 560 120 L 580 100 M 200 150 L 180 130" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke-dasharray="10 10" />
+            
+            <!-- Shadow -->
+            <ellipse cx="400" cy="350" rx="70" ry="12" fill="#000" class="shadow" />
+            
+            <!-- 404 Text -->
+            <g class="number">
+                <text x="210" y="250" font-family="'Inter', sans-serif" font-weight="900" font-size="140" fill="#093de6" opacity="0.15">4</text>
+                <text x="510" y="250" font-family="'Inter', sans-serif" font-weight="900" font-size="140" fill="#093de6" opacity="0.15">4</text>
+            </g>
+
+            <!-- Ghost Character -->
+            <g class="ghost">
+                <!-- Body -->
+                <path d="M330,250 Q330,120 400,120 Q470,120 470,250 L470,300 Q452.5,275 435,300 Q417.5,275 400,300 Q382.5,275 365,300 Q347.5,275 330,300 Z" fill="#093de6" />
+                <!-- Inner glow / detail -->
+                <path d="M340,250 Q340,135 400,135 Q460,135 460,250 L460,290 Q452.5,270 435,290 Q417.5,270 400,290 Q382.5,270 365,290 Q347.5,270 340,290 Z" fill="#1d4ed8" opacity="0.5" />
+                
+                <!-- Eyes -->
+                <g class="eye" transform-origin="380 190">
+                    <circle cx="375" cy="190" r="10" fill="#ffffff" />
+                    <circle cx="372" cy="190" r="4" fill="#0f172a" />
+                </g>
+                <g class="eye" transform-origin="425 190">
+                    <circle cx="425" cy="190" r="10" fill="#ffffff" />
+                    <circle cx="428" cy="190" r="4" fill="#0f172a" />
+                </g>
+                <!-- Mouth -->
+                <path d="M390,225 Q400,240 410,225" stroke="#ffffff" stroke-width="5" stroke-linecap="round" fill="none" />
+                
+                <!-- Blushe/Cheeks -->
+                <ellipse cx="355" cy="210" rx="8" ry="4" fill="#fb7185" opacity="0.4" />
+                <ellipse cx="445" cy="210" rx="8" ry="4" fill="#fb7185" opacity="0.4" />
+            </g>
+        </svg>
+
+        <h1 style="font-size: 2.75rem; color: #0f172a; margin-bottom: 1rem; font-family: 'Inter', sans-serif; font-weight: 800; letter-spacing: -0.025em;">Looks like you're lost!</h1>
+        <p style="font-size: 1.15rem; color: #64748b; max-width: 550px; margin: 0 auto 2.5rem; line-height: 1.6; font-family: 'Inter', sans-serif;">
+            We can't seem to find the page you're looking for. It might have been moved, deleted, or the address could be misspelled.
+        </p>
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+            <a href="{% url 'dashboard' %}" class="btn" style="padding: 0.875rem 2rem; font-size: 1rem; border-radius: 999px; text-decoration: none; font-weight: 600; background: #093de6; color: white; border: none; box-shadow: 0 4px 14px 0 rgba(9, 61, 230, 0.39); transition: all 0.2s ease; font-family: 'Inter', sans-serif;">Go to Dashboard</a>
+            <a href="{% url 'home' %}" class="btn" style="padding: 0.875rem 2rem; font-size: 1rem; border-radius: 999px; text-decoration: none; font-weight: 600; background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; transition: all 0.2s ease; font-family: 'Inter', sans-serif;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">Back to Home</a>
+        </div>
+    </div>
+</main>
+{% endblock %}

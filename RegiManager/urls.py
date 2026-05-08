@@ -156,3 +156,10 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    
+    # Catch-all to show the custom 404 page even in DEBUG mode for testing
+    from django.urls import re_path
+    from django.shortcuts import render
+    urlpatterns += [
+        re_path(r'^.*$', lambda request: render(request, '404.html', status=404))
+    ]
