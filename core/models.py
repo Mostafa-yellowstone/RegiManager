@@ -42,6 +42,7 @@ class Organization(models.Model):
     invite_code = models.CharField(max_length=20, unique=True, default=generate_invite_code)
     max_agents = models.IntegerField(default=5, help_text="Maximum number of agents allowed for this Agency.")
     is_automation_enabled = models.BooleanField(default=False, help_text="Enable Automation Hub features for this Agency.")
+    is_active = models.BooleanField(default=True, help_text="Enable or disable this Agency account.")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -88,6 +89,7 @@ class OrganizationMembership(models.Model):
     can_view_net_profit = models.BooleanField(default=False, help_text="Can this agent view net profit?")
     can_manage_dealers = models.BooleanField(default=False, help_text="Can this agent manage dealerships?")
     can_trigger_automation = models.BooleanField(default=False, help_text="Can this user manually trigger the automation scan?")
+    is_active = models.BooleanField(default=True, help_text="Enable or disable this agent in this Agency.")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -198,6 +200,10 @@ class Client(SoftDeleteModel):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["organization", "-created_at"]),
+            models.Index(fields=["organization", "last_name", "first_name"]),
+        ]
 
 
 class Vehicle(SoftDeleteModel):
@@ -263,7 +269,7 @@ class Vehicle(SoftDeleteModel):
     insurance_expiration_date = models.DateField(blank=True, null=True)
     is_priority = models.BooleanField(default=False)
     
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     def __str__(self):
         return f"{self.year} {self.make} {self.model} ({self.vin})"
@@ -341,7 +347,7 @@ class ServiceRecord(SoftDeleteModel):
     
     notes = models.TextField(blank=True, default="")
     receipt_number = models.CharField(max_length=60, unique=True, blank=True, db_index=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
     case_id = models.CharField(max_length=60, unique=True, blank=True, null=True, db_index=True)
     reminders_stopped = models.BooleanField(default=False)
@@ -364,6 +370,10 @@ class ServiceRecord(SoftDeleteModel):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["organization", "created_at"]),
+            models.Index(fields=["organization", "status", "created_at"]),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.receipt_number:
@@ -421,6 +431,10 @@ class ServiceAuditLog(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["organization", "-created_at"]),
+            models.Index(fields=["service_record", "-created_at"]),
+        ]
 
     def __str__(self):
         return f"{self.actor.username} {self.action} {self.service_record.receipt_number}"
@@ -519,4 +533,70 @@ class AutomationLog(models.Model):
 
     def __str__(self):
         return f"{self.get_log_type_display()} - {self.client.name} - {self.timestamp}"
+
+
+class FinanceStrategyNote(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="finance_strategy_note",
+    )
+    content = models.TextField(blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"FinanceStrategyNote({self.user.username})"
+
+
+class ClientNote(models.Model):
+    client = models.ForeignKey("Client", on_delete=models.CASCADE, related_name="notes")
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_client_notes")
+    assigned_to = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_client_notes",
+    )
+    content = models.TextField()
+    follow_up_date = models.DateField(blank=True, null=True, db_index=True)
+    is_done = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["client", "-created_at"]),
+            models.Index(fields=["follow_up_date", "is_done"]),
+        ]
+
+    def __str__(self):
+        return f"ClientNote({self.client_id})"
+
+
+class Notification(models.Model):
+    class Level(models.TextChoices):
+        INFO = "info", "Info"
+        WARNING = "warning", "Warning"
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications", db_index=True)
+    client = models.ForeignKey("Client", on_delete=models.CASCADE, related_name="notifications", db_index=True)
+    note = models.ForeignKey("ClientNote", on_delete=models.CASCADE, related_name="notifications", null=True, blank=True)
+    title = models.CharField(max_length=140)
+    message = models.TextField(blank=True, default="")
+    level = models.CharField(max_length=20, choices=Level.choices, default=Level.WARNING, db_index=True)
+    is_read = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["is_read", "-created_at"]
+        indexes = [
+            models.Index(fields=["user", "is_read", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"Notification({self.user_id}, read={self.is_read})"
 

@@ -131,6 +131,13 @@ if DB_NAME:
             "PASSWORD": os.getenv("DB_PASSWORD", ""),
             "HOST": os.getenv("DB_HOST", "localhost"),
             "PORT": os.getenv("DB_PORT", "5432"),
+            # Postgres stability/perf defaults (override via env when needed)
+            "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "120")),
+            "CONN_HEALTH_CHECKS": os.getenv("DB_CONN_HEALTH_CHECKS", "True") == "True",
+            "OPTIONS": {
+                "sslmode": os.getenv("DB_SSLMODE", "prefer"),
+                "connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT", "5")),
+            },
         }
     }
 else:

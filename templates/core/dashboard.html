@@ -72,6 +72,40 @@ input:checked + .slider:before {
     font-size: 1.5rem !important;
 }
 .d-none { display: none; }
+
+.premium-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 12px 28px -18px rgba(15, 23, 42, 0.45);
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.status-chip.active {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.status-chip.inactive {
+  color: #9f1239;
+  background: #ffe4e6;
+}
+
+.agent-row.inactive-agent {
+  opacity: 0.6;
+  background: #f8fafc;
+}
 </style>
 
 {% include "partials/_top_nav.html" %}
@@ -298,20 +332,24 @@ input:checked + .slider:before {
         <!-- Agency Operations Zone -->
         <section class="dashboard-layout" id="ops" style="scroll-margin-top: 100px; border-top: 2px solid #f1f5f9; padding-top: 3rem;">
             {% if is_owner %}
-            <article class="dashboard-panel" style="margin-bottom: 2rem;">
+            <article class="dashboard-panel premium-panel" style="margin-bottom: 2rem;">
                 <h3 style="display: flex; justify-content: space-between; align-items: center; color: #0f172a; font-weight: 800;">
                     Agency Team Management
                     <a href="{% url 'all-agents-directory' %}" class="btn btn-secondary btn-sm">
                         Team Directory
                     </a>
                 </h3>
+                <p style="margin-top: -0.5rem; color: #64748b; font-weight: 500;">
+                    Premium control center for enabling or restricting agent accounts.
+                </p>
                 <div class="table-responsive">
                     <table class="data-table">
                         <thead>
                             <tr>
                                 <th>Agent</th>
+                                <th>Account</th>
                                 <th>Role</th>
-                                <th>Reports</th>
+                                <th>Finance &amp; BI</th>
                                 <th>Profit</th>
                                 <th>Dealers</th>
                                 {% if user_can_trigger_automation %}
@@ -322,8 +360,19 @@ input:checked + .slider:before {
                         </thead>
                         <tbody>
                             {% for agent_mem in owner_agents %}
-                                <tr class="agent-row" data-agency-id="{{ agent_mem.organization.id }}">
+                                <tr class="agent-row {% if not agent_mem.is_active %}inactive-agent{% endif %}" data-agency-id="{{ agent_mem.organization.id }}">
                                     <td style="font-weight: 700;">{{ agent_mem.user.get_full_name|default:agent_mem.user.username }}</td>
+                                    <td>
+                                        <div style="display: inline-flex; align-items: center; gap: 10px;">
+                                            <label class="switch" title="Enable/disable agent account">
+                                                <input type="checkbox" class="agent-active-toggle" data-id="{{ agent_mem.id }}" {% if agent_mem.is_active %}checked{% endif %}>
+                                                <span class="slider round"></span>
+                                            </label>
+                                            <span id="agent-status-{{ agent_mem.id }}" class="status-chip {% if agent_mem.is_active %}active{% else %}inactive{% endif %}">
+                                                {% if agent_mem.is_active %}Active{% else %}Disabled{% endif %}
+                                            </span>
+                                        </div>
+                                    </td>
                                     <td>
                                         <select class="form-control agent-role-select" data-id="{{ agent_mem.id }}" style="padding: 4px; height: auto;">
                                             <option value="owner" {% if agent_mem.role == 'owner' %}selected{% endif %}>Owner</option>
@@ -540,39 +589,6 @@ function startAutomationScan() {
     </div>
 
 <script>
-// Sync Role Updates via AJAX
-document.querySelectorAll('.agent-role-select').forEach(select => {
-    select.addEventListener('change', function() {
-        const membershipId = this.dataset.id;
-        const newRole = this.value;
-        fetch("{% url 'update-agent-role' %}", {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-            body: JSON.stringify({ membership_id: membershipId, role: newRole })
-        }).then(r => r.json()).then(data => {
-            if(data.status !== 'success') alert(data.message);
-        });
-    });
-});
-
-
-
-// Sync Permissions via AJAX
-document.querySelectorAll('.agent-permission-toggle').forEach(toggle => {
-    toggle.addEventListener('change', function() {
-        const membershipId = this.dataset.id;
-        const field = this.dataset.field;
-        const value = this.checked;
-        fetch("{% url 'update-agent-permissions' %}", {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
-            body: JSON.stringify({ membership_id: membershipId, field: field, value: value })
-        }).then(r => r.json()).then(data => {
-            if(data.status !== 'success') alert(data.message);
-        });
-    });
-});
-
 function confirmAutomationScan() {
     Swal.fire({
         title: 'Run Agency-wide Scan?',

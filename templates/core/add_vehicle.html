@@ -47,7 +47,13 @@
                         {{ form.plate_type }}
                     </div>
                     <div class="field-wrap">
-                        <label>VIN (Mandatory)</label>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                            <label style="margin: 0;">VIN (Mandatory)</label>
+                            <button type="button" id="title-scan-trigger" style="cursor: pointer; color: #10b981; display: flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 700; background: #f0fdf4; padding: 2px 10px; border-radius: 8px; border: 1px solid #dcfce7; transition: all 0.2s; box-shadow: 0 2px 4px rgba(16,185,129,0.1);" title="Scan title/barcode">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                                SCAN TITLE
+                            </button>
+                        </div>
                         <div style="position: relative; width: 100%;">
                             {{ form.vin }}
                             <div id="vin-status-badge" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 0.75rem; font-weight: 800; text-transform: uppercase; padding: 4px 8px; border-radius: 6px; display: none; pointer-events: none;"></div>
@@ -166,6 +172,20 @@
     </section>
 </main>
 
+<div id="vehicleScannerModal" class="drawer-overlay" style="display: none; z-index: 2000; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px);">
+    <div class="drawer-panel" style="width: 90%; max-width: 460px; height: auto; border-radius: 24px; position: relative; transform: none; padding: 2.5rem; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
+        <div style="background: #f0fdf4; color: #10b981; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+        </div>
+        <h2 style="margin-bottom: 0.5rem; color: #1e293b; font-weight: 800;">Scan Title / Barcode</h2>
+        <p style="color: #64748b; margin-bottom: 2rem; font-size: 0.95rem; line-height: 1.5;">Scan vehicle title barcode text using handheld scanner. VIN, year, make, model, and plate will auto-fill when detected.</p>
+        <input type="password" id="vehicle-scan-input" style="width: 100%; border: 2px solid #e2e8f0; padding: 1.2rem; border-radius: 16px; font-size: 1.05rem; text-align: center; background: #f8fafc;" placeholder="Waiting for scan...">
+        <div style="margin-top: 2rem;">
+            <button type="button" class="btn btn-secondary" onclick="closeVehicleScannerModal()" style="width: 100%; padding: 1rem; border-radius: 12px; font-weight: 600;">Cancel</button>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const vinInput = document.getElementById('id_vin');
@@ -173,6 +193,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // More robust button selector
     const submitBtn = document.querySelector('button[type="submit"]');
     const badge = document.getElementById('vin-status-badge');
+    const titleScanTrigger = document.getElementById('title-scan-trigger');
+    const vehicleScannerModal = document.getElementById('vehicleScannerModal');
+    const vehicleScanInput = document.getElementById('vehicle-scan-input');
     let checkTimer = null;
 
     function updateBadge(state, text) {
@@ -232,7 +255,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function checkVin(vin) {
         // Use relative URL to ensure it works regardless of domain setup
-        fetch('/dashboard/check-vin/?vin=' + encodeURIComponent(vin))
+        const orgId = "{{ client.organization_id }}";
+        fetch('/dashboard/check-vin/?vin=' + encodeURIComponent(vin) + '&org_id=' + encodeURIComponent(orgId))
         .then(r => r.json())
         .then(data => {
             if (data.exists) {
@@ -338,6 +362,95 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(() => {
             updateBadge('warning', 'OFFLINE');
+        });
+    }
+
+    function openVehicleScannerModal() {
+        if (!vehicleScannerModal || !vehicleScanInput) return;
+        vehicleScannerModal.style.display = 'flex';
+        vehicleScanInput.value = '';
+        setTimeout(() => vehicleScanInput.focus(), 100);
+    }
+
+    window.closeVehicleScannerModal = function() {
+        if (vehicleScannerModal) vehicleScannerModal.style.display = 'none';
+    };
+
+    function applyVehicleScanData(d) {
+        const map = {
+            id_vin: d.vin,
+            id_year: d.year,
+            id_make: d.make,
+            id_model: d.model,
+            id_plate_number: d.plate_number,
+        };
+        const extracted = Object.entries({
+            VIN: d.vin,
+            Year: d.year,
+            Make: d.make,
+            Model: d.model,
+            Plate: d.plate_number
+        }).filter(([,v]) => !!v);
+
+        const apply = () => {
+            for (const [id, val] of Object.entries(map)) {
+                const el = document.getElementById(id);
+                if (el && val) el.value = val;
+            }
+            if (d.vin) {
+                document.getElementById('id_vin').dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        };
+
+        if (window.Swal && extracted.length) {
+            const html = extracted.map(([k,v]) => `<div style="text-align:left; margin: 4px 0;"><strong>${k}:</strong> ${v}</div>`).join('');
+            Swal.fire({
+                title: 'Apply scanned vehicle data?',
+                html,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Apply Fields',
+            }).then((result) => {
+                if (result.isConfirmed) apply();
+            });
+        } else {
+            apply();
+        }
+    }
+
+    function processVehicleScan(raw) {
+        const params = new URLSearchParams();
+        params.append('scan_data', raw);
+        fetch("{% url 'ocr-vehicle-title' %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: params
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.status === 'success' && res.data) {
+                applyVehicleScanData(res.data);
+            }
+        })
+        .catch(() => {});
+    }
+
+    if (titleScanTrigger) {
+        titleScanTrigger.addEventListener('click', openVehicleScannerModal);
+    }
+
+    if (vehicleScanInput) {
+        vehicleScanInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const raw = vehicleScanInput.value.trim();
+                if (raw.length > 8) {
+                    processVehicleScan(raw);
+                }
+                closeVehicleScannerModal();
+            }
         });
     }
 });

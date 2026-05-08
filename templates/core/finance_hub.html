@@ -79,6 +79,48 @@
         border-radius: 24px;
         padding: 2rem;
     }
+
+    .finance-filter-panel {
+        background: #ffffff;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
+        padding: 1.25rem;
+        margin: -2.5rem 0 1.5rem;
+        box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.08);
+    }
+
+    .finance-filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 0.8rem;
+        align-items: end;
+    }
+
+    .finance-filter-grid label {
+        display: block;
+        margin-bottom: 0.35rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #64748b;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .finance-filter-grid input,
+    .finance-filter-grid select {
+        width: 100%;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        padding: 0.55rem 0.65rem;
+        font-size: 0.9rem;
+    }
+
+    .compare-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
 </style>
 {% endblock %}
 
@@ -116,6 +158,98 @@
                 </div>
             </div>
         </header>
+
+        <section style="margin: -2.5rem 0 3.75rem;">
+            <div style="display:grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: start;">
+                <article class="chart-container" style="margin:0; padding: 2rem; border-radius: 26px; box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.08);">
+                    <div style="display:flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+                        <div>
+                            <h3 style="margin:0; color:#0f172a; font-weight:950; letter-spacing:-0.7px; font-size: 1.6rem;">Monthly / Quarterly Comparison</h3>
+                            <div style="margin-top:0.25rem; color:#64748b; font-weight:600; font-size:0.9rem;">
+                                Pick a month and compare to last year, or previous quarter.
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+                            <label style="display:flex; align-items:center; gap:0.55rem; margin:0; font-size:0.78rem; font-weight:900; color:#64748b; letter-spacing:0.04em; text-transform:uppercase;">
+                                <input type="checkbox" id="toggle_yoy" style="width: 16px; height: 16px;">
+                                Last Year
+                            </label>
+                            <label style="display:flex; align-items:center; gap:0.55rem; margin:0; font-size:0.78rem; font-weight:900; color:#64748b; letter-spacing:0.04em; text-transform:uppercase;">
+                                <input type="checkbox" id="toggle_qoq" style="width: 16px; height: 16px;">
+                                Previous Quarter
+                            </label>
+                        </div>
+                    </div>
+
+                    <form method="get" id="compareForm" style="margin-top: 1.25rem;">
+                        <input type="hidden" id="compare_mode" name="compare_mode" value="{{ compare_mode|default:'month' }}">
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius: 16px; padding: 1rem;">
+                            <div style="font-size:0.75rem; font-weight:900; letter-spacing:0.06em; text-transform:uppercase; color:#64748b; margin-bottom: 0.5rem;">Period A (previous)</div>
+                            <input type="month" id="compare_a" name="compare_a" value="{{ compare_a }}" style="width:100%; border:1px solid #dbe2ea; border-radius: 12px; padding: 0.6rem 0.7rem; font-size: 0.95rem;">
+                        </div>
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius: 16px; padding: 1rem;">
+                            <div style="font-size:0.75rem; font-weight:900; letter-spacing:0.06em; text-transform:uppercase; color:#64748b; margin-bottom: 0.5rem;">Period B (current)</div>
+                            <input type="month" id="compare_b" name="compare_b" value="{{ compare_b }}" style="width:100%; border:1px solid #dbe2ea; border-radius: 12px; padding: 0.6rem 0.7rem; font-size: 0.95rem;">
+                        </div>
+                    </div>
+
+                        <div style="margin-top: 1rem; display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+                            <button type="submit" class="btn btn-primary" style="padding: 0.85rem 1.25rem; border-radius: 14px; font-weight: 900;">
+                                Compare
+                            </button>
+                            <a href="{% url 'finance-hub' %}" class="btn btn-secondary" style="padding: 0.85rem 1.25rem; border-radius: 14px; font-weight: 800;">
+                                Reset
+                            </a>
+                            <span style="color:#94a3b8; font-weight:700; font-size:0.85rem;">
+                                Tip: Turn on “Last Year” or “Previous Quarter” for one-click compare.
+                            </span>
+                        </div>
+                    </form>
+
+                    {% if compare_data %}
+                    <div class="compare-grid" style="margin-top: 1rem;">
+                        <div class="report-card" style="text-align:left; background: #ffffff;">
+                            <h4 style="margin:0 0 0.8rem; color:#0f172a;">{{ compare_data.a_label }}</h4>
+                            <p style="margin:0.25rem 0; color:#475569;">Revenue: <strong>${{ compare_data.a_revenue|floatformat:2 }}</strong></p>
+                            <p style="margin:0.25rem 0; color:#475569;">Records: <strong>{{ compare_data.a_records }}</strong></p>
+                            <p style="margin:0.25rem 0; color:#475569;">Net Profit: <strong>${{ compare_data.a_profit|floatformat:2 }}</strong></p>
+                        </div>
+                        <div class="report-card" style="text-align:left; background: #ffffff;">
+                            <h4 style="margin:0 0 0.8rem; color:#0f172a;">{{ compare_data.b_label }}</h4>
+                            <p style="margin:0.25rem 0; color:#475569;">Revenue: <strong>${{ compare_data.b_revenue|floatformat:2 }}</strong></p>
+                            <p style="margin:0.25rem 0; color:#475569;">Records: <strong>{{ compare_data.b_records }}</strong></p>
+                            <p style="margin:0.25rem 0; color:#475569;">Net Profit: <strong>${{ compare_data.b_profit|floatformat:2 }}</strong></p>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem; display:grid; grid-template-columns: repeat(3, 1fr); gap: 0.9rem;">
+                        <div style="background: {% if compare_data.revenue_delta_pct >= 0 %}#ecfdf5{% else %}#fef2f2{% endif %}; border: 1px solid {% if compare_data.revenue_delta_pct >= 0 %}#bbf7d0{% else %}#fecaca{% endif %}; border-radius: 16px; padding: 1rem;">
+                            <div style="font-size:0.72rem; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; color:#64748b;">Revenue change</div>
+                            <div style="margin-top:0.25rem; font-size:1.25rem; font-weight:900; color:{% if compare_data.revenue_delta_pct >= 0 %}#047857{% else %}#b91c1c{% endif %};">
+                                {{ compare_data.revenue_delta_pct|floatformat:2 }}%
+                            </div>
+                        </div>
+                        <div style="background: {% if compare_data.records_delta_pct >= 0 %}#eff6ff{% else %}#fef2f2{% endif %}; border: 1px solid {% if compare_data.records_delta_pct >= 0 %}#bfdbfe{% else %}#fecaca{% endif %}; border-radius: 16px; padding: 1rem;">
+                            <div style="font-size:0.72rem; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; color:#64748b;">Records change</div>
+                            <div style="margin-top:0.25rem; font-size:1.25rem; font-weight:900; color:{% if compare_data.records_delta_pct >= 0 %}#1d4ed8{% else %}#b91c1c{% endif %};">
+                                {{ compare_data.records_delta_pct|floatformat:2 }}%
+                            </div>
+                        </div>
+                        <div style="background: {% if compare_data.profit_delta_pct >= 0 %}#fff7ed{% else %}#fef2f2{% endif %}; border: 1px solid {% if compare_data.profit_delta_pct >= 0 %}#fed7aa{% else %}#fecaca{% endif %}; border-radius: 16px; padding: 1rem;">
+                            <div style="font-size:0.72rem; font-weight:900; letter-spacing:0.08em; text-transform:uppercase; color:#64748b;">Profit change</div>
+                            <div style="margin-top:0.25rem; font-size:1.25rem; font-weight:900; color:{% if compare_data.profit_delta_pct >= 0 %}#c2410c{% else %}#b91c1c{% endif %};">
+                                {{ compare_data.profit_delta_pct|floatformat:2 }}%
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div style="margin-top: 1rem; padding: 1rem; border-radius: 16px; border: 1px dashed #cbd5e1; background: #f8fafc; color:#64748b; font-weight:600;">
+                        Select Period A + Period B (or use the toggles), then press Compare.
+                    </div>
+                    {% endif %}
+                </article>
+            </div>
+        </section>
 
         <div class="finance-grid">
             <!-- Left Column: Analytics -->
@@ -190,9 +324,9 @@
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                         Executive Strategy Notes
                     </h3>
-                    <textarea style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 1.5rem; color: white; font-family: inherit; font-size: 1rem; margin-top: 1rem; min-height: 150px; resize: vertical;" placeholder="Type strategic growth targets, operational bottlenecks, or market observations..."></textarea>
+                    <textarea id="strategyNoteInput" style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 1.5rem; color: white; font-family: inherit; font-size: 1rem; margin-top: 1rem; min-height: 150px; resize: vertical;" placeholder="Type strategic growth targets, operational bottlenecks, or market observations...">{{ strategy_note }}</textarea>
                     <div style="text-align: right; margin-top: 1rem;">
-                        <button class="btn btn-primary" style="background: white; color: #0f172a; border: none; font-weight: 800; border-radius: 12px; padding: 0.8rem 2rem;">Save Strategic Analysis</button>
+                        <button type="button" id="saveStrategyNoteBtn" class="btn btn-primary" style="background: white; color: #0f172a; border: none; font-weight: 800; border-radius: 12px; padding: 0.8rem 2rem;">Save Strategic Analysis</button>
                     </div>
                 </div>
             </div>
@@ -238,6 +372,164 @@
         </div>
     </section>
 </main>
+
+<script>
+    (function () {
+        const compareA = document.getElementById('compare_a');
+        const compareB = document.getElementById('compare_b');
+        const compareMode = document.getElementById('compare_mode');
+        const toggleYoy = document.getElementById('toggle_yoy');
+        const toggleQoq = document.getElementById('toggle_qoq');
+
+        if (!compareA || !compareB || !compareMode || !toggleYoy || !toggleQoq) return;
+
+        function parseYm(ym) {
+            const m = /^(\d{4})-(\d{2})$/.exec(ym || '');
+            if (!m) return null;
+            return { y: Number(m[1]), m: Number(m[2]) };
+        }
+
+        function fmtYm(y, m) {
+            return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}`;
+        }
+
+        function addMonths(ym, delta) {
+            const p = parseYm(ym);
+            if (!p) return null;
+            const idx = (p.y * 12 + (p.m - 1)) + delta;
+            const y = Math.floor(idx / 12);
+            const m = (idx % 12) + 1;
+            return fmtYm(y, m);
+        }
+
+        function quarterStart(ym) {
+            const p = parseYm(ym);
+            if (!p) return null;
+            const qStartMonth = Math.floor((p.m - 1) / 3) * 3 + 1;
+            return fmtYm(p.y, qStartMonth);
+        }
+
+        function applyStickyCompare() {
+            const anchor = compareB.value || compareA.value;
+            if (!anchor) return;
+
+            if (toggleQoq.checked) {
+                // Quarter-over-quarter: compare selected quarter vs previous quarter.
+                const qStart = quarterStart(anchor);
+                if (!qStart) return;
+                compareMode.value = 'quarter';
+                compareB.value = qStart;
+                compareA.value = addMonths(qStart, -3);
+                return;
+            }
+
+            if (toggleYoy.checked) {
+                // Year-over-year: compare selected month vs same month last year.
+                compareMode.value = 'month';
+                compareB.value = anchor;
+                compareA.value = addMonths(anchor, -12);
+                return;
+            }
+
+            // Manual mode
+            compareMode.value = 'month';
+        }
+
+        function syncTogglesFromQuery() {
+            const mode = (compareMode.value || 'month').toLowerCase();
+            if (mode === 'quarter') {
+                toggleQoq.checked = true;
+                toggleYoy.checked = false;
+            } else {
+                toggleQoq.checked = false;
+                toggleYoy.checked = false;
+            }
+        }
+
+        // Exclusive toggles
+        toggleYoy.addEventListener('change', () => {
+            if (toggleYoy.checked) toggleQoq.checked = false;
+            applyStickyCompare();
+        });
+        toggleQoq.addEventListener('change', () => {
+            if (toggleQoq.checked) toggleYoy.checked = false;
+            applyStickyCompare();
+        });
+
+        // Keep sticky behavior when month changes.
+        compareA.addEventListener('change', applyStickyCompare);
+        compareB.addEventListener('change', applyStickyCompare);
+
+        // Initial sync on page load and apply if mode is quarter.
+        syncTogglesFromQuery();
+        if (toggleQoq.checked) applyStickyCompare();
+    })();
+</script>
+
+<script>
+    (function () {
+        const textarea = document.getElementById('strategyNoteInput');
+        const btn = document.getElementById('saveStrategyNoteBtn');
+        if (!textarea || !btn) return;
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        async function save() {
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+
+            try {
+                const res = await fetch("{% url 'save-finance-strategy-note' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    },
+                    body: JSON.stringify({ content: textarea.value }),
+                });
+                const data = await res.json();
+                if (data.status !== 'success') {
+                    throw new Error(data.message || 'Save failed');
+                }
+
+                if (window.Swal) {
+                    Swal.fire({
+                        title: 'Saved',
+                        text: 'Your strategy notes were saved.',
+                        icon: 'success',
+                        timer: 1200,
+                        showConfirmButton: false,
+                    });
+                }
+            } catch (e) {
+                if (window.Swal) {
+                    Swal.fire('Error', 'Could not save notes. Please try again.', 'error');
+                } else {
+                    alert('Could not save notes. Please try again.');
+                }
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+
+        btn.addEventListener('click', save);
+    })();
+</script>
 
 <script>
     // Safe Data Loading

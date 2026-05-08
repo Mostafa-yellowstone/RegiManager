@@ -370,6 +370,39 @@ function updateAgentRole(membershipId, role) {
     });
 }
 
+function toggleAgentActive(membershipId, isChecked) {
+    fetch('/dashboard/agent/toggle-active/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ membership_id: membershipId, enabled: isChecked })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status !== 'success') {
+            alert(data.message || 'Failed to update agent status.');
+            window.location.reload();
+            return;
+        }
+        const badge = document.getElementById(`agent-status-${membershipId}`);
+        const row = document.querySelector(`.agent-active-toggle[data-id="${membershipId}"]`)?.closest('.agent-row');
+        if (badge) {
+            badge.textContent = data.is_active ? 'Active' : 'Disabled';
+            badge.classList.toggle('active', data.is_active);
+            badge.classList.toggle('inactive', !data.is_active);
+        }
+        if (row) {
+            row.classList.toggle('inactive-agent', !data.is_active);
+        }
+    })
+    .catch(() => {
+        alert('Network error updating agent status.');
+        window.location.reload();
+    });
+}
+
 function initializeDocUploadTriggers() {
     document.querySelectorAll('.doc-upload-trigger').forEach(btn => {
         btn.onclick = function() {
@@ -436,6 +469,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 this.getAttribute('data-field'), 
                 this.checked
             );
+        });
+    });
+
+    document.querySelectorAll('.agent-active-toggle').forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            toggleAgentActive(this.getAttribute('data-id'), this.checked);
         });
     });
 

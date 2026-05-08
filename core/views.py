@@ -1,6 +1,9 @@
 from decimal import Decimal
+import csv
+from io import BytesIO
 
 from django.db.models import Count, Sum, Q
+from django.db.models.functions import TruncMonth
 from django.core.paginator import Paginator
 from django.http import HttpResponse, HttpResponseForbidden
 from django.conf import settings
@@ -32,10 +35,12 @@ from .models import (
 import json
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
+from django.db.utils import OperationalError, ProgrammingError
 from datetime import timedelta
 from .tasks import send_automation_email
-from .models import AutomationLog
+from .models import AutomationLog, FinanceStrategyNote, ClientNote, Notification
 import io
+from openpyxl import Workbook
 
 
 def _currency(value):
@@ -73,6 +78,222 @@ def _fit_text(text, max_width, font_name="Helvetica", font_size=7):
     while allowed and stringWidth(allowed + suffix, font_name, font_size) > max_width:
         allowed = allowed[:-1]
     return (allowed + suffix) if allowed else suffix
+
+
+def _normalize_weight_from_gvwr(raw_value):
+    """
+    Normalize noisy decoder GVWR strings into a clean numeric weight hint.
+    Returns empty string when uncertain to avoid writing incorrect defaults.
+    """
+    if not raw_value:
+        return ""
+    raw = str(raw_value).upper()
+    import re
+
+    # Prefer explicit numeric ranges like 0-6000, 6001 TO 10000, etc.
+    range_match = re.search(r"(\d{3,6})\s*(?:-|TO)\s*(\d{3,6})", raw)
+    if range_match:
+        low = int(range_match.group(1))
+        high = int(range_match.group(2))
+        # Use midpoint as practical hint for paperwork fields.
+        return str((low + high) // 2)
+
+    # Fallback: take the largest standalone number, but ignore tiny values.
+    nums = [int(x) for x in re.findall(r"\d{3,6}", raw)]
+    if nums:
+        return str(max(nums))
+    return ""
+
+
+def _draw_cell_text(can, value, start_x, y, step_x, max_len):
+    text = (value or "").strip().upper()
+    for i, ch in enumerate(text[:max_len]):
+        can.drawString(start_x + (i * step_x), y, ch)
+
+
+def _build_form_prefill_payload(service, client, vehicle):
+    dob_m, dob_d, dob_y = ("", "", "")
+    if client and client.dob:
+        dob_m, dob_d, dob_y = client.dob.strftime("%m"), client.dob.strftime("%d"), client.dob.strftime("%Y")
+    return {
+        "dob_m": dob_m,
+        "dob_d": dob_d,
+        "dob_y": dob_y,
+        "driver_license": (client.driver_license if client else "") or "",
+        "street_address": (client.street_address.upper() if client else "") or "",
+        "city": (client.city.upper() if client else "") or "",
+        "state": (client.state.upper() if client else "NY") or "NY",
+        "zip_code": (client.zip_code if client else "") or "",
+        "name_full": f"{client.last_name}, {client.first_name} {client.middle_name or ''}".upper() if client else "",
+        "year": str(vehicle.year) if vehicle else "",
+        "make": vehicle.make.upper() if vehicle else "",
+        "model": vehicle.model.upper() if vehicle else "",
+        "vin": (service.vin or "").upper(),
+        "plate_number": (service.plate_number or "") or (vehicle.plate_number if vehicle else "") or "",
+        "county": (client.county.upper() if client and client.county else "") or "",
+        "phone_digits": "".join(ch for ch in ((client.phone_number if client else "") or "") if ch.isdigit()),
+        "email": (client.email if client and client.email else "") or "",
+        "service_type": (service.service_type_label if service else "") or "",
+    }
+
+
+def _build_acroform_prefill_fields(form_type, prefill):
+    """
+    Strict per-form mapping only.
+    Avoid broad aliases that can write into unrelated fields.
+    """
+    if form_type == "mv82":
+        return {
+            "NYS New York State driver license ID Identification number of PRIMARY REGISTRANT": prefill["driver_license"],
+            "PRIMARY REGISTRANT DATE OF BIRTH Month": prefill["dob_m"],
+            "PRIMARY REGISTRANT DATE OF BIRTH Day": prefill["dob_d"],
+            "PRIMARY REGISTRANT DATE OF BIRTH Year": prefill["dob_y"],
+            "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL": prefill["street_address"],
+            "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL City or Town": prefill["city"],
+            "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL State": prefill["state"],
+            "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL Zip Code": prefill["zip_code"],
+            
+            # MV-82B keys remain here too; harmless for non-matching forms.
+            "NAME OF PRIMARY REGISTRANT Last First Middle": prefill["name_full"],
+            "NYS driver license number of PRIMARY": prefill["driver_license"],
+            "STREET ADDRESS": prefill["street_address"],
+            "CITY OR TOWN": prefill["city"],
+            "STATE": prefill["state"],
+            "ZIP CODE": prefill["zip_code"],
+            "YEAR": prefill["year"],
+            "MAKE": prefill["make"],
+            "MODEL": prefill["model"],
+            "HIN": prefill["vin"],
+        }
+
+    if form_type == "mv82b":
+        return {
+            "NAME OF PRIMARY REGISTRANT Last First Middle": prefill["name_full"],
+            "NYS driver license number of PRIMARY": prefill["driver_license"],
+            "STREET ADDRESS": prefill["street_address"],
+            "CITY OR TOWN": prefill["city"],
+            "STATE": prefill["state"],
+            "ZIP CODE": prefill["zip_code"],
+            "YEAR": prefill["year"],
+            "MAKE": prefill["make"],
+            "MODEL": prefill["model"],
+            "HIN": prefill["vin"],
+        }
+
+    # DTF forms currently use overlay/manual paths only.
+    return {}
+
+
+def _extract_pdf_field_names(pdf_reader):
+    names = []
+    for page in pdf_reader.pages:
+        annots = page.get("/Annots") or []
+        for annot in annots:
+            obj = annot.get_object()
+            field_name = obj.get("/T")
+            if field_name:
+                names.append(str(field_name))
+    # Preserve order, drop duplicates
+    seen = set()
+    out = []
+    for n in names:
+        if n not in seen:
+            out.append(n)
+            seen.add(n)
+    return out
+
+
+def _token_match_score(field_name, required_tokens):
+    text = (field_name or "").lower().replace("_", " ")
+    score = 0
+    for t in required_tokens:
+        if t in text:
+            score += 1
+        else:
+            return 0
+    return score
+
+
+def _build_dtf_token_prefill_fields(pdf_reader, prefill):
+    """
+    Conservative token-based matching for DTF templates:
+    - only map when all required tokens are present
+    - avoids broad aliases that caused overlap/misplacement
+    """
+    field_names = _extract_pdf_field_names(pdf_reader)
+    if not field_names:
+        return {}
+
+    candidates = [
+        (["name", "purchaser"], prefill["name_full"]),
+        (["name", "buyer"], prefill["name_full"]),
+        (["address"], prefill["street_address"]),
+        (["city"], prefill["city"]),
+        (["state"], prefill["state"]),
+        (["zip"], prefill["zip_code"]),
+        (["vin"], prefill["vin"]),
+        (["vehicle", "identification"], prefill["vin"]),
+        (["year"], prefill["year"]),
+        (["make"], prefill["make"]),
+        (["model"], prefill["model"]),
+        (["driver", "license"], prefill["driver_license"]),
+        (["dl"], prefill["driver_license"]),
+        (["plate"], prefill["plate_number"]),
+    ]
+
+    mapped = {}
+    used_fields = set()
+    for tokens, value in candidates:
+        if not value:
+            continue
+        best = None
+        best_score = 0
+        for fname in field_names:
+            if fname in used_fields:
+                continue
+            score = _token_match_score(fname, tokens)
+            if score > best_score:
+                best_score = score
+                best = fname
+        if best and best_score > 0:
+            mapped[best] = value
+            used_fields.add(best)
+    return mapped
+
+
+def _has_active_org_access(user, organization_id):
+    if not getattr(user, "is_authenticated", False):
+        return False
+    return OrganizationMembership.objects.filter(
+        user=user,
+        organization_id=organization_id,
+        is_active=True,
+        organization__is_active=True,
+    ).exists()
+
+
+def _has_active_owner_access(user, organization_id):
+    if not getattr(user, "is_authenticated", False):
+        return False
+    return OrganizationMembership.objects.filter(
+        user=user,
+        organization_id=organization_id,
+        role=OrganizationMembership.Role.OWNER,
+        is_active=True,
+        organization__is_active=True,
+    ).exists()
+
+
+def _can_access_finance_hub(user):
+    if not getattr(user, "is_authenticated", False):
+        return False
+    return OrganizationMembership.objects.filter(
+        user=user,
+        is_active=True,
+        organization__is_active=True,
+    ).filter(
+        Q(role=OrganizationMembership.Role.OWNER) | Q(can_view_reports=True)
+    ).exists()
 
 
 def home(request):
@@ -128,6 +349,10 @@ def member_signup(request):
             return redirect("dashboard")
     else:
         form = AgentSignupForm()
+    filtered_query = request.GET.copy()
+    filtered_query.pop("page", None)
+    filtered_query.pop("export", None)
+
     return render(
         request,
         "core/auth_form.html",
@@ -224,30 +449,176 @@ def add_client(request):
 @login_required
 def client_detail(request, client_id):
     client = get_object_or_404(Client, id=client_id)
-    if not OrganizationMembership.objects.filter(user=request.user, organization=client.organization).exists():
+    if not _has_active_org_access(request.user, client.organization_id):
         return HttpResponseForbidden("Access denied.")
     
     vehicles = client.vehicles.all()
-    records = ServiceRecord.objects.filter(vehicle__client=client).order_by("-created_at")
+    records_qs = (
+        ServiceRecord.objects.filter(vehicle__client=client)
+        .select_related("handled_by", "vehicle", "vehicle__client", "organization", "dealer")
+        .order_by("-created_at")
+    )
+    try:
+        notes_qs = client.notes.select_related("created_by", "assigned_to").all()
+    except (OperationalError, ProgrammingError):
+        notes_qs = ClientNote.objects.none()
+
+    assignable_agents = User.objects.filter(
+        organization_memberships__organization=client.organization,
+        organization_memberships__is_active=True,
+        organization_memberships__role=OrganizationMembership.Role.MEMBER,
+    ).distinct().order_by("first_name", "last_name", "username")
     
-    total_spend = sum(r.service_fee for r in records)
-    total_services = records.count()
-    last_service_date = records.first().created_at if records.exists() else None
+    record_totals = records_qs.aggregate(total_spend=Sum("service_fee"), total_services=Count("id"))
+    total_spend = record_totals["total_spend"] or Decimal("0")
+    total_services = record_totals["total_services"] or 0
+    last_service_date = records_qs.values_list("created_at", flat=True).first()
+
+    notes_paginator = Paginator(notes_qs, 3)
+    notes_page = request.GET.get("notes_page")
+    notes = notes_paginator.get_page(notes_page)
+
+    records_paginator = Paginator(records_qs, 6)
+    tx_page = request.GET.get("tx_page")
+    records = records_paginator.get_page(tx_page)
     
     from django.db.models import Q
     all_docs = ServiceDocument.objects.filter(
         Q(vehicle__client=client) | Q(service_record__vehicle__client=client)
-    ).distinct().order_by("-uploaded_at")
+    ).select_related("vehicle", "service_record").distinct().order_by("-uploaded_at")
     
     return render(request, "core/client_profile.html", {
         "client": client, 
         "vehicles": vehicles,
         "records": records,
         "documents": all_docs,
+        "notes": notes,
+        "assignable_agents": assignable_agents,
         "total_spend": total_spend,
         "total_services": total_services,
         "last_service_date": last_service_date
     })
+
+
+@login_required
+@require_POST
+def add_client_note(request, client_id):
+    client = get_object_or_404(Client, id=client_id)
+    if not _has_active_org_access(request.user, client.organization_id):
+        return HttpResponseForbidden("Access denied.")
+
+    content = (request.POST.get("content") or "").strip()
+    follow_up_date = (request.POST.get("follow_up_date") or "").strip()
+    assigned_to_raw = (request.POST.get("assigned_to") or "").strip()
+
+    if not content:
+        messages.error(request, "Please enter a note.")
+        return redirect("client-detail", client_id=client.id)
+
+    try:
+        assigned_to = None
+        if assigned_to_raw.isdigit():
+            assigned_to = User.objects.filter(
+                id=int(assigned_to_raw),
+                organization_memberships__organization=client.organization,
+                organization_memberships__is_active=True,
+                organization_memberships__role=OrganizationMembership.Role.MEMBER,
+            ).first()
+
+        note = ClientNote.objects.create(
+            client=client,
+            created_by=request.user,
+            assigned_to=assigned_to,
+            content=content,
+            follow_up_date=follow_up_date or None,
+        )
+
+        if assigned_to:
+            Notification.objects.create(
+                user=assigned_to,
+                client=client,
+                note=note,
+                level=Notification.Level.WARNING,
+                title="New client note assigned",
+                message=f"{request.user.get_full_name() or request.user.username} assigned you a note for {client.name}.",
+            )
+
+        if note.follow_up_date:
+            Notification.objects.create(
+                user=request.user,
+                client=client,
+                note=note,
+                level=Notification.Level.WARNING,
+                title="Client follow-up reminder",
+                message=f"Follow up on {client.name} on {note.follow_up_date}.",
+            )
+    except (OperationalError, ProgrammingError):
+        messages.error(request, "Notes table is not available yet. Please run migrations.")
+        return redirect("client-detail", client_id=client.id)
+
+    messages.success(request, "Note saved.")
+    return redirect("client-detail", client_id=client.id)
+
+
+@login_required
+@require_POST
+def mark_client_note_done(request, note_id):
+    note = get_object_or_404(ClientNote.objects.select_related("client", "created_by", "assigned_to"), id=note_id)
+    if not _has_active_org_access(request.user, note.client.organization_id):
+        return HttpResponseForbidden("Access denied.")
+
+    if not note.is_done:
+        note.is_done = True
+        note.save(update_fields=["is_done"])
+        Notification.objects.filter(note=note).update(is_read=True)
+        
+        if note.created_by and note.created_by != request.user:
+            Notification.objects.create(
+                user=note.created_by,
+                client=note.client,
+                level=Notification.Level.INFO,
+                title="Client Note Completed",
+                message=f"{request.user.get_full_name() or request.user.username} marked your note for {note.client.name} as done.",
+            )
+            
+        if note.assigned_to and note.assigned_to != request.user and note.assigned_to != note.created_by:
+            Notification.objects.create(
+                user=note.assigned_to,
+                client=note.client,
+                level=Notification.Level.INFO,
+                title="Client Note Completed",
+                message=f"{request.user.get_full_name() or request.user.username} marked the note assigned to you for {note.client.name} as done.",
+            )
+
+        messages.success(request, "Note marked as done.")
+
+    next_url = (request.POST.get("next") or "").strip()
+    if next_url:
+        return redirect(next_url)
+    return redirect("client-detail", client_id=note.client_id)
+
+
+@login_required
+def open_notification(request, notification_id):
+    try:
+        notif = get_object_or_404(
+            Notification.objects.select_related("client", "note"),
+            id=notification_id,
+            user=request.user,
+        )
+    except (OperationalError, ProgrammingError):
+        messages.error(request, "Notifications are temporarily unavailable. Please run migrations.")
+        return redirect("dashboard")
+
+    # Keep note-linked notifications visible until user marks note as done.
+    if not notif.note_id and not notif.is_read:
+        notif.is_read = True
+        notif.save(update_fields=["is_read"])
+
+    anchor = ""
+    if notif.note_id:
+        anchor = f"#note-{notif.note_id}"
+    return redirect(f"{redirect('client-detail', client_id=notif.client_id).url}{anchor}")
 
 
 @login_required
@@ -281,6 +652,9 @@ def all_clients(request):
 @login_required
 def add_vehicle(request, client_id):
     client = get_object_or_404(Client, id=client_id)
+    if not _has_active_org_access(request.user, client.organization_id):
+        return HttpResponseForbidden("Access denied.")
+
     if request.method == "POST":
         form = VehicleForm(request.POST)
         if form.is_valid():
@@ -304,14 +678,18 @@ def add_vehicle(request, client_id):
 @login_required
 def check_vin_ajax(request):
     vin = request.GET.get("vin", "").strip().upper()
+    org_id = request.GET.get("org_id", "").strip()
     if not vin:
+        return JsonResponse({"exists": False, "is_valid": False})
+
+    if not org_id.isdigit() or not _has_active_org_access(request.user, int(org_id)):
         return JsonResponse({"exists": False, "is_valid": False})
     
     # Structural check (Modern VINs are 17 characters and don't contain I, O, or Q)
     is_valid_format = len(vin) == 17 and not any(c in vin for c in "IOQ")
     
     # 1. Check for duplicates in our system
-    vehicle = Vehicle.objects.filter(vin=vin).first()
+    vehicle = Vehicle.objects.filter(vin=vin, client__organization_id=int(org_id)).first()
     if vehicle:
         return JsonResponse({
             "exists": True,
@@ -338,12 +716,14 @@ def check_vin_ajax(request):
                     "body_type": data.get("BodyClass"),
                     "fuel_type": data.get("FuelTypePrimary"),
                     "cylinders": data.get("EngineCylinders"),
-                    "weight": data.get("GVWR"),
+                    "weight_raw": data.get("GVWR"),
+                    "weight": _normalize_weight_from_gvwr(data.get("GVWR")),
                     "seats": data.get("Seats"),
                     "color": data.get("ExteriorColor"),
                 }
         except Exception as e:
-            print(f"VIN Decoding Error: {e}")
+            # Avoid noisy stdout in production; this endpoint is best-effort.
+            pass
 
     return JsonResponse({
         "exists": False, 
@@ -356,15 +736,18 @@ def check_vin_ajax(request):
 def check_client_name_ajax(request):
     first_name = request.GET.get("first_name", "").strip()
     last_name = request.GET.get("last_name", "").strip()
-    org_id = request.GET.get("org_id")
+    org_id = request.GET.get("org_id", "").strip()
     
     if not first_name or not last_name or not org_id:
+        return JsonResponse({"exists": False})
+
+    if not org_id.isdigit() or not _has_active_org_access(request.user, int(org_id)):
         return JsonResponse({"exists": False})
     
     exists = Client.objects.filter(
         first_name__iexact=first_name,
         last_name__iexact=last_name,
-        organization_id=org_id
+        organization_id=int(org_id)
     ).exists()
     
     return JsonResponse({"exists": exists})
@@ -373,7 +756,7 @@ def check_client_name_ajax(request):
 @login_required
 def vehicle_detail(request, vehicle_id):
     vehicle = get_object_or_404(Vehicle, id=vehicle_id)
-    if not OrganizationMembership.objects.filter(user=request.user, organization=vehicle.client.organization).exists():
+    if not _has_active_org_access(request.user, vehicle.client.organization_id):
         return HttpResponseForbidden("Access denied.")
     
     from django.db.models import Q
@@ -408,7 +791,7 @@ def vehicle_detail(request, vehicle_id):
 @login_required
 def start_process(request, vehicle_id):
     vehicle = get_object_or_404(Vehicle, id=vehicle_id)
-    if not OrganizationMembership.objects.filter(user=request.user, organization=vehicle.client.organization).exists():
+    if not _has_active_org_access(request.user, vehicle.client.organization_id):
         return HttpResponseForbidden("Access denied.")
     
     if request.method == "POST":
@@ -474,7 +857,21 @@ def start_process(request, vehicle_id):
                     "service_type": record.service_type_label,
                     "case_id": record.case_id,
                 }
-                send_automation_email.delay(vehicle.client.email, subject, "core/emails/confirmation.html", context)
+                mail_dispatch_status = "queued"
+                try:
+                    send_automation_email.delay(
+                        vehicle.client.email,
+                        subject,
+                        "core/emails/confirmation.html",
+                        context,
+                    )
+                except Exception:
+                    # Do not fail process creation if mail backend/network is down.
+                    mail_dispatch_status = "failed_to_queue"
+                    messages.warning(
+                        request,
+                        "Service created, but confirmation email could not be queued right now.",
+                    )
                 
                 AutomationLog.objects.create(
                     organization=record.organization,
@@ -483,7 +880,7 @@ def start_process(request, vehicle_id):
                     client=vehicle.client,
                     log_type="confirmation",
                     sent_to=vehicle.client.email,
-                    details=f"Initial case confirmation sent for {record.case_id}."
+                    details=f"Initial case confirmation {mail_dispatch_status} for {record.case_id}.",
                 )
             return redirect("client-detail", client_id=vehicle.client.id)
     else:
@@ -497,10 +894,22 @@ def dashboard(request):
     if request.user.is_superuser:
         return redirect("/admin/")
         
-    memberships = OrganizationMembership.objects.filter(user=request.user).select_related(
+    memberships = OrganizationMembership.objects.filter(
+        user=request.user,
+        is_active=True,
+        organization__is_active=True,
+    ).select_related(
         "organization"
     )
-    organizations = Organization.objects.filter(memberships__user=request.user).distinct()
+    organizations = Organization.objects.filter(
+        memberships__user=request.user,
+        memberships__is_active=True,
+        is_active=True,
+    ).distinct()
+    if not memberships.exists():
+        messages.error(request, "Your account is currently disabled for all agencies. Contact an owner.")
+        logout(request)
+        return redirect("login")
     
     # Client/Vehicle flow is now handled by separate views.
     # Dashboard just shows overview statistics and quick links.
@@ -521,10 +930,19 @@ def dashboard(request):
     month_start = today.replace(day=1)
     year_start = today.replace(month=1, day=1)
 
-    service_records = scope_qs.select_related("organization", "handled_by")[:3]
-    audit_logs = ServiceAuditLog.objects.filter(service_record__in=scope_qs).select_related(
-        "actor", "organization", "service_record"
-    )[:5]
+    service_records = (
+        scope_qs.select_related("organization", "handled_by")
+        .order_by("-created_at")[:3]
+    )
+
+    audit_scope = ServiceAuditLog.objects.filter(service_record__organization__in=organizations)
+    if not is_owner:
+        audit_scope = audit_scope.filter(service_record__handled_by=request.user)
+
+    audit_logs = (
+        audit_scope.select_related("actor", "organization", "service_record")
+        .order_by("-created_at")[:5]
+    )
 
     service_totals_qs = (
         scope_qs.values("service_type")
@@ -638,7 +1056,6 @@ def dashboard(request):
     user_can_view_reports = any(m.can_view_reports for m in memberships)
     user_can_view_net_profit = any(m.can_view_net_profit for m in memberships)
     user_can_manage_dealers = any(m.can_manage_dealers for m in memberships)
-    user_can_trigger_automation = any(m.can_trigger_automation for m in memberships)
 
     total_outstanding_dealer_balance = Decimal("0")
     if is_owner or user_can_manage_dealers:
@@ -692,7 +1109,7 @@ def dashboard(request):
             "automation_logs": automation_logs,
             "upcoming_expirations": upcoming_expirations,
             "custom_types": custom_types,
-            "user_can_trigger_automation": user_can_trigger_automation,
+            "user_can_trigger_automation": False,
         },
     )
 
@@ -1433,13 +1850,14 @@ def generate_dmv_form(request, form_type, service_id):
     Brilliant central hub for generating all official NYS DMV forms.
     """
     service = get_object_or_404(ServiceRecord, id=service_id)
-    if not OrganizationMembership.objects.filter(user=request.user, organization=service.organization).exists():
+    if not _has_active_org_access(request.user, service.organization_id):
         return HttpResponseForbidden("Access denied.")
 
     vehicle = service.vehicle
     if not vehicle and service.vin:
         vehicle = Vehicle.objects.filter(vin=service.vin).first()
     client = vehicle.client if vehicle else None
+    prefill = _build_form_prefill_payload(service, client, vehicle)
     
     # Path mapping
     form_map = {
@@ -1483,36 +1901,14 @@ def generate_dmv_form(request, form_type, service_id):
         output._root_object.update({
             NameObject("/AcroForm"): template_pdf.trailer["/Root"]["/AcroForm"]
         })
-        dob_m, dob_d, dob_y = ("", "", "")
-        if client and client.dob:
-            dob_m, dob_d, dob_y = client.dob.strftime("%m"), client.dob.strftime("%d"), client.dob.strftime("%Y")
-        
-        # Combined field mapping for MV-82 and MV-82B
-        fields = {
-            # MV-82 Fields
-            "NYS New York State driver license ID Identification number of PRIMARY REGISTRANT": client.driver_license if client else "",
-            "PRIMARY REGISTRANT DATE OF BIRTH Month": dob_m,
-            "PRIMARY REGISTRANT DATE OF BIRTH Day": dob_d,
-            "PRIMARY REGISTRANT DATE OF BIRTH Year": dob_y,
-            "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL": client.street_address.upper() if client else "",
-            "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL City or Town": client.city.upper() if client else "",
-            "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL State": client.state.upper() if client else "NY",
-            "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL Zip Code": client.zip_code if client else "",
-            
-            # MV-82B Specific Fields
-            "NAME OF PRIMARY REGISTRANT Last First Middle": f"{client.last_name}, {client.first_name} {client.middle_name or ''}".upper() if client else "",
-            "NYS driver license number of PRIMARY": client.driver_license if client else "",
-            "STREET ADDRESS": client.street_address.upper() if client else "",
-            "CITY OR TOWN": client.city.upper() if client else "",
-            "STATE": client.state.upper() if client else "NY",
-            "ZIP CODE": client.zip_code if client else "",
-            "YEAR": str(vehicle.year) if vehicle else "",
-            "MAKE": vehicle.make.upper() if vehicle else "",
-            "MODEL": vehicle.model.upper() if vehicle else "",
-            "HIN": service.vin.upper() if service else "",
-        }
-        for page in output.pages:
-            output.update_page_form_field_values(page, fields)
+
+        fields = _build_acroform_prefill_fields(form_type, prefill)
+        if not fields and form_type in ("dtf802", "dtf803"):
+            # Conservative token-based DTF mapping (safe fallback).
+            fields = _build_dtf_token_prefill_fields(template_pdf, prefill)
+        if fields:
+            for page in output.pages:
+                output.update_page_form_field_values(page, fields)
 
     final_output = io.BytesIO()
     output.write(final_output)
@@ -1610,10 +2006,18 @@ def mv82_interactive(request, service_id):
 
 @login_required
 def service_list(request, service_type):
-    organizations = Organization.objects.filter(memberships__user=request.user).distinct()
+    organizations = Organization.objects.filter(
+        memberships__user=request.user,
+        memberships__is_active=True,
+        is_active=True,
+    ).distinct()
     scope_qs = ServiceRecord.objects.filter(organization__in=organizations)
 
-    memberships = OrganizationMembership.objects.filter(user=request.user)
+    memberships = OrganizationMembership.objects.filter(
+        user=request.user,
+        is_active=True,
+        organization__is_active=True,
+    )
     owner_org_ids = list(
         memberships.filter(role=OrganizationMembership.Role.OWNER).values_list(
             "organization_id", flat=True
@@ -1631,23 +2035,79 @@ def service_list(request, service_type):
     status_filter = request.GET.get('status', '').strip()
     date_from = request.GET.get('date_from', '').strip()
     date_to = request.GET.get('date_to', '').strip()
+    org_filter = request.GET.get('organization', '').strip()
+    agent_filter = request.GET.get('agent', '').strip()
+    payment_filter = request.GET.get('payment_method', '').strip()
+    source_filter = request.GET.get('source', '').strip()
+    dealer_filter = request.GET.get('dealer', '').strip()
+    min_amount = request.GET.get('min_amount', '').strip()
+    max_amount = request.GET.get('max_amount', '').strip()
+    sort_by = request.GET.get('sort_by', '-created_at').strip() or '-created_at'
+    export_type = request.GET.get('export', '').strip().lower()
 
     if search_query:
         scope_qs = scope_qs.filter(
             Q(client_name__icontains=search_query) |
             Q(client_identifier__icontains=search_query) |
-            Q(receipt_number__icontains=search_query)
+            Q(receipt_number__icontains=search_query) |
+            Q(vehicle__client__first_name__icontains=search_query) |
+            Q(vehicle__client__last_name__icontains=search_query)
         )
 
     if status_filter in dict(ServiceRecord.STATUS_CHOICES):
         scope_qs = scope_qs.filter(status=status_filter)
+
+    org_ids = set(organizations.values_list("id", flat=True))
+    if org_filter and org_filter.isdigit() and int(org_filter) in org_ids:
+        scope_qs = scope_qs.filter(organization_id=int(org_filter))
+
+    accessible_agents = User.objects.filter(
+        organization_memberships__organization__in=organizations,
+        organization_memberships__is_active=True,
+    ).distinct()
+    agent_ids = set(accessible_agents.values_list("id", flat=True))
+    if agent_filter and agent_filter.isdigit() and int(agent_filter) in agent_ids:
+        scope_qs = scope_qs.filter(handled_by_id=int(agent_filter))
+
+    payment_choices = {key for key, _ in ServiceRecord.PAYMENT_METHODS}
+    if payment_filter in payment_choices:
+        scope_qs = scope_qs.filter(payment_method=payment_filter)
+
+    if source_filter:
+        scope_qs = scope_qs.filter(source__iexact=source_filter)
+
+    accessible_dealers = CarDealer.objects.filter(
+        organization__in=organizations,
+        deleted_at__isnull=True,
+    ).order_by("name")
+    dealer_ids = set(accessible_dealers.values_list("id", flat=True))
+    if dealer_filter and dealer_filter.isdigit() and int(dealer_filter) in dealer_ids:
+        scope_qs = scope_qs.filter(dealer_id=int(dealer_filter))
         
     if date_from:
         scope_qs = scope_qs.filter(created_at__date__gte=date_from)
     if date_to:
         scope_qs = scope_qs.filter(created_at__date__lte=date_to)
 
-    records = scope_qs.select_related("organization", "handled_by", "vehicle__client")
+    try:
+        if min_amount:
+            scope_qs = scope_qs.filter(service_fee__gte=Decimal(min_amount))
+        if max_amount:
+            scope_qs = scope_qs.filter(service_fee__lte=Decimal(max_amount))
+    except Exception:
+        pass
+
+    sort_map = {
+        "-created_at": "-created_at",
+        "created_at": "created_at",
+        "-service_fee": "-service_fee",
+        "service_fee": "service_fee",
+        "client_name": "client_name",
+        "-status": "-status",
+    }
+    sort_by = sort_map.get(sort_by, "-created_at")
+
+    records = scope_qs.select_related("organization", "handled_by", "vehicle__client", "dealer").order_by(sort_by)
 
     service_type_map = dict(ServiceRecord.SERVICE_TYPES)
     
@@ -1665,9 +2125,99 @@ def service_list(request, service_type):
             else:
                 service_label = service_type.replace('_', ' ').title()
 
+    if export_type in {"csv", "xlsx"}:
+        export_rows = records
+        if export_type == "csv":
+            response = HttpResponse(content_type="text/csv")
+            response["Content-Disposition"] = f'attachment; filename="{service_type}_records.csv"'
+            writer = csv.writer(response)
+            writer.writerow([
+                "Date",
+                "Receipt No",
+                "Agency",
+                "Service Type",
+                "Status",
+                "Client Name",
+                "Phone",
+                "Email",
+                "Agent",
+                "Payment Method",
+                "Source",
+                "Dealer",
+                "Amount",
+            ])
+            for record in export_rows:
+                client = record.vehicle.client if record.vehicle and record.vehicle.client else None
+                writer.writerow([
+                    timezone.localtime(record.created_at).strftime("%Y-%m-%d %H:%M"),
+                    record.receipt_number,
+                    record.organization.name if record.organization else "",
+                    record.service_type_label,
+                    record.get_status_display(),
+                    client.name if client else (record.client_name or ""),
+                    client.phone_number if client else (record.phone_no or ""),
+                    client.email if client else (record.email or ""),
+                    record.handled_by.get_full_name() or record.handled_by.username,
+                    dict(ServiceRecord.PAYMENT_METHODS).get(record.payment_method, record.payment_method),
+                    record.source or "",
+                    record.dealer.name if record.dealer else "",
+                    f"{record.service_fee or Decimal('0'):.2f}",
+                ])
+            return response
+
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Service Records"
+        headers = [
+            "Date",
+            "Receipt No",
+            "Agency",
+            "Service Type",
+            "Status",
+            "Client Name",
+            "Phone",
+            "Email",
+            "Agent",
+            "Payment Method",
+            "Source",
+            "Dealer",
+            "Amount",
+        ]
+        sheet.append(headers)
+        for record in export_rows:
+            client = record.vehicle.client if record.vehicle and record.vehicle.client else None
+            sheet.append([
+                timezone.localtime(record.created_at).strftime("%Y-%m-%d %H:%M"),
+                record.receipt_number,
+                record.organization.name if record.organization else "",
+                record.service_type_label,
+                record.get_status_display(),
+                client.name if client else (record.client_name or ""),
+                client.phone_number if client else (record.phone_no or ""),
+                client.email if client else (record.email or ""),
+                record.handled_by.get_full_name() or record.handled_by.username,
+                dict(ServiceRecord.PAYMENT_METHODS).get(record.payment_method, record.payment_method),
+                record.source or "",
+                record.dealer.name if record.dealer else "",
+                float(record.service_fee or Decimal("0")),
+            ])
+
+        output = BytesIO()
+        workbook.save(output)
+        output.seek(0)
+        response = HttpResponse(
+            output.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = f'attachment; filename="{service_type}_records.xlsx"'
+        return response
+
     paginator = Paginator(records, 12)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
+    filtered_query = request.GET.copy()
+    filtered_query.pop("page", None)
+    filtered_query.pop("export", None)
 
     return render(
         request,
@@ -1680,7 +2230,30 @@ def service_list(request, service_type):
             "status_filter": status_filter,
             "date_from": date_from,
             "date_to": date_to,
+            "org_filter": org_filter,
+            "agent_filter": agent_filter,
+            "payment_filter": payment_filter,
+            "source_filter": source_filter,
+            "dealer_filter": dealer_filter,
+            "min_amount": min_amount,
+            "max_amount": max_amount,
+            "sort_by": sort_by,
             "status_choices": ServiceRecord.STATUS_CHOICES,
+            "payment_choices": ServiceRecord.PAYMENT_METHODS,
+            "organizations_for_filter": organizations.order_by("name"),
+            "agents_for_filter": accessible_agents.order_by("first_name", "last_name", "username"),
+            "dealers_for_filter": accessible_dealers,
+            "sources_for_filter": sorted(
+                {
+                    s
+                    for s in ServiceRecord.objects.filter(organization__in=organizations)
+                    .exclude(source__isnull=True)
+                    .exclude(source__exact="")
+                    .values_list("source", flat=True)
+                },
+                key=str.lower,
+            ),
+            "query_string_no_page": filtered_query.urlencode(),
         }
     )
 
@@ -1692,10 +2265,18 @@ def service_search_ajax(request):
     date_from = request.GET.get('date_from', '').strip()
     date_to = request.GET.get('date_to', '').strip()
 
-    organizations = Organization.objects.filter(memberships__user=request.user).distinct()
+    organizations = Organization.objects.filter(
+        memberships__user=request.user,
+        memberships__is_active=True,
+        is_active=True,
+    ).distinct()
     scope_qs = ServiceRecord.objects.filter(organization__in=organizations)
 
-    memberships = OrganizationMembership.objects.filter(user=request.user)
+    memberships = OrganizationMembership.objects.filter(
+        user=request.user,
+        is_active=True,
+        organization__is_active=True,
+    )
     is_owner = memberships.filter(role=OrganizationMembership.Role.OWNER).exists()
 
     if not is_owner:
@@ -1773,7 +2354,7 @@ def upload_document_ajax(request, service_id):
 def upload_document_ajax_vehicle(request, vehicle_id):
     vehicle = get_object_or_404(Vehicle, pk=vehicle_id)
     # Verify access
-    if not OrganizationMembership.objects.filter(user=request.user, organization=vehicle.client.organization).exists():
+    if not _has_active_org_access(request.user, vehicle.client.organization_id):
         return JsonResponse({"status": "error", "message": "Access denied"}, status=403)
 
     if 'file' not in request.FILES or 'document_type' not in request.POST:
@@ -1811,11 +2392,7 @@ def update_agent_role(request):
     try:
         membership = OrganizationMembership.objects.get(id=membership_id)
         # Verify request.user is owner of this org
-        is_owner = OrganizationMembership.objects.filter(
-            user=request.user,
-            organization=membership.organization,
-            role=OrganizationMembership.Role.OWNER
-        ).exists()
+        is_owner = _has_active_owner_access(request.user, membership.organization_id)
         
         if not is_owner:
             return JsonResponse({"status": "error", "message": "Unauthorized"})
@@ -1842,11 +2419,7 @@ def update_agent_permissions(request):
         
         membership = get_object_or_404(OrganizationMembership, id=membership_id)
         
-        is_owner = OrganizationMembership.objects.filter(
-            organization=membership.organization,
-            user=request.user,
-            role=OrganizationMembership.Role.OWNER
-        ).exists()
+        is_owner = _has_active_owner_access(request.user, membership.organization_id)
         
         if not is_owner:
             return JsonResponse({"status": "error", "message": "Permission denied."}, status=403)
@@ -1914,7 +2487,7 @@ def get_documents(request, service_id):
 @login_required
 def get_documents_vehicle(request, vehicle_id):
     vehicle = get_object_or_404(Vehicle, id=vehicle_id)
-    if not OrganizationMembership.objects.filter(user=request.user, organization=vehicle.client.organization).exists():
+    if not _has_active_org_access(request.user, vehicle.client.organization_id):
         return JsonResponse({"status": "error", "message": "Permission denied"}, status=403)
         
     from django.db.models import Q
@@ -1954,11 +2527,7 @@ def add_custom_service(request):
         
     organization = get_object_or_404(Organization, id=organization_id)
     
-    is_owner = OrganizationMembership.objects.filter(
-        organization=organization,
-        user=request.user,
-        role=OrganizationMembership.Role.OWNER
-    ).exists()
+    is_owner = _has_active_owner_access(request.user, organization.id)
     
     if not is_owner:
         return JsonResponse({"status": "error", "message": "Permission denied."}, status=403)
@@ -2285,7 +2854,10 @@ def toggle_dealer_partner(request):
     dealer_id = request.POST.get("dealer_id")
     is_partner = request.POST.get("is_partner") == "true"
     
-    memberships = request.user.organization_memberships.select_related("organization")
+    memberships = request.user.organization_memberships.select_related("organization").filter(
+        is_active=True,
+        organization__is_active=True,
+    )
     is_owner = memberships.filter(role=OrganizationMembership.Role.OWNER).exists()
     user_can_manage_dealers = any(m.can_manage_dealers for m in memberships)
 
@@ -2302,7 +2874,10 @@ def toggle_dealer_partner(request):
 
 @login_required
 def dealer_profile(request, dealer_id):
-    memberships = request.user.organization_memberships.select_related("organization")
+    memberships = request.user.organization_memberships.select_related("organization").filter(
+        is_active=True,
+        organization__is_active=True,
+    )
     if not memberships.exists():
         return redirect("home")
 
@@ -2429,7 +3004,11 @@ def dealer_profile(request, dealer_id):
 
 @login_required
 def run_automation_scan(request):
-    memberships = OrganizationMembership.objects.filter(user=request.user)
+    memberships = OrganizationMembership.objects.filter(
+        user=request.user,
+        is_active=True,
+        organization__is_active=True,
+    )
     can_trigger = any(m.can_trigger_automation for m in memberships)
     
     if not can_trigger:
@@ -2494,7 +3073,7 @@ def bulk_send_reminders(request):
         try:
             vehicle = Vehicle.objects.get(id=v_id)
             # Permission check per vehicle
-            if OrganizationMembership.objects.filter(user=request.user, organization=vehicle.client.organization).exists():
+            if _has_active_org_access(request.user, vehicle.client.organization_id):
                 days_left = (vehicle.registration_expiration_date - today).days
                 
                 if days_left <= 0: log_type = "expired_warning"
@@ -2516,8 +3095,7 @@ def send_manual_reminder(request, vehicle_id):
     vehicle = get_object_or_404(Vehicle, id=vehicle_id)
     
     # Check permission
-    memberships = OrganizationMembership.objects.filter(user=request.user, organization=vehicle.client.organization)
-    if not memberships.exists():
+    if not _has_active_org_access(request.user, vehicle.client.organization_id):
         messages.error(request, "You do not have permission to send reminders for this client.")
         return redirect('dashboard')
 
@@ -2568,6 +3146,16 @@ def ocr_dl_ajax(request):
             "DAK": "zip_code",
         }
         
+        def normalize_gender(val):
+            v = (val or "").strip().upper()
+            if v.startswith("1") or v.startswith("M"):
+                return "male"
+            if v.startswith("2") or v.startswith("F"):
+                return "female"
+            if v.startswith("3") or v.startswith("X") or v.startswith("O"):
+                return "other"
+            return ""
+
         # Look for the DL subfile start
         dl_start = barcode_str.find("DL")
         if dl_start != -1:
@@ -2585,10 +3173,9 @@ def ocr_dl_ajax(request):
                         else:
                             data[field] = val
                     elif field == "gender":
-                        if val.startswith("1") or val.upper().startswith("M"):
-                            data[field] = "male"
-                        elif val.startswith("2") or val.upper().startswith("F"):
-                            data[field] = "female"
+                        g = normalize_gender(val)
+                        if g:
+                            data[field] = g
                     else:
                         data[field] = val
                         
@@ -2645,47 +3232,220 @@ def ocr_dl_ajax(request):
                 return JsonResponse({"status": "error", "message": "OCR failed: " + str(result.get('ErrorMessage'))})
         except Exception as e:
             return JsonResponse({"status": "error", "message": "OCR Error: " + str(e)})
+    
+    return JsonResponse({"status": "success", "data": data})
+
+
+@login_required
+@require_POST
+def ocr_vehicle_title_ajax(request):
+    """
+    Lightweight title/barcode scan parser for vehicle autofill.
+    Works with handheld scanner text payload first; can be extended later for image OCR.
+    """
+    import re
+
+    raw = (request.POST.get("scan_data") or "").strip().upper()
+    data = {}
+    if not raw:
+        return JsonResponse({"status": "error", "message": "Missing scan data."}, status=400)
+
+    # VIN: 17 chars excluding I/O/Q
+    vin_match = re.search(r"\b([A-HJ-NPR-Z0-9]{17})\b", raw)
+    if vin_match:
+        data["vin"] = vin_match.group(1)
+
+    year_match = re.search(r"\b(19[8-9]\d|20[0-4]\d)\b", raw)
+    if year_match:
+        data["year"] = year_match.group(1)
+
+    # Heuristic key-value extraction common in scanner dumps
+    def extract_after(label):
+        m = re.search(rf"{label}\s*[:\-]?\s*([A-Z0-9 ]{{2,40}})", raw)
+        return m.group(1).strip() if m else ""
+
+    make = extract_after("MAKE")
+    model = extract_after("MODEL")
+    plate = extract_after("PLATE")
+    if make:
+        data["make"] = make
+    if model:
+        data["model"] = model
+    if plate:
+        data["plate_number"] = plate
+
+    return JsonResponse({"status": "success", "data": data})
             
 @login_required
 def finance_hub(request):
     """
     Brilliant Financial & BI Hub for Agency Analytics.
     """
-    organizations = Organization.objects.filter(memberships__user=request.user).distinct()
-    records = ServiceRecord.objects.filter(organization__in=organizations)
+    if not _can_access_finance_hub(request.user):
+        messages.error(
+            request,
+            "Finance & BI access is disabled for your account. Ask an owner to enable it from Agent permissions.",
+        )
+        return redirect("dashboard")
+
+    organizations = Organization.objects.filter(
+        memberships__user=request.user,
+        memberships__is_active=True,
+        memberships__organization__is_active=True,
+        is_active=True,
+    ).filter(
+        Q(memberships__role=OrganizationMembership.Role.OWNER) | Q(memberships__can_view_reports=True)
+    ).distinct()
+    records = ServiceRecord.objects.filter(organization__in=organizations).select_related(
+        "organization",
+        "handled_by",
+    )
+
+    org_filter = request.GET.get("organization", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+    service_filter = request.GET.get("service_type", "").strip()
+    agent_filter = request.GET.get("agent", "").strip()
+    date_from = request.GET.get("date_from", "").strip()
+    date_to = request.GET.get("date_to", "").strip()
+    compare_a = request.GET.get("compare_a", "").strip()
+    compare_b = request.GET.get("compare_b", "").strip()
+    compare_mode = request.GET.get("compare_mode", "month").strip().lower()
+
+    if org_filter.isdigit():
+        records = records.filter(organization_id=int(org_filter))
+    if status_filter in dict(ServiceRecord.STATUS_CHOICES):
+        records = records.filter(status=status_filter)
+    if service_filter:
+        records = records.filter(service_type=service_filter)
+    if agent_filter.isdigit():
+        records = records.filter(handled_by_id=int(agent_filter))
+    if date_from:
+        records = records.filter(created_at__date__gte=date_from)
+    if date_to:
+        records = records.filter(created_at__date__lte=date_to)
     
     # KPIs
-    total_revenue = records.aggregate(Sum('service_fee'))['service_fee__sum'] or Decimal("0")
-    total_services = records.count()
+    totals = records.aggregate(total_revenue=Sum("service_fee"), total_services=Count("id"))
+    total_revenue = totals["total_revenue"] or Decimal("0")
+    total_services = totals["total_services"] or 0
     
     now = timezone.now()
     month_start = now.replace(day=1, hour=0, minute=0, second=0)
-    month_revenue = records.filter(created_at__gte=month_start).aggregate(Sum('service_fee'))['service_fee__sum'] or Decimal("0")
+    month_revenue = records.filter(created_at__gte=month_start).aggregate(Sum("service_fee"))["service_fee__sum"] or Decimal("0")
     
-    # Last 6 Months Chart Data
-    import datetime
+    # Last 12 Months Chart Data - single grouped query
+    chart_end = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    chart_start = (chart_end - timedelta(days=365)).replace(day=1)
+    monthly_rows = (
+        records.filter(created_at__gte=chart_start)
+        .annotate(month=TruncMonth("created_at"))
+        .values("month")
+        .annotate(revenue=Sum("service_fee"))
+        .order_by("month")
+    )
+    month_map = {row["month"].date().strftime("%Y-%m"): float(row["revenue"] or 0) for row in monthly_rows}
     chart_labels = []
     chart_data = []
-    for i in range(5, -1, -1):
-        d = now - datetime.timedelta(days=i*30)
-        m_start = d.replace(day=1, hour=0, minute=0, second=0)
-        if i == 0:
-            m_end = now
+    cursor = chart_start.date()
+    end_cursor = chart_end.date()
+    while cursor <= end_cursor:
+        key = cursor.strftime("%Y-%m")
+        chart_labels.append(cursor.strftime("%b %Y"))
+        chart_data.append(month_map.get(key, 0))
+        if cursor.month == 12:
+            cursor = cursor.replace(year=cursor.year + 1, month=1)
         else:
-            m_end = (m_start + datetime.timedelta(days=32)).replace(day=1)
-        
-        m_label = m_start.strftime("%b %Y")
-        m_rev = records.filter(created_at__range=(m_start, m_end)).aggregate(Sum('service_fee'))['service_fee__sum'] or Decimal("0")
-        
-        chart_labels.append(m_label)
-        chart_data.append(float(m_rev))
+            cursor = cursor.replace(month=cursor.month + 1)
 
     # Service Type Breakdown
-    service_counts = records.values('service_type').annotate(count=Count('id')).order_by('-count')[:5]
-    pie_labels = [s['service_type'].replace('_', ' ').title() for s in service_counts]
-    pie_data = [s['count'] for s in service_counts]
+    service_counts = records.values("service_type").annotate(count=Count("id")).order_by("-count")[:6]
+    service_type_map = dict(ServiceRecord.SERVICE_TYPES)
+    custom_service_map = {
+        ct.key: ct.label for ct in CustomServiceType.objects.filter(organization__in=organizations)
+    }
+    service_type_map.update(custom_service_map)
+    pie_labels = [service_type_map.get(s["service_type"], s["service_type"].replace("_", " ").title()) for s in service_counts]
+    pie_data = [s["count"] for s in service_counts]
 
     avg_order_value = total_revenue / total_services if total_services > 0 else Decimal("0")
+
+    def _parse_month(value):
+        try:
+            month_start_date = timezone.datetime.strptime(value, "%Y-%m").date().replace(day=1)
+            if month_start_date.month == 12:
+                next_month_date = month_start_date.replace(year=month_start_date.year + 1, month=1, day=1)
+            else:
+                next_month_date = month_start_date.replace(month=month_start_date.month + 1, day=1)
+            return month_start_date, next_month_date
+        except Exception:
+            return None, None
+
+    def _add_months(d, months):
+        y = d.year + (d.month - 1 + months) // 12
+        m = (d.month - 1 + months) % 12 + 1
+        return d.replace(year=y, month=m, day=1)
+
+    def _quarter_label(start_date):
+        q = ((start_date.month - 1) // 3) + 1
+        return f"Q{q} {start_date.year}"
+
+    compare_data = None
+    if compare_a and compare_b:
+        a_start, a_end = _parse_month(compare_a)
+        b_start, b_end = _parse_month(compare_b)
+        if a_start and b_start:
+            if compare_mode == "quarter":
+                # Treat compare_a/compare_b as quarter start months and compare 3-month ranges.
+                a_end = _add_months(a_start, 3)
+                b_end = _add_months(b_start, 3)
+
+            a_qs = records.filter(created_at__date__gte=a_start, created_at__date__lt=a_end)
+            b_qs = records.filter(created_at__date__gte=b_start, created_at__date__lt=b_end)
+            a_stats = a_qs.aggregate(revenue=Sum("service_fee"), records=Count("id"), profit=Sum("processing_fee"))
+            b_stats = b_qs.aggregate(revenue=Sum("service_fee"), records=Count("id"), profit=Sum("processing_fee"))
+
+            a_revenue = a_stats["revenue"] or Decimal("0")
+            b_revenue = b_stats["revenue"] or Decimal("0")
+            a_records = a_stats["records"] or 0
+            b_records = b_stats["records"] or 0
+            a_profit = a_stats["profit"] or Decimal("0")
+            b_profit = b_stats["profit"] or Decimal("0")
+
+            def pct_delta(current, previous):
+                if previous in (0, Decimal("0")):
+                    return Decimal("0")
+                return ((current - previous) / previous) * Decimal("100")
+
+            compare_data = {
+                "a_label": _quarter_label(a_start) if compare_mode == "quarter" else a_start.strftime("%B %Y"),
+                "b_label": _quarter_label(b_start) if compare_mode == "quarter" else b_start.strftime("%B %Y"),
+                "a_revenue": a_revenue,
+                "b_revenue": b_revenue,
+                "a_records": a_records,
+                "b_records": b_records,
+                "a_profit": a_profit,
+                "b_profit": b_profit,
+                "revenue_delta_pct": pct_delta(b_revenue, a_revenue),
+                "records_delta_pct": pct_delta(Decimal(b_records), Decimal(a_records)),
+                "profit_delta_pct": pct_delta(b_profit, a_profit),
+            }
+
+    agents_for_filter = User.objects.filter(
+        organization_memberships__organization__in=organizations,
+        organization_memberships__is_active=True,
+    ).distinct().order_by("first_name", "last_name", "username")
+    service_choices_all = list(ServiceRecord.SERVICE_TYPES)
+    seen_keys = {key for key, _ in service_choices_all}
+    for ct in CustomServiceType.objects.filter(organization__in=organizations).order_by("label"):
+        if ct.key not in seen_keys:
+            service_choices_all.append((ct.key, ct.label))
+            seen_keys.add(ct.key)
+
+    try:
+        strategy_note = getattr(getattr(request.user, "finance_strategy_note", None), "content", "")
+    except (OperationalError, ProgrammingError):
+        # DB migrations not applied yet (table missing). Keep page functional.
+        strategy_note = ""
 
     context = {
         "total_revenue": total_revenue,
@@ -2697,13 +3457,57 @@ def finance_hub(request):
         "pie_labels": json.dumps(pie_labels),
         "pie_data": json.dumps(pie_data),
         "today": now.date(),
+        "organizations_for_filter": organizations.order_by("name"),
+        "agents_for_filter": agents_for_filter,
+        "status_choices": ServiceRecord.STATUS_CHOICES,
+        "service_choices": service_choices_all,
+        "org_filter": org_filter,
+        "status_filter": status_filter,
+        "service_filter": service_filter,
+        "agent_filter": agent_filter,
+        "date_from": date_from,
+        "date_to": date_to,
+        "compare_a": compare_a,
+        "compare_b": compare_b,
+        "compare_mode": compare_mode,
+        "compare_data": compare_data,
+        "strategy_note": strategy_note,
     }
     return render(request, "core/finance_hub.html", context)
 
 
 @login_required
+@require_POST
+def save_finance_strategy_note(request):
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except Exception:
+        payload = {}
+
+    content = (payload.get("content") or "").strip()
+    try:
+        note, _ = FinanceStrategyNote.objects.get_or_create(user=request.user)
+        note.content = content
+        note.save(update_fields=["content", "updated_at"])
+        return JsonResponse({"status": "success", "updated_at": note.updated_at.isoformat()})
+    except (OperationalError, ProgrammingError):
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Database table missing. Run migrations: python manage.py migrate",
+            },
+            status=500,
+        )
+
+
+@login_required
 def yearly_report_pdf(request):
-    owner_org_ids = OrganizationMembership.objects.filter(user=request.user, role=OrganizationMembership.Role.OWNER).values_list("organization_id", flat=True)
+    owner_org_ids = OrganizationMembership.objects.filter(
+        user=request.user,
+        role=OrganizationMembership.Role.OWNER,
+        is_active=True,
+        organization__is_active=True,
+    ).values_list("organization_id", flat=True)
     if not owner_org_ids: return HttpResponseForbidden("Owner access required.")
     
     today = timezone.localdate()
@@ -2718,7 +3522,12 @@ def custom_range_report_pdf(request):
     
     from datetime import datetime
     start, end = datetime.strptime(start_str, '%Y-%m-%d').date(), datetime.strptime(end_str, '%Y-%m-%d').date()
-    owner_org_ids = OrganizationMembership.objects.filter(user=request.user, role=OrganizationMembership.Role.OWNER).values_list("organization_id", flat=True)
+    owner_org_ids = OrganizationMembership.objects.filter(
+        user=request.user,
+        role=OrganizationMembership.Role.OWNER,
+        is_active=True,
+        organization__is_active=True,
+    ).values_list("organization_id", flat=True)
     
     qs = ServiceRecord.objects.filter(organization_id__in=owner_org_ids, created_at__date__range=(start, end))
     return _generate_report_v2(request, qs, "Custom Audit", f"Range: {start} to {end}", f"custom-audit-{start}-to-{end}.pdf")
@@ -2799,15 +3608,25 @@ def toggle_agency_automation(request):
     Toggles the is_automation_enabled field for an Organization.
     Only accessible by the Organization Owner.
     """
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"status": "error", "message": "Invalid request payload."}, status=400)
     agency_id = data.get("agency_id")
     enabled = data.get("enabled")
 
+    if not agency_id:
+        return JsonResponse({"status": "error", "message": "Missing agency_id."}, status=400)
+    if not _has_active_owner_access(request.user, agency_id):
+        return JsonResponse({"status": "error", "message": "Permission denied."}, status=403)
+
     membership = get_object_or_404(
-        OrganizationMembership, 
-        organization_id=agency_id, 
-        user=request.user, 
-        role=OrganizationMembership.Role.OWNER
+        OrganizationMembership,
+        organization_id=agency_id,
+        user=request.user,
+        role=OrganizationMembership.Role.OWNER,
+        is_active=True,
+        organization__is_active=True,
     )
     
     agency = membership.organization
@@ -2819,3 +3638,39 @@ def toggle_agency_automation(request):
         "agency_id": agency.id,
         "is_automation_enabled": agency.is_automation_enabled
     })
+
+
+@require_POST
+@login_required
+def toggle_agent_active(request):
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"status": "error", "message": "Invalid request payload."}, status=400)
+    membership_id = data.get("membership_id")
+    enabled = data.get("enabled")
+
+    membership = get_object_or_404(OrganizationMembership, id=membership_id)
+
+    is_owner = _has_active_owner_access(request.user, membership.organization_id)
+    if not is_owner:
+        return JsonResponse({"status": "error", "message": "Permission denied."}, status=403)
+
+    if membership.role == OrganizationMembership.Role.OWNER and not bool(enabled):
+        owner_count = OrganizationMembership.objects.filter(
+            organization=membership.organization,
+            role=OrganizationMembership.Role.OWNER,
+            is_active=True,
+        ).count()
+        if owner_count <= 1:
+            return JsonResponse(
+                {"status": "error", "message": "Cannot disable the last active owner."},
+                status=400,
+            )
+
+    membership.is_active = bool(enabled)
+    membership.save(update_fields=["is_active"])
+
+    return JsonResponse(
+        {"status": "success", "membership_id": membership.id, "is_active": membership.is_active}
+    )

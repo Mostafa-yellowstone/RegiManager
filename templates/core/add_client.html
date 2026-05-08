@@ -284,23 +284,52 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(res => {
             if (res.status === 'success' && res.data) {
                 const d = res.data;
-                // Auto-fill logic
-                if (d.first_name) document.getElementById('id_first_name').value = d.first_name;
-                if (d.last_name) document.getElementById('id_last_name').value = d.last_name;
-                if (d.middle_name) document.getElementById('id_middle_name').value = d.middle_name;
-                if (d.driver_license) document.getElementById('id_driver_license').value = d.driver_license;
-                if (d.dob) document.getElementById('id_dob').value = d.dob;
-                if (d.gender) document.getElementById('id_gender').value = d.gender;
-                if (d.street_address) document.getElementById('id_street_address').value = d.street_address;
-                if (d.city) document.getElementById('id_city').value = d.city;
-                if (d.state) document.getElementById('id_state').value = d.state;
-                if (d.zip_code) document.getElementById('id_zip_code').value = d.zip_code;
-                
-                // Visual success pulse
-                const form = document.getElementById('client-form');
-                form.style.transition = 'background 0.5s';
-                form.style.background = '#f0fdf4';
-                setTimeout(() => form.style.background = '', 500);
+
+                const extracted = Object.entries({
+                    "First Name": d.first_name,
+                    "Last Name": d.last_name,
+                    "Middle Name": d.middle_name,
+                    "Driver License": d.driver_license,
+                    "DOB": d.dob,
+                    "Gender": d.gender,
+                    "Street Address": d.street_address,
+                    "City": d.city,
+                    "State": d.state,
+                    "Zip": d.zip_code
+                }).filter(([,v]) => !!v);
+
+                const applyData = () => {
+                    if (d.first_name) document.getElementById('id_first_name').value = d.first_name;
+                    if (d.last_name) document.getElementById('id_last_name').value = d.last_name;
+                    if (d.middle_name) document.getElementById('id_middle_name').value = d.middle_name;
+                    if (d.driver_license) document.getElementById('id_driver_license').value = d.driver_license;
+                    if (d.dob) document.getElementById('id_dob').value = d.dob;
+                    if (d.gender) document.getElementById('id_gender').value = d.gender;
+                    if (d.street_address) document.getElementById('id_street_address').value = d.street_address;
+                    if (d.city) document.getElementById('id_city').value = d.city;
+                    if (d.state) document.getElementById('id_state').value = d.state;
+                    if (d.zip_code) document.getElementById('id_zip_code').value = d.zip_code;
+
+                    const form = document.getElementById('client-form');
+                    form.style.transition = 'background 0.5s';
+                    form.style.background = '#f0fdf4';
+                    setTimeout(() => form.style.background = '', 500);
+                };
+
+                if (window.Swal && extracted.length) {
+                    const html = extracted.map(([k,v]) => `<div style="text-align:left; margin: 4px 0;"><strong>${k}:</strong> ${v}</div>`).join('');
+                    Swal.fire({
+                        title: 'Apply scanned data?',
+                        html,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'Apply Fields',
+                    }).then((result) => {
+                        if (result.isConfirmed) applyData();
+                    });
+                } else {
+                    applyData();
+                }
             }
         })
         .catch(err => console.error('Scanner Error:', err));

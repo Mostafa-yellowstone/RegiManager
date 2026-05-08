@@ -18,29 +18,103 @@
             <article class="dashboard-panel full-width-panel">
                 <div class="list-controls">
                     <form method="get" class="search-filter-form">
-                        <div class="form-group search-group">
+                        <div class="form-group search-group" style="min-width: 240px;">
                             <label for="search-input">Search Client / Receipt</label>
                             <input type="text" id="search-input" name="q" value="{{ search_query }}" placeholder="Search by name, ID, or receipt...">
                         </div>
-                        <div class="form-group filter-group">
-                            <label for="status-select">Filter by Status</label>
-                            <select id="status-select" name="status">
-                                <option value="">All Statuses</option>
-                                {% for val, label in status_choices %}
-                                    <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="form-group filter-group">
-                            <label for="date-from">From Date</label>
-                            <input type="date" id="date-from" name="date_from" value="{{ date_from }}">
-                        </div>
-                        <div class="form-group filter-group">
-                            <label for="date-to">To Date</label>
-                            <input type="date" id="date-to" name="date_to" value="{{ date_to }}">
-                        </div>
+                        <details style="width: 100%;">
+                            <summary style="cursor: pointer; font-weight: 700; color: #334155; margin: 0.4rem 0;">
+                                Advanced Filters
+                            </summary>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem; margin-top: 0.8rem;">
+                                <div class="form-group filter-group">
+                                    <label for="status-select">Status</label>
+                                    <select id="status-select" name="status">
+                                        <option value="">All Statuses</option>
+                                        {% for val, label in status_choices %}
+                                            <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group filter-group">
+                                    <label for="date-from">From Date</label>
+                                    <input type="date" id="date-from" name="date_from" value="{{ date_from }}">
+                                </div>
+                                <div class="form-group filter-group">
+                                    <label for="date-to">To Date</label>
+                                    <input type="date" id="date-to" name="date_to" value="{{ date_to }}">
+                                </div>
+                                <div class="form-group filter-group">
+                                    <label for="org-select">Agency</label>
+                                    <select id="org-select" name="organization">
+                                        <option value="">All Agencies</option>
+                                        {% for org in organizations_for_filter %}
+                                            <option value="{{ org.id }}" {% if org_filter == org.id|stringformat:"s" %}selected{% endif %}>{{ org.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group filter-group">
+                                    <label for="agent-select">Agent</label>
+                                    <select id="agent-select" name="agent">
+                                        <option value="">All Agents</option>
+                                        {% for agent in agents_for_filter %}
+                                            <option value="{{ agent.id }}" {% if agent_filter == agent.id|stringformat:"s" %}selected{% endif %}>
+                                                {{ agent.get_full_name|default:agent.username }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group filter-group">
+                                    <label for="payment-select">Payment</label>
+                                    <select id="payment-select" name="payment_method">
+                                        <option value="">All Methods</option>
+                                        {% for val, label in payment_choices %}
+                                            <option value="{{ val }}" {% if payment_filter == val %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group filter-group">
+                                    <label for="source-select">Source</label>
+                                    <select id="source-select" name="source">
+                                        <option value="">All Sources</option>
+                                        {% for source in sources_for_filter %}
+                                            <option value="{{ source }}" {% if source_filter == source %}selected{% endif %}>{{ source }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group filter-group">
+                                    <label for="dealer-select">Dealer</label>
+                                    <select id="dealer-select" name="dealer">
+                                        <option value="">All Dealers</option>
+                                        {% for dealer in dealers_for_filter %}
+                                            <option value="{{ dealer.id }}" {% if dealer_filter == dealer.id|stringformat:"s" %}selected{% endif %}>{{ dealer.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group filter-group">
+                                    <label for="sort-by">Sort By</label>
+                                    <select id="sort-by" name="sort_by">
+                                        <option value="-created_at" {% if sort_by == "-created_at" %}selected{% endif %}>Newest First</option>
+                                        <option value="created_at" {% if sort_by == "created_at" %}selected{% endif %}>Oldest First</option>
+                                        <option value="-service_fee" {% if sort_by == "-service_fee" %}selected{% endif %}>Highest Amount</option>
+                                        <option value="service_fee" {% if sort_by == "service_fee" %}selected{% endif %}>Lowest Amount</option>
+                                        <option value="client_name" {% if sort_by == "client_name" %}selected{% endif %}>Client Name A-Z</option>
+                                    </select>
+                                </div>
+                                <div class="form-group filter-group">
+                                    <label for="min-amount">Min Amount</label>
+                                    <input id="min-amount" type="number" step="0.01" name="min_amount" value="{{ min_amount }}" placeholder="0.00">
+                                </div>
+                                <div class="form-group filter-group">
+                                    <label for="max-amount">Max Amount</label>
+                                    <input id="max-amount" type="number" step="0.01" name="max_amount" value="{{ max_amount }}" placeholder="9999.99">
+                                </div>
+                            </div>
+                        </details>
                         <button type="submit" class="btn btn-primary">Apply</button>
                         <a href="{% url 'service-list' service_type %}" class="btn btn-secondary">Clear</a>
+                        <a href="?{% if query_string_no_page %}{{ query_string_no_page }}&{% endif %}export=csv" class="btn btn-secondary">Export CSV</a>
+                        <a href="?{% if query_string_no_page %}{{ query_string_no_page }}&{% endif %}export=xlsx" class="btn btn-secondary">Export Excel</a>
                     </form>
                 </div>
 
@@ -118,7 +192,7 @@
                     </div>
                     <div class="pagination-nav" style="display: flex; gap: 0.5rem; align-items: center;">
                         {% if page_obj.has_previous %}
-                            <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="btn btn-secondary btn-sm" style="background: white; border: 1px solid #e2e8f0;">Previous</a>
+                            <a href="?page={{ page_obj.previous_page_number }}{% if query_string_no_page %}&{{ query_string_no_page }}{% endif %}" class="btn btn-secondary btn-sm" style="background: white; border: 1px solid #e2e8f0;">Previous</a>
                         {% endif %}
 
                         <div style="display: flex; gap: 0.25rem;">
@@ -126,13 +200,13 @@
                                 {% if page_obj.number == i %}
                                     <span class="btn btn-primary btn-sm" style="background: #0f172a; border: none; min-width: 32px;">{{ i }}</span>
                                 {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
-                                    <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="btn btn-secondary btn-sm" style="background: white; border: 1px solid #e2e8f0; min-width: 32px;">{{ i }}</a>
+                                    <a href="?page={{ i }}{% if query_string_no_page %}&{{ query_string_no_page }}{% endif %}" class="btn btn-secondary btn-sm" style="background: white; border: 1px solid #e2e8f0; min-width: 32px;">{{ i }}</a>
                                 {% endif %}
                             {% endfor %}
                         </div>
 
                         {% if page_obj.has_next %}
-                            <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="btn btn-secondary btn-sm" style="background: white; border: 1px solid #e2e8f0;">Next</a>
+                            <a href="?page={{ page_obj.next_page_number }}{% if query_string_no_page %}&{{ query_string_no_page }}{% endif %}" class="btn btn-secondary btn-sm" style="background: white; border: 1px solid #e2e8f0;">Next</a>
                         {% endif %}
                     </div>
                 </div>
@@ -164,76 +238,6 @@
     </div>
 </div>
 
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('search-input');
-    const statusSelect = document.getElementById('status-select');
-    const dateFrom = document.getElementById('date-from');
-    const dateTo = document.getElementById('date-to');
-    const tableBody = document.getElementById('service-table-body');
-    const serviceType = "{{ service_type }}";
-    
-    let searchTimer = null;
-
-    function performSearch() {
-        const query = searchInput.value.trim();
-        const status = statusSelect.value;
-        const from = dateFrom.value;
-        const to = dateTo.value;
-
-        // Show loading state
-        tableBody.style.opacity = '0.5';
-        tableBody.style.transition = 'opacity 0.2s';
-
-        const params = new URLSearchParams({
-            'q': query,
-            'status': status,
-            'date_from': from,
-            'date_to': to,
-            'service_type': serviceType
-        });
-
-        fetch(`/dashboard/service-search/?${params.toString()}`)
-            .then(response => response.json())
-            .then(data => {
-                tableBody.innerHTML = data.html;
-                tableBody.style.opacity = '1';
-                
-                // Re-initialize any JS listeners that were attached to the rows
-                if (window.initializeDocUploadTriggers) {
-                    window.initializeDocUploadTriggers();
-                }
-            })
-            .catch(error => {
-                console.error('Search error:', error);
-                tableBody.style.opacity = '1';
-            });
-    }
-
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            clearTimeout(searchTimer);
-            searchTimer = setTimeout(performSearch, 300);
-        });
-    }
-
-    [statusSelect, dateFrom, dateTo].forEach(el => {
-        if (el) {
-            el.addEventListener('change', performSearch);
-        }
-    });
-
-    // Prevent form submission to stay on page
-    const form = document.querySelector('.search-filter-form');
-    if (form) {
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            performSearch();
-        });
-    }
-});
-</script>
 
 <script src="{% static 'core/js/dashboard.js' %}"></script>
 {% endblock %}

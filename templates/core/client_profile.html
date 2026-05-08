@@ -56,6 +56,89 @@
         <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-top: 0;">
 
             <section style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <!-- Client Notes -->
+                <article class="dashboard-panel" style="margin: 0;">
+                    <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid #f1f5f9; display:flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                        <h3 style="margin: 0; border-bottom: none; font-size: 1.25rem; color: #1e293b;">Notes & Follow-ups</h3>
+                        <span class="brand-pill" style="background:#fff7ed; color:#c2410c;">Alerts show in the bell icon</span>
+                    </div>
+                    <div style="padding: 1.25rem 1.5rem;">
+                        <form method="post" action="{% url 'add-client-note' client.id %}" style="display:flex; flex-direction:column; gap: 0.85rem;">
+                            {% csrf_token %}
+                            <div>
+                                <label style="display:block; margin-bottom: 0.35rem; font-size: 0.78rem; font-weight: 800; color: #64748b; letter-spacing: 0.04em; text-transform: uppercase;">Note</label>
+                                <textarea name="content" required style="width:100%; min-height: 110px; resize: vertical; border: 1px solid #dbe2ea; border-radius: 12px; padding: 0.8rem 0.85rem; font-size: 0.92rem;" placeholder="Add a note about this client..."></textarea>
+                            </div>
+
+                            <div style="display:grid; grid-template-columns: minmax(240px, 1fr) 220px auto; gap: 0.75rem; align-items:end;">
+                                <div>
+                                    <label style="display:block; margin-bottom: 0.35rem; font-size: 0.78rem; font-weight: 800; color: #64748b; letter-spacing: 0.04em; text-transform: uppercase;">Assign to agent</label>
+                                    <select name="assigned_to" style="width:100%; border: 1px solid #dbe2ea; border-radius: 12px; padding: 0.65rem 0.75rem; font-size: 0.92rem;">
+                                        <option value="">Unassigned</option>
+                                        {% for agent in assignable_agents %}
+                                        <option value="{{ agent.id }}">{{ agent.get_full_name|default:agent.username }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display:block; margin-bottom: 0.35rem; font-size: 0.78rem; font-weight: 800; color: #64748b; letter-spacing: 0.04em; text-transform: uppercase;">Follow-up date</label>
+                                    <input type="date" name="follow_up_date" style="width:100%; border: 1px solid #dbe2ea; border-radius: 12px; padding: 0.65rem 0.75rem; font-size: 0.92rem;">
+                                </div>
+                                <div style="display:flex; justify-content:flex-end;">
+                                    <button type="submit" class="btn btn-primary" style="border-radius: 12px; font-weight: 900; min-width: 130px;">Save Note</button>
+                                </div>
+                            </div>
+                        </form>
+
+                        <div style="margin-top: 1.25rem;">
+                            {% for note in notes %}
+                            <div id="note-{{ note.id }}" style="padding: 0.95rem 1rem; border: 1px solid #e2e8f0; border-radius: 14px; background: #ffffff; margin-bottom: 0.75rem;">
+                                <div style="display:flex; justify-content: space-between; gap: 1rem; align-items:flex-start; flex-wrap:wrap;">
+                                    <div style="font-weight: 800; color:#0f172a;">
+                                        {{ note.created_by.get_full_name|default:note.created_by.username|default:"System" }}
+                                        <span style="font-weight: 700; color:#94a3b8; font-size:0.85rem;">• {{ note.created_at|date:"M d, Y H:i" }}</span>
+                                    </div>
+                                    {% if note.follow_up_date %}
+                                    <span class="brand-pill" style="background:#fff7ed; color:#c2410c;">Follow-up: {{ note.follow_up_date }}</span>
+                                    {% endif %}
+                                    {% if note.assigned_to %}
+                                    <span class="brand-pill" style="background:#eff6ff; color:#1d4ed8;">Assigned: {{ note.assigned_to.get_full_name|default:note.assigned_to.username }}</span>
+                                    {% endif %}
+                                    {% if note.is_done %}
+                                    <span class="brand-pill" style="background:#dcfce7; color:#166534;">Done</span>
+                                    {% endif %}
+                                </div>
+                                <div style="margin-top: 0.55rem; color:#334155; font-weight:600; white-space: pre-wrap;">{{ note.content }}</div>
+                                {% if not note.is_done %}
+                                <div style="margin-top: 0.7rem; display:flex; justify-content:flex-end;">
+                                    <form method="post" action="{% url 'mark-client-note-done' note.id %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <button type="submit" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem; border-radius:10px;">Mark Done</button>
+                                    </form>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% empty %}
+                            <div style="padding: 1rem; text-align:center; color:#94a3b8; font-weight:700; border:1px dashed #cbd5e1; border-radius: 14px; background:#f8fafc;">
+                                No notes yet.
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if notes.has_other_pages %}
+                        <div style="display:flex; justify-content:flex-end; align-items:center; gap:0.5rem; margin-top: 0.75rem;">
+                            {% if notes.has_previous %}
+                            <a href="?notes_page={{ notes.previous_page_number }}&tx_page={{ records.number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Prev</a>
+                            {% endif %}
+                            <span style="font-size:0.82rem; color:#64748b; font-weight:700;">Page {{ notes.number }} of {{ notes.paginator.num_pages }}</span>
+                            {% if notes.has_next %}
+                            <a href="?notes_page={{ notes.next_page_number }}&tx_page={{ records.number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Next</a>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </article>
+
                 <!-- Transaction History -->
                 <article class="dashboard-panel" style="margin: 0;">
                     <div
@@ -134,6 +217,17 @@
                             </tbody>
                         </table>
                     </div>
+                    {% if records.has_other_pages %}
+                    <div style="padding: 0.9rem 1.5rem; border-top: 1px solid #f1f5f9; display:flex; justify-content:flex-end; align-items:center; gap:0.5rem;">
+                        {% if records.has_previous %}
+                        <a href="?notes_page={{ notes.number }}&tx_page={{ records.previous_page_number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Prev</a>
+                        {% endif %}
+                        <span style="font-size:0.82rem; color:#64748b; font-weight:700;">Page {{ records.number }} of {{ records.paginator.num_pages }}</span>
+                        {% if records.has_next %}
+                        <a href="?notes_page={{ notes.number }}&tx_page={{ records.next_page_number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Next</a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                 </article>
             </section>
 

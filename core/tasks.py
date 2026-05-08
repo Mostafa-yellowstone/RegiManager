@@ -19,14 +19,20 @@ def send_automation_email(to_email, subject, template_name, context):
         if isinstance(value, str):
             message += f"{key.replace('_', ' ').title()}: {value}\n"
     
-    send_mail(
-        subject,
-        message,
-        settings.DEFAULT_FROM_EMAIL,
-        [to_email],
-        html_message=html_message,
-        fail_silently=False,
-    )
+    try:
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [to_email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        return "sent"
+    except Exception:
+        # Never let transient mail/network errors crash request flow
+        # (important when Celery eager mode is enabled).
+        return "failed"
 
 def process_vehicle_reminder(vehicle_id, days, log_type, force_sync=False):
     """
