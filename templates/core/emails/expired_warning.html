@@ -31,12 +31,13 @@
 
             <p>Please take immediate action to resolve this issue.</p>
             
-            <a href="{{ cta_link }}" class="btn">Take Immediate Action</a>
+            <a href="tel:{{ agency_phone }}" class="btn">Call Our Office Now</a>
+            <a href="{{ cta_link }}" class="btn" style="background: #475569;">Renew Online</a>
 
-            <p>If you believe this is an error, please contact our office immediately.</p>
+            <p>If you believe this is an error, please contact our office immediately at {{ agency_phone }}.</p>
         </div>
         <div class="footer">
-            <p>&copy; 2026 RegiManager - Private Service Bureau Solution</p>
+            <p>&copy; 2026 {{ agency_name }} - Private Service Bureau Solution</p>
         </div>
     </div>
 </body>

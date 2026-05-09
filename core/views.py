@@ -3,7 +3,8 @@ import csv
 from io import BytesIO
 
 from django.db.models import Count, Sum, Q
-from django.db.models.functions import TruncMonth
+from django.db.models.functions import TruncMonth, TruncDate, ExtractHour
+import calendar
 from django.core.paginator import Paginator
 from django.http import HttpResponse, HttpResponseForbidden
 from django.conf import settings
@@ -954,6 +955,7 @@ def start_process(request, vehicle_id):
                     "client_name": vehicle.client.name,
                     "service_type": record.service_type_label,
                     "case_id": record.case_id,
+                    "agency_name": record.organization.name,
                 }
                 mail_dispatch_status = "queued"
                 try:
@@ -1176,10 +1178,26 @@ def dashboard(request):
         registration_expiration_date__lte=today + timedelta(days=45)
     ).select_related("client").order_by("registration_expiration_date")[:5]
 
+    # Location Comparison (Owner Only)
+    location_stats = []
+    if is_owner and not request.session.get('active_org_id') and organizations.count() > 1:
+        for org in organizations:
+            org_records = ServiceRecord.objects.filter(organization=org)
+            location_stats.append({
+                'id': org.id,
+                'name': org.name,
+                'city': org.city,
+                'daily_rev': org_records.filter(created_at__date=today).aggregate(Sum('service_fee'))['service_fee__sum'] or 0,
+                'monthly_rev': org_records.filter(created_at__date__gte=month_start).aggregate(Sum('service_fee'))['service_fee__sum'] or 0,
+                'total_records': org_records.count(),
+            })
+        location_stats = sorted(location_stats, key=lambda x: x['monthly_rev'], reverse=True)
+
     return render(
         request,
         "core/dashboard.html",
         {
+            "location_stats": location_stats,
             "memberships": memberships,
             "owner_agents": owner_agents,
             "user_can_view_reports": user_can_view_reports,
@@ -2715,10 +2733,18 @@ def all_agents_directory(request):
 @login_required
 def agent_audit_view(request, membership_id):
     membership = get_object_or_404(OrganizationMembership, id=membership_id)
+    organizations = _get_user_organizations(request)
     
-    is_owner = OrganizationMembership.objects.filter(
-        organization=membership.organization,
+    memberships = _get_user_organizations(request) # This returns a queryset of organizations, but the template usually expects memberships.
+    # Actually, let's follow the dashboard pattern:
+    memberships = OrganizationMembership.objects.filter(
         user=request.user,
+        is_active=True,
+        organization__is_active=True,
+    ).select_related("organization")
+
+    is_owner = memberships.filter(
+        organization=membership.organization,
         role=OrganizationMembership.Role.OWNER
     ).exists()
     
@@ -2802,6 +2828,7 @@ def agent_audit_view(request, membership_id):
         for org in organizations:
             org_records = ServiceRecord.objects.filter(organization=org)
             location_stats.append({
+                'id': org.id,
                 'name': org.name,
                 'city': org.city,
                 'daily_rev': org_records.filter(created_at__date=today).aggregate(Sum('service_fee'))['service_fee__sum'] or 0,
@@ -3768,3 +3795,103 @@ def toggle_agent_active(request):
     return JsonResponse(
         {"status": "success", "membership_id": membership.id, "is_active": membership.is_active}
     )
+
+
+@login_required
+def branch_analytics(request, org_id):
+    from django.db.models.functions import TruncDate, ExtractHour
+    from .models import CustomServiceType
+    import calendar
+    
+    # Ensure user has access to this organization
+    organizations = _get_user_organizations(request)
+    if not organizations.filter(id=org_id).exists():
+        return HttpResponseForbidden('You do not have access to this branch.')
+    
+    org = get_object_or_404(Organization, id=org_id)
+    
+    # Analytics Logic
+    today = timezone.localdate()
+    month_start = today.replace(day=1)
+    year_start = today.replace(month=1, day=1)
+    
+    records = ServiceRecord.objects.filter(organization=org)
+    
+    # --- TRENDS ---
+    trend = records.filter(created_at__date__gte=today - timedelta(days=30))\
+                  .annotate(date=TruncDate('created_at'))\
+                  .values('date')\
+                  .annotate(count=Count('id'), revenue=Sum('service_fee'))\
+                  .order_by('date')
+    
+    # --- SMART FORECAST ---
+    # Calc average daily revenue from last 7 days for more recency
+    last_7_days_rev = records.filter(created_at__date__gte=today - timedelta(days=7))\
+                             .aggregate(total=Sum('service_fee'))['total'] or Decimal('0')
+    avg_daily_recent = last_7_days_rev / 7
+    
+    # How many days left in the month?
+    _, num_days = calendar.monthrange(today.year, today.month)
+    remaining_days = num_days - today.day
+    current_month_rev = records.filter(created_at__date__gte=month_start).aggregate(total=Sum('service_fee'))['total'] or Decimal('0')
+    
+    # Forecast = What we have + (Current Rate * Remaining Days)
+    projected_month = current_month_rev + (avg_daily_recent * Decimal(str(remaining_days)))
+    
+    # Growth indicator: Compare last 7 days vs previous 7 days
+    prev_7_days_rev = records.filter(created_at__date__gte=today - timedelta(days=14), created_at__date__lt=today - timedelta(days=7))\
+                             .aggregate(total=Sum('service_fee'))['total'] or Decimal('0')
+    growth_rate = 0
+    if prev_7_days_rev > 0:
+        growth_rate = ((last_7_days_rev - prev_7_days_rev) / prev_7_days_rev) * 100
+
+    # --- BI INSIGHTS ---
+    # 1. Capacity
+    agent_count = OrganizationMembership.objects.filter(organization=org, role='member', is_active=True).count() or 1
+    # Assume 1 agent can comfortably handle 15 records a day
+    monthly_capacity = agent_count * 15 * 22 # 22 working days
+    current_monthly_count = records.filter(created_at__date__gte=month_start).count()
+    capacity_usage = (current_monthly_count / monthly_capacity) * 100 if monthly_capacity > 0 else 0
+    
+    # 2. Peak Hour
+    peak_hour_data = records.filter(created_at__date__gte=today - timedelta(days=30))\
+                            .annotate(hour=ExtractHour('created_at'))\
+                            .values('hour')\
+                            .annotate(count=Count('id'))\
+                            .order_by('-count').first()
+    peak_hour = peak_hour_data['hour'] if peak_hour_data else 10
+    peak_label = f"{peak_hour % 12 or 12} {'AM' if peak_hour < 12 else 'PM'}"
+
+    # 3. Dealer Mix
+    dealer_records_count = records.filter(dealer__isnull=False).count()
+    total_recs = records.count()
+    dealer_percentage = (dealer_records_count / total_recs * 100) if total_recs > 0 else 0
+
+    # --- SERVICE DISTRIBUTION ---
+    dist = records.values('service_type').annotate(count=Count('id')).order_by('-count')
+    service_map = dict(ServiceRecord.SERVICE_TYPES)
+    custom_map = {c.key: c.label for c in CustomServiceType.objects.filter(organization=org)}
+    service_map.update(custom_map)
+    
+    dist_data = []
+    for item in dist:
+        dist_data.append({
+            'label': service_map.get(item['service_type'], item['service_type']),
+            'count': item['count']
+        })
+
+    return render(request, 'core/branch_analytics.html', {
+        'organization': org,
+        'trend_json': json.dumps([{'date': str(i['date']), 'revenue': float(i['revenue'])} for i in trend]),
+        'dist_json': json.dumps(dist_data),
+        'avg_daily': avg_daily_recent,
+        'projected_month': projected_month,
+        'growth_rate': growth_rate,
+        'capacity_usage': round(capacity_usage, 1),
+        'peak_hour': peak_label,
+        'dealer_percentage': round(dealer_percentage, 1),
+        'total_revenue': records.aggregate(Sum('service_fee'))['service_fee__sum'] or 0,
+        'total_count': total_recs,
+        'monthly_revenue': current_month_rev,
+        'yearly_revenue': records.filter(created_at__date__gte=year_start).aggregate(Sum('service_fee'))['service_fee__sum'] or 0,
+    })

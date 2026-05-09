@@ -38,7 +38,7 @@ class Organization(models.Model):
     address_line = models.CharField(max_length=180, blank=True, default="")
     city = models.CharField(max_length=80, blank=True, default="")
     state = models.CharField(max_length=80, blank=True, default="")
-    slug = models.SlugField(max_length=180, unique=True, blank=True)
+    phone_number = models.CharField(max_length=20, blank=True, default="", help_text="Agency contact number for clients.")
     invite_code = models.CharField(max_length=20, unique=True, default=generate_invite_code)
     max_agents = models.IntegerField(default=5, help_text="Maximum number of agents allowed for this Agency.")
     is_automation_enabled = models.BooleanField(default=False, help_text="Enable Automation Hub features for this Agency.")
@@ -52,16 +52,6 @@ class Organization(models.Model):
         verbose_name_plural = "Agencies"
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            base_slug = slugify(f"{self.name}-{self.city}-{self.state}")
-            candidate_slug = base_slug
-            suffix = 1
-            while Organization.objects.filter(slug=candidate_slug).exclude(
-                pk=self.pk
-            ).exists():
-                suffix += 1
-                candidate_slug = f"{base_slug}-{suffix}"
-            self.slug = candidate_slug
         super().save(*args, **kwargs)
 
     def __str__(self):

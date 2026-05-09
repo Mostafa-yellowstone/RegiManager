@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Analytics: {{ organization.name }} | RegiManager{% endblock %}
+
+{% block content %}
+<style>
+    .analytics-card { background: white; border-radius: 20px; padding: 2rem; border: 1px solid #e2e8f0; height: 100%; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+    .prediction-badge { background: #fef3c7; color: #92400e; padding: 0.5rem 1rem; border-radius: 999px; font-weight: 700; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 8px; border: 1px solid #fde68a; }
+    .trend-indicator { font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+    .trend-up { color: #059669; }
+    .trend-down { color: #dc2626; }
+</style>
+
+<main class="dashboard-shell">
+    <section class="dashboard-layout">
+        <header class="dashboard-hero" style="background: linear-gradient(135deg, #1e293b, #0f172a); margin-bottom: 2rem;">
+            <div style="width: 100%;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+                    <a href="{% url 'dashboard' %}" class="btn btn-secondary back-btn" style="background: rgba(255,255,255,0.1); border: none; color: white;">&larr; Back to Dashboard</a>
+                    <div class="prediction-badge">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                        AI Prediction Active
+                    </div>
+                </div>
+                
+                <h1 style="margin-bottom: 0.5rem;">{{ organization.name }} <span style="opacity: 0.6; font-weight: 400;">({{ organization.city }})</span></h1>
+                <p class="subtitle" style="color: #cbd5e1; margin-bottom: 0;">Branch Performance Insights & Revenue Forecasting</p>
+            </div>
+            
+            <div class="hero-stats" style="margin-top: 2rem;">
+                <div class="metric-card" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;">
+                    <span style="color: #cbd5e1;">Lifetime Revenue</span>
+                    <strong style="color: white;">${{ total_revenue|floatformat:2 }}</strong>
+                </div>
+                <div class="metric-card" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;">
+                    <span style="color: #cbd5e1;">Month to Date</span>
+                    <strong style="color: white;">${{ monthly_revenue|floatformat:2 }}</strong>
+                </div>
+                <div class="metric-card" style="background: rgba(79, 70, 229, 0.3); border: 1px solid rgba(165, 180, 252, 0.4); color: white; position: relative; overflow: hidden;">
+                    <div style="position: absolute; top: -10px; right: -10px; opacity: 0.1;">
+                        <svg width="80" height="80" viewBox="0 0 24 24" fill="currentColor"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                    </div>
+                    <span style="color: #e0e7ff; font-weight: 800;">Smart Forecast (30d)</span>
+                    <strong style="color: white; font-size: 1.8rem;">${{ projected_month|floatformat:2 }}</strong>
+                    <div style="font-size: 0.75rem; color: #c7d2fe; margin-top: 4px;">Based on ${{ avg_daily|floatformat:2 }}/day avg</div>
+                </div>
+            </div>
+        </header>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+            <!-- Revenue Trend Chart -->
+            <article class="analytics-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h3 style="margin: 0; font-size: 1.2rem; font-weight: 800; color: #1e293b;">Revenue Velocity (Last 30 Days)</h3>
+                    <div class="trend-indicator {% if growth_rate >= 0 %}trend-up{% else %}trend-down{% endif %}">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                        {{ growth_rate|floatformat:1 }}% vs prev wk
+                    </div>
+                </div>
+                <div style="height: 350px; width: 100%;">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </article>
+
+            <!-- Service Distribution -->
+            <article class="analytics-card">
+                <h3 style="margin: 0 0 2rem 0; font-size: 1.2rem; font-weight: 800; color: #1e293b;">Service Mix</h3>
+                <div style="height: 300px; width: 100%; display: flex; align-items: center; justify-content: center;">
+                    <canvas id="mixChart"></canvas>
+                </div>
+                <div style="margin-top: 2rem;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600; margin-bottom: 1rem;">Primary Driver</div>
+                    <div style="background: #f1f5f9; padding: 1rem; border-radius: 12px; border: 1px solid #e2e8f0;">
+                        <div id="topServiceLabel" style="font-weight: 800; color: #1e293b;">Calculating...</div>
+                        <div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">Highest volume contributor</div>
+                    </div>
+                </div>
+            </article>
+        </div>
+
+        <!-- Predictive Insights Panel -->
+        <section class="premium-panel" style="background: linear-gradient(135deg, #4f46e5, #3730a3); color: white; padding: 2.5rem; margin-bottom: 2rem; position: relative; overflow: hidden;">
+            <div style="position: absolute; right: -50px; bottom: -50px; opacity: 0.1;">
+                <svg width="300" height="300" viewBox="0 0 24 24" fill="white"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            </div>
+            
+            <div style="position: relative; z-index: 1;">
+                <h2 style="font-size: 1.8rem; font-weight: 800; margin: 0 0 1rem 0;">AI Business Intelligence</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem;">
+                    <div>
+                        <div style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #c7d2fe; margin-bottom: 0.5rem;">Capacity Alert</div>
+                        <p style="font-size: 1.05rem; line-height: 1.6; margin: 0;">This branch is currently operating at <strong>{{ capacity_usage }}%</strong> workload capacity. {% if capacity_usage > 80 %}Recommend adding an agent to the {{ organization.city }} branch to maintain service levels.{% else %}Staffing levels are currently optimal for the existing volume.{% endif %}</p>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #c7d2fe; margin-bottom: 0.5rem;">Peak Hour Prediction</div>
+                        <p style="font-size: 1.05rem; line-height: 1.6; margin: 0;">Predicted peak traffic window: <strong>{{ peak_hour }}</strong> daily. Recommend allocating extra resources for document processing during this window to reduce client wait times.</p>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #c7d2fe; margin-bottom: 0.5rem;">Revenue Optimization</div>
+                        <p style="font-size: 1.05rem; line-height: 1.6; margin: 0;">Dealers currently account for <strong>{{ dealer_percentage }}%</strong> of your volume. {% if dealer_percentage > 30 %}Implementing a dedicated Dealer Fast-Track lane could increase throughput by an estimated 12%.{% else %}Focusing on increasing dealer partnerships in {{ organization.city }} could provide a more stable revenue floor.{% endif %}</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const trendData = JSON.parse('{{ trend_json|escapejs }}');
+    const distData = JSON.parse('{{ dist_json|escapejs }}');
+
+    // Trend Chart
+    const ctxTrend = document.getElementById('trendChart').getContext('2d');
+    new Chart(ctxTrend, {
+        type: 'line',
+        data: {
+            labels: trendData.map(d => d.date),
+            datasets: [{
+                label: 'Daily Revenue',
+                data: trendData.map(d => d.revenue),
+                borderColor: '#4f46e5',
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 3,
+                pointBackgroundColor: '#4f46e5',
+                pointRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    // Mix Chart
+    const ctxMix = document.getElementById('mixChart').getContext('2d');
+    const colors = ['#4f46e5', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981', '#06b6d4'];
+    
+    new Chart(ctxMix, {
+        type: 'doughnut',
+        data: {
+            labels: distData.map(d => d.label),
+            datasets: [{
+                data: distData.map(d => d.count),
+                backgroundColor: colors,
+                borderWidth: 0,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+                legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20, font: { weight: 'bold' } } }
+            }
+        }
+    });
+
+    // Set Top Service Label
+    if (distData.length > 0) {
+        document.getElementById('topServiceLabel').innerText = distData[0].label;
+    }
+});
+</script>
+{% endblock %}

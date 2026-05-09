@@ -177,7 +177,7 @@ input:checked + .slider:before {
         </header>
         
         {% if location_stats %}
-        <section style="margin-top: -2rem; padding: 0 1rem;">
+        <section style="margin-top: 3rem; padding: 0 1rem; margin-bottom: 2rem;">
             <div class="premium-panel" style="padding: 2rem; background: white; border: 1px solid #e2e8f0; border-radius: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
                     <div>
@@ -195,9 +195,9 @@ input:checked + .slider:before {
                                 <h3 style="font-size: 1.1rem; font-weight: 800; color: #1e293b; margin: 0;">{{ stat.name }}</h3>
                                 <span style="font-size: 0.8rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">{{ stat.city }} Branch</span>
                             </div>
-                            <div style="width: 40px; height: 40px; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #093de6;">
+                            <a href="{% url 'branch-analytics' stat.id %}" style="width: 40px; height: 40px; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #093de6; transition: all 0.2s;" onmouseover="this.style.background='#093de6'; this.style.color='white';" onmouseout="this.style.background='white'; this.style.color='#093de6';">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-                            </div>
+                            </a>
                         </div>
                         
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">

@@ -85,6 +85,8 @@ def process_vehicle_reminder(vehicle_id, days, log_type, force_sync=False):
             "expiration_date": vehicle.registration_expiration_date.strftime("%B %d, %Y") if vehicle.registration_expiration_date else "N/A",
             "days_left": days,
             "cta_link": f"{settings.BASE_URL}/dashboard/vehicles/{vehicle.id}/" if hasattr(settings, 'BASE_URL') else "#",
+            "agency_name": client.organization.name,
+            "agency_phone": client.organization.phone_number,
         }
         
         if force_sync:
