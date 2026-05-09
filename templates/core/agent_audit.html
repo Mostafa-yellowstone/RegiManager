@@ -30,7 +30,7 @@
                 </div>
                 
                 <h1 style="margin-bottom: 0.5rem;">Audit: {{ agent_membership.user.get_full_name|default:agent_membership.user.username }}</h1>
-                <p class="subtitle" style="color: #cbd5e1; margin-bottom: 0;">{{ agent_membership.user.email }} | {{ agent_membership.organization.name }}</p>
+                <p class="subtitle" style="color: #cbd5e1; margin-bottom: 0;">{{ agent_membership.user.email }} | {{ agent_membership.organization.name }} <span style="opacity: 0.7;">({{ agent_membership.organization.city }})</span></p>
             </div>
             
             <div class="hero-stats" style="margin-top: 2rem;">

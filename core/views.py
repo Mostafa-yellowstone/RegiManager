@@ -284,6 +284,55 @@ def _has_active_owner_access(user, organization_id):
     ).exists()
 
 
+def _get_user_organizations(request):
+    """
+    Helper to get all organizations the user belongs to,
+    optionally filtered by the active organization in the session.
+    """
+    memberships = OrganizationMembership.objects.filter(
+        user=request.user,
+        is_active=True,
+        organization__is_active=True,
+    )
+    all_orgs = Organization.objects.filter(id__in=memberships.values("organization_id")).distinct()
+
+    active_org_id = request.session.get('active_org_id')
+    if active_org_id:
+        # Verify the user actually belongs to this org
+        if memberships.filter(organization_id=active_org_id).exists():
+            return all_orgs.filter(id=active_org_id)
+
+    return all_orgs
+
+
+@login_required
+def switch_organization(request, org_id):
+    """
+    Switch the active organization for the current session.
+    If org_id is 0, it clears the filter (shows all accessible orgs).
+    """
+    if org_id == 0:
+        if 'active_org_id' in request.session:
+            del request.session['active_org_id']
+        messages.success(request, "Switched to 'All Locations' view.")
+    else:
+        # Security check: does user belong to this org?
+        exists = OrganizationMembership.objects.filter(
+            user=request.user,
+            organization_id=org_id,
+            is_active=True
+        ).exists()
+
+        if exists:
+            org = Organization.objects.get(id=org_id)
+            request.session['active_org_id'] = org_id
+            messages.success(request, f"Switched to {org.name}")
+        else:
+            messages.error(request, "You do not have access to that location.")
+
+    return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
+
+
 def _can_access_finance_hub(user):
     if not getattr(user, "is_authenticated", False):
         return False
@@ -402,7 +451,7 @@ def login_view(request):
 
 @login_required
 def add_client(request):
-    organizations = Organization.objects.filter(memberships__user=request.user).distinct()
+    organizations = _get_user_organizations(request)
     if request.method == "POST":
         form = ClientForm(request.POST, organizations=organizations)
         if form.is_valid():
@@ -438,12 +487,36 @@ def add_client(request):
                         client.dealer = dealer
             
             client.save()
-            messages.success(request, f"Client {client} added successfully.")
-            return redirect("client-detail", client_id=client.id)
+            messages.success(request, f"Client {client.name} added successfully.")
+            return redirect("all-clients")
     else:
         form = ClientForm(organizations=organizations)
+
+    # Global Recognition: Search across all owner-managed branches
+    is_owner = OrganizationMembership.objects.filter(
+        user=request.user, role=OrganizationMembership.Role.OWNER, is_active=True
+    ).exists()
     
-    return render(request, "core/add_client.html", {"form": form})
+    existing_global_clients = []
+    search_q = request.GET.get('q_global', '').strip()
+    if is_owner and search_q:
+        all_owner_orgs = Organization.objects.filter(
+            memberships__user=request.user, 
+            memberships__role=OrganizationMembership.Role.OWNER,
+            is_active=True
+        )
+        existing_global_clients = Client.objects.filter(
+            Q(ssn=search_q) | Q(driver_license=search_q) | Q(last_name__icontains=search_q),
+            organization__in=all_owner_orgs
+        ).exclude(organization__in=organizations).select_related('organization').distinct()
+
+    return render(request, "core/add_client.html", {
+        "form": form, 
+        "organizations": organizations,
+        "existing_global_clients": existing_global_clients,
+        "is_owner": is_owner,
+        "search_q": search_q
+    })
 
 
 @login_required
@@ -622,12 +695,37 @@ def open_notification(request, notification_id):
 
 
 @login_required
+def get_client_details(request, client_id):
+    client = get_object_or_404(Client, id=client_id)
+    # Security: Only owner can fetch across branches if they own BOTH
+    if not _has_active_owner_access(request.user, client.organization_id):
+        return JsonResponse({"status": "error", "message": "Access denied"}, status=403)
+        
+    data = {
+        "first_name": client.first_name,
+        "last_name": client.last_name,
+        "middle_name": client.middle_name,
+        "ssn": client.ssn,
+        "driver_license": client.driver_license,
+        "dob": client.dob.isoformat() if client.dob else "",
+        "phone_number": client.phone_number,
+        "building_no": client.building_no,
+        "street_address": client.street_address,
+        "apartment": client.apartment,
+        "city": client.city,
+        "state": client.state,
+        "zip_code": client.zip_code,
+        "county": client.county,
+        "email": client.email,
+        "gender": client.gender,
+    }
+    return JsonResponse({"status": "success", "data": data})
+
+
+@login_required
 def all_clients(request):
-    owner_org_ids = OrganizationMembership.objects.filter(
-        user=request.user
-    ).values_list("organization_id", flat=True)
-    
-    clients = Client.objects.filter(organization_id__in=owner_org_ids).order_by("-created_at")
+    organizations = _get_user_organizations(request)
+    clients = Client.objects.filter(organization__in=organizations).order_by("-created_at")
     
     query = request.GET.get('q')
     if query:
@@ -894,18 +992,14 @@ def dashboard(request):
     if request.user.is_superuser:
         return redirect("/admin/")
         
+    organizations = _get_user_organizations(request)
     memberships = OrganizationMembership.objects.filter(
         user=request.user,
         is_active=True,
         organization__is_active=True,
-    ).select_related(
-        "organization"
-    )
-    organizations = Organization.objects.filter(
-        memberships__user=request.user,
-        memberships__is_active=True,
-        is_active=True,
-    ).distinct()
+        organization__in=organizations
+    ).select_related("organization")
+
     if not memberships.exists():
         messages.error(request, "Your account is currently disabled for all agencies. Contact an owner.")
         logout(request)
@@ -1708,14 +1802,13 @@ def service_receipt_pdf(request, service_id):
 
     y -= 15
 
-    standard_choices = dict(ServiceRecord.SERVICE_TYPES)
-    all_service_names = [v.upper() for k, v in standard_choices.items()]
-    custom_services = CustomServiceType.objects.filter(organization=service_record.organization)
-    all_service_names.extend([s.label.upper() for s in custom_services])
+    base_services = [v.upper() for k, v in ServiceRecord.SERVICE_TYPES[:7]]
+    actual_svc_display = service_record.service_type_label.upper()
 
-    actual_svc_display = standard_choices.get(service_record.service_type, service_record.service_type).upper()
-
-    rows = all_service_names
+    if actual_svc_display in base_services:
+        rows = base_services
+    else:
+        rows = base_services[:6] + [actual_svc_display]
 
     for row in rows:
         pdf.setFont("Helvetica", 9)
@@ -2006,11 +2099,7 @@ def mv82_interactive(request, service_id):
 
 @login_required
 def service_list(request, service_type):
-    organizations = Organization.objects.filter(
-        memberships__user=request.user,
-        memberships__is_active=True,
-        is_active=True,
-    ).distinct()
+    organizations = _get_user_organizations(request)
     scope_qs = ServiceRecord.objects.filter(organization__in=organizations)
 
     memberships = OrganizationMembership.objects.filter(
@@ -2265,11 +2354,7 @@ def service_search_ajax(request):
     date_from = request.GET.get('date_from', '').strip()
     date_to = request.GET.get('date_to', '').strip()
 
-    organizations = Organization.objects.filter(
-        memberships__user=request.user,
-        memberships__is_active=True,
-        is_active=True,
-    ).distinct()
+    organizations = _get_user_organizations(request)
     scope_qs = ServiceRecord.objects.filter(organization__in=organizations)
 
     memberships = OrganizationMembership.objects.filter(
@@ -2318,7 +2403,7 @@ def service_search_ajax(request):
 def upload_document_ajax(request, service_id):
     service_record = get_object_or_404(ServiceRecord, pk=service_id)
     # Verify access
-    organizations = Organization.objects.filter(memberships__user=request.user)
+    organizations = _get_user_organizations(request)
     if not organizations.filter(id=service_record.organization_id).exists():
         return JsonResponse({"status": "error", "message": "Access denied"}, status=403)
 
@@ -2548,8 +2633,11 @@ def add_custom_service(request):
 
 @login_required
 def all_service_types(request):
-    memberships = OrganizationMembership.objects.filter(user=request.user).select_related("organization")
-    organizations = Organization.objects.filter(memberships__user=request.user).distinct()
+    organizations = _get_user_organizations(request)
+    memberships = OrganizationMembership.objects.filter(
+        user=request.user,
+        organization__in=organizations
+    ).select_related("organization")
     
     scope_qs = ServiceRecord.objects.filter(organization__in=organizations)
     
@@ -2597,11 +2685,8 @@ def all_service_types(request):
 
 @login_required
 def all_agents_directory(request):
-    owner_org_ids = list(
-        OrganizationMembership.objects.filter(
-            user=request.user, role=OrganizationMembership.Role.OWNER
-        ).values_list("organization_id", flat=True)
-    )
+    organizations = _get_user_organizations(request).filter(memberships__role=OrganizationMembership.Role.OWNER)
+    owner_org_ids = list(organizations.values_list("id", flat=True))
     if not owner_org_ids:
         return HttpResponseForbidden("Owner access required.")
 
@@ -2712,7 +2797,24 @@ def agent_audit_view(request, membership_id):
 
     recent_records = records_qs.order_by("-created_at")[:50]
 
+    location_stats = []
+    if is_owner and not request.session.get('active_org_id') and organizations.count() > 1:
+        for org in organizations:
+            org_records = ServiceRecord.objects.filter(organization=org)
+            location_stats.append({
+                'name': org.name,
+                'city': org.city,
+                'daily_rev': org_records.filter(created_at__date=today).aggregate(Sum('service_fee'))['service_fee__sum'] or 0,
+                'monthly_rev': org_records.filter(created_at__date__gte=month_start).aggregate(Sum('service_fee'))['service_fee__sum'] or 0,
+                'total_records': org_records.count(),
+            })
+        # Sort by monthly revenue descending
+        location_stats = sorted(location_stats, key=lambda x: x['monthly_rev'], reverse=True)
+
     context = {
+        "is_owner": is_owner,
+        "location_stats": location_stats,
+        "memberships": memberships,
         "agent_membership": membership,
         "start_date": start_date.strftime("%Y-%m-%d"),
         "end_date": end_date.strftime("%Y-%m-%d"),
@@ -2732,12 +2834,12 @@ def agent_audit_view(request, membership_id):
 
 @login_required
 def audit_log_list(request):
-    organizations = Organization.objects.filter(memberships__user=request.user).distinct()
+    organizations = _get_user_organizations(request)
     scope_qs = ServiceAuditLog.objects.filter(organization__in=organizations).select_related(
         "actor", "organization", "service_record"
     )
 
-    memberships = OrganizationMembership.objects.filter(user=request.user)
+    memberships = OrganizationMembership.objects.filter(user=request.user, organization__in=organizations)
     owner_org_ids = list(
         memberships.filter(role=OrganizationMembership.Role.OWNER).values_list(
             "organization_id", flat=True
@@ -2792,7 +2894,12 @@ def audit_log_list(request):
 
 @login_required
 def all_dealers(request):
-    memberships = request.user.organization_memberships.select_related("organization")
+    organizations = _get_user_organizations(request)
+    memberships = OrganizationMembership.objects.filter(
+        user=request.user,
+        organization__in=organizations
+    ).select_related("organization")
+    
     if not memberships.exists():
         return redirect("home")
 
@@ -3023,7 +3130,7 @@ def run_automation_scan(request):
 @login_required
 def all_automation_logs(request):
     logs = AutomationLog.objects.filter(
-        organization__memberships__user=request.user
+        organization__in=_get_user_organizations(request)
     ).select_related('client', 'vehicle', 'organization').order_by('-timestamp').distinct()
     
     paginator = Paginator(logs, 12)
@@ -3033,7 +3140,7 @@ def all_automation_logs(request):
 
 @login_required
 def upcoming_expirations_view(request):
-    organizations = Organization.objects.filter(memberships__user=request.user).distinct()
+    organizations = _get_user_organizations(request)
     today = timezone.now().date()
     forty_five_days_later = today + timezone.timedelta(days=45)
     
@@ -3288,12 +3395,7 @@ def finance_hub(request):
         )
         return redirect("dashboard")
 
-    organizations = Organization.objects.filter(
-        memberships__user=request.user,
-        memberships__is_active=True,
-        memberships__organization__is_active=True,
-        is_active=True,
-    ).filter(
+    organizations = _get_user_organizations(request).filter(
         Q(memberships__role=OrganizationMembership.Role.OWNER) | Q(memberships__can_view_reports=True)
     ).distinct()
     records = ServiceRecord.objects.filter(organization__in=organizations).select_related(
@@ -3502,12 +3604,8 @@ def save_finance_strategy_note(request):
 
 @login_required
 def yearly_report_pdf(request):
-    owner_org_ids = OrganizationMembership.objects.filter(
-        user=request.user,
-        role=OrganizationMembership.Role.OWNER,
-        is_active=True,
-        organization__is_active=True,
-    ).values_list("organization_id", flat=True)
+    organizations = _get_user_organizations(request).filter(memberships__role=OrganizationMembership.Role.OWNER)
+    owner_org_ids = list(organizations.values_list("id", flat=True))
     if not owner_org_ids: return HttpResponseForbidden("Owner access required.")
     
     today = timezone.localdate()
@@ -3522,12 +3620,8 @@ def custom_range_report_pdf(request):
     
     from datetime import datetime
     start, end = datetime.strptime(start_str, '%Y-%m-%d').date(), datetime.strptime(end_str, '%Y-%m-%d').date()
-    owner_org_ids = OrganizationMembership.objects.filter(
-        user=request.user,
-        role=OrganizationMembership.Role.OWNER,
-        is_active=True,
-        organization__is_active=True,
-    ).values_list("organization_id", flat=True)
+    organizations = _get_user_organizations(request).filter(memberships__role=OrganizationMembership.Role.OWNER)
+    owner_org_ids = list(organizations.values_list("id", flat=True))
     
     qs = ServiceRecord.objects.filter(organization_id__in=owner_org_ids, created_at__date__range=(start, end))
     return _generate_report_v2(request, qs, "Custom Audit", f"Range: {start} to {end}", f"custom-audit-{start}-to-{end}.pdf")

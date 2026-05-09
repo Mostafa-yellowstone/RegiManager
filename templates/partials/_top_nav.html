@@ -19,6 +19,34 @@
         </div>
     </div>
     <div class="nav-right" style="display: flex; align-items: center; gap: 1rem;">
+        <!-- Location Switcher (DEBUG: Showing for all) -->
+        {% if user_organizations|length >= 0 %}
+        <div class="location-switcher" style="position: relative;">
+            <button type="button" id="locBtn" class="nav-btn" style="padding: 6px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 99px; font-size: 0.85rem; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                <span>
+                    {% if active_organization %}
+                        {{ active_organization.name }} <small style="opacity: 0.7; font-weight: 500;">({{ active_organization.city }})</small>
+                    {% else %}
+                        All Locations
+                    {% endif %}
+                </span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <div id="locDropdown" style="display:none; position:absolute; right:0; top:42px; width: 220px; background:white; border:1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); overflow:hidden; z-index: 1100;">
+                <div style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; font-size: 0.75rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Switch Location</div>
+                <a href="{% url 'switch-organization' 0 %}" style="display: block; padding: 10px 14px; text-decoration: none; color: {% if not active_organization %}#093de6{% else %}#475569{% endif %}; font-size: 0.85rem; font-weight: 600; background: {% if not active_organization %}#f0f7ff{% else %}transparent{% endif %}; border-left: 3px solid {% if not active_organization %}#093de6{% else %}transparent{% endif %}; transition: all 0.2s;">
+                    All Locations
+                </a>
+                {% for org in user_organizations %}
+                <a href="{% url 'switch-organization' org.id %}" style="display: block; padding: 10px 14px; text-decoration: none; color: {% if active_organization.id == org.id %}#093de6{% else %}#475569{% endif %}; font-size: 0.85rem; font-weight: 600; background: {% if active_organization.id == org.id %}#f0f7ff{% else %}transparent{% endif %}; border-left: 3px solid {% if active_organization.id == org.id %}#093de6{% else %}transparent{% endif %}; transition: all 0.2s;">
+                    {{ org.name }} <span style="font-size: 0.75rem; opacity: 0.6; font-weight: 500;">({{ org.city }})</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
         <div class="notif-wrap" style="position: relative;">
             <button type="button" class="notif-btn" id="notifBtn" title="Notifications" style="width: 40px; height: 40px; display:flex; align-items:center; justify-content:center; background:#fff7ed; border:1px solid #fed7aa; border-radius: 12px; cursor:pointer; position: relative;">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -206,9 +234,22 @@
             dd.style.display = (dd.style.display === 'none' || dd.style.display === '') ? 'block' : 'none';
         });
 
+        const locBtn = document.getElementById('locBtn');
+        const locDD = document.getElementById('locDropdown');
+        if (locBtn && locDD) {
+            locBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                locDD.style.display = (locDD.style.display === 'none' || locDD.style.display === '') ? 'block' : 'none';
+                if (dd) dd.style.display = 'none';
+            });
+        }
+
         document.addEventListener('click', (e) => {
-            if (!dd.contains(e.target) && e.target !== btn) {
+            if (dd && !dd.contains(e.target) && e.target !== btn) {
                 dd.style.display = 'none';
+            }
+            if (locDD && !locDD.contains(e.target) && e.target !== locBtn) {
+                locDD.style.display = 'none';
             }
         });
     })();

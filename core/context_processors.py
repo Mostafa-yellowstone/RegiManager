@@ -12,19 +12,37 @@ def automation_status(request):
             "can_view_finance_bi": False,
             "notif_unread_count": 0,
             "top_notifications": [],
+            "user_organizations": [],
+            "active_organization": None,
         }
     
-    memberships = OrganizationMembership.objects.filter(user=request.user).select_related('organization')
+    memberships = OrganizationMembership.objects.filter(
+        user=request.user, 
+        is_active=True,
+        organization__is_active=True
+    ).select_related('organization')
     
-    # Check if any organization associated with the user has automation enabled
-    enabled = any(m.organization.is_automation_enabled for m in memberships)
+    # Location Switcher context
+    user_organizations = [m.organization for m in memberships]
+    active_org_id = request.session.get('active_org_id')
+    
+    # If active_org_id is set, filter the scopes used for permission checking
+    if active_org_id:
+        active_memberships = memberships.filter(organization_id=active_org_id)
+        active_organization = next((o for o in user_organizations if o.id == active_org_id), None)
+    else:
+        active_memberships = memberships
+        active_organization = None
+
+    # Check if any (active) organization associated with the user has automation enabled
+    enabled = any(m.organization.is_automation_enabled for m in active_memberships)
     
     # Determine display role: Owner beats Agent
-    is_owner = any(m.role == OrganizationMembership.Role.OWNER for m in memberships)
+    is_owner = any(m.role == OrganizationMembership.Role.OWNER for m in active_memberships)
     user_nav_role = 'Agency Owner' if is_owner else 'Agency Agent'
     
-    can_view_partners = is_owner or any(m.can_manage_dealers for m in memberships)
-    can_view_finance_bi = is_owner or any(m.can_view_reports for m in memberships)
+    can_view_partners = is_owner or any(m.can_manage_dealers for m in active_memberships)
+    can_view_finance_bi = is_owner or any(m.can_view_reports for m in active_memberships)
     
     # Notifications (defensive against missing tables / unapplied migrations)
     try:
@@ -39,6 +57,10 @@ def automation_status(request):
             )
             .select_related("client", "note")
         )
+        
+        # If active_organization is set, we might want to filter notifications too?
+        # For now, let's keep notifications global so owners don't miss alerts.
+        
         notif_unread_count = notif_qs.count()
         top_notifications = list(notif_qs.order_by("-created_at")[:6])
     except (OperationalError, ProgrammingError):
@@ -52,4 +74,6 @@ def automation_status(request):
         "can_view_finance_bi": can_view_finance_bi,
         "notif_unread_count": notif_unread_count,
         "top_notifications": top_notifications,
+        "user_organizations": user_organizations,
+        "active_organization": active_organization,
     }

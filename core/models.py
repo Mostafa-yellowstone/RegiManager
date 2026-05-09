@@ -286,6 +286,7 @@ class ServiceRecord(SoftDeleteModel):
         ("transfer_plate", "Plate Transfer"),
         ("replace_lost_item", "Replace lost or damage items"),
         ("surrender_plates", "Surrender plates"),
+        ("motorcycle_registration", "Motorcycle Registration"),
     ]
     STATUS_CHOICES = [
         ("pending", "Pending"),

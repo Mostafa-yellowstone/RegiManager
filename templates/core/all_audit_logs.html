@@ -76,7 +76,10 @@
                                 </td>
                                 <td>{{ log.actor.username }}</td>
                                 <td>{{ log.service_record.receipt_number|default:"-" }}</td>
-                                <td>{{ log.organization.name }}</td>
+                                <td>
+                                    <div style="font-weight: 700; color: #1e293b; font-size: 0.85rem;">{{ log.organization.name }}</div>
+                                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 500;">{{ log.organization.city }}</div>
+                                </td>
                                 <td>{{ log.details }}</td>
                             </tr>
                         {% empty %}

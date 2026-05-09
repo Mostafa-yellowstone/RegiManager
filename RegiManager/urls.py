@@ -75,6 +75,8 @@ from core.views import (
     session_heartbeat,
     toggle_agency_automation,
     toggle_agent_active,
+    switch_organization,
+    get_client_details,
 )
 
 from rest_framework.routers import DefaultRouter
@@ -151,6 +153,8 @@ urlpatterns = [
     path("dashboard/reports/custom-pdf/", custom_range_report_pdf, name="custom-pdf"),
     path("dashboard/agency/toggle-automation/", toggle_agency_automation, name="toggle-agency-automation"),
     path("dashboard/agent/toggle-active/", toggle_agent_active, name="toggle-agent-active"),
+    path("dashboard/agency/switch/<int:org_id>/", switch_organization, name="switch-organization"),
+    path("dashboard/get-client-details/<int:client_id>/", get_client_details, name="get-client-details"),
     path("api/session-heartbeat/", session_heartbeat, name="session-heartbeat"),
 ]
 

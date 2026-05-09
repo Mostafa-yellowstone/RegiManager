@@ -121,7 +121,7 @@ input:checked + .slider:before {
                             {% if membership.organization.logo %}
                                 <img src="{{ membership.organization.logo.url }}" alt="Logo" style="height:18px; width:18px; border-radius:50%; vertical-align:middle; margin-right:6px; object-fit:cover;">
                             {% endif %}
-                            {{ membership.organization.name }} ({% if membership.role == "owner" %}Owner{% else %}Agent{% endif %})
+                            {{ membership.organization.name }} <small style="opacity: 0.8; font-weight: 500;">({{ membership.organization.city }})</small> ({% if membership.role == "owner" %}Owner{% else %}Agent{% endif %})
                         </div>
                     {% endfor %}
                 </div>
@@ -175,6 +175,55 @@ input:checked + .slider:before {
                 {% endif %}
             </div>
         </header>
+        
+        {% if location_stats %}
+        <section style="margin-top: -2rem; padding: 0 1rem;">
+            <div class="premium-panel" style="padding: 2rem; background: white; border: 1px solid #e2e8f0; border-radius: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <div>
+                        <h2 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin: 0;">Branch Performance Leaderboard</h2>
+                        <p style="color: #64748b; font-size: 0.95rem; margin-top: 4px;">Real-time revenue and volume comparison across your locations.</p>
+                    </div>
+                    <div class="brand-pill" style="background: #f0fdf4; color: #166534; font-weight: 700;">Live Comparison</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                    {% for stat in location_stats %}
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.5rem; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 10px 15px -3px rgba(0,0,0,0.1)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
+                            <div>
+                                <h3 style="font-size: 1.1rem; font-weight: 800; color: #1e293b; margin: 0;">{{ stat.name }}</h3>
+                                <span style="font-size: 0.8rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">{{ stat.city }} Branch</span>
+                            </div>
+                            <div style="width: 40px; height: 40px; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #093de6;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div style="background: white; padding: 1rem; border-radius: 12px; border: 1px solid #f1f5f9;">
+                                <span style="display: block; font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px;">Month Revenue</span>
+                                <strong style="font-size: 1.25rem; color: #0f172a;">${{ stat.monthly_rev|floatformat:2 }}</strong>
+                            </div>
+                            <div style="background: white; padding: 1rem; border-radius: 12px; border: 1px solid #f1f5f9;">
+                                <span style="display: block; font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px;">Today</span>
+                                <strong style="font-size: 1.25rem; color: #093de6;">${{ stat.daily_rev|floatformat:2 }}</strong>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 1.25rem; display: flex; justify-content: space-between; align-items: center; padding: 0 4px;">
+                            <span style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Lifetime Volume</span>
+                            <span style="font-size: 0.85rem; font-weight: 800; color: #1e293b;">{{ stat.total_records }} records</span>
+                        </div>
+                        <div style="margin-top: 8px; height: 6px; background: #e2e8f0; border-radius: 99px; overflow: hidden;">
+                            <div style="width: 70%; height: 100%; background: linear-gradient(90deg, #093de6, #4f46e5); border-radius: 99px;"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+        {% endif %}
 
         <div style="margin: 2rem 0; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
             <a href="{% url 'add-client' %}" class="btn btn-primary" style="padding: 1.2rem 3rem; font-size: 1.2rem; border-radius: 14px; display: inline-flex; align-items: center; gap: 1rem; box-shadow: 0 10px 25px -5px rgba(9, 61, 230, 0.3); transition: transform 0.2s; background: linear-gradient(135deg, #093de6, #2563eb);">
@@ -347,6 +396,7 @@ input:checked + .slider:before {
                         <thead>
                             <tr>
                                 <th>Agent</th>
+                                <th>Agency</th>
                                 <th>Account</th>
                                 <th>Role</th>
                                 <th>Finance &amp; BI</th>
@@ -362,6 +412,12 @@ input:checked + .slider:before {
                             {% for agent_mem in owner_agents %}
                                 <tr class="agent-row {% if not agent_mem.is_active %}inactive-agent{% endif %}" data-agency-id="{{ agent_mem.organization.id }}">
                                     <td style="font-weight: 700;">{{ agent_mem.user.get_full_name|default:agent_mem.user.username }}</td>
+                                    <td>
+                                        <div style="font-size: 0.8rem; font-weight: 600; color: #64748b;">
+                                            {{ agent_mem.organization.name }}
+                                            <div style="font-size: 0.7rem; opacity: 0.7;">{{ agent_mem.organization.city }}</div>
+                                        </div>
+                                    </td>
                                     <td>
                                         <div style="display: inline-flex; align-items: center; gap: 10px;">
                                             <label class="switch" title="Enable/disable agent account">
