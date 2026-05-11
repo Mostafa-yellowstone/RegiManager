@@ -1,7 +1,7 @@
 from django.db.utils import OperationalError, ProgrammingError
 from django.db.models import Q
 
-from .models import OrganizationMembership
+from .models import OrganizationMembership, SiteNews
 
 def automation_status(request):
     if not request.user.is_authenticated:
@@ -67,6 +67,12 @@ def automation_status(request):
         notif_unread_count = 0
         top_notifications = []
 
+    # Site News
+    try:
+        site_news = SiteNews.objects.filter(is_active=True).first()
+    except (OperationalError, ProgrammingError):
+        site_news = None
+
     return {
         "automation_enabled": enabled,
         "user_nav_role": user_nav_role,
@@ -76,4 +82,5 @@ def automation_status(request):
         "top_notifications": top_notifications,
         "user_organizations": user_organizations,
         "active_organization": active_organization,
+        "site_news": site_news,
     }

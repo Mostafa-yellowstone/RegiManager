@@ -78,6 +78,7 @@ from core.views import (
     switch_organization,
     get_client_details,
     branch_analytics,
+    get_latest_news,
 )
 
 from rest_framework.routers import DefaultRouter
@@ -157,6 +158,7 @@ urlpatterns = [
     path("dashboard/agency/switch/<int:org_id>/", switch_organization, name="switch-organization"),
     path("dashboard/get-client-details/<int:client_id>/", get_client_details, name="get-client-details"),
     path("dashboard/branch-analytics/<int:org_id>/", branch_analytics, name="branch-analytics"),
+    path("api/get-latest-news/", get_latest_news, name="get-latest-news"),
     path("api/session-heartbeat/", session_heartbeat, name="session-heartbeat"),
 ]
 

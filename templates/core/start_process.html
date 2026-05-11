@@ -49,7 +49,7 @@
                     </div>
                     <div class="field-wrap">
                         <label>Total Paid Today</label>
-                        {{ form.total_paid }}
+                        {{ form.paid_amount }}
                     </div>
                     <div class="field-wrap" id="dealer-balance-wrap" {% if not vehicle.client.dealer %}style="display:none;"{% endif %}>
                         <label>Dealer Outstanding Balance</label>
@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const dmvFee = document.querySelector('input[name="dmv_fee"]');
     const salesTax = document.querySelector('input[name="sales_tax"]');
     const ccFee = document.querySelector('input[name="credit_card_fee"]');
-    const totalPaid = document.querySelector('input[name="total_paid"]');
+    const totalPaid = document.querySelector('input[name="paid_amount"]');
     const dealerBalance = document.querySelector('input[name="dealer_balance"]');
     const paymentMethod = document.querySelector('select[name="payment_method"]');
     

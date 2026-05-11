@@ -342,6 +342,7 @@ class ServiceRecord(SoftDeleteModel):
     updated_at = models.DateTimeField(auto_now=True)
     case_id = models.CharField(max_length=60, unique=True, blank=True, null=True, db_index=True)
     reminders_stopped = models.BooleanField(default=False)
+    paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Amount actually paid by the client/dealer at the time of service.")
 
 
     @property
@@ -591,3 +592,18 @@ class Notification(models.Model):
     def __str__(self):
         return f"Notification({self.user_id}, read={self.is_read})"
 
+
+class SiteNews(models.Model):
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Site News"
+        verbose_name_plural = "Site News"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title

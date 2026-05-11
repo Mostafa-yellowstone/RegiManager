@@ -84,6 +84,7 @@ class ServiceRecordForm(forms.ModelForm):
             "sales_tax",
             "credit_card_fee",
             "dealer_balance",
+            "paid_amount",
             "notes",
         ]
         widgets = {
@@ -118,6 +119,7 @@ class ServiceRecordForm(forms.ModelForm):
         "dealer_phone_no",
         "dealer_email",
         "dealer_balance",
+        "paid_amount",
         "dealer_email",
         "notes",
     ]
@@ -318,7 +320,7 @@ class VehicleForm(forms.ModelForm):
 
 class VehicleServiceForm(forms.ModelForm):
     service_type = forms.ChoiceField(choices=[])
-    total_paid = forms.DecimalField(
+    paid_amount = forms.DecimalField(
         max_digits=10, 
         decimal_places=2, 
         required=False,
@@ -332,7 +334,7 @@ class VehicleServiceForm(forms.ModelForm):
             "service_type", "status", "payment_method",
             "terminal_number", "transaction_type",
             "processing_fee", "dmv_fee", "sales_tax", "credit_card_fee",
-            "total_paid", "dealer_balance", "notes"
+            "paid_amount", "dealer_balance", "notes"
         ]
 
 

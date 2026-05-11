@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Organization, OrganizationMembership, ServiceAuditLog, ServiceRecord, CustomServiceType
+from .models import Organization, OrganizationMembership, ServiceAuditLog, ServiceRecord, CustomServiceType, SiteNews
 
 
 class MembershipInline(admin.TabularInline):
@@ -58,6 +58,7 @@ class ServiceRecordAdmin(admin.ModelAdmin):
         "dmv_fee",
         "sales_tax",
         "credit_card_fee",
+        "paid_amount",
         "service_fee",
         "created_at",
     )
@@ -77,3 +78,9 @@ class CustomServiceTypeAdmin(admin.ModelAdmin):
     list_display = ("label", "key", "organization", "created_at")
     list_filter = ("organization",)
     search_fields = ("label", "key", "organization__name")
+
+@admin.register(SiteNews)
+class SiteNewsAdmin(admin.ModelAdmin):
+    list_display = ("title", "is_active", "created_at")
+    list_filter = ("is_active",)
+    search_fields = ("title", "content")

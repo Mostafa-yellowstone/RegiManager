@@ -506,10 +506,17 @@ def add_client(request):
             memberships__role=OrganizationMembership.Role.OWNER,
             is_active=True
         )
-        existing_global_clients = Client.objects.filter(
+        clients_qs = Client.objects.filter(
             Q(ssn=search_q) | Q(driver_license=search_q) | Q(last_name__icontains=search_q),
             organization__in=all_owner_orgs
-        ).exclude(organization__in=organizations).select_related('organization').distinct()
+        )
+        
+        # If a specific active org is selected, we exclude it to find matches in OTHER branches.
+        # If 'All Locations' is selected (active_org_id is None), we show all matching clients system-wide.
+        if request.session.get('active_org_id'):
+            clients_qs = clients_qs.exclude(organization__in=organizations)
+            
+        existing_global_clients = clients_qs.select_related('organization').distinct()
 
     return render(request, "core/add_client.html", {
         "form": form, 
@@ -910,20 +917,21 @@ def start_process(request, vehicle_id):
             record.client_name = vehicle.client.name
             record.client_address = vehicle.client.full_address
             
+            # Logic for payment and balance
+            total_paid = form.cleaned_data.get('paid_amount')
+            if total_paid is None:
+                total_paid = Decimal("0")
+            record.paid_amount = total_paid
+            total_fees = record.processing_fee + record.dmv_fee + record.sales_tax + record.credit_card_fee
+
             # Auto-link to dealer if this client came from a dealership
             if vehicle.client.dealer:
                 record.dealer = vehicle.client.dealer
-                
-                # Logic for automated ledger
-                total_paid = form.cleaned_data.get('total_paid') or 0
-                total_fees = record.processing_fee + record.dmv_fee + record.sales_tax + record.credit_card_fee
-                
                 # Automatically calculate the balance if dealer is selected
                 if total_paid < total_fees:
                     record.dealer_balance = total_fees - total_paid
                 else:
                     record.dealer_balance = 0
-                    # If balance is 0, we can ensure the record looks clean
             
             record.save()
             
@@ -943,7 +951,7 @@ def start_process(request, vehicle_id):
                 service_record=record,
                 actor=request.user,
                 action="created",
-                details=f"Service {record.service_type} started for vehicle {vehicle}. Paid: {form.cleaned_data.get('total_paid', 0)}, Balance: {record.dealer_balance}"
+                details=f"Service {record.service_type} started for vehicle {vehicle}. Paid: {record.paid_amount}, Balance: {record.dealer_balance}"
             )
             
             messages.success(request, f"Service {record.service_type} created successfully.")
@@ -987,6 +995,18 @@ def start_process(request, vehicle_id):
         form = VehicleServiceForm(organization=vehicle.client.organization)
     
     return render(request, "core/start_process.html", {"vehicle": vehicle, "form": form})
+
+
+def get_latest_news(request):
+    from .models import SiteNews
+    news = SiteNews.objects.filter(is_active=True).order_by('-created_at').first()
+    if news:
+        return JsonResponse({
+            "id": news.id,
+            "title": news.title,
+            "content": news.content,
+        })
+    return JsonResponse({"id": None})
 
 
 @login_required
@@ -1919,7 +1939,7 @@ def service_receipt_pdf(request, service_id):
     amt_no_fee = service_record.service_fee - service_record.credit_card_fee
     pdf.drawRightString(margin_x + 346, py + 5, _currency(amt_no_fee))
     pdf.drawRightString(margin_x + 416, py + 5, _currency(service_record.credit_card_fee))
-    pdf.drawRightString(margin_x + 526, py + 5, _currency(service_record.service_fee))
+    pdf.drawRightString(margin_x + 526, py + 5, _currency(service_record.paid_amount))
 
     # bottom totals
     py -= 35
@@ -1930,7 +1950,7 @@ def service_receipt_pdf(request, service_id):
 
     pdf.drawString(margin_x + 130, py + 4, "Total Paid")
     pdf.rect(margin_x + 180, py, 70, 16)
-    pdf.drawRightString(margin_x + 246, py + 4, _currency(service_record.service_fee))
+    pdf.drawRightString(margin_x + 246, py + 4, _currency(service_record.paid_amount))
 
     pdf.drawString(margin_x + 260, py + 4, "Outstanding Balance")
     pdf.rect(margin_x + 355, py, 60, 16)
