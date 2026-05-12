@@ -240,10 +240,6 @@ input:checked + .slider:before {
                         </div>
                         <p style="color: #94a3b8; font-size: 1rem; margin: 0;">Clients waiting for document processing from the self-service hub.</p>
                     </div>
-                    <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);">
-                        <div style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Agency Invitation Code</div>
-                        <strong style="font-size: 1.25rem; color: #3b82f6; letter-spacing: 2px;">{{ request.user.organization_memberships.first.organization.invite_code }}</strong>
-                    </div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem;">
@@ -257,6 +253,12 @@ input:checked + .slider:before {
                             <span style="font-size: 0.75rem; color: #64748b;">{{ intake.created_at|timesince }} ago</span>
                         </div>
                         
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1.25rem;">
+                            {% for svc in intake.requested_services %}
+                            <span style="background: rgba(59, 130, 246, 0.1); color: #60a5fa; padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700;">{{ svc }}</span>
+                            {% endfor %}
+                        </div>
+
                         <div style="font-size: 0.9rem; color: #94a3b8; display: grid; gap: 8px; margin-bottom: 1.5rem;">
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>

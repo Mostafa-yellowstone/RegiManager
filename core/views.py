@@ -4088,12 +4088,27 @@ def public_intake_form(request):
     
     organization = get_object_or_404(Organization, id=org_id, is_active=True)
     
+    # Define standard services
+    standard_services = [
+        {"key": "registration_title", "label": "New Registration & Title"},
+        {"key": "title_only", "label": "Title Only (No Plates)"},
+        {"key": "transfer", "label": "Transfer Plates"},
+        {"key": "renewal", "label": "Registration Renewal"},
+        {"key": "duplicate_title", "label": "Duplicate Title"},
+        {"key": "plate_surrender", "label": "Plate Surrender"},
+    ]
+    custom_services = CustomServiceType.objects.filter(organization=organization)
+
     if request.method == "POST":
         form = ClientIntakeForm(request.POST, request.FILES)
         if form.is_valid():
             intake = form.save(commit=False)
             intake.organization = organization
+            # Get selected services
+            selected = request.POST.getlist("services")
+            intake.requested_services = selected
             intake.save()
+            
             # Clear session after submission
             if "intake_org_id" in request.session:
                 del request.session["intake_org_id"]
@@ -4104,6 +4119,8 @@ def public_intake_form(request):
     return render(request, "core/public_intake_form.html", {
         "form": form,
         "organization": organization,
+        "standard_services": standard_services,
+        "custom_services": custom_services,
     })
 
 @login_required

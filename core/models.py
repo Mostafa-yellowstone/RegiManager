@@ -678,6 +678,8 @@ class ClientIntake(models.Model):
     dtf803_file = models.FileField(upload_to="intake_docs/dtf803/", blank=True, null=True)
     other_docs = models.FileField(upload_to="intake_docs/other/", blank=True, null=True)
 
+    requested_services = models.JSONField(default=list, blank=True)
+
     # Internal Tracking
     additional_data = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

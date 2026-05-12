@@ -134,6 +134,27 @@
         <form method="post" id="intakeForm" enctype="multipart/form-data">
             {% csrf_token %}
             
+            <!-- Step 0: Service Selection -->
+            <section class="step-section">
+                <div class="step-title"><span class="step-number">0</span> Select Required Services</div>
+                <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1.5rem;">Select all the services you need from us today.</p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem;">
+                    {% for svc in standard_services %}
+                    <label style="display: flex; align-items: center; gap: 10px; background: #f8fafc; padding: 1rem; border-radius: 12px; cursor: pointer; border: 1px solid #e2e8f0;">
+                        <input type="checkbox" name="services" value="{{ svc.label }}" style="width: 18px; height: 18px;">
+                        <span style="font-size: 0.85rem; font-weight: 700; color: #1e293b; text-transform: none;">{{ svc.label }}</span>
+                    </label>
+                    {% endfor %}
+                    
+                    {% for svc in custom_services %}
+                    <label style="display: flex; align-items: center; gap: 10px; background: #f0fdf4; padding: 1rem; border-radius: 12px; cursor: pointer; border: 1px solid #dcfce7;">
+                        <input type="checkbox" name="services" value="{{ svc.label }}" style="width: 18px; height: 18px;">
+                        <span style="font-size: 0.85rem; font-weight: 700; color: #166534; text-transform: none;">{{ svc.label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </section>
+
             <!-- Step 1: Personal -->
             <section class="step-section">
                 <div class="step-title"><span class="step-number">1</span> Personal Details</div>
