@@ -4064,13 +4064,13 @@ def edit_vehicle(request, vehicle_id):
 
 @ensure_csrf_cookie
 @csrf_exempt
-def public_intake_start(request, invite_code=None):
-    """Landing page for clients to enter the PSB invite code via unique link."""
-    # Check for code in URL param or GET param
-    code = invite_code or request.GET.get("invite_code")
-    if code:
+def public_intake_start(request, portal_token=None):
+    """Landing page for clients to enter the intake portal via unique token."""
+    # Check for token in URL param or GET param
+    token = portal_token or request.GET.get("portal_token")
+    if token:
         try:
-            org = Organization.objects.get(invite_code__iexact=code.strip(), is_active=True)
+            org = Organization.objects.get(portal_token=token.strip(), is_active=True)
             request.session["intake_org_id"] = org.id
             return redirect("public-intake-form")
         except Organization.DoesNotExist:

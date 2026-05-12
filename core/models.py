@@ -40,6 +40,7 @@ class Organization(models.Model):
     state = models.CharField(max_length=80, blank=True, default="")
     phone_number = models.CharField(max_length=20, blank=True, default="", help_text="PSB contact number for clients.")
     invite_code = models.CharField(max_length=20, unique=True, default=generate_invite_code)
+    portal_token = models.CharField(max_length=64, unique=True, blank=True, null=True)
     max_agents = models.IntegerField(default=5, help_text="Maximum number of agents allowed for this PSB.")
     is_automation_enabled = models.BooleanField(default=False, help_text="Enable Automation Hub features for this PSB.")
     is_active = models.BooleanField(default=True, help_text="Enable or disable this PSB account.")
@@ -52,6 +53,8 @@ class Organization(models.Model):
         verbose_name_plural = "PSBs"
 
     def save(self, *args, **kwargs):
+        if not self.portal_token:
+            self.portal_token = get_random_string(32)
         super().save(*args, **kwargs)
 
     def __str__(self):

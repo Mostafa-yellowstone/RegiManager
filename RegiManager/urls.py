@@ -174,7 +174,7 @@ urlpatterns = [
     
     # Public Intake Routes
     path("intake/", public_intake_start, name="public-intake-start"),
-    path("intake/<str:invite_code>/", public_intake_start, name="public-intake-direct"),
+    path("intake/<str:portal_token>/", public_intake_start, name="public-intake-direct"),
     path("intake/form/", public_intake_form, name="public-intake-form"),
     path("intake/success/", public_intake_success, name="public-intake-success"),
     path("dashboard/intake/<int:intake_id>/approve/", approve_intake, name="approve-intake"),
