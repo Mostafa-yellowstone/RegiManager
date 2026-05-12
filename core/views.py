@@ -4064,10 +4064,10 @@ def edit_vehicle(request, vehicle_id):
 
 @ensure_csrf_cookie
 @csrf_exempt
-def public_intake_start(request):
+def public_intake_start(request, invite_code=None):
     """Landing page for clients to enter the PSB invite code via unique link."""
-    # Check for code in GET (the only allowed way)
-    code = request.GET.get("invite_code")
+    # Check for code in URL param or GET param
+    code = invite_code or request.GET.get("invite_code")
     if code:
         try:
             org = Organization.objects.get(invite_code__iexact=code.strip(), is_active=True)

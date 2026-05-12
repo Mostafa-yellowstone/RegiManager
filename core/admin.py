@@ -31,8 +31,7 @@ class OrganizationAdmin(admin.ModelAdmin):
 
     def intake_link_display(self, obj):
         from django.utils.html import format_html
-        from django.urls import reverse
-        url = f"/intake/?invite_code={obj.invite_code}"
+        url = f"/intake/{obj.invite_code}/"
         return format_html('<a href="{}" target="_blank">Open Intake Portal</a>', url)
     
     intake_link_display.short_description = "Public Intake Link"
