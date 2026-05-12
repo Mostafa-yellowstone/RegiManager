@@ -365,7 +365,7 @@ class VehicleServiceForm(forms.ModelForm):
 class ClientIntakeForm(forms.ModelForm):
     class Meta:
         model = ClientIntake
-        exclude = ["organization", "status", "processed_at", "processed_by", "additional_data"]
+        exclude = ["organization", "status", "processed_at", "processed_by", "additional_data", "requested_services"]
         widgets = {
             "dob": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
             "insurance_effective_date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),

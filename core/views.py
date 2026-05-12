@@ -4082,6 +4082,15 @@ def public_intake_start(request, portal_token=None):
 @csrf_exempt
 def public_intake_form(request):
     """The multi-step form for clients to fill in their details."""
+    # Check for token directly in GET for resilience
+    token = request.GET.get("portal_token")
+    if token:
+        try:
+            org = Organization.objects.get(portal_token=token.strip(), is_active=True)
+            request.session["intake_org_id"] = org.id
+        except Organization.DoesNotExist:
+            pass
+
     org_id = request.session.get("intake_org_id")
     if not org_id:
         return redirect("public-intake-start")
