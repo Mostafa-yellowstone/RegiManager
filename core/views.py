@@ -1242,6 +1242,10 @@ def dashboard(request):
             })
         location_stats = sorted(location_stats, key=lambda x: x['monthly_profit'], reverse=True)
 
+    pending_intakes = ClientIntake.objects.filter(organization__in=organizations, status=ClientIntake.Status.PENDING).order_by("-created_at")
+    for intake in pending_intakes:
+        intake.vin_exists = Vehicle.objects.filter(vin=intake.vin).exists()
+
     return render(
         request,
         "core/dashboard.html",
@@ -1259,7 +1263,7 @@ def dashboard(request):
             "status_totals": status_totals,
             "overall_amount": overall_amount,
             "overall_net_profit": overall_net_profit,
-            "pending_intakes": ClientIntake.objects.filter(organization__in=organizations, status=ClientIntake.Status.PENDING).order_by("-created_at"),
+            "pending_intakes": pending_intakes,
             "yearly_report": yearly_report,
             "monthly_report": monthly_report,
             "daily_report": daily_report,
@@ -4132,45 +4136,53 @@ def approve_intake(request, intake_id):
         intake.processed_by = request.user
         intake.save()
 
-    # Now proceed with creation outside the lock if desired, but within the view is fine
-    # 1. Create or get Client
-    client, created = Client.objects.get_or_create(
-        organization=intake.organization,
-        first_name=intake.first_name,
-        last_name=intake.last_name,
-        dob=intake.dob,
-        defaults={
-            "middle_name": intake.middle_name,
-            "email": intake.email,
-            "phone_number": intake.phone_number,
-            "gender": intake.gender,
-            "driver_license": intake.driver_license,
-            "building_no": intake.building_no,
-            "street_address": intake.street_address,
-            "apartment": intake.apartment,
-            "city": intake.city,
-            "state": intake.state,
-            "zip_code": intake.zip_code,
-            "county": intake.county,
-        }
-    )
+    # Check if Vehicle exists
+    existing_vehicle = Vehicle.objects.filter(vin=intake.vin).first()
+    
+    if existing_vehicle:
+        # Use existing vehicle and client
+        vehicle = existing_vehicle
+        client = vehicle.client
+        messages.info(request, f"Using existing record for Vehicle {vehicle.vin} and Client {client.name}.")
+    else:
+        # 1. Create or get Client
+        client, created = Client.objects.get_or_create(
+            organization=intake.organization,
+            first_name=intake.first_name,
+            last_name=intake.last_name,
+            dob=intake.dob,
+            defaults={
+                "middle_name": intake.middle_name,
+                "email": intake.email,
+                "phone_number": intake.phone_number,
+                "gender": intake.gender,
+                "driver_license": intake.driver_license,
+                "building_no": intake.building_no,
+                "street_address": intake.street_address,
+                "apartment": intake.apartment,
+                "city": intake.city,
+                "state": intake.state,
+                "zip_code": intake.zip_code,
+                "county": intake.county,
+            }
+        )
 
-    # 2. Create Vehicle
-    vehicle, v_created = Vehicle.objects.get_or_create(
-        vin=intake.vin,
-        defaults={
-            "client": client,
-            "year": intake.year,
-            "make": intake.make,
-            "model": intake.model,
-            "vehicle_type": intake.vehicle_type,
-            "body_type": intake.body_type,
-            "fuel_type": intake.fuel_type,
-            "color": intake.color,
-            "weight": intake.weight,
-            "cylinders": intake.cylinders,
-        }
-    )
+        # 2. Create Vehicle
+        vehicle, v_created = Vehicle.objects.get_or_create(
+            vin=intake.vin,
+            defaults={
+                "client": client,
+                "year": intake.year,
+                "make": intake.make,
+                "model": intake.model,
+                "vehicle_type": intake.vehicle_type,
+                "body_type": intake.body_type,
+                "fuel_type": intake.fuel_type,
+                "color": intake.color,
+                "weight": intake.weight,
+                "cylinders": intake.cylinders,
+            }
+        )
 
     # 3. Update Intake Status
     intake.status = ClientIntake.Status.APPROVED
