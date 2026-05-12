@@ -30,13 +30,10 @@ SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-fallback-key-for-dev-only"
 DEBUG = os.getenv("DEBUG", "True") == "True"
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    "http://0.0.0.0:8000",
-    "https://localhost:8000",
-    "https://127.0.0.1:8000",
-]
+# CSRF settings
+CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000").split(",")
+# Ensure they all start with http:// or https://
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS if origin.strip()]
 
 X_FRAME_OPTIONS = 'SAMEORIGIN'
 
