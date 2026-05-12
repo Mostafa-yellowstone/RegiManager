@@ -273,7 +273,7 @@ msgstr "Iniciar sesión"
 msgid "Create agent account"
 msgstr "Crear cuenta de agente"
 
-msgid "This is a licensed Private Service Bureau software solution but is not an official agency of the Department of Motor Vehicles."
+msgid "This is a licensed Private Service Bureau software solution but is not an official psb of the Department of Motor Vehicles."
 msgstr "Esta es una solución de software de Oficina de Servicios Privados con licencia, pero no es una agencia oficial del Departamento de Vehículos Motorizados."
 
 msgid "New"

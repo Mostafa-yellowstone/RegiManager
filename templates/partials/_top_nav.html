@@ -14,12 +14,12 @@
             <a href="{% url 'finance-hub' %}" class="nav-link {% if 'finance' in request.path %}active{% endif %}">Finance & BI</a>
             {% endif %}
             {% if can_view_partners %}
-            <a href="{% url 'all-dealers' %}" class="nav-link {% if 'dealer' in request.path %}active{% endif %}">Partners</a>
+            <a href="{% url 'all-referrals' %}" class="nav-link {% if 'referral' in request.path %}active{% endif %}">Partners</a>
             {% endif %}
         </div>
     </div>
     <div class="nav-right" style="display: flex; align-items: center; gap: 1rem;">
-        <!-- Location Switcher (Constraint: Disable if only one agency) -->
+        <!-- Location Switcher (Constraint: Disable if only one psb) -->
         {% if user_organizations|length > 0 %}
         <div class="location-switcher" style="position: relative;">
             {% if user_organizations|length > 1 %}

@@ -75,8 +75,8 @@ REST_FRAMEWORK = {
 
 # API Documentation Settings
 SPECTACULAR_SETTINGS = {
-    "TITLE": "RegiManager Agency API",
-    "DESCRIPTION": "Enterprise API for Agency integration with DMV services.",
+    "TITLE": "RegiManager PSB API",
+    "DESCRIPTION": "Enterprise API for PSB integration with DMV services.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }

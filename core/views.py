@@ -31,7 +31,7 @@ from .forms import (
 )
 from .models import (
     Organization, OrganizationMembership, ServiceAuditLog, ServiceRecord, 
-    ServiceDocument, CustomServiceType, CarDealer, DealerPayment, Client, Vehicle
+    ServiceDocument, CustomServiceType, Referral, ReferralPayment, Client, Vehicle
 )
 import json
 from django.http import JsonResponse
@@ -129,8 +129,8 @@ def _build_form_prefill_payload(service, client, vehicle):
         "year": str(vehicle.year) if vehicle else "",
         "make": vehicle.make.upper() if vehicle else "",
         "model": vehicle.model.upper() if vehicle else "",
-        "vin": (service.vin or "").upper(),
-        "plate_number": (service.plate_number or "") or (vehicle.plate_number if vehicle else "") or "",
+        "vin": (vehicle.vin if vehicle else "").upper(),
+        "plate_number": (vehicle.plate_number if vehicle else "") or "",
         "county": (client.county.upper() if client and client.county else "") or "",
         "phone_digits": "".join(ch for ch in ((client.phone_number if client else "") or "") if ch.isdigit()),
         "email": (client.email if client and client.email else "") or "",
@@ -373,13 +373,13 @@ def member_signup(request):
             ).count()
             
             if current_agents >= organization.max_agents:
-                messages.error(request, f"Cannot register: Agency '{organization.name}' has reached its maximum limit of {organization.max_agents} agents.")
+                messages.error(request, f"Cannot register: PSB '{organization.name}' has reached its maximum limit of {organization.max_agents} agents.")
                 return render(
                     request,
                     "core/auth_form.html",
                     {
                         "title": "Create Agent Account",
-                        "subtitle": "Create a separate agent account inside an existing Agency.",
+                        "subtitle": "Create a separate agent account inside an existing PSB.",
                         "form": form,
                         "submit_text": "Create Agent Account",
                         "switch_label": "Already have an account?",
@@ -408,7 +408,7 @@ def member_signup(request):
         "core/auth_form.html",
         {
             "title": "Create Agent Account",
-            "subtitle": "Create a separate agent account inside an existing Agency.",
+            "subtitle": "Create a separate agent account inside an existing PSB.",
             "form": form,
             "submit_text": "Create Agent Account",
             "switch_label": "Already have an account?",
@@ -451,6 +451,7 @@ def login_view(request):
 
 
 @login_required
+@login_required
 def add_client(request):
     organizations = _get_user_organizations(request)
     if request.method == "POST":
@@ -462,30 +463,38 @@ def add_client(request):
             if not client.organization_id and organizations.count() == 1:
                 client.organization = organizations.first()
             
-            # Dealer logic
+            # Referral logic
             source = form.cleaned_data.get('source')
-            if source == 'car dealer':
-                dealer_select = form.cleaned_data.get('dealer_select')
-                if dealer_select and dealer_select != 'new':
+            if source == 'referral':
+                referral_select = form.cleaned_data.get('referral_select')
+                if referral_select and referral_select != 'new':
                     try:
-                        dealer = CarDealer.objects.get(id=dealer_select, organization=client.organization)
-                        client.dealer = dealer
-                    except CarDealer.DoesNotExist:
+                        referral = Referral.objects.get(id=referral_select, organization=client.organization)
+                        client.referral = referral
+                    except Referral.DoesNotExist:
                         pass
                 else:
-                    dealer_name = form.cleaned_data.get('dealer_name')
-                    if dealer_name:
-                        dealer, _ = CarDealer.objects.get_or_create(
+                    referral_name = form.cleaned_data.get('referral_name')
+                    if referral_name:
+                        # First, check if a referral with this name already exists in this organization
+                        referral = Referral.objects.filter(
                             organization=client.organization,
-                            name=dealer_name,
-                            defaults={
-                                'address': form.cleaned_data.get('dealer_address', ''),
-                                'phone_no': form.cleaned_data.get('dealer_phone_no', ''),
-                                'email': form.cleaned_data.get('dealer_email', ''),
-                                'is_partner': form.cleaned_data.get('is_partner', False),
-                            }
-                        )
-                        client.dealer = dealer
+                            name__iexact=referral_name
+                        ).first()
+                        
+                        if not referral:
+                            # Create new referral if not found
+                            referral = Referral.objects.create(
+                                organization=client.organization,
+                                name=referral_name,
+                                category=form.cleaned_data.get('referral_category', 'dealer'),
+                                address=form.cleaned_data.get('referral_address', ''),
+                                phone_no=form.cleaned_data.get('referral_phone_no', ''),
+                                email=form.cleaned_data.get('referral_email', ''),
+                                website=form.cleaned_data.get('referral_website', ''),
+                                initial_balance=form.cleaned_data.get('referral_balance') or 0,
+                            )
+                        client.referral = referral
             
             client.save()
             messages.success(request, f"Client {client.name} added successfully.")
@@ -536,7 +545,7 @@ def client_detail(request, client_id):
     vehicles = client.vehicles.all()
     records_qs = (
         ServiceRecord.objects.filter(vehicle__client=client)
-        .select_related("handled_by", "vehicle", "vehicle__client", "organization", "dealer")
+        .select_related("handled_by", "vehicle", "vehicle__client", "organization", "referral")
         .order_by("-created_at")
     )
     try:
@@ -924,24 +933,24 @@ def start_process(request, vehicle_id):
             record.paid_amount = total_paid
             total_fees = record.processing_fee + record.dmv_fee + record.sales_tax + record.credit_card_fee
 
-            # Auto-link to dealer if this client came from a dealership
-            if vehicle.client.dealer:
-                record.dealer = vehicle.client.dealer
-                # Automatically calculate the balance if dealer is selected
+            # Auto-link to referral if this client came from a referralship
+            if vehicle.client.referral:
+                record.referral = vehicle.client.referral
+                # Automatically calculate the balance if referral is selected
                 if total_paid < total_fees:
-                    record.dealer_balance = total_fees - total_paid
+                    record.referral_balance = total_fees - total_paid
                 else:
-                    record.dealer_balance = 0
+                    record.referral_balance = 0
             
             record.save()
             
-            # If dealer and there is a balance, create a DealerPayment ledger record
-            if record.dealer and record.dealer_balance > 0:
-                from .models import DealerPayment
-                DealerPayment.objects.create(
-                    dealer=record.dealer,
+            # If referral and there is a balance, create a ReferralPayment ledger record
+            if record.referral and record.referral_balance > 0:
+                from .models import ReferralPayment
+                ReferralPayment.objects.create(
+                    referral=record.referral,
                     service_record=record,
-                    amount=record.dealer_balance,
+                    amount=record.referral_balance,
                     payment_type="debt",
                     notes=f"Initial debt from {record.service_type_label}"
                 )
@@ -951,7 +960,7 @@ def start_process(request, vehicle_id):
                 service_record=record,
                 actor=request.user,
                 action="created",
-                details=f"Service {record.service_type} started for vehicle {vehicle}. Paid: {record.paid_amount}, Balance: {record.dealer_balance}"
+                details=f"Service {record.service_type} started for vehicle {vehicle}. Paid: {record.paid_amount}, Balance: {record.referral_balance}"
             )
             
             messages.success(request, f"Service {record.service_type} created successfully.")
@@ -963,7 +972,7 @@ def start_process(request, vehicle_id):
                     "client_name": vehicle.client.name,
                     "service_type": record.service_type_label,
                     "case_id": record.case_id,
-                    "agency_name": record.organization.name,
+                    "psb_name": record.organization.name,
                 }
                 mail_dispatch_status = "queued"
                 try:
@@ -1023,7 +1032,7 @@ def dashboard(request):
     ).select_related("organization")
 
     if not memberships.exists():
-        messages.error(request, "Your account is currently disabled for all agencies. Contact an owner.")
+        messages.error(request, "Your account is currently disabled for all psbs. Contact an owner.")
         logout(request)
         return redirect("login")
     
@@ -1171,26 +1180,40 @@ def dashboard(request):
         
     user_can_view_reports = any(m.can_view_reports for m in memberships)
     user_can_view_net_profit = any(m.can_view_net_profit for m in memberships)
-    user_can_manage_dealers = any(m.can_manage_dealers for m in memberships)
+    user_can_manage_referrals = any(m.can_manage_referrals for m in memberships)
+    user_can_trigger_automation = any(m.can_trigger_automation for m in memberships)
+    
+    # Also check if automation is enabled for any of the user's organizations
+    automation_enabled = organizations.filter(is_automation_enabled=True).exists()
 
-    total_outstanding_dealer_balance = Decimal("0")
-    if is_owner or user_can_manage_dealers:
-        total_outstanding_dealer_balance = scope_qs.filter(
-            dealer__isnull=False, 
-            is_dealer_paid=False
+    total_outstanding_referral_balance = Decimal("0")
+    if is_owner or user_can_manage_referrals:
+        # Sum from all service records in accessible organizations (ignoring handled_by)
+        service_outstanding = ServiceRecord.objects.filter(
+            organization__in=organizations,
+            is_referral_paid=False
         ).aggregate(
-            total=Sum('dealer_balance')
+            total=Sum('referral_balance')
         )['total'] or Decimal("0")
+        
+        # Sum from initial balances of referrals in accessible orgs
+        initial_outstanding = Referral.objects.filter(
+            organization__in=organizations
+        ).aggregate(
+            total=Sum('initial_balance')
+        )['total'] or Decimal("0")
+        
+        total_outstanding_referral_balance = service_outstanding + initial_outstanding
 
     # Automation data
-    # Only show logs from agencies that have automation enabled
+    # Only show logs from psbs that have automation enabled
     automation_logs = AutomationLog.objects.filter(
         organization__in=organizations,
         organization__is_automation_enabled=True
     ).select_related("vehicle", "client").order_by("-timestamp")[:5]
     
     # Upcoming expirations (next 45 days)
-    # Only show vehicles from agencies that have automation enabled
+    # Only show vehicles from psbs that have automation enabled
     upcoming_expirations = Vehicle.objects.filter(
         client__organization__in=organizations,
         client__organization__is_automation_enabled=True,
@@ -1237,11 +1260,13 @@ def dashboard(request):
             "show_all_services_card": show_all_services_card,
             "today": today,
             "overall_card_fees": overall_totals["total_card"] or Decimal("0"),
-            "total_outstanding_dealer_balance": total_outstanding_dealer_balance,
+            "total_outstanding_referral_balance": total_outstanding_referral_balance,
             "automation_logs": automation_logs,
             "upcoming_expirations": upcoming_expirations,
             "custom_types": custom_types,
-            "user_can_trigger_automation": False,
+            "user_can_manage_referrals": user_can_manage_referrals,
+            "automation_enabled": automation_enabled,
+            "user_can_trigger_automation": user_can_trigger_automation,
         },
     )
 
@@ -1460,7 +1485,7 @@ def monthly_report_pdf(request):
         
         pdf.setFont("Helvetica", 11)
         pdf.setFillColor(colors.Color(0.7, 0.75, 0.8))
-        pdf.drawString(margin_x + 80, height - 80, f"Agency Performance Dashboard | {month_start.strftime('%B %Y')}")
+        pdf.drawString(margin_x + 80, height - 80, f"PSB Performance Dashboard | {month_start.strftime('%B %Y')}")
         
         # Date Pill
         pdf.setFillColor(electric_blue)
@@ -1475,7 +1500,7 @@ def monthly_report_pdf(request):
     # High-Impact Summary Cards
     stats = [
         ("Gross Sales", _currency(totals['total_amount'] or 0), electric_blue, "Revenue generated"),
-        ("Net Revenue", _currency(totals['total_processing'] or 0), emerald, "Agency commission"),
+        ("Net Revenue", _currency(totals['total_processing'] or 0), emerald, "PSB commission"),
         ("Active Cases", str(status['total_records']), amethyst, "Monthly volume"),
         ("Efficiency", f"{(status['completed']/status['total_records']*100 if status['total_records'] > 0 else 0):.1f}%", colors.black, "Success rate"),
     ]
@@ -1647,7 +1672,7 @@ def daily_report_pdf(request):
         
         pdf.setFont("Helvetica", 11)
         pdf.setFillColor(colors.Color(0.7, 0.7, 0.7))
-        pdf.drawString(margin_x + 80, height - 80, f"Agency Activity Audit | {today.strftime('%A, %B %d, %Y')}")
+        pdf.drawString(margin_x + 80, height - 80, f"PSB Activity Audit | {today.strftime('%A, %B %d, %Y')}")
         
         # Status Pill
         pdf.setFillColor(vibrant_amber)
@@ -1662,7 +1687,7 @@ def daily_report_pdf(request):
     # Summary Statistics Grid
     stats = [
         ("Today's Revenue", _currency(totals['total_amount'] or 0), charcoal, "Total collections"),
-        ("Processing", _currency(totals['total_processing'] or 0), vibrant_amber, "Agency profit"),
+        ("Processing", _currency(totals['total_processing'] or 0), vibrant_amber, "PSB profit"),
         ("Transactions", str(status['total_records']), colors.Color(0.3, 0.3, 0.3), "Files processed"),
         ("Pending", str(status['pending']), colors.red, "Needs attention"),
     ]
@@ -1872,10 +1897,16 @@ def service_receipt_pdf(request, service_id):
     # Sales Tax
     pdf.setFont("Helvetica", 9)
     pdf.drawRightString(margin_x + 180, y - 8, "SALES TAX")
-    pdf.rect(margin_x + 220, y - 16, 80, 16)
-    pdf.drawRightString(margin_x + 296, y - 11, "$ 0.00")
-    pdf.rect(margin_x + 340, y - 16, 80, 16)
-    pdf.drawRightString(margin_x + 416, y - 11, _currency(service_record.sales_tax) if service_record.sales_tax else "$ 0.00")
+    pdf.rect(margin_x + 280, y - 16, 100, 16)
+    pdf.drawRightString(margin_x + 376, y - 11, _currency(service_record.sales_tax))
+
+    y -= 25
+
+    # Other Fees
+    pdf.setFont("Helvetica", 9)
+    pdf.drawRightString(margin_x + 180, y - 8, "OTHER")
+    pdf.rect(margin_x + 280, y - 16, 100, 16)
+    pdf.drawRightString(margin_x + 376, y - 11, _currency(service_record.other_fees))
 
     y -= 30
 
@@ -1886,7 +1917,7 @@ def service_receipt_pdf(request, service_id):
     pdf.setFont("Helvetica-Bold", 9)
     pdf.drawRightString(margin_x + 296, y - 11, _currency(service_record.dmv_fee))
     pdf.rect(margin_x + 340, y - 16, 80, 16)
-    pdf.drawRightString(margin_x + 416, y - 11, _currency(service_record.processing_fee + service_record.sales_tax))
+    pdf.drawRightString(margin_x + 416, y - 11, _currency(service_record.processing_fee + service_record.sales_tax + service_record.other_fees))
 
     y -= 40
     pdf.setFont("Helvetica-Bold", 13)
@@ -1954,12 +1985,12 @@ def service_receipt_pdf(request, service_id):
 
     pdf.drawString(margin_x + 260, py + 4, "Outstanding Balance")
     pdf.rect(margin_x + 355, py, 60, 16)
-    outstanding_str = _currency(service_record.dealer_balance) if service_record.dealer_balance and service_record.dealer_balance > 0 else "$ 0.00"
+    outstanding_str = _currency(service_record.referral_balance) if service_record.referral_balance and service_record.referral_balance > 0 else "$ 0.00"
     pdf.drawRightString(margin_x + 411, py + 4, outstanding_str)
 
     # Footer
     pdf.setFont("Helvetica-Bold", 8)
-    footer_text = "This is a licensed Private Service Bureau but is not an official agency of the Department of Motor Vehicles, State of New York."
+    footer_text = "This is a licensed Private Service Bureau but is not an official psb of the Department of Motor Vehicles, State of New York."
     pdf.drawCentredString(width / 2, 40, footer_text)
 
     pdf.save()
@@ -2166,7 +2197,7 @@ def service_list(request, service_type):
     agent_filter = request.GET.get('agent', '').strip()
     payment_filter = request.GET.get('payment_method', '').strip()
     source_filter = request.GET.get('source', '').strip()
-    dealer_filter = request.GET.get('dealer', '').strip()
+    referral_filter = request.GET.get('referral', '').strip()
     min_amount = request.GET.get('min_amount', '').strip()
     max_amount = request.GET.get('max_amount', '').strip()
     sort_by = request.GET.get('sort_by', '-created_at').strip() or '-created_at'
@@ -2203,13 +2234,13 @@ def service_list(request, service_type):
     if source_filter:
         scope_qs = scope_qs.filter(source__iexact=source_filter)
 
-    accessible_dealers = CarDealer.objects.filter(
+    accessible_referrals = Referral.objects.filter(
         organization__in=organizations,
         deleted_at__isnull=True,
     ).order_by("name")
-    dealer_ids = set(accessible_dealers.values_list("id", flat=True))
-    if dealer_filter and dealer_filter.isdigit() and int(dealer_filter) in dealer_ids:
-        scope_qs = scope_qs.filter(dealer_id=int(dealer_filter))
+    referral_ids = set(accessible_referrals.values_list("id", flat=True))
+    if referral_filter and referral_filter.isdigit() and int(referral_filter) in referral_ids:
+        scope_qs = scope_qs.filter(referral_id=int(referral_filter))
         
     if date_from:
         scope_qs = scope_qs.filter(created_at__date__gte=date_from)
@@ -2234,7 +2265,7 @@ def service_list(request, service_type):
     }
     sort_by = sort_map.get(sort_by, "-created_at")
 
-    records = scope_qs.select_related("organization", "handled_by", "vehicle__client", "dealer").order_by(sort_by)
+    records = scope_qs.select_related("organization", "handled_by", "vehicle__client", "referral").order_by(sort_by)
 
     service_type_map = dict(ServiceRecord.SERVICE_TYPES)
     
@@ -2261,7 +2292,7 @@ def service_list(request, service_type):
             writer.writerow([
                 "Date",
                 "Receipt No",
-                "Agency",
+                "PSB",
                 "Service Type",
                 "Status",
                 "Client Name",
@@ -2270,7 +2301,7 @@ def service_list(request, service_type):
                 "Agent",
                 "Payment Method",
                 "Source",
-                "Dealer",
+                "Referral",
                 "Amount",
             ])
             for record in export_rows:
@@ -2287,7 +2318,7 @@ def service_list(request, service_type):
                     record.handled_by.get_full_name() or record.handled_by.username,
                     dict(ServiceRecord.PAYMENT_METHODS).get(record.payment_method, record.payment_method),
                     record.source or "",
-                    record.dealer.name if record.dealer else "",
+                    record.referral.name if record.referral else "",
                     f"{record.service_fee or Decimal('0'):.2f}",
                 ])
             return response
@@ -2298,7 +2329,7 @@ def service_list(request, service_type):
         headers = [
             "Date",
             "Receipt No",
-            "Agency",
+            "PSB",
             "Service Type",
             "Status",
             "Client Name",
@@ -2307,7 +2338,7 @@ def service_list(request, service_type):
             "Agent",
             "Payment Method",
             "Source",
-            "Dealer",
+            "Referral",
             "Amount",
         ]
         sheet.append(headers)
@@ -2325,7 +2356,7 @@ def service_list(request, service_type):
                 record.handled_by.get_full_name() or record.handled_by.username,
                 dict(ServiceRecord.PAYMENT_METHODS).get(record.payment_method, record.payment_method),
                 record.source or "",
-                record.dealer.name if record.dealer else "",
+                record.referral.name if record.referral else "",
                 float(record.service_fee or Decimal("0")),
             ])
 
@@ -2361,7 +2392,7 @@ def service_list(request, service_type):
             "agent_filter": agent_filter,
             "payment_filter": payment_filter,
             "source_filter": source_filter,
-            "dealer_filter": dealer_filter,
+            "referral_filter": referral_filter,
             "min_amount": min_amount,
             "max_amount": max_amount,
             "sort_by": sort_by,
@@ -2369,7 +2400,7 @@ def service_list(request, service_type):
             "payment_choices": ServiceRecord.PAYMENT_METHODS,
             "organizations_for_filter": organizations.order_by("name"),
             "agents_for_filter": accessible_agents.order_by("first_name", "last_name", "username"),
-            "dealers_for_filter": accessible_dealers,
+            "referrals_for_filter": accessible_referrals,
             "sources_for_filter": sorted(
                 {
                     s
@@ -2527,7 +2558,7 @@ def update_agent_role(request):
                 role=OrganizationMembership.Role.OWNER
             ).count()
             if owner_count <= 1:
-                return JsonResponse({"status": "error", "message": "Cannot demote the last owner of the Agency."})
+                return JsonResponse({"status": "error", "message": "Cannot demote the last owner of the PSB."})
 
         membership.role = new_role
         membership.save()
@@ -2557,8 +2588,8 @@ def update_agent_permissions(request):
             membership.can_view_reports = value
         elif field == "can_view_net_profit":
             membership.can_view_net_profit = value
-        elif field == "can_manage_dealers":
-            membership.can_manage_dealers = value
+        elif field == "can_manage_referrals":
+            membership.can_manage_referrals = value
         elif field == "can_trigger_automation":
             membership.can_trigger_automation = value
             
@@ -2940,7 +2971,8 @@ def audit_log_list(request):
     )
 
 @login_required
-def all_dealers(request):
+@login_required
+def all_referrals(request):
     organizations = _get_user_organizations(request)
     memberships = OrganizationMembership.objects.filter(
         user=request.user,
@@ -2956,56 +2988,61 @@ def all_dealers(request):
         )
     )
     is_owner = bool(owner_org_ids)
-    user_can_manage_dealers = any(m.can_manage_dealers for m in memberships)
+    user_can_manage_referrals = any(m.can_manage_referrals for m in memberships)
 
-    if not is_owner and not user_can_manage_dealers:
-        return HttpResponseForbidden("You do not have permission to manage dealerships.")
+    if not is_owner and not user_can_manage_referrals:
+        return HttpResponseForbidden("You do not have permission to manage referral entities.")
 
     organizations = [m.organization for m in memberships]
     
     if request.method == "POST":
+        category = request.POST.get("category", "referral")
         name = request.POST.get("name")
         email = request.POST.get("email")
         phone = request.POST.get("phone")
+        website = request.POST.get("website")
         address = request.POST.get("address")
         is_partner = request.POST.get("is_partner") == "on"
         
         if name:
-            CarDealer.objects.create(
+            Referral.objects.create(
                 organization=organizations[0],
+                category=category,
                 name=name,
                 email=email,
                 phone_no=phone,
+                website=website,
                 address=address,
                 is_partner=is_partner
             )
-            messages.success(request, f"Dealership '{name}' registered successfully.")
-            return redirect("all-dealers")
+            messages.success(request, f"Referral entity '{name}' registered successfully.")
+            return redirect("all-referrals")
 
-    dealers = CarDealer.objects.filter(organization__in=organizations).annotate(
+    referrals = Referral.objects.filter(organization__in=organizations).annotate(
         record_count=Count('service_records')
     ).order_by('name')
 
-    # Calculate outstanding balance per dealer
-    for dealer in dealers:
-        dealer.outstanding = ServiceRecord.objects.filter(
-            dealer=dealer, 
-            is_dealer_paid=False
-        ).aggregate(total=Sum('dealer_balance'))['total'] or Decimal('0')
+    # Calculate outstanding balance per referral
+    for ref in referrals:
+        service_outstanding = ServiceRecord.objects.filter(
+            Q(referral=ref) | Q(vehicle__client__referral=ref),
+            is_referral_paid=False
+        ).distinct().aggregate(total=Sum('referral_balance'))['total'] or Decimal('0')
+        ref.outstanding = service_outstanding + ref.initial_balance
 
     return render(
         request,
-        "core/all_dealers.html",
+        "core/all_referrals.html",
         {
-            "dealers": dealers,
+            "referrals": referrals,
             "is_owner": is_owner,
         }
     )
 
 @login_required
 @require_POST
-def toggle_dealer_partner(request):
-    dealer_id = request.POST.get("dealer_id")
+def toggle_referral_partner(request):
+    referral_id = request.POST.get("referral_id")
     is_partner = request.POST.get("is_partner") == "true"
     
     memberships = request.user.organization_memberships.select_related("organization").filter(
@@ -3013,21 +3050,21 @@ def toggle_dealer_partner(request):
         organization__is_active=True,
     )
     is_owner = memberships.filter(role=OrganizationMembership.Role.OWNER).exists()
-    user_can_manage_dealers = any(m.can_manage_dealers for m in memberships)
+    user_can_manage_referrals = any(m.can_manage_referrals for m in memberships)
 
-    if not is_owner and not user_can_manage_dealers:
+    if not is_owner and not user_can_manage_referrals:
         return JsonResponse({"status": "error", "message": "Permission denied"}, status=403)
 
     organizations = [m.organization for m in memberships]
-    dealer = get_object_or_404(CarDealer, id=dealer_id, organization__in=organizations)
+    referral = get_object_or_404(Referral, id=referral_id, organization__in=organizations)
     
-    dealer.is_partner = is_partner
-    dealer.save()
+    referral.is_partner = is_partner
+    referral.save()
     
-    return JsonResponse({"status": "success", "is_partner": dealer.is_partner})
+    return JsonResponse({"status": "success", "is_partner": referral.is_partner})
 
 @login_required
-def dealer_profile(request, dealer_id):
+def referral_profile(request, referral_id):
     memberships = request.user.organization_memberships.select_related("organization").filter(
         is_active=True,
         organization__is_active=True,
@@ -3036,41 +3073,41 @@ def dealer_profile(request, dealer_id):
         return redirect("home")
 
     is_owner = memberships.filter(role=OrganizationMembership.Role.OWNER).exists()
-    user_can_manage_dealers = any(m.can_manage_dealers for m in memberships)
+    user_can_manage_referrals = any(m.can_manage_referrals for m in memberships)
 
-    if not is_owner and not user_can_manage_dealers:
-        return HttpResponseForbidden("You do not have permission to view dealership profiles.")
+    if not is_owner and not user_can_manage_referrals:
+        return HttpResponseForbidden("You do not have permission to view referral profiles.")
 
     organizations = [m.organization for m in memberships]
-    dealer = get_object_or_404(CarDealer, id=dealer_id, organization__in=organizations)
+    referral = get_object_or_404(Referral, id=referral_id, organization__in=organizations)
 
     if request.method == "POST":
         if "mark_paid" in request.POST:
             record_id = request.POST.get("record_id")
             payment_amount_str = request.POST.get("payment_amount", "0")
-            record = get_object_or_404(ServiceRecord, id=record_id, dealer=dealer)
+            record = get_object_or_404(ServiceRecord, id=record_id, referral=referral)
             
             try:
                 payment_amount = Decimal(payment_amount_str)
             except:
                 payment_amount = Decimal("0")
                 
-            record.dealer_balance -= payment_amount
-            if record.dealer_balance <= 0:
-                record.dealer_balance = Decimal("0")
-                record.is_dealer_paid = True
+            record.referral_balance -= payment_amount
+            if record.referral_balance <= 0:
+                record.referral_balance = Decimal("0")
+                record.is_referral_paid = True
                 
             record.save()
             
             # Create payment log
-            DealerPayment.objects.create(
-                dealer=dealer,
+            ReferralPayment.objects.create(
+                referral=referral,
                 amount=payment_amount,
                 notes=f"Payment for specific invoice: {record.client_name}"
             )
             
             messages.success(request, f"Payment of ${payment_amount:.2f} applied to invoice for {record.client_name}.")
-            return redirect("dealer-profile", dealer_id=dealer.id)
+            return redirect("referral-profile", referral_id=referral.id)
             
         elif "log_bulk_payment" in request.POST:
             payment_amount_str = request.POST.get("bulk_payment_amount", "0")
@@ -3082,40 +3119,51 @@ def dealer_profile(request, dealer_id):
                 
             if payment_amount > 0:
                 # Create payment log
-                DealerPayment.objects.create(
-                    dealer=dealer,
+                ReferralPayment.objects.create(
+                    referral=referral,
                     amount=payment_amount,
                     notes=notes
                 )
                 
                 # Apply to oldest unpaid records
                 remaining = payment_amount
-                unpaid_records = ServiceRecord.objects.filter(dealer=dealer, dealer_balance__gt=0).order_by("created_at")
+                unpaid_records = ServiceRecord.objects.filter(referral=referral, referral_balance__gt=0).order_by("created_at")
                 
                 for rec in unpaid_records:
                     if remaining <= 0:
                         break
-                    if rec.dealer_balance <= remaining:
-                        remaining -= rec.dealer_balance
-                        rec.dealer_balance = Decimal("0")
-                        rec.is_dealer_paid = True
+                    if rec.referral_balance <= remaining:
+                        remaining -= rec.referral_balance
+                        rec.referral_balance = Decimal("0")
+                        rec.is_referral_paid = True
                         rec.save()
                     else:
-                        rec.dealer_balance -= remaining
+                        rec.referral_balance -= remaining
                         remaining = Decimal("0")
                         rec.save()
                 
+                # If still remaining, apply to initial_balance
+                if remaining > 0:
+                    if referral.initial_balance <= remaining:
+                        remaining -= referral.initial_balance
+                        referral.initial_balance = Decimal("0")
+                    else:
+                        referral.initial_balance -= remaining
+                        remaining = Decimal("0")
+                    referral.save()
+                
                 messages.success(request, f"Bulk payment of ${payment_amount:.2f} applied to outstanding invoices.")
-            return redirect("dealer-profile", dealer_id=dealer.id)
+            return redirect("referral-profile", referral_id=referral.id)
 
-    # Show all records where dealer is directly set OR client is linked to this dealer
+    # Show all records where referral is directly set OR client is linked to this referral
     records = ServiceRecord.objects.filter(
-        Q(dealer=dealer) | Q(vehicle__client__dealer=dealer)
+        Q(referral=referral) | Q(vehicle__client__referral=referral)
     ).select_related("vehicle__client").distinct().order_by("-created_at")
 
-    outstanding_balance = records.filter(is_dealer_paid=False).aggregate(
-        total=Sum('dealer_balance')
+    outstanding_balance = records.filter(is_referral_paid=False).aggregate(
+        total=Sum('referral_balance')
     )['total'] or Decimal('0')
+    outstanding_balance += referral.initial_balance
     
     total_revenue = records.aggregate(total=Sum('service_fee'))['total'] or Decimal('0')
     
@@ -3134,13 +3182,13 @@ def dealer_profile(request, dealer_id):
     chart_data = [item['count'] for item in service_distribution]
     
     # Payment Ledger
-    payments = DealerPayment.objects.filter(dealer=dealer).order_by("-payment_date", "-created_at")
+    payments = ReferralPayment.objects.filter(referral=referral).order_by("-payment_date", "-created_at")
 
     return render(
         request,
-        "core/dealer_profile.html",
+        "core/referral_profile.html",
         {
-            "dealer": dealer,
+            "referral": referral,
             "records": records,
             "outstanding_balance": outstanding_balance,
             "total_revenue": total_revenue,
@@ -3433,7 +3481,7 @@ def ocr_vehicle_title_ajax(request):
 @login_required
 def finance_hub(request):
     """
-    Brilliant Financial & BI Hub for Agency Analytics.
+    Brilliant Financial & BI Hub for PSB Analytics.
     """
     if not _can_access_finance_hub(request.user):
         messages.error(
@@ -3744,7 +3792,7 @@ def session_heartbeat(request):
 
 @require_POST
 @login_required
-def toggle_agency_automation(request):
+def toggle_psb_automation(request):
     """
     Toggles the is_automation_enabled field for an Organization.
     Only accessible by the Organization Owner.
@@ -3753,31 +3801,31 @@ def toggle_agency_automation(request):
         data = json.loads(request.body)
     except Exception:
         return JsonResponse({"status": "error", "message": "Invalid request payload."}, status=400)
-    agency_id = data.get("agency_id")
+    psb_id = data.get("psb_id")
     enabled = data.get("enabled")
 
-    if not agency_id:
-        return JsonResponse({"status": "error", "message": "Missing agency_id."}, status=400)
-    if not _has_active_owner_access(request.user, agency_id):
+    if not psb_id:
+        return JsonResponse({"status": "error", "message": "Missing psb_id."}, status=400)
+    if not _has_active_owner_access(request.user, psb_id):
         return JsonResponse({"status": "error", "message": "Permission denied."}, status=403)
 
     membership = get_object_or_404(
         OrganizationMembership,
-        organization_id=agency_id,
+        organization_id=psb_id,
         user=request.user,
         role=OrganizationMembership.Role.OWNER,
         is_active=True,
         organization__is_active=True,
     )
     
-    agency = membership.organization
-    agency.is_automation_enabled = enabled
-    agency.save()
+    psb = membership.organization
+    psb.is_automation_enabled = enabled
+    psb.save()
 
     return JsonResponse({
         "status": "success",
-        "agency_id": agency.id,
-        "is_automation_enabled": agency.is_automation_enabled
+        "psb_id": psb.id,
+        "is_automation_enabled": psb.is_automation_enabled
     })
 
 
@@ -3882,10 +3930,10 @@ def branch_analytics(request, org_id):
     peak_hour = peak_hour_data['hour'] if peak_hour_data else 10
     peak_label = f"{peak_hour % 12 or 12} {'AM' if peak_hour < 12 else 'PM'}"
 
-    # 3. Dealer Mix
-    dealer_records_count = records.filter(dealer__isnull=False).count()
+    # 3. Referral Mix
+    referral_records_count = records.filter(referral__isnull=False).count()
     total_recs = records.count()
-    dealer_percentage = (dealer_records_count / total_recs * 100) if total_recs > 0 else 0
+    referral_percentage = (referral_records_count / total_recs * 100) if total_recs > 0 else 0
 
     # --- SERVICE DISTRIBUTION ---
     dist = records.values('service_type').annotate(count=Count('id')).order_by('-count')
@@ -3909,9 +3957,91 @@ def branch_analytics(request, org_id):
         'growth_rate': growth_rate,
         'capacity_usage': round(capacity_usage, 1),
         'peak_hour': peak_label,
-        'dealer_percentage': round(dealer_percentage, 1),
+        'referral_percentage': round(referral_percentage, 1),
         'total_revenue': records.aggregate(Sum('service_fee'))['service_fee__sum'] or 0,
         'total_count': total_recs,
         'monthly_revenue': current_month_rev,
         'yearly_revenue': records.filter(created_at__date__gte=year_start).aggregate(Sum('service_fee'))['service_fee__sum'] or 0,
+    })
+
+@login_required
+def edit_client(request, client_id):
+    from .forms import ClientForm
+    client = get_object_or_404(Client, id=client_id)
+    orgs = _get_user_organizations(request)
+    if not orgs.filter(id=client.organization_id).exists():
+        return HttpResponseForbidden()
+    
+    if request.method == 'POST':
+        form = ClientForm(request.POST, instance=client, organizations=orgs)
+        if form.is_valid():
+            form.save()
+            return redirect('client-detail', client_id=client.id)
+    else:
+        form = ClientForm(instance=client, organizations=orgs)
+    
+    return render(request, 'core/add_client.html', {
+        'form': form, 
+        'edit_mode': True, 
+        'client': client,
+        'title': 'Edit Client Profile'
+    })
+
+@login_required
+def edit_service(request, service_id):
+    from .forms import VehicleServiceForm
+    service = get_object_or_404(ServiceRecord, id=service_id)
+    orgs = _get_user_organizations(request)
+    
+    if not orgs.filter(id=service.organization_id).exists():
+        return HttpResponseForbidden()
+    
+    if request.method == 'POST':
+        form = VehicleServiceForm(request.POST, instance=service, organization=service.organization)
+        if form.is_valid():
+            record = form.save(commit=False)
+            
+            # Auto-link to referral if this client came from a referralship and record doesn't have one
+            if not record.referral and record.vehicle and record.vehicle.client.referral:
+                record.referral = record.vehicle.client.referral
+            
+            record.save()
+            messages.success(request, "Service record updated successfully.")
+            if record.vehicle_id:
+                return redirect('vehicle-detail', vehicle_id=record.vehicle_id)
+            return redirect('dashboard')
+        else:
+            messages.error(request, "Error updating service record. Please check the form.")
+    else:
+        form = VehicleServiceForm(instance=service, organization=service.organization)
+    
+    return render(request, 'core/start_process.html', {
+        'form': form, 
+        'edit_mode': True, 
+        'service': service,
+        'vehicle': service.vehicle,
+        'title': 'Edit Transaction'
+    })
+
+@login_required
+def edit_vehicle(request, vehicle_id):
+    from .forms import VehicleForm
+    vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+    if not OrganizationMembership.objects.filter(user=request.user, organization=vehicle.client.organization).exists():
+        return HttpResponseForbidden()
+    
+    if request.method == 'POST':
+        form = VehicleForm(request.POST, instance=vehicle)
+        if form.is_valid():
+            form.save()
+            return redirect('vehicle-detail', vehicle_id=vehicle.id)
+    else:
+        form = VehicleForm(instance=vehicle)
+    
+    return render(request, 'core/add_vehicle.html', {
+        'form': form,
+        'edit_mode': True,
+        'vehicle': vehicle,
+        'client': vehicle.client,
+        'title': 'Edit Vehicle Profile'
     })

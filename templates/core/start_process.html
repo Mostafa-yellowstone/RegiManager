@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Start Process | {{ vehicle.vin }}{% endblock %}
+{% block title %}{% if edit_mode %}Edit Transaction{% else %}Start Transaction{% endif %} | {{ vehicle.vin }}{% endblock %}
 
 {% block content %}
 <main class="dashboard-shell">
@@ -9,13 +9,13 @@
         <header class="dashboard-hero service-list-hero" style="background: linear-gradient(135deg, #1e293b, #0f172a); padding-bottom: 2rem;">
             <div>
                 <a href="{% url 'client-detail' vehicle.client.id %}" class="btn btn-secondary back-btn" style="margin-bottom: 1rem; display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white;">&larr; Back to Client</a>
-                <h1>Start Service for {{ vehicle.year }} {{ vehicle.make }}</h1>
+                <h1>{% if edit_mode %}Edit Transaction{% else %}Start Transaction for {{ vehicle.year }} {{ vehicle.make }}{% endif %}</h1>
                 <p class="subtitle" style="color: #cbd5e1;">VIN: {{ vehicle.vin }} | Owner: {{ vehicle.client.first_name }} {{ vehicle.client.last_name }}</p>
             </div>
         </header>
 
         <article class="dashboard-panel" style="margin-top: -2rem; position: relative; z-index: 5;">
-            <form method="post" action="{% url 'start-process' vehicle.id %}" class="auth-form" id="process-form">
+            <form method="post" action="{% if edit_mode %}{% url 'edit-service' service.id %}{% else %}{% url 'start-process' vehicle.id %}{% endif %}" class="auth-form" id="process-form">
                 {% csrf_token %}
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
@@ -51,9 +51,9 @@
                         <label>Total Paid Today</label>
                         {{ form.paid_amount }}
                     </div>
-                    <div class="field-wrap" id="dealer-balance-wrap" {% if not vehicle.client.dealer %}style="display:none;"{% endif %}>
-                        <label>Dealer Outstanding Balance</label>
-                        {{ form.dealer_balance }}
+                    <div class="field-wrap" id="referral-balance-wrap">
+                        <label>Outstanding Balance</label>
+                        {{ form.referral_balance }}
                     </div>
                 </div>
 
@@ -83,7 +83,7 @@
 
                 <div class="form-actions" style="border-top: 1px solid #e2e8f0; padding-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
                     <a href="{% url 'client-detail' vehicle.client.id %}" class="btn btn-secondary">Cancel</a>
-                    <button type="submit" class="btn btn-primary" style="padding: 0.8rem 3rem;">Create Transaction</button>
+                    <button type="submit" class="btn btn-primary" style="padding: 0.8rem 3rem;">{% if edit_mode %}Save Changes{% else %}Create Transaction{% endif %}</button>
                 </div>
             </form>
         </article>
@@ -97,11 +97,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const salesTax = document.querySelector('input[name="sales_tax"]');
     const ccFee = document.querySelector('input[name="credit_card_fee"]');
     const totalPaid = document.querySelector('input[name="paid_amount"]');
-    const dealerBalance = document.querySelector('input[name="dealer_balance"]');
+    const outstandingBalance = document.querySelector('input[name="referral_balance"]');
     const paymentMethod = document.querySelector('select[name="payment_method"]');
     
-    const isDealer = "{{ vehicle.client.dealer|yesno:'true,false' }}" === "true";
-
     function updateCalculations() {
         // 1. Calculate CC Fee if needed
         const baseTotal = parseFloat(processingFee.value || 0) + 
@@ -121,11 +119,11 @@ document.addEventListener('DOMContentLoaded', function() {
             totalPaid.value = grandTotal.toFixed(2);
         }
 
-        // 3. Calculate Dealer Balance if applicable
-        if (isDealer) {
-            const paid = parseFloat(totalPaid.value || 0);
-            const balance = grandTotal - paid;
-            dealerBalance.value = balance > 0 ? balance.toFixed(2) : "0.00";
+        // 3. Calculate Outstanding Balance
+        const paid = parseFloat(totalPaid.value || 0);
+        const balance = grandTotal - paid;
+        if (outstandingBalance) {
+            outstandingBalance.value = balance > 0 ? balance.toFixed(2) : "0.00";
         }
     }
 

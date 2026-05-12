@@ -10,7 +10,7 @@ class MembershipInline(admin.TabularInline):
         'role',
         'can_view_reports',
         'can_view_net_profit',
-        'can_manage_dealers',
+        'can_manage_referrals',
         'can_trigger_automation',
     )
     readonly_fields = ('user',)
@@ -33,7 +33,7 @@ class OrganizationAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
-        # If automation is disabled for this agency, revoke the permission from ALL members
+        # If automation is disabled for this psb, revoke the permission from ALL members
         if not obj.is_automation_enabled:
             obj.memberships.filter(can_trigger_automation=True).update(can_trigger_automation=False)
 

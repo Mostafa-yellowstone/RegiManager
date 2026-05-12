@@ -23,11 +23,11 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='organization',
             name='max_agents',
-            field=models.IntegerField(default=5, help_text='Maximum number of agents allowed for this Agency.'),
+            field=models.IntegerField(default=5, help_text='Maximum number of agents allowed for this PSB.'),
         ),
         migrations.AlterField(
             model_name='organizationmembership',
             name='can_view_reports',
-            field=models.BooleanField(default=False, help_text='Can this agent view Agency reports?'),
+            field=models.BooleanField(default=False, help_text='Can this agent view PSB reports?'),
         ),
     ]

@@ -76,7 +76,7 @@
                         <img src="{% static 'core/img/regimanager-logo.svg' %}" alt="RegiManager" style="height: 40px; width: auto; filter: brightness(0) invert(1);">
                     </a>
                     <p style="color: #cbd5e1; font-size: 0.95rem; line-height: 1.6; max-width: 350px; margin-bottom: 2rem;">
-                        {% trans "Operations software for Agencies records, receipts, dealers, and reporting in one unified workspace." %}
+                        {% trans "Operations software for PSBs records, receipts, referrals, and reporting in one unified workspace." %}
                     </p>
                     <div style="display: flex; gap: 1rem;">
                         <a href="https://www.facebook.com/profile.php?id=61589629915881" style="color: #94a3b8; transition: color 0.2s;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#94a3b8'">
@@ -157,6 +157,27 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Global Phone Masking: (000) 000 - 0000
+            function applyPhoneMask(e) {
+                let x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
+                e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? ' - ' + x[3] : '');
+            }
+
+            function initPhoneMasks() {
+                document.querySelectorAll('.phone-mask').forEach(function(input) {
+                    if (!input.dataset.maskInit) {
+                        input.addEventListener('input', applyPhoneMask);
+                        input.dataset.maskInit = 'true';
+                    }
+                });
+            }
+
+            initPhoneMasks();
+            
+            // Re-init for dynamic content (modals, etc)
+            const observer = new MutationObserver(initPhoneMasks);
+            observer.observe(document.body, { childList: true, subtree: true });
+
             const messageElement = document.getElementById('django-messages');
             if (messageElement) {
                 const messages = JSON.parse(messageElement.textContent);

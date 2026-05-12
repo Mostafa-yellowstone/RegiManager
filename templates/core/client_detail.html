@@ -6,14 +6,19 @@
 {% block content %}
 <main class="dashboard-shell">
     <section class="dashboard-layout">
-        <header class="dashboard-hero" style="padding-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-end;">
-            <div>
+        <header class="dashboard-hero" style="padding-bottom: 3rem; display: flex; justify-content: space-between; align-items: flex-end; position: relative; z-index: 10;">
+            <div style="position: relative; z-index: 11;">
                 <div class="brand-pill" style="margin-bottom: 0.5rem;">Client Profile</div>
-                <h1>{{ client.first_name }} {{ client.last_name }}</h1>
+                <h1 style="display: flex; align-items: center; gap: 0.75rem; margin: 0;">
+                    {{ client.first_name }} {{ client.last_name }}
+                    <a href="{% url 'edit-client' client.id %}" style="color: white; opacity: 0.7; transition: opacity 0.2s; display: inline-flex; align-items: center; cursor: pointer;" title="Edit Client Profile">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    </a>
+                </h1>
                 <p class="subtitle" style="color: white; opacity: 0.9;">{{ client.city }}, {{ client.state }} | {{ client.email|default:"No Email" }}</p>
             </div>
-            <div class="header-actions">
-                <a href="{% url 'add-vehicle' client.id %}" class="btn btn-primary" style="background: white; color: #093de6; font-weight: 700; display: inline-flex; align-items: center; gap: 0.5rem; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+            <div class="header-actions" style="display: flex; gap: 0.75rem; align-items: center;">
+                <a href="{% url 'add-vehicle' client.id %}" class="btn btn-primary" style="background: white; color: #093de6; font-weight: 700; display: inline-flex; align-items: center; gap: 0.5rem; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); padding: 0.6rem 1.25rem; border-radius: 12px;">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
                     Add Vehicle
                 </a>
@@ -23,7 +28,13 @@
         <div class="dashboard-panels" style="margin-top: -2rem;">
             <!-- Client Info Panel -->
             <article class="dashboard-panel">
-                <h3>Client Information</h3>
+                <h3 style="display: flex; justify-content: space-between; align-items: center;">
+                    Client Information
+                    <a href="{% url 'edit-client' client.id %}" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.8rem; border-radius: 8px; font-weight: 700; color: #64748b; border: 1px solid #e2e8f0; background: #f8fafc;" title="Edit Client Details">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        EDIT
+                    </a>
+                </h3>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
                     <div>
                         <small style="color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 0.7rem;">Personal Details</small>
@@ -50,8 +61,8 @@
                         <small style="color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 0.7rem;">Registration Meta</small>
                         <p style="margin: 0.3rem 0 0 0;">
                             <strong>Source:</strong> {{ client.source|title }}<br>
-                            {% if client.dealer %}
-                                <strong>Dealer:</strong> {{ client.dealer.name }} 
+                            {% if client.referral %}
+                                <strong>Referral:</strong> {{ client.referral.name }} 
                                 {% if client.is_partner %}<span class="brand-pill" style="padding: 0.1rem 0.4rem; font-size: 0.6rem; vertical-align: middle;">PARTNER</span>{% endif %}
                             {% endif %}
                         </p>
@@ -83,7 +94,12 @@
                                     <td><code style="background: #f1f5f9; padding: 0.2rem 0.4rem; border-radius: 4px;">{{ vehicle.vin }}</code></td>
                                     <td>{{ vehicle.plate_number|default:"---" }}</td>
                                     <td>
-                                        <a href="{% url 'vehicle-detail' vehicle.id %}" class="btn btn-secondary btn-sm">View Profile</a>
+                                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                            <a href="{% url 'vehicle-detail' vehicle.id %}" class="btn btn-secondary btn-sm">View Profile</a>
+                                            <a href="{% url 'edit-vehicle' vehicle.id %}" style="color: #64748b;" title="Edit Vehicle">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                             {% empty %}

@@ -2,9 +2,9 @@ from rest_framework import viewsets, permissions
 from .models import Client, Vehicle, ServiceRecord, OrganizationMembership
 from .serializers import ClientSerializer, VehicleSerializer, ServiceRecordSerializer
 
-class AgencyBaseViewSet(viewsets.ModelViewSet):
+class PSBBaseViewSet(viewsets.ModelViewSet):
     """
-    Base ViewSet to ensure agencies only see THEIR data.
+    Base ViewSet to ensure psbs only see THEIR data.
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -22,17 +22,17 @@ class AgencyBaseViewSet(viewsets.ModelViewSet):
         else:
             serializer.save()
 
-class ClientViewSet(AgencyBaseViewSet):
+class ClientViewSet(PSBBaseViewSet):
     queryset = Client.objects.all()
     serializer_class = ClientSerializer
     filterset_fields = ['first_name', 'last_name', 'email']
 
-class VehicleViewSet(AgencyBaseViewSet):
+class VehicleViewSet(PSBBaseViewSet):
     queryset = Vehicle.objects.all()
     serializer_class = VehicleSerializer
     filterset_fields = ['vin', 'plate_number', 'vehicle_type']
 
-class ServiceRecordViewSet(AgencyBaseViewSet):
+class ServiceRecordViewSet(PSBBaseViewSet):
     queryset = ServiceRecord.objects.all()
     serializer_class = ServiceRecordSerializer
     filterset_fields = ['status', 'service_type', 'case_id']

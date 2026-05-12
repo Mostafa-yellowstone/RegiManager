@@ -11,7 +11,7 @@
                     <div>
                         <a href="{% url 'dashboard' %}" class="btn btn-secondary back-btn" style="margin-bottom: 1rem; display: inline-block;">&larr; Back to Dashboard</a>
                         <h1>All Service Types</h1>
-                        <p class="subtitle" style="color: #ffffff; opacity: 0.95; font-weight: 500;">Overview of all active services and their performance across your accessible Agencies.</p>
+                        <p class="subtitle" style="color: #ffffff; opacity: 0.95; font-weight: 500;">Overview of all active services and their performance across your accessible PSBs.</p>
                     </div>
                 </div>
         </header>
@@ -61,15 +61,15 @@
             <button type="button" class="close-drawer" onclick="closeAddServiceModal()">&times;</button>
         </div>
         <div class="drawer-body">
-            <p style="margin-bottom: 1.5rem; color: #64748b;">Create a new service type for your Agency. This will appear as a new card and be available when creating records.</p>
+            <p style="margin-bottom: 1.5rem; color: #64748b;">Create a new service type for your PSB. This will appear as a new card and be available when creating records.</p>
             <form id="add-service-form" class="auth-form" onsubmit="submitCustomService(event)">
                 <div class="field-wrap">
-                    <label for="custom-service-org">Select Agency</label>
+                    <label for="custom-service-org">Select PSB</label>
                     <select id="custom-service-org" class="form-control" required {% if organizations|length == 1 %}style="background-color: #f8fafc; cursor: not-allowed; color: #475569; border-color: #e2e8f0; appearance: none; -webkit-appearance: none; -moz-appearance: none; pointer-events: none;"{% endif %}>
                         {% for org in organizations %}
                             <option value="{{ org.id }}">{{ org.name }}</option>
                         {% empty %}
-                            <option value="">No Agencies owned</option>
+                            <option value="">No PSBs owned</option>
                         {% endfor %}
                     </select>
                 </div>

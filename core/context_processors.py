@@ -7,7 +7,7 @@ def automation_status(request):
     if not request.user.is_authenticated:
         return {
             "automation_enabled": False,
-            "user_nav_role": "Agency Agent",
+            "user_nav_role": "PSB Agent",
             "can_view_partners": False,
             "can_view_finance_bi": False,
             "notif_unread_count": 0,
@@ -39,9 +39,9 @@ def automation_status(request):
     
     # Determine display role: Owner beats Agent
     is_owner = any(m.role == OrganizationMembership.Role.OWNER for m in active_memberships)
-    user_nav_role = 'Agency Owner' if is_owner else 'Agency Agent'
+    user_nav_role = 'PSB Owner' if is_owner else 'PSB Agent'
     
-    can_view_partners = is_owner or any(m.can_manage_dealers for m in active_memberships)
+    can_view_partners = is_owner or any(m.can_manage_referrals for m in active_memberships)
     can_view_finance_bi = is_owner or any(m.can_view_reports for m in active_memberships)
     
     # Notifications (defensive against missing tables / unapplied migrations)

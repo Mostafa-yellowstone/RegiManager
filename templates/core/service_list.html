@@ -10,7 +10,7 @@
             <div>
                 <a href="{% url 'dashboard' %}" class="btn btn-secondary back-btn">&larr; Back to Dashboard</a>
                 <h1>{{ service_label }} Records</h1>
-                <p class="subtitle">View, search, and filter all {{ service_label|lower }} transactions across your accessible Agencies.</p>
+                <p class="subtitle">View, search, and filter all {{ service_label|lower }} transactions across your accessible PSBs.</p>
             </div>
         </header>
 
@@ -45,9 +45,9 @@
                                     <input type="date" id="date-to" name="date_to" value="{{ date_to }}">
                                 </div>
                                 <div class="form-group filter-group">
-                                    <label for="org-select">Agency</label>
+                                    <label for="org-select">PSB</label>
                                     <select id="org-select" name="organization">
-                                        <option value="">All Agencies</option>
+                                        <option value="">All PSBs</option>
                                         {% for org in organizations_for_filter %}
                                             <option value="{{ org.id }}" {% if org_filter == org.id|stringformat:"s" %}selected{% endif %}>{{ org.name }}</option>
                                         {% endfor %}
@@ -83,11 +83,11 @@
                                     </select>
                                 </div>
                                 <div class="form-group filter-group">
-                                    <label for="dealer-select">Dealer</label>
-                                    <select id="dealer-select" name="dealer">
-                                        <option value="">All Dealers</option>
-                                        {% for dealer in dealers_for_filter %}
-                                            <option value="{{ dealer.id }}" {% if dealer_filter == dealer.id|stringformat:"s" %}selected{% endif %}>{{ dealer.name }}</option>
+                                    <label for="referral-select">Referral</label>
+                                    <select id="referral-select" name="referral">
+                                        <option value="">All Referrals</option>
+                                        {% for referral in referrals_for_filter %}
+                                            <option value="{{ referral.id }}" {% if referral_filter == referral.id|stringformat:"s" %}selected{% endif %}>{{ referral.name }}</option>
                                         {% endfor %}
                                     </select>
                                 </div>

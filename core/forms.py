@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
-from .models import Organization, ServiceRecord, CustomServiceType, CustomSourceType, CarDealer, Client, Vehicle
+from .models import Organization, ServiceRecord, CustomServiceType, CustomSourceType, Referral, Client, Vehicle
 
 
 
@@ -12,7 +12,7 @@ class OrganizationChoiceField(forms.ModelChoiceField):
 
 
 class AgentSignupForm(UserCreationForm):
-    invite_code = forms.CharField(max_length=20, label="Agency Invite Code", help_text="Enter the invite code provided by your Agency admin.")
+    invite_code = forms.CharField(max_length=20, label="PSB Invite Code", help_text="Enter the invite code provided by your PSB admin.")
 
     class Meta:
         model = User
@@ -24,7 +24,7 @@ class AgentSignupForm(UserCreationForm):
             org = Organization.objects.get(invite_code__iexact=code)
             return org
         except Organization.DoesNotExist:
-            raise forms.ValidationError("Invalid invite code. Please check with your Agency admin.")
+            raise forms.ValidationError("Invalid invite code. Please check with your PSB admin.")
 
 
 class DMVAuthenticationForm(AuthenticationForm):
@@ -34,8 +34,8 @@ class DMVAuthenticationForm(AuthenticationForm):
 class ServiceRecordForm(forms.ModelForm):
     organization = OrganizationChoiceField(
         queryset=Organization.objects.none(),
-        empty_label="Select Agency",
-        label="Agency"
+        empty_label="Select PSB",
+        label="PSB"
     )
 
     service_type = forms.ChoiceField(
@@ -48,16 +48,16 @@ class ServiceRecordForm(forms.ModelForm):
         widget=forms.Select(attrs={"class": "form-control"}),
     )
 
-    dealer_select = forms.ChoiceField(
-        choices=[("", "Select Existing Dealership..."), ("new", "+ Create New Dealership")],
+    referral_select = forms.ChoiceField(
+        choices=[("", "Select Existing Referral..."), ("new", "+ Create New Referral")],
         required=False,
         widget=forms.Select(attrs={"class": "form-control"}),
     )
 
-    dealer_name = forms.CharField(max_length=150, required=False, widget=forms.TextInput(attrs={"placeholder": "Dealership Name", "class": "form-control"}))
-    dealer_address = forms.CharField(widget=forms.TextInput(attrs={"placeholder": "Dealership Address", "class": "form-control"}), required=False)
-    dealer_phone_no = forms.CharField(max_length=20, required=False, widget=forms.TextInput(attrs={"placeholder": "Dealer Phone", "class": "form-control"}))
-    dealer_email = forms.EmailField(required=False, widget=forms.EmailInput(attrs={"placeholder": "Dealer Email", "class": "form-control"}))
+    referral_name = forms.CharField(max_length=150, required=False, widget=forms.TextInput(attrs={"placeholder": "Referral Name", "class": "form-control"}))
+    referral_address = forms.CharField(widget=forms.TextInput(attrs={"placeholder": "Referral Address", "class": "form-control"}), required=False)
+    referral_phone_no = forms.CharField(max_length=20, required=False, widget=forms.TextInput(attrs={"placeholder": "(000) 000 - 0000", "class": "form-control phone-mask"}))
+    referral_email = forms.EmailField(required=False, widget=forms.EmailInput(attrs={"placeholder": "Referral Email", "class": "form-control"}))
 
     class Meta:
         model = ServiceRecord
@@ -83,12 +83,14 @@ class ServiceRecordForm(forms.ModelForm):
             "dmv_fee",
             "sales_tax",
             "credit_card_fee",
-            "dealer_balance",
+            "other_fees",
+            "referral_balance",
             "paid_amount",
             "notes",
         ]
         widgets = {
             "notes": forms.TextInput(attrs={"placeholder": "Any additional notes"}),
+            "phone_no": forms.TextInput(attrs={"class": "phone-mask", "placeholder": "(000) 000 - 0000"}),
         }
         
     field_order = [
@@ -113,14 +115,15 @@ class ServiceRecordForm(forms.ModelForm):
         "dmv_fee",
         "sales_tax",
         "credit_card_fee",
-        "dealer_select",
-        "dealer_name",
-        "dealer_address",
-        "dealer_phone_no",
-        "dealer_email",
-        "dealer_balance",
+        "other_fees",
+        "referral_select",
+        "referral_name",
+        "referral_address",
+        "referral_phone_no",
+        "referral_email",
+        "referral_balance",
         "paid_amount",
-        "dealer_email",
+        "referral_email",
         "notes",
     ]
 
@@ -129,15 +132,15 @@ class ServiceRecordForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["organization"].queryset = organizations.order_by("name", "city", "state")
         
-        self.fields["dealer_select"].label = "Dealership"
-        self.fields["dealer_balance"].label = "Dealer Outstanding Balance"
+        self.fields["referral_select"].label = "Referral Entity"
+        self.fields["referral_balance"].label = "Referral Outstanding Balance"
         
         base_choices = list(ServiceRecord.SERVICE_TYPES)
         source_choices = [
             ("walk-in", "Walk-in"),
             ("website", "Website"),
-            ("car dealer", "Car Dealer"),
-            ("referral", "Referral"),
+            ("referral", "Referral Entity"),
+            ("other", "Other"),
         ]
         
         if organizations.exists():
@@ -152,12 +155,13 @@ class ServiceRecordForm(forms.ModelForm):
         self.fields["service_type"].choices = base_choices
         self.fields["source"].choices = source_choices
         
-        dealer_choices = [("", "Select Existing Dealership..."), ("new", "+ Create New Dealership")]
+        referral_choices = [("", "Select Existing Referral Entity..."), ("new", "+ Create New Referral Entity")]
         if organizations.exists():
-            dealers = CarDealer.objects.filter(organization__in=organizations).order_by('name')
-            for d in dealers:
-                dealer_choices.insert(1, (str(d.id), d.name))
-        self.fields["dealer_select"].choices = dealer_choices
+            referrals = Referral.objects.filter(organization__in=organizations).order_by('name')
+            for d in referrals:
+                referral_choices.insert(1, (str(d.id), d.name))
+        self.fields["referral_select"].choices = referral_choices
+        self.fields["referral_phone_no"].widget.attrs.update({"class": "phone-mask", "placeholder": "(000) 000 - 0000"})
         
         if organizations.count() == 1:
             org = organizations.first()
@@ -176,23 +180,26 @@ class ServiceRecordForm(forms.ModelForm):
 class ClientForm(forms.ModelForm):
     organization = OrganizationChoiceField(
         queryset=Organization.objects.none(),
-        empty_label="Select Agency",
-        label="Agency"
+        empty_label="Select PSB",
+        label="PSB"
     )
     source = forms.ChoiceField(choices=[], required=False)
-    dealer_select = forms.ChoiceField(
-        choices=[("", "Select Existing Dealership..."), ("new", "+ Create New Dealership")],
+    referral_select = forms.ChoiceField(
+        choices=[("", "Select Existing Referral...")],
         required=False,
     )
-    dealer_name = forms.CharField(max_length=150, required=False)
-    dealer_address = forms.CharField(required=False)
-    dealer_phone_no = forms.CharField(max_length=20, required=False)
-    dealer_email = forms.EmailField(required=False)
+    referral_name = forms.CharField(max_length=150, required=False)
+    referral_category = forms.ChoiceField(choices=Referral.CATEGORY_CHOICES, required=False)
+    referral_address = forms.CharField(required=False)
+    referral_phone_no = forms.CharField(max_length=20, required=False)
+    referral_email = forms.EmailField(required=False)
+    referral_website = forms.URLField(required=False)
+    referral_balance = forms.DecimalField(max_digits=10, decimal_places=2, initial=0.00, required=False)
 
     class Meta:
         model = Client
         fields = [
-            "organization", "source", "is_partner",
+            "organization", "source",
             "last_name", "first_name", "middle_name",
             "ssn", "driver_license", "dob", "phone_number",
             "building_no", "street_address", "apartment",
@@ -238,8 +245,8 @@ class ClientForm(forms.ModelForm):
         source_choices = [
             ("walk-in", "Walk-in"),
             ("website", "Website"),
-            ("car dealer", "Car Dealer"),
             ("referral", "Referral"),
+            ("other", "Other"),
         ]
         if organizations.exists():
             custom_sources = CustomSourceType.objects.filter(organization__in=organizations)
@@ -247,12 +254,14 @@ class ClientForm(forms.ModelForm):
                 source_choices.append((cs.label.lower(), cs.label))
         self.fields["source"].choices = source_choices
 
-        dealer_choices = [("", "Select Existing Dealership..."), ("new", "+ Create New Dealership")]
+        referral_choices = [("", "--- Select Referral ---"), ("new", "+ Create New Referral")]
         if organizations.exists():
-            dealers = CarDealer.objects.filter(organization__in=organizations).order_by('name')
-            for d in dealers:
-                dealer_choices.insert(1, (str(d.id), d.name))
-        self.fields["dealer_select"].choices = dealer_choices
+            referrals = Referral.objects.filter(organization__in=organizations).order_by('name')
+            for d in referrals:
+                referral_choices.insert(1, (str(d.id), d.name))
+        self.fields["referral_select"].choices = referral_choices
+        self.fields["referral_phone_no"].widget.attrs.update({"class": "phone-mask", "placeholder": "(000) 000 - 0000"})
+        self.fields["referral_balance"].widget.attrs["readonly"] = True
 
         for field_name, field in self.fields.items():
             if "class" not in field.widget.attrs:
@@ -273,7 +282,7 @@ class ClientForm(forms.ModelForm):
                 organization=organization
             ).exists()
             if existing and not self.instance.pk:
-                raise forms.ValidationError(f"A client named {first_name} {last_name} already exists in this Agency.")
+                raise forms.ValidationError(f"A client named {first_name} {last_name} already exists in this PSB.")
         return cleaned_data
 
 
@@ -282,7 +291,7 @@ class VehicleForm(forms.ModelForm):
         model = Vehicle
         fields = [
             "vehicle_type", "plate_type", "vin", "plate_number",
-            "vehicle_number", "dl_number",
+            "vehicle_number",
             "year", "make", "model",
             "body_type", "color", "weight", "fuel_type",
             "cylinders", "seats",
@@ -334,7 +343,7 @@ class VehicleServiceForm(forms.ModelForm):
             "service_type", "status", "payment_method",
             "terminal_number", "transaction_type",
             "processing_fee", "dmv_fee", "sales_tax", "credit_card_fee",
-            "paid_amount", "dealer_balance", "notes"
+            "paid_amount", "referral_balance", "notes"
         ]
 
 
@@ -350,5 +359,6 @@ class VehicleServiceForm(forms.ModelForm):
         self.fields["service_type"].choices = base_choices
 
         self.fields["credit_card_fee"].widget.attrs["readonly"] = True
+        self.fields["referral_balance"].widget.attrs["readonly"] = True
         for field_name, field in self.fields.items():
             field.widget.attrs["class"] = "form-control"

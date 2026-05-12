@@ -11,11 +11,11 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="organization",
             name="is_active",
-            field=models.BooleanField(default=True, help_text="Enable or disable this Agency account."),
+            field=models.BooleanField(default=True, help_text="Enable or disable this PSB account."),
         ),
         migrations.AddField(
             model_name="organizationmembership",
             name="is_active",
-            field=models.BooleanField(default=True, help_text="Enable or disable this agent in this Agency."),
+            field=models.BooleanField(default=True, help_text="Enable or disable this agent in this PSB."),
         ),
     ]

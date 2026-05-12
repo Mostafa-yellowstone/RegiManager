@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='organization',
             name='is_automation_enabled',
-            field=models.BooleanField(default=False, help_text='Enable Automation Hub features for this Agency.'),
+            field=models.BooleanField(default=False, help_text='Enable Automation Hub features for this PSB.'),
         ),
     ]

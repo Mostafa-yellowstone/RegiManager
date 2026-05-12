@@ -10,7 +10,7 @@
             <div>
                 <a href="{% url 'dashboard' %}" class="btn btn-secondary back-btn" style="margin-bottom: 1rem; display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white;">&larr; Back to Dashboard</a>
                 <h1>Team Directory</h1>
-                <p class="subtitle" style="color: #cbd5e1;">Overview of all agents across your Agencies and their lifetime performance.</p>
+                <p class="subtitle" style="color: #cbd5e1;">Overview of all agents across your PSBs and their lifetime performance.</p>
             </div>
         </header>
 
@@ -30,7 +30,7 @@
                         </div>
                         
                         <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                            <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #475569;"><strong>Agency:</strong> {{ data.membership.organization.name }}</p>
+                            <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #475569;"><strong>PSB:</strong> {{ data.membership.organization.name }}</p>
                             <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #475569;"><strong>Role:</strong> {{ data.membership.get_role_display }}</p>
                         </div>
                         
@@ -49,7 +49,7 @@
             {% empty %}
                 <div class="empty-state" style="grid-column: 1 / -1; padding: 4rem; text-align: center; background: white; border-radius: 12px; border: 1px dashed #cbd5e1;">
                     <h3 style="color: #475569; margin-bottom: 0.5rem;">No Agents Found</h3>
-                    <p style="color: #64748b;">You do not currently have any agents registered under your Agencies.</p>
+                    <p style="color: #64748b;">You do not currently have any agents registered under your PSBs.</p>
                 </div>
             {% endfor %}
         </section>

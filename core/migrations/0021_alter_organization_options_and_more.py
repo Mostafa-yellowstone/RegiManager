@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AlterModelOptions(
             name='organization',
-            options={'ordering': ['name'], 'verbose_name': 'Agency', 'verbose_name_plural': 'Agencies'},
+            options={'ordering': ['name'], 'verbose_name': 'PSB', 'verbose_name_plural': 'PSBs'},
         ),
         migrations.AlterModelOptions(
             name='organizationmembership',

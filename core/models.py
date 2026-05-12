@@ -38,18 +38,18 @@ class Organization(models.Model):
     address_line = models.CharField(max_length=180, blank=True, default="")
     city = models.CharField(max_length=80, blank=True, default="")
     state = models.CharField(max_length=80, blank=True, default="")
-    phone_number = models.CharField(max_length=20, blank=True, default="", help_text="Agency contact number for clients.")
+    phone_number = models.CharField(max_length=20, blank=True, default="", help_text="PSB contact number for clients.")
     invite_code = models.CharField(max_length=20, unique=True, default=generate_invite_code)
-    max_agents = models.IntegerField(default=5, help_text="Maximum number of agents allowed for this Agency.")
-    is_automation_enabled = models.BooleanField(default=False, help_text="Enable Automation Hub features for this Agency.")
-    is_active = models.BooleanField(default=True, help_text="Enable or disable this Agency account.")
+    max_agents = models.IntegerField(default=5, help_text="Maximum number of agents allowed for this PSB.")
+    is_automation_enabled = models.BooleanField(default=False, help_text="Enable Automation Hub features for this PSB.")
+    is_active = models.BooleanField(default=True, help_text="Enable or disable this PSB account.")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["name"]
         unique_together = ("name", "address_line", "city", "state")
-        verbose_name = "Agency"
-        verbose_name_plural = "Agencies"
+        verbose_name = "PSB"
+        verbose_name_plural = "PSBs"
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -75,11 +75,11 @@ class OrganizationMembership(models.Model):
         related_name="organization_memberships",
     )
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER)
-    can_view_reports = models.BooleanField(default=False, help_text="Can this agent view Agency reports?")
+    can_view_reports = models.BooleanField(default=False, help_text="Can this agent view PSB reports?")
     can_view_net_profit = models.BooleanField(default=False, help_text="Can this agent view net profit?")
-    can_manage_dealers = models.BooleanField(default=False, help_text="Can this agent manage dealerships?")
+    can_manage_referrals = models.BooleanField(default=False, help_text="Can this agent manage referral partners?")
     can_trigger_automation = models.BooleanField(default=False, help_text="Can this user manually trigger the automation scan?")
-    is_active = models.BooleanField(default=True, help_text="Enable or disable this agent in this Agency.")
+    is_active = models.BooleanField(default=True, help_text="Enable or disable this agent in this PSB.")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -100,16 +100,26 @@ class CustomSourceType(models.Model):
         return self.label
 
 
-class CarDealer(SoftDeleteModel):
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="car_dealers")
+class Referral(SoftDeleteModel):
+    CATEGORY_CHOICES = [
+        ("dealer", "Car Dealer"),
+        ("travel", "Travel Agency"),
+        ("broker", "Broker"),
+        ("customer", "Customer"),
+        ("custom", "Custom"),
+    ]
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="referrals")
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default="dealer")
     name = models.CharField(max_length=150)
     address = models.TextField(blank=True, default="")
     phone_no = models.CharField(max_length=20, blank=True, default="")
     email = models.EmailField(blank=True, null=True)
+    website = models.URLField(blank=True, null=True)
     is_partner = models.BooleanField(default=False)
+    initial_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.get_category_display()})"
 
 
 class CustomServiceType(models.Model):
@@ -151,8 +161,7 @@ class Client(SoftDeleteModel):
 
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="clients")
     source = models.CharField(max_length=100, default="walk-in")
-    dealer = models.ForeignKey(CarDealer, on_delete=models.SET_NULL, null=True, blank=True, related_name="clients")
-    is_partner = models.BooleanField(default=False, help_text="Is this dealer a partner?")
+    referral = models.ForeignKey(Referral, on_delete=models.SET_NULL, null=True, blank=True, related_name="clients")
     
     first_name = models.CharField(max_length=100, db_index=True)
     last_name = models.CharField(max_length=100, db_index=True)
@@ -278,6 +287,10 @@ class ServiceRecord(SoftDeleteModel):
         ("surrender_plates", "Surrender plates"),
         ("motorcycle_registration", "Motorcycle Registration"),
     ]
+    TRANSACTION_TYPE_CHOICES = [
+        ("OLRS", "OLRS"),
+        ("transmittal", "Transmittal"),
+    ]
     STATUS_CHOICES = [
         ("pending", "Pending"),
         ("completed", "Completed"),
@@ -305,36 +318,39 @@ class ServiceRecord(SoftDeleteModel):
     
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name="service_records", null=True, blank=True)
     
-    client_name = models.CharField(max_length=120, blank=True, default="")
-    client_identifier = models.CharField(max_length=80, blank=True, default="")
-    client_address = models.CharField(max_length=200, blank=True, default="")
-    plate_number = models.CharField(max_length=50, blank=True, default="")
-    vin = models.CharField(max_length=50, blank=True, default="")
+    # Snapshot fields for receipt/history
+    client_name = models.CharField(max_length=200, blank=True, default="")
+    client_identifier = models.CharField(max_length=100, blank=True, default="")
+    client_address = models.CharField(max_length=255, blank=True, default="")
     
-    vehicle_number = models.CharField(max_length=80, blank=True, default="")
-    terminal_number = models.CharField(max_length=80, blank=True, default="")
-    transaction_type = models.CharField(max_length=80, blank=True, default="OLRS")
-    license_number = models.CharField(max_length=50, blank=True, default="")
-    driver_license_number = models.CharField(max_length=50, blank=True, default="")
+    vehicle_number = models.CharField(max_length=100, blank=True, default="")
+    plate_number = models.CharField(max_length=50, blank=True, default="")
+    vin = models.CharField(max_length=100, blank=True, default="")
+    
+    license_number = models.CharField(max_length=100, blank=True, default="")
+    driver_license_number = models.CharField(max_length=100, blank=True, default="")
     phone_no = models.CharField(max_length=20, blank=True, default="")
     email = models.EmailField(blank=True, null=True)
-
+    
+    terminal_number = models.CharField(max_length=80, blank=True, default="")
+    transaction_type = models.CharField(max_length=80, choices=TRANSACTION_TYPE_CHOICES, default="OLRS")
     
     service_type = models.CharField(max_length=100, db_index=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending", db_index=True)
     payment_method = models.CharField(max_length=50, choices=PAYMENT_METHODS, default="cash")
     source = models.CharField(max_length=100, default="walk-in")
-    dealer = models.ForeignKey(CarDealer, on_delete=models.SET_NULL, null=True, blank=True, related_name="service_records")
+    referral = models.ForeignKey(Referral, on_delete=models.SET_NULL, null=True, blank=True, related_name="service_records")
     
     processing_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     dmv_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     sales_tax = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     credit_card_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    other_fees = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Additional extra fees.")
     service_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     
-    dealer_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Amount owed by the dealer for this service.")
-    is_dealer_paid = models.BooleanField(default=False, help_text="Has the dealer paid for this service?")
-    expected_payment_date = models.DateField(blank=True, null=True, help_text="When is the dealer expected to pay?")
+    referral_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Amount owed by the referral for this service.")
+    is_referral_paid = models.BooleanField(default=False, help_text="Has the referral paid for this service?")
+    expected_payment_date = models.DateField(blank=True, null=True, help_text="When is the referral expected to pay?")
     
     notes = models.TextField(blank=True, default="")
     receipt_number = models.CharField(max_length=60, unique=True, blank=True, db_index=True)
@@ -342,7 +358,7 @@ class ServiceRecord(SoftDeleteModel):
     updated_at = models.DateTimeField(auto_now=True)
     case_id = models.CharField(max_length=60, unique=True, blank=True, null=True, db_index=True)
     reminders_stopped = models.BooleanField(default=False)
-    paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Amount actually paid by the client/dealer at the time of service.")
+    paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Amount actually paid by the client/referral at the time of service.")
 
 
     @property
@@ -380,15 +396,16 @@ class ServiceRecord(SoftDeleteModel):
             + (self.dmv_fee or Decimal("0"))
             + (self.sales_tax or Decimal("0"))
             + (self.credit_card_fee or Decimal("0"))
+            + (self.other_fees or Decimal("0"))
         )
         # Automatically mark as paid if balance is zero
-        if self.dealer_balance <= 0:
-            self.is_dealer_paid = True
+        if self.referral_balance <= 0:
+            self.is_referral_paid = True
             
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.service_type} - {self.vehicle or self.client_name}"
+        return f"{self.service_type} - {self.vehicle or 'No Vehicle'}"
 
     @property
     def net_profit(self):
@@ -468,7 +485,7 @@ class ServiceDocument(models.Model):
         return f"{self.get_document_type_display()} for {self.vehicle or self.service_record}"
 
 
-class DealerPayment(models.Model):
+class ReferralPayment(models.Model):
     STATUS_CHOICES = [
         ("pending", "Pending"),
         ("completed", "Completed"),
@@ -476,12 +493,12 @@ class DealerPayment(models.Model):
     ]
     PAYMENT_TYPES = [
         ("debt", "Initial Debt"),
-        ("payment", "Dealer Payment"),
+        ("payment", "Referral Payment"),
         ("adjustment", "Balance Adjustment"),
     ]
     
-    dealer = models.ForeignKey(CarDealer, on_delete=models.CASCADE, related_name="payments")
-    service_record = models.ForeignKey(ServiceRecord, on_delete=models.SET_NULL, null=True, blank=True, related_name="dealer_payments")
+    referral = models.ForeignKey(Referral, on_delete=models.CASCADE, related_name="payments")
+    service_record = models.ForeignKey(ServiceRecord, on_delete=models.SET_NULL, null=True, blank=True, related_name="referral_payments")
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_date = models.DateField(default=timezone.now)
     payment_type = models.CharField(max_length=20, choices=PAYMENT_TYPES, default="payment")
@@ -489,12 +506,13 @@ class DealerPayment(models.Model):
     reference_number = models.CharField(max_length=100, blank=True, help_text="Check #, Transaction ID, etc.")
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    
+    updated_at = models.DateTimeField(auto_now=True)
+
     class Meta:
         ordering = ["-payment_date", "-created_at"]
-        
+
     def __str__(self):
-        return f"${self.amount} from {self.dealer.name} on {self.payment_date}"
+        return f"Payment {self.id} - {self.referral.name}"
 
 
 class AutomationLog(models.Model):

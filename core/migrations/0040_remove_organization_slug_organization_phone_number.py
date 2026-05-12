@@ -17,6 +17,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='organization',
             name='phone_number',
-            field=models.CharField(blank=True, default='', help_text='Agency contact number for clients.', max_length=20),
+            field=models.CharField(blank=True, default='', help_text='PSB contact number for clients.', max_length=20),
         ),
     ]

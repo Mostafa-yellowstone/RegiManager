@@ -117,7 +117,7 @@ input:checked + .slider:before {
                 <div class="header-badges">
                     <div class="brand-pill">{% if is_owner %}Owner's Workspace{% else %}Agent Service Workspace{% endif %}</div>
                     {% for membership in memberships %}
-                        <div class="brand-pill agency-pill">
+                        <div class="brand-pill psb-pill">
                             {% if membership.organization.logo %}
                                 <img src="{{ membership.organization.logo.url }}" alt="Logo" style="height:18px; width:18px; border-radius:50%; vertical-align:middle; margin-right:6px; object-fit:cover;">
                             {% endif %}
@@ -133,24 +133,24 @@ input:checked + .slider:before {
                         Track your daily services, monthly output, and receipts in one modern workspace.
                     {% endif %}
                 </p>
-                {% if is_owner or user_can_manage_dealers %}
+                {% if is_owner or user_can_manage_referrals %}
                 <div style="margin-top: 1rem;">
-                    <a href="{% url 'all-dealers' %}" class="btn btn-secondary" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;">
+                    <a href="{% url 'all-referrals' %}" class="btn btn-secondary" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 6px;"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
-                        Access Dealership Portal
+                        Access Referral Space
                     </a>
                 </div>
                 {% endif %}
-                {% if total_outstanding_dealer_balance and total_outstanding_dealer_balance > 0 %}
+                {% if total_outstanding_referral_balance and total_outstanding_referral_balance > 0 %}
                 <div style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white; padding: 1.5rem 2rem; border-radius: 12px; margin-top: 1.5rem; box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.5), 0 4px 6px -4px rgba(239, 68, 68, 0.5); border: 1px solid #f87171; display: flex; align-items: center; justify-content: space-between;">
                     <div style="display: flex; align-items: center; gap: 1rem;">
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                         <div>
-                            <strong style="display: block; font-size: 1.3rem; letter-spacing: 0.5px;">Outstanding Dealer Balance</strong>
-                            <span style="font-size: 0.95rem; opacity: 0.9;">Total unpaid amount across all dealerships you manage.</span>
+                            <strong style="display: block; font-size: 1.3rem; letter-spacing: 0.5px;">Total Outstanding Balance</strong>
+                            <span style="font-size: 0.95rem; opacity: 0.9;">Total unpaid amount across all referral entities you manage.</span>
                         </div>
                     </div>
-                    <strong style="font-size: 2rem;">${{ total_outstanding_dealer_balance|floatformat:2 }}</strong>
+                    <strong style="font-size: 2rem;">${{ total_outstanding_referral_balance|floatformat:2 }}</strong>
                 </div>
                 {% endif %}
             </div>
@@ -378,12 +378,12 @@ input:checked + .slider:before {
 
         </section>
 
-        <!-- Agency Operations Zone -->
+        <!-- PSB Operations Zone -->
         <section class="dashboard-layout" id="ops" style="scroll-margin-top: 100px; border-top: 2px solid #f1f5f9; padding-top: 3rem;">
             {% if is_owner %}
             <article class="dashboard-panel premium-panel" style="margin-bottom: 2rem;">
                 <h3 style="display: flex; justify-content: space-between; align-items: center; color: #0f172a; font-weight: 800;">
-                    Agency Team Management
+                    PSB Team Management
                     <a href="{% url 'all-agents-directory' %}" class="btn btn-secondary btn-sm">
                         Team Directory
                     </a>
@@ -396,12 +396,12 @@ input:checked + .slider:before {
                         <thead>
                             <tr>
                                 <th>Agent</th>
-                                <th>Agency</th>
+                                <th>PSB</th>
                                 <th>Account</th>
                                 <th>Role</th>
                                 <th>Finance &amp; BI</th>
                                 <th>Profit</th>
-                                <th>Dealers</th>
+                                <th>Referrals</th>
                                 {% if user_can_trigger_automation %}
                                 <th class="auto-header{% if not automation_enabled %} d-none{% endif %}">Auto</th>
                                 {% endif %}
@@ -410,7 +410,7 @@ input:checked + .slider:before {
                         </thead>
                         <tbody>
                             {% for agent_mem in owner_agents %}
-                                <tr class="agent-row {% if not agent_mem.is_active %}inactive-agent{% endif %}" data-agency-id="{{ agent_mem.organization.id }}">
+                                <tr class="agent-row {% if not agent_mem.is_active %}inactive-agent{% endif %}" data-psb-id="{{ agent_mem.organization.id }}">
                                     <td style="font-weight: 700;">{{ agent_mem.user.get_full_name|default:agent_mem.user.username }}</td>
                                     <td>
                                         <div style="font-size: 0.8rem; font-weight: 600; color: #64748b;">
@@ -449,7 +449,7 @@ input:checked + .slider:before {
                                     </td>
                                     <td>
                                         <label class="switch">
-                                            <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_manage_dealers" {% if agent_mem.can_manage_dealers %}checked{% endif %}>
+                                            <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_manage_referrals" {% if agent_mem.can_manage_referrals %}checked{% endif %}>
                                             <span class="slider round"></span>
                                         </label>
                                     </td>
@@ -559,16 +559,16 @@ input:checked + .slider:before {
             <button type="button" class="close-drawer" onclick="closeAddServiceModal()">&times;</button>
         </div>
         <div class="drawer-body">
-            <p style="margin-bottom: 1.5rem; color: #64748b;">Create a new service type for your Agency. This will appear as a new card and be available when creating records.</p>
+            <p style="margin-bottom: 1.5rem; color: #64748b;">Create a new service type for your PSB. This will appear as a new card and be available when creating records.</p>
             <form id="add-service-form" class="auth-form" onsubmit="submitCustomService(event)">
                 {% csrf_token %}
                 <div class="field-wrap">
-                    <label for="custom-service-org">Select Agency</label>
+                    <label for="custom-service-org">Select PSB</label>
                     <select id="custom-service-org" class="form-control" required {% if owner_orgs|length == 1 %}style="background-color: #f8fafc; cursor: not-allowed; color: #475569; border-color: #e2e8f0; appearance: none; -webkit-appearance: none; -moz-appearance: none; pointer-events: none;"{% endif %}>
                         {% for org in owner_orgs %}
                             <option value="{{ org.id }}">{{ org.name }}</option>
                         {% empty %}
-                            <option value="">No Agencies owned</option>
+                            <option value="">No PSBs owned</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -647,7 +647,7 @@ function startAutomationScan() {
 <script>
 function confirmAutomationScan() {
     Swal.fire({
-        title: 'Run Agency-wide Scan?',
+        title: 'Run PSB-wide Scan?',
         text: "This will check all active vehicles for upcoming registration expirations and trigger scheduled reminders.",
         icon: 'question',
         showCancelButton: true,
