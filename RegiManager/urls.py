@@ -173,9 +173,8 @@ urlpatterns = [
     path("api/session-heartbeat/", session_heartbeat, name="session-heartbeat"),
     
     # Public Intake Routes
-    path("intake/", public_intake_start, name="public-intake-start"),
-    path("intake/<str:portal_token>/", public_intake_start, name="public-intake-direct"),
-    path("intake/form/", public_intake_form, name="public-intake-form"),
+    path("intake/", public_intake_portal, name="public-intake-start"),
+    path("intake/<str:portal_token>/", public_intake_portal, name="public-intake-direct"),
     path("intake/success/", public_intake_success, name="public-intake-success"),
     path("dashboard/intake/<int:intake_id>/approve/", approve_intake, name="approve-intake"),
     path("dashboard/intake/<int:intake_id>/reject/", reject_intake, name="reject-intake"),

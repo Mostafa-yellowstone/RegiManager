@@ -67,7 +67,7 @@
             </ul>
         </div>
 
-        <a href="{% url 'public-intake-form' %}" style="display: block; background: #3b82f6; color: white; padding: 1rem; border-radius: 12px; font-weight: 700; text-decoration: none; margin-bottom: 1rem;">Submit Another Application</a>
+        <a href="/intake/{{ request.GET.portal_token }}/" style="display: block; background: #3b82f6; color: white; padding: 1rem; border-radius: 12px; font-weight: 700; text-decoration: none; margin-bottom: 1rem;">Submit Another Application</a>
         <a href="{% url 'home' %}" style="display: inline-block; color: #64748b; font-weight: 600; text-decoration: none;">&larr; Return to Homepage</a>
     </div>
 </div>

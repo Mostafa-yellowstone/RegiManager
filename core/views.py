@@ -4064,40 +4064,17 @@ def edit_vehicle(request, vehicle_id):
 
 @ensure_csrf_cookie
 @csrf_exempt
-def public_intake_start(request, portal_token=None):
-    """Landing page for clients to enter the intake portal via unique token."""
-    # Check for token in URL param or GET param
+def public_intake_portal(request, portal_token=None):
+    """The unified intake portal. Shows the form immediately if a valid token is provided."""
+    # 1. Identify the organization
     token = portal_token or request.GET.get("portal_token")
-    if token:
-        try:
-            org = Organization.objects.get(portal_token=token.strip(), is_active=True)
-            request.session["intake_org_id"] = org.id
-            return redirect("public-intake-form")
-        except Organization.DoesNotExist:
-            messages.error(request, "Invalid or expired invitation link.")
-
-    return render(request, "core/public_intake_start.html")
-
-
-@csrf_exempt
-def public_intake_form(request):
-    """The multi-step form for clients to fill in their details."""
-    # Check for token directly in GET for resilience
-    token = request.GET.get("portal_token")
-    if token:
-        try:
-            org = Organization.objects.get(portal_token=token.strip(), is_active=True)
-            request.session["intake_org_id"] = org.id
-        except Organization.DoesNotExist:
-            pass
-
-    org_id = request.session.get("intake_org_id")
-    if not org_id:
-        return redirect("public-intake-start")
+    if not token:
+        # No token provided, show the "Private" landing page
+        return render(request, "core/public_intake_start.html")
     
-    organization = get_object_or_404(Organization, id=org_id, is_active=True)
+    organization = get_object_or_404(Organization, portal_token=token, is_active=True)
     
-    # Define standard services
+    # 2. Define services for the form
     standard_services = [
         {"key": "registration_title", "label": "New Registration & Title"},
         {"key": "title_only", "label": "Title Only (No Plates)"},
@@ -4108,28 +4085,25 @@ def public_intake_form(request):
     ]
     custom_services = CustomServiceType.objects.filter(organization=organization)
 
+    # 3. Handle Submission
     if request.method == "POST":
         form = ClientIntakeForm(request.POST, request.FILES)
         if form.is_valid():
             intake = form.save(commit=False)
             intake.organization = organization
-            # Get selected services
-            selected = request.POST.getlist("services")
-            intake.requested_services = selected
+            intake.requested_services = request.POST.getlist("services")
             intake.save()
-            
-            # Clear session after submission
-            if "intake_org_id" in request.session:
-                del request.session["intake_org_id"]
-            return redirect("public-intake-success")
+            return redirect(f"/intake/success/?portal_token={token}")
     else:
         form = ClientIntakeForm()
     
+    # 4. Render the form immediately
     return render(request, "core/public_intake_form.html", {
         "form": form,
         "organization": organization,
         "standard_services": standard_services,
         "custom_services": custom_services,
+        "portal_token": token,
     })
 
 @login_required
