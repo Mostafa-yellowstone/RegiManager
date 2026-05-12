@@ -623,5 +623,71 @@ class SiteNews(models.Model):
         verbose_name_plural = "Site News"
         ordering = ["-created_at"]
 
+class ClientIntake(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending Review"
+        PROCESSING = "processing", "In Progress"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="intakes")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
+    
+    # Client Data
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    middle_name = models.CharField(max_length=100, blank=True, default="")
+    email = models.EmailField(blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, default="")
+    dob = models.DateField(blank=True, null=True)
+    gender = models.CharField(max_length=20, blank=True, null=True)
+    driver_license = models.CharField(max_length=50, blank=True, default="")
+    ssn_last_4 = models.CharField(max_length=4, blank=True, default="")
+    
+    # Address Data
+    building_no = models.CharField(max_length=20, blank=True, default="")
+    street_address = models.CharField(max_length=200, blank=True, default="")
+    apartment = models.CharField(max_length=50, blank=True, default="")
+    city = models.CharField(max_length=100, blank=True, default="")
+    state = models.CharField(max_length=2, default="NY", blank=True)
+    zip_code = models.CharField(max_length=10, blank=True, default="")
+    county = models.CharField(max_length=100, blank=True, default="")
+    
+    # Vehicle Data
+    vin = models.CharField(max_length=50)
+    year = models.IntegerField(blank=True, null=True)
+    make = models.CharField(max_length=100, blank=True, default="")
+    model = models.CharField(max_length=100, blank=True, default="")
+    vehicle_type = models.CharField(max_length=50, default="passenger")
+    body_type = models.CharField(max_length=50, blank=True, null=True)
+    fuel_type = models.CharField(max_length=50, default="gas")
+    color = models.CharField(max_length=50, blank=True, default="")
+    weight = models.CharField(max_length=50, blank=True, default="")
+    cylinders = models.CharField(max_length=20, blank=True, default="")
+    
+    # Transaction Details
+    transaction_type = models.CharField(max_length=100, default="Registration and Title")
+    insurance_company = models.CharField(max_length=150, blank=True, default="")
+    insurance_policy_number = models.CharField(max_length=100, blank=True, default="")
+    insurance_effective_date = models.DateField(blank=True, null=True)
+    insurance_expiration_date = models.DateField(blank=True, null=True)
+    
+    # Document Uploads
+    mv82_file = models.FileField(upload_to="intake_docs/mv82/", blank=True, null=True)
+    dtf802_file = models.FileField(upload_to="intake_docs/dtf802/", blank=True, null=True)
+    dtf803_file = models.FileField(upload_to="intake_docs/dtf803/", blank=True, null=True)
+    other_docs = models.FileField(upload_to="intake_docs/other/", blank=True, null=True)
+
+    # Internal Tracking
+    additional_data = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    processed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="processed_intakes")
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Client Intake"
+        verbose_name_plural = "Client Intakes"
+
     def __str__(self):
-        return self.title
+        return f"Intake: {self.first_name} {self.last_name} ({self.organization.name})"

@@ -14,6 +14,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect, csrf_exempt
 from django.utils.crypto import get_random_string
 from reportlab.lib.pagesizes import A4, letter
 from reportlab.lib import colors
@@ -28,10 +29,11 @@ from .forms import (
     ClientForm,
     VehicleForm,
     VehicleServiceForm,
+    ClientIntakeForm,
 )
 from .models import (
     Organization, OrganizationMembership, ServiceAuditLog, ServiceRecord, 
-    ServiceDocument, CustomServiceType, Referral, ReferralPayment, Client, Vehicle
+    ServiceDocument, CustomServiceType, Referral, ReferralPayment, Client, Vehicle, ClientIntake
 )
 import json
 from django.http import JsonResponse
@@ -1257,6 +1259,7 @@ def dashboard(request):
             "status_totals": status_totals,
             "overall_amount": overall_amount,
             "overall_net_profit": overall_net_profit,
+            "pending_intakes": ClientIntake.objects.filter(organization__in=organizations, status=ClientIntake.Status.PENDING).order_by("-created_at"),
             "yearly_report": yearly_report,
             "monthly_report": monthly_report,
             "daily_report": daily_report,
@@ -4046,10 +4049,152 @@ def edit_vehicle(request, vehicle_id):
     else:
         form = VehicleForm(instance=vehicle)
     
-    return render(request, 'core/add_vehicle.html', {
+        return render(request, 'core/add_vehicle.html', {
         'form': form,
         'edit_mode': True,
         'vehicle': vehicle,
         'client': vehicle.client,
         'title': 'Edit Vehicle Profile'
     })
+
+
+@ensure_csrf_cookie
+@csrf_exempt
+def public_intake_start(request):
+    """Landing page for clients to enter the PSB invite code."""
+    # Check for code in GET (from admin link)
+    code = request.GET.get("invite_code")
+    if code:
+        try:
+            org = Organization.objects.get(invite_code__iexact=code.strip(), is_active=True)
+            request.session["intake_org_id"] = org.id
+            return redirect("public-intake-form")
+        except Organization.DoesNotExist:
+            pass
+
+    if request.method == "POST":
+        code = request.POST.get("invite_code", "").strip()
+        try:
+            org = Organization.objects.get(invite_code__iexact=code, is_active=True)
+            request.session["intake_org_id"] = org.id
+            return redirect("public-intake-form")
+        except Organization.DoesNotExist:
+            messages.error(request, "Invalid or inactive invitation code.")
+    
+    return render(request, "core/public_intake_start.html")
+
+
+@csrf_exempt
+def public_intake_form(request):
+    """The multi-step form for clients to fill in their details."""
+    org_id = request.session.get("intake_org_id")
+    if not org_id:
+        return redirect("public-intake-start")
+    
+    organization = get_object_or_404(Organization, id=org_id, is_active=True)
+    
+    if request.method == "POST":
+        form = ClientIntakeForm(request.POST, request.FILES)
+        if form.is_valid():
+            intake = form.save(commit=False)
+            intake.organization = organization
+            intake.save()
+            # Clear session after submission
+            if "intake_org_id" in request.session:
+                del request.session["intake_org_id"]
+            return redirect("public-intake-success")
+    else:
+        form = ClientIntakeForm()
+    
+    return render(request, "core/public_intake_form.html", {
+        "form": form,
+        "organization": organization,
+    })
+
+@login_required
+def approve_intake(request, intake_id):
+    from django.db import transaction
+    
+    with transaction.atomic():
+        # Select for update locks the row
+        intake = get_object_or_404(
+            ClientIntake.objects.select_for_update(), 
+            id=intake_id, 
+            organization__in=_get_user_organizations(request)
+        )
+        
+        if intake.status != ClientIntake.Status.PENDING:
+            messages.error(request, "This intake is already being processed or has been completed.")
+            return redirect("dashboard")
+
+        # Set to processing immediately to hide from others
+        intake.status = ClientIntake.Status.PROCESSING
+        intake.processed_by = request.user
+        intake.save()
+
+    # Now proceed with creation outside the lock if desired, but within the view is fine
+    # 1. Create or get Client
+    client, created = Client.objects.get_or_create(
+        organization=intake.organization,
+        first_name=intake.first_name,
+        last_name=intake.last_name,
+        dob=intake.dob,
+        defaults={
+            "middle_name": intake.middle_name,
+            "email": intake.email,
+            "phone_number": intake.phone_number,
+            "gender": intake.gender,
+            "driver_license": intake.driver_license,
+            "building_no": intake.building_no,
+            "street_address": intake.street_address,
+            "apartment": intake.apartment,
+            "city": intake.city,
+            "state": intake.state,
+            "zip_code": intake.zip_code,
+            "county": intake.county,
+        }
+    )
+
+    # 2. Create Vehicle
+    vehicle, v_created = Vehicle.objects.get_or_create(
+        vin=intake.vin,
+        defaults={
+            "client": client,
+            "year": intake.year,
+            "make": intake.make,
+            "model": intake.model,
+            "vehicle_type": intake.vehicle_type,
+            "body_type": intake.body_type,
+            "fuel_type": intake.fuel_type,
+            "color": intake.color,
+            "weight": intake.weight,
+            "cylinders": intake.cylinders,
+        }
+    )
+
+    # 3. Update Intake Status
+    intake.status = ClientIntake.Status.APPROVED
+    intake.processed_at = timezone.now()
+    intake.processed_by = request.user
+    intake.save()
+
+    messages.success(request, f"Client {client.name} and Vehicle {vehicle.vin} successfully created from intake.")
+    
+    # Redirect to start process for this vehicle
+    return redirect("start-process", vehicle_id=vehicle.id)
+
+
+@login_required
+def reject_intake(request, intake_id):
+    intake = get_object_or_404(ClientIntake, id=intake_id, organization__in=_get_user_organizations(request))
+    intake.status = ClientIntake.Status.REJECTED
+    intake.processed_at = timezone.now()
+    intake.processed_by = request.user
+    intake.save()
+    messages.warning(request, "Intake submission has been rejected.")
+    return redirect("dashboard")
+
+
+def public_intake_success(request):
+    """Confirmation page after successful submission."""
+    return render(request, "core/public_intake_success.html")

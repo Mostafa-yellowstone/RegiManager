@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Start Your Registration | RegiManager{% endblock %}
+
+{% block content %}
+<style>
+    .intake-container {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        padding: 2rem;
+    }
+    .intake-card {
+        background: white;
+        padding: 3rem;
+        border-radius: 24px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        max-width: 500px;
+        width: 100%;
+        text-align: center;
+    }
+    .logo-badge {
+        width: 80px;
+        height: 80px;
+        background: #0f172a;
+        color: white;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        font-weight: 800;
+        margin: 0 auto 2rem;
+    }
+    .intake-title {
+        font-size: 1.875rem;
+        font-weight: 800;
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+    }
+    .intake-subtitle {
+        color: #64748b;
+        margin-bottom: 2.5rem;
+    }
+    .invite-input {
+        background: #f1f5f9;
+        border: 2px solid transparent;
+        border-radius: 12px;
+        padding: 1rem;
+        font-size: 1.25rem;
+        font-weight: 700;
+        text-align: center;
+        letter-spacing: 2px;
+        width: 100%;
+        transition: all 0.2s;
+        margin-bottom: 1.5rem;
+    }
+    .invite-input:focus {
+        border-color: #3b82f6;
+        background: white;
+        outline: none;
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    }
+    .btn-submit {
+        background: #3b82f6;
+        color: white;
+        font-weight: 700;
+        padding: 1rem 2rem;
+        border-radius: 12px;
+        width: 100%;
+        border: none;
+        font-size: 1.1rem;
+        transition: transform 0.2s, background 0.2s;
+        cursor: pointer;
+    }
+    .btn-submit:hover {
+        background: #2563eb;
+        transform: translateY(-2px);
+    }
+    .btn-submit:active {
+        transform: translateY(0);
+    }
+</style>
+
+<div class="intake-container">
+    <div class="intake-card">
+        <div class="logo-badge">DMV</div>
+        <h1 class="intake-title">Vehicle Intake</h1>
+        <p class="intake-subtitle">Enter the invitation code provided by your registration agent to begin.</p>
+        
+        <form method="post">
+            {% csrf_token %}
+            <input type="text" name="invite_code" class="invite-input" placeholder="CODE-1234" autofocus required>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div style="color: #ef4444; font-weight: 600; margin-bottom: 1rem; font-size: 0.9rem;">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            <button type="submit" class="btn-submit">Continue &rarr;</button>
+        </form>
+        
+        <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #f1f5f9; font-size: 0.8rem; color: #94a3b8;">
+            Secure Client Intake Portal &middot; RegiManager v2.0
+        </div>
+    </div>
+</div>
+{% endblock %}

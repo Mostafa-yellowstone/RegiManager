@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
-from .models import Organization, ServiceRecord, CustomServiceType, CustomSourceType, Referral, Client, Vehicle
+from .models import Organization, ServiceRecord, CustomServiceType, CustomSourceType, Referral, Client, Vehicle, ClientIntake
 
 
 
@@ -362,3 +362,48 @@ class VehicleServiceForm(forms.ModelForm):
         self.fields["referral_balance"].widget.attrs["readonly"] = True
         for field_name, field in self.fields.items():
             field.widget.attrs["class"] = "form-control"
+class ClientIntakeForm(forms.ModelForm):
+    class Meta:
+        model = ClientIntake
+        exclude = ["organization", "status", "processed_at", "processed_by", "additional_data"]
+        widgets = {
+            "dob": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "insurance_effective_date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "insurance_expiration_date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "mv82_file": forms.FileInput(attrs={"class": "form-control"}),
+            "dtf802_file": forms.FileInput(attrs={"class": "form-control"}),
+            "dtf803_file": forms.FileInput(attrs={"class": "form-control"}),
+            "other_docs": forms.FileInput(attrs={"class": "form-control"}),
+            "first_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "First Name"}),
+            "last_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Last Name"}),
+            "middle_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Middle Name/Initial"}),
+            "email": forms.EmailInput(attrs={"class": "form-control", "placeholder": "Email Address"}),
+            "phone_number": forms.TextInput(attrs={"class": "form-control phone-mask", "placeholder": "(000) 000-0000"}),
+            "driver_license": forms.TextInput(attrs={"class": "form-control", "placeholder": "ID Number"}),
+            "ssn_last_4": forms.TextInput(attrs={"class": "form-control", "placeholder": "Last 4 digits", "maxlength": "4"}),
+            "building_no": forms.TextInput(attrs={"class": "form-control", "placeholder": "No."}),
+            "street_address": forms.TextInput(attrs={"class": "form-control", "placeholder": "Street Name"}),
+            "apartment": forms.TextInput(attrs={"class": "form-control", "placeholder": "Apt/Suite"}),
+            "city": forms.TextInput(attrs={"class": "form-control", "placeholder": "City"}),
+            "zip_code": forms.TextInput(attrs={"class": "form-control", "placeholder": "ZIP"}),
+            "county": forms.TextInput(attrs={"class": "form-control", "placeholder": "County"}),
+            "vin": forms.TextInput(attrs={"class": "form-control", "placeholder": "17-digit VIN", "maxlength": "17"}),
+            "year": forms.NumberInput(attrs={"class": "form-control", "placeholder": "Year"}),
+            "make": forms.TextInput(attrs={"class": "form-control", "placeholder": "Make"}),
+            "model": forms.TextInput(attrs={"class": "form-control", "placeholder": "Model"}),
+            "color": forms.TextInput(attrs={"class": "form-control", "placeholder": "Color"}),
+            "weight": forms.TextInput(attrs={"class": "form-control", "placeholder": "Weight (lbs)"}),
+            "cylinders": forms.TextInput(attrs={"class": "form-control", "placeholder": "No. of Cylinders"}),
+            "insurance_company": forms.TextInput(attrs={"class": "form-control", "placeholder": "Insurance Company"}),
+            "insurance_policy_number": forms.TextInput(attrs={"class": "form-control", "placeholder": "Policy Number"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Only require the bare essentials
+        required_fields = ["first_name", "last_name", "vin"]
+        for field_name, field in self.fields.items():
+            if field_name not in required_fields:
+                field.required = False
+            else:
+                field.required = True

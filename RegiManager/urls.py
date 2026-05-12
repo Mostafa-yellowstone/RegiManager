@@ -82,6 +82,11 @@ from core.views import (
     get_client_details,
     branch_analytics,
     get_latest_news,
+    public_intake_start,
+    public_intake_form,
+    public_intake_success,
+    approve_intake,
+    reject_intake,
 )
 
 from rest_framework.routers import DefaultRouter
@@ -166,6 +171,13 @@ urlpatterns = [
     path("dashboard/branch-analytics/<int:org_id>/", branch_analytics, name="branch-analytics"),
     path("api/get-latest-news/", get_latest_news, name="get-latest-news"),
     path("api/session-heartbeat/", session_heartbeat, name="session-heartbeat"),
+    
+    # Public Intake Routes
+    path("intake/", public_intake_start, name="public-intake-start"),
+    path("intake/form/", public_intake_form, name="public-intake-form"),
+    path("intake/success/", public_intake_success, name="public-intake-success"),
+    path("dashboard/intake/<int:intake_id>/approve/", approve_intake, name="approve-intake"),
+    path("dashboard/intake/<int:intake_id>/reject/", reject_intake, name="reject-intake"),
 ]
 
 if settings.DEBUG:

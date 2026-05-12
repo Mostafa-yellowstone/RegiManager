@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Submission Received | RegiManager{% endblock %}
+
+{% block content %}
+<style>
+    .success-container {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8fafc;
+        padding: 2rem;
+    }
+    .success-card {
+        background: white;
+        padding: 4rem 3rem;
+        border-radius: 24px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        max-width: 500px;
+        width: 100%;
+        text-align: center;
+    }
+    .success-icon {
+        width: 80px;
+        height: 80px;
+        background: #dcfce7;
+        color: #15803d;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        margin: 0 auto 2rem;
+    }
+    .success-title {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #1e293b;
+        margin-bottom: 1rem;
+    }
+    .success-text {
+        color: #64748b;
+        font-size: 1.1rem;
+        line-height: 1.6;
+        margin-bottom: 2.5rem;
+    }
+</style>
+
+<div class="success-container">
+    <div class="success-card">
+        <div class="success-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <h1 class="success-title">Submission Received!</h1>
+        <p class="success-text">
+            Thank you for submitting your details. Your registration agent has been notified and will begin processing your documents shortly.
+        </p>
+        
+        <div style="background: #f1f5f9; padding: 1.5rem; border-radius: 16px; text-align: left; margin-bottom: 2rem;">
+            <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #1e293b;">What happens next?</h4>
+            <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.85rem; color: #64748b; display: grid; gap: 8px;">
+                <li>Agent reviews your information.</li>
+                <li>DMV forms are automatically generated.</li>
+                <li>You'll be contacted for final signatures if required.</li>
+            </ul>
+        </div>
+
+        <a href="{% url 'public-intake-form' %}" style="display: block; background: #3b82f6; color: white; padding: 1rem; border-radius: 12px; font-weight: 700; text-decoration: none; margin-bottom: 1rem;">Submit Another Application</a>
+        <a href="{% url 'home' %}" style="display: inline-block; color: #64748b; font-weight: 600; text-decoration: none;">&larr; Return to Homepage</a>
+    </div>
+</div>
+{% endblock %}

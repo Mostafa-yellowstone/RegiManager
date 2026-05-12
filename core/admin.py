@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Organization, OrganizationMembership, ServiceAuditLog, ServiceRecord, CustomServiceType, SiteNews
+from .models import Organization, OrganizationMembership, ServiceAuditLog, ServiceRecord, CustomServiceType, SiteNews, ClientIntake
 
 
 class MembershipInline(admin.TabularInline):
@@ -23,10 +23,19 @@ class MembershipInline(admin.TabularInline):
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
-    list_display = ("name", "address_line", "city", "state", "phone_number", "is_automation_enabled", "created_at")
+    list_display = ("name", "city", "state", "invite_code", "intake_link_display", "is_automation_enabled")
     list_filter = ("state", "city", "is_automation_enabled")
     search_fields = ("name", "address_line", "city", "state", "phone_number")
+    readonly_fields = ("intake_link_display",)
     inlines = [MembershipInline]
+
+    def intake_link_display(self, obj):
+        from django.utils.html import format_html
+        from django.urls import reverse
+        url = f"/intake/?invite_code={obj.invite_code}"
+        return format_html('<a href="{}" target="_blank">Open Intake Portal</a>', url)
+    
+    intake_link_display.short_description = "Public Intake Link"
 
     class Media:
         js = ('core/js/admin_automation_toggle.js',)
@@ -84,3 +93,10 @@ class SiteNewsAdmin(admin.ModelAdmin):
     list_display = ("title", "is_active", "created_at")
     list_filter = ("is_active",)
     search_fields = ("title", "content")
+
+@admin.register(ClientIntake)
+class ClientIntakeAdmin(admin.ModelAdmin):
+    list_display = ("first_name", "last_name", "organization", "status", "created_at", "processed_by")
+    list_filter = ("status", "organization")
+    search_fields = ("first_name", "last_name", "vin")
+    readonly_fields = ("created_at", "processed_at", "processed_by")
