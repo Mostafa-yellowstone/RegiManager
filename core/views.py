@@ -4065,8 +4065,8 @@ def edit_vehicle(request, vehicle_id):
 @ensure_csrf_cookie
 @csrf_exempt
 def public_intake_start(request):
-    """Landing page for clients to enter the PSB invite code."""
-    # Check for code in GET (from admin link)
+    """Landing page for clients to enter the PSB invite code via unique link."""
+    # Check for code in GET (the only allowed way)
     code = request.GET.get("invite_code")
     if code:
         try:
@@ -4074,17 +4074,8 @@ def public_intake_start(request):
             request.session["intake_org_id"] = org.id
             return redirect("public-intake-form")
         except Organization.DoesNotExist:
-            pass
+            messages.error(request, "Invalid or expired invitation link.")
 
-    if request.method == "POST":
-        code = request.POST.get("invite_code", "").strip()
-        try:
-            org = Organization.objects.get(invite_code__iexact=code, is_active=True)
-            request.session["intake_org_id"] = org.id
-            return redirect("public-intake-form")
-        except Organization.DoesNotExist:
-            messages.error(request, "Invalid or inactive invitation code.")
-    
     return render(request, "core/public_intake_start.html")
 
 
@@ -4136,53 +4127,49 @@ def approve_intake(request, intake_id):
         intake.processed_by = request.user
         intake.save()
 
-    # Check if Vehicle exists
-    existing_vehicle = Vehicle.objects.filter(vin=intake.vin).first()
-    
-    if existing_vehicle:
-        # Use existing vehicle and client
-        vehicle = existing_vehicle
-        client = vehicle.client
-        messages.info(request, f"Using existing record for Vehicle {vehicle.vin} and Client {client.name}.")
-    else:
-        # 1. Create or get Client
-        client, created = Client.objects.get_or_create(
-            organization=intake.organization,
-            first_name=intake.first_name,
-            last_name=intake.last_name,
-            dob=intake.dob,
-            defaults={
-                "middle_name": intake.middle_name,
-                "email": intake.email,
-                "phone_number": intake.phone_number,
-                "gender": intake.gender,
-                "driver_license": intake.driver_license,
-                "building_no": intake.building_no,
-                "street_address": intake.street_address,
-                "apartment": intake.apartment,
-                "city": intake.city,
-                "state": intake.state,
-                "zip_code": intake.zip_code,
-                "county": intake.county,
-            }
-        )
+    # 1. Create or get Client (or use existing if found)
+    client, created = Client.objects.get_or_create(
+        organization=intake.organization,
+        first_name=intake.first_name,
+        last_name=intake.last_name,
+        dob=intake.dob,
+        defaults={
+            "middle_name": intake.middle_name,
+            "email": intake.email,
+            "phone_number": intake.phone_number,
+            "gender": intake.gender,
+            "driver_license": intake.driver_license,
+            "building_no": intake.building_no,
+            "street_address": intake.street_address,
+            "apartment": intake.apartment,
+            "city": intake.city,
+            "state": intake.state,
+            "zip_code": intake.zip_code,
+            "county": intake.county,
+        }
+    )
 
-        # 2. Create Vehicle
-        vehicle, v_created = Vehicle.objects.get_or_create(
-            vin=intake.vin,
-            defaults={
-                "client": client,
-                "year": intake.year,
-                "make": intake.make,
-                "model": intake.model,
-                "vehicle_type": intake.vehicle_type,
-                "body_type": intake.body_type,
-                "fuel_type": intake.fuel_type,
-                "color": intake.color,
-                "weight": intake.weight,
-                "cylinders": intake.cylinders,
-            }
-        )
+    # 2. Update or Create Vehicle (always ensure it's linked to the client from this intake)
+    vehicle, v_created = Vehicle.objects.update_or_create(
+        vin=intake.vin,
+        defaults={
+            "client": client,
+            "year": intake.year,
+            "make": intake.make,
+            "model": intake.model,
+            "vehicle_type": intake.vehicle_type,
+            "body_type": intake.body_type,
+            "fuel_type": intake.fuel_type,
+            "color": intake.color,
+            "weight": intake.weight,
+            "cylinders": intake.cylinders,
+        }
+    )
+
+    if not v_created:
+        messages.info(request, f"Vehicle {vehicle.vin} existed and has been updated/linked to {client.name}.")
+    else:
+        messages.success(request, f"New record created for Vehicle {vehicle.vin} and Client {client.name}.")
 
     # 3. Update Intake Status
     intake.status = ClientIntake.Status.APPROVED
