@@ -1110,7 +1110,11 @@ def dashboard(request):
     monthly_qs = scope_qs.filter(created_at__date__gte=month_start, created_at__date__lte=today)
     daily_qs = scope_qs.filter(created_at__date=today)
     
-    yearly_report = yearly_qs.aggregate(total_records=Count("id"))
+    yearly_report = yearly_qs.aggregate(
+        total_records=Count("id"),
+        processing_fee=Sum("processing_fee")
+    )
+    yearly_report["net_profit"] = yearly_report["processing_fee"] or Decimal("0")
     monthly_report = monthly_qs.aggregate(
         total_records=Count("id"),
         total_amount=Sum("service_fee"),
@@ -1230,11 +1234,11 @@ def dashboard(request):
                 'id': org.id,
                 'name': org.name,
                 'city': org.city,
-                'daily_rev': org_records.filter(created_at__date=today).aggregate(Sum('service_fee'))['service_fee__sum'] or 0,
-                'monthly_rev': org_records.filter(created_at__date__gte=month_start).aggregate(Sum('service_fee'))['service_fee__sum'] or 0,
+                'daily_profit': org_records.filter(created_at__date=today).aggregate(Sum('processing_fee'))['processing_fee__sum'] or 0,
+                'monthly_profit': org_records.filter(created_at__date__gte=month_start).aggregate(Sum('processing_fee'))['processing_fee__sum'] or 0,
                 'total_records': org_records.count(),
             })
-        location_stats = sorted(location_stats, key=lambda x: x['monthly_rev'], reverse=True)
+        location_stats = sorted(location_stats, key=lambda x: x['monthly_profit'], reverse=True)
 
     return render(
         request,
@@ -1326,8 +1330,8 @@ def owner_report_pdf(request):
         ("Service", 74),
         ("Status", 50),
         ("Count", 38),
-        ("Total", 58),
         ("Processing", 58),
+        ("Total Gross", 58),
         ("DMV", 52),
         ("Tax", 52),
         ("Card", 50),
@@ -1361,8 +1365,8 @@ def owner_report_pdf(request):
             str(row["service_type"]).replace("_", " ").title(),
             str(row["status"]).title(),
             row["total"],
-            _currency(row["amount"]),
             _currency(row["processing"]),
+            _currency(row["amount"]),
             _currency(row["dmv"]),
             _currency(row["tax"]),
             _currency(row["card"]),
@@ -1398,9 +1402,9 @@ def owner_report_pdf(request):
     y -= 12
     pdf.setFillColorRGB(0.1, 0.18, 0.28)
     pdf.setFont("Helvetica-Bold", 10)
-    pdf.drawCentredString(width / 2, y, f"Gross Collections: {_currency(totals['total_amount'])}")
-    y -= 16
     pdf.drawCentredString(width / 2, y, f"Net Profit (Processing Fees): {_currency(totals['total_processing'])}")
+    y -= 16
+    pdf.drawCentredString(width / 2, y, f"Gross Collections: {_currency(totals['total_amount'])}")
     y -= 16
     pdf.drawCentredString(
         width / 2,
@@ -1499,8 +1503,8 @@ def monthly_report_pdf(request):
 
     # High-Impact Summary Cards
     stats = [
-        ("Gross Sales", _currency(totals['total_amount'] or 0), electric_blue, "Revenue generated"),
-        ("Net Revenue", _currency(totals['total_processing'] or 0), emerald, "PSB commission"),
+        ("Net Profit", _currency(totals['total_processing'] or 0), emerald, "Total PSB Income"),
+        ("Gross Sales", _currency(totals['total_amount'] or 0), electric_blue, "Total amount collected"),
         ("Active Cases", str(status['total_records']), amethyst, "Monthly volume"),
         ("Efficiency", f"{(status['completed']/status['total_records']*100 if status['total_records'] > 0 else 0):.1f}%", colors.black, "Success rate"),
     ]
@@ -1686,8 +1690,8 @@ def daily_report_pdf(request):
 
     # Summary Statistics Grid
     stats = [
-        ("Today's Revenue", _currency(totals['total_amount'] or 0), charcoal, "Total collections"),
-        ("Processing", _currency(totals['total_processing'] or 0), vibrant_amber, "PSB profit"),
+        ("Daily Profit", _currency(totals['total_processing'] or 0), vibrant_amber, "Total PSB Income"),
+        ("Gross Collections", _currency(totals['total_amount'] or 0), charcoal, "Total amount collected"),
         ("Transactions", str(status['total_records']), colors.Color(0.3, 0.3, 0.3), "Files processed"),
         ("Pending", str(status['pending']), colors.red, "Needs attention"),
     ]
@@ -2824,7 +2828,7 @@ def agent_audit_view(request, membership_id):
     failed_records = records_qs.filter(status="failed").count()
     error_rate = round((failed_records / total_records * 100), 2) if total_records > 0 else 0
     
-    total_revenue = round(records_qs.aggregate(rev=Sum("service_fee"))["rev"] or Decimal("0"), 2)
+    total_profit = round(records_qs.aggregate(prof=Sum("processing_fee"))["prof"] or Decimal("0"), 2)
     
     badges = []
     if error_rate > 10:
@@ -2832,7 +2836,7 @@ def agent_audit_view(request, membership_id):
     elif total_records > 50 and error_rate < 2:
         badges.append({"label": "Top Performer", "type": "success", "icon": "🏆"})
         
-    if total_revenue > 5000:
+    if total_profit > 1000:
         badges.append({"label": "High Earner", "type": "warning", "icon": "💎"})
 
     instructions = None
@@ -2872,7 +2876,10 @@ def agent_audit_view(request, membership_id):
     pie_labels = [service_map.get(d['service_type'], d['service_type']) for d in type_distribution] if type_distribution else []
     pie_counts = [d['count'] for d in type_distribution] if type_distribution else []
 
-    recent_records = records_qs.order_by("-created_at")[:50]
+    from django.core.paginator import Paginator
+    paginator = Paginator(records_qs.order_by("-created_at"), 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
 
     location_stats = []
     if is_owner and not request.session.get('active_org_id') and organizations.count() > 1:
@@ -2898,14 +2905,14 @@ def agent_audit_view(request, membership_id):
         "end_date": end_date.strftime("%Y-%m-%d"),
         "total_records": total_records,
         "error_rate": round(error_rate, 1),
-        "total_revenue": total_revenue,
+        "total_profit": total_profit,
         "badges": badges,
         "instructions": instructions,
         "chart_dates": json.dumps(chart_dates),
         "chart_counts": json.dumps(chart_counts),
         "pie_labels": json.dumps(pie_labels),
         "pie_counts": json.dumps(pie_counts),
-        "recent_records": recent_records,
+        "page_obj": page_obj,
     }
     return render(request, "core/agent_audit.html", context)
 
@@ -3749,11 +3756,12 @@ def _generate_report_v2(request, qs, title, subtitle, filename):
     y = height - 180
     pdf.setFillColor(colors.Color(0.97,0.98,1.0)); pdf.roundRect(margin, y-60, width-(margin*2), 70, 10, fill=1, stroke=0)
     pdf.setFillColor(navy); pdf.setFont("Helvetica-Bold", 10)
-    pdf.drawString(margin+20, y-10, "GROSS REVENUE"); pdf.drawString(width/2 - 40, y-10, "AGENCY PROFIT"); pdf.drawString(width-margin-100, y-10, "TOTAL VOLUME")
+    pdf.drawString(margin+20, y-10, "AGENCY PROFIT (NET)"); pdf.drawString(width/2 - 40, y-10, "GROSS REVENUE"); pdf.drawString(width-margin-100, y-10, "TOTAL VOLUME")
     
     pdf.setFont("Helvetica-Bold", 18)
-    pdf.drawString(margin+20, y-35, _currency(totals['rev'] or 0))
-    pdf.drawString(width/2 - 40, y-35, _currency(totals['prof'] or 0))
+    pdf.drawString(margin+20, y-35, _currency(totals['prof'] or 0))
+    pdf.drawString(width/2 - 40, y-35, _currency(totals['rev'] or 0))
+    pdf.setFont("Helvetica-Bold", 18)
     pdf.drawString(width-margin-100, y-35, str(status_counts['total']))
     
     # Table
@@ -3764,10 +3772,10 @@ def _generate_report_v2(request, qs, title, subtitle, filename):
     y -= 40
     pdf.setFillColor(navy); pdf.roundRect(margin, y-5, width-(margin*2), 25, 5, fill=1, stroke=0)
     pdf.setFillColor(colors.white); pdf.setFont("Helvetica-Bold", 9)
-    pdf.drawString(margin+10, y+2, "SERVICE TYPE"); pdf.drawRightString(width-margin-10, y+2, "REVENUE")
+    pdf.drawString(margin+10, y+2, "SERVICE TYPE"); pdf.drawRightString(width-margin-10, y+2, "NET PROFIT")
     
     y -= 30
-    rows = qs.values('service_type').annotate(t=Count('id'), a=Sum('service_fee')).order_by('-t')
+    rows = qs.values('service_type').annotate(t=Count('id'), a=Sum('processing_fee')).order_by('-t')
     service_map = dict(ServiceRecord.SERVICE_TYPES)
     for row in rows:
         pdf.setFillColor(navy); pdf.setFont("Helvetica", 10)

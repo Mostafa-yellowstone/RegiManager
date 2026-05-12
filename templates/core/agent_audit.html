@@ -39,8 +39,8 @@
                     <strong style="color: white;">{{ total_records }}</strong>
                 </div>
                 <div class="metric-card" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;">
-                    <span style="color: #cbd5e1;">Revenue Generated</span>
-                    <strong style="color: white;">${{ total_revenue }}</strong>
+                    <span style="color: #cbd5e1;">Net Profit</span>
+                    <strong style="color: white;">${{ total_profit }}</strong>
                 </div>
                 <div class="metric-card" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;">
                     <span style="color: #cbd5e1;">Error Rate (Failed/Voided)</span>
@@ -100,18 +100,18 @@
                             <th>Service Type</th>
                             <th>Client Name</th>
                             <th>Status</th>
-                            <th>Revenue</th>
+                            <th>Net Profit</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for record in recent_records %}
+                        {% for record in page_obj %}
                             <tr>
                                 <td>{{ record.created_at|date:"M d, Y g:i A" }}</td>
                                 <td>{{ record.receipt_number }}</td>
-                                <td>{{ record.get_service_type_display }}</td>
+                                <td>{{ record.service_type_label }}</td>
                                 <td>{{ record.client_name }}</td>
                                 <td><span class="status-badge status-{{ record.status }}">{{ record.status|title }}</span></td>
-                                <td>${{ record.service_fee }}</td>
+                                <td>${{ record.processing_fee }}</td>
                             </tr>
                         {% empty %}
                             <tr>
@@ -121,6 +121,24 @@
                     </tbody>
                 </table>
             </div>
+            
+            {% if page_obj.has_other_pages %}
+            <div class="pagination-container" style="margin-top: 1.5rem; display: flex; justify-content: center; gap: 0.5rem; align-items: center;">
+                {% if page_obj.has_previous %}
+                    <a href="?page=1{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="btn btn-secondary btn-sm">&laquo; First</a>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="btn btn-secondary btn-sm">Prev</a>
+                {% endif %}
+
+                <span style="font-weight: 600; color: #64748b; font-size: 0.9rem;">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="btn btn-secondary btn-sm">Next</a>
+                    <a href="?page={{ page_obj.paginator.num_pages }}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="btn btn-secondary btn-sm">Last &raquo;</a>
+                {% endif %}
+            </div>
+            {% endif %}
         </section>
     </section>
 </main>

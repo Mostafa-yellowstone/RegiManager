@@ -156,16 +156,19 @@ input:checked + .slider:before {
             </div>
             <div class="hero-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem;">
                 <div class="metric-card" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 1.5rem; border-radius: 18px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
-                    <span style="color: rgba(255,255,255,0.7); font-weight: 600; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase;">Today</span>
-                    <strong style="display: block; font-size: 1.8rem; margin-top: 8px; color: #fff;">{{ daily_report.total_records|default:0 }} <small style="font-size: 0.9rem; opacity: 0.7; font-weight: 400;">records</small></strong>
+                    <span style="color: rgba(255,255,255,0.7); font-weight: 600; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase;">TODAY'S INCOME</span>
+                    <strong style="display: block; font-size: 1.8rem; margin-top: 8px; color: #fff;">${{ daily_report.net_profit|floatformat:2 }}</strong>
+                    <span style="font-size: 0.85rem; color: rgba(255,255,255,0.5);">{{ daily_report.total_records|default:0 }} records</span>
                 </div>
                 <div class="metric-card" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 1.5rem; border-radius: 18px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
                     <span style="color: rgba(255,255,255,0.7); font-weight: 600; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase;">This Month</span>
-                    <strong style="display: block; font-size: 1.8rem; margin-top: 8px; color: #fff;">{{ monthly_report.total_records|default:0 }} <small style="font-size: 0.9rem; opacity: 0.7; font-weight: 400;">records</small></strong>
+                    <strong style="display: block; font-size: 1.8rem; margin-top: 8px; color: #fff;">${{ monthly_report.net_profit|floatformat:2 }}</strong>
+                    <span style="font-size: 0.85rem; color: rgba(255,255,255,0.5);">{{ monthly_report.total_records|default:0 }} records</span>
                 </div>
                 <div class="metric-card" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 1.5rem; border-radius: 18px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
                     <span style="color: rgba(255,255,255,0.7); font-weight: 600; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase;">This Year</span>
-                    <strong style="display: block; font-size: 1.8rem; margin-top: 8px; color: #fff;">{{ yearly_report.total_records|default:0 }} <small style="font-size: 0.9rem; opacity: 0.7; font-weight: 400;">records</small></strong>
+                    <strong style="display: block; font-size: 1.8rem; margin-top: 8px; color: #fff;">${{ yearly_report.net_profit|floatformat:2 }}</strong>
+                    <span style="font-size: 0.85rem; color: rgba(255,255,255,0.5);">{{ yearly_report.total_records|default:0 }} records</span>
                 </div>
                 {% if is_owner or user_can_view_net_profit %}
                 <div class="metric-card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(21, 128, 61, 0.2)); border: 1px solid rgba(74, 222, 128, 0.3); backdrop-filter: blur(10px); padding: 1.5rem; border-radius: 18px; box-shadow: 0 8px 32px 0 rgba(22, 101, 52, 0.2); transition: all 0.3s ease;">
@@ -202,12 +205,12 @@ input:checked + .slider:before {
                         
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                             <div style="background: white; padding: 1rem; border-radius: 12px; border: 1px solid #f1f5f9;">
-                                <span style="display: block; font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px;">Month Revenue</span>
-                                <strong style="font-size: 1.25rem; color: #0f172a;">${{ stat.monthly_rev|floatformat:2 }}</strong>
+                                <span style="display: block; font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px;">Month Profit</span>
+                                <strong style="font-size: 1.25rem; color: #0f172a;">${{ stat.monthly_profit|floatformat:2 }}</strong>
                             </div>
                             <div style="background: white; padding: 1rem; border-radius: 12px; border: 1px solid #f1f5f9;">
                                 <span style="display: block; font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px;">Today</span>
-                                <strong style="font-size: 1.25rem; color: #093de6;">${{ stat.daily_rev|floatformat:2 }}</strong>
+                                <strong style="font-size: 1.25rem; color: #093de6;">${{ stat.daily_profit|floatformat:2 }}</strong>
                             </div>
                         </div>
                         
@@ -485,7 +488,7 @@ input:checked + .slider:before {
                             <li>
                                 <span>
                                     <strong>{{ log.actor.username }}</strong> {{ log.get_action_display }}<br>
-                                    {{ log.service_record.receipt_number }}
+                                    {{ log.service_record.receipt_number }} &middot; <span style="color: #64748b;">{{ log.service_record.service_type_label }}</span>
                                 </span>
                                 <strong style="font-size: 0.8rem;">{{ log.created_at|date:"H:i" }}</strong>
                             </li>
