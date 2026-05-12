@@ -34,6 +34,7 @@ def send_automation_email(to_email, subject, template_name, context):
         # (important when Celery eager mode is enabled).
         return "failed"
 
+@shared_task
 def process_vehicle_reminder(vehicle_id, days, log_type, force_sync=False):
     """
     Atomic task to process a reminder for a single vehicle.
