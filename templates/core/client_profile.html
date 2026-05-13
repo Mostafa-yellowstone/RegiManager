@@ -297,7 +297,11 @@
                                         {% if doc.vehicle %}{{ doc.vehicle.make }} - {% endif %}{{ doc.uploaded_at|date:"M d, Y" }}
                                     </div>
                                 </div>
-                                <a href="{{ doc.file.url }}" target="_blank" class="btn btn-secondary btn-sm" style="min-height: auto; padding: 0.3rem 0.6rem; font-size: 0.8rem;">View</a>
+                                {% if doc.file %}
+                                    <a href="{{ doc.file.url }}" target="_blank" class="btn btn-secondary btn-sm" style="min-height: auto; padding: 0.3rem 0.6rem; font-size: 0.8rem;">View</a>
+                                {% else %}
+                                    <span style="color: #94a3b8; font-size: 0.75rem; font-style: italic;">No file</span>
+                                {% endif %}
                             </li>
                             {% empty %}
                             <li style="text-align: center; color: #94a3b8; padding: 1rem 0; border: none;">No documents found.</li>

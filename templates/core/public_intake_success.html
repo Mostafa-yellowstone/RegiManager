@@ -3,6 +3,14 @@
 
 {% block title %}Submission Received | RegiManager{% endblock %}
 
+{% block extra_head %}
+<style>
+    #site-news-banner, .site-footer { display: none !important; }
+</style>
+{% endblock %}
+
+{% block site_footer %}{% endblock %}
+
 {% block content %}
 <style>
     .success-container {
@@ -67,8 +75,9 @@
             </ul>
         </div>
 
-        <a href="/intake/{{ request.GET.portal_token }}/" style="display: block; background: #3b82f6; color: white; padding: 1rem; border-radius: 12px; font-weight: 700; text-decoration: none; margin-bottom: 1rem;">Submit Another Application</a>
-        <a href="{% url 'home' %}" style="display: inline-block; color: #64748b; font-weight: 600; text-decoration: none;">&larr; Return to Homepage</a>
+        <a href="/intake/{{ request.GET.portal_token }}/" style="display: block; background: #3b82f6; color: white; padding: 1.25rem; border-radius: 12px; font-weight: 800; text-decoration: none; font-size: 1.1rem; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);">
+            Submit Another Application &rarr;
+        </a>
     </div>
 </div>
 {% endblock %}

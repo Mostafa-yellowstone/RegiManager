@@ -2768,7 +2768,7 @@ def get_documents(request, service_id):
             "id": doc.id,
             "type": doc.document_type,
             "type_label": doc_map.get(doc.document_type, doc.document_type),
-            "url": doc.file.url
+            "url": doc.file.url if doc.file else ""
         }
         for doc in documents
     ]
@@ -2798,7 +2798,7 @@ def get_documents_vehicle(request, vehicle_id):
             "id": doc.id,
             "type": doc.document_type,
             "type_label": doc_map.get(doc.document_type, doc.document_type),
-            "url": doc.file.url,
+            "url": doc.file.url if doc.file else "",
             "uploaded_at": doc.uploaded_at.strftime("%b %d, %Y %H:%M") if doc.uploaded_at else ""
         }
         for doc in documents
@@ -4402,12 +4402,13 @@ def approve_intake(request, intake_id):
         
         # Save as ServiceDocument
         doc_name = f"MV82-{vehicle.vin}-{timezone.now().strftime('%Y%m%d')}.pdf"
-        service_doc = ServiceDocument.objects.create(
+        # We don't save the object yet to avoid 'no file' errors if save fails
+        service_doc = ServiceDocument(
             vehicle=vehicle,
             service_record=service,
             document_type="mv82",
         )
-        service_doc.file.save(doc_name, ContentFile(final_output.read()))
+        service_doc.file.save(doc_name, ContentFile(final_output.read()), save=True)
         
     except Exception as e:
         messages.error(request, f"Approved but failed to auto-generate PDF: {str(e)}")

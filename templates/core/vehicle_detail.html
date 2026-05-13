@@ -222,8 +222,11 @@
                                 <td>{{ doc.get_document_type_display }}</td>
                                 <td>{{ doc.uploaded_at|date:"M d, Y H:i" }}</td>
                                 <td>
-                                    <a href="{{ doc.file.url }}" target="_blank" class="btn btn-secondary btn-sm">View
-                                        File</a>
+                                    {% if doc.file %}
+                                        <a href="{{ doc.file.url }}" target="_blank" class="btn btn-secondary btn-sm">View File</a>
+                                    {% else %}
+                                        <span style="color: #94a3b8; font-size: 0.8rem; font-style: italic;">No file attached</span>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% empty %}

@@ -10,6 +10,7 @@
         min-height: 100vh;
         padding: 3rem 1rem;
     }
+
     .form-card {
         background: white;
         border-radius: 20px;
@@ -18,6 +19,7 @@
         margin: 0 auto;
         overflow: hidden;
     }
+
     .form-header {
         background: #0f172a;
         color: white;
@@ -26,10 +28,12 @@
         justify-content: space-between;
         align-items: center;
     }
+
     .step-section {
         padding: 2rem;
         border-bottom: 1px solid #f1f5f9;
     }
+
     .step-title {
         font-size: 1.1rem;
         font-weight: 800;
@@ -41,6 +45,7 @@
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
+
     .step-number {
         width: 24px;
         height: 24px;
@@ -52,20 +57,34 @@
         justify-content: center;
         font-size: 0.75rem;
     }
+
     .form-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr); /* 4 columns for compact view */
+        grid-template-columns: repeat(4, 1fr);
+        /* 4 columns for compact view */
         gap: 1.25rem;
     }
+
     @media (max-width: 900px) {
-        .form-grid { grid-template-columns: repeat(2, 1fr); }
+        .form-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
     }
+
     @media (max-width: 600px) {
-        .form-grid { grid-template-columns: 1fr; }
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
     }
-    .full-width { grid-column: 1 / -1; }
-    .col-span-2 { grid-column: span 2; }
-    
+
+    .full-width {
+        grid-column: 1 / -1;
+    }
+
+    .col-span-2 {
+        grid-column: span 2;
+    }
+
     label {
         display: block;
         font-size: 0.75rem;
@@ -75,6 +94,7 @@
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
+
     .form-control {
         width: 100%;
         padding: 0.6rem 0.8rem;
@@ -83,12 +103,13 @@
         font-size: 0.9rem;
         transition: all 0.2s;
     }
+
     .form-control:focus {
         border-color: #3b82f6;
         outline: none;
         box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
-    
+
     /* Doc Section */
     .doc-item {
         background: #f8fafc;
@@ -99,6 +120,7 @@
         flex-direction: column;
         gap: 10px;
     }
+
     .doc-link {
         color: #3b82f6;
         font-size: 0.8rem;
@@ -108,7 +130,10 @@
         align-items: center;
         gap: 4px;
     }
-    .doc-link:hover { text-decoration: underline; }
+
+    .doc-link:hover {
+        text-decoration: underline;
+    }
 
     .footer-actions {
         padding: 2rem;
@@ -124,31 +149,38 @@
         <div class="form-header">
             <div>
                 <h1 style="margin: 0; font-size: 1.5rem; font-weight: 800; color: #ffffff;">Registration Intake</h1>
-                <p style="margin: 0.2rem 0 0 0; opacity: 0.7; font-size: 0.9rem;">{{ organization.name }} &middot; Invitation Active</p>
+                <p style="margin: 0.2rem 0 0 0; opacity: 0.7; font-size: 0.9rem;">{{ organization.name }} &middot;
+                    Invitation Active</p>
             </div>
-            <div style="background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 99px; font-size: 0.8rem; font-weight: 700;">
+            <div
+                style="background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 99px; font-size: 0.8rem; font-weight: 700;">
                 SECURE PORTAL
             </div>
         </div>
 
         <form method="post" id="intakeForm" enctype="multipart/form-data">
             {% csrf_token %}
-            
+
             <!-- Step 0: Service Selection -->
             <section class="step-section">
                 <div class="step-title"><span class="step-number">0</span> Select Required Services</div>
-                <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1.5rem;">Select all the services you need from us today.</p>
+                <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1.5rem;">Select all the services you need
+                    from us today.</p>
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem;">
                     {% for svc in standard_services %}
-                    <label style="display: flex; align-items: center; gap: 10px; background: #f8fafc; padding: 1rem; border-radius: 12px; cursor: pointer; border: 1px solid #e2e8f0;">
-                        <input type="checkbox" name="services" value="{{ svc.label }}" style="width: 18px; height: 18px;">
+                    <label
+                        style="display: flex; align-items: center; gap: 10px; background: #f8fafc; padding: 1rem; border-radius: 12px; cursor: pointer; border: 1px solid #e2e8f0;">
+                        <input type="checkbox" name="services" value="{{ svc.label }}"
+                            style="width: 18px; height: 18px;">
                         <span style="font-size: 0.85rem; font-weight: 700; color: #1e293b; text-transform: none;">{{ svc.label }}</span>
                     </label>
                     {% endfor %}
-                    
+
                     {% for svc in custom_services %}
-                    <label style="display: flex; align-items: center; gap: 10px; background: #f0fdf4; padding: 1rem; border-radius: 12px; cursor: pointer; border: 1px solid #dcfce7;">
-                        <input type="checkbox" name="services" value="{{ svc.label }}" style="width: 18px; height: 18px;">
+                    <label
+                        style="display: flex; align-items: center; gap: 10px; background: #f0fdf4; padding: 1rem; border-radius: 12px; cursor: pointer; border: 1px solid #dcfce7;">
+                        <input type="checkbox" name="services" value="{{ svc.label }}"
+                            style="width: 18px; height: 18px;">
                         <span style="font-size: 0.85rem; font-weight: 700; color: #166534; text-transform: none;">{{ svc.label }}</span>
                     </label>
                     {% endfor %}
@@ -199,17 +231,22 @@
                         <label>SSN (Last 4)</label>
                         {{ form.ssn_last_4 }}
                     </div>
-                    <div class="col-span-4" style="background: #f8fafc; padding: 1rem; border-radius: 12px; margin-top: 0.5rem;">
-                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; text-transform: none; margin-bottom: 0;">
-                            <input type="checkbox" name="is_registrant_owner" id="id_is_registrant_owner" checked style="width: 18px; height: 18px;">
-                            <span style="font-size: 0.85rem; font-weight: 700; color: #1e293b;">I am the owner of this vehicle.</span>
+                    <div class="col-span-4"
+                        style="background: #f8fafc; padding: 1rem; border-radius: 12px; margin-top: 0.5rem;">
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; cursor: pointer; text-transform: none; margin-bottom: 0;">
+                            <input type="checkbox" name="is_registrant_owner" id="id_is_registrant_owner" checked
+                                style="width: 18px; height: 18px;">
+                            <span style="font-size: 0.85rem; font-weight: 700; color: #1e293b;">I am the owner of this
+                                vehicle.</span>
                         </label>
                     </div>
                 </div>
             </section>
 
             <!-- Step 1.1: Owner Details (Hidden if same) -->
-            <section class="step-section" id="ownerSection" style="display: none; background: #fffcf0; border-bottom: 1px solid #fef3c7;">
+            <section class="step-section" id="ownerSection"
+                style="display: none; background: #fffcf0; border-bottom: 1px solid #fef3c7;">
                 <div class="step-title"><span class="step-number">1.1</span> Owner Information</div>
                 <div class="form-grid">
                     <div class="col-span-2">
@@ -278,17 +315,22 @@
                         <label>ZIP</label>
                         {{ form.zip_code }}
                     </div>
-                    <div class="col-span-4" style="background: #f8fafc; padding: 1rem; border-radius: 12px; margin-top: 0.5rem;">
-                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; text-transform: none; margin-bottom: 0;">
-                            <input type="checkbox" name="residence_address_same" id="id_residence_address_same" checked style="width: 18px; height: 18px;">
-                            <span style="font-size: 0.85rem; font-weight: 700; color: #1e293b;">My residential address is the same as my mailing address.</span>
+                    <div class="col-span-4"
+                        style="background: #f8fafc; padding: 1rem; border-radius: 12px; margin-top: 0.5rem;">
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; cursor: pointer; text-transform: none; margin-bottom: 0;">
+                            <input type="checkbox" name="residence_address_same" id="id_residence_address_same" checked
+                                style="width: 18px; height: 18px;">
+                            <span style="font-size: 0.85rem; font-weight: 700; color: #1e293b;">My residential address
+                                is the same as my mailing address.</span>
                         </label>
                     </div>
                 </div>
             </section>
 
             <!-- Step 2.1: Residence Address -->
-            <section class="step-section" id="residenceSection" style="display: none; background: #f0f9ff; border-bottom: 1px solid #e0f2fe;">
+            <section class="step-section" id="residenceSection"
+                style="display: none; background: #f0f9ff; border-bottom: 1px solid #e0f2fe;">
                 <div class="step-title"><span class="step-number">2.1</span> Residential Address</div>
                 <div class="form-grid">
                     <div>
@@ -322,7 +364,8 @@
                         <label>VIN (17 Digits)</label>
                         <div style="display: flex; gap: 8px;">
                             {{ form.vin }}
-                            <button type="button" id="decodeVinBtn" style="background: #0f172a; color: white; border: none; padding: 0 1rem; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 0.8rem;">DECODE</button>
+                            <button type="button" id="decodeVinBtn"
+                                style="background: #0f172a; color: white; border: none; padding: 0 1rem; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 0.8rem;">DECODE</button>
                         </div>
                     </div>
                     <div>
@@ -376,37 +419,7 @@
                         {{ form.cylinders }}
                     </div>
                 </div>
-                
-                <div class="form-grid" style="margin-top: 1.5rem; border-top: 1px solid #f1f5f9; padding-top: 1.5rem;">
-                    <div>
-                        <label>Odometer</label>
-                        {{ form.odometer_reading }}
-                    </div>
-                    <div class="col-span-2">
-                        <label>Odometer Status</label>
-                        {{ form.odometer_status }}
-                    </div>
-                    <div>
-                        <label>MGW (Trucks)</label>
-                        {{ form.max_gross_weight }}
-                    </div>
-                    <div>
-                        <label>Seats (Buses)</label>
-                        {{ form.seating_capacity }}
-                    </div>
-                    <div>
-                        <label>Axles (Comm.)</label>
-                        {{ form.num_axles }}
-                    </div>
-                    <div class="col-span-2">
-                        <label>Transaction Type</label>
-                        {{ form.mv82_transaction_type }}
-                    </div>
-                    <div>
-                        <label>Transfer Plate #</label>
-                        {{ form.plate_to_transfer }}
-                    </div>
-                </div>
+
             </section>
 
             <!-- Step 4: Insurance & Liens -->
@@ -430,12 +443,14 @@
                         {{ form.insurance_expiration_date }}
                     </div>
                 </div>
-                
+
                 <div class="form-grid" style="margin-top: 1.5rem; border-top: 1px solid #f1f5f9; padding-top: 1.5rem;">
                     <div class="col-span-4" style="margin-bottom: 0.5rem;">
-                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; text-transform: none;">
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; cursor: pointer; text-transform: none;">
                             <input type="checkbox" name="has_lien" id="id_has_lien" style="width: 18px; height: 18px;">
-                            <span style="font-size: 0.85rem; font-weight: 700; color: #1e293b;">There is a lien on this vehicle.</span>
+                            <span style="font-size: 0.85rem; font-weight: 700; color: #1e293b;">There is a lien on this
+                                vehicle.</span>
                         </label>
                     </div>
                     <div class="col-span-2 lien-field" style="display: none;">
@@ -457,7 +472,8 @@
                 <div style="font-size: 0.8rem; color: #94a3b8; max-width: 400px;">
                     By submitting, you agree that all information provided is true and accurate.
                 </div>
-                <button type="submit" class="btn btn-primary" style="padding: 1rem 3rem; border-radius: 12px; font-weight: 800; font-size: 1.1rem; background: #3b82f6; border: none; color: white; cursor: pointer;">
+                <button type="submit" class="btn btn-primary"
+                    style="padding: 1rem 3rem; border-radius: 12px; font-weight: 800; font-size: 1.1rem; background: #3b82f6; border: none; color: white; cursor: pointer;">
                     Submit Application &rarr;
                 </button>
             </div>
@@ -466,40 +482,40 @@
 </div>
 
 <script>
-document.getElementById('id_is_registrant_owner').addEventListener('change', function() {
-    document.getElementById('ownerSection').style.display = this.checked ? 'none' : 'block';
-});
-
-document.getElementById('id_residence_address_same').addEventListener('change', function() {
-    document.getElementById('residenceSection').style.display = this.checked ? 'none' : 'block';
-});
-
-document.getElementById('id_has_lien').addEventListener('change', function() {
-    document.querySelectorAll('.lien-field').forEach(el => el.style.display = this.checked ? 'block' : 'none');
-});
-
-document.getElementById('decodeVinBtn').addEventListener('click', function() {
-    const vin = document.querySelector('input[name="vin"]').value.trim();
-    if (vin.length < 11) { alert("Invalid VIN"); return; }
-    this.innerText = '...';
-    fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${vin}?format=json`)
-        .then(response => response.json())
-        .then(data => {
-            this.innerText = 'DECODE';
-            if (data.Results && data.Results[0]) {
-                const res = data.Results[0];
-                if (res.ModelYear) document.querySelector('input[name="year"]').value = res.ModelYear;
-                if (res.Make) document.querySelector('input[name="make"]').value = res.Make;
-                if (res.Model) document.querySelector('input[name="model"]').value = res.Model;
-            }
-        });
-});
-
-document.querySelectorAll('.phone-mask').forEach(input => {
-    input.addEventListener('input', function(e) {
-        let x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
-        e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
+    document.getElementById('id_is_registrant_owner').addEventListener('change', function () {
+        document.getElementById('ownerSection').style.display = this.checked ? 'none' : 'block';
     });
-});
+
+    document.getElementById('id_residence_address_same').addEventListener('change', function () {
+        document.getElementById('residenceSection').style.display = this.checked ? 'none' : 'block';
+    });
+
+    document.getElementById('id_has_lien').addEventListener('change', function () {
+        document.querySelectorAll('.lien-field').forEach(el => el.style.display = this.checked ? 'block' : 'none');
+    });
+
+    document.getElementById('decodeVinBtn').addEventListener('click', function () {
+        const vin = document.querySelector('input[name="vin"]').value.trim();
+        if (vin.length < 11) { alert("Invalid VIN"); return; }
+        this.innerText = '...';
+        fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${vin}?format=json`)
+            .then(response => response.json())
+            .then(data => {
+                this.innerText = 'DECODE';
+                if (data.Results && data.Results[0]) {
+                    const res = data.Results[0];
+                    if (res.ModelYear) document.querySelector('input[name="year"]').value = res.ModelYear;
+                    if (res.Make) document.querySelector('input[name="make"]').value = res.Make;
+                    if (res.Model) document.querySelector('input[name="model"]').value = res.Model;
+                }
+            });
+    });
+
+    document.querySelectorAll('.phone-mask').forEach(input => {
+        input.addEventListener('input', function (e) {
+            let x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
+            e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
+        });
+    });
 </script>
 {% endblock %}
