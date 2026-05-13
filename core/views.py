@@ -2059,17 +2059,18 @@ def generate_dmv_form(request, form_type, service_id):
     client = vehicle.client if vehicle else None
     prefill = _build_form_prefill_payload(service, client, vehicle)
     
-    # Path mapping
+    # Path mapping - using local paths within core app
+    current_dir = os.path.dirname(os.path.abspath(__file__))
     form_map = {
-        "mv82": "core/static/core/pdf/mv82_template.pdf",
-        "dtf802": "core/static/core/pdf/dtf802_template.pdf",
-        "dtf803": "core/static/core/pdf/dtf803_template.pdf",
-        "mv82b": "core/static/core/pdf/mv82b_template.pdf",
+        "mv82": "static/core/pdf/mv82_template.pdf",
+        "dtf802": "static/core/pdf/dtf802_template.pdf",
+        "dtf803": "static/core/pdf/dtf803_template.pdf",
+        "mv82b": "static/core/pdf/mv82b_template.pdf",
     }
     
-    template_path = os.path.join(settings.BASE_DIR, form_map.get(form_type, form_map["mv82"]))
+    template_path = os.path.join(current_dir, form_map.get(form_type, form_map["mv82"]))
     if not os.path.exists(template_path):
-        template_path = os.path.join(settings.BASE_DIR, form_map["mv82"])
+        template_path = os.path.join(current_dir, form_map["mv82"])
 
     packet = io.BytesIO()
     can = canvas.Canvas(packet, pagesize=letter)
@@ -2231,7 +2232,8 @@ def intake_mv82_pdf(request, intake_id):
         "lien_filing_code": intake.lien_filing_code,
     }
 
-    template_path = os.path.join(settings.BASE_DIR, "core/static/core/pdf/mv82_template.pdf")
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    template_path = os.path.join(current_dir, "static/core/pdf/mv82_template.pdf")
     packet = io.BytesIO()
     can = canvas.Canvas(packet, pagesize=letter)
     can.setFont("Helvetica-Bold", 10)
@@ -2768,7 +2770,7 @@ def get_documents(request, service_id):
             "id": doc.id,
             "type": doc.document_type,
             "type_label": doc_map.get(doc.document_type, doc.document_type),
-            "url": doc.file.url if doc.file else ""
+            "url": request.build_absolute_uri(doc.file.url) if doc.file else ""
         }
         for doc in documents
     ]
@@ -2798,7 +2800,7 @@ def get_documents_vehicle(request, vehicle_id):
             "id": doc.id,
             "type": doc.document_type,
             "type_label": doc_map.get(doc.document_type, doc.document_type),
-            "url": doc.file.url if doc.file else "",
+            "url": request.build_absolute_uri(doc.file.url) if doc.file else "",
             "uploaded_at": doc.uploaded_at.strftime("%b %d, %Y %H:%M") if doc.uploaded_at else ""
         }
         for doc in documents
@@ -4368,7 +4370,9 @@ def approve_intake(request, intake_id):
     try:
         # Generate prefill payload
         prefill = _build_form_prefill_payload(service, client, vehicle)
-        template_path = os.path.join(settings.BASE_DIR, "core/static/core/pdf/mv82_template.pdf")
+        # More robust path resolution for production (Hostinger)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        template_path = os.path.join(current_dir, "static/core/pdf/mv82_template.pdf")
         
         packet = io.BytesIO()
         can = canvas.Canvas(packet, pagesize=letter)

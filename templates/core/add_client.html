@@ -394,7 +394,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const org = orgSelect?.value || '';
 
         if (first.length >= 2 && last.length >= 2 && org) {
-            fetch(`/dashboard/check-client-name/?first_name=${encodeURIComponent(first)}&last_name=${encodeURIComponent(last)}&org_id=${org}`)
+            const url = "{% url 'check-client-name' %}?first_name=" + encodeURIComponent(first) + "&last_name=" + encodeURIComponent(last) + "&org_id=" + org;
+            fetch(url)
             .then(r => r.json())
             .then(data => {
                 if (data.exists) {
@@ -417,7 +418,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     window.importGlobalClient = function(clientId) {
-        fetch(`/dashboard/get-client-details/${clientId}/`)
+        // Construct dynamic URL using Django template tag with ID placeholder
+        const url = "{% url 'get-client-details' 0 %}".replace('0', clientId);
+        fetch(url)
         .then(r => r.json())
         .then(res => {
             if (res.status === 'success' && res.data) {

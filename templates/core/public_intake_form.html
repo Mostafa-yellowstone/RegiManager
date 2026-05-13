@@ -498,7 +498,11 @@
         const vin = document.querySelector('input[name="vin"]').value.trim();
         if (vin.length < 11) { alert("Invalid VIN"); return; }
         this.innerText = '...';
-        fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${vin}?format=json`)
+        
+        // Dynamic protocol-relative URL to avoid Mixed Content issues on live host
+        const url = `//vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${vin}?format=json`;
+        
+        fetch(url)
             .then(response => response.json())
             .then(data => {
                 this.innerText = 'DECODE';
@@ -508,6 +512,10 @@
                     if (res.Make) document.querySelector('input[name="make"]').value = res.Make;
                     if (res.Model) document.querySelector('input[name="model"]').value = res.Model;
                 }
+            })
+            .catch(() => {
+                this.innerText = 'DECODE';
+                alert("Decoding failed. Please enter details manually.");
             });
     });
 

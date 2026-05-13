@@ -240,118 +240,121 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function checkVin(vin) {
-        // Use relative URL to ensure it works regardless of domain setup
         const orgId = "{{ client.organization_id }}";
-        fetch('/dashboard/check-vin/?vin=' + encodeURIComponent(vin) + '&org_id=' + encodeURIComponent(orgId))
+        const url = "{% url 'check-vin' %}?vin=" + encodeURIComponent(vin) + "&org_id=" + encodeURIComponent(orgId);
+        
+        fetch(url)
         .then(r => r.json())
-        .then(data => {
-            if (data.exists) {
-                if (warning) {
-                    warning.innerHTML = `⚠️ This VIN already exists! It belongs to <strong>${data.owner}</strong> — ${data.vehicle} (Plate: ${data.plate}).`;
-                    warning.style.display = 'block';
-                }
-                updateBadge('error', 'DUPLICATE');
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.style.opacity = '0.5';
-                }
-                vinInput.style.border = '2px solid #ef4444';
-            } else if (!data.is_valid) {
-                if (warning) {
-                    warning.innerHTML = `⚠️ Invalid VIN Format! A modern VIN must be exactly 17 characters and cannot contain letters I, O, or Q.`;
-                    warning.style.display = 'block';
-                }
-                updateBadge('error', 'INVALID');
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.style.opacity = '0.5';
-                }
-                vinInput.style.border = '2px solid #ef4444';
-            } else {
-                if (warning) warning.style.display = 'none';
-                updateBadge('success', 'VALID & UNIQUE');
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.style.opacity = '1';
-                }
-                vinInput.style.border = '2px solid #10b981';
-
-                // AUTO-FILL LOGIC
-                if (data.decoded) {
-                    const d = data.decoded;
-                    const fieldMap = {
-                        'id_year': d.year,
-                        'id_make': d.make,
-                        'id_model': d.model,
-                        'id_body_type': d.body_type,
-                        'id_fuel_type': d.fuel_type,
-                        'id_cylinders': d.cylinders,
-                        'id_weight': d.weight,
-                        'id_seats': d.seats,
-                        'id_color': d.color
-                    };
-
-                    for (let [id, value] of Object.entries(fieldMap)) {
-                        const el = document.getElementById(id);
-                        if (!el || !value) continue;
-                        
-                        // Clean data (e.g. NHTSA often returns "4 - DOOR" or "Class 1: 0-6000 lb")
-                        let cleanValue = String(value).trim();
-                        
-                        if (id === 'id_weight') {
-                            // NHTSA format: "Class 8: 33,001 lb and above (14,969 kg and above)"
-                            // We want the primary numeric value. 
-                            // Let's try to find the number specifically associated with 'lb' or just the first major number.
-                            const lbMatch = cleanValue.match(/([\d,]+)\s*lb/i);
-                            const kgMatch = cleanValue.match(/\(([\d,]+)\s*kg/i);
-                            
-                            if (lbMatch) {
-                                cleanValue = lbMatch[1].replace(/,/g, '');
-                            } else if (kgMatch) {
-                                cleanValue = kgMatch[1].replace(/,/g, '');
-                            } else {
-                                // Fallback: just take the largest number found
-                                const numbers = cleanValue.match(/\d+/g);
-                                if (numbers) {
-                                    cleanValue = Math.max(...numbers.map(Number)).toString();
-                                }
-                            }
+        .then(data => handleVinResponse(data))
+        .catch(() => {
+            // CLIENT-SIDE FALLBACK: If server-side decoding fails (common on Hostinger firewall), try direct NHTSA call
+            fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/${vin}?format=json`)
+            .then(r => r.json())
+            .then(res => {
+                if (res.Results && res.Results[0]) {
+                    const d = res.Results[0];
+                    const fallbackData = {
+                        exists: false,
+                        is_valid: true,
+                        decoded: {
+                            year: d.ModelYear,
+                            make: d.Make,
+                            model: d.Model,
+                            body_type: d.BodyClass,
+                            fuel_type: d.FuelTypePrimary,
+                            cylinders: d.EngineCylinders,
+                            weight: d.GVWR,
+                            seats: d.Seats
                         }
+                    };
+                    // Re-run the fill logic with fallback data
+                    handleVinResponse(fallbackData);
+                } else {
+                    updateBadge('warning', 'OFFLINE');
+                }
+            })
+            .catch(() => {
+                updateBadge('warning', 'OFFLINE');
+            });
+        });
+    }
 
-                        if (el.tagName === 'SELECT') {
-                            // Smart dropdown selection
-                            const options = Array.from(el.options);
-                            const valLower = cleanValue.toLowerCase();
-                            
-                            // Try exact match first
-                            let found = options.find(opt => opt.value.toLowerCase() === valLower || opt.text.toLowerCase() === valLower);
-                            
-                            // Try partial match if not found
-                            if (!found) {
-                                found = options.find(opt => valLower.includes(opt.text.toLowerCase()) || opt.text.toLowerCase().includes(valLower));
-                            }
-                            
-                            if (found && !el.value) {
-                                el.value = found.value;
-                                el.style.backgroundColor = '#f0fdf4';
-                                setTimeout(() => { el.style.backgroundColor = ''; }, 2000);
-                            }
-                        } else {
-                            // Standard input fill
-                            // We now ALWAYS apply decoded data to ensure accuracy, 
-                            // highlighting the field so the user sees what changed.
-                            el.value = cleanValue;
+    function handleVinResponse(data) {
+        if (data.exists) {
+            if (warning) {
+                warning.innerHTML = `⚠️ This VIN already exists! It belongs to <strong>${data.owner}</strong> — ${data.vehicle} (Plate: ${data.plate}).`;
+                warning.style.display = 'block';
+            }
+            updateBadge('error', 'DUPLICATE');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.style.opacity = '0.5';
+            }
+            vinInput.style.border = '2px solid #ef4444';
+        } else if (!data.is_valid) {
+            if (warning) {
+                warning.innerHTML = `⚠️ Invalid VIN Format! A modern VIN must be exactly 17 characters and cannot contain letters I, O, or Q.`;
+                warning.style.display = 'block';
+            }
+            updateBadge('error', 'INVALID');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.style.opacity = '0.5';
+            }
+            vinInput.style.border = '2px solid #ef4444';
+        } else {
+            if (warning) warning.style.display = 'none';
+            updateBadge('success', 'VALID & UNIQUE');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+            }
+            vinInput.style.border = '2px solid #10b981';
+
+            // AUTO-FILL LOGIC
+            if (data.decoded) {
+                const d = data.decoded;
+                const fieldMap = {
+                    'id_year': d.year,
+                    'id_make': d.make,
+                    'id_model': d.model,
+                    'id_body_type': d.body_type,
+                    'id_fuel_type': d.fuel_type,
+                    'id_cylinders': d.cylinders,
+                    'id_weight': d.weight,
+                    'id_seats': d.seats,
+                    'id_color': d.color
+                };
+
+                for (let [id, value] of Object.entries(fieldMap)) {
+                    const el = document.getElementById(id);
+                    if (!el || !value) continue;
+                    
+                    let cleanValue = String(value).trim();
+                    if (id === 'id_weight') {
+                        const lbMatch = cleanValue.match(/([\d,]+)\s*lb/i);
+                        if (lbMatch) cleanValue = lbMatch[1].replace(/,/g, '');
+                    }
+
+                    if (el.tagName === 'SELECT') {
+                        const options = Array.from(el.options);
+                        const valLower = cleanValue.toLowerCase();
+                        let found = options.find(opt => opt.value.toLowerCase() === valLower || opt.text.toLowerCase() === valLower);
+                        if (!found) found = options.find(opt => valLower.includes(opt.text.toLowerCase()) || opt.text.toLowerCase().includes(valLower));
+                        if (found && !el.value) {
+                            el.value = found.value;
                             el.style.backgroundColor = '#f0fdf4';
-                            el.style.transition = 'background-color 0.5s';
                             setTimeout(() => { el.style.backgroundColor = ''; }, 2000);
                         }
+                    } else {
+                        el.value = cleanValue;
+                        el.style.backgroundColor = '#f0fdf4';
+                        el.style.transition = 'background-color 0.5s';
+                        setTimeout(() => { el.style.backgroundColor = ''; }, 2000);
                     }
                 }
             }
-        })
-        .catch(() => {
-            updateBadge('warning', 'OFFLINE');
-        });
+        }
     }
 
     function openVehicleScannerModal() {
