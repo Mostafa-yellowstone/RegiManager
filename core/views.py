@@ -137,6 +137,20 @@ def _build_form_prefill_payload(service, client, vehicle):
         "phone_digits": "".join(ch for ch in ((client.phone_number if client else "") or "") if ch.isdigit()),
         "email": (client.email if client and client.email else "") or "",
         "service_type": (service.service_type_label if service else "") or "",
+        # New MV-82 fields
+        "odometer": vehicle.odometer_reading if vehicle else "",
+        "odometer_status": vehicle.odometer_status if vehicle else "",
+        "mgw": vehicle.max_gross_weight if vehicle else "",
+        "axles": vehicle.num_axles if vehicle else "",
+        "owner_name": vehicle.owner_name if vehicle else "",
+        "owner_nys_id": vehicle.owner_nys_id if vehicle else "",
+        "co_registrant_name": vehicle.co_registrant_name if vehicle else "",
+        "co_registrant_nys_id": vehicle.co_registrant_nys_id if vehicle else "",
+        "lienholder_name": vehicle.lienholder_name if vehicle else "",
+        "lienholder_address": vehicle.lienholder_address if vehicle else "",
+        "lien_filing_code": vehicle.lien_filing_code if vehicle else "",
+        "lessor_name": vehicle.lessor_name if vehicle else "",
+        "lessor_address": vehicle.lessor_address if vehicle else "",
     }
 
 
@@ -167,6 +181,19 @@ def _build_acroform_prefill_fields(form_type, prefill):
             "MAKE": prefill["make"],
             "MODEL": prefill["model"],
             "HIN": prefill["vin"],
+            # Technical
+            "Odometer Reading": prefill["odometer"],
+            "Max Gross Weight": prefill["mgw"],
+            "Axles": prefill["axles"],
+            # Ownership
+            "OWNER NAME": prefill["owner_name"],
+            "OWNER NYS ID": prefill["owner_nys_id"],
+            "CO-REGISTRANT NAME": prefill["co_registrant_name"],
+            "CO-REGISTRANT NYS ID": prefill["co_registrant_nys_id"],
+            # Liens
+            "Lienholder Name": prefill["lienholder_name"],
+            "Lienholder Address": prefill["lienholder_address"],
+            "Lien Filing Code": prefill["lien_filing_code"],
         }
 
     if form_type == "mv82b":
@@ -2125,6 +2152,27 @@ def _fill_mv82_overlay(can, service, client, vehicle):
     can.drawString(40, 381, vehicle.color.upper() if vehicle else "")
     can.drawString(90, 381, str(vehicle.weight) if vehicle else "")
     can.drawString(34, 355, str(vehicle.cylinders) if vehicle else "")
+    
+    # Technical specs
+    if vehicle:
+        if vehicle.odometer_reading:
+            can.drawString(110, 355, vehicle.odometer_reading)
+        if vehicle.max_gross_weight:
+            can.drawString(180, 355, vehicle.max_gross_weight)
+        if vehicle.num_axles:
+            can.drawString(240, 355, vehicle.num_axles)
+            
+    # Co-Registrant
+    if vehicle and vehicle.co_registrant_name:
+        can.drawString(40, 510, vehicle.co_registrant_name.upper())
+        if vehicle.co_registrant_nys_id:
+            can.drawString(463, 510, vehicle.co_registrant_nys_id)
+            
+    # Owner (if different)
+    if vehicle and vehicle.owner_name:
+        can.drawString(40, 320, vehicle.owner_name.upper())
+        if vehicle.owner_nys_id:
+            can.drawString(463, 320, vehicle.owner_nys_id)
 
 def _fill_dtf802_overlay(can, service, client, vehicle):
     """
@@ -2144,6 +2192,88 @@ def _fill_mv82b_overlay(can, service, client, vehicle):
     Note: Most fields are handled via AcroForm for this document.
     """
     pass
+
+@login_required
+@xframe_options_exempt
+def intake_mv82_pdf(request, intake_id):
+    """
+    Allows agents to preview the MV-82 generated from an intake submission
+    before it's approved.
+    """
+    intake = get_object_or_404(ClientIntake, id=intake_id)
+    if not _has_active_org_access(request.user, intake.organization_id):
+        return HttpResponseForbidden("Access denied.")
+
+    # Mock objects for prefill
+    prefill = {
+        "driver_license": intake.driver_license,
+        "dob_m": intake.dob.strftime("%m") if intake.dob else "",
+        "dob_d": intake.dob.strftime("%d") if intake.dob else "",
+        "dob_y": intake.dob.strftime("%Y") if intake.dob else "",
+        "street_address": intake.street_address,
+        "city": intake.city,
+        "state": intake.state,
+        "zip_code": intake.zip_code,
+        "name_full": f"{intake.last_name}, {intake.first_name} {intake.middle_name or ''}",
+        "year": str(intake.year),
+        "make": intake.make,
+        "model": intake.model,
+        "vin": intake.vin,
+        "odometer": intake.odometer_reading,
+        "mgw": intake.max_gross_weight,
+        "axles": intake.num_axles,
+        "owner_name": intake.owner_name,
+        "owner_nys_id": intake.owner_nys_id,
+        "co_registrant_name": intake.co_registrant_name,
+        "co_registrant_nys_id": intake.co_registrant_nys_id,
+        "lienholder_name": intake.lienholder_name,
+        "lienholder_address": intake.lienholder_address,
+        "lien_filing_code": intake.lien_filing_code,
+    }
+
+    template_path = os.path.join(settings.BASE_DIR, "core/static/core/pdf/mv82_template.pdf")
+    packet = io.BytesIO()
+    can = canvas.Canvas(packet, pagesize=letter)
+    can.setFont("Helvetica-Bold", 10)
+    
+    # Simple overlay for preview
+    name_str = prefill["name_full"]
+    can.drawString(40, 588, name_str.upper())
+    vin_str = (intake.vin or "").upper()
+    can.setFont("Courier-Bold", 12)
+    for i, char in enumerate(vin_str[:17]): can.drawString(38 + (i * 18.4), 407, char)
+    can.setFont("Helvetica-Bold", 10)
+    can.drawString(358, 407, prefill["year"])
+    can.drawString(400, 407, prefill["make"].upper())
+    
+    can.save()
+    packet.seek(0)
+    new_pdf = PdfReader(packet)
+    template_pdf = PdfReader(template_path)
+    output = PdfWriter()
+    from pypdf.generic import NameObject
+
+    page1 = template_pdf.pages[0]
+    page1.merge_page(new_pdf.pages[0])
+    output.add_page(page1)
+    if len(template_pdf.pages) > 1:
+        output.add_page(template_pdf.pages[1])
+
+    if "/AcroForm" in template_pdf.trailer["/Root"]:
+        output._root_object.update({
+            NameObject("/AcroForm"): template_pdf.trailer["/Root"]["/AcroForm"]
+        })
+        fields = _build_acroform_prefill_fields("mv82", prefill)
+        if fields:
+            for page in output.pages:
+                output.update_page_form_field_values(page, fields)
+
+    final_output = io.BytesIO()
+    output.write(final_output)
+    final_output.seek(0)
+    response = HttpResponse(final_output.read(), content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="PREVIEW-MV82-{intake.vin}.pdf"'
+    return response
 
 @xframe_options_exempt
 def mv82_form_pdf(request, service_id):
@@ -4109,6 +4239,7 @@ def public_intake_portal(request, portal_token=None):
 @login_required
 def approve_intake(request, intake_id):
     from django.db import transaction
+    from django.core.files.base import ContentFile
     
     with transaction.atomic():
         # Select for update locks the row
@@ -4122,34 +4253,63 @@ def approve_intake(request, intake_id):
             messages.error(request, "This intake is already being processed or has been completed.")
             return redirect("dashboard")
 
+        # 1. Check for Duplicate Client
+        client = Client.objects.filter(
+            organization=intake.organization,
+            first_name=intake.first_name,
+            last_name=intake.last_name,
+            dob=intake.dob
+        ).first()
+        
+        # 2. Check for Duplicate Vehicle
+        existing_vehicle = Vehicle.objects.filter(vin=intake.vin).first()
+        
+        if existing_vehicle and client and existing_vehicle.client == client:
+            # Check if this is an exact duplicate of existing info
+            # If VIN and Client match, it's likely a duplicate submission
+            intake.status = ClientIntake.Status.REJECTED
+            intake.processed_by = request.user
+            intake.processed_at = timezone.now()
+            if not intake.additional_data: intake.additional_data = {}
+            intake.additional_data["rejection_reason"] = "Exact duplicate of existing vehicle in client profile."
+            intake.save()
+            messages.warning(request, f"Intake rejected: VIN {intake.vin} already exists for {client.name}.")
+            return redirect("dashboard")
+
         # Set to processing immediately to hide from others
-        intake.status = ClientIntake.Status.PROCESSING
+        intake.status = ClientIntake.Status.APPROVED
         intake.processed_by = request.user
+        intake.processed_at = timezone.now()
         intake.save()
 
-    # 1. Create or get Client (or use existing if found)
-    client, created = Client.objects.get_or_create(
-        organization=intake.organization,
-        first_name=intake.first_name,
-        last_name=intake.last_name,
-        dob=intake.dob,
-        defaults={
-            "middle_name": intake.middle_name,
-            "email": intake.email,
-            "phone_number": intake.phone_number,
-            "gender": intake.gender,
-            "driver_license": intake.driver_license,
-            "building_no": intake.building_no,
-            "street_address": intake.street_address,
-            "apartment": intake.apartment,
-            "city": intake.city,
-            "state": intake.state,
-            "zip_code": intake.zip_code,
-            "county": intake.county,
-        }
-    )
+    # 3. Create or get Client
+    if not client:
+        client = Client.objects.create(
+            organization=intake.organization,
+            first_name=intake.first_name,
+            last_name=intake.last_name,
+            dob=intake.dob,
+            middle_name=intake.middle_name,
+            email=intake.email,
+            phone_number=intake.phone_number,
+            gender=intake.gender,
+            driver_license=intake.driver_license,
+            building_no=intake.building_no,
+            street_address=intake.street_address,
+            apartment=intake.apartment,
+            city=intake.city,
+            state=intake.state,
+            zip_code=intake.zip_code,
+            county=intake.county,
+            residence_building_no=intake.residence_building_no if not intake.residence_address_same else "",
+            residence_street_address=intake.residence_street_address if not intake.residence_address_same else "",
+            residence_apartment=intake.residence_apartment if not intake.residence_address_same else "",
+            residence_city=intake.residence_city if not intake.residence_address_same else "",
+            residence_zip_code=intake.residence_zip_code if not intake.residence_address_same else "",
+            residence_county=intake.residence_county if not intake.residence_address_same else "",
+        )
 
-    # 2. Update or Create Vehicle (always ensure it's linked to the client from this intake)
+    # 4. Update or Create Vehicle
     vehicle, v_created = Vehicle.objects.update_or_create(
         vin=intake.vin,
         defaults={
@@ -4163,24 +4323,97 @@ def approve_intake(request, intake_id):
             "color": intake.color,
             "weight": intake.weight,
             "cylinders": intake.cylinders,
+            "odometer_reading": intake.odometer_reading,
+            "odometer_status": intake.odometer_status,
+            "max_gross_weight": intake.max_gross_weight,
+            "num_axles": intake.num_axles,
+            "owner_name": intake.owner_name,
+            "owner_nys_id": intake.owner_nys_id,
+            "owner_dob": intake.owner_dob,
+            "co_registrant_name": intake.co_registrant_name,
+            "co_registrant_nys_id": intake.co_registrant_nys_id,
+            "co_registrant_dob": intake.co_registrant_dob,
+            "has_lien": intake.has_lien,
+            "lienholder_name": intake.lienholder_name,
+            "lienholder_address": intake.lienholder_address,
+            "lien_filing_code": intake.lien_filing_code,
+            "is_leased": intake.is_leased,
+            "lessor_name": intake.lessor_name,
+            "lessor_address": intake.lessor_address,
+            "insurance_company": intake.insurance_company,
+            "insurance_policy_number": intake.insurance_policy_number,
+            "insurance_effective_date": intake.insurance_effective_date,
+            "insurance_expiration_date": intake.insurance_expiration_date,
         }
     )
 
-    if not v_created:
-        messages.info(request, f"Vehicle {vehicle.vin} existed and has been updated/linked to {client.name}.")
-    else:
-        messages.success(request, f"New record created for Vehicle {vehicle.vin} and Client {client.name}.")
-
-    # 3. Update Intake Status
-    intake.status = ClientIntake.Status.APPROVED
-    intake.processed_at = timezone.now()
-    intake.processed_by = request.user
-    intake.save()
-
-    messages.success(request, f"Client {client.name} and Vehicle {vehicle.vin} successfully created from intake.")
+    # 5. Create Service Record
+    service_type = "vehicle_registration" # Default
+    if "renewal" in intake.requested_services: service_type = "registration_renewal"
+    elif "title_only" in intake.requested_services: service_type = "get_title"
     
-    # Redirect to start process for this vehicle
-    return redirect("start-process", vehicle_id=vehicle.id)
+    service = ServiceRecord.objects.create(
+        organization=intake.organization,
+        vehicle=vehicle,
+        client_name=client.name,
+        client_identifier=client.driver_license,
+        vin=vehicle.vin,
+        service_type=service_type,
+        status="pending",
+        handled_by=request.user,
+        source="intake",
+    )
+
+    # 6. Generate and Save MV-82 Document
+    try:
+        # Generate prefill payload
+        prefill = _build_form_prefill_payload(service, client, vehicle)
+        template_path = os.path.join(settings.BASE_DIR, "core/static/core/pdf/mv82_template.pdf")
+        
+        packet = io.BytesIO()
+        can = canvas.Canvas(packet, pagesize=letter)
+        _fill_mv82_overlay(can, service, client, vehicle)
+        can.save()
+        packet.seek(0)
+        
+        new_pdf = PdfReader(packet)
+        template_pdf = PdfReader(template_path)
+        output = PdfWriter()
+        from pypdf.generic import NameObject
+
+        page1 = template_pdf.pages[0]
+        page1.merge_page(new_pdf.pages[0])
+        output.add_page(page1)
+        if len(template_pdf.pages) > 1:
+            output.add_page(template_pdf.pages[1])
+
+        if "/AcroForm" in template_pdf.trailer["/Root"]:
+            output._root_object.update({
+                NameObject("/AcroForm"): template_pdf.trailer["/Root"]["/AcroForm"]
+            })
+            fields = _build_acroform_prefill_fields("mv82", prefill)
+            if fields:
+                for page in output.pages:
+                    output.update_page_form_field_values(page, fields)
+
+        final_output = io.BytesIO()
+        output.write(final_output)
+        final_output.seek(0)
+        
+        # Save as ServiceDocument
+        doc_name = f"MV82-{vehicle.vin}-{timezone.now().strftime('%Y%m%d')}.pdf"
+        service_doc = ServiceDocument.objects.create(
+            vehicle=vehicle,
+            service_record=service,
+            document_type="mv82",
+        )
+        service_doc.file.save(doc_name, ContentFile(final_output.read()))
+        
+    except Exception as e:
+        messages.error(request, f"Approved but failed to auto-generate PDF: {str(e)}")
+
+    messages.success(request, f"Intake approved for {client.name}. MV-82 has been archived.")
+    return redirect("vehicle-detail", vehicle_id=vehicle.id)
 
 
 @login_required

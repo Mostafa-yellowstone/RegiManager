@@ -157,7 +157,7 @@
 
             <!-- Step 1: Personal -->
             <section class="step-section">
-                <div class="step-title"><span class="step-number">1</span> Personal Details</div>
+                <div class="step-title"><span class="step-number">1</span> Personal Details (Registrant)</div>
                 <div class="form-grid">
                     <div class="col-span-2">
                         <label>First Name</label>
@@ -199,12 +199,56 @@
                         <label>SSN (Last 4)</label>
                         {{ form.ssn_last_4 }}
                     </div>
+                    <div class="col-span-4" style="background: #f8fafc; padding: 1rem; border-radius: 12px; margin-top: 0.5rem;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; text-transform: none; margin-bottom: 0;">
+                            <input type="checkbox" name="is_registrant_owner" id="id_is_registrant_owner" checked style="width: 18px; height: 18px;">
+                            <span style="font-size: 0.85rem; font-weight: 700; color: #1e293b;">I am the owner of this vehicle.</span>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 1.1: Owner Details (Hidden if same) -->
+            <section class="step-section" id="ownerSection" style="display: none; background: #fffcf0; border-bottom: 1px solid #fef3c7;">
+                <div class="step-title"><span class="step-number">1.1</span> Owner Information</div>
+                <div class="form-grid">
+                    <div class="col-span-2">
+                        <label>Owner Full Name</label>
+                        {{ form.owner_name }}
+                    </div>
+                    <div>
+                        <label>Owner NYS ID #</label>
+                        {{ form.owner_nys_id }}
+                    </div>
+                    <div>
+                        <label>Owner DOB</label>
+                        {{ form.owner_dob }}
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 1.2: Co-Registrant -->
+            <section class="step-section" style="background: #fdf2f2; border-bottom: 1px solid #fee2e2;">
+                <div class="step-title"><span class="step-number">1.2</span> Co-Registrant (Optional)</div>
+                <div class="form-grid">
+                    <div class="col-span-2">
+                        <label>Co-Registrant Full Name</label>
+                        {{ form.co_registrant_name }}
+                    </div>
+                    <div>
+                        <label>Co-Registrant NYS ID #</label>
+                        {{ form.co_registrant_nys_id }}
+                    </div>
+                    <div>
+                        <label>Co-Registrant DOB</label>
+                        {{ form.co_registrant_dob }}
+                    </div>
                 </div>
             </section>
 
             <!-- Step 2: Address -->
             <section class="step-section">
-                <div class="step-title"><span class="step-number">2</span> Residential Address</div>
+                <div class="step-title"><span class="step-number">2</span> Mailing Address</div>
                 <div class="form-grid">
                     <div>
                         <label>Bldg #</label>
@@ -234,12 +278,45 @@
                         <label>ZIP</label>
                         {{ form.zip_code }}
                     </div>
+                    <div class="col-span-4" style="background: #f8fafc; padding: 1rem; border-radius: 12px; margin-top: 0.5rem;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; text-transform: none; margin-bottom: 0;">
+                            <input type="checkbox" name="residence_address_same" id="id_residence_address_same" checked style="width: 18px; height: 18px;">
+                            <span style="font-size: 0.85rem; font-weight: 700; color: #1e293b;">My residential address is the same as my mailing address.</span>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 2.1: Residence Address -->
+            <section class="step-section" id="residenceSection" style="display: none; background: #f0f9ff; border-bottom: 1px solid #e0f2fe;">
+                <div class="step-title"><span class="step-number">2.1</span> Residential Address</div>
+                <div class="form-grid">
+                    <div>
+                        <label>Bldg #</label>
+                        {{ form.residence_building_no }}
+                    </div>
+                    <div class="col-span-2">
+                        <label>Street Address</label>
+                        {{ form.residence_street_address }}
+                    </div>
+                    <div>
+                        <label>Apt/Suite</label>
+                        {{ form.residence_apartment }}
+                    </div>
+                    <div class="col-span-2">
+                        <label>City</label>
+                        {{ form.residence_city }}
+                    </div>
+                    <div>
+                        <label>ZIP</label>
+                        {{ form.residence_zip_code }}
+                    </div>
                 </div>
             </section>
 
             <!-- Step 3: Vehicle -->
             <section class="step-section">
-                <div class="step-title"><span class="step-number">3</span> Vehicle Specifications</div>
+                <div class="step-title"><span class="step-number">3</span> Vehicle Details</div>
                 <div class="form-grid">
                     <div class="col-span-2">
                         <label>VIN (17 Digits)</label>
@@ -299,11 +376,42 @@
                         {{ form.cylinders }}
                     </div>
                 </div>
+                
+                <div class="form-grid" style="margin-top: 1.5rem; border-top: 1px solid #f1f5f9; padding-top: 1.5rem;">
+                    <div>
+                        <label>Odometer</label>
+                        {{ form.odometer_reading }}
+                    </div>
+                    <div class="col-span-2">
+                        <label>Odometer Status</label>
+                        {{ form.odometer_status }}
+                    </div>
+                    <div>
+                        <label>MGW (Trucks)</label>
+                        {{ form.max_gross_weight }}
+                    </div>
+                    <div>
+                        <label>Seats (Buses)</label>
+                        {{ form.seating_capacity }}
+                    </div>
+                    <div>
+                        <label>Axles (Comm.)</label>
+                        {{ form.num_axles }}
+                    </div>
+                    <div class="col-span-2">
+                        <label>Transaction Type</label>
+                        {{ form.mv82_transaction_type }}
+                    </div>
+                    <div>
+                        <label>Transfer Plate #</label>
+                        {{ form.plate_to_transfer }}
+                    </div>
+                </div>
             </section>
 
-            <!-- Step 4: Insurance -->
+            <!-- Step 4: Insurance & Liens -->
             <section class="step-section">
-                <div class="step-title"><span class="step-number">4</span> Insurance Information</div>
+                <div class="step-title"><span class="step-number">4</span> Insurance & Liens</div>
                 <div class="form-grid">
                     <div class="col-span-2">
                         <label>Insurance Company</label>
@@ -322,42 +430,25 @@
                         {{ form.insurance_expiration_date }}
                     </div>
                 </div>
-            </section>
-
-            <!-- Step 5: Documents -->
-            <section class="step-section" style="background: #fff;">
-                <div class="step-title"><span class="step-number">5</span> DMV Documents & Uploads</div>
-                <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1.5rem;">Please download the required forms, fill them out, and upload the signed copies below.</p>
                 
-                <div class="form-grid">
-                    <div class="doc-item">
-                        <label>MV-82 (Registration)</label>
-                        <a href="https://dmv.ny.gov/forms/mv82.pdf" target="_blank" class="doc-link">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                            Download Form
-                        </a>
-                        {{ form.mv82_file }}
+                <div class="form-grid" style="margin-top: 1.5rem; border-top: 1px solid #f1f5f9; padding-top: 1.5rem;">
+                    <div class="col-span-4" style="margin-bottom: 0.5rem;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; text-transform: none;">
+                            <input type="checkbox" name="has_lien" id="id_has_lien" style="width: 18px; height: 18px;">
+                            <span style="font-size: 0.85rem; font-weight: 700; color: #1e293b;">There is a lien on this vehicle.</span>
+                        </label>
                     </div>
-                    <div class="doc-item">
-                        <label>DTF-802 (Sale Tax)</label>
-                        <a href="https://dmv.ny.gov/forms/dtf802.pdf" target="_blank" class="doc-link">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                            Download Form
-                        </a>
-                        {{ form.dtf802_file }}
+                    <div class="col-span-2 lien-field" style="display: none;">
+                        <label>Lienholder Name</label>
+                        {{ form.lienholder_name }}
                     </div>
-                    <div class="doc-item">
-                        <label>DTF-803 (Exemption)</label>
-                        <a href="https://dmv.ny.gov/forms/dtf803.pdf" target="_blank" class="doc-link">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                            Download Form
-                        </a>
-                        {{ form.dtf803_file }}
+                    <div class="col-span-2 lien-field" style="display: none;">
+                        <label>Lienholder Address</label>
+                        {{ form.lienholder_address }}
                     </div>
-                    <div class="doc-item">
-                        <label>Other (ID/Title)</label>
-                        <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 4px;">Attach ID or Title photo</div>
-                        {{ form.other_docs }}
+                    <div class="lien-field" style="display: none;">
+                        <label>Filing Code</label>
+                        {{ form.lien_filing_code }}
                     </div>
                 </div>
             </section>
@@ -375,6 +466,18 @@
 </div>
 
 <script>
+document.getElementById('id_is_registrant_owner').addEventListener('change', function() {
+    document.getElementById('ownerSection').style.display = this.checked ? 'none' : 'block';
+});
+
+document.getElementById('id_residence_address_same').addEventListener('change', function() {
+    document.getElementById('residenceSection').style.display = this.checked ? 'none' : 'block';
+});
+
+document.getElementById('id_has_lien').addEventListener('change', function() {
+    document.querySelectorAll('.lien-field').forEach(el => el.style.display = this.checked ? 'block' : 'none');
+});
+
 document.getElementById('decodeVinBtn').addEventListener('click', function() {
     const vin = document.querySelector('input[name="vin"]').value.trim();
     if (vin.length < 11) { alert("Invalid VIN"); return; }

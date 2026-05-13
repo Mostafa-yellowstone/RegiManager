@@ -183,6 +183,14 @@ class Client(SoftDeleteModel):
     zip_code = models.CharField(max_length=10, blank=True, default="")
     county = models.CharField(max_length=100, blank=True, default="")
     
+    # MV-82 Residential Address (if different from mailing)
+    residence_building_no = models.CharField(max_length=20, blank=True, default="")
+    residence_street_address = models.CharField(max_length=200, blank=True, default="")
+    residence_apartment = models.CharField(max_length=50, blank=True, default="")
+    residence_city = models.CharField(max_length=100, blank=True, default="")
+    residence_zip_code = models.CharField(max_length=10, blank=True, default="")
+    residence_county = models.CharField(max_length=100, blank=True, default="")
+
     email = models.EmailField(blank=True, null=True, db_index=True)
     gender = models.CharField(max_length=20, choices=GENDER_CHOICES, blank=True, null=True)
     
@@ -271,6 +279,31 @@ class Vehicle(SoftDeleteModel):
     insurance_expiration_date = models.DateField(blank=True, null=True)
     is_priority = models.BooleanField(default=False)
     
+    # MV-82 Technical Fields
+    odometer_reading = models.CharField(max_length=50, blank=True, default="")
+    odometer_status = models.CharField(max_length=50, blank=True, default="")
+    max_gross_weight = models.CharField(max_length=50, blank=True, default="")
+    num_axles = models.CharField(max_length=20, blank=True, default="")
+    
+    # MV-82 Owner/Co-Registrant Fields
+    owner_name = models.CharField(max_length=200, blank=True, default="")
+    owner_nys_id = models.CharField(max_length=50, blank=True, default="")
+    owner_dob = models.DateField(blank=True, null=True)
+    
+    co_registrant_name = models.CharField(max_length=200, blank=True, default="")
+    co_registrant_nys_id = models.CharField(max_length=50, blank=True, default="")
+    co_registrant_dob = models.DateField(blank=True, null=True)
+    
+    # MV-82 Lien/Lease Fields
+    has_lien = models.BooleanField(default=False)
+    lienholder_name = models.CharField(max_length=200, blank=True, default="")
+    lienholder_address = models.CharField(max_length=255, blank=True, default="")
+    lien_filing_code = models.CharField(max_length=5, blank=True, default="")
+    
+    is_leased = models.BooleanField(default=False)
+    lessor_name = models.CharField(max_length=200, blank=True, default="")
+    lessor_address = models.CharField(max_length=255, blank=True, default="")
+
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     def __str__(self):
@@ -682,6 +715,51 @@ class ClientIntake(models.Model):
     other_docs = models.FileField(upload_to="intake_docs/other/", blank=True, null=True)
 
     requested_services = models.JSONField(default=list, blank=True)
+
+    # MV-82 Comprehensive Fields
+    mv82_transaction_type = models.CharField(max_length=100, blank=True, default="")
+    plate_to_transfer = models.CharField(max_length=50, blank=True, default="")
+    is_registrant_owner = models.BooleanField(default=True)
+    
+    # Owner Information (If different from registrant)
+    owner_name = models.CharField(max_length=200, blank=True, default="")
+    owner_nys_id = models.CharField(max_length=50, blank=True, default="")
+    owner_dob = models.DateField(blank=True, null=True)
+    
+    # Co-Registrant Information
+    co_registrant_name = models.CharField(max_length=200, blank=True, default="")
+    co_registrant_nys_id = models.CharField(max_length=50, blank=True, default="")
+    co_registrant_dob = models.DateField(blank=True, null=True)
+    
+    # Technical Vehicle Details
+    odometer_reading = models.CharField(max_length=50, blank=True, default="")
+    odometer_status = models.CharField(max_length=50, blank=True, default="") # Actual, Exceeds, Not Actual
+    max_gross_weight = models.CharField(max_length=50, blank=True, default="")
+    seating_capacity = models.CharField(max_length=20, blank=True, default="")
+    num_axles = models.CharField(max_length=20, blank=True, default="")
+    
+    # Residential Address (If different from Mailing Address)
+    residence_address_same = models.BooleanField(default=True)
+    residence_building_no = models.CharField(max_length=20, blank=True, default="")
+    residence_street_address = models.CharField(max_length=200, blank=True, default="")
+    residence_apartment = models.CharField(max_length=50, blank=True, default="")
+    residence_city = models.CharField(max_length=100, blank=True, default="")
+    residence_state = models.CharField(max_length=2, default="NY", blank=True)
+    residence_zip_code = models.CharField(max_length=10, blank=True, default="")
+    residence_county = models.CharField(max_length=100, blank=True, default="")
+    
+    # Lienholder Information
+    has_lien = models.BooleanField(default=False)
+    lien_filing_code = models.CharField(max_length=5, blank=True, default="")
+    lienholder_name = models.CharField(max_length=200, blank=True, default="")
+    lienholder_address = models.CharField(max_length=255, blank=True, default="")
+    
+    # Lease/Rental/Bus Information
+    is_leased = models.BooleanField(default=False)
+    lessor_name = models.CharField(max_length=200, blank=True, default="")
+    lessor_address = models.CharField(max_length=255, blank=True, default="")
+    is_rental = models.BooleanField(default=False)
+    is_bus = models.BooleanField(default=False)
 
     # Internal Tracking
     additional_data = models.JSONField(default=dict, blank=True)

@@ -368,6 +368,8 @@ class ClientIntakeForm(forms.ModelForm):
         exclude = ["organization", "status", "processed_at", "processed_by", "additional_data", "requested_services"]
         widgets = {
             "dob": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "owner_dob": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "co_registrant_dob": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
             "insurance_effective_date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
             "insurance_expiration_date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
             "mv82_file": forms.FileInput(attrs={"class": "form-control"}),
@@ -396,6 +398,27 @@ class ClientIntakeForm(forms.ModelForm):
             "cylinders": forms.TextInput(attrs={"class": "form-control", "placeholder": "No. of Cylinders"}),
             "insurance_company": forms.TextInput(attrs={"class": "form-control", "placeholder": "Insurance Company"}),
             "insurance_policy_number": forms.TextInput(attrs={"class": "form-control", "placeholder": "Policy Number"}),
+            "mv82_transaction_type": forms.TextInput(attrs={"class": "form-control", "placeholder": "e.g. New Registration, Transfer"}),
+            "plate_to_transfer": forms.TextInput(attrs={"class": "form-control", "placeholder": "Plate Number"}),
+            "owner_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Owner's Full Name"}),
+            "owner_nys_id": forms.TextInput(attrs={"class": "form-control", "placeholder": "Owner's NYS ID"}),
+            "co_registrant_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Co-Registrant's Name"}),
+            "co_registrant_nys_id": forms.TextInput(attrs={"class": "form-control", "placeholder": "Co-Registrant's ID"}),
+            "odometer_reading": forms.TextInput(attrs={"class": "form-control", "placeholder": "Current Odometer"}),
+            "odometer_status": forms.Select(choices=[("", "Select Status"), ("Actual", "Actual Mileage"), ("Exceeds", "Exceeds Mechanical Limits"), ("Not Actual", "Not Actual Mileage")], attrs={"class": "form-control"}),
+            "max_gross_weight": forms.TextInput(attrs={"class": "form-control", "placeholder": "MGW (for trucks)"}),
+            "seating_capacity": forms.TextInput(attrs={"class": "form-control", "placeholder": "Seats"}),
+            "num_axles": forms.TextInput(attrs={"class": "form-control", "placeholder": "Axles"}),
+            "residence_building_no": forms.TextInput(attrs={"class": "form-control", "placeholder": "No."}),
+            "residence_street_address": forms.TextInput(attrs={"class": "form-control", "placeholder": "Street"}),
+            "residence_city": forms.TextInput(attrs={"class": "form-control", "placeholder": "City"}),
+            "residence_zip_code": forms.TextInput(attrs={"class": "form-control", "placeholder": "ZIP"}),
+            "residence_county": forms.TextInput(attrs={"class": "form-control", "placeholder": "County"}),
+            "lienholder_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Lienholder Name"}),
+            "lienholder_address": forms.TextInput(attrs={"class": "form-control", "placeholder": "Lienholder Address"}),
+            "lien_filing_code": forms.TextInput(attrs={"class": "form-control", "placeholder": "5-digit Code"}),
+            "lessor_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Lessor Name"}),
+            "lessor_address": forms.TextInput(attrs={"class": "form-control", "placeholder": "Lessor Address"}),
         }
 
     def __init__(self, *args, **kwargs):

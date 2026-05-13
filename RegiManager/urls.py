@@ -86,6 +86,7 @@ from core.views import (
     public_intake_success,
     approve_intake,
     reject_intake,
+    intake_mv82_pdf,
 )
 
 from rest_framework.routers import DefaultRouter
@@ -173,10 +174,11 @@ urlpatterns = [
     
     # Public Intake Routes
     path("intake/", public_intake_portal, name="public-intake-start"),
-    path("intake/<str:portal_token>/", public_intake_portal, name="public-intake-direct"),
     path("intake/success/", public_intake_success, name="public-intake-success"),
+    path("intake/<str:portal_token>/", public_intake_portal, name="public-intake-direct"),
     path("dashboard/intake/<int:intake_id>/approve/", approve_intake, name="approve-intake"),
     path("dashboard/intake/<int:intake_id>/reject/", reject_intake, name="reject-intake"),
+    path("intake/<int:intake_id>/mv82-preview/", intake_mv82_pdf, name="intake-mv82-pdf"),
 ]
 
 if settings.DEBUG:
