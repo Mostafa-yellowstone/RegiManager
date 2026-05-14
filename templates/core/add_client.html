@@ -53,7 +53,7 @@
         {% endif %}
 
         <article class="dashboard-panel" style="margin-top: -2rem; position: relative; z-index: 5;">
-            <form method="post" action="{% if edit_mode %}{% url 'edit-client' client.id %}{% else %}{% url 'add-client' %}{% endif %}" class="auth-form" id="client-form">
+            <form method="post" enctype="multipart/form-data" action="{% if edit_mode %}{% url 'edit-client' client.id %}{% else %}{% url 'add-client' %}{% endif %}" class="auth-form" id="client-form">
                 {% csrf_token %}
 
                 {% if messages %}
@@ -221,6 +221,19 @@
                     <div class="field-wrap">
                         <label>Gender</label>
                         {{ form.gender }}
+                    </div>
+                </div>
+
+                <!-- Row 7: Document Uploads -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3 style="margin: 0; font-size: 1.1rem; color: #1e293b; font-weight: 800;">Required Documents</h3>
+                </div>
+                <div class="form-row" style="margin-bottom: 2rem;">
+                    <div class="field-wrap" style="background: #f8fafc; padding: 1.5rem; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                        <label style="font-weight: 700; color: #334155; display: block; margin-bottom: 0.5rem;">Upload MV-82 Document (Optional)</label>
+                        {{ form.mv82_file }}
+                        <div id="file-error" style="color: #ef4444; font-size: 0.85rem; margin-top: 0.5rem; display: none;"></div>
+                        <p style="font-size: 0.8rem; color: #64748b; margin-top: 0.5rem;">Max size: 5MB. Allowed formats: PDF, JPG, PNG.</p>
                     </div>
                 </div>
 
@@ -461,6 +474,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 const form = document.getElementById('client-form');
                 form.style.boxShadow = '0 0 20px rgba(79, 70, 229, 0.2)';
                 setTimeout(() => form.style.boxShadow = '', 2000);
+            }
+        });
+    }
+
+    // Client-side file validation
+    const fileInput = document.getElementById('id_mv82_file');
+    const fileError = document.getElementById('file-error');
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            const file = this.files[0];
+            fileError.style.display = 'none';
+            if (file) {
+                if (file.size > 5 * 1024 * 1024) {
+                    fileError.textContent = 'File is too large. Maximum size is 5MB.';
+                    fileError.style.display = 'block';
+                    this.value = '';
+                } else {
+                    const validExts = ['pdf', 'jpg', 'jpeg', 'png'];
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    if (!validExts.includes(ext)) {
+                        fileError.textContent = 'Invalid file type. Only PDF, JPG, and PNG are allowed.';
+                        fileError.style.display = 'block';
+                        this.value = '';
+                    }
+                }
             }
         });
     }

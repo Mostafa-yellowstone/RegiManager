@@ -478,56 +478,60 @@ def login_view(request):
         },
     )
 
+from django.db import transaction
 
-@login_required
 @login_required
 def add_client(request):
     organizations = _get_user_organizations(request)
     if request.method == "POST":
-        form = ClientForm(request.POST, organizations=organizations)
+        form = ClientForm(request.POST, request.FILES, organizations=organizations)
         if form.is_valid():
-            client = form.save(commit=False)
-            
-            # If organization field was disabled, it might not be in cleaned_data
-            if not client.organization_id and organizations.count() == 1:
-                client.organization = organizations.first()
-            
-            # Referral logic
-            source = form.cleaned_data.get('source')
-            if source == 'referral':
-                referral_select = form.cleaned_data.get('referral_select')
-                if referral_select and referral_select != 'new':
-                    try:
-                        referral = Referral.objects.get(id=referral_select, organization=client.organization)
-                        client.referral = referral
-                    except Referral.DoesNotExist:
-                        pass
-                else:
-                    referral_name = form.cleaned_data.get('referral_name')
-                    if referral_name:
-                        # First, check if a referral with this name already exists in this organization
-                        referral = Referral.objects.filter(
-                            organization=client.organization,
-                            name__iexact=referral_name
-                        ).first()
-                        
-                        if not referral:
-                            # Create new referral if not found
-                            referral = Referral.objects.create(
-                                organization=client.organization,
-                                name=referral_name,
-                                category=form.cleaned_data.get('referral_category', 'dealer'),
-                                address=form.cleaned_data.get('referral_address', ''),
-                                phone_no=form.cleaned_data.get('referral_phone_no', ''),
-                                email=form.cleaned_data.get('referral_email', ''),
-                                website=form.cleaned_data.get('referral_website', ''),
-                                initial_balance=form.cleaned_data.get('referral_balance') or 0,
-                            )
-                        client.referral = referral
-            
-            client.save()
-            messages.success(request, f"Client {client.name} added successfully.")
-            return redirect("all-clients")
+            try:
+                with transaction.atomic():
+                    client = form.save(commit=False)
+                    
+                    # If organization field was disabled, it might not be in cleaned_data
+                    if not client.organization_id and organizations.count() == 1:
+                        client.organization = organizations.first()
+                    
+                    # Referral logic
+                    source = form.cleaned_data.get('source')
+                    if source == 'referral':
+                        referral_select = form.cleaned_data.get('referral_select')
+                        if referral_select and referral_select != 'new':
+                            try:
+                                referral = Referral.objects.get(id=referral_select, organization=client.organization)
+                                client.referral = referral
+                            except Referral.DoesNotExist:
+                                pass
+                        else:
+                            referral_name = form.cleaned_data.get('referral_name')
+                            if referral_name:
+                                # First, check if a referral with this name already exists in this organization
+                                referral = Referral.objects.filter(
+                                    organization=client.organization,
+                                    name__iexact=referral_name
+                                ).first()
+                                
+                                if not referral:
+                                    # Create new referral if not found
+                                    referral = Referral.objects.create(
+                                        organization=client.organization,
+                                        name=referral_name,
+                                        category=form.cleaned_data.get('referral_category', 'dealer'),
+                                        address=form.cleaned_data.get('referral_address', ''),
+                                        phone_no=form.cleaned_data.get('referral_phone_no', ''),
+                                        email=form.cleaned_data.get('referral_email', ''),
+                                        website=form.cleaned_data.get('referral_website', ''),
+                                        initial_balance=form.cleaned_data.get('referral_balance') or 0,
+                                    )
+                                client.referral = referral
+                    
+                    client.save()
+                messages.success(request, f"Client {client.name} added successfully.")
+                return redirect("all-clients")
+            except Exception as e:
+                messages.error(request, f"An error occurred: {e}")
     else:
         form = ClientForm(organizations=organizations)
 
@@ -4221,11 +4225,16 @@ def public_intake_portal(request, portal_token=None):
     if request.method == "POST":
         form = ClientIntakeForm(request.POST, request.FILES)
         if form.is_valid():
-            intake = form.save(commit=False)
-            intake.organization = organization
-            intake.requested_services = request.POST.getlist("services")
-            intake.save()
-            return redirect(f"/intake/success/?portal_token={token}")
+            try:
+                from django.db import transaction
+                with transaction.atomic():
+                    intake = form.save(commit=False)
+                    intake.organization = organization
+                    intake.requested_services = request.POST.getlist("services")
+                    intake.save()
+                return redirect(f"/intake/success/?portal_token={token}")
+            except Exception as e:
+                messages.error(request, f"An error occurred while saving your application. Please try again.")
     else:
         form = ClientIntakeForm()
     

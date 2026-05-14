@@ -468,6 +468,36 @@
                 </div>
             </section>
 
+            <!-- Step 5: Document Uploads -->
+            <section class="step-section">
+                <div class="step-title"><span class="step-number">5</span> Document Uploads</div>
+                <div class="form-grid">
+                    <div class="col-span-2">
+                        <label>MV-82 Document (Optional)</label>
+                        {{ form.mv82_file }}
+                        <div class="file-error" data-for="id_mv82_file" style="color: #ef4444; font-size: 0.85rem; margin-top: 0.5rem; display: none;"></div>
+                    </div>
+                    <div class="col-span-2">
+                        <label>DTF-802 Document (Optional)</label>
+                        {{ form.dtf802_file }}
+                        <div class="file-error" data-for="id_dtf802_file" style="color: #ef4444; font-size: 0.85rem; margin-top: 0.5rem; display: none;"></div>
+                    </div>
+                    <div class="col-span-2">
+                        <label>DTF-803 Document (Optional)</label>
+                        {{ form.dtf803_file }}
+                        <div class="file-error" data-for="id_dtf803_file" style="color: #ef4444; font-size: 0.85rem; margin-top: 0.5rem; display: none;"></div>
+                    </div>
+                    <div class="col-span-2">
+                        <label>Other Documents (Insurance, ID, etc.)</label>
+                        {{ form.other_docs }}
+                        <div class="file-error" data-for="id_other_docs" style="color: #ef4444; font-size: 0.85rem; margin-top: 0.5rem; display: none;"></div>
+                    </div>
+                    <div class="col-span-4">
+                        <p style="font-size: 0.8rem; color: #64748b; margin-top: 0.5rem;">Max size per file: 5MB. Allowed formats: PDF, JPG, PNG.</p>
+                    </div>
+                </div>
+            </section>
+
             <div class="footer-actions">
                 <div style="font-size: 0.8rem; color: #94a3b8; max-width: 400px;">
                     By submitting, you agree that all information provided is true and accurate.
@@ -524,6 +554,39 @@
             let x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
             e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
         });
+    });
+
+    // Client-side file validation
+    const fileInputs = ['id_mv82_file', 'id_dtf802_file', 'id_dtf803_file', 'id_other_docs'];
+    fileInputs.forEach(inputId => {
+        const fileInput = document.getElementById(inputId);
+        if (fileInput) {
+            fileInput.addEventListener('change', function() {
+                const file = this.files[0];
+                const errorDiv = document.querySelector(`.file-error[data-for="${inputId}"]`);
+                if (errorDiv) errorDiv.style.display = 'none';
+                
+                if (file) {
+                    if (file.size > 5 * 1024 * 1024) {
+                        if (errorDiv) {
+                            errorDiv.textContent = 'File is too large. Maximum size is 5MB.';
+                            errorDiv.style.display = 'block';
+                        }
+                        this.value = '';
+                    } else {
+                        const validExts = ['pdf', 'jpg', 'jpeg', 'png'];
+                        const ext = file.name.split('.').pop().toLowerCase();
+                        if (!validExts.includes(ext)) {
+                            if (errorDiv) {
+                                errorDiv.textContent = 'Invalid file type. Only PDF, JPG, and PNG are allowed.';
+                                errorDiv.style.display = 'block';
+                            }
+                            this.value = '';
+                        }
+                    }
+                }
+            });
+        }
     });
 </script>
 {% endblock %}

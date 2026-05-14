@@ -194,6 +194,9 @@ class Client(SoftDeleteModel):
     email = models.EmailField(blank=True, null=True, db_index=True)
     gender = models.CharField(max_length=20, choices=GENDER_CHOICES, blank=True, null=True)
     
+    # Uploaded Documents
+    mv82_file = models.FileField(upload_to="client_docs/mv82/", blank=True, null=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property

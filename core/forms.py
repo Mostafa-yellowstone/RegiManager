@@ -204,10 +204,11 @@ class ClientForm(forms.ModelForm):
             "ssn", "driver_license", "dob", "phone_number",
             "building_no", "street_address", "apartment",
             "city", "state", "zip_code", "county",
-            "email", "gender"
+            "email", "gender", "mv82_file"
         ]
         widgets = {
             "dob": forms.DateInput(attrs={"type": "date"}),
+            "mv82_file": forms.FileInput(attrs={"accept": ".pdf,.jpg,.jpeg,.png"}),
             "phone_number": forms.TextInput(attrs={"placeholder": "(000) 000 - 0000", "class": "phone-mask"}),
             "county": forms.Select(choices=[
                 ("", "Select County..."),
@@ -284,6 +285,31 @@ class ClientForm(forms.ModelForm):
             if existing and not self.instance.pk:
                 raise forms.ValidationError(f"A client named {first_name} {last_name} already exists in this PSB.")
         return cleaned_data
+
+    def clean_mv82_file(self):
+        file = self.cleaned_data.get('mv82_file')
+        if file:
+            # 1. Strict File Size Limit (5MB)
+            if file.size > 5 * 1024 * 1024:
+                raise forms.ValidationError("File size must be under 5MB.")
+            
+            # 2. Allowed Extensions
+            import os
+            ext = os.path.splitext(file.name)[1].lower()
+            valid_extensions = ['.pdf', '.jpg', '.jpeg', '.png']
+            if ext not in valid_extensions:
+                raise forms.ValidationError(f"Unsupported file extension: {ext}. Allowed: PDF, JPG, PNG.")
+            
+            # 3. MIME type checking
+            valid_mime_types = ['application/pdf', 'image/jpeg', 'image/png']
+            if getattr(file, 'content_type', None) not in valid_mime_types:
+                raise forms.ValidationError("Invalid file content type.")
+                
+            # 4. Auto-Rename for security
+            import uuid
+            file.name = f"mv82_{uuid.uuid4().hex[:12]}{ext}"
+            
+        return file
 
 
 class VehicleForm(forms.ModelForm):
@@ -372,10 +398,10 @@ class ClientIntakeForm(forms.ModelForm):
             "co_registrant_dob": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
             "insurance_effective_date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
             "insurance_expiration_date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
-            "mv82_file": forms.FileInput(attrs={"class": "form-control"}),
-            "dtf802_file": forms.FileInput(attrs={"class": "form-control"}),
-            "dtf803_file": forms.FileInput(attrs={"class": "form-control"}),
-            "other_docs": forms.FileInput(attrs={"class": "form-control"}),
+            "mv82_file": forms.FileInput(attrs={"class": "form-control", "accept": ".pdf,.jpg,.jpeg,.png"}),
+            "dtf802_file": forms.FileInput(attrs={"class": "form-control", "accept": ".pdf,.jpg,.jpeg,.png"}),
+            "dtf803_file": forms.FileInput(attrs={"class": "form-control", "accept": ".pdf,.jpg,.jpeg,.png"}),
+            "other_docs": forms.FileInput(attrs={"class": "form-control", "accept": ".pdf,.jpg,.jpeg,.png"}),
             "first_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "First Name"}),
             "last_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Last Name"}),
             "middle_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Middle Name/Initial"}),
@@ -430,3 +456,30 @@ class ClientIntakeForm(forms.ModelForm):
                 field.required = False
             else:
                 field.required = True
+
+    def _clean_file(self, file, prefix):
+        if file:
+            if file.size > 5 * 1024 * 1024:
+                raise forms.ValidationError("File size must be under 5MB.")
+            import os, uuid
+            ext = os.path.splitext(file.name)[1].lower()
+            valid_extensions = ['.pdf', '.jpg', '.jpeg', '.png']
+            if ext not in valid_extensions:
+                raise forms.ValidationError(f"Unsupported file extension: {ext}. Allowed: PDF, JPG, PNG.")
+            valid_mime_types = ['application/pdf', 'image/jpeg', 'image/png']
+            if getattr(file, 'content_type', None) not in valid_mime_types:
+                raise forms.ValidationError("Invalid file content type.")
+            file.name = f"{prefix}_{uuid.uuid4().hex[:12]}{ext}"
+        return file
+
+    def clean_mv82_file(self):
+        return self._clean_file(self.cleaned_data.get('mv82_file'), 'mv82')
+
+    def clean_dtf802_file(self):
+        return self._clean_file(self.cleaned_data.get('dtf802_file'), 'dtf802')
+
+    def clean_dtf803_file(self):
+        return self._clean_file(self.cleaned_data.get('dtf803_file'), 'dtf803')
+
+    def clean_other_docs(self):
+        return self._clean_file(self.cleaned_data.get('other_docs'), 'other')
