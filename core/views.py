@@ -3570,7 +3570,7 @@ def ocr_dl_ajax(request):
         # Real OCR using OCR.space Free API
         import urllib.request, urllib.parse, uuid, json
         file_obj = request.FILES['file']
-        
+        file_obj.seek(0)
         try:
             boundary = "----WebKitFormBoundary" + uuid.uuid4().hex
             payload = {"isOverlayRequired": "false", "apikey": "helloworld", "language": "eng", "OCREngine": "1"}
@@ -3583,7 +3583,6 @@ def ocr_dl_ajax(request):
             body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{safe_filename}\"\r\nContent-Type: {file_obj.content_type}\r\n\r\n".encode()
             body += file_obj.read() + b"\r\n--" + boundary.encode() + b"--\r\n"
             
-            file_obj.seek(0)
             req = urllib.request.Request("https://api.ocr.space/parse/image", data=body)
             req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
             req.add_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
@@ -3710,6 +3709,7 @@ def ocr_vehicle_title_ajax(request):
     if 'file' in request.FILES:
         import urllib.request, urllib.parse, uuid, json
         file_obj = request.FILES['file']
+        file_obj.seek(0)
         try:
             boundary = "----WebKitFormBoundary" + uuid.uuid4().hex
             payload = {"isOverlayRequired": "false", "apikey": "helloworld", "language": "eng", "OCREngine": "1"}
@@ -3722,7 +3722,6 @@ def ocr_vehicle_title_ajax(request):
             body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{safe_filename}\"\r\nContent-Type: {file_obj.content_type}\r\n\r\n".encode()
             body += file_obj.read() + b"\r\n--" + boundary.encode() + b"--\r\n"
             
-            file_obj.seek(0)
             req = urllib.request.Request("https://api.ocr.space/parse/image", data=body)
             req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
             req.add_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")

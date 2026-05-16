@@ -553,7 +553,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 btn.disabled = false;
                 titleImageUpload.value = '';
                 console.error('Scan Error:', err);
-                Swal.fire('Scan Failed', 'The scan took too long or was blocked by the server. Please try a smaller file or enter manually.', 'error');
+                Swal.fire('Scan Failed', 'Error: ' + err.message, 'error');
             });
         });
     }
