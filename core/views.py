@@ -879,7 +879,9 @@ def check_vin_ajax(request):
         try:
             import urllib.request, json
             url = f"https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/{vin}?format=json"
-            with urllib.request.urlopen(url, timeout=5) as response:
+            req = urllib.request.Request(url)
+            req.add_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
+            with urllib.request.urlopen(req, timeout=5) as response:
                 if response.status == 200:
                     data = json.loads(response.read().decode("utf-8")).get("Results", [{}])[0]
                 # Map NHTSA fields to our model fields
@@ -3581,8 +3583,10 @@ def ocr_dl_ajax(request):
             body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{safe_filename}\"\r\nContent-Type: {file_obj.content_type}\r\n\r\n".encode()
             body += file_obj.read() + b"\r\n--" + boundary.encode() + b"--\r\n"
             
+            file_obj.seek(0)
             req = urllib.request.Request("https://api.ocr.space/parse/image", data=body)
             req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+            req.add_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
             
             with urllib.request.urlopen(req, timeout=25) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
@@ -3718,8 +3722,10 @@ def ocr_vehicle_title_ajax(request):
             body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{safe_filename}\"\r\nContent-Type: {file_obj.content_type}\r\n\r\n".encode()
             body += file_obj.read() + b"\r\n--" + boundary.encode() + b"--\r\n"
             
+            file_obj.seek(0)
             req = urllib.request.Request("https://api.ocr.space/parse/image", data=body)
             req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+            req.add_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
             
             # Increase timeout to 45s for larger title scans
             with urllib.request.urlopen(req, timeout=45) as resp:
