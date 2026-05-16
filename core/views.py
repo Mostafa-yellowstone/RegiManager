@@ -3573,7 +3573,8 @@ def ocr_dl_ajax(request):
         file_obj.seek(0)
         try:
             boundary = "----WebKitFormBoundary" + uuid.uuid4().hex
-            payload = {"isOverlayRequired": "false", "apikey": "helloworld", "language": "eng", "OCREngine": "1"}
+            ocr_key = os.getenv("OCR_API_KEY", "helloworld")
+            payload = {"isOverlayRequired": "false", "apikey": ocr_key, "language": "eng", "OCREngine": "1"}
             body = b""
             for k, v in payload.items():
                 body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n".encode()
@@ -3683,7 +3684,8 @@ def ocr_vehicle_title_ajax(request):
         file_obj.seek(0)
         try:
             boundary = "----WebKitFormBoundary" + uuid.uuid4().hex
-            payload = {"isOverlayRequired": "false", "apikey": "helloworld", "language": "eng", "OCREngine": "1"}
+            ocr_key = os.getenv("OCR_API_KEY", "helloworld")
+            payload = {"isOverlayRequired": "false", "apikey": ocr_key, "language": "eng", "OCREngine": "1"}
             body = b""
             for k, v in payload.items():
                 body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n".encode()

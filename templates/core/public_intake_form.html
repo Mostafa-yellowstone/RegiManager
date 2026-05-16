@@ -635,7 +635,7 @@
                             alert('DL fields have been auto-filled successfully.');
                         }
                     } else {
-                        alert('Scan Failed: ' + (res.message || 'Could not process the image.'));
+                        alert('Scan Failed (Rate Limit?): ' + (res.message || 'Could not process the image.'));
                     }
                 })
                 .catch(err => {
@@ -711,7 +711,7 @@
                         alert('Vehicle fields have been auto-filled successfully.');
                     }
                 } else {
-                    alert('Scan Failed: ' + (res.message || 'Could not process the image.'));
+                    alert('Scan Failed (Rate Limit?): ' + (res.message || 'Could not process the image.'));
                 }
             })
                 .catch(err => {
