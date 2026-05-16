@@ -195,14 +195,6 @@
                                     </td>
                                     <td>{{ record.handled_by.get_full_name|default:record.handled_by.username }}</td>
                                     <td>
-                                        <div class="action-col" style="display: flex; gap: 8px;">
-                                            <button type="button" class="btn btn-sm btn-primary doc-upload-trigger"
-                                                style="padding: 0.3rem 0.6rem; font-size: 0.8rem;"
-                                                data-id="{{ record.id }}"
-                                                data-receipt="{{ record.receipt_number|escapejs }}">
-                                                Docs
-                                            </button>
-                                            
                                             <a href="{% url 'service-receipt-pdf' record.id %}"
                                                 class="btn btn-sm btn-secondary"
                                                 style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" title="View Receipt">Receipt</a>
@@ -390,39 +382,5 @@
     });
 </script>
 
-<div id="docUploadDrawer" class="drawer-overlay" style="display: none;">
-    <div class="drawer-panel">
-        <div class="drawer-header">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="width: 40px; height: 40px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                        <line x1="12" y1="18" x2="12" y2="12"></line>
-                        <line x1="9" y1="15" x2="15" y2="15"></line>
-                    </svg>
-                </div>
-                <div>
-                    <h2 style="font-size: 1.1rem; margin: 0; color: #1e293b;">Upload Documents</h2>
-                    <div style="font-size: 0.75rem; color: #64748b; font-weight: 500;" id="modalReceiptDisplay"></div>
-                </div>
-            </div>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="closeDocUploadModal()" style="min-height: auto; padding: 0.4rem 1rem; border-radius: 8px; font-weight: 600;">Done</button>
-        </div>
-        <div class="drawer-body">
 
-            <div id="existing-docs-container" style="display: none; margin-bottom: 2rem;">
-                <h3 style="font-size: 1rem; margin-bottom: 1rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Attached Documents</h3>
-                <ul class="drawer-docs-list" id="existing-docs-list">
-                </ul>
-            </div>
-
-            <div class="doc-grid">
-                <!-- Dropzones will be generated here by JS -->
-            </div>
-        </div>
-    </div>
-</div>
-
-<script src="{% static 'core/js/dashboard.js' %}"></script>
 {% endblock %}

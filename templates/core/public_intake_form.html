@@ -488,8 +488,6 @@
                 </div>
             </section>
 
-
-
             <div class="footer-actions">
                 <div style="font-size: 0.8rem; color: #94a3b8; max-width: 400px;">
                     By submitting, you agree that all information provided is true and accurate.
@@ -548,46 +546,10 @@
         });
     });
 
-
-
-
-    async function compressImage(file) {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = (e) => {
-                const img = new Image();
-                img.src = e.target.result;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    let width = img.width;
-                    let height = img.height;
-                    const maxDim = 1600;
-                    if (width > maxDim || height > maxDim) {
-                        if (width > height) {
-                            height = (maxDim / width) * height;
-                            width = maxDim;
-                        } else {
-                            width = (maxDim / height) * width;
-                            height = maxDim;
-                        }
-                    }
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-                    canvas.toBlob((blob) => {
-                        resolve(blob);
-                    }, 'image/jpeg', 0.85);
-                };
-            };
-        });
-    }
-
     // Auto-Fill DL
     const publicDlUpload = document.getElementById('public-dl-image-upload');
     if (publicDlUpload) {
-        publicDlUpload.addEventListener('change', async function() {
+        publicDlUpload.addEventListener('change', function() {
             const file = this.files[0];
             if (!file) return;
 
@@ -596,66 +558,54 @@
             btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(79,70,229,.35);border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;"></span> Scanning...';
             btn.disabled = true;
 
-            try {
-                const compressedBlob = await compressImage(file);
-                const fd = new FormData();
-                fd.append('file', compressedBlob, 'scan.jpg');
-                fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-                fd.append('portal_token', '{{ organization.portal_token }}');
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            fd.append('portal_token', '{{ organization.portal_token }}');
 
-                fetch('{% url "ocr-dl" %}', { method: 'POST', body: fd })
-                .then(r => r.json())
-                .then(res => {
-                    btn.innerHTML = originalHTML;
-                    btn.disabled = false;
-                    publicDlUpload.value = '';
-
-                    if (res.status === 'success') {
-                        const d = res.data;
-                        if (d.status_msg) {
-                            alert(d.status_msg);
-                        } else {
-                            // Clear fields first
-                            document.querySelector('input[name="first_name"]').value = '';
-                            document.querySelector('input[name="last_name"]').value = '';
-                            document.querySelector('input[name="middle_name"]').value = '';
-                            
-                            if (d.driver_license) document.querySelector('input[name="driver_license"]').value = d.driver_license;
-                            if (d.dob) document.querySelector('input[name="dob"]').value = d.dob;
-                            if (d.first_name) document.querySelector('input[name="first_name"]').value = d.first_name;
-                            if (d.last_name) document.querySelector('input[name="last_name"]').value = d.last_name;
-                            if (d.middle_name) document.querySelector('input[name="middle_name"]').value = d.middle_name;
-                            if (d.building_no) document.querySelector('input[name="building_no"]').value = d.building_no;
-                            if (d.street_address) document.querySelector('input[name="street_address"]').value = d.street_address;
-                            if (d.apartment) document.querySelector('input[name="apartment"]').value = d.apartment;
-                            if (d.city) document.querySelector('input[name="city"]').value = d.city;
-                            if (d.state) document.querySelector('select[name="state"]').value = d.state;
-                            if (d.zip_code) document.querySelector('input[name="zip_code"]').value = d.zip_code;
-                            // For public intake we just alert or show simple notification
-                            alert('DL fields have been auto-filled successfully.');
-                        }
-                    } else {
-                        alert('Scan Failed: ' + (res.message || 'Could not process the image.'));
-                    }
-                })
-                .catch(err => {
-                    btn.innerHTML = originalHTML;
-                    btn.disabled = false;
-                    publicDlUpload.value = '';
-                    alert('Network error during scan.');
-                });
-            } catch (err) {
+            fetch('{% url "ocr-dl" %}', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(res => {
                 btn.innerHTML = originalHTML;
                 btn.disabled = false;
-                alert('Could not process image.');
-            }
+                publicDlUpload.value = '';
+
+                if (res.status === 'success') {
+                    const d = res.data;
+                    if (d.status_msg) {
+                        alert(d.status_msg);
+                    } else {
+                        if (d.driver_license) document.querySelector('input[name="driver_license"]').value = d.driver_license;
+                        if (d.dob) document.querySelector('input[name="dob"]').value = d.dob;
+                        if (d.first_name) document.querySelector('input[name="first_name"]').value = d.first_name;
+                        if (d.last_name) document.querySelector('input[name="last_name"]').value = d.last_name;
+                        if (d.middle_name) document.querySelector('input[name="middle_name"]').value = d.middle_name;
+                        if (d.building_no) document.querySelector('input[name="building_no"]').value = d.building_no;
+                        if (d.street_address) document.querySelector('input[name="street_address"]').value = d.street_address;
+                        if (d.apartment) document.querySelector('input[name="apartment"]').value = d.apartment;
+                        if (d.city) document.querySelector('input[name="city"]').value = d.city;
+                        if (d.state) document.querySelector('select[name="state"]').value = d.state;
+                        if (d.zip_code) document.querySelector('input[name="zip_code"]').value = d.zip_code;
+                        // For public intake we just alert or show simple notification
+                        alert('DL fields have been auto-filled successfully.');
+                    }
+                } else {
+                    alert('Scan Failed: ' + (res.message || 'Could not process the image.'));
+                }
+            })
+            .catch(err => {
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+                publicDlUpload.value = '';
+                alert('Network error during scan.');
+            });
         });
     }
 
     // Auto-Fill Title
     const publicTitleUpload = document.getElementById('public-title-image-upload');
     if (publicTitleUpload) {
-        publicTitleUpload.addEventListener('change', async function() {
+        publicTitleUpload.addEventListener('change', function() {
             const file = this.files[0];
             if (!file) return;
 
@@ -664,25 +614,13 @@
             btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(16,185,129,.35);border-top-color:#10b981;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;"></span> Scanning...';
             btn.disabled = true;
 
-            try {
-                const compressedBlob = await compressImage(file);
-                const fd = new FormData();
-                fd.append('file', compressedBlob, 'scan.jpg');
-                fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-                fd.append('portal_token', '{{ organization.portal_token }}');
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            fd.append('portal_token', '{{ organization.portal_token }}');
 
-                fetch('{% url "ocr-vehicle-title" %}', { method: 'POST', body: fd })
-            .then(async r => {
-                const text = await r.text();
-                if (!r.ok) {
-                    throw new Error(`Server Error ${r.status}: ${text.substring(0, 100)}`);
-                }
-                try {
-                    return JSON.parse(text);
-                } catch (e) {
-                    throw new Error('Server returned HTML instead of JSON.');
-                }
-            })
+            fetch('{% url "ocr-vehicle-title" %}', { method: 'POST', body: fd })
+            .then(r => r.json())
             .then(res => {
                 btn.innerHTML = originalHTML;
                 btn.disabled = false;
@@ -714,17 +652,12 @@
                     alert('Scan Failed: ' + (res.message || 'Could not process the image.'));
                 }
             })
-                .catch(err => {
-                    btn.innerHTML = originalHTML;
-                    btn.disabled = false;
-                    publicTitleUpload.value = '';
-                    alert('Network error during scan.');
-                });
-            } catch (err) {
+            .catch(err => {
                 btn.innerHTML = originalHTML;
                 btn.disabled = false;
-                alert('Could not process image.');
-            }
+                publicTitleUpload.value = '';
+                alert('Network error during scan.');
+            });
         });
     }
 </script>

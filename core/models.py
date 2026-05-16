@@ -171,7 +171,7 @@ class Client(SoftDeleteModel):
     middle_name = models.CharField(max_length=100, blank=True, default="")
     
     ssn = models.CharField(max_length=11, blank=True, default="")
-    driver_license = models.CharField(max_length=50, blank=True, default="")
+    driver_license = models.CharField(max_length=50, default="")
     dob = models.DateField(blank=True, null=True)
     phone_number = models.CharField(max_length=20, blank=True, default="", db_index=True)
     
@@ -682,7 +682,7 @@ class ClientIntake(models.Model):
     phone_number = models.CharField(max_length=20, blank=True, default="")
     dob = models.DateField(blank=True, null=True)
     gender = models.CharField(max_length=20, blank=True, null=True)
-    driver_license = models.CharField(max_length=50, blank=True, default="")
+    driver_license = models.CharField(max_length=50, default="")
     ssn_last_4 = models.CharField(max_length=4, blank=True, default="")
     
     # Address Data

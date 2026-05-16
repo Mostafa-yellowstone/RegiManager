@@ -512,58 +512,30 @@ document.addEventListener('DOMContentLoaded', function() {
     // Title Image Upload Auto-Fill
     const titleImageUpload = document.getElementById('title-image-upload');
     if (titleImageUpload) {
-        async function compressImage(file) {
-            return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.src = e.target.result;
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        let width = img.width;
-                        let height = img.height;
-                        const maxDim = 2400;
-                        if (width > maxDim || height > maxDim) {
-                            if (width > height) {
-                                height = (maxDim / width) * height;
-                                width = maxDim;
-                            } else {
-                                width = (maxDim / height) * width;
-                                height = maxDim;
-                            }
-                        }
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        canvas.toBlob((blob) => {
-                            resolve(blob);
-                        }, 'image/jpeg', 0.95);
-                    };
-                };
-            });
-        }
-
-        titleImageUpload.addEventListener('change', async function() {
+        titleImageUpload.addEventListener('change', function() {
             const file = this.files[0];
             if (!file) return;
+
+            // 50MB Limit Check to prevent 413 Server Errors
+            if (file.size > 50 * 1024 * 1024) {
+                Swal.fire('File Too Large', 'The image is larger than 50MB. Please compress it or take a lower resolution photo.', 'warning');
+                this.value = '';
+                return;
+            }
 
             const btn = this.nextElementSibling;
             const originalHTML = btn.innerHTML;
             btn.innerHTML = '<span style="display:inline-block;width:10px;height:10px;border:2px solid rgba(79,70,229,.35);border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:2px;"></span> SCANNING...';
             btn.disabled = true;
 
-            try {
-                const compressedBlob = await compressImage(file);
-                const fd = new FormData();
-                fd.append('file', compressedBlob, 'scan.jpg');
-                fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
-                fetch('{% url "ocr-vehicle-title" %}', {
-                    method: 'POST',
-                    body: fd
-                })
+            fetch('{% url "ocr-vehicle-title" %}', {
+                method: 'POST',
+                body: fd
+            })
             .then(async r => {
                 const text = await r.text();
                 if (!r.ok) {
@@ -594,18 +566,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     Swal.fire('Scan Failed', res.message || 'Could not process the image.', 'error');
                 }
             })
-                .catch(err => {
-                    btn.innerHTML = originalHTML;
-                    btn.disabled = false;
-                    titleImageUpload.value = '';
-                    console.error('Scan Error:', err);
-                    Swal.fire('Scan Failed', 'Error: ' + err.message, 'error');
-                });
-            } catch (err) {
+            .catch(err => {
                 btn.innerHTML = originalHTML;
                 btn.disabled = false;
-                Swal.fire('Error', 'Could not process image.', 'error');
-            }
+                titleImageUpload.value = '';
+                console.error('Scan Error:', err);
+                Swal.fire('Scan Failed', 'Error: ' + err.message, 'error');
+            });
         });
     }
 });
