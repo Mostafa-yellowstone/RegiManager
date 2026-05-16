@@ -1,3 +1,4 @@
+import urllib.request, urllib.parse, uuid, json
 from decimal import Decimal
 import csv
 from io import BytesIO
@@ -3568,7 +3569,6 @@ def ocr_dl_ajax(request):
                         
     elif 'file' in request.FILES:
         # Real OCR using OCR.space Free API
-        import urllib.request, urllib.parse, uuid, json
         file_obj = request.FILES['file']
         file_obj.seek(0)
         try:
@@ -3707,7 +3707,6 @@ def ocr_vehicle_title_ajax(request):
     raw = (request.POST.get("scan_data") or "").strip().upper()
 
     if 'file' in request.FILES:
-        import urllib.request, urllib.parse, uuid, json
         file_obj = request.FILES['file']
         file_obj.seek(0)
         try:
