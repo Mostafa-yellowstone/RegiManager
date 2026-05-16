@@ -558,6 +558,12 @@
             const file = this.files[0];
             if (!file) return;
 
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File is too large (Maximum 5MB). Please compress it or use a lower resolution photo.');
+                this.value = '';
+                return;
+            }
+
             const btn = this.nextElementSibling;
             const originalHTML = btn.innerHTML;
             btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(79,70,229,.35);border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;"></span> Scanning...';
@@ -613,6 +619,12 @@
         publicTitleUpload.addEventListener('change', function() {
             const file = this.files[0];
             if (!file) return;
+
+            if (file.size > 5 * 1024 * 1024) {
+                alert('File is too large (Maximum 5MB). Please compress it or use a lower resolution photo.');
+                this.value = '';
+                return;
+            }
 
             const btn = this.nextElementSibling;
             const originalHTML = btn.innerHTML;
