@@ -591,7 +591,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         setTimeout(() => form.style.boxShadow = '', 2000);
                     }
                 } else {
-                    Swal.fire('Scan Failed (Rate Limit?)', res.message || 'Could not process the image.', 'error');
+                    Swal.fire('Scan Failed', res.message || 'Could not process the image.', 'error');
                 }
             })
                 .catch(err => {
@@ -599,7 +599,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     btn.disabled = false;
                     titleImageUpload.value = '';
                     console.error('Scan Error:', err);
-                    Swal.fire('Scan Failed (Rate Limit?)', 'Error: ' + err.message, 'error');
+                    Swal.fire('Scan Failed', 'Error: ' + err.message, 'error');
                 });
             } catch (err) {
                 btn.innerHTML = originalHTML;
