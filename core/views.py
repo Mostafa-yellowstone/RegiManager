@@ -484,6 +484,23 @@ from django.db import transaction
 def add_client(request):
     organizations = _get_user_organizations(request)
     if request.method == "POST":
+        # Pre-check for existing client to allow auto-merging/redirecting
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        dl = request.POST.get('driver_license', '').strip().upper()
+        org_id = request.POST.get('organization')
+        
+        if first_name and last_name and dl and org_id:
+            existing = Client.objects.filter(
+                first_name__iexact=first_name,
+                last_name__iexact=last_name,
+                driver_license__iexact=dl,
+                organization_id=org_id
+            ).first()
+            if existing:
+                messages.info(request, f"Client {existing.name} already exists. Redirecting to profile.")
+                return redirect("client-detail", client_id=existing.id)
+
         form = ClientForm(request.POST, request.FILES, organizations=organizations)
         if form.is_valid():
             try:
@@ -528,8 +545,8 @@ def add_client(request):
                                 client.referral = referral
                     
                     client.save()
-                messages.success(request, f"Client {client.name} added successfully.")
-                return redirect("all-clients")
+                messages.success(request, f"Client {client.name} profile created.")
+                return redirect("add-vehicle", client_id=client.id)
             except Exception as e:
                 messages.error(request, f"An error occurred: {e}")
     else:
@@ -804,6 +821,16 @@ def add_vehicle(request, client_id):
         return HttpResponseForbidden("Access denied.")
 
     if request.method == "POST":
+        vin = request.POST.get('vin', '').strip().upper()
+        if vin:
+            existing = Vehicle.objects.filter(vin=vin).first()
+            if existing:
+                if existing.client_id == client.id:
+                    messages.info(request, f"This vehicle (VIN: {vin}) is already in {client}'s profile.")
+                else:
+                    messages.warning(request, f"VIN {vin} already exists! It belongs to {existing.client}. Redirecting to owner profile.")
+                return redirect("client-detail", client_id=existing.client_id)
+
         form = VehicleForm(request.POST)
         if form.is_valid():
             vehicle = form.save(commit=False)
@@ -3476,9 +3503,18 @@ def send_manual_reminder(request, vehicle_id):
         return redirect(referer)
     return redirect('upcoming-expirations')
 
-@login_required
+def _check_ocr_auth(request):
+    if request.user.is_authenticated:
+        return True
+    portal_token = request.POST.get("portal_token")
+    if portal_token and Organization.objects.filter(portal_token=portal_token, is_active=True).exists():
+        return True
+    return False
+
 @require_POST
 def ocr_dl_ajax(request):
+    if not _check_ocr_auth(request):
+        return JsonResponse({"status": "error", "message": "Unauthorized"}, status=401)
     import re
     data = {}
     barcode_str = request.POST.get('barcode_data', '')
@@ -3553,28 +3589,94 @@ def ocr_dl_ajax(request):
             if result.get('OCRExitCode') == 1:
                 text = result.get('ParsedResults')[0].get('ParsedText')
                 
-                # Simple parser for the extracted text
-                # DLs are hard to parse from raw text without a specialized model, 
-                # but we can look for keywords.
+                with open('scratch/last_ocr.txt', 'w', encoding='utf-8') as f:
+                    f.write(text)
                 
-                # Look for DL Number (usually 9 digits or specific patterns)
-                dl_match = re.search(r'\b[A-Z0-9]{8,12}\b', text)
-                if dl_match: data['driver_license'] = dl_match.group(0)
-                
-                # Look for DOB (usually MM/DD/YYYY)
-                dob_match = re.search(r'(\d{2}/\d{2}/\d{4})', text)
-                if dob_match: 
-                    d_str = dob_match.group(1)
-                    # Convert MM/DD/YYYY to YYYY-MM-DD
-                    parts = d_str.split('/')
-                    data['dob'] = f"{parts[2]}-{parts[0]}-{parts[1]}"
-                
-                # Look for names (Usually after "LN" or "FN" or just capitalized lines)
+                # Advanced parser for New York State and standard DLs
                 lines = [l.strip() for l in text.split('\n') if l.strip()]
-                for line in lines:
-                    if 'NAME' in line.upper() or 'LN' in line.upper():
-                        # Heuristic: Name is usually the next word or line
-                        pass
+                
+                # 1. Driver License
+                # Notice in the raw text it might be 'Đ 729 264 610', so look for 9 digits grouped.
+                dl_match = re.search(r'\b(?:ID\s*|\w\s+)?(\d{3}\s?\d{3}\s?\d{3})\b', text)
+                if dl_match:
+                    data['driver_license'] = dl_match.group(1).replace(' ', '')
+                
+                # 2. DOB (Notice raw text has 'ров 01/03/2002' instead of DOB)
+                dob_match = re.search(r'(\d{2}/\d{2}/\d{4})', text)
+                if dob_match:
+                    parts = dob_match.group(1).split('/')
+                    data['dob'] = f"{parts[2]}-{parts[0]}-{parts[1]}"
+                    
+                # 3. Use City, State, Zip as the Anchor for Address and Names
+                csz_index = -1
+                for i, line in enumerate(lines):
+                    csz_match = re.search(r'^(.+?)[,\s]+([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)', line)
+                    if csz_match:
+                        csz_index = i
+                        data['city'] = csz_match.group(1).strip()
+                        data['state'] = csz_match.group(2).strip().upper()
+                        data['zip_code'] = csz_match.group(3).strip()
+                        
+                        if data['state'] == 'NY':
+                            city_upper = data['city'].upper()
+                            zip_start = data['zip_code'][:3]
+                            if city_upper == 'YONKERS' or zip_start in ('105', '106', '107', '108'):
+                                data['county'] = 'Westchester'
+                            elif zip_start in ('100', '101', '102'):
+                                data['county'] = 'New York'
+                            elif zip_start == '103':
+                                data['county'] = 'Richmond'
+                            elif zip_start == '104':
+                                data['county'] = 'Bronx'
+                            elif zip_start in ('110', '114', '111', '113', '116'):
+                                data['county'] = 'Queens'
+                            elif zip_start == '112':
+                                data['county'] = 'Kings'
+                        break
+
+                if csz_index != -1:
+                    # Index - 1: Street Address
+                    if csz_index - 1 >= 0:
+                        addr_line1 = lines[csz_index - 1]
+                        bno_match = re.search(r'^(\d+)\s+(.+)$', addr_line1)
+                        if bno_match:
+                            data['building_no'] = bno_match.group(1)
+                            rest_of_street = bno_match.group(2)
+                            apt_match = re.search(r'(?i)\s+(APT|#|UNIT|STE|SUITE|APARTMENT)\s+(.+)$', rest_of_street)
+                            if apt_match:
+                                data['street_address'] = rest_of_street[:apt_match.start()].strip()
+                                data['apartment'] = f"{apt_match.group(1).upper()} {apt_match.group(2).strip()}"
+                            else:
+                                data['street_address'] = rest_of_street
+                        else:
+                            data['street_address'] = addr_line1
+
+                    # Index - 2: First Name, Middle Name
+                    if csz_index - 2 >= 0:
+                        name_line = lines[csz_index - 2]
+                        names = [n.strip() for n in name_line.replace('FIRST', '').replace('NAME', '').split(',')]
+                        if len(names) == 1 and ' ' in names[0]:
+                            names = names[0].split(' ', 1)
+                        if len(names) > 0 and names[0]:
+                            data['first_name'] = names[0].strip()
+                        if len(names) > 1:
+                            data['middle_name'] = names[1].strip()
+
+                    # Index - 3: Last Name
+                    if csz_index - 3 >= 0:
+                        data['last_name'] = lines[csz_index - 3].replace('LAST', '').replace('NAME', '').strip()
+
+                # 3. Fallbacks if strict parsing missed
+                if 'driver_license' not in data:
+                    dl_match = re.search(r'\b(?:ID\s*)?(\d{3}\s?\d{3}\s?\d{3})\b', text)
+                    if dl_match:
+                        data['driver_license'] = dl_match.group(1).replace(' ', '')
+                        
+                if 'dob' not in data:
+                    dob_match = re.search(r'(\d{2}/\d{2}/\d{4})', text)
+                    if dob_match:
+                        parts = dob_match.group(1).split('/')
+                        data['dob'] = f"{parts[2]}-{parts[0]}-{parts[1]}"
                 
                 # For demo purposes, we will still return some fields if not found, 
                 # but indicate they were parsed.
@@ -3588,44 +3690,128 @@ def ocr_dl_ajax(request):
     return JsonResponse({"status": "success", "data": data})
 
 
-@login_required
 @require_POST
 def ocr_vehicle_title_ajax(request):
     """
-    Lightweight title/barcode scan parser for vehicle autofill.
-    Works with handheld scanner text payload first; can be extended later for image OCR.
+    Title/barcode scan parser for vehicle autofill.
+    Works with handheld scanner text payload OR image file upload via OCR.space.
     """
+    if not _check_ocr_auth(request):
+        return JsonResponse({"status": "error", "message": "Unauthorized"}, status=401)
+        
     import re
+    data = {}
 
     raw = (request.POST.get("scan_data") or "").strip().upper()
-    data = {}
+
+    if 'file' in request.FILES:
+        import requests
+        file_obj = request.FILES['file']
+        try:
+            payload = {
+                'isOverlayRequired': False,
+                'apikey': 'helloworld',
+                'language': 'eng',
+                'OCREngine': 2,
+            }
+            r = requests.post('https://api.ocr.space/parse/image',
+                            files={'file': file_obj},
+                            data=payload,
+                            timeout=15)
+            result = r.json()
+            if result.get('OCRExitCode') == 1:
+                raw = result.get('ParsedResults')[0].get('ParsedText').upper()
+                with open('scratch/last_ocr_vehicle.txt', 'w', encoding='utf-8') as f:
+                    f.write(raw)
+            else:
+                return JsonResponse({"status": "error", "message": "OCR failed: " + str(result.get('ErrorMessage'))})
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": "OCR Error: " + str(e)})
+
     if not raw:
-        return JsonResponse({"status": "error", "message": "Missing scan data."}, status=400)
+        return JsonResponse({"status": "error", "message": "Missing scan data or image."}, status=400)
 
-    # VIN: 17 chars excluding I/O/Q
-    vin_match = re.search(r"\b([A-HJ-NPR-Z0-9]{17})\b", raw)
+    # 1. VIN (17 chars) - Handle OCR misreading 1 as L
+    vin_match = re.search(r"\b([1A-HJ-NPR-Z0-9]{17}|[L][A-HJ-NPR-Z0-9]{16})\b", raw)
     if vin_match:
-        data["vin"] = vin_match.group(1)
+        vin = vin_match.group(1)
+        if vin.startswith('L'): # Common OCR error for NY titles
+             vin = '1' + vin[1:]
+        data["vin"] = vin
 
-    year_match = re.search(r"\b(19[8-9]\d|20[0-4]\d)\b", raw)
+    # 2. Year (4 digits)
+    year_match = re.search(r"\b(19\d{2}|20\d{2})\b", raw)
     if year_match:
         data["year"] = year_match.group(1)
 
-    # Heuristic key-value extraction common in scanner dumps
-    def extract_after(label):
-        m = re.search(rf"{label}\s*[:\-]?\s*([A-Z0-9 ]{{2,40}})", raw)
-        return m.group(1).strip() if m else ""
+    # 3. Make (Common NY Abbreviations)
+    makes_map = {
+        "CHEVR": "CHEVROLET", "TOYOT": "TOYOTA", "HONDA": "HONDA", "FORD": "FORD", 
+        "NISSA": "NISSAN", "BMW": "BMW", "MERCE": "MERCEDES-BENZ", "VOLKS": "VOLKSWAGEN",
+        "DODGE": "DODGE", "GMC": "GMC", "LEXUS": "LEXUS", "MAZDA": "MAZDA", 
+        "SUBAR": "SUBARU", "HYUND": "HYUNDAI", "KIA": "KIA", "JEEP": "JEEP",
+        "CHRYSL": "CHRYSLER", "ACURA": "ACURA", "INFIN": "INFINITI", "AUDI": "AUDI",
+        "CADIL": "CADILLAC", "BUICK": "BUICK", "RAM": "RAM", "LINCO": "LINCOLN"
+    }
+    for code, full in makes_map.items():
+        if code in raw:
+            data["make"] = full
+            break
 
-    make = extract_after("MAKE")
-    model = extract_after("MODEL")
-    plate = extract_after("PLATE")
-    if make:
-        data["make"] = make
-    if model:
-        data["model"] = model
-    if plate:
-        data["plate_number"] = plate
+    # 4. Color (2 chars)
+    color_map = {
+        "GY": "GRAY", "WH": "WHITE", "BK": "BLACK", "BL": "BLUE", "RD": "RED", 
+        "SL": "SILVER", "BR": "BROWN", "GR": "GREEN", "OR": "ORANGE", "YW": "YELLOW", 
+        "PR": "PURPLE", "TN": "TAN", "GD": "GOLD", "MR": "MAROON"
+    }
+    # Look for the color code, usually near 'COLOR' or on its own line
+    color_match = re.search(r"\b(GY|WH|BK|BL|RD|SL|BR|GR|OR|YW|PR|TN|GD|MR)\b", raw)
+    if color_match:
+        data["color"] = color_map.get(color_match.group(1))
 
+    # 5. Cylinders
+    cyl_match = re.search(r"(?:CYL|PROP)\.?\s*(\d+)", raw)
+    if not cyl_match: # Fallback: search for single digit near the word CYL
+        cyl_match = re.search(r"CYL[\s\S]{1,20}?\b(\d)\b", raw)
+    if cyl_match:
+        data["cylinders"] = cyl_match.group(1)
+
+    # 6. Weight (Usually 4 digits, near WT)
+    weight_match = re.search(r"(?:WT|LGTH)\.?\s*(\d{3,5})", raw)
+    if not weight_match:
+        # Fallback: look for 4 digits that are NOT the year
+        all_nums = re.findall(r"\b(\d{4})\b", raw)
+        for num in all_nums:
+            if num != data.get("year"):
+                data["weight"] = num
+                break
+    else:
+        data["weight"] = weight_match.group(1)
+
+    # 7. Fuel
+    fuel_match = re.search(r"\b(GAS|DSL|HYB|ELE|G)\b", raw)
+    if fuel_match:
+        f_val = fuel_match.group(1)
+        data["fuel_type"] = "GAS" if f_val in ("GAS", "G") else f_val
+
+    # 8. Model (Heuristic)
+    if not data.get("model"):
+        # Look for the word after MAKE in the raw text
+        words = raw.split()
+        for i, word in enumerate(words):
+            if word == "MAKE" and i + 1 < len(words):
+                # The value might be several lines down, but let's check nearby words
+                pass
+        # Better heuristic: look for 3-letter codes like SLV, SUV, PICK
+        model_match = re.search(r"\b(SLV|SUV|PICK|4DSD|2DSD|SUBN|TRAC|VAN)\b", raw)
+        if model_match:
+            data["model"] = model_match.group(1)
+    if 'file' in request.FILES and not data:
+        data = {"status_msg": "Image processed but no clear vehicle data found. Please fill manually.", "raw_text": raw[:100]}
+
+    with open('scratch/last_ocr_vehicle_data.txt', 'w', encoding='utf-8') as f:
+        import json
+        json.dump(data, f)
     return JsonResponse({"status": "success", "data": data})
             
 @login_required
@@ -4126,8 +4312,51 @@ def edit_client(request, client_id):
     if request.method == 'POST':
         form = ClientForm(request.POST, instance=client, organizations=orgs)
         if form.is_valid():
-            form.save()
-            return redirect('client-detail', client_id=client.id)
+            try:
+                from django.db import transaction
+                with transaction.atomic():
+                    client = form.save(commit=False)
+                    
+                    # Referral logic
+                    source = form.cleaned_data.get('source')
+                    if source == 'referral':
+                        referral_select = form.cleaned_data.get('referral_select')
+                        if referral_select and referral_select != 'new':
+                            try:
+                                referral = Referral.objects.get(id=referral_select, organization=client.organization)
+                                client.referral = referral
+                            except Referral.DoesNotExist:
+                                pass
+                        else:
+                            referral_name = form.cleaned_data.get('referral_name')
+                            if referral_name:
+                                # First, check if a referral with this name already exists in this organization
+                                referral = Referral.objects.filter(
+                                    organization=client.organization,
+                                    name__iexact=referral_name
+                                ).first()
+                                
+                                if not referral:
+                                    # Create new referral if not found
+                                    referral = Referral.objects.create(
+                                        organization=client.organization,
+                                        name=referral_name,
+                                        category=form.cleaned_data.get('referral_category', 'dealer'),
+                                        address=form.cleaned_data.get('referral_address', ''),
+                                        phone_no=form.cleaned_data.get('referral_phone_no', ''),
+                                        email=form.cleaned_data.get('referral_email', ''),
+                                        website=form.cleaned_data.get('referral_website', ''),
+                                        initial_balance=form.cleaned_data.get('referral_balance') or 0,
+                                    )
+                                client.referral = referral
+                    else:
+                        client.referral = None
+                    
+                    client.save()
+                messages.success(request, f"Client {client.name} updated successfully.")
+                return redirect('client-detail', client_id=client.id)
+            except Exception as e:
+                messages.error(request, f"An error occurred: {e}")
     else:
         form = ClientForm(instance=client, organizations=orgs)
     
@@ -4264,12 +4493,12 @@ def approve_intake(request, intake_id):
             messages.error(request, "This intake is already being processed or has been completed.")
             return redirect("dashboard")
 
-        # 1. Check for Duplicate Client
+        # 1. Check for Duplicate Client (By Name + DOB OR Driver License)
         client = Client.objects.filter(
-            organization=intake.organization,
-            first_name=intake.first_name,
-            last_name=intake.last_name,
-            dob=intake.dob
+            organization=intake.organization
+        ).filter(
+            Q(first_name=intake.first_name, last_name=intake.last_name, dob=intake.dob) |
+            Q(driver_license=intake.driver_license)
         ).first()
         
         # 2. Check for Duplicate Vehicle
@@ -4444,3 +4673,212 @@ def reject_intake(request, intake_id):
 def public_intake_success(request):
     """Confirmation page after successful submission."""
     return render(request, "core/public_intake_success.html")
+
+
+@login_required
+def client_search_ajax(request):
+    """
+    Lightweight JSON endpoint for the dashboard command bar live search.
+    Returns up to `limit` clients matching the query by name, DL, phone, or plate.
+    """
+    q     = request.GET.get("q", "").strip()
+    limit = min(int(request.GET.get("limit", "8")), 20)
+
+    if len(q) < 2:
+        return JsonResponse({"results": []})
+
+    organizations = _get_user_organizations(request)
+
+    clients = Client.objects.filter(
+        organization__in=organizations
+    ).filter(
+        Q(first_name__icontains=q)
+        | Q(last_name__icontains=q)
+        | Q(driver_license__icontains=q)
+        | Q(phone_number__icontains=q)
+        | Q(vehicles__plate_number__icontains=q)
+    ).distinct().select_related("organization")[:limit]
+
+    results = []
+    for c in clients:
+        plate = c.vehicles.values_list("plate_number", flat=True).first() or ""
+        results.append({
+            "name":    f"{c.first_name} {c.last_name}".strip(),
+            "first_name": c.first_name,
+            "last_name":  c.last_name,
+            "identifier": c.driver_license or "",
+            "plate":      plate,
+            "url":        f"/dashboard/clients/{c.id}/",
+        })
+
+    return JsonResponse({"results": results})
+
+
+@login_required
+def outstanding_balances(request):
+    """Show all outstanding (unpaid) service record balances across referrals and direct clients."""
+    organizations = _get_user_organizations(request)
+    if not organizations.exists():
+        return HttpResponseForbidden()
+
+    filter_type = request.GET.get("filter", "all")  # all | referral | direct
+
+    qs = ServiceRecord.objects.filter(
+        organization__in=organizations,
+        referral_balance__gt=0,
+        is_referral_paid=False,
+    ).select_related("vehicle__client", "referral", "organization").order_by("-created_at")
+
+    if filter_type == "referral":
+        qs = qs.filter(referral__isnull=False)
+    elif filter_type == "direct":
+        qs = qs.filter(referral__isnull=True)
+
+    total = qs.aggregate(t=Sum("referral_balance"))["t"] or Decimal("0")
+
+    return render(request, "core/outstanding_balances.html", {
+        "records": qs,
+        "total": total,
+        "filter_type": filter_type,
+        "title": "Outstanding Balances",
+    })
+
+
+@login_required
+@require_POST
+def mark_balance_paid(request, record_id):
+    """
+    AJAX endpoint — apply a full or partial payment to a ServiceRecord's
+    outstanding referral balance.
+
+    Hardening checklist:
+    ✓ Input sanitisation & range validation before any DB write
+    ✓ select_for_update() prevents race-condition double-payments
+    ✓ Atomic transaction — referral payment log rolls back on failure
+    ✓ Specific exception types caught with descriptive JSON errors
+    ✓ Never raises an unhandled 500 — always returns JSON
+    """
+    from django.http import JsonResponse
+    from django.db import transaction, IntegrityError, OperationalError
+
+    # ── 1. Authorisation ────────────────────────────────────────────────
+    organizations = _get_user_organizations(request)
+    if not organizations.exists():
+        return JsonResponse(
+            {"success": False, "error": "You do not have access to any organisation."},
+            status=403,
+        )
+
+    # ── 2. Input validation BEFORE touching the DB ───────────────────────
+    payment_str = (request.POST.get("payment_amount") or "").strip()
+
+    if payment_str:
+        # Reject obviously malicious or garbage strings early
+        if len(payment_str) > 20:
+            return JsonResponse(
+                {"success": False, "error": "Payment amount value is too long."},
+                status=400,
+            )
+        try:
+            payment = Decimal(payment_str)
+        except Exception:
+            return JsonResponse(
+                {"success": False, "error": "Invalid payment amount. Please enter a valid number."},
+                status=400,
+            )
+        if payment < Decimal("0.01"):
+            return JsonResponse(
+                {"success": False, "error": "Payment amount must be at least $0.01."},
+                status=400,
+            )
+        if payment > Decimal("999999.99"):
+            return JsonResponse(
+                {"success": False, "error": "Payment amount exceeds the maximum allowed value."},
+                status=400,
+            )
+    else:
+        payment = None  # will be resolved to full balance inside the transaction
+
+    # ── 3. Atomic DB operation with row-level lock ────────────────────────
+    try:
+        with transaction.atomic():
+            # Lock this specific row so concurrent requests queue up instead
+            # of both reading the same balance and double-paying
+            try:
+                record = (
+                    ServiceRecord.objects
+                    .select_for_update(nowait=True)
+                    .select_related("referral")
+                    .get(id=record_id, organization__in=organizations)
+                )
+            except ServiceRecord.DoesNotExist:
+                return JsonResponse(
+                    {"success": False, "error": "Record not found or you do not have access to it."},
+                    status=404,
+                )
+            except OperationalError:
+                # Another request already holds the lock
+                return JsonResponse(
+                    {"success": False,
+                     "error": "This record is being updated by another request. Please wait a moment and try again."},
+                    status=429,
+                )
+
+            # Guard: already paid
+            if record.is_referral_paid or record.referral_balance <= Decimal("0"):
+                return JsonResponse(
+                    {"success": False,
+                     "error": "This record is already marked as paid. Refresh the page to see the current state."},
+                    status=409,
+                )
+
+            # Resolve full-payment shorthand now that we have the live balance
+            if payment is None:
+                payment = record.referral_balance
+
+            # Guard: paying more than owed
+            if payment > record.referral_balance:
+                return JsonResponse(
+                    {"success": False,
+                     "error": f"Payment amount (${payment:.2f}) exceeds the outstanding balance "
+                              f"(${record.referral_balance:.2f})."},
+                    status=422,
+                )
+
+            # Apply
+            record.referral_balance = max(Decimal("0"), record.referral_balance - payment)
+            record.is_referral_paid = record.referral_balance <= Decimal("0")
+            record.save(update_fields=["referral_balance", "is_referral_paid", "updated_at"])
+
+            # Log against the referral entity if one is linked
+            if record.referral_id:
+                ReferralPayment.objects.create(
+                    referral_id=record.referral_id,
+                    amount=payment,
+                    notes=f"Payment via Outstanding Balances hub — {record.client_name} ({record.receipt_number})",
+                )
+
+    except IntegrityError as e:
+        # Constraint violation (e.g. unique receipt_number race — extremely rare)
+        return JsonResponse(
+            {"success": False, "error": "A database integrity error occurred. No changes were made."},
+            status=500,
+        )
+    except Exception as e:
+        # Last-resort catch — never let Django emit a raw 500 HTML page
+        import logging
+        logging.getLogger("core.views").error(
+            "mark_balance_paid unexpected error: record_id=%s user=%s err=%s",
+            record_id, request.user.id, e, exc_info=True,
+        )
+        return JsonResponse(
+            {"success": False,
+             "error": "An unexpected server error occurred. No changes were made. Please try again."},
+            status=500,
+        )
+
+    return JsonResponse({
+        "success": True,
+        "remaining": float(record.referral_balance),
+        "is_paid": record.is_referral_paid,
+    })

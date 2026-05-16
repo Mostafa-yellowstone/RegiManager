@@ -237,6 +237,8 @@ class ClientForm(forms.ModelForm):
         organizations = kwargs.pop("organizations", Organization.objects.none())
         super().__init__(*args, **kwargs)
         self.fields["organization"].queryset = organizations
+        self.fields["phone_number"].required = True
+        self.fields["gender"].required = True
         
         if organizations.count() == 1:
             self.fields["organization"].initial = organizations.first()
@@ -262,8 +264,7 @@ class ClientForm(forms.ModelForm):
                 referral_choices.insert(1, (str(d.id), d.name))
         self.fields["referral_select"].choices = referral_choices
         self.fields["referral_phone_no"].widget.attrs.update({"class": "phone-mask", "placeholder": "(000) 000 - 0000"})
-        self.fields["referral_balance"].widget.attrs["readonly"] = True
-
+        # self.fields["referral_balance"].widget.attrs["readonly"] = True
         for field_name, field in self.fields.items():
             if "class" not in field.widget.attrs:
                 field.widget.attrs["class"] = "form-control"
@@ -277,13 +278,16 @@ class ClientForm(forms.ModelForm):
         organization = cleaned_data.get("organization")
         
         if first_name and last_name and organization:
-            existing = Client.objects.filter(
-                first_name__iexact=first_name, 
-                last_name__iexact=last_name,
-                organization=organization
-            ).exists()
-            if existing and not self.instance.pk:
-                raise forms.ValidationError(f"A client named {first_name} {last_name} already exists in this PSB.")
+            dl = cleaned_data.get("driver_license", "").strip().upper()
+            if dl:
+                existing = Client.objects.filter(
+                    first_name__iexact=first_name, 
+                    last_name__iexact=last_name,
+                    driver_license__iexact=dl,
+                    organization=organization
+                ).exists()
+                if existing and not self.instance.pk:
+                    raise forms.ValidationError(f"A client with this name and DL already exists in this PSB.")
         return cleaned_data
 
     def clean_mv82_file(self):
@@ -385,7 +389,7 @@ class VehicleServiceForm(forms.ModelForm):
         self.fields["service_type"].choices = base_choices
 
         self.fields["credit_card_fee"].widget.attrs["readonly"] = True
-        self.fields["referral_balance"].widget.attrs["readonly"] = True
+        # self.fields["referral_balance"].widget.attrs["readonly"] = True
         for field_name, field in self.fields.items():
             field.widget.attrs["class"] = "form-control"
 class ClientIntakeForm(forms.ModelForm):
@@ -450,7 +454,7 @@ class ClientIntakeForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Only require the bare essentials
-        required_fields = ["first_name", "last_name", "vin"]
+        required_fields = ["first_name", "last_name", "vin", "phone_number", "gender"]
         for field_name, field in self.fields.items():
             if field_name not in required_fields:
                 field.required = False

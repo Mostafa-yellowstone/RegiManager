@@ -440,6 +440,8 @@ class ServiceRecord(SoftDeleteModel):
         # Automatically mark as paid if balance is zero
         if self.referral_balance <= 0:
             self.is_referral_paid = True
+        else:
+            self.is_referral_paid = False
             
         super().save(*args, **kwargs)
 

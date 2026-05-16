@@ -87,6 +87,9 @@ from core.views import (
     approve_intake,
     reject_intake,
     intake_mv82_pdf,
+    outstanding_balances,
+    mark_balance_paid,
+    client_search_ajax,
 )
 
 from rest_framework.routers import DefaultRouter
@@ -179,6 +182,9 @@ urlpatterns = [
     path("dashboard/intake/<int:intake_id>/approve/", approve_intake, name="approve-intake"),
     path("dashboard/intake/<int:intake_id>/reject/", reject_intake, name="reject-intake"),
     path("intake/<int:intake_id>/mv82-preview/", intake_mv82_pdf, name="intake-mv82-pdf"),
+    path("dashboard/outstanding-balances/", outstanding_balances, name="outstanding-balances"),
+    path("dashboard/outstanding-balances/<int:record_id>/mark-paid/", mark_balance_paid, name="mark-balance-paid"),
+    path("dashboard/client-search/", client_search_ajax, name="client-search-ajax"),
 ]
 
 if settings.DEBUG:

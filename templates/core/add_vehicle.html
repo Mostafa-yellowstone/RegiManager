@@ -49,10 +49,17 @@
                     <div class="field-wrap">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
                             <label style="margin: 0; font-size: 0.85rem;">VIN (Mandatory)</label>
-                            <button type="button" id="title-scan-trigger" style="cursor: pointer; color: #10b981; display: flex; align-items: center; gap: 4px; font-size: 0.65rem; font-weight: 700; background: #f0fdf4; padding: 2px 8px; border-radius: 6px; border: 1px solid #dcfce7;" title="Scan title/barcode">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                                SCAN TITLE
-                            </button>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <input type="file" id="title-image-upload" accept="image/*" style="display: none;">
+                                <button type="button" onclick="document.getElementById('title-image-upload').click()" style="cursor: pointer; color: #4f46e5; display: flex; align-items: center; gap: 4px; font-size: 0.65rem; font-weight: 700; background: #e0e7ff; padding: 2px 8px; border-radius: 6px; border: 1px solid #c7d2fe;" title="Upload title image">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                    AUTO-FILL IMAGE
+                                </button>
+                                <button type="button" id="title-scan-trigger" style="cursor: pointer; color: #10b981; display: flex; align-items: center; gap: 4px; font-size: 0.65rem; font-weight: 700; background: #f0fdf4; padding: 2px 8px; border-radius: 6px; border: 1px solid #dcfce7;" title="Scan title/barcode text">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                                    SCAN BARCODE
+                                </button>
+                            </div>
                         </div>
                         <div style="position: relative; width: 100%;">
                             {{ form.vin }}
@@ -369,41 +376,97 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     function applyVehicleScanData(d) {
-        const map = {
-            id_vin: d.vin,
-            id_year: d.year,
-            id_make: d.make,
-            id_model: d.model,
-            id_plate_number: d.plate_number,
+        // Mapping of extracted data keys to form field names/IDs
+        const fieldMapping = {
+            'vin': d.vin,
+            'year': d.year,
+            'make': d.make,
+            'model': d.model,
+            'plate_number': d.plate_number,
+            'fuel_type': d.fuel_type,
+            'cylinders': d.cylinders,
+            'weight': d.weight,
+            'color': d.color
         };
+        
         const extracted = Object.entries({
-            VIN: d.vin,
-            Year: d.year,
-            Make: d.make,
-            Model: d.model,
-            Plate: d.plate_number
+            'VIN': d.vin,
+            'Year': d.year,
+            'Make': d.make,
+            'Model': d.model,
+            'Plate': d.plate_number,
+            'Fuel': d.fuel_type,
+            'Cylinders': d.cylinders,
+            'Weight': d.weight,
+            'Color': d.color
         }).filter(([,v]) => !!v);
 
         const apply = () => {
-            for (const [id, val] of Object.entries(map)) {
-                const el = document.getElementById(id);
-                if (el && val) el.value = val;
+            for (const [fieldName, val] of Object.entries(fieldMapping)) {
+                if (!val) continue;
+
+                // Try finding by ID (Django default) or by Name attribute
+                let el = document.getElementById('id_' + fieldName) || document.querySelector(`[name="${fieldName}"]`);
+                if (!el) continue;
+
+                if (el.tagName === 'SELECT') {
+                    const options = Array.from(el.options);
+                    const valLower = String(val).toLowerCase();
+                    let found = options.find(opt => opt.value.toLowerCase() === valLower || opt.text.toLowerCase() === valLower);
+                    if (!found) {
+                        // Fuzzy search for select options
+                        found = options.find(opt => valLower.includes(opt.text.toLowerCase()) || opt.text.toLowerCase().includes(valLower));
+                    }
+                    if (found) el.value = found.value;
+                } else {
+                    el.value = val;
+                }
+                
+                // Visual feedback
+                el.style.backgroundColor = '#f0fdf4';
+                el.style.border = '2px solid #10b981';
+                el.style.transition = 'all 0.5s';
+                setTimeout(() => { 
+                    el.style.backgroundColor = ''; 
+                    el.style.border = '';
+                }, 2000);
             }
+            
+            // Trigger VIN validation logic
             if (d.vin) {
-                document.getElementById('id_vin').dispatchEvent(new Event('input', { bubbles: true }));
+                const vinField = document.getElementById('id_vin') || document.querySelector('[name="vin"]');
+                if (vinField) {
+                    vinField.dispatchEvent(new Event('input', { bubbles: true }));
+                }
             }
         };
 
         if (window.Swal && extracted.length) {
-            const html = extracted.map(([k,v]) => `<div style="text-align:left; margin: 4px 0;"><strong>${k}:</strong> ${v}</div>`).join('');
+            const html = `<div style="max-height: 300px; overflow-y: auto;">` + 
+                extracted.map(([k,v]) => `<div style="text-align:left; margin: 8px 0; padding: 8px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #3b82f6;"><strong>${k}:</strong> <span style="color: #1e293b;">${v}</span></div>`).join('') + 
+                `</div>`;
+            
             Swal.fire({
-                title: 'Apply scanned vehicle data?',
-                html,
-                icon: 'question',
+                title: 'Apply Extracted Title Data?',
+                html: html,
+                icon: 'info',
                 showCancelButton: true,
-                confirmButtonText: 'Apply Fields',
+                confirmButtonText: 'Auto-Fill Fields',
+                cancelButtonText: 'Discard',
+                confirmButtonColor: '#3b82f6',
+                cancelButtonColor: '#64748b',
+                width: '450px'
             }).then((result) => {
-                if (result.isConfirmed) apply();
+                if (result.isConfirmed) {
+                    apply();
+                    Swal.fire({
+                        title: 'Success!',
+                        text: 'Vehicle fields updated.',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
             });
         } else {
             apply();
@@ -445,6 +508,57 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Title Image Upload Auto-Fill
+    const titleImageUpload = document.getElementById('title-image-upload');
+    if (titleImageUpload) {
+        titleImageUpload.addEventListener('change', function() {
+            const file = this.files[0];
+            if (!file) return;
+
+            const btn = this.nextElementSibling;
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<span style="display:inline-block;width:10px;height:10px;border:2px solid rgba(79,70,229,.35);border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:2px;"></span> SCANNING...';
+            btn.disabled = true;
+
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+            fetch('{% url "ocr-vehicle-title" %}', {
+                method: 'POST',
+                body: fd
+            })
+            .then(r => r.json())
+            .then(res => {
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+                titleImageUpload.value = '';
+
+                if (res.status === 'success') {
+                    if (res.data.status_msg) {
+                        Swal.fire('Scan Result', res.data.status_msg, 'info');
+                    } else {
+                        applyVehicleScanData(res.data);
+                        const form = document.getElementById('vehicle-form');
+                        form.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.2)';
+                        setTimeout(() => form.style.boxShadow = '', 2000);
+                    }
+                } else {
+                    Swal.fire('Scan Failed', res.message || 'Could not process the image.', 'error');
+                }
+            })
+            .catch(err => {
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+                titleImageUpload.value = '';
+                Swal.fire('Error', 'Network error during scan.', 'error');
+            });
+        });
+    }
 });
 </script>
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
 {% endblock %}

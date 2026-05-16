@@ -134,10 +134,14 @@ input:checked + .slider:before {
                     {% endif %}
                 </p>
                 {% if is_owner or user_can_manage_referrals %}
-                <div style="margin-top: 1rem;">
+                <div style="margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
                     <a href="{% url 'all-referrals' %}" class="btn btn-secondary" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 6px;"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
                         Access Referral Space
+                    </a>
+                    <a href="{% url 'outstanding-balances' %}" class="btn btn-secondary" style="background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.4); color: #fde68a;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 6px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        Outstanding Balances{% if total_outstanding_referral_balance and total_outstanding_referral_balance > 0 %} <span style="background: rgba(239,68,68,0.25); color: #fca5a5; padding: 1px 8px; border-radius: 99px; font-size: 0.78rem; font-weight: 800; margin-left: 6px;">${{ total_outstanding_referral_balance|floatformat:0 }}</span>{% endif %}
                     </a>
                 </div>
                 {% endif %}
@@ -290,22 +294,318 @@ input:checked + .slider:before {
         </section>
         {% endif %}
 
-        <div style="margin: 2rem 0; display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;">
-            <a href="{% url 'add-client' %}" class="btn btn-primary" style="padding: 1.2rem 3rem; font-size: 1.2rem; border-radius: 14px; display: inline-flex; align-items: center; gap: 1rem; box-shadow: 0 10px 25px -5px rgba(9, 61, 230, 0.3); transition: transform 0.2s; background: linear-gradient(135deg, #093de6, #2563eb);">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
-                Add New Client
-            </a>
-            <a href="{% url 'all-clients' %}" class="btn btn-secondary" style="padding: 1.2rem 3rem; font-size: 1.2rem; border-radius: 14px; display: inline-flex; align-items: center; gap: 1rem; background: white; border: 2px solid #e2e8f0; color: #1e293b; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); transition: transform 0.2s;">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                View All Clients
-            </a>
-            {% if automation_enabled %}
-            <button type="button" class="btn btn-secondary" style="padding: 1.2rem 3rem; font-size: 1.2rem; border-radius: 14px; display: inline-flex; align-items: center; gap: 1rem; background: #fffbeb; border: 2px solid #fef3c7; color: #92400e; box-shadow: 0 10px 15px -3px rgba(245, 158, 11, 0.1); transition: transform 0.2s; cursor: pointer;" onclick="confirmAutomationScan()">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                Run Automation Scan
-            </button>
-            {% endif %}
+        <!-- ═══════════════════ COMMAND BAR ═══════════════════ -->
+        <div class="dash-cmd-bar" id="dash-command-bar">
+
+            <!-- Live Search -->
+            <div class="dash-search-wrap">
+                <div class="dash-search-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
+                <input type="text"
+                       id="dashClientSearch"
+                       class="dash-search-input"
+                       placeholder="Search clients by name, ID or plate…"
+                       autocomplete="off"
+                       spellcheck="false">
+                <div class="dash-search-badge">⌘K</div>
+                <!-- Dropdown results -->
+                <div class="dash-search-results" id="dashSearchResults"></div>
+            </div>
+
+            <!-- Action chips -->
+            <div class="dash-actions">
+                <a href="{% url 'add-client' %}" class="dash-action-chip dash-chip-primary">
+                    <span class="dash-chip-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                    </span>
+                    <span class="dash-chip-label">New Client</span>
+                    <span class="dash-chip-arrow">→</span>
+                </a>
+
+                <a href="{% url 'all-clients' %}" class="dash-action-chip dash-chip-ghost">
+                    <span class="dash-chip-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </span>
+                    <span class="dash-chip-label">All Clients</span>
+                </a>
+
+                {% if automation_enabled %}
+                <button type="button" class="dash-action-chip dash-chip-amber" onclick="confirmAutomationScan()">
+                    <span class="dash-chip-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    </span>
+                    <span class="dash-chip-label">Auto Scan</span>
+                </button>
+                {% endif %}
+            </div>
         </div>
+
+        <style>
+        /* ── Command Bar ──────────────────────────────────────────────── */
+        .dash-cmd-bar {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 2rem 0 1.75rem;
+            flex-wrap: wrap;
+        }
+
+        /* ── Search ──────────────────────────────────────────────────── */
+        .dash-search-wrap {
+            position: relative;
+            flex: 1;
+            min-width: 280px;
+        }
+        .dash-search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            pointer-events: none;
+            display: flex;
+        }
+        .dash-search-input {
+            width: 100%;
+            padding: .85rem 3.5rem .85rem 2.9rem;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 14px;
+            font-size: .95rem;
+            font-weight: 500;
+            color: #1e293b;
+            background: white;
+            box-shadow: 0 2px 12px rgba(15,23,42,.06);
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+            box-sizing: border-box;
+        }
+        .dash-search-input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99,102,241,.12), 0 2px 12px rgba(15,23,42,.08);
+        }
+        .dash-search-input::placeholder { color: #94a3b8; }
+        .dash-search-badge {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            color: #94a3b8;
+            font-size: .7rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 6px;
+            letter-spacing: .04em;
+            pointer-events: none;
+        }
+        .dash-search-results {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 14px;
+            box-shadow: 0 16px 40px -8px rgba(15,23,42,.18);
+            z-index: 400;
+            overflow: hidden;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+        .dash-search-results.open { display: block; }
+        .dsr-item {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            padding: .75rem 1rem;
+            border-bottom: 1px solid #f1f5f9;
+            text-decoration: none;
+            transition: background .15s;
+            cursor: pointer;
+        }
+        .dsr-item:last-child { border-bottom: none; }
+        .dsr-item:hover { background: #f8fafc; }
+        .dsr-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            font-size: .8rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .dsr-name { font-weight: 700; font-size: .9rem; color: #0f172a; }
+        .dsr-meta { font-size: .75rem; color: #64748b; margin-top: 1px; }
+        .dsr-empty {
+            padding: 1.5rem;
+            text-align: center;
+            color: #94a3b8;
+            font-size: .88rem;
+        }
+        .dsr-loading {
+            padding: 1.2rem;
+            text-align: center;
+            color: #94a3b8;
+            font-size: .85rem;
+        }
+
+        /* ── Action chips ─────────────────────────────────────────────── */
+        .dash-actions {
+            display: flex;
+            gap: .6rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .dash-action-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .75rem 1.2rem;
+            border-radius: 12px;
+            font-size: .875rem;
+            font-weight: 700;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s;
+            white-space: nowrap;
+        }
+        .dash-action-chip:hover {
+            transform: translateY(-3px);
+        }
+        .dash-chip-icon {
+            display: flex;
+            align-items: center;
+        }
+        .dash-chip-arrow {
+            opacity: 0;
+            transform: translateX(-4px);
+            transition: opacity .2s, transform .2s;
+            font-size: .8rem;
+        }
+        .dash-action-chip:hover .dash-chip-arrow {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        /* Primary — indigo gradient */
+        .dash-chip-primary {
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
+            color: white;
+            box-shadow: 0 4px 15px rgba(99,102,241,.35);
+        }
+        .dash-chip-primary:hover {
+            box-shadow: 0 8px 24px rgba(99,102,241,.45);
+        }
+
+        /* Ghost — white outlined */
+        .dash-chip-ghost {
+            background: white;
+            color: #334155;
+            border: 1.5px solid #e2e8f0;
+            box-shadow: 0 2px 8px rgba(15,23,42,.06);
+        }
+        .dash-chip-ghost:hover {
+            border-color: #6366f1;
+            color: #4f46e5;
+            box-shadow: 0 6px 18px rgba(99,102,241,.12);
+        }
+
+        /* Amber — automation */
+        .dash-chip-amber {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            box-shadow: 0 4px 15px rgba(245,158,11,.3);
+        }
+        .dash-chip-amber:hover {
+            box-shadow: 0 8px 22px rgba(245,158,11,.4);
+        }
+        </style>
+
+        <script>
+        /* ── Dashboard Live Search ──────────────────────────────────── */
+        (function () {
+            const input   = document.getElementById('dashClientSearch');
+            const results = document.getElementById('dashSearchResults');
+            let   timer   = null;
+
+            // ⌘K / Ctrl+K focus shortcut
+            document.addEventListener('keydown', e => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                    e.preventDefault();
+                    input.focus();
+                    input.select();
+                }
+                if (e.key === 'Escape') closeSearch();
+            });
+
+            input.addEventListener('input', () => {
+                clearTimeout(timer);
+                const q = input.value.trim();
+                if (q.length < 2) { closeSearch(); return; }
+                showLoading();
+                timer = setTimeout(() => doSearch(q), 280);
+            });
+
+            input.addEventListener('focus', () => {
+                if (input.value.trim().length >= 2) results.classList.add('open');
+            });
+
+            document.addEventListener('click', e => {
+                if (!input.contains(e.target) && !results.contains(e.target)) closeSearch();
+            });
+
+            function showLoading() {
+                results.innerHTML = '<div class="dsr-loading">Searching…</div>';
+                results.classList.add('open');
+            }
+
+            function closeSearch() {
+                results.classList.remove('open');
+            }
+
+            function doSearch(q) {
+                const url = "{% url 'client-search-ajax' %}" + '?q=' + encodeURIComponent(q) + '&limit=8';
+                fetch(url, { credentials: 'same-origin' })
+                .then(r => r.ok ? r.json() : Promise.reject(r.status))
+                .then(data => {
+                    const items = data.results || [];
+                    if (!items.length) {
+                        results.innerHTML = '<div class="dsr-empty">No clients found for "<strong>' + escHtml(q) + '</strong>"</div>';
+                        results.classList.add('open');
+                        return;
+                    }
+                    results.innerHTML = items.map(c => {
+                        const initials = ((c.first_name || '')[0] || '') + ((c.last_name || '')[0] || '');
+                        return `<a class="dsr-item" href="${escHtml(c.url || '#')}">
+                            <div class="dsr-avatar">${escHtml(initials.toUpperCase() || '?')}</div>
+                            <div>
+                                <div class="dsr-name">${escHtml(c.name || c.full_name || '')}</div>
+                                <div class="dsr-meta">${escHtml(c.identifier || c.driver_license || '')}${c.plate ? ' · ' + escHtml(c.plate) : ''}</div>
+                            </div>
+                        </a>`;
+                    }).join('');
+                    results.classList.add('open');
+                })
+                .catch(() => {
+                    results.innerHTML = '<div class="dsr-empty">Could not load results. Try again.</div>';
+                    results.classList.add('open');
+                });
+            }
+
+            function escHtml(s) {
+                return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+            }
+        })();
+        </script>
+
 
         <section class="service-cards-grid" id="services" style="scroll-margin-top: 100px;">
             {% for card in service_cards %}

@@ -130,6 +130,13 @@
                 <!-- Row 2: Names -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                     <h3 style="margin: 0; font-size: 1.1rem; color: #1e293b; font-weight: 800;">Personal Information</h3>
+                    <div style="position: relative;">
+                        <input type="file" id="dl-image-upload" accept="image/*" style="display: none;">
+                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('dl-image-upload').click()" style="padding: 0.5rem 1rem; font-size: 0.85rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 0.5rem; border: 1.5px solid #e2e8f0; color: #4f46e5; background: #e0e7ff; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.1);">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            Auto-Fill from DL Image
+                        </button>
+                    </div>
                 </div>
 
                 <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
@@ -224,18 +231,7 @@
                     </div>
                 </div>
 
-                <!-- Row 7: Document Uploads -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                    <h3 style="margin: 0; font-size: 1.1rem; color: #1e293b; font-weight: 800;">Required Documents</h3>
-                </div>
-                <div class="form-row" style="margin-bottom: 2rem;">
-                    <div class="field-wrap" style="background: #f8fafc; padding: 1.5rem; border-radius: 12px; border: 1px dashed #cbd5e1;">
-                        <label style="font-weight: 700; color: #334155; display: block; margin-bottom: 0.5rem;">Upload MV-82 Document (Optional)</label>
-                        {{ form.mv82_file }}
-                        <div id="file-error" style="color: #ef4444; font-size: 0.85rem; margin-top: 0.5rem; display: none;"></div>
-                        <p style="font-size: 0.8rem; color: #64748b; margin-top: 0.5rem;">Max size: 5MB. Allowed formats: PDF, JPG, PNG.</p>
-                    </div>
-                </div>
+
 
                 <div class="form-actions" style="border-top: 1px solid #e2e8f0; padding-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
                     <a href="{% url 'dashboard' %}" class="btn btn-secondary">Cancel</a>
@@ -478,30 +474,78 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Client-side file validation
-    const fileInput = document.getElementById('id_mv82_file');
-    const fileError = document.getElementById('file-error');
-    if (fileInput) {
-        fileInput.addEventListener('change', function() {
+
+    // DL Image Upload Auto-Fill
+    const dlImageUpload = document.getElementById('dl-image-upload');
+    if (dlImageUpload) {
+        dlImageUpload.addEventListener('change', function() {
             const file = this.files[0];
-            fileError.style.display = 'none';
-            if (file) {
-                if (file.size > 5 * 1024 * 1024) {
-                    fileError.textContent = 'File is too large. Maximum size is 5MB.';
-                    fileError.style.display = 'block';
-                    this.value = '';
-                } else {
-                    const validExts = ['pdf', 'jpg', 'jpeg', 'png'];
-                    const ext = file.name.split('.').pop().toLowerCase();
-                    if (!validExts.includes(ext)) {
-                        fileError.textContent = 'Invalid file type. Only PDF, JPG, and PNG are allowed.';
-                        fileError.style.display = 'block';
-                        this.value = '';
+            if (!file) return;
+
+            const btn = this.nextElementSibling;
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(79,70,229,.35);border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;"></span> Scanning...';
+            btn.disabled = true;
+
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+            fetch('{% url "ocr-dl" %}', {
+                method: 'POST',
+                body: fd
+            })
+            .then(r => r.json())
+            .then(res => {
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+                dlImageUpload.value = '';
+
+                if (res.status === 'success') {
+                    const d = res.data;
+                    if (d.status_msg) {
+                        Swal.fire('Scan Result', d.status_msg, 'info');
+                    } else {
+                        if (d.driver_license) document.getElementById('id_driver_license').value = d.driver_license;
+                        if (d.dob) document.getElementById('id_dob').value = d.dob;
+                        if (d.first_name) document.getElementById('id_first_name').value = d.first_name;
+                        if (d.last_name) document.getElementById('id_last_name').value = d.last_name;
+                        if (d.middle_name) document.getElementById('id_middle_name').value = d.middle_name;
+                        if (d.building_no) document.getElementById('id_building_no').value = d.building_no;
+                        if (d.street_address) document.getElementById('id_street_address').value = d.street_address;
+                        if (d.apartment) document.getElementById('id_apartment').value = d.apartment;
+                        if (d.city) document.getElementById('id_city').value = d.city;
+                        if (d.state) document.getElementById('id_state').value = d.state;
+                        if (d.zip_code) document.getElementById('id_zip_code').value = d.zip_code;
+                        if (d.county && document.getElementById('id_county')) document.getElementById('id_county').value = d.county;
+                        
+                        Swal.fire({
+                            title: 'DL Extracted!',
+                            text: 'Fields have been auto-filled successfully.',
+                            icon: 'success',
+                            timer: 2500,
+                            confirmButtonColor: '#4f46e5'
+                        });
+                        const form = document.getElementById('client-form');
+                        form.style.boxShadow = '0 0 20px rgba(79, 70, 229, 0.2)';
+                        setTimeout(() => form.style.boxShadow = '', 2000);
                     }
+                } else {
+                    Swal.fire('Scan Failed', res.message || 'Could not process the image.', 'error');
                 }
-            }
+            })
+            .catch(err => {
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+                dlImageUpload.value = '';
+                Swal.fire('Error', 'Network error during scan.', 'error');
+            });
         });
     }
+
 });
 </script>
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
 {% endblock %}
