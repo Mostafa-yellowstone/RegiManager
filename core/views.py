@@ -3570,12 +3570,15 @@ def ocr_dl_ajax(request):
         file_obj = request.FILES['file']
         
         try:
-            # We use the 'helloworld' key for demonstration, or you can get a free key at ocr.space
+            # Try to get API key from environment, fallback to 'helloworld'
+            import os
+            api_key = os.environ.get('OCR_API_KEY', 'helloworld')
+            
             payload = {
                 'isOverlayRequired': False,
-                'apikey': 'helloworld',
+                'apikey': api_key,
                 'language': 'eng',
-                'OCREngine': 2, # Engine 2 is better for some documents
+                'OCREngine': 2,
             }
             r = requests.post('https://api.ocr.space/parse/image',
                             files={'file': file_obj},
@@ -3584,7 +3587,15 @@ def ocr_dl_ajax(request):
             result = r.json()
             
             if result.get('OCRExitCode') == 1:
-                text = result.get('ParsedResults')[0].get('ParsedText')
+                parsed_results = result.get('ParsedResults')
+                if parsed_results and len(parsed_results) > 0:
+                    text = parsed_results[0].get('ParsedText')
+                else:
+                    return JsonResponse({"status": "error", "message": "OCR returned no text."})
+            else:
+                err = result.get('ErrorMessage') or "Unknown Error"
+                if isinstance(err, list): err = ", ".join(err)
+                return JsonResponse({"status": "error", "message": f"OCR failed: {err}"})
                 
                 
                 # Advanced parser for New York State and standard DLs
@@ -3703,9 +3714,14 @@ def ocr_vehicle_title_ajax(request):
         import requests
         file_obj = request.FILES['file']
         try:
+            # Try to get API key from environment, fallback to 'helloworld'
+            from django.conf import settings
+            import os
+            api_key = os.environ.get('OCR_API_KEY', 'helloworld')
+            
             payload = {
                 'isOverlayRequired': False,
-                'apikey': 'helloworld',
+                'apikey': api_key,
                 'language': 'eng',
                 'OCREngine': 2,
             }
@@ -3714,12 +3730,19 @@ def ocr_vehicle_title_ajax(request):
                             data=payload,
                             timeout=15)
             result = r.json()
+            
             if result.get('OCRExitCode') == 1:
-                raw = result.get('ParsedResults')[0].get('ParsedText').upper()
+                parsed_results = result.get('ParsedResults')
+                if parsed_results and len(parsed_results) > 0:
+                    raw = parsed_results[0].get('ParsedText').upper()
+                else:
+                    return JsonResponse({"status": "error", "message": "OCR succeeded but returned no text."})
             else:
-                return JsonResponse({"status": "error", "message": "OCR failed: " + str(result.get('ErrorMessage'))})
+                err = result.get('ErrorMessage') or result.get('SearchablePDFURL') or "Unknown OCR Error"
+                if isinstance(err, list): err = ", ".join(err)
+                return JsonResponse({"status": "error", "message": f"OCR failed (Code {result.get('OCRExitCode')}): {err}"})
         except Exception as e:
-            return JsonResponse({"status": "error", "message": "OCR Error: " + str(e)})
+            return JsonResponse({"status": "error", "message": f"OCR connection error: {str(e)}"})
 
     if not raw:
         return JsonResponse({"status": "error", "message": "Missing scan data or image."}, status=400)
