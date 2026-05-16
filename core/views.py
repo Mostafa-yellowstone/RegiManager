@@ -1,5 +1,9 @@
 from decimal import Decimal
 import csv
+import io
+import os
+import re
+import requests
 from io import BytesIO
 
 from django.db.models import Count, Sum, Q
@@ -3504,9 +3508,68 @@ def _check_ocr_auth(request):
     if request.user.is_authenticated:
         return True
     portal_token = request.POST.get("portal_token")
-    if portal_token and Organization.objects.filter(portal_token=portal_token, is_active=True).exists():
-        return True
+    if portal_token:
+        from .models import Organization
+        return Organization.objects.filter(portal_token=portal_token).exists()
     return False
+
+def _perform_ocr(file_obj):
+    """
+    Robust OCR wrapper for OCR.space with Engine 2 -> Engine 1 fallback
+    and auto-orientation detection.
+    """
+    import os, requests
+    api_key = os.environ.get('OCR_API_KEY', 'helloworld')
+    
+    # Try Engine 2 first (Better for table-like data)
+    try:
+        payload = {
+            'isOverlayRequired': False,
+            'apikey': api_key,
+            'language': 'eng',
+            'OCREngine': 2,
+            'scale': True,
+        }
+        r = requests.post('https://api.ocr.space/parse/image',
+                        files={'file': file_obj},
+                        data=payload,
+                        timeout=20)
+        result = r.json()
+        
+        if result.get('OCRExitCode') == 1:
+            parsed = result.get('ParsedResults')
+            if parsed and parsed[0].get('ParsedText'):
+                return True, parsed[0].get('ParsedText')
+    except:
+        pass
+
+    # Fallback to Engine 1 with auto-orientation
+    try:
+        file_obj.seek(0)
+        payload = {
+            'isOverlayRequired': False,
+            'apikey': api_key,
+            'language': 'eng',
+            'OCREngine': 1,
+            'detectOrientation': True,
+            'scale': True,
+        }
+        r = requests.post('https://api.ocr.space/parse/image',
+                        files={'file': file_obj},
+                        data=payload,
+                        timeout=20)
+        result = r.json()
+        
+        if result.get('OCRExitCode') == 1:
+            parsed = result.get('ParsedResults')
+            if parsed and parsed[0].get('ParsedText'):
+                return True, parsed[0].get('ParsedText')
+        
+        err = result.get('ErrorMessage') or "OCR Failed"
+        if isinstance(err, list): err = ", ".join(err)
+        return False, err
+    except Exception as e:
+        return False, str(e)
 
 @require_POST
 def ocr_dl_ajax(request):
@@ -3566,79 +3629,54 @@ def ocr_dl_ajax(request):
                         
     elif 'file' in request.FILES:
         # Real OCR using OCR.space Free API
-        import requests
-        file_obj = request.FILES['file']
+        success, text = _perform_ocr(request.FILES['file'])
+        if not success:
+            return JsonResponse({"status": "error", "message": f"OCR failed: {text}"})
         
-        try:
-            # Try to get API key from environment, fallback to 'helloworld'
-            import os
-            api_key = os.environ.get('OCR_API_KEY', 'helloworld')
-            
-            payload = {
-                'isOverlayRequired': False,
-                'apikey': api_key,
-                'language': 'eng',
-                'OCREngine': 2,
-            }
-            r = requests.post('https://api.ocr.space/parse/image',
-                            files={'file': file_obj},
-                            data=payload,
-                            timeout=15)
-            result = r.json()
-            
-            if result.get('OCRExitCode') == 1:
-                parsed_results = result.get('ParsedResults')
-                if parsed_results and len(parsed_results) > 0:
-                    text = parsed_results[0].get('ParsedText')
-                else:
-                    return JsonResponse({"status": "error", "message": "OCR returned no text."})
-            else:
-                err = result.get('ErrorMessage') or "Unknown Error"
-                if isinstance(err, list): err = ", ".join(err)
-                return JsonResponse({"status": "error", "message": f"OCR failed: {err}"})
-                
-                
-                # Advanced parser for New York State and standard DLs
-                lines = [l.strip() for l in text.split('\n') if l.strip()]
-                
-                # 1. Driver License
-                # Notice in the raw text it might be 'Đ 729 264 610', so look for 9 digits grouped.
-                dl_match = re.search(r'\b(?:ID\s*|\w\s+)?(\d{3}\s?\d{3}\s?\d{3})\b', text)
-                if dl_match:
-                    data['driver_license'] = dl_match.group(1).replace(' ', '')
-                
-                # 2. DOB (Notice raw text has 'ров 01/03/2002' instead of DOB)
-                dob_match = re.search(r'(\d{2}/\d{2}/\d{4})', text)
-                if dob_match:
-                    parts = dob_match.group(1).split('/')
+        # Advanced parser for New York State and standard DLs
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+        
+        # 1. Driver License
+        dl_match = re.search(r'\b(?:ID\s*|\w\s+)?(\d{3}\s?\d{3}\s?\d{3})\b', text)
+        if dl_match:
+            data['driver_license'] = dl_match.group(1).replace(' ', '')
+        
+        # 2. DOB (Notice raw text has 'ров 01/03/2002' instead of DOB)
+        dob_match = re.search(r'(\d{2}/\d{2}/\d{4})', text)
+        if dob_match:
+            try:
+                parts = dob_match.group(1).split('/')
+                # Check if it's MM/DD/YYYY
+                if int(parts[0]) <= 12:
                     data['dob'] = f"{parts[2]}-{parts[0]}-{parts[1]}"
+            except: pass
                     
-                # 3. Use City, State, Zip as the Anchor for Address and Names
-                csz_index = -1
-                for i, line in enumerate(lines):
-                    csz_match = re.search(r'^(.+?)[,\s]+([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)', line)
-                    if csz_match:
-                        csz_index = i
-                        data['city'] = csz_match.group(1).strip()
-                        data['state'] = csz_match.group(2).strip().upper()
-                        data['zip_code'] = csz_match.group(3).strip()
-                        
-                        if data['state'] == 'NY':
-                            city_upper = data['city'].upper()
-                            zip_start = data['zip_code'][:3]
-                            if city_upper == 'YONKERS' or zip_start in ('105', '106', '107', '108'):
-                                data['county'] = 'Westchester'
-                            elif zip_start in ('100', '101', '102'):
-                                data['county'] = 'New York'
-                            elif zip_start == '103':
-                                data['county'] = 'Richmond'
-                            elif zip_start == '104':
-                                data['county'] = 'Bronx'
-                            elif zip_start in ('110', '114', '111', '113', '116'):
-                                data['county'] = 'Queens'
-                            elif zip_start == '112':
-                                data['county'] = 'Kings'
-                        break
+        # 3. Use City, State, Zip as the Anchor for Address and Names
+        csz_index = -1
+        for i, line in enumerate(lines):
+            csz_match = re.search(r'^(.+?)[,\s]+([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)', line)
+            if csz_match:
+                csz_index = i
+                data['city'] = csz_match.group(1).strip()
+                data['state'] = csz_match.group(2).strip().upper()
+                data['zip_code'] = csz_match.group(3).strip()
+                
+                if data['state'] == 'NY':
+                    city_upper = data['city'].upper()
+                    zip_start = data['zip_code'][:3]
+                    if city_upper == 'YONKERS' or zip_start in ('105', '106', '107', '108'):
+                        data['county'] = 'Westchester'
+                    elif zip_start in ('100', '101', '102'):
+                        data['county'] = 'New York'
+                    elif zip_start == '103':
+                        data['county'] = 'Richmond'
+                    elif zip_start == '104':
+                        data['county'] = 'Bronx'
+                    elif zip_start in ('110', '114', '111', '113', '116'):
+                        data['county'] = 'Queens'
+                    elif zip_start == '112':
+                        data['county'] = 'Kings'
+                break
 
                 if csz_index != -1:
                     # Index - 1: Street Address
@@ -3711,38 +3749,10 @@ def ocr_vehicle_title_ajax(request):
     raw = (request.POST.get("scan_data") or "").strip().upper()
 
     if 'file' in request.FILES:
-        import requests
-        file_obj = request.FILES['file']
-        try:
-            # Try to get API key from environment, fallback to 'helloworld'
-            from django.conf import settings
-            import os
-            api_key = os.environ.get('OCR_API_KEY', 'helloworld')
-            
-            payload = {
-                'isOverlayRequired': False,
-                'apikey': api_key,
-                'language': 'eng',
-                'OCREngine': 2,
-            }
-            r = requests.post('https://api.ocr.space/parse/image',
-                            files={'file': file_obj},
-                            data=payload,
-                            timeout=15)
-            result = r.json()
-            
-            if result.get('OCRExitCode') == 1:
-                parsed_results = result.get('ParsedResults')
-                if parsed_results and len(parsed_results) > 0:
-                    raw = parsed_results[0].get('ParsedText').upper()
-                else:
-                    return JsonResponse({"status": "error", "message": "OCR succeeded but returned no text."})
-            else:
-                err = result.get('ErrorMessage') or result.get('SearchablePDFURL') or "Unknown OCR Error"
-                if isinstance(err, list): err = ", ".join(err)
-                return JsonResponse({"status": "error", "message": f"OCR failed (Code {result.get('OCRExitCode')}): {err}"})
-        except Exception as e:
-            return JsonResponse({"status": "error", "message": f"OCR connection error: {str(e)}"})
+        success, text = _perform_ocr(request.FILES['file'])
+        if not success:
+            return JsonResponse({"status": "error", "message": f"OCR failed: {text}"})
+        raw = text.upper()
 
     if not raw:
         return JsonResponse({"status": "error", "message": "Missing scan data or image."}, status=400)
