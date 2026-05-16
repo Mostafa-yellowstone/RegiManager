@@ -482,9 +482,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const file = this.files[0];
             if (!file) return;
 
-            // 10MB Limit Check
-            if (file.size > 10 * 1024 * 1024) {
-                Swal.fire('File Too Large', 'The image is larger than 10MB. Please take a lower resolution photo or compress it.', 'warning');
+            // 50MB Limit Check
+            if (file.size > 50 * 1024 * 1024) {
+                Swal.fire('File Too Large', 'The image is larger than 50MB. Please take a lower resolution photo or compress it.', 'warning');
                 this.value = '';
                 return;
             }
