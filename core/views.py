@@ -3575,7 +3575,10 @@ def ocr_dl_ajax(request):
             body = b""
             for k, v in payload.items():
                 body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n".encode()
-            body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{file_obj.name}\"\r\nContent-Type: {file_obj.content_type}\r\n\r\n".encode()
+            
+            # Use a safe ASCII filename for the upload
+            safe_filename = f"dl_{uuid.uuid4().hex[:8]}.jpg"
+            body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{safe_filename}\"\r\nContent-Type: {file_obj.content_type}\r\n\r\n".encode()
             body += file_obj.read() + b"\r\n--" + boundary.encode() + b"--\r\n"
             
             req = urllib.request.Request("https://api.ocr.space/parse/image", data=body)
@@ -3709,18 +3712,24 @@ def ocr_vehicle_title_ajax(request):
             body = b""
             for k, v in payload.items():
                 body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n".encode()
-            body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{file_obj.name}\"\r\nContent-Type: {file_obj.content_type}\r\n\r\n".encode()
+            
+            # Use a safe ASCII filename for the upload
+            safe_filename = f"title_{uuid.uuid4().hex[:8]}.jpg"
+            body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{safe_filename}\"\r\nContent-Type: {file_obj.content_type}\r\n\r\n".encode()
             body += file_obj.read() + b"\r\n--" + boundary.encode() + b"--\r\n"
             
             req = urllib.request.Request("https://api.ocr.space/parse/image", data=body)
             req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
             
-            with urllib.request.urlopen(req, timeout=25) as resp:
+            # Increase timeout to 45s for larger title scans
+            with urllib.request.urlopen(req, timeout=45) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
-            if result.get('OCRExitCode') == 1:
+            
+            if result.get('OCRExitCode') == 1 and result.get('ParsedResults'):
                 raw = result.get('ParsedResults')[0].get('ParsedText').upper()
             else:
-                return JsonResponse({"status": "error", "message": "OCR failed: " + str(result.get('ErrorMessage'))})
+                msg = result.get('ErrorMessage') or result.get('ErrorDetails') or "Unknown OCR error"
+                return JsonResponse({"status": "error", "message": f"OCR failed: {msg}"})
         except Exception as e:
             return JsonResponse({"status": "error", "message": "OCR Error: " + str(e)})
 
