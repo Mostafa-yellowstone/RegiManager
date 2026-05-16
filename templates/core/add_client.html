@@ -162,7 +162,7 @@
                     </div>
                     <div class="field-wrap">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                            <label style="margin: 0;">Driver License <span style="color: #ef4444;">*</span></label>
+                            <label style="margin: 0;">Driver License</label>
                             <div style="display: flex; gap: 10px;">
                                 <!-- Handheld Scanner -->
                                 <button type="button" id="dl-scan-trigger" style="cursor: pointer; color: #10b981; display: flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 700; background: #f0fdf4; padding: 2px 10px; border-radius: 8px; border: 1px solid #dcfce7; transition: all 0.2s; box-shadow: 0 2px 4px rgba(16,185,129,0.1);" title="Scan DL Barcode">
@@ -482,13 +482,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const file = this.files[0];
             if (!file) return;
 
-            // 50MB Limit Check
-            if (file.size > 50 * 1024 * 1024) {
-                Swal.fire('File Too Large', 'The image is larger than 50MB. Please take a lower resolution photo or compress it.', 'warning');
-                this.value = '';
-                return;
-            }
-
             const btn = this.nextElementSibling;
             const originalHTML = btn.innerHTML;
             btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(79,70,229,.35);border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;"></span> Scanning...';
@@ -513,11 +506,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (d.status_msg) {
                         Swal.fire('Scan Result', d.status_msg, 'info');
                     } else {
-                        // Clear fields first
-                        document.getElementById('id_first_name').value = '';
-                        document.getElementById('id_last_name').value = '';
-                        document.getElementById('id_middle_name').value = '';
-                        
                         if (d.driver_license) document.getElementById('id_driver_license').value = d.driver_license;
                         if (d.dob) document.getElementById('id_dob').value = d.dob;
                         if (d.first_name) document.getElementById('id_first_name').value = d.first_name;

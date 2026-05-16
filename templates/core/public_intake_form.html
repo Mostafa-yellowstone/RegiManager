@@ -638,6 +638,27 @@
                         if (d.weight) document.querySelector('input[name="weight"]').value = d.weight;
                         if (d.color) document.querySelector('input[name="color"]').value = d.color;
                         if (d.cylinders) document.querySelector('input[name="cylinders"]').value = d.cylinders;
+                        if (d.odometer_reading) {
+                            const odoEl = document.querySelector('input[name="odometer_reading"]');
+                            if (odoEl) odoEl.value = d.odometer_reading;
+                        }
+                        
+                        // Populate Registrant/Owner name if empty
+                        const fname = document.querySelector('input[name="first_name"]');
+                        const lname = document.querySelector('input[name="last_name"]');
+                        if (fname && !fname.value && d.first_name) fname.value = d.first_name;
+                        if (lname && !lname.value && d.last_name) lname.value = d.last_name;
+
+                        // Populate Address if empty
+                        const bno = document.querySelector('input[name="building_no"]');
+                        const street = document.querySelector('input[name="street_address"]');
+                        const city = document.querySelector('input[name="city"]');
+                        const zip = document.querySelector('input[name="zip_code"]');
+                        if (bno && !bno.value && d.building_no) bno.value = d.building_no;
+                        if (street && !street.value && d.street_address) street.value = d.street_address;
+                        if (city && !city.value && d.city) city.value = d.city;
+                        if (zip && !zip.value && d.zip_code) zip.value = d.zip_code;
+
                         if (d.fuel_type) {
                             const fuelSelect = document.querySelector('select[name="fuel_type"]');
                             if (fuelSelect) {
@@ -646,7 +667,7 @@
                                 if (opt) fuelSelect.value = opt.value;
                             }
                         }
-                        alert('Vehicle fields have been auto-filled successfully.');
+                        alert('Vehicle and Owner data have been auto-filled successfully.');
                     }
                 } else {
                     alert('Scan Failed: ' + (res.message || 'Could not process the image.'));
