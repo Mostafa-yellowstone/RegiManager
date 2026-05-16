@@ -877,11 +877,11 @@ def check_vin_ajax(request):
     decoded_data = {}
     if is_valid_format:
         try:
-            import requests
+            import urllib.request, json
             url = f"https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/{vin}?format=json"
-            response = requests.get(url, timeout=5)
-            if response.status_code == 200:
-                data = response.json().get("Results", [{}])[0]
+            with urllib.request.urlopen(url, timeout=5) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode("utf-8")).get("Results", [{}])[0]
                 # Map NHTSA fields to our model fields
                 decoded_data = {
                     "year": data.get("ModelYear"),
