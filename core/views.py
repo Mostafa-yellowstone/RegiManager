@@ -3678,58 +3678,53 @@ def ocr_dl_ajax(request):
                         data['county'] = 'Kings'
                 break
 
-                if csz_index != -1:
-                    # Index - 1: Street Address
-                    if csz_index - 1 >= 0:
-                        addr_line1 = lines[csz_index - 1]
-                        bno_match = re.search(r'^(\d+)\s+(.+)$', addr_line1)
-                        if bno_match:
-                            data['building_no'] = bno_match.group(1)
-                            rest_of_street = bno_match.group(2)
-                            apt_match = re.search(r'(?i)\s+(APT|#|UNIT|STE|SUITE|APARTMENT)\s+(.+)$', rest_of_street)
-                            if apt_match:
-                                data['street_address'] = rest_of_street[:apt_match.start()].strip()
-                                data['apartment'] = f"{apt_match.group(1).upper()} {apt_match.group(2).strip()}"
-                            else:
-                                data['street_address'] = rest_of_street
-                        else:
-                            data['street_address'] = addr_line1
+        if csz_index != -1:
+            # Index - 1: Street Address
+            if csz_index - 1 >= 0:
+                addr_line1 = lines[csz_index - 1]
+                bno_match = re.search(r'^(\d+)\s+(.+)$', addr_line1)
+                if bno_match:
+                    data['building_no'] = bno_match.group(1)
+                    rest_of_street = bno_match.group(2)
+                    apt_match = re.search(r'(?i)\s+(APT|#|UNIT|STE|SUITE|APARTMENT)\s+(.+)$', rest_of_street)
+                    if apt_match:
+                        data['street_address'] = rest_of_street[:apt_match.start()].strip()
+                        data['apartment'] = f"{apt_match.group(1).upper()} {apt_match.group(2).strip()}"
+                    else:
+                        data['street_address'] = rest_of_street
+                else:
+                    data['street_address'] = addr_line1
 
-                    # Index - 2: First Name, Middle Name
-                    if csz_index - 2 >= 0:
-                        name_line = lines[csz_index - 2]
-                        names = [n.strip() for n in name_line.replace('FIRST', '').replace('NAME', '').split(',')]
-                        if len(names) == 1 and ' ' in names[0]:
-                            names = names[0].split(' ', 1)
-                        if len(names) > 0 and names[0]:
-                            data['first_name'] = names[0].strip()
-                        if len(names) > 1:
-                            data['middle_name'] = names[1].strip()
+            # Index - 2: First Name, Middle Name
+            if csz_index - 2 >= 0:
+                name_line = lines[csz_index - 2]
+                names = [n.strip() for n in name_line.replace('FIRST', '').replace('NAME', '').split(',')]
+                if len(names) == 1 and ' ' in names[0]:
+                    names = names[0].split(' ', 1)
+                if len(names) > 0 and names[0]:
+                    data['first_name'] = names[0].strip()
+                if len(names) > 1:
+                    data['middle_name'] = names[1].strip()
 
-                    # Index - 3: Last Name
-                    if csz_index - 3 >= 0:
-                        data['last_name'] = lines[csz_index - 3].replace('LAST', '').replace('NAME', '').strip()
+            # Index - 3: Last Name
+            if csz_index - 3 >= 0:
+                data['last_name'] = lines[csz_index - 3].replace('LAST', '').replace('NAME', '').strip()
 
-                # 3. Fallbacks if strict parsing missed
-                if 'driver_license' not in data:
-                    dl_match = re.search(r'\b(?:ID\s*)?(\d{3}\s?\d{3}\s?\d{3})\b', text)
-                    if dl_match:
-                        data['driver_license'] = dl_match.group(1).replace(' ', '')
-                        
-                if 'dob' not in data:
-                    dob_match = re.search(r'(\d{2}/\d{2}/\d{4})', text)
-                    if dob_match:
-                        parts = dob_match.group(1).split('/')
-                        data['dob'] = f"{parts[2]}-{parts[0]}-{parts[1]}"
+        # 3. Fallbacks if strict parsing missed
+        if 'driver_license' not in data:
+            dl_match = re.search(r'\b(?:ID\s*)?(\d{3}\s?\d{3}\s?\d{3})\b', text)
+            if dl_match:
+                data['driver_license'] = dl_match.group(1).replace(' ', '')
                 
-                # For demo purposes, we will still return some fields if not found, 
-                # but indicate they were parsed.
-                if not data:
-                    data = {"status_msg": "Text extracted but could not be parsed automatically. Please fill manually.", "raw_text": text[:100]}
-            else:
-                return JsonResponse({"status": "error", "message": "OCR failed: " + str(result.get('ErrorMessage'))})
-        except Exception as e:
-            return JsonResponse({"status": "error", "message": "OCR Error: " + str(e)})
+        if 'dob' not in data:
+            dob_match = re.search(r'(\d{2}/\d{2}/\d{4})', text)
+            if dob_match:
+                parts = dob_match.group(1).split('/')
+                data['dob'] = f"{parts[2]}-{parts[0]}-{parts[1]}"
+        
+        if not data:
+            data = {"status_msg": "Text extracted but could not be parsed automatically. Please fill manually.", "raw_text": text[:100]}
+
     
     return JsonResponse({"status": "success", "data": data})
 
