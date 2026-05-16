@@ -523,7 +523,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const canvas = document.createElement('canvas');
                         let width = img.width;
                         let height = img.height;
-                        const maxDim = 1600;
+                        const maxDim = 2400;
                         if (width > maxDim || height > maxDim) {
                             if (width > height) {
                                 height = (maxDim / width) * height;
@@ -539,7 +539,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         ctx.drawImage(img, 0, 0, width, height);
                         canvas.toBlob((blob) => {
                             resolve(blob);
-                        }, 'image/jpeg', 0.85);
+                        }, 'image/jpeg', 0.95);
                     };
                 };
             });

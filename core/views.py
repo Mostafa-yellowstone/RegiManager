@@ -3591,86 +3591,78 @@ def ocr_dl_ajax(request):
                 result = json.loads(resp.read().decode("utf-8"))
             
             if result.get('OCRExitCode') == 1:
-                text = result.get('ParsedResults')[0].get('ParsedText')
+                text = result.get('ParsedResults')[0].get('ParsedText').upper()
                 lines = [l.strip() for l in text.split('\n') if l.strip()]
                 
-                # 1. Driver License Number (Keyword or Pattern)
-                dl_match = re.search(r'\b(\d{3}\s?\d{3}\s?\d{3})\b', text)
-                if dl_match:
-                    data['driver_license'] = dl_match.group(1).replace(' ', '')
-                
-                # 2. Date of Birth (Look for DOB keyword or standard date format)
-                dob_match = re.search(r'(?i)(?:DOB|BIRTH|BORN|ров)\s*[:\.]?\s*(\d{2}/\d{2}/\d{4})', text)
-                if not dob_match:
-                    dob_match = re.search(r'(\d{2}/\d{2}/\d{4})', text)
-                if dob_match:
-                    parts = dob_match.group(1).split('/')
-                    if len(parts) == 3:
-                        data['dob'] = f"{parts[2]}-{parts[0]}-{parts[1]}"
+                # HEURISTIC PARSER (Senior Level)
+                for line in lines:
+                    # 1. Driver License (9 digits)
+                    if 'driver_license' not in data:
+                        dl_match = re.search(r'\b(\d{3}\s?\d{3}\s?\d{3}|\d{9})\b', line)
+                        if dl_match:
+                            data['driver_license'] = dl_match.group(1).replace(' ', '')
 
-                # 3. Last Name (Look for LN or LAST keyword)
-                ln_match = re.search(r'(?i)(?:LN|1\s+|LAST|SURNAME)\s*[:\.]?\s*([A-Z\s\-]{2,})', text)
-                if ln_match:
-                    data['last_name'] = ln_match.group(1).strip().split('\n')[0].strip()
+                    # 2. Date of Birth
+                    if 'dob' not in data:
+                        dob_match = re.search(r'(\d{2}/\d{2}/\d{4})', line)
+                        if dob_match:
+                            p = dob_match.group(1).split('/')
+                            data['dob'] = f"{p[2]}-{p[0]}-{p[1]}"
 
-                # 4. First & Middle Names (Look for FN or FIRST keyword)
-                fn_match = re.search(r'(?i)(?:FN|2\s+|FIRST|GIVEN)\s*[:\.]?\s*([A-Z\s\-]{2,})', text)
-                if fn_match:
-                    name_parts = fn_match.group(1).strip().split('\n')[0].strip().split()
-                    if name_parts:
-                        data['first_name'] = name_parts[0]
-                        if len(name_parts) > 1:
-                            data['middle_name'] = ' '.join(name_parts[1:])
+                    # 3. Last Name (Look for 1, LN, or LAST prefix)
+                    if 'last_name' not in data:
+                        if line.startswith('1 ') or 'LN ' in line or 'LAST ' in line:
+                            val = line.replace('1 ', '').replace('LN ', '').replace('LAST ', '').replace('NAME', '').replace(':', '').strip()
+                            if val and not any(x in val for x in ['ST', 'AVE', 'RD']): # Ensure it's not an address line
+                                data['last_name'] = val
 
-                # 5. Address (Anchor by City, State, Zip)
-                csz_index = -1
-                for i, line in enumerate(lines):
-                    csz_match = re.search(r'^(.+?)[,\s]+([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)', line)
-                    if csz_match:
-                        csz_index = i
-                        data['city'] = csz_match.group(1).strip()
-                        data['state'] = csz_match.group(2).strip().upper()
-                        data['zip_code'] = csz_match.group(3).strip()
-                        break
-                
-                if csz_index != -1 and csz_index - 1 >= 0:
-                    addr_line1 = lines[csz_index - 1]
-                    bno_match = re.search(r'^(\d+)\s+(.+)$', addr_line1)
-                    if bno_match:
-                        data['building_no'] = bno_match.group(1)
-                        rest_of_street = bno_match.group(2)
-                        apt_match = re.search(r'(?i)\s+(APT|#|UNIT|STE|SUITE|APARTMENT)\s+(.+)$', rest_of_street)
-                        if apt_match:
-                            data['street_address'] = rest_of_street[:apt_match.start()].strip()
-                            data['apartment'] = f"{apt_match.group(1).upper()} {apt_match.group(2).strip()}"
-                        else:
-                            data['street_address'] = rest_of_street
-                    else:
-                        data['street_address'] = addr_line1
+                    # 4. First Name (Look for 2, FN, or FIRST prefix)
+                    if 'first_name' not in data:
+                        if line.startswith('2 ') or 'FN ' in line or 'FIRST ' in line:
+                            val = line.replace('2 ', '').replace('FN ', '').replace('FIRST ', '').replace('NAME', '').replace(':', '').strip()
+                            parts = val.split()
+                            if parts:
+                                data['first_name'] = parts[0]
+                                if len(parts) > 1: data['middle_name'] = ' '.join(parts[1:])
 
-                # If names are still missing, try the old positional logic as a fallback
-                if 'first_name' not in data and csz_index != -1:
-                     if csz_index - 2 >= 0:
-                        name_line = lines[csz_index - 2].replace('FIRST', '').replace('NAME', '').strip()
-                        names = name_line.split()
-                        if names:
-                            data['first_name'] = names[0]
-                            if len(names) > 1: data['middle_name'] = ' '.join(names[1:])
-                if 'last_name' not in data and csz_index != -1:
-                    if csz_index - 3 >= 0:
-                        data['last_name'] = lines[csz_index - 3].replace('LAST', '').replace('NAME', '').strip()
-                
-                # For demo purposes, we will still return some fields if not found, 
-                # but indicate they were parsed.
+                    # 5. City, State, Zip (The Anchor)
+                    if 'city' not in data:
+                        csz_match = re.search(r'^(.+?)[,\s]+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)', line)
+                        if csz_match:
+                            data['city'] = csz_match.group(1).strip()
+                            data['state'] = csz_match.group(2).strip()
+                            data['zip_code'] = csz_match.group(3).strip()
+
+                    # 6. Address (Starts with digits and contains street keywords)
+                    if 'street_address' not in data:
+                        if re.search(r'^\d+\s+', line) and any(kw in line for kw in ['ST', 'AVE', 'RD', 'DR', 'WAY', 'PL', 'CT', 'ROAD', 'STREET']):
+                            b_match = re.search(r'^(\d+)\s+(.+)$', line)
+                            if b_match:
+                                data['building_no'] = b_match.group(1)
+                                street = b_match.group(2)
+                                apt_match = re.search(r'(?i)\s+(APT|#|UNIT|STE|SUITE)\s+(.+)$', street)
+                                if apt_match:
+                                    data['street_address'] = street[:apt_match.start()].strip()
+                                    data['apartment'] = f"{apt_match.group(1)} {apt_match.group(2)}".upper()
+                                else:
+                                    data['street_address'] = street
+
+                # Fallbacks for names if keywords were missed
+                if 'last_name' not in data or 'first_name' not in data:
+                    # Look for lines that are just uppercase names and not already assigned
+                    for line in lines[:5]:
+                        if re.match(r'^[A-Z\s\-]{3,}$', line) and line not in data.values():
+                            if 'last_name' not in data: data['last_name'] = line
+                            elif 'first_name' not in data: data['first_name'] = line
+
                 if not data:
                     data = {"status_msg": "Text extracted but could not be parsed automatically. Please fill manually.", "raw_text": text[:100]}
             else:
                 return JsonResponse({"status": "error", "message": "OCR failed: " + str(result.get('ErrorMessage'))})
         except Exception as e:
             return JsonResponse({"status": "error", "message": "OCR Error: " + str(e)})
-    
-    return JsonResponse({"status": "success", "data": data})
 
+    return JsonResponse({"status": "success", "data": data})
 
 @require_POST
 def ocr_vehicle_title_ajax(request):
@@ -3710,15 +3702,24 @@ def ocr_vehicle_title_ajax(request):
                 result = json.loads(resp.read().decode("utf-8"))
             if result.get('OCRExitCode') == 1 and result.get('ParsedResults'):
                 text = result.get('ParsedResults')[0].get('ParsedText').upper()
-                # Robust VIN Extraction (17 chars)
-                vin_match = re.search(r'\b([A-HJ-NPR-Z0-9]{17})\b', text)
+                # 1. CLEANING: Remove spaces and fix common OCR typos
+                clean_text = text.replace(' ', '').replace('\n', '').replace('\r', '')
+                clean_text = clean_text.replace('O', '0').replace('I', '1').replace('Q', '0').replace('S', '5')
+                
+                # 2. EXTRACTION: Find any 17 char alphanumeric string
+                # We exclude I, O, Q as per VIN standards, but OCR often reads them as such.
+                # Since we already cleaned them, we search for [A-Z0-9]{17}
+                vin_match = re.search(r'[A-HJ-NPR-Z0-9]{17}', clean_text)
                 if not vin_match:
-                    vin_match = re.search(r'\b([A-Z0-9]{17})\b', text)
+                    vin_match = re.search(r'[A-Z0-9]{17}', clean_text)
                 
                 if vin_match:
-                    raw = vin_match.group(1)
+                    raw = vin_match.group(0)
+                    # If it starts with L, it is likely a NY 1
+                    if raw.startswith('L'): raw = '1' + raw[1:]
+                    data["vin"] = raw
                 else:
-                    raw = text
+                    raw = text # Fallback for year/make extraction
             else:
                 msg = result.get('ErrorMessage') or result.get('ErrorDetails') or "Unknown OCR error"
                 return JsonResponse({"status": "error", "message": f"OCR failed: {msg}"})
@@ -3727,14 +3728,6 @@ def ocr_vehicle_title_ajax(request):
 
     if not raw:
         return JsonResponse({"status": "error", "message": "Missing scan data or image."}, status=400)
-
-    # Clean up the VIN (Handle common OCR mistakes like O instead of 0)
-    # Actually most VINs don't use O, I, Q.
-    # We'll try to use the VIN as is first.
-    if len(raw) == 17:
-        data["vin"] = raw
-        if data["vin"].startswith('L'): # Common OCR error for NY titles
-             data["vin"] = '1' + data["vin"][1:]
 
     # 2. Year (4 digits)
     year_match = re.search(r"\b(19\d{2}|20\d{2})\b", raw)
