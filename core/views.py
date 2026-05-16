@@ -35,7 +35,6 @@ from .models import (
     Organization, OrganizationMembership, ServiceAuditLog, ServiceRecord, 
     ServiceDocument, CustomServiceType, Referral, ReferralPayment, Client, Vehicle, ClientIntake
 )
-import json
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.db.utils import OperationalError, ProgrammingError
@@ -3354,7 +3353,6 @@ def referral_profile(request, referral_id):
     for item in service_distribution:
         item['label'] = service_map.get(item['service_type'], item['service_type'])
         
-    import json
     chart_labels = [item['label'] for item in service_distribution]
     chart_data = [item['count'] for item in service_distribution]
     
@@ -3433,7 +3431,6 @@ def upcoming_expirations_view(request):
 @login_required
 @require_POST
 def bulk_send_reminders(request):
-    import json
     from .tasks import process_vehicle_reminder
     
     try:
@@ -3589,8 +3586,6 @@ def ocr_dl_ajax(request):
             if result.get('OCRExitCode') == 1:
                 text = result.get('ParsedResults')[0].get('ParsedText')
                 
-                with open('scratch/last_ocr.txt', 'w', encoding='utf-8') as f:
-                    f.write(text)
                 
                 # Advanced parser for New York State and standard DLs
                 lines = [l.strip() for l in text.split('\n') if l.strip()]
@@ -3721,8 +3716,6 @@ def ocr_vehicle_title_ajax(request):
             result = r.json()
             if result.get('OCRExitCode') == 1:
                 raw = result.get('ParsedResults')[0].get('ParsedText').upper()
-                with open('scratch/last_ocr_vehicle.txt', 'w', encoding='utf-8') as f:
-                    f.write(raw)
             else:
                 return JsonResponse({"status": "error", "message": "OCR failed: " + str(result.get('ErrorMessage'))})
         except Exception as e:
@@ -3809,9 +3802,6 @@ def ocr_vehicle_title_ajax(request):
     if 'file' in request.FILES and not data:
         data = {"status_msg": "Image processed but no clear vehicle data found. Please fill manually.", "raw_text": raw[:100]}
 
-    with open('scratch/last_ocr_vehicle_data.txt', 'w', encoding='utf-8') as f:
-        import json
-        json.dump(data, f)
     return JsonResponse({"status": "success", "data": data})
             
 @login_required
