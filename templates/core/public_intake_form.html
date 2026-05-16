@@ -558,8 +558,8 @@
             const file = this.files[0];
             if (!file) return;
 
-            if (file.size > 5 * 1024 * 1024) {
-                alert('File is too large (Maximum 5MB). Please compress it or use a lower resolution photo.');
+            if (file.size > 1.5 * 1024 * 1024) {
+                alert('File is too large (Maximum 1.5MB). Please compress it or use a lower resolution photo.');
                 this.value = '';
                 return;
             }
@@ -620,8 +620,8 @@
             const file = this.files[0];
             if (!file) return;
 
-            if (file.size > 5 * 1024 * 1024) {
-                alert('File is too large (Maximum 5MB). Please compress it or use a lower resolution photo.');
+            if (file.size > 1.5 * 1024 * 1024) {
+                alert('File is too large (Maximum 1.5MB). Please compress it or use a lower resolution photo.');
                 this.value = '';
                 return;
             }

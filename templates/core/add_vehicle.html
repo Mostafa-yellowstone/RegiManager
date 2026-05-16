@@ -516,9 +516,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const file = this.files[0];
             if (!file) return;
 
-            // 5MB Limit Check to prevent 413 Server Errors
-            if (file.size > 5 * 1024 * 1024) {
-                Swal.fire('File Too Large', 'The image is larger than 5MB. Please compress it or take a lower resolution photo.', 'warning');
+            // 1.5MB Limit Check to prevent 413 Server Errors
+            if (file.size > 1.5 * 1024 * 1024) {
+                Swal.fire('File Too Large', 'The image is larger than 1.5MB. Please compress it or take a lower resolution photo.', 'warning');
                 this.value = '';
                 return;
             }
