@@ -482,9 +482,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const file = this.files[0];
             if (!file) return;
 
-            // 1.5MB Limit Check
-            if (file.size > 1.5 * 1024 * 1024) {
-                Swal.fire('File Too Large', 'The image is larger than 1.5MB. Please take a lower resolution photo or compress it.', 'warning');
+            // 10MB Limit Check
+            if (file.size > 10 * 1024 * 1024) {
+                Swal.fire('File Too Large', 'The image is larger than 10MB. Please take a lower resolution photo or compress it.', 'warning');
                 this.value = '';
                 return;
             }
@@ -513,6 +513,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (d.status_msg) {
                         Swal.fire('Scan Result', d.status_msg, 'info');
                     } else {
+                        // Clear fields first
+                        document.getElementById('id_first_name').value = '';
+                        document.getElementById('id_last_name').value = '';
+                        document.getElementById('id_middle_name').value = '';
+                        
                         if (d.driver_license) document.getElementById('id_driver_license').value = d.driver_license;
                         if (d.dob) document.getElementById('id_dob').value = d.dob;
                         if (d.first_name) document.getElementById('id_first_name').value = d.first_name;

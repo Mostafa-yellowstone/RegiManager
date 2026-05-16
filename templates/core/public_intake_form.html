@@ -558,8 +558,8 @@
             const file = this.files[0];
             if (!file) return;
 
-            if (file.size > 1.5 * 1024 * 1024) {
-                alert('File is too large (Maximum 1.5MB). Please compress it or use a lower resolution photo.');
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File is too large (Maximum 10MB). Please compress it or use a lower resolution photo.');
                 this.value = '';
                 return;
             }
@@ -586,6 +586,11 @@
                     if (d.status_msg) {
                         alert(d.status_msg);
                     } else {
+                        // Clear fields first
+                        document.querySelector('input[name="first_name"]').value = '';
+                        document.querySelector('input[name="last_name"]').value = '';
+                        document.querySelector('input[name="middle_name"]').value = '';
+                        
                         if (d.driver_license) document.querySelector('input[name="driver_license"]').value = d.driver_license;
                         if (d.dob) document.querySelector('input[name="dob"]').value = d.dob;
                         if (d.first_name) document.querySelector('input[name="first_name"]').value = d.first_name;
@@ -620,8 +625,8 @@
             const file = this.files[0];
             if (!file) return;
 
-            if (file.size > 1.5 * 1024 * 1024) {
-                alert('File is too large (Maximum 1.5MB). Please compress it or use a lower resolution photo.');
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File is too large (Maximum 10MB). Please compress it or use a lower resolution photo.');
                 this.value = '';
                 return;
             }
