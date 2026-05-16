@@ -3566,22 +3566,23 @@ def ocr_dl_ajax(request):
                         
     elif 'file' in request.FILES:
         # Real OCR using OCR.space Free API
-        import requests
+        import urllib.request, urllib.parse, uuid, json
         file_obj = request.FILES['file']
         
         try:
-            # We use the 'helloworld' key for demonstration, or you can get a free key at ocr.space
-            payload = {
-                'isOverlayRequired': False,
-                'apikey': 'helloworld',
-                'language': 'eng',
-                'OCREngine': 2, # Engine 2 is better for some documents
-            }
-            r = requests.post('https://api.ocr.space/parse/image',
-                            files={'file': file_obj},
-                            data=payload,
-                            timeout=15)
-            result = r.json()
+            boundary = "----WebKitFormBoundary" + uuid.uuid4().hex
+            payload = {"isOverlayRequired": "false", "apikey": "helloworld", "language": "eng", "OCREngine": "2"}
+            body = b""
+            for k, v in payload.items():
+                body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n".encode()
+            body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{file_obj.name}\"\r\nContent-Type: {file_obj.content_type}\r\n\r\n".encode()
+            body += file_obj.read() + b"\r\n--" + boundary.encode() + b"--\r\n"
+            
+            req = urllib.request.Request("https://api.ocr.space/parse/image", data=body)
+            req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+            
+            with urllib.request.urlopen(req, timeout=25) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
             
             if result.get('OCRExitCode') == 1:
                 text = result.get('ParsedResults')[0].get('ParsedText')
@@ -3700,20 +3701,22 @@ def ocr_vehicle_title_ajax(request):
     raw = (request.POST.get("scan_data") or "").strip().upper()
 
     if 'file' in request.FILES:
-        import requests
+        import urllib.request, urllib.parse, uuid, json
         file_obj = request.FILES['file']
         try:
-            payload = {
-                'isOverlayRequired': False,
-                'apikey': 'helloworld',
-                'language': 'eng',
-                'OCREngine': 2,
-            }
-            r = requests.post('https://api.ocr.space/parse/image',
-                            files={'file': file_obj},
-                            data=payload,
-                            timeout=15)
-            result = r.json()
+            boundary = "----WebKitFormBoundary" + uuid.uuid4().hex
+            payload = {"isOverlayRequired": "false", "apikey": "helloworld", "language": "eng", "OCREngine": "2"}
+            body = b""
+            for k, v in payload.items():
+                body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n".encode()
+            body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{file_obj.name}\"\r\nContent-Type: {file_obj.content_type}\r\n\r\n".encode()
+            body += file_obj.read() + b"\r\n--" + boundary.encode() + b"--\r\n"
+            
+            req = urllib.request.Request("https://api.ocr.space/parse/image", data=body)
+            req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+            
+            with urllib.request.urlopen(req, timeout=25) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
             if result.get('OCRExitCode') == 1:
                 raw = result.get('ParsedResults')[0].get('ParsedText').upper()
             else:
