@@ -3573,7 +3573,7 @@ def ocr_dl_ajax(request):
         
         try:
             boundary = "----WebKitFormBoundary" + uuid.uuid4().hex
-            payload = {"isOverlayRequired": "false", "apikey": "helloworld", "language": "eng", "OCREngine": "2"}
+            payload = {"isOverlayRequired": "false", "apikey": "helloworld", "language": "eng", "OCREngine": "1"}
             body = b""
             for k, v in payload.items():
                 body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n".encode()
@@ -3712,7 +3712,7 @@ def ocr_vehicle_title_ajax(request):
         file_obj = request.FILES['file']
         try:
             boundary = "----WebKitFormBoundary" + uuid.uuid4().hex
-            payload = {"isOverlayRequired": "false", "apikey": "helloworld", "language": "eng", "OCREngine": "2"}
+            payload = {"isOverlayRequired": "false", "apikey": "helloworld", "language": "eng", "OCREngine": "1"}
             body = b""
             for k, v in payload.items():
                 body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n".encode()
@@ -3727,8 +3727,8 @@ def ocr_vehicle_title_ajax(request):
             req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
             req.add_header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
             
-            # Increase timeout to 45s for larger title scans
-            with urllib.request.urlopen(req, timeout=45) as resp:
+            # Use 28s timeout to stay under standard 30s proxy limits
+            with urllib.request.urlopen(req, timeout=28) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
             
             if result.get('OCRExitCode') == 1 and result.get('ParsedResults'):

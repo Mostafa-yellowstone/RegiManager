@@ -552,7 +552,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 btn.innerHTML = originalHTML;
                 btn.disabled = false;
                 titleImageUpload.value = '';
-                Swal.fire('Error', 'Network error during scan.', 'error');
+                console.error('Scan Error:', err);
+                Swal.fire('Scan Failed', 'The scan took too long or was blocked by the server. Please try a smaller file or enter manually.', 'error');
             });
         });
     }
