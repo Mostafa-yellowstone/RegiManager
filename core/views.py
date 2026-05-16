@@ -3655,18 +3655,22 @@ def ocr_dl_ajax(request):
 
                     # Index - 2: First Name, Middle Name
                     if csz_index - 2 >= 0:
-                        name_line = lines[csz_index - 2]
-                        names = [n.strip() for n in name_line.replace('FIRST', '').replace('NAME', '').split(',')]
-                        if len(names) == 1 and ' ' in names[0]:
-                            names = names[0].split(' ', 1)
-                        if len(names) > 0 and names[0]:
-                            data['first_name'] = names[0].strip()
-                        if len(names) > 1:
-                            data['middle_name'] = names[1].strip()
+                        name_line = lines[csz_index - 2].replace('FIRST', '').replace('NAME', '').replace('1 ', '').replace('2 ', '').strip()
+                        if ',' in name_line:
+                            names = [n.strip() for n in name_line.split(',')]
+                            if len(names) > 0: data['first_name'] = names[0]
+                            if len(names) > 1: data['middle_name'] = names[1]
+                        else:
+                            names = name_line.split()
+                            if len(names) == 1:
+                                data['first_name'] = names[0]
+                            elif len(names) >= 2:
+                                data['first_name'] = names[0]
+                                data['middle_name'] = ' '.join(names[1:])
 
                     # Index - 3: Last Name
                     if csz_index - 3 >= 0:
-                        data['last_name'] = lines[csz_index - 3].replace('LAST', '').replace('NAME', '').strip()
+                        data['last_name'] = lines[csz_index - 3].replace('LAST', '').replace('NAME', '').replace('1 ', '').strip()
 
                 # 3. Fallbacks if strict parsing missed
                 if 'driver_license' not in data:
