@@ -14,7 +14,7 @@
 </head>
 
 <body>
-    <div id="site-news-banner" class="site-news-banner" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 800px; background: linear-gradient(135deg, #991b1b, #7f1d1d); color: white; padding: 10px 24px; z-index: 10000; display: {% if site_news %}flex{% else %}none{% endif %}; align-items: center; justify-content: center; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(8px); animation: slideDown 0.5s ease-out;">
+    <div id="site-news-banner" class="site-news-banner {% if site_news %}news-visible{% else %}news-hidden{% endif %}" data-news-id="{% if site_news %}{{ site_news.id }}{% endif %}" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 800px; background: linear-gradient(135deg, #991b1b, #7f1d1d); color: white; padding: 10px 24px; z-index: 10000; align-items: center; justify-content: center; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(8px); animation: slideDown 0.5s ease-out;">
         <div class="news-content" style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
             <div style="display: flex; align-items: center; gap: 12px;">
                 <span style="background: rgba(255, 255, 255, 0.2); padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">{% trans "New" %}</span>
@@ -29,6 +29,8 @@
     </div>
 
     <style>
+        .news-visible { display: flex; }
+        .news-hidden { display: none; }
         @keyframes slideDown {
             from { transform: translate(-50%, -100%); opacity: 0; }
             to { transform: translate(-50%, 0); opacity: 1; }
@@ -37,7 +39,8 @@
 
     <script>
         (function() {
-            let lastNewsId = {% if site_news %}{{ site_news.id }}{% else %}null{% endif %};
+            const banner = document.getElementById('site-news-banner');
+            let lastNewsId = (banner && banner.dataset.newsId) ? Number(banner.dataset.newsId) : null;
             function fetchLatestNews() {
                 fetch('/api/get-latest-news/')
                     .then(response => response.json())

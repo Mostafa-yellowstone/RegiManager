@@ -36,11 +36,11 @@
             </button>
             <div id="locDropdown" style="display:none; position:absolute; right:0; top:42px; width: 220px; background:white; border:1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); overflow:hidden; z-index: 1100;">
                 <div style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; font-size: 0.75rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Switch Location</div>
-                <a href="{% url 'switch-organization' 0 %}" style="display: block; padding: 10px 14px; text-decoration: none; color: {% if not active_organization %}#093de6{% else %}#475569{% endif %}; font-size: 0.85rem; font-weight: 600; background: {% if not active_organization %}#f0f7ff{% else %}transparent{% endif %}; border-left: 3px solid {% if not active_organization %}#093de6{% else %}transparent{% endif %}; transition: all 0.2s;">
+                <a href="{% url 'switch-organization' 0 %}" class="loc-dropdown-link {% if not active_organization %}active{% else %}inactive{% endif %}">
                     All Locations
                 </a>
                 {% for org in user_organizations %}
-                <a href="{% url 'switch-organization' org.id %}" style="display: block; padding: 10px 14px; text-decoration: none; color: {% if active_organization.id == org.id %}#093de6{% else %}#475569{% endif %}; font-size: 0.85rem; font-weight: 600; background: {% if active_organization.id == org.id %}#f0f7ff{% else %}transparent{% endif %}; border-left: 3px solid {% if active_organization.id == org.id %}#093de6{% else %}transparent{% endif %}; transition: all 0.2s;">
+                <a href="{% url 'switch-organization' org.id %}" class="loc-dropdown-link {% if active_organization.id == org.id %}active{% else %}inactive{% endif %}">
                     {{ org.name }} <span style="font-size: 0.75rem; opacity: 0.6; font-weight: 500;">({{ org.city }})</span>
                 </a>
                 {% endfor %}
@@ -78,7 +78,7 @@
                     {% for n in top_notifications %}
                     <a href="{% url 'open-notification' n.id %}" style="display:block; padding: 0.9rem 1rem; text-decoration:none; color: inherit; border-bottom: 1px solid #f1f5f9;">
                         <div style="display:flex; gap: 0.75rem; align-items:flex-start;">
-                            <div style="width:10px; height:10px; border-radius:999px; margin-top: 0.45rem; background: {% if n.level == 'warning' %}#f59e0b{% else %}#3b82f6{% endif %};"></div>
+                            <div class="notif-dot {% if n.level == 'warning' %}warning{% else %}info{% endif %}"></div>
                             <div style="flex:1;">
                                 <div style="font-weight: 900; color:#0f172a; font-size:0.92rem;">{{ n.title }}</div>
                                 <div style="color:#64748b; font-weight:600; font-size:0.82rem; line-height: 1.35; margin-top: 0.2rem;">
@@ -112,6 +112,36 @@
 </nav>
 
 <style>
+.loc-dropdown-link {
+    display: block;
+    padding: 10px 14px;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+.loc-dropdown-link.active {
+    color: #093de6;
+    background: #f0f7ff;
+    border-left: 3px solid #093de6;
+}
+.loc-dropdown-link.inactive {
+    color: #475569;
+    background: transparent;
+    border-left: 3px solid transparent;
+}
+.notif-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    margin-top: 0.45rem;
+}
+.notif-dot.warning {
+    background: #f59e0b;
+}
+.notif-dot.info {
+    background: #3b82f6;
+}
 .top-nav {
     display: flex;
     justify-content: space-between;
