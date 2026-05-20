@@ -9,6 +9,28 @@
     .alert-msg.error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
     .alert-msg.success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
     #name-warning { padding: 0.8rem 1.2rem; border-radius: 10px; margin-bottom: 1.5rem; background: #fff7ed; color: #9a3412; border: 1px solid #ffedd5; font-weight: 600; font-size: 0.9rem; border-left: 4px solid #f97316; }
+
+    @media (max-width: 768px) {
+        .form-row {
+            grid-template-columns: 1fr !important;
+            gap: 1rem !important;
+            margin-bottom: 1rem !important;
+        }
+        #referral-details-row-2 {
+            grid-template-columns: 1fr !important;
+            gap: 1rem !important;
+        }
+        .form-actions {
+            flex-direction: column-reverse;
+            align-items: stretch;
+            gap: 0.75rem !important;
+        }
+        .form-actions .btn {
+            text-align: center;
+            width: 100%;
+            padding: 0.8rem 1rem !important;
+        }
+    }
 </style>
 <main class="dashboard-shell">
     <section class="dashboard-layout">
@@ -128,7 +150,7 @@
                 </div>
 
                 <!-- Row 2: Names -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px;">
                     <h3 style="margin: 0; font-size: 1.1rem; color: #1e293b; font-weight: 800;">Personal Information</h3>
                     <div style="position: relative;">
                         <input type="file" id="dl-image-upload" accept="image/*" style="display: none;">
@@ -479,22 +501,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const dlImageUpload = document.getElementById('dl-image-upload');
     if (dlImageUpload) {
         dlImageUpload.addEventListener('change', function() {
-            const file = this.files[0];
-            if (!file) return;
+            const originalFile = this.files[0];
+            if (!originalFile) return;
 
             const btn = this.nextElementSibling;
             const originalHTML = btn.innerHTML;
-            btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(79,70,229,.35);border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;"></span> Scanning...';
+            btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(79,70,229,.35);border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;"></span> Compressing...';
             btn.disabled = true;
 
-            const fd = new FormData();
-            fd.append('file', file);
-            fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            const compressPromise = (window.compressImage ? window.compressImage(originalFile) : Promise.resolve(originalFile));
 
-            fetch('{% url "ocr-dl" %}', {
-                method: 'POST',
-                body: fd
-            })
+            compressPromise.then(file => {
+                btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(79,70,229,.35);border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;"></span> Scanning...';
+                
+                const fd = new FormData();
+                fd.append('file', file);
+                fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+                fetch('{% url "ocr-dl" %}', {
+                    method: 'POST',
+                    body: fd
+                })
             .then(r => r.json())
             .then(res => {
                 btn.innerHTML = originalHTML;
@@ -540,7 +567,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 dlImageUpload.value = '';
                 Swal.fire('Error', 'Network error during scan.', 'error');
             });
+        }).catch(err => {
+            console.error(err);
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+            dlImageUpload.value = '';
+            Swal.fire('Error', 'Failed to process image file.', 'error');
         });
+    });
     }
 
 });

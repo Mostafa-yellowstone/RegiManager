@@ -142,6 +142,38 @@
         justify-content: space-between;
         align-items: center;
     }
+
+    @media (max-width: 600px) {
+        .form-grid {
+            grid-template-columns: 1fr !important;
+        }
+        .col-span-2 {
+            grid-column: span 1 !important;
+        }
+        .form-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1.5rem;
+        }
+        .step-section {
+            padding: 1.5rem 1rem;
+        }
+        .form-shell {
+            padding: 1.5rem 0.5rem;
+        }
+        .footer-actions {
+            flex-direction: column-reverse;
+            gap: 1.5rem;
+            align-items: stretch;
+            padding: 1.5rem 1rem;
+            text-align: center;
+        }
+        .footer-actions button {
+            width: 100%;
+            padding: 1rem !important;
+        }
+    }
 </style>
 
 <div class="form-shell">
@@ -550,54 +582,66 @@
     const publicDlUpload = document.getElementById('public-dl-image-upload');
     if (publicDlUpload) {
         publicDlUpload.addEventListener('change', function() {
-            const file = this.files[0];
-            if (!file) return;
+            const originalFile = this.files[0];
+            if (!originalFile) return;
 
             const btn = this.nextElementSibling;
             const originalHTML = btn.innerHTML;
-            btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(79,70,229,.35);border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;"></span> Scanning...';
+            btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(79,70,229,.35);border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;"></span> Compressing...';
             btn.disabled = true;
 
-            const fd = new FormData();
-            fd.append('file', file);
-            fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-            fd.append('portal_token', '{{ organization.portal_token }}');
+            const compressPromise = (window.compressImage ? window.compressImage(originalFile) : Promise.resolve(originalFile));
 
-            fetch('{% url "ocr-dl" %}', { method: 'POST', body: fd })
-            .then(r => r.json())
-            .then(res => {
-                btn.innerHTML = originalHTML;
-                btn.disabled = false;
-                publicDlUpload.value = '';
+            compressPromise.then(file => {
+                btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(79,70,229,.35);border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;"></span> Scanning...';
+                
+                const fd = new FormData();
+                fd.append('file', file);
+                fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                fd.append('portal_token', '{{ organization.portal_token }}');
 
-                if (res.status === 'success') {
-                    const d = res.data;
-                    if (d.status_msg) {
-                        alert(d.status_msg);
+                fetch('{% url "ocr-dl" %}', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(res => {
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                    publicDlUpload.value = '';
+
+                    if (res.status === 'success') {
+                        const d = res.data;
+                        if (d.status_msg) {
+                            alert(d.status_msg);
+                        } else {
+                            if (d.driver_license) document.querySelector('input[name="driver_license"]').value = d.driver_license;
+                            if (d.dob) document.querySelector('input[name="dob"]').value = d.dob;
+                            if (d.first_name) document.querySelector('input[name="first_name"]').value = d.first_name;
+                            if (d.last_name) document.querySelector('input[name="last_name"]').value = d.last_name;
+                            if (d.middle_name) document.querySelector('input[name="middle_name"]').value = d.middle_name;
+                            if (d.building_no) document.querySelector('input[name="building_no"]').value = d.building_no;
+                            if (d.street_address) document.querySelector('input[name="street_address"]').value = d.street_address;
+                            if (d.apartment) document.querySelector('input[name="apartment"]').value = d.apartment;
+                            if (d.city) document.querySelector('input[name="city"]').value = d.city;
+                            if (d.state) document.querySelector('select[name="state"]').value = d.state;
+                            if (d.zip_code) document.querySelector('input[name="zip_code"]').value = d.zip_code;
+                            // For public intake we just alert or show simple notification
+                            alert('DL fields have been auto-filled successfully.');
+                        }
                     } else {
-                        if (d.driver_license) document.querySelector('input[name="driver_license"]').value = d.driver_license;
-                        if (d.dob) document.querySelector('input[name="dob"]').value = d.dob;
-                        if (d.first_name) document.querySelector('input[name="first_name"]').value = d.first_name;
-                        if (d.last_name) document.querySelector('input[name="last_name"]').value = d.last_name;
-                        if (d.middle_name) document.querySelector('input[name="middle_name"]').value = d.middle_name;
-                        if (d.building_no) document.querySelector('input[name="building_no"]').value = d.building_no;
-                        if (d.street_address) document.querySelector('input[name="street_address"]').value = d.street_address;
-                        if (d.apartment) document.querySelector('input[name="apartment"]').value = d.apartment;
-                        if (d.city) document.querySelector('input[name="city"]').value = d.city;
-                        if (d.state) document.querySelector('select[name="state"]').value = d.state;
-                        if (d.zip_code) document.querySelector('input[name="zip_code"]').value = d.zip_code;
-                        // For public intake we just alert or show simple notification
-                        alert('DL fields have been auto-filled successfully.');
+                        alert('Scan Failed: ' + (res.message || 'Could not process the image.'));
                     }
-                } else {
-                    alert('Scan Failed: ' + (res.message || 'Could not process the image.'));
-                }
-            })
-            .catch(err => {
+                })
+                .catch(err => {
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                    publicDlUpload.value = '';
+                    alert('Network error during scan.');
+                });
+            }).catch(err => {
+                console.error(err);
                 btn.innerHTML = originalHTML;
                 btn.disabled = false;
                 publicDlUpload.value = '';
-                alert('Network error during scan.');
+                alert('Failed to process image file.');
             });
         });
     }
@@ -606,78 +650,90 @@
     const publicTitleUpload = document.getElementById('public-title-image-upload');
     if (publicTitleUpload) {
         publicTitleUpload.addEventListener('change', function() {
-            const file = this.files[0];
-            if (!file) return;
+            const originalFile = this.files[0];
+            if (!originalFile) return;
 
             const btn = this.nextElementSibling;
             const originalHTML = btn.innerHTML;
-            btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(16,185,129,.35);border-top-color:#10b981;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;"></span> Scanning...';
+            btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(16,185,129,.35);border-top-color:#10b981;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;"></span> Compressing...';
             btn.disabled = true;
 
-            const fd = new FormData();
-            fd.append('file', file);
-            fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-            fd.append('portal_token', '{{ organization.portal_token }}');
+            const compressPromise = (window.compressImage ? window.compressImage(originalFile) : Promise.resolve(originalFile));
 
-            fetch('{% url "ocr-vehicle-title" %}', { method: 'POST', body: fd })
-            .then(r => r.json())
-            .then(res => {
-                btn.innerHTML = originalHTML;
-                btn.disabled = false;
-                publicTitleUpload.value = '';
+            compressPromise.then(file => {
+                btn.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(16,185,129,.35);border-top-color:#10b981;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;"></span> Scanning...';
+                
+                const fd = new FormData();
+                fd.append('file', file);
+                fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                fd.append('portal_token', '{{ organization.portal_token }}');
 
-                if (res.status === 'success') {
-                    if (res.data.status_msg) {
-                        alert(res.data.status_msg);
-                    } else {
-                        const d = res.data;
-                        if (d.vin) document.querySelector('input[name="vin"]').value = d.vin;
-                        if (d.year) document.querySelector('input[name="year"]').value = d.year;
-                        if (d.make) document.querySelector('input[name="make"]').value = d.make;
-                        if (d.model) document.querySelector('input[name="model"]').value = d.model;
-                        if (d.weight) document.querySelector('input[name="weight"]').value = d.weight;
-                        if (d.color) document.querySelector('input[name="color"]').value = d.color;
-                        if (d.cylinders) document.querySelector('input[name="cylinders"]').value = d.cylinders;
-                        if (d.odometer_reading) {
-                            const odoEl = document.querySelector('input[name="odometer_reading"]');
-                            if (odoEl) odoEl.value = d.odometer_reading;
-                        }
-                        
-                        // Populate Registrant/Owner name if empty
-                        const fname = document.querySelector('input[name="first_name"]');
-                        const lname = document.querySelector('input[name="last_name"]');
-                        if (fname && !fname.value && d.first_name) fname.value = d.first_name;
-                        if (lname && !lname.value && d.last_name) lname.value = d.last_name;
+                fetch('{% url "ocr-vehicle-title" %}', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(res => {
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                    publicTitleUpload.value = '';
 
-                        // Populate Address if empty
-                        const bno = document.querySelector('input[name="building_no"]');
-                        const street = document.querySelector('input[name="street_address"]');
-                        const city = document.querySelector('input[name="city"]');
-                        const zip = document.querySelector('input[name="zip_code"]');
-                        if (bno && !bno.value && d.building_no) bno.value = d.building_no;
-                        if (street && !street.value && d.street_address) street.value = d.street_address;
-                        if (city && !city.value && d.city) city.value = d.city;
-                        if (zip && !zip.value && d.zip_code) zip.value = d.zip_code;
-
-                        if (d.fuel_type) {
-                            const fuelSelect = document.querySelector('select[name="fuel_type"]');
-                            if (fuelSelect) {
-                                const val = d.fuel_type.toLowerCase();
-                                const opt = Array.from(fuelSelect.options).find(o => o.value.toLowerCase() === val || o.text.toLowerCase() === val);
-                                if (opt) fuelSelect.value = opt.value;
+                    if (res.status === 'success') {
+                        if (res.data.status_msg) {
+                            alert(res.data.status_msg);
+                        } else {
+                            const d = res.data;
+                            if (d.vin) document.querySelector('input[name="vin"]').value = d.vin;
+                            if (d.year) document.querySelector('input[name="year"]').value = d.year;
+                            if (d.make) document.querySelector('input[name="make"]').value = d.make;
+                            if (d.model) document.querySelector('input[name="model"]').value = d.model;
+                            if (d.weight) document.querySelector('input[name="weight"]').value = d.weight;
+                            if (d.color) document.querySelector('input[name="color"]').value = d.color;
+                            if (d.cylinders) document.querySelector('input[name="cylinders"]').value = d.cylinders;
+                            if (d.odometer_reading) {
+                                const odoEl = document.querySelector('input[name="odometer_reading"]');
+                                if (odoEl) odoEl.value = d.odometer_reading;
                             }
+                            
+                            // Populate Registrant/Owner name if empty
+                            const fname = document.querySelector('input[name="first_name"]');
+                            const lname = document.querySelector('input[name="last_name"]');
+                            if (fname && !fname.value && d.first_name) fname.value = d.first_name;
+                            if (lname && !lname.value && d.last_name) lname.value = d.last_name;
+
+                            // Populate Address if empty
+                            const bno = document.querySelector('input[name="building_no"]');
+                            const street = document.querySelector('input[name="street_address"]');
+                            const city = document.querySelector('input[name="city"]');
+                            const zip = document.querySelector('input[name="zip_code"]');
+                            if (bno && !bno.value && d.building_no) bno.value = d.building_no;
+                            if (street && !street.value && d.street_address) street.value = d.street_address;
+                            if (city && !city.value && d.city) city.value = d.city;
+                            if (zip && !zip.value && d.zip_code) zip.value = d.zip_code;
+
+                            if (d.fuel_type) {
+                                const fuelSelect = document.querySelector('select[name="fuel_type"]');
+                                if (fuelSelect) {
+                                    const val = d.fuel_type.toLowerCase();
+                                    const opt = Array.from(fuelSelect.options).find(o => o.value.toLowerCase() === val || o.text.toLowerCase() === val);
+                                    if (opt) fuelSelect.value = opt.value;
+                                }
+                            }
+                            alert('Vehicle and Owner data have been auto-filled successfully.');
                         }
-                        alert('Vehicle and Owner data have been auto-filled successfully.');
+                    } else {
+                        alert('Scan Failed: ' + (res.message || 'Could not process the image.'));
                     }
-                } else {
-                    alert('Scan Failed: ' + (res.message || 'Could not process the image.'));
-                }
-            })
-            .catch(err => {
+                })
+                .catch(err => {
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                    publicTitleUpload.value = '';
+                    alert('Network error during scan.');
+                });
+            }).catch(err => {
+                console.error(err);
                 btn.innerHTML = originalHTML;
                 btn.disabled = false;
                 publicTitleUpload.value = '';
-                alert('Network error during scan.');
+                alert('Failed to process image file.');
             });
         });
     }

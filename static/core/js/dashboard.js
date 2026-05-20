@@ -140,6 +140,22 @@ function getCookie(name) {
 }
 
 function handleFileUpload(file, docType, dropzoneElement) {
+    if (file.type.startsWith('image/') && typeof window.compressImage === 'function') {
+        const statusDiv = dropzoneElement.querySelector('.dz-status');
+        if (statusDiv) statusDiv.textContent = 'Compressing...';
+        
+        window.compressImage(file).then(compressedFile => {
+            proceedWithUpload(compressedFile, docType, dropzoneElement);
+        }).catch(err => {
+            console.error('Compression failed:', err);
+            proceedWithUpload(file, docType, dropzoneElement);
+        });
+    } else {
+        proceedWithUpload(file, docType, dropzoneElement);
+    }
+}
+
+function proceedWithUpload(file, docType, dropzoneElement) {
     if (!currentServiceId && !currentVehicleId) {
         // Pre-upload logic: Attach to form directly
         const dt = new DataTransfer();

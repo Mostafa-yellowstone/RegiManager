@@ -10,6 +10,24 @@
     .alert-msg.success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
     #vin-warning { padding: 0.8rem 1.2rem; border-radius: 10px; margin-bottom: 1.5rem; background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; font-weight: 600; font-size: 0.9rem; }
     #id_vin { width: 100% !important; }
+
+    @media (max-width: 768px) {
+        .form-row {
+            grid-template-columns: 1fr !important;
+            gap: 1rem !important;
+            margin-bottom: 1rem !important;
+        }
+        .form-actions {
+            flex-direction: column-reverse;
+            align-items: stretch;
+            gap: 0.75rem !important;
+        }
+        .form-actions .btn {
+            text-align: center;
+            width: 100%;
+            padding: 0.8rem 1rem !important;
+        }
+    }
 </style>
 <main class="dashboard-shell">
     <section class="dashboard-layout">
@@ -49,7 +67,7 @@
                     <div class="field-wrap">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
                             <label style="margin: 0; font-size: 0.85rem;">VIN (Mandatory)</label>
-                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
                                 <input type="file" id="title-image-upload" accept="image/*" style="display: none;">
                                 <button type="button" onclick="document.getElementById('title-image-upload').click()" style="cursor: pointer; color: #4f46e5; display: flex; align-items: center; gap: 4px; font-size: 0.65rem; font-weight: 700; background: #e0e7ff; padding: 2px 8px; border-radius: 6px; border: 1px solid #c7d2fe;" title="Upload title image">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -519,46 +537,58 @@ document.addEventListener('DOMContentLoaded', function() {
     const titleImageUpload = document.getElementById('title-image-upload');
     if (titleImageUpload) {
         titleImageUpload.addEventListener('change', function() {
-            const file = this.files[0];
-            if (!file) return;
+            const originalFile = this.files[0];
+            if (!originalFile) return;
 
             const btn = this.nextElementSibling;
             const originalHTML = btn.innerHTML;
-            btn.innerHTML = '<span style="display:inline-block;width:10px;height:10px;border:2px solid rgba(79,70,229,.35);border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:2px;"></span> SCANNING...';
+            btn.innerHTML = '<span style="display:inline-block;width:10px;height:10px;border:2px solid rgba(79,70,229,.35);border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:2px;"></span> COMPRESSING...';
             btn.disabled = true;
 
-            const fd = new FormData();
-            fd.append('file', file);
-            fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+            const compressPromise = (window.compressImage ? window.compressImage(originalFile) : Promise.resolve(originalFile));
 
-            fetch('{% url "ocr-vehicle-title" %}', {
-                method: 'POST',
-                body: fd
-            })
-            .then(r => r.json())
-            .then(res => {
-                btn.innerHTML = originalHTML;
-                btn.disabled = false;
-                titleImageUpload.value = '';
+            compressPromise.then(file => {
+                btn.innerHTML = '<span style="display:inline-block;width:10px;height:10px;border:2px solid rgba(79,70,229,.35);border-top-color:#4f46e5;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:2px;"></span> SCANNING...';
+                
+                const fd = new FormData();
+                fd.append('file', file);
+                fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
-                if (res.status === 'success') {
-                    if (res.data.status_msg) {
-                        Swal.fire('Scan Result', res.data.status_msg, 'info');
+                fetch('{% url "ocr-vehicle-title" %}', {
+                    method: 'POST',
+                    body: fd
+                })
+                .then(r => r.json())
+                .then(res => {
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                    titleImageUpload.value = '';
+
+                    if (res.status === 'success') {
+                        if (res.data.status_msg) {
+                            Swal.fire('Scan Result', res.data.status_msg, 'info');
+                        } else {
+                            applyVehicleScanData(res.data);
+                            const form = document.getElementById('vehicle-form');
+                            form.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.2)';
+                            setTimeout(() => form.style.boxShadow = '', 2000);
+                        }
                     } else {
-                        applyVehicleScanData(res.data);
-                        const form = document.getElementById('vehicle-form');
-                        form.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.2)';
-                        setTimeout(() => form.style.boxShadow = '', 2000);
+                        Swal.fire('Scan Failed', res.message || 'Could not process the image.', 'error');
                     }
-                } else {
-                    Swal.fire('Scan Failed', res.message || 'Could not process the image.', 'error');
-                }
-            })
-            .catch(err => {
+                })
+                .catch(err => {
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                    titleImageUpload.value = '';
+                    Swal.fire('Error', 'Network error during scan.', 'error');
+                });
+            }).catch(err => {
+                console.error(err);
                 btn.innerHTML = originalHTML;
                 btn.disabled = false;
                 titleImageUpload.value = '';
-                Swal.fire('Error', 'Network error during scan.', 'error');
+                Swal.fire('Error', 'Failed to process image file.', 'error');
             });
         });
     }
