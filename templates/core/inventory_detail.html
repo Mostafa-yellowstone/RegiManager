@@ -100,7 +100,7 @@
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#093de6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
                             Marketing Blast Campaign
                         </h2>
-                        <p style="color: #64748b; font-size: 0.9rem; margin: 4px 0 0;">Select targets and compose your announcement. You can insert dynamic tags like <code>{{"{{"}}first_name{{"}}"}}</code> to personalize each message.</p>
+                        <p style="color: #64748b; font-size: 0.9rem; margin: 4px 0 0;">Select targets and compose your announcement. You can insert dynamic tags like <code>{{ '{{' }}first_name{{ '}}' }}</code> to personalize each message.</p>
                     </div>
 
                     <form id="marketingCampaignForm" enctype="multipart/form-data">
@@ -122,7 +122,7 @@
                                 
                                 <div>
                                     <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Email Message Body (HTML supported)</label>
-                                    <textarea id="campaignBody" name="body" required rows="8" style="width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; font-family: inherit; resize: vertical; box-sizing: border-box;">&lt;p&gt;Dear {{"{{"}}first_name{{"}}"}},&lt;/p&gt;
+                                    <textarea id="campaignBody" name="body" required rows="8" style="width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; font-family: inherit; resize: vertical; box-sizing: border-box;">&lt;p&gt;Dear {{ '{{' }}first_name{{ '}}' }},&lt;/p&gt;
 
 &lt;p&gt;We are pleased to introduce our auxiliary service: &lt;strong&gt;{{ card.label }}&lt;/strong&gt; now available at our &lt;strong&gt;{{ card.organization.city }}&lt;/strong&gt; bureau location.&lt;/p&gt;
 
