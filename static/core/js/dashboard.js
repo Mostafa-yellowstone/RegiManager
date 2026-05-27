@@ -13,6 +13,31 @@ const documentTypes = [
 let currentServiceId = null;
 let currentVehicleId = null;
 
+// File upload constraints
+const MAX_FILE_SIZE_MB = 50;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
+function isPDF(file) {
+    return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+}
+function isImage(file) {
+    return file.type.startsWith('image/');
+}
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+function getFileTypeIcon(file) {
+    if (isPDF(file)) {
+        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e63946" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>`;
+    }
+    if (isImage(file)) {
+        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`;
+    }
+    return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>`;
+}
+
 function openDocUploadModal(id, label, type = 'service') {
     if (type === 'service') {
         currentServiceId = id;
@@ -45,8 +70,9 @@ function openDocUploadModal(id, label, type = 'service') {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
             </div>
             <div class="dz-text">${docType.label}</div>
+            <div class="dz-hint" style="font-size:0.68rem;color:#94a3b8;margin-top:2px;">Image or PDF &middot; Up to ${MAX_FILE_SIZE_MB}MB</div>
             <div class="dz-status"></div>
-            <input type="file" class="dz-input" data-doc-type="${docType.id}" accept="image/*,.pdf" style="display:none;">
+            <input type="file" class="dz-input" data-doc-type="${docType.id}" accept="image/*,.pdf,application/pdf" style="display:none;">
         `;
         
         dropzone.style.position = 'relative';
@@ -140,10 +166,35 @@ function getCookie(name) {
 }
 
 function handleFileUpload(file, docType, dropzoneElement) {
-    if (file.type.startsWith('image/') && typeof window.compressImage === 'function') {
-        const statusDiv = dropzoneElement.querySelector('.dz-status');
+    const statusDiv = dropzoneElement.querySelector('.dz-status');
+    const iconDiv = dropzoneElement.querySelector('.dz-icon');
+
+    // 1. Validate file type — only images or PDFs allowed
+    if (!isImage(file) && !isPDF(file)) {
+        dropzoneElement.classList.remove('success', 'uploading');
+        dropzoneElement.classList.add('error');
+        if (statusDiv) statusDiv.textContent = 'Only images or PDFs are allowed';
+        dropzoneElement.classList.add('shake');
+        setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
+        return;
+    }
+
+    // 2. Validate file size — max 50 MB
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+        dropzoneElement.classList.remove('success', 'uploading');
+        dropzoneElement.classList.add('error');
+        if (statusDiv) statusDiv.textContent = `Too large: ${formatFileSize(file.size)} (max ${MAX_FILE_SIZE_MB}MB)`;
+        dropzoneElement.classList.add('shake');
+        setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
+        return;
+    }
+
+    // 3. Update icon to match file type
+    if (iconDiv) iconDiv.innerHTML = getFileTypeIcon(file);
+
+    // 4. Route: compress images, send PDFs as-is
+    if (isImage(file) && typeof window.compressImage === 'function') {
         if (statusDiv) statusDiv.textContent = 'Compressing...';
-        
         window.compressImage(file).then(compressedFile => {
             proceedWithUpload(compressedFile, docType, dropzoneElement);
         }).catch(err => {
@@ -151,13 +202,13 @@ function handleFileUpload(file, docType, dropzoneElement) {
             proceedWithUpload(file, docType, dropzoneElement);
         });
     } else {
+        if (statusDiv) statusDiv.textContent = `${formatFileSize(file.size)} — uploading...`;
         proceedWithUpload(file, docType, dropzoneElement);
     }
 }
 
 function proceedWithUpload(file, docType, dropzoneElement) {
     if (!currentServiceId && !currentVehicleId) {
-        // Pre-upload logic: Attach to form directly
         const dt = new DataTransfer();
         dt.items.add(file);
         
@@ -174,17 +225,16 @@ function proceedWithUpload(file, docType, dropzoneElement) {
         
         dropzoneElement.classList.remove('error', 'uploading');
         dropzoneElement.classList.add('success');
-        dropzoneElement.querySelector('.dz-status').textContent = 'Attached \u2713';
+        dropzoneElement.querySelector('.dz-status').textContent = `Attached ✓ (${formatFileSize(file.size)})`;
         
         if (!dropzoneElement.querySelector('.dz-remove')) {
             const delBtn = document.createElement('span');
             delBtn.className = 'dz-remove';
             delBtn.innerHTML = '&times;';
-            delBtn.title = 'Remove document';
             delBtn.style.cssText = 'position:absolute; top:2px; right:8px; cursor:pointer; color:#e63946; font-size:1.5rem; font-weight:bold; line-height:1; z-index:10;';
             delBtn.onclick = (e) => {
                 e.stopPropagation();
-                hiddenInput.value = ''; // clear file
+                hiddenInput.value = '';
                 dropzoneElement.classList.remove('success');
                 dropzoneElement.querySelector('.dz-status').textContent = '';
                 delBtn.remove();
@@ -198,58 +248,41 @@ function proceedWithUpload(file, docType, dropzoneElement) {
     formData.append('file', file);
     formData.append('document_type', docType);
     
-    let uploadUrl = '';
-    if (currentServiceId) {
-        uploadUrl = `/dashboard/service/${currentServiceId}/upload/`;
-    } else if (currentVehicleId) {
-        uploadUrl = `/dashboard/vehicle/${currentVehicleId}/upload/`;
-    }
+    let uploadUrl = currentServiceId ? `/dashboard/service/${currentServiceId}/upload/` : `/dashboard/vehicle/${currentVehicleId}/upload/`;
     
     dropzoneElement.classList.remove('success', 'error');
     dropzoneElement.classList.add('uploading');
-    
-    const statusDiv = dropzoneElement.querySelector('.dz-status');
-    statusDiv.textContent = 'Uploading...';
+    dropzoneElement.querySelector('.dz-status').textContent = 'Uploading...';
     
     fetch(uploadUrl, {
         method: 'POST',
         body: formData,
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken')
-        }
+        headers: { 'X-CSRFToken': getCookie('csrftoken') }
     })
-    .then(response => response.json())
+    .then(r => r.json())
     .then(data => {
         dropzoneElement.classList.remove('uploading');
         if (data.status === 'success') {
             dropzoneElement.classList.add('success');
-            statusDiv.textContent = 'Uploaded \u2713';
+            dropzoneElement.querySelector('.dz-status').textContent = `Uploaded ✓ (${formatFileSize(file.size)})`;
         } else {
             dropzoneElement.classList.add('error');
-            statusDiv.textContent = data.message || 'Failed';
-            
-            // Trigger shake animation
+            dropzoneElement.querySelector('.dz-status').textContent = data.message || 'Upload failed';
             dropzoneElement.classList.add('shake');
             setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
         }
     })
-    .catch(err => {
+    .catch(() => {
         dropzoneElement.classList.remove('uploading');
         dropzoneElement.classList.add('error');
-        statusDiv.textContent = 'Network Error';
-        
+        dropzoneElement.querySelector('.dz-status').textContent = 'Network Error';
         dropzoneElement.classList.add('shake');
         setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
     });
 }
 
 function fetchDocuments(id, type = 'service') {
-    let fetchUrl = '';
-    if (type === 'service') {
-        fetchUrl = `/dashboard/service/${id}/docs/`;
-    } else {
-        fetchUrl = `/dashboard/vehicle/${id}/docs/`;
-    }
+    let fetchUrl = (type === 'service') ? `/dashboard/service/${id}/docs/` : `/dashboard/vehicle/${id}/docs/`;
 
     fetch(fetchUrl)
     .then(response => response.json())
@@ -258,15 +291,22 @@ function fetchDocuments(id, type = 'service') {
         list.innerHTML = '';
         if (data.documents && data.documents.length > 0) {
             data.documents.forEach(doc => {
+                const url = doc.url || '';
+                const isPdfDoc = url.toLowerCase().endsWith('.pdf');
+                const iconColor = isPdfDoc ? '#e63946' : '#3b82f6';
+                const iconSvg = isPdfDoc
+                    ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>`
+                    : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`;
+                const pdfBadge = isPdfDoc ? ` <span style="font-size:0.65rem;color:#e63946;font-weight:700;background:#fee2e2;padding:1px 5px;border-radius:4px;vertical-align:middle;">PDF</span>` : '';
+                const viewLabel = isPdfDoc ? '📄 View PDF' : '🖼 View';
+
                 const li = document.createElement('li');
                 li.innerHTML = `
                     <div class="doc-info">
-                        <div class="doc-icon">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-                        </div>
-                        <span class="doc-name">${doc.type_label}</span>
+                        <div class="doc-icon" style="color:${iconColor};">${iconSvg}</div>
+                        <span class="doc-name">${doc.type_label}${pdfBadge}</span>
                     </div>
-                    <a href="${doc.url}" target="_blank" class="btn btn-secondary btn-sm" style="min-height:auto; padding: 0.35rem 0.8rem; border-radius: 6px; font-size: 0.8rem;">View</a>
+                    <a href="${url}" target="_blank" class="btn btn-secondary btn-sm" style="min-height:auto; padding: 0.35rem 0.8rem; border-radius: 6px; font-size: 0.8rem;">${viewLabel}</a>
                 `;
                 list.appendChild(li);
             });
@@ -529,4 +569,3 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleDealerFields(); // Initial state
     }
 });
-

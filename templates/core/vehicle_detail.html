@@ -307,9 +307,13 @@
 
 <script src="{% static 'core/js/dashboard.js' %}"></script>
 <script>
-    // After a successful upload, refresh the Attached Documents table
-    const _origHandleFileUpload = handleFileUpload;
-    handleFileUpload = function(file, docType, dropzoneElement) {
+    // Override handleFileUpload on the vehicle detail page:
+    // The global function handles validation, icons, and size display.
+    // We wrap proceedWithUpload instead so that after a successful vehicle upload
+    // we also refresh the static documents table on this page.
+    const _origProceedWithUpload = proceedWithUpload;
+    proceedWithUpload = function(file, docType, dropzoneElement) {
+        // Only intercept live vehicle uploads (not pre-upload form mode)
         if (currentVehicleId) {
             const formData = new FormData();
             formData.append('file', file);
@@ -317,7 +321,7 @@
 
             dropzoneElement.classList.remove('success', 'error');
             dropzoneElement.classList.add('uploading');
-            dropzoneElement.querySelector('.dz-status').textContent = 'Uploading...';
+            dropzoneElement.querySelector('.dz-status').textContent = `${formatFileSize(file.size)} — uploading...`;
 
             fetch(`/dashboard/vehicle/${currentVehicleId}/upload/`, {
                 method: 'POST',
@@ -329,20 +333,24 @@
                 dropzoneElement.classList.remove('uploading');
                 if (data.status === 'success') {
                     dropzoneElement.classList.add('success');
-                    dropzoneElement.querySelector('.dz-status').textContent = 'Uploaded \u2713';
+                    dropzoneElement.querySelector('.dz-status').textContent = `Uploaded ✓ (${formatFileSize(file.size)})`;
                     refreshDocsTable();
                 } else {
                     dropzoneElement.classList.add('error');
-                    dropzoneElement.querySelector('.dz-status').textContent = data.message || 'Failed';
+                    dropzoneElement.querySelector('.dz-status').textContent = data.message || 'Upload failed';
+                    dropzoneElement.classList.add('shake');
+                    setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
                 }
             })
             .catch(() => {
                 dropzoneElement.classList.remove('uploading');
                 dropzoneElement.classList.add('error');
                 dropzoneElement.querySelector('.dz-status').textContent = 'Network Error';
+                dropzoneElement.classList.add('shake');
+                setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
             });
         } else {
-            _origHandleFileUpload(file, docType, dropzoneElement);
+            _origProceedWithUpload(file, docType, dropzoneElement);
         }
     };
 
@@ -355,11 +363,17 @@
             tbody.innerHTML = '';
             if (data.documents && data.documents.length > 0) {
                 data.documents.forEach(doc => {
+                    const url = doc.url || '';
+                    const isPdf = url.toLowerCase().endsWith('.pdf');
+                    const viewLabel = isPdf ? '📄 View PDF' : '🖼 View File';
+                    const pdfBadge = isPdf
+                        ? `<span style="font-size:0.65rem;color:#e63946;font-weight:700;background:#fee2e2;padding:1px 5px;border-radius:4px;margin-left:6px;">PDF</span>`
+                        : '';
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td>${doc.type_label}</td>
+                        <td>${doc.type_label}${pdfBadge}</td>
                         <td>${doc.uploaded_at || 'Just now'}</td>
-                        <td><a href="${doc.url}" target="_blank" class="btn btn-secondary btn-sm">View File</a></td>
+                        <td><a href="${url}" target="_blank" class="btn btn-secondary btn-sm">${viewLabel}</a></td>
                     `;
                     tbody.appendChild(tr);
                 });

@@ -934,7 +934,7 @@ def check_client_name_ajax(request):
 
 @login_required
 def vehicle_detail(request, vehicle_id):
-    vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+    vehicle = get_object_or_404(Vehicle.all_objects, id=vehicle_id)
     if not _has_active_org_access(request.user, vehicle.client.organization_id):
         return HttpResponseForbidden("Access denied.")
     
@@ -969,7 +969,7 @@ def vehicle_detail(request, vehicle_id):
 
 @login_required
 def start_process(request, vehicle_id):
-    vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+    vehicle = get_object_or_404(Vehicle.all_objects, id=vehicle_id)
     if not _has_active_org_access(request.user, vehicle.client.organization_id):
         return HttpResponseForbidden("Access denied.")
     
@@ -2660,6 +2660,23 @@ def upload_document_ajax(request, service_id):
     file_obj = request.FILES['file']
     doc_type = request.POST['document_type']
 
+    # --- Server-side validation ---
+    ALLOWED_MIME_PREFIXES = ('image/',)
+    ALLOWED_MIME_EXACT = ('application/pdf',)
+    ALLOWED_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.pdf')
+    MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+
+    file_mime = file_obj.content_type or ''
+    file_ext = os.path.splitext(file_obj.name)[1].lower()
+    is_allowed_mime = any(file_mime.startswith(p) for p in ALLOWED_MIME_PREFIXES) or file_mime in ALLOWED_MIME_EXACT
+    is_allowed_ext = file_ext in ALLOWED_EXTENSIONS
+    if not (is_allowed_mime or is_allowed_ext):
+        return JsonResponse({"status": "error", "message": "Only images (JPG, PNG, etc.) and PDF files are accepted."}, status=400)
+
+    if file_obj.size > MAX_UPLOAD_BYTES:
+        size_mb = round(file_obj.size / (1024 * 1024), 1)
+        return JsonResponse({"status": "error", "message": f"File too large ({size_mb} MB). Maximum allowed size is 50 MB."}, status=400)
+
     valid_types = [t[0] for t in ServiceDocument.DOCUMENT_TYPES]
     if doc_type not in valid_types:
         return JsonResponse({"status": "error", "message": "Invalid document type"}, status=400)
@@ -2684,7 +2701,7 @@ def upload_document_ajax(request, service_id):
 @login_required
 @require_POST
 def upload_document_ajax_vehicle(request, vehicle_id):
-    vehicle = get_object_or_404(Vehicle, pk=vehicle_id)
+    vehicle = get_object_or_404(Vehicle.all_objects, pk=vehicle_id)
     # Verify access
     if not _has_active_org_access(request.user, vehicle.client.organization_id):
         return JsonResponse({"status": "error", "message": "Access denied"}, status=403)
@@ -2694,6 +2711,27 @@ def upload_document_ajax_vehicle(request, vehicle_id):
 
     file_obj = request.FILES['file']
     doc_type = request.POST['document_type']
+
+    # --- Server-side validation ---
+    ALLOWED_MIME_PREFIXES = ('image/',)
+    ALLOWED_MIME_EXACT = ('application/pdf',)
+    ALLOWED_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.pdf')
+    MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+
+    file_mime = file_obj.content_type or ''
+    file_ext = os.path.splitext(file_obj.name)[1].lower()
+    is_allowed_mime = any(file_mime.startswith(p) for p in ALLOWED_MIME_PREFIXES) or file_mime in ALLOWED_MIME_EXACT
+    is_allowed_ext = file_ext in ALLOWED_EXTENSIONS
+    if not (is_allowed_mime or is_allowed_ext):
+        return JsonResponse({"status": "error", "message": "Only images (JPG, PNG, etc.) and PDF files are accepted."}, status=400)
+
+    if file_obj.size > MAX_UPLOAD_BYTES:
+        size_mb = round(file_obj.size / (1024 * 1024), 1)
+        return JsonResponse({"status": "error", "message": f"File too large ({size_mb} MB). Maximum allowed size is 50 MB."}, status=400)
+
+    valid_types = [t[0] for t in ServiceDocument.DOCUMENT_TYPES]
+    if doc_type not in valid_types:
+        return JsonResponse({"status": "error", "message": "Invalid document type"}, status=400)
 
     try:
         doc = ServiceDocument.objects.create(
@@ -2818,7 +2856,7 @@ def get_documents(request, service_id):
 
 @login_required
 def get_documents_vehicle(request, vehicle_id):
-    vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+    vehicle = get_object_or_404(Vehicle.all_objects, id=vehicle_id)
     if not _has_active_org_access(request.user, vehicle.client.organization_id):
         return JsonResponse({"status": "error", "message": "Permission denied"}, status=403)
         
@@ -3473,7 +3511,7 @@ def bulk_send_reminders(request):
 @login_required
 def send_manual_reminder(request, vehicle_id):
     from .tasks import process_vehicle_reminder
-    vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+    vehicle = get_object_or_404(Vehicle.all_objects, id=vehicle_id)
     
     # Check permission
     if not _has_active_org_access(request.user, vehicle.client.organization_id):
@@ -4464,7 +4502,7 @@ def edit_service(request, service_id):
 @login_required
 def edit_vehicle(request, vehicle_id):
     from .forms import VehicleForm
-    vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+    vehicle = get_object_or_404(Vehicle.all_objects, id=vehicle_id)
     if not OrganizationMembership.objects.filter(user=request.user, organization=vehicle.client.organization).exists():
         return HttpResponseForbidden()
     
