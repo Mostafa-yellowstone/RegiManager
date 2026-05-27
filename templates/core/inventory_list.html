@@ -87,46 +87,48 @@
 
 <!-- Add Inventory Card Drawer / Modal -->
 {% if is_owner %}
-<div id="addInventoryModal" class="drawer-overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(6px); z-index: 9999; align-items: center; justify-content: center;">
-    <div class="drawer-panel" style="max-width: 460px; background: white; border-radius: 24px; padding: 2rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); border: 1px solid #e2e8f0; width: 90%; transform: scale(0.95); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);">
+<div id="addInventoryModal" class="drawer-overlay" style="display: none;">
+    <div class="drawer-panel" style="max-width: 460px;">
         <div class="drawer-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem; margin-bottom: 1.5rem;">
             <h2 style="font-size: 1.35rem; font-weight: 800; color: #0f172a; margin: 0;">Add Inventory Service Card</h2>
-            <button onclick="closeAddInventoryModal()" style="background: none; border: none; font-size: 1.5rem; color: #94a3b8; cursor: pointer; padding: 4px; line-height: 1;">&times;</button>
+            <button onclick="closeAddInventoryModal()" style="background: none; border: none; font-size: 1.8rem; color: #94a3b8; cursor: pointer; padding: 4px; line-height: 1;" class="close-drawer">&times;</button>
         </div>
-        <form method="POST" action="{% url 'inventory-list' %}">
-            {% csrf_token %}
-            <div style="display: grid; gap: 1.25rem;">
-                <div>
-                    <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Select PSB Location</label>
-                    <select name="organization" required style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; background: white;">
-                        {% for org in owner_orgs %}
-                            <option value="{{ org.id }}">{{ org.name }} ({{ org.city }})</option>
-                        {% endfor %}
-                    </select>
+        <div class="drawer-body" style="padding-top: 0;">
+            <form method="POST" action="{% url 'inventory-list' %}">
+                {% csrf_token %}
+                <div style="display: grid; gap: 1.25rem;">
+                    <div>
+                        <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Select PSB Location</label>
+                        <select name="organization" required style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; background: white;">
+                            {% for org in owner_orgs %}
+                                <option value="{{ org.id }}">{{ org.name }} ({{ org.city }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Service Label / Name</label>
+                        <input type="text" name="label" required placeholder="e.g. Premium Plate Frames" style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Unique Identifier Code (Optional)</label>
+                        <input type="text" name="key" placeholder="e.g. plate_frames (auto-generated if blank)" style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Price / Fee ($)</label>
+                        <input type="number" name="price" step="0.01" value="0.00" style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Initial Stock Quantity</label>
+                        <input type="number" name="stock" value="0" style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Description / Details</label>
+                        <textarea name="description" placeholder="Briefly describe the service or product features..." rows="3" style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; font-family: inherit; resize: vertical; box-sizing: border-box;"></textarea>
+                    </div>
+                    <button type="submit" style="background: linear-gradient(135deg, #093de6, #4f46e5); color: white; border: none; padding: 12px; border-radius: 10px; font-weight: 800; font-size: 0.95rem; cursor: pointer; transition: opacity 0.2s; margin-top: 0.5rem;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Create Card</button>
                 </div>
-                <div>
-                    <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Service Label / Name</label>
-                    <input type="text" name="label" required placeholder="e.g. Premium Plate Frames" style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; box-sizing: border-box;">
-                </div>
-                <div>
-                    <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Unique Identifier Code (Optional)</label>
-                    <input type="text" name="key" placeholder="e.g. plate_frames (auto-generated if blank)" style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; box-sizing: border-box;">
-                </div>
-                <div>
-                    <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Price / Fee ($)</label>
-                    <input type="number" name="price" step="0.01" value="0.00" style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; box-sizing: border-box;">
-                </div>
-                <div>
-                    <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Initial Stock Quantity</label>
-                    <input type="number" name="stock" value="0" style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; box-sizing: border-box;">
-                </div>
-                <div>
-                    <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Description / Details</label>
-                    <textarea name="description" placeholder="Briefly describe the service or product features..." rows="3" style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; font-family: inherit; resize: vertical; box-sizing: border-box;"></textarea>
-                </div>
-                <button type="submit" style="background: linear-gradient(135deg, #093de6, #4f46e5); color: white; border: none; padding: 12px; border-radius: 10px; font-weight: 800; font-size: 0.95rem; cursor: pointer; transition: opacity 0.2s; margin-top: 0.5rem;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Create Card</button>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
 </div>
 {% endif %}
@@ -135,19 +137,18 @@
 function openAddInventoryModal() {
     const modal = document.getElementById('addInventoryModal');
     if(modal) {
-        modal.style.display = 'flex';
-        setTimeout(() => {
-            modal.firstElementChild.style.transform = 'scale(1)';
-        }, 10);
+        modal.style.display = 'block';
+        void modal.offsetWidth; // trigger reflow
+        modal.classList.add('open');
     }
 }
 function closeAddInventoryModal() {
     const modal = document.getElementById('addInventoryModal');
     if(modal) {
-        modal.firstElementChild.style.transform = 'scale(0.95)';
+        modal.classList.remove('open');
         setTimeout(() => {
             modal.style.display = 'none';
-        }, 150);
+        }, 300); // Wait for transition
     }
 }
 // Close modal on background click
@@ -155,4 +156,5 @@ document.getElementById('addInventoryModal')?.addEventListener('click', function
     if(e.target === this) closeAddInventoryModal();
 });
 </script>
+
 {% endblock %}

@@ -323,6 +323,13 @@ def _get_user_organizations(request):
     Helper to get all organizations the user belongs to,
     optionally filtered by the active organization in the session.
     """
+    if request.user.is_superuser:
+        all_orgs = Organization.objects.filter(is_active=True)
+        active_org_id = request.session.get('active_org_id')
+        if active_org_id:
+            return all_orgs.filter(id=active_org_id)
+        return all_orgs
+
     memberships = OrganizationMembership.objects.filter(
         user=request.user,
         is_active=True,
@@ -4998,13 +5005,16 @@ def inventory_list(request):
     organizations = _get_user_organizations(request)
     
     # Check if user has active membership in any accessible org
-    memberships = OrganizationMembership.objects.filter(
-        user=request.user,
-        is_active=True,
-        organization__is_active=True,
-        organization__in=organizations
-    )
-    is_active_member = memberships.exists()
+    if request.user.is_superuser:
+        is_active_member = True
+    else:
+        memberships = OrganizationMembership.objects.filter(
+            user=request.user,
+            is_active=True,
+            organization__is_active=True,
+            organization__in=organizations
+        )
+        is_active_member = memberships.exists()
     
     # Allow any active member (agent or owner) to manage inventory cards
     is_owner = is_active_member
@@ -5075,13 +5085,16 @@ def inventory_detail(request, inventory_id):
     card = get_object_or_404(InventoryService, id=inventory_id, organization__in=organizations)
     
     # Check if user has active membership in card's organization
-    membership = OrganizationMembership.objects.filter(
-        user=request.user,
-        organization=card.organization,
-        is_active=True,
-        organization__is_active=True
-    ).first()
-    is_owner = bool(membership) # True if they have active membership
+    if request.user.is_superuser:
+        is_owner = True
+    else:
+        membership = OrganizationMembership.objects.filter(
+            user=request.user,
+            organization=card.organization,
+            is_active=True,
+            organization__is_active=True
+        ).first()
+        is_owner = bool(membership) # True if they have active membership
 
     if request.method == "POST":
         if not is_owner:
