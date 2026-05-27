@@ -1,0 +1,407 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .crm-import-container {
+        max-width: 900px;
+        margin: 20px 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    .crm-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 24px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        margin-bottom: 24px;
+    }
+    .crm-title {
+        font-size: 1.5em;
+        font-weight: 700;
+        color: #1e293b;
+        margin-top: 0;
+        margin-bottom: 8px;
+    }
+    .crm-subtitle {
+        color: #64748b;
+        margin-bottom: 20px;
+        font-size: 0.95em;
+        line-height: 1.5;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #334155;
+    }
+    .crm-select {
+        width: 100%;
+        max-width: 400px;
+        padding: 10px 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 1em;
+        color: #334155;
+        background-color: #fff;
+        transition: border-color 0.2s;
+    }
+    .crm-select:focus {
+        border-color: #79aec8;
+        outline: none;
+    }
+    .drop-zone {
+        border: 2px dashed #94a3b8;
+        border-radius: 8px;
+        padding: 40px 20px;
+        text-align: center;
+        background: #f8fafc;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-bottom: 20px;
+        position: relative;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+        border-color: #79aec8;
+        background: #f0f9ff;
+    }
+    .drop-zone.dragover {
+        transform: scale(1.01);
+    }
+    .drop-zone-icon {
+        font-size: 3em;
+        color: #64748b;
+        margin-bottom: 12px;
+    }
+    .drop-zone p {
+        font-size: 1.1em;
+        font-weight: 600;
+        color: #475569;
+        margin: 0 0 4px 0;
+    }
+    .drop-zone span {
+        font-size: 0.85em;
+        color: #94a3b8;
+    }
+    .crm-file-input {
+        display: none;
+    }
+    .instructions-toggle {
+        cursor: pointer;
+        color: #417690;
+        font-weight: 600;
+        font-size: 0.95em;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        user-select: none;
+    }
+    .instructions-content {
+        margin-top: 12px;
+        padding: 16px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        display: none;
+        font-size: 0.9em;
+        line-height: 1.6;
+        color: #334155;
+    }
+    .instructions-content h4 {
+        margin-top: 0;
+        margin-bottom: 8px;
+        color: #1e293b;
+    }
+    .instructions-content ul {
+        margin: 0;
+        padding-left: 20px;
+    }
+    .loading-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(255, 255, 255, 0.85);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+    }
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #79aec8;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin-bottom: 16px;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .loading-text {
+        font-size: 1.1em;
+        font-weight: 600;
+        color: #334155;
+    }
+    
+    /* Result styles */
+    .result-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85em;
+        font-weight: 600;
+        margin-right: 8px;
+    }
+    .badge-success { background: #dcfce7; color: #15803d; }
+    .badge-warning { background: #fef9c3; color: #a16207; }
+    .badge-danger { background: #fee2e2; color: #b91c1c; }
+    
+    .result-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .summary-card {
+        padding: 16px;
+        border-radius: 6px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        text-align: center;
+    }
+    .summary-card .number {
+        font-size: 1.8em;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 4px;
+    }
+    .summary-card .label {
+        font-size: 0.85em;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .error-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+    }
+    .error-table th, .error-table td {
+        padding: 10px;
+        text-align: left;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .error-table th {
+        background: #f1f5f9;
+        font-weight: 600;
+        color: #475569;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="crm-import-container">
+    {% if results %}
+    <div class="crm-card">
+        <h3 class="crm-title" style="color: #15803d;">Import Completed</h3>
+        <p class="crm-subtitle">The data file was successfully parsed and processed. Below is a summary of the operations.</p>
+        
+        <div class="result-summary-grid">
+            <div class="summary-card" style="border-left: 4px solid #16a34a;">
+                <div class="number">{{ results.clients_created }}</div>
+                <div class="label">Clients Created</div>
+            </div>
+            <div class="summary-card" style="border-left: 4px solid #2563eb;">
+                <div class="number">{{ results.clients_updated }}</div>
+                <div class="label">Clients Updated</div>
+            </div>
+            <div class="summary-card" style="border-left: 4px solid #10b981;">
+                <div class="number">{{ results.vehicles_created }}</div>
+                <div class="label">Vehicles Created</div>
+            </div>
+            <div class="summary-card" style="border-left: 4px solid #8b5cf6;">
+                <div class="number">{{ results.vehicles_updated }}</div>
+                <div class="label">Vehicles Updated</div>
+            </div>
+        </div>
+
+        {% if results.errors %}
+        <h4 style="color: #b91c1c; margin-top: 24px; margin-bottom: 8px;">Warnings & Errors ({{ results.errors|length }})</h4>
+        <table class="error-table">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">Row</th>
+                    <th>Details / Error Message</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for err in results.errors %}
+                <tr>
+                    <td style="font-weight: bold; color: #64748b;">#{{ err.row }}</td>
+                    <td style="color: #b91c1c;">{{ err.message }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="background: #ecfdf5; border: 1px solid #10b981; padding: 12px; border-radius: 6px; color: #065f46; font-weight: 500;">
+            ✓ All records imported successfully without any warnings or errors.
+        </div>
+        {% endif %}
+        
+        <div style="margin-top: 24px;">
+            <a href="" class="button" style="background: #475569; color: white; padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: bold;">Import Another File</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="crm-card">
+        <h3 class="crm-title">Import CRM Data</h3>
+        <p class="crm-subtitle">Upload a CSV or Excel (.xlsx) file containing client and vehicle data. Choose a target organization to associate the new records with.</p>
+        
+        <form id="crm_import_form" method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="org_select">Target Organization (PSB)</label>
+                <select id="org_select" name="organization" class="crm-select" required>
+                    <option value="">-- Select Organization --</option>
+                    {% for org in organizations %}
+                    <option value="{{ org.id }}">{{ org.name }} ({{ org.city }}, {{ org.state }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>CRM Spreadsheet File</label>
+                <div id="crm_drop_zone" class="drop-zone">
+                    <div class="drop-zone-icon">📥</div>
+                    <p>Drag and drop your CSV or XLSX file here</p>
+                    <span>or click to browse from your device</span>
+                    <input type="file" id="crm_file_input" name="crm_file" class="crm-file-input" accept=".csv, .xlsx" required />
+                </div>
+            </div>
+        </form>
+
+        <div style="margin-top: 24px;">
+            <div class="instructions-toggle" id="instructions_toggle">
+                <span>▶</span> Supported Columns & Format Information
+            </div>
+            <div class="instructions-content" id="instructions_content">
+                <h4>Accepted Column Headers</h4>
+                <p>The importer automatically maps headers case-insensitively, ignoring spaces and underscores. For example, <code>First Name</code>, <code>first_name</code>, or <code>Client First Name</code> are all mapped to the client's first name.</p>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div>
+                        <strong style="color: #417690;">Client Fields:</strong>
+                        <ul style="margin-top: 6px;">
+                            <li><code>first_name</code> (Required)</li>
+                            <li><code>last_name</code> (Required)</li>
+                            <li><code>middle_name</code></li>
+                            <li><code>email</code></li>
+                            <li><code>phone_number</code></li>
+                            <li><code>dob</code> (YYYY-MM-DD or date cell)</li>
+                            <li><code>driver_license</code> / <code>dl</code></li>
+                            <li><code>ssn</code></li>
+                            <li><code>street_address</code> / <code>city</code> / <code>state</code> / <code>zip_code</code></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <strong style="color: #417690;">Vehicle Fields (Optional):</strong>
+                        <ul style="margin-top: 6px;">
+                            <li><code>vin</code> (Required for vehicle import, 17-char)</li>
+                            <li><code>make</code> / <code>model</code> / <code>year</code></li>
+                            <li><code>color</code> / <code>plate_number</code></li>
+                            <li><code>vehicle_type</code> (passenger/truck/motorcycle/bus/trailer)</li>
+                            <li><code>fuel_type</code> (gas/diesel/electric/hybrid/natural_gas)</li>
+                            <li><code>insurance_company</code> / <code>insurance_policy_number</code></li>
+                            <li><code>registration_expiration_date</code></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <h4 style="margin-top: 16px;">Notes:</h4>
+                <ul>
+                    <li>If a client with the same name and email/phone/driver's license already exists in the selected Organization, the importer will update their details instead of creating a duplicate.</li>
+                    <li>If a vehicle with the matching VIN already exists, it will be updated and linked to the owner.</li>
+                    <li>All successfully imported vehicles will automatically trigger the system's registration expiration email alert checks.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="loading_overlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Processing CRM data import... Please wait...</div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const fileInput = document.getElementById('crm_file_input');
+        const orgSelect = document.getElementById('org_select');
+        const form = document.getElementById('crm_import_form');
+        const dropZone = document.getElementById('crm_drop_zone');
+        const instToggle = document.getElementById('instructions_toggle');
+        const instContent = document.getElementById('instructions_content');
+
+        // Toggle Instructions
+        instToggle.addEventListener('click', function() {
+            if (instContent.style.display === 'none' || !instContent.style.display) {
+                instContent.style.display = 'block';
+                instToggle.querySelector('span').textContent = '▼';
+            } else {
+                instContent.style.display = 'none';
+                instToggle.querySelector('span').textContent = '▶';
+            }
+        });
+
+        // Trigger Auto-Upload on File Selection
+        if (fileInput && form) {
+            fileInput.addEventListener('change', function() {
+                if (fileInput.files.length > 0) {
+                    if (orgSelect && !orgSelect.value) {
+                        alert('Please select a Target Organization first.');
+                        fileInput.value = '';
+                        return;
+                    }
+                    // Show loading overlay
+                    document.getElementById('loading_overlay').style.display = 'flex';
+                    form.submit();
+                }
+            });
+        }
+
+        // Drag and Drop Logic
+        if (dropZone && fileInput) {
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', function() {
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length > 0) {
+                    fileInput.files = e.dataTransfer.files;
+                    fileInput.dispatchEvent(new Event('change'));
+                }
+            });
+
+            dropZone.addEventListener('click', function() {
+                fileInput.click();
+            });
+        }
+    });
+</script>
+{% endblock %}

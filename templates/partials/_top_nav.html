@@ -16,7 +16,10 @@
             {% if can_view_partners %}
             <a href="{% url 'all-referrals' %}" class="nav-link {% if 'referral' in request.path %}active{% endif %}">Partners</a>
             {% endif %}
+            <a href="{% url 'inventory-list' %}" class="nav-link {% if 'inventory' in request.path %}active{% endif %}">Inventory</a>
+            <a href="{% url 'site-news-list' %}" class="nav-link {% if 'site-news' in request.path %}active{% endif %}">News</a>
         </div>
+
     </div>
     <div class="nav-right" style="display: flex; align-items: center; gap: 1rem;">
         <!-- Location Switcher (Constraint: Disable if only one psb) -->

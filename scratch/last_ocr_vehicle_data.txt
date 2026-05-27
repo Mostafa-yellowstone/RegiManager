@@ -1,0 +1,1 @@
+{"vin": "1GCVKPEC4HZ408143", "year": "2017", "make": "CHEVROLET", "color": "GRAY", "cylinders": "8", "weight": "5279", "fuel_type": "GAS", "model": "SUV"}

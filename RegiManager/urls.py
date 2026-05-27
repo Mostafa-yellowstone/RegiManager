@@ -90,7 +90,12 @@ from core.views import (
     outstanding_balances,
     mark_balance_paid,
     client_search_ajax,
+    site_news_list,
+    inventory_list,
+    inventory_detail,
+    send_marketing_campaign_ajax,
 )
+
 
 from rest_framework.routers import DefaultRouter
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
@@ -185,7 +190,14 @@ urlpatterns = [
     path("dashboard/outstanding-balances/", outstanding_balances, name="outstanding-balances"),
     path("dashboard/outstanding-balances/<int:record_id>/mark-paid/", mark_balance_paid, name="mark-balance-paid"),
     path("dashboard/client-search/", client_search_ajax, name="client-search-ajax"),
+    
+    # News & Inventory
+    path("dashboard/site-news/", site_news_list, name="site-news-list"),
+    path("dashboard/inventory/", inventory_list, name="inventory-list"),
+    path("dashboard/inventory/<int:inventory_id>/", inventory_detail, name="inventory-detail"),
+    path("dashboard/inventory/<int:inventory_id>/marketing/", send_marketing_campaign_ajax, name="send-marketing-campaign-ajax"),
 ]
+
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

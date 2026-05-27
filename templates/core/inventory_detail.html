@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ card.label }} Details | RegiManager{% endblock %}
+
+{% block content %}
+{% include "partials/_top_nav.html" %}
+
+<main class="dashboard-shell">
+    <div style="max-width: 1200px; margin: 2rem auto; padding: 0 1.5rem 4rem;">
+        
+        <!-- Hero Header -->
+        <header style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 24px; padding: 2rem 2.5rem; color: white; margin-bottom: 2rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); position: relative; overflow: hidden;">
+            <div style="position: absolute; inset: 0; background: radial-gradient(ellipse at 80% 50%, rgba(99,102,241,0.15) 0%, transparent 60%); pointer-events: none;"></div>
+            <div style="position: relative; z-index: 1;">
+                <a href="{% url 'inventory-list' %}" style="display: inline-flex; align-items: center; gap: 6px; color: #94a3b8; font-size: 0.85rem; font-weight: 600; text-decoration: none; margin-bottom: 1rem; transition: color 0.2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#94a3b8'">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                    Back to Inventory List
+                </a>
+                <h1 style="font-size: 2rem; font-weight: 800; margin: 0 0 0.5rem; letter-spacing: -0.5px; color: white;">{{ card.label }}</h1>
+                <p style="color: #cbd5e1; font-size: 0.95rem; margin: 0;"> Bureau Location: <strong>{{ card.organization.name }}</strong></p>
+            </div>
+        </header>
+
+        <div style="display: grid; grid-template-columns: 1.2fr 2fr; gap: 2rem; align-items: start;">
+            
+            <!-- Left Column: Details & Editing -->
+            <div style="display: grid; gap: 2rem;">
+                <article style="background: white; border: 1px solid #e2e8f0; border-radius: 20px; padding: 2rem; box-shadow: 0 10px 15px -3px rgba(15,23,42,0.04);">
+                    <h2 style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin: 0 0 1.5rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#093de6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="9"></line><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="15" y2="17"></line><line x1="9" y1="5" x2="15" y2="5"></line></svg>
+                        Service Card Settings
+                    </h2>
+
+                    <form method="POST" action="{% url 'inventory-detail' card.id %}">
+                        {% csrf_token %}
+                        <div style="display: grid; gap: 1.25rem;">
+                            <div>
+                                <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Service Label / Name</label>
+                                <input type="text" name="label" value="{{ card.label }}" {% if not is_owner %}readonly style="background-color: #f8fafc; color: #64748b;"{% endif %} required style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">System Code Identifier</label>
+                                <input type="text" value="{{ card.key }}" readonly style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; background-color: #f8fafc; color: #64748b; outline: none; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Price / Fee ($)</label>
+                                <input type="number" name="price" step="0.01" value="{{ card.price }}" {% if not is_owner %}readonly style="background-color: #f8fafc; color: #64748b;"{% endif %} style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Current Stock Quantity</label>
+                                <input type="number" name="stock" value="{{ card.stock }}" {% if not is_owner %}readonly style="background-color: #f8fafc; color: #64748b;"{% endif %} style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Description</label>
+                                <textarea name="description" {% if not is_owner %}readonly style="background-color: #f8fafc; color: #64748b;"{% endif %} rows="4" style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; font-family: inherit; resize: vertical; box-sizing: border-box;">{{ card.description }}</textarea>
+                            </div>
+                            {% if is_owner %}
+                            <button type="submit" style="background: #093de6; color: white; border: none; padding: 12px; border-radius: 10px; font-weight: 800; font-size: 0.95rem; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#0834c7'" onmouseout="this.style.background='#093de6'">Update Settings</button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </article>
+
+                <!-- Sent Campaigns History Log -->
+                <article style="background: white; border: 1px solid #e2e8f0; border-radius: 20px; padding: 2rem; box-shadow: 0 10px 15px -3px rgba(15,23,42,0.04);">
+                    <h2 style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin: 0 0 1.5rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem; display: flex; align-items: center; gap: 8px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#093de6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-3 9L9 3l-3 9H2"/></svg>
+                        Campaign Dispatch Log
+                    </h2>
+                    
+                    <div style="display: grid; gap: 1rem; max-height: 400px; overflow-y: auto;">
+                        {% for campaign in campaigns %}
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 6px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <strong style="font-size: 0.95rem; color: #1e293b;">{{ campaign.subject }}</strong>
+                                <span style="background: #dcfce7; color: #15803d; font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 99px;">{{ campaign.recipients_count }} Sent</span>
+                            </div>
+                            <span style="font-size: 0.78rem; color: #64748b;">Dispatched by: <strong>{{ campaign.sent_by.username }}</strong></span>
+                            <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">{{ campaign.sent_at|date:"M d, Y • h:i A" }}</span>
+                            
+                            {% if campaign.image %}
+                            <div style="margin-top: 6px; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; max-height: 80px; max-width: 140px; background-color: #f1f5f9;">
+                                <img src="{{ campaign.image.url }}" alt="Campaign banner" style="width: 100%; height: 100%; object-fit: cover;">
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% empty %}
+                        <p style="color: #94a3b8; text-align: center; margin: 2rem 0; font-size: 0.9rem; font-weight: 600;">No email campaigns sent yet.</p>
+                        {% endfor %}
+                    </div>
+                </article>
+            </div>
+
+            <!-- Right Column: Marketing Campaigns Center -->
+            <div style="display: grid; gap: 2rem;">
+                <article style="background: white; border: 1px solid #e2e8f0; border-radius: 20px; padding: 2rem; box-shadow: 0 10px 15px -3px rgba(15,23,42,0.04);">
+                    <div style="border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem; margin-bottom: 1.5rem;">
+                        <h2 style="font-size: 1.35rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#093de6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                            Marketing Blast Campaign
+                        </h2>
+                        <p style="color: #64748b; font-size: 0.9rem; margin: 4px 0 0;">Select targets and compose your announcement. You can insert dynamic tags like <code>{{"{{"}}first_name{{"}}"}}</code> to personalize each message.</p>
+                    </div>
+
+                    <form id="marketingCampaignForm" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div style="display: grid; gap: 1.5rem;">
+                            
+                            <!-- Composing Form -->
+                            <div style="display: grid; gap: 1rem;">
+                                <div>
+                                    <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Email Subject Line</label>
+                                    <input type="text" id="campaignSubject" name="subject" required value="Exclusive Offer: {{ card.label }} at {{ card.organization.name }}" placeholder="Enter subject line..." style="width: 100%; padding: 10px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; box-sizing: border-box;">
+                                </div>
+                                
+                                <div>
+                                    <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Header Banner Image (Optional)</label>
+                                    <input type="file" id="campaignImage" name="image" accept="image/*" style="width: 100%; padding: 8px; border: 1.5px dashed #cbd5e1; border-radius: 10px; font-size: 0.9rem; outline: none; box-sizing: border-box; background: #f8fafc; cursor: pointer;">
+                                    <span style="font-size: 0.78rem; color: #94a3b8; display: block; margin-top: 4px;">Choose a high-quality JPEG or PNG to display at the top of the email.</span>
+                                </div>
+                                
+                                <div>
+                                    <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Email Message Body (HTML supported)</label>
+                                    <textarea id="campaignBody" name="body" required rows="8" style="width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.9rem; outline: none; font-family: inherit; resize: vertical; box-sizing: border-box;">&lt;p&gt;Dear {{"{{"}}first_name{{"}}"}},&lt;/p&gt;
+
+&lt;p&gt;We are pleased to introduce our auxiliary service: &lt;strong&gt;{{ card.label }}&lt;/strong&gt; now available at our &lt;strong&gt;{{ card.organization.city }}&lt;/strong&gt; bureau location.&lt;/p&gt;
+
+&lt;p&gt;{{ card.description }}&lt;/p&gt;
+
+&lt;p&gt;Pricing starts at only &lt;strong&gt;${{ card.price }}&lt;/strong&gt;! We have limited stock ({{ card.stock }} items) currently available.&lt;/p&gt;
+
+&lt;p&gt;Please visit our office or get in touch with us for more information.&lt;/p&gt;
+
+&lt;p&gt;Best regards,&lt;br&gt;
+The team at {{ card.organization.name }}&lt;/p&gt;</textarea>
+                                </div>
+                            </div>
+
+                            <!-- Target Client Directory Checklist -->
+                            <div style="border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem; background: #f8fafc;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
+                                    <h3 style="font-size: 1rem; font-weight: 800; color: #1e293b; margin: 0;">Recipient Directory</h3>
+                                    
+                                    <!-- Search input -->
+                                    <input type="text" id="clientSearchInput" placeholder="Filter clients by name..." style="padding: 6px 12px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 0.8rem; outline: none; width: 180px;">
+                                </div>
+
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 0.5rem;">
+                                    <label style="font-size: 0.85rem; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                        <input type="checkbox" id="selectAllClients" style="width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid #cbd5e1; cursor: pointer;">
+                                        <span>Select All Clients</span>
+                                    </label>
+                                    <span id="selectedCountBadge" style="background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; font-size: 0.75rem; font-weight: 800; padding: 2px 10px; border-radius: 99px;">0 Selected</span>
+                                </div>
+
+                                <!-- Clients scroll list -->
+                                <div id="clientsScrollContainer" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px;">
+                                    {% for client in clients %}
+                                    <div class="client-checkbox-row" data-name="{{ client.name|lower }}" style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 8px 12px; border-radius: 10px; border: 1px solid #e2e8f0; transition: border-color 0.2s;">
+                                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1;">
+                                            <input type="checkbox" name="clients" value="{{ client.id }}" class="client-selector" style="width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid #cbd5e1; cursor: pointer;">
+                                            <div style="display: flex; flex-direction: column;">
+                                                <span style="font-weight: 700; font-size: 0.88rem; color: #334155;">{{ client.name }}</span>
+                                                <span style="font-size: 0.75rem; color: #64748b;">{{ client.email }}</span>
+                                            </div>
+                                        </label>
+                                        <button type="button" onclick="sendToSingleClient({{ client.id }})" style="background: none; border: 1px solid #cbd5e1; color: #64748b; font-size: 0.75rem; font-weight: 700; padding: 4px 8px; border-radius: 6px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#eef2ff'; this.style.color='#4f46e5'; this.style.borderColor='#c7d2fe';" onmouseout="this.style.background='none'; this.style.color='#64748b'; this.style.borderColor='#cbd5e1';">
+                                            Send Single
+                                        </button>
+                                    </div>
+                                    {% empty %}
+                                    <p style="text-align: center; color: #94a3b8; font-size: 0.85rem; margin: 1.5rem 0;">No clients with registered emails exist in this bureau.</p>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <button type="button" id="submitCampaignBtn" onclick="submitCampaign()" style="background: linear-gradient(135deg, #093de6, #4f46e5); color: white; border: none; padding: 14px; border-radius: 12px; font-weight: 800; font-size: 1rem; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);" onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                                Dispatch Campaign
+                            </button>
+
+                        </div>
+                    </form>
+                </article>
+            </div>
+            
+        </div>
+    </div>
+</main>
+
+<script>
+// Search clients filtering
+document.getElementById('clientSearchInput')?.addEventListener('input', function(e) {
+    const query = e.target.value.toLowerCase().trim();
+    const rows = document.querySelectorAll('.client-checkbox-row');
+    rows.forEach(row => {
+        const name = row.dataset.name;
+        if (name.includes(query)) {
+            row.style.display = 'flex';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+// Update Selected Count Badge
+const selectors = document.querySelectorAll('.client-selector');
+const badge = document.getElementById('selectedCountBadge');
+const selectAll = document.getElementById('selectAllClients');
+
+function updateSelectedCount() {
+    const checked = document.querySelectorAll('.client-selector:checked').length;
+    if(badge) badge.textContent = `${checked} Selected`;
+}
+
+selectors.forEach(sel => {
+    sel.addEventListener('change', () => {
+        updateSelectedCount();
+        const allChecked = document.querySelectorAll('.client-selector:checked').length === selectors.length;
+        if(selectAll) selectAll.checked = allChecked && selectors.length > 0;
+    });
+});
+
+selectAll?.addEventListener('change', function() {
+    const isChecked = this.checked;
+    selectors.forEach(sel => {
+        const row = sel.closest('.client-checkbox-row');
+        if (row.style.display !== 'none') {
+            sel.checked = isChecked;
+        }
+    });
+    updateSelectedCount();
+});
+
+// Send single recipient campaign
+function sendToSingleClient(clientId) {
+    selectors.forEach(sel => sel.checked = false);
+    if(selectAll) selectAll.checked = false;
+    
+    const target = Array.from(selectors).find(sel => sel.value == clientId);
+    if(target) {
+        target.checked = true;
+        updateSelectedCount();
+        
+        document.getElementById('submitCampaignBtn')?.scrollIntoView({ behavior: 'smooth' });
+        
+        Swal.fire({
+            icon: 'info',
+            title: 'Recipient Set',
+            text: 'We have targeted just this client. Ready to dispatch.',
+            confirmButtonColor: '#093de6',
+            timer: 2000,
+            timerProgressBar: true
+        });
+    }
+}
+
+// Submit marketing campaign via AJAX
+function submitCampaign() {
+    const subjectInput = document.getElementById('campaignSubject');
+    const bodyInput = document.getElementById('campaignBody');
+    const imageInput = document.getElementById('campaignImage');
+    
+    const subject = subjectInput.value.trim();
+    const body = bodyInput.value.trim();
+    const checkedClients = Array.from(document.querySelectorAll('.client-selector:checked')).map(sel => sel.value);
+    
+    if(!subject || !body) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Incomplete Fields',
+            text: 'Subject and Body message are required to send the campaign.',
+            confirmButtonColor: '#093de6'
+        });
+        return;
+    }
+    
+    if(checkedClients.length === 0) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'No Recipients Selected',
+            text: 'Please check at least one recipient client to receive the email blast.',
+            confirmButtonColor: '#093de6'
+        });
+        return;
+    }
+
+    Swal.fire({
+        title: 'Dispatch Campaign?',
+        text: `Are you sure you want to send this marketing campaign to ${checkedClients.length} recipient(s)?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#093de6',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Yes, Send Now!',
+        showLoaderOnConfirm: true,
+        preConfirm: () => {
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            formData.append('subject', subject);
+            formData.append('body', body);
+            
+            checkedClients.forEach(id => {
+                formData.append('clients[]', id);
+            });
+            
+            if(imageInput.files.length > 0) {
+                formData.append('image', imageInput.files[0]);
+            }
+            
+            return fetch("{% url 'send-marketing-campaign-ajax' card.id %}", {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw new Error(err.error || 'Server error occurred') });
+                }
+                return response.json();
+            })
+            .catch(error => {
+                Swal.showValidationMessage(`Request failed: ${error}`);
+            });
+        },
+        allowOutsideClick: () => !Swal.isLoading()
+    }).then((result) => {
+        if (result.isConfirmed && result.value?.success) {
+            Swal.fire({
+                icon: 'success',
+                title: 'Campaign Dispatched',
+                text: result.value.message || 'The email campaign has been queued successfully!',
+                confirmButtonColor: '#093de6'
+            }).then(() => {
+                window.location.reload();
+            });
+        }
+    });
+}
+</script>
+{% endblock %}

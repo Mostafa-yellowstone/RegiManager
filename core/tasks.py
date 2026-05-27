@@ -1,11 +1,14 @@
 from celery import shared_task
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
 from .models import Vehicle, ServiceRecord, AutomationLog, Client
 from django.db.models import Q
+from django.core.files.storage import default_storage
+import os
+
 
 @shared_task
 def send_automation_email(to_email, subject, template_name, context):
@@ -144,3 +147,51 @@ def check_registration_reminders():
 
     for vid in expired_vehicle_ids:
         process_vehicle_reminder.delay(vid, -1, "expired_warning")
+
+
+@shared_task
+def send_marketing_email(to_email, subject, content_html, psb_name, psb_phone, image_path=None):
+    """
+    Sends a custom-designed marketing email with optional embedded header image.
+    """
+    from email.mime.image import MIMEImage
+
+    context = {
+        "subject": subject,
+        "content_html": content_html,
+        "psb_name": psb_name,
+        "psb_phone": psb_phone,
+        "has_image": bool(image_path),
+    }
+    
+    html_content = render_to_string("core/emails/marketing.html", context)
+    
+    from django.utils.html import strip_tags
+    text_content = strip_tags(content_html)
+    
+    try:
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_content,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[to_email],
+        )
+        email.attach_alternative(html_content, "text/html")
+        
+        if image_path and default_storage.exists(image_path):
+            try:
+                # Open image file using storage
+                with default_storage.open(image_path, 'rb') as f:
+                    mime_image = MIMEImage(f.read())
+                mime_image.add_header('Content-ID', '<marketing_banner>')
+                mime_image.add_header('Content-Disposition', 'inline', filename=os.path.basename(image_path))
+                email.attach(mime_image)
+            except Exception as img_err:
+                print(f"Error attaching marketing image: {img_err}")
+                
+        email.send(fail_silently=False)
+        return "sent"
+    except Exception as e:
+        print(f"Error sending marketing email: {e}")
+        return "failed"
+

@@ -1,5 +1,7 @@
 from django.contrib import admin
-from .models import Organization, OrganizationMembership, ServiceAuditLog, ServiceRecord, CustomServiceType, SiteNews, ClientIntake
+from .models import Organization, OrganizationMembership, ServiceAuditLog, ServiceRecord, CustomServiceType, SiteNews, ClientIntake, Client, Vehicle, InventoryService, MarketingCampaignLog
+
+
 
 
 class MembershipInline(admin.TabularInline):
@@ -93,9 +95,58 @@ class SiteNewsAdmin(admin.ModelAdmin):
     list_filter = ("is_active",)
     search_fields = ("title", "content")
 
+@admin.register(Client)
+class ClientAdmin(admin.ModelAdmin):
+    list_display = ("first_name", "last_name", "email", "phone_number", "organization", "created_at")
+    list_filter = ("organization", "state", "created_at")
+    search_fields = ("first_name", "last_name", "email", "phone_number")
+    ordering = ("-created_at",)
+
+
+@admin.register(Vehicle)
+class VehicleAdmin(admin.ModelAdmin):
+    list_display = ("vin", "year", "make", "model", "plate_number", "client", "created_at")
+    list_filter = ("vehicle_type", "fuel_type", "plate_type", "created_at")
+    search_fields = ("vin", "plate_number", "make", "model", "client__first_name", "client__last_name")
+    ordering = ("-created_at",)
+
+
 @admin.register(ClientIntake)
 class ClientIntakeAdmin(admin.ModelAdmin):
     list_display = ("first_name", "last_name", "organization", "status", "created_at", "processed_by")
     list_filter = ("status", "organization")
     search_fields = ("first_name", "last_name", "vin")
     readonly_fields = ("created_at", "processed_at", "processed_by")
+
+
+@admin.register(InventoryService)
+class InventoryServiceAdmin(admin.ModelAdmin):
+    list_display = ("label", "key", "organization", "price", "stock", "created_at")
+    list_filter = ("organization",)
+    search_fields = ("label", "key", "organization__name")
+
+
+@admin.register(MarketingCampaignLog)
+class MarketingCampaignLogAdmin(admin.ModelAdmin):
+    list_display = ("subject", "inventory_service", "organization", "recipients_count", "sent_by", "sent_at")
+    list_filter = ("organization", "inventory_service")
+    search_fields = ("subject", "body", "sent_by__username")
+    readonly_fields = ("sent_at",)
+
+
+
+# Patch get_urls on default AdminSite to register crm-import
+from django.urls import path
+from .admin_views import crm_import_view
+
+original_get_urls = admin.site.get_urls
+
+def new_get_urls():
+    urls = original_get_urls()
+    custom_urls = [
+        path('crm-import/', admin.site.admin_view(crm_import_view), name='crm-import'),
+    ]
+    return custom_urls + urls
+
+admin.site.get_urls = new_get_urls
+

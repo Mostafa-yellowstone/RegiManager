@@ -779,3 +779,39 @@ class ClientIntake(models.Model):
 
     def __str__(self):
         return f"Intake: {self.first_name} {self.last_name} ({self.organization.name})"
+
+
+class InventoryService(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="inventory_services")
+    key = models.CharField(max_length=60)
+    label = models.CharField(max_length=120)
+    description = models.TextField(blank=True, default="")
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    stock = models.IntegerField(default=0, help_text="Available stock / items")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("organization", "key")
+        ordering = ["label"]
+
+    def __str__(self):
+        return f"{self.label} ({self.organization.name})"
+
+
+class MarketingCampaignLog(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="marketing_campaigns")
+    inventory_service = models.ForeignKey(InventoryService, on_delete=models.CASCADE, related_name="campaigns")
+    subject = models.CharField(max_length=255)
+    body = models.TextField()
+    image = models.ImageField(upload_to="marketing_campaigns/", blank=True, null=True)
+    sent_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="sent_campaigns")
+    recipients_count = models.IntegerField(default=0)
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-sent_at"]
+
+    def __str__(self):
+        return f"Campaign: {self.subject} ({self.sent_at.strftime('%Y-%m-%d %H:%M')})"
+
