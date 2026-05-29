@@ -337,6 +337,7 @@ class ServiceRecord(SoftDeleteModel):
     ]
     PAYMENT_METHODS = [
         ("cash", "Cash"),
+        ("zelle", "Zelle"),
         ("visa", "Visa"),
         ("mastercard", "Mastercard"),
         ("discover", "Discover"),

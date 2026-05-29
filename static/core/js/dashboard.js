@@ -492,11 +492,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const subtotal = processing + dmv + tax;
 
         let fee = 0;
+        // American Express: 5% credit card fee
         if (method === 'american_express') {
             fee = subtotal * 0.05;
-        } else if (method !== 'cash') {
+        } else if (method === 'visa' || method === 'mastercard' || method === 'discover' || method === 'diners_club') {
+            // Other credit cards: 3.5% credit card fee
             fee = subtotal * 0.035;
         }
+        // Cash and Zelle: 0% (no credit card fee)
         
         ccFeeInput.value = fee.toFixed(2);
     }
