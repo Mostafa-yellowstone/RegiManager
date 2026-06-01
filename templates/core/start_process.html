@@ -106,11 +106,13 @@ document.addEventListener('DOMContentLoaded', function() {
                           parseFloat(dmvFee.value || 0) + 
                           parseFloat(salesTax.value || 0);
         
-        if (['visa', 'mastercard', 'discover', 'diners_club', 'american_express'].includes(paymentMethod.value)) {
-            ccFee.value = (baseTotal * 0.04).toFixed(2);
-        } else {
-            ccFee.value = "0.00";
+        let fee = 0;
+        if (paymentMethod.value === 'american_express') {
+            fee = baseTotal * 0.05;
+        } else if (['visa', 'mastercard', 'discover', 'diners_club'].includes(paymentMethod.value)) {
+            fee = baseTotal * 0.035;
         }
+        ccFee.value = fee.toFixed(2);
 
         const grandTotal = baseTotal + parseFloat(ccFee.value || 0);
 

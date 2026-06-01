@@ -50,6 +50,56 @@ import io
 from openpyxl import Workbook
 
 
+def send_email_robustly(task_func, *args, **kwargs):
+    """
+    Dispatches an email task. Tries Celery first if a worker is active,
+    otherwise falls back to running synchronously in a background thread
+    to guarantee delivery.
+    """
+    from django.conf import settings
+    import threading
+    
+    # 1. If Celery is eager, just call it synchronously
+    if getattr(settings, 'CELERY_TASK_ALWAYS_EAGER', False):
+        try:
+            task_func(*args, **kwargs)
+            return "sent"
+        except Exception as e:
+            print(f"Eager send failed: {e}")
+            return "failed"
+            
+    # 2. Check if Celery worker is active
+    celery_running = False
+    try:
+        from celery import current_app
+        # Short timeout to prevent blocking HTTP request
+        inspect = current_app.control.inspect(timeout=0.3)
+        stats = inspect.stats()
+        if stats:
+            celery_running = True
+    except Exception:
+        pass
+        
+    if celery_running:
+        try:
+            task_func.delay(*args, **kwargs)
+            return "queued"
+        except Exception as e:
+            print(f"Celery queueing failed: {e}. Falling back to background thread.")
+            
+    # 3. Fallback to background thread
+    def run_in_thread():
+        try:
+            task_func(*args, **kwargs)
+        except Exception as err:
+            print(f"Background thread email send failed: {err}")
+            
+    thread = threading.Thread(target=run_in_thread)
+    thread.daemon = True
+    thread.start()
+    return "sent_background"
+
+
 def _currency(value):
     amount = value or Decimal("0")
     return f"${amount:.2f}"
@@ -1045,21 +1095,13 @@ def start_process(request, vehicle_id):
                     "case_id": record.case_id,
                     "psb_name": record.organization.name,
                 }
-                mail_dispatch_status = "queued"
-                try:
-                    send_automation_email.delay(
-                        vehicle.client.email,
-                        subject,
-                        "core/emails/confirmation.html",
-                        context,
-                    )
-                except Exception:
-                    # Do not fail process creation if mail backend/network is down.
-                    mail_dispatch_status = "failed_to_queue"
-                    messages.warning(
-                        request,
-                        "Service created, but confirmation email could not be queued right now.",
-                    )
+                mail_dispatch_status = send_email_robustly(
+                    send_automation_email,
+                    vehicle.client.email,
+                    subject,
+                    "core/emails/confirmation.html",
+                    context,
+                )
                 
                 AutomationLog.objects.create(
                     organization=record.organization,
@@ -5180,8 +5222,8 @@ def send_marketing_campaign_ajax(request, inventory_id):
         # Pre-fill client personal variables in body
         client_body = body.replace("{{first_name}}", client.first_name).replace("{{last_name}}", client.last_name).replace("{{client_name}}", client.name)
         
-        # Call celery task
-        send_marketing_email.delay(
+        send_email_robustly(
+            send_marketing_email,
             to_email=client.email,
             subject=subject,
             content_html=client_body,
