@@ -57,7 +57,7 @@
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; background: #f8fafc; padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0;">
+                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-bottom: 1.5rem; background: #f8fafc; padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0;">
                     <div class="field-wrap">
                         <label>Processing Fee</label>
                         {{ form.processing_fee }}
@@ -69,6 +69,10 @@
                     <div class="field-wrap">
                         <label>Sales Tax</label>
                         {{ form.sales_tax }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Other</label>
+                        {{ form.other_fees }}
                     </div>
                     <div class="field-wrap">
                         <label>Credit Card Fee</label>
@@ -95,16 +99,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const processingFee = document.querySelector('input[name="processing_fee"]');
     const dmvFee = document.querySelector('input[name="dmv_fee"]');
     const salesTax = document.querySelector('input[name="sales_tax"]');
+    const otherFees = document.querySelector('input[name="other_fees"]');
     const ccFee = document.querySelector('input[name="credit_card_fee"]');
     const totalPaid = document.querySelector('input[name="paid_amount"]');
     const outstandingBalance = document.querySelector('input[name="referral_balance"]');
     const paymentMethod = document.querySelector('select[name="payment_method"]');
     
     function updateCalculations() {
-        // 1. Calculate CC Fee if needed
-        const baseTotal = parseFloat(processingFee.value || 0) + 
-                          parseFloat(dmvFee.value || 0) + 
-                          parseFloat(salesTax.value || 0);
+        // 1. Calculate CC Fee based on all fees (including Other)
+        const baseTotal = parseFloat(processingFee.value || 0)
+                        + parseFloat(dmvFee.value || 0)
+                        + parseFloat(salesTax.value || 0)
+                        + parseFloat(otherFees ? otherFees.value || 0 : 0);
         
         let fee = 0;
         if (paymentMethod.value === 'american_express') {
@@ -135,7 +141,9 @@ document.addEventListener('DOMContentLoaded', function() {
         updateCalculations();
     });
 
-    [processingFee, dmvFee, salesTax, paymentMethod].forEach(el => {
+    const feeFields = [processingFee, dmvFee, salesTax, paymentMethod];
+    if (otherFees) feeFields.push(otherFees);
+    feeFields.forEach(el => {
         el.addEventListener('input', updateCalculations);
         el.addEventListener('change', updateCalculations);
     });

@@ -373,6 +373,7 @@ class VehicleServiceForm(forms.ModelForm):
             "service_type", "status", "payment_method",
             "terminal_number", "transaction_type",
             "processing_fee", "dmv_fee", "sales_tax", "credit_card_fee",
+            "other_fees",
             "paid_amount", "referral_balance", "notes"
         ]
 
