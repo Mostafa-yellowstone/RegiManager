@@ -816,3 +816,19 @@ class MarketingCampaignLog(models.Model):
     def __str__(self):
         return f"Campaign: {self.subject} ({self.sent_at.strftime('%Y-%m-%d %H:%M')})"
 
+
+class UserSession(models.Model):
+    """
+    Tracks the single allowed active session per user.
+    Stored in the database (not cache) so it works correctly on
+    multi-worker production servers (gunicorn, etc.).
+    """
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="active_session")
+    session_key = models.CharField(max_length=40)
+    created_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "core_user_session"
+
+    def __str__(self):
+        return f"{self.user.username} → {self.session_key[:8]}..."
