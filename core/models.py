@@ -320,11 +320,16 @@ class ServiceRecord(SoftDeleteModel):
     SERVICE_TYPES = [
         ("vehicle_registration", "Vehicle Registration"),
         ("registration_renewal", "Registration Renewal"),
+        ("duplicate_registration", "Duplicate Registration"),
         ("get_title", "Get A Title"),
+        ("duplicate_title", "Duplicate Title"),
+        ("title_only", "Title Only"),
         ("transfer_plate", "Plate Transfer"),
+        ("new_plates", "New Plates"),
         ("replace_lost_item", "Replace lost or damage items"),
         ("surrender_plates", "Surrender plates"),
         ("motorcycle_registration", "Motorcycle Registration"),
+        ("other", "Other"),
     ]
     TRANSACTION_TYPE_CHOICES = [
         ("OLRS", "OLRS"),
@@ -384,8 +389,10 @@ class ServiceRecord(SoftDeleteModel):
     processing_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     dmv_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     sales_tax = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    dmv_sales_tax = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Sales tax portion for the DMV.")
     credit_card_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    other_fees = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Additional extra fees.")
+    other_fees = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Additional extra fees for PSB.")
+    other_dmv_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Additional extra fees for DMV.")
     service_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     
     referral_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Amount owed by the referral for this service.")
@@ -436,8 +443,10 @@ class ServiceRecord(SoftDeleteModel):
             (self.processing_fee or Decimal("0"))
             + (self.dmv_fee or Decimal("0"))
             + (self.sales_tax or Decimal("0"))
+            + (self.dmv_sales_tax or Decimal("0"))
             + (self.credit_card_fee or Decimal("0"))
             + (self.other_fees or Decimal("0"))
+            + (self.other_dmv_fee or Decimal("0"))
         )
         # Automatically mark as paid if balance is zero
         if self.referral_balance <= 0:

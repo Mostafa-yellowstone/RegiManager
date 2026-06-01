@@ -1989,22 +1989,27 @@ def service_receipt_pdf(request, service_id):
 
     y -= 15
 
-    base_services = [v.upper() for k, v in ServiceRecord.SERVICE_TYPES[:7]]
-    actual_svc_display = service_record.service_type_label.upper()
+    # Define the exact fixed rows based on the receipt image
+    fixed_rows = [
+        ("PLATE SURRENDER", "surrender_plates"),
+        ("VEHICLE REGISTRATION", "vehicle_registration"),
+        ("MOTORCYCLE REGISTRATION", "motorcycle_registration"),
+        ("REGISTRATION RENEWAL", "registration_renewal"),
+        ("DUPLICATE REGISTRATION", "duplicate_registration"),
+        ("DUPLICATE TITLE", "duplicate_title"),
+        ("TITLE ONLY", "title_only"),
+        ("NEW PLATES", "new_plates"),
+        ("PLATE TRANSFER", "transfer_plate")
+    ]
 
-    if actual_svc_display in base_services:
-        rows = base_services
-    else:
-        rows = base_services[:6] + [actual_svc_display]
-
-    for row in rows:
+    for label, type_key in fixed_rows:
         pdf.setFont("Helvetica", 9)
-        pdf.drawString(margin_x, y - 8, row)
+        pdf.drawString(margin_x, y - 8, label)
         
         dmv_val = "$ 0.00"
         org_val = "$ 0.00"
         
-        if row == actual_svc_display:
+        if service_record.service_type == type_key:
             dmv_val = _currency(service_record.dmv_fee)
             org_val = _currency(service_record.processing_fee)
 
@@ -2018,19 +2023,23 @@ def service_receipt_pdf(request, service_id):
         
         y -= 25
 
-    # Sales Tax
+    # OTHER Row
     pdf.setFont("Helvetica", 9)
-    pdf.drawRightString(margin_x + 180, y - 8, "SALES TAX")
-    pdf.rect(margin_x + 280, y - 16, 100, 16)
-    pdf.drawRightString(margin_x + 376, y - 11, _currency(service_record.sales_tax))
+    pdf.drawString(margin_x, y - 8, "OTHER")
+    pdf.rect(margin_x + 220, y - 16, 80, 16)
+    pdf.drawRightString(margin_x + 296, y - 11, _currency(service_record.other_dmv_fee))
+    pdf.rect(margin_x + 340, y - 16, 80, 16)
+    pdf.drawRightString(margin_x + 416, y - 11, _currency(service_record.other_fees))
 
     y -= 25
 
-    # Other Fees
+    # SALES TAX Row
     pdf.setFont("Helvetica", 9)
-    pdf.drawRightString(margin_x + 180, y - 8, "OTHER")
-    pdf.rect(margin_x + 280, y - 16, 100, 16)
-    pdf.drawRightString(margin_x + 376, y - 11, _currency(service_record.other_fees))
+    pdf.drawRightString(margin_x + 180, y - 8, "SALES TAX")
+    pdf.rect(margin_x + 220, y - 16, 80, 16)
+    pdf.drawRightString(margin_x + 296, y - 11, _currency(service_record.dmv_sales_tax))
+    pdf.rect(margin_x + 340, y - 16, 80, 16)
+    pdf.drawRightString(margin_x + 416, y - 11, _currency(service_record.sales_tax))
 
     y -= 30
 
@@ -2039,9 +2048,12 @@ def service_receipt_pdf(request, service_id):
     pdf.drawRightString(margin_x + 180, y - 8, "SUB TOTAL :::")
     pdf.rect(margin_x + 220, y - 16, 80, 16)
     pdf.setFont("Helvetica-Bold", 9)
-    pdf.drawRightString(margin_x + 296, y - 11, _currency(service_record.dmv_fee))
+    total_dmv = service_record.dmv_fee + service_record.dmv_sales_tax + service_record.other_dmv_fee
+    pdf.drawRightString(margin_x + 296, y - 11, _currency(total_dmv))
+    
     pdf.rect(margin_x + 340, y - 16, 80, 16)
-    pdf.drawRightString(margin_x + 416, y - 11, _currency(service_record.processing_fee + service_record.sales_tax + service_record.other_fees))
+    total_psb = service_record.processing_fee + service_record.sales_tax + service_record.other_fees
+    pdf.drawRightString(margin_x + 416, y - 11, _currency(total_psb))
 
     y -= 40
     pdf.setFont("Helvetica-Bold", 13)
@@ -2417,7 +2429,14 @@ def service_list(request, service_type):
     #     scope_qs = scope_qs.filter(handled_by=request.user)
 
     if service_type != "all":
-        scope_qs = scope_qs.filter(service_type=service_type)
+        if service_type == "vehicle_registration":
+            scope_qs = scope_qs.filter(service_type__in=["vehicle_registration", "duplicate_registration"])
+        elif service_type == "get_title":
+            scope_qs = scope_qs.filter(service_type__in=["get_title", "title_only", "duplicate_title"])
+        elif service_type == "transfer_plate":
+            scope_qs = scope_qs.filter(service_type__in=["transfer_plate", "new_plates"])
+        else:
+            scope_qs = scope_qs.filter(service_type=service_type)
 
     search_query = request.GET.get('q', '').strip()
     status_filter = request.GET.get('status', '').strip()

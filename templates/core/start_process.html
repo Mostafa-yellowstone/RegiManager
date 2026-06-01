@@ -61,9 +61,9 @@
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-bottom: 1.5rem; background: #f8fafc; padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0;">
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; background: #f8fafc; padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0;">
                     <div class="field-wrap">
-                        <label>Processing Fee</label>
+                        <label>Processing Fee (PSB)</label>
                         {{ form.processing_fee }}
                     </div>
                     <div class="field-wrap">
@@ -71,14 +71,22 @@
                         {{ form.dmv_fee }}
                     </div>
                     <div class="field-wrap">
-                        <label>Sales Tax</label>
+                        <label>Sales Tax (PSB)</label>
                         {{ form.sales_tax }}
                     </div>
                     <div class="field-wrap">
-                        <label>Other</label>
+                        <label>Sales Tax (DMV)</label>
+                        {{ form.dmv_sales_tax }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Other (PSB)</label>
                         {{ form.other_fees }}
                     </div>
                     <div class="field-wrap">
+                        <label>Other (DMV)</label>
+                        {{ form.other_dmv_fee }}
+                    </div>
+                    <div class="field-wrap" style="grid-column: span 2;">
                         <label>Credit Card Fee</label>
                         {{ form.credit_card_fee }}
                     </div>
@@ -103,7 +111,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const processingFee = document.querySelector('input[name="processing_fee"]');
     const dmvFee = document.querySelector('input[name="dmv_fee"]');
     const salesTax = document.querySelector('input[name="sales_tax"]');
+    const dmvSalesTax = document.querySelector('input[name="dmv_sales_tax"]');
     const otherFees = document.querySelector('input[name="other_fees"]');
+    const otherDmvFee = document.querySelector('input[name="other_dmv_fee"]');
     const ccFee = document.querySelector('input[name="credit_card_fee"]');
     const totalPaid = document.querySelector('input[name="paid_amount"]');
     const outstandingBalance = document.querySelector('input[name="referral_balance"]');
@@ -114,7 +124,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const baseTotal = parseFloat(processingFee.value || 0)
                         + parseFloat(dmvFee.value || 0)
                         + parseFloat(salesTax.value || 0)
-                        + parseFloat(otherFees ? otherFees.value || 0 : 0);
+                        + parseFloat(dmvSalesTax ? dmvSalesTax.value || 0 : 0)
+                        + parseFloat(otherFees ? otherFees.value || 0 : 0)
+                        + parseFloat(otherDmvFee ? otherDmvFee.value || 0 : 0);
         
         let fee = 0;
         if (paymentMethod.value === 'american_express') {

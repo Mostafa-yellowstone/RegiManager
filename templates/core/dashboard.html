@@ -867,7 +867,17 @@ input:checked + .slider:before {
                         {% for record in service_records %}
                             <li>
                                 <span>
-                                    <strong>{{ record.receipt_number }}</strong> - {{ record.client_name|truncatechars:12 }}<br>
+                                    <strong>{{ record.receipt_number }}</strong> - {{ record.client_name|truncatechars:12 }}
+                                    {% if record.service_type == "duplicate_registration" %}
+                                        <span class="badge" style="background:#e0e7ff; color:#3730a3; padding: 1px 4px; border-radius: 4px; font-size: 0.65rem; margin-left: 4px;">Duplicate Reg</span>
+                                    {% elif record.service_type == "duplicate_title" %}
+                                        <span class="badge" style="background:#fce7f3; color:#9d174d; padding: 1px 4px; border-radius: 4px; font-size: 0.65rem; margin-left: 4px;">Duplicate Title</span>
+                                    {% elif record.service_type == "title_only" %}
+                                        <span class="badge" style="background:#dcfce7; color:#166534; padding: 1px 4px; border-radius: 4px; font-size: 0.65rem; margin-left: 4px;">Title Only</span>
+                                    {% elif record.service_type == "new_plates" %}
+                                        <span class="badge" style="background:#fef3c7; color:#92400e; padding: 1px 4px; border-radius: 4px; font-size: 0.65rem; margin-left: 4px;">New Plates</span>
+                                    {% endif %}
+                                    <br>
                                     <small>${{ record.service_fee }} ({{ record.get_status_display }})</small>
                                 </span>
                                 <div style="display: flex; gap: 4px;">

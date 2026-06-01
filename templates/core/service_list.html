@@ -137,7 +137,18 @@
                             {% for record in page_obj %}
                                 <tr>
                                     <td>{{ record.created_at|date:"Y-m-d H:i" }}</td>
-                                    <td><strong>{{ record.receipt_number }}</strong></td>
+                                    <td>
+                                        <strong>{{ record.receipt_number }}</strong>
+                                        {% if record.service_type == "duplicate_registration" %}
+                                            <br><span class="badge" style="background:#e0e7ff; color:#3730a3; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; white-space: nowrap;">Duplicate Reg</span>
+                                        {% elif record.service_type == "duplicate_title" %}
+                                            <br><span class="badge" style="background:#fce7f3; color:#9d174d; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; white-space: nowrap;">Duplicate Title</span>
+                                        {% elif record.service_type == "title_only" %}
+                                            <br><span class="badge" style="background:#dcfce7; color:#166534; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; white-space: nowrap;">Title Only</span>
+                                        {% elif record.service_type == "new_plates" %}
+                                            <br><span class="badge" style="background:#fef3c7; color:#92400e; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; white-space: nowrap;">New Plates</span>
+                                        {% endif %}
+                                    </td>
                                     <td>
                                         {% if record.vehicle and record.vehicle.client %}
                                             <a href="{% url 'client-detail' record.vehicle.client.id %}" class="client-link" style="text-decoration: none; color: #2563eb; font-weight: 700;">

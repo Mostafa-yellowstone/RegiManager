@@ -377,10 +377,18 @@ class VehicleServiceForm(forms.ModelForm):
             "transaction_date",
             "service_type", "status", "payment_method",
             "terminal_number", "transaction_type",
-            "processing_fee", "dmv_fee", "sales_tax", "credit_card_fee",
-            "other_fees",
+            "processing_fee", "dmv_fee", 
+            "sales_tax", "dmv_sales_tax", 
+            "credit_card_fee",
+            "other_fees", "other_dmv_fee",
             "paid_amount", "referral_balance", "notes"
         ]
+        labels = {
+            "sales_tax": "Sales Tax (PSB)",
+            "dmv_sales_tax": "Sales Tax (DMV)",
+            "other_fees": "Other (PSB)",
+            "other_dmv_fee": "Other (DMV)",
+        }
 
 
     def __init__(self, *args, **kwargs):
