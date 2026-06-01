@@ -1956,9 +1956,9 @@ def service_receipt_pdf(request, service_id):
         return x + w
 
     # Upper Row
-    dt = service_record.created_at
+    dt = service_record.transaction_date or service_record.created_at.date()
     date_str = dt.strftime("%b %d, %Y")
-    time_str = dt.strftime("%I:%M %p")
+    time_str = service_record.created_at.strftime("%I:%M %p")
     
     x = margin_x
     draw_box(x, y, 80, 16, "Transaction Date", date_str)

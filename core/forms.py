@@ -359,6 +359,10 @@ class VehicleForm(forms.ModelForm):
 
 class VehicleServiceForm(forms.ModelForm):
     service_type = forms.ChoiceField(choices=[])
+    transaction_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        label="Transaction Date"
+    )
     paid_amount = forms.DecimalField(
         max_digits=10, 
         decimal_places=2, 
@@ -370,6 +374,7 @@ class VehicleServiceForm(forms.ModelForm):
     class Meta:
         model = ServiceRecord
         fields = [
+            "transaction_date",
             "service_type", "status", "payment_method",
             "terminal_number", "transaction_type",
             "processing_fee", "dmv_fee", "sales_tax", "credit_card_fee",

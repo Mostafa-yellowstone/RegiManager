@@ -394,6 +394,7 @@ class ServiceRecord(SoftDeleteModel):
     
     notes = models.TextField(blank=True, default="")
     receipt_number = models.CharField(max_length=60, unique=True, blank=True, db_index=True)
+    transaction_date = models.DateField(default=timezone.now, help_text="Date printed on the receipt")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
     case_id = models.CharField(max_length=60, unique=True, blank=True, null=True, db_index=True)
