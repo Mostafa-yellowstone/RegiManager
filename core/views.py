@@ -2056,11 +2056,18 @@ def service_receipt_pdf(request, service_id):
     pdf.drawRightString(margin_x + 416, y - 11, _currency(total_psb))
 
     y -= 40
-    pdf.setFont("Helvetica-Bold", 13)
-    pdf.drawRightString(margin_x + 180, y - 8, "GRAND TOTAL :::")
-    pdf.rect(margin_x + 280, y - 16, 100, 18)
-    pdf.setFont("Helvetica-Bold", 11)
-    pdf.drawRightString(margin_x + 376, y - 11, _currency(service_record.service_fee))
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawRightString(margin_x + 200, y - 6, "GRAND TOTAL :::")
+    
+    pdf.setLineWidth(1.5)
+    pdf.setFillColorRGB(0.92, 0.92, 0.92) # Light gray background
+    pdf.rect(margin_x + 220, y - 18, 200, 24, fill=1)
+    
+    pdf.setFillColorRGB(0, 0, 0) # Back to black text
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawRightString(margin_x + 410, y - 2, _currency(service_record.service_fee))
+    
+    pdf.setLineWidth(1) # Reset line width
 
     # Signatures
     sig_y = height - 510
