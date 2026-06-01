@@ -3068,6 +3068,7 @@ def agent_audit_view(request, membership_id):
         return HttpResponseForbidden("Owner access required.")
 
     today = timezone.localdate()
+    month_start = today.replace(day=1)
     start_date_str = request.GET.get("start_date")
     end_date_str = request.GET.get("end_date")
     
