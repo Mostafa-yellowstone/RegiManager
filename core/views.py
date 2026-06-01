@@ -2087,7 +2087,7 @@ def service_receipt_pdf(request, service_id):
     pdf.drawCentredString(margin_x + 495, sig_y - 12, "AGENT SIGNATURE")
 
     # Payment details table  — extra vertical gap below grand total
-    py = 190
+    py = 115
     # thin separator line above the payment table
     pdf.setLineWidth(0.5)
     pdf.setStrokeColorRGB(0.7, 0.7, 0.7)
