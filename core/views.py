@@ -1161,8 +1161,9 @@ def dashboard(request):
     owner_orgs = Organization.objects.filter(id__in=owner_org_ids) if is_owner else Organization.objects.none()
     
     scope_qs = ServiceRecord.objects.filter(organization__in=organizations)
-    if not is_owner:
-        scope_qs = scope_qs.filter(handled_by=request.user)
+    # Visibility unlocked: Agents can see all records in their PSB
+    # if not is_owner:
+    #     scope_qs = scope_qs.filter(handled_by=request.user)
 
     today = timezone.localdate()
     month_start = today.replace(day=1)
@@ -1174,8 +1175,9 @@ def dashboard(request):
     )
 
     audit_scope = ServiceAuditLog.objects.filter(service_record__organization__in=organizations)
-    if not is_owner:
-        audit_scope = audit_scope.filter(service_record__handled_by=request.user)
+    # Visibility unlocked: Agents can see all audit logs in their PSB
+    # if not is_owner:
+    #     audit_scope = audit_scope.filter(service_record__handled_by=request.user)
 
     audit_logs = (
         audit_scope.select_related("actor", "organization", "service_record")
@@ -2410,8 +2412,9 @@ def service_list(request, service_type):
     )
     is_owner = bool(owner_org_ids)
 
-    if not is_owner:
-        scope_qs = scope_qs.filter(handled_by=request.user)
+    # Visibility unlocked: Agents can search all records in their PSB
+    # if not is_owner:
+    #     scope_qs = scope_qs.filter(handled_by=request.user)
 
     if service_type != "all":
         scope_qs = scope_qs.filter(service_type=service_type)
@@ -2660,8 +2663,9 @@ def service_search_ajax(request):
     )
     is_owner = memberships.filter(role=OrganizationMembership.Role.OWNER).exists()
 
-    if not is_owner:
-        scope_qs = scope_qs.filter(handled_by=request.user)
+    # Visibility unlocked: Agents can see all records on the transactions page
+    # if not is_owner:
+    #     scope_qs = scope_qs.filter(handled_by=request.user)
 
     if service_type != "all":
         scope_qs = scope_qs.filter(service_type=service_type)
@@ -2980,8 +2984,9 @@ def all_service_types(request):
     )
     is_owner = bool(owner_org_ids)
     
-    if not is_owner:
-        scope_qs = scope_qs.filter(handled_by=request.user)
+    # Visibility unlocked: Agents can see org-wide reports
+    # if not is_owner:
+    #     scope_qs = scope_qs.filter(handled_by=request.user)
 
     today = timezone.localdate()
     month_start = today.replace(day=1)
