@@ -2086,8 +2086,15 @@ def service_receipt_pdf(request, service_id):
     pdf.setFont("Helvetica-Bold", 8)
     pdf.drawCentredString(margin_x + 495, sig_y - 12, "AGENT SIGNATURE")
 
-    # Payment details table
-    py = 150
+    # Payment details table  — extra vertical gap below grand total
+    py = 190
+    # thin separator line above the payment table
+    pdf.setLineWidth(0.5)
+    pdf.setStrokeColorRGB(0.7, 0.7, 0.7)
+    pdf.line(margin_x, py + 42, margin_x + 530, py + 42)
+    pdf.setLineWidth(1)
+    pdf.setStrokeColorRGB(0, 0, 0)
+
     pdf.rect(margin_x, py, 530, 32)
     # vertical lines
     pdf.line(margin_x + 110, py, margin_x + 110, py + 32)
