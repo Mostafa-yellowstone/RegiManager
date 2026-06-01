@@ -157,8 +157,15 @@ document.addEventListener('DOMContentLoaded', function() {
         updateCalculations();
     });
 
-    const feeFields = [processingFee, dmvFee, salesTax, paymentMethod];
-    if (otherFees) feeFields.push(otherFees);
+    const feeFields = [
+        processingFee,
+        dmvFee,
+        salesTax,
+        dmvSalesTax,
+        otherFees,
+        otherDmvFee,
+        paymentMethod
+    ].filter(Boolean);
     feeFields.forEach(el => {
         el.addEventListener('input', updateCalculations);
         el.addEventListener('change', updateCalculations);

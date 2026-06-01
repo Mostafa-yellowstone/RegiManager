@@ -1052,7 +1052,15 @@ def start_process(request, vehicle_id):
             if total_paid is None:
                 total_paid = Decimal("0")
             record.paid_amount = total_paid
-            total_fees = record.processing_fee + record.dmv_fee + record.sales_tax + record.credit_card_fee
+            total_fees = (
+                (record.processing_fee or Decimal("0"))
+                + (record.dmv_fee or Decimal("0"))
+                + (record.sales_tax or Decimal("0"))
+                + (record.dmv_sales_tax or Decimal("0"))
+                + (record.other_fees or Decimal("0"))
+                + (record.other_dmv_fee or Decimal("0"))
+                + (record.credit_card_fee or Decimal("0"))
+            )
 
             # Auto-link to referral if this client came from a referralship
             if vehicle.client.referral:
