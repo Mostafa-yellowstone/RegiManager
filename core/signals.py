@@ -10,7 +10,18 @@ def on_user_logged_in(sender, request, user, **kwargs):
     When a user logs in, store their new session key in the database
     and delete the old session (if any) to force-logout the other device.
     """
+    # Ensure the session has a key generated
+    if not request.session.session_key:
+        try:
+            request.session.save()
+        except Exception:
+            pass
+
     new_session_key = request.session.session_key
+    if not new_session_key:
+        # If there's still no session key (e.g. in tests or custom API logins),
+        # do not save/create UserSession as session_key cannot be NULL.
+        return
 
     try:
         active = UserSession.objects.get(user=user)
