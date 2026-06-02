@@ -2043,7 +2043,7 @@ def service_receipt_pdf(request, service_id):
 
     # SALES TAX Row
     pdf.setFont("Helvetica", 9)
-    pdf.drawRightString(margin_x + 180, y - 8, "SALES TAX")
+    pdf.drawString(margin_x, y - 8, "SALES TAX")
     pdf.rect(margin_x + 220, y - 16, 80, 16)
     pdf.drawRightString(margin_x + 296, y - 11, _currency(service_record.dmv_sales_tax))
     pdf.rect(margin_x + 340, y - 16, 80, 16)
@@ -2053,7 +2053,7 @@ def service_receipt_pdf(request, service_id):
 
     # Sub total
     pdf.setFont("Helvetica-Bold", 11)
-    pdf.drawRightString(margin_x + 180, y - 8, "SUB TOTAL :::")
+    pdf.drawString(margin_x, y - 8, "SUB TOTAL")
     pdf.rect(margin_x + 220, y - 16, 80, 16)
     pdf.setFont("Helvetica-Bold", 9)
     total_dmv = service_record.dmv_fee + service_record.dmv_sales_tax + service_record.other_dmv_fee
@@ -2065,7 +2065,7 @@ def service_receipt_pdf(request, service_id):
 
     y -= 40
     pdf.setFont("Helvetica-Bold", 14)
-    pdf.drawRightString(margin_x + 200, y - 6, "GRAND TOTAL :::")
+    pdf.drawString(margin_x, y - 6, "GRAND TOTAL")
     
     pdf.setLineWidth(1.5)
     pdf.setFillColorRGB(0.92, 0.92, 0.92) # Light gray background
@@ -2073,7 +2073,8 @@ def service_receipt_pdf(request, service_id):
     
     pdf.setFillColorRGB(0, 0, 0) # Back to black text
     pdf.setFont("Helvetica-Bold", 14)
-    pdf.drawRightString(margin_x + 410, y - 2, _currency(service_record.service_fee))
+    # Center horizontally at margin_x + 320, and vertically at y - 12
+    pdf.drawCentredString(margin_x + 320, y - 12, _currency(service_record.service_fee))
     
     pdf.setLineWidth(1) # Reset line width
 
@@ -2090,6 +2091,23 @@ def service_receipt_pdf(request, service_id):
     pdf.drawString(margin_x + 440, sig_y, f"Agent Name: {agent_name}")
 
     sig_y -= 40
+    # Draw the agent signature image if it exists
+    try:
+        membership = OrganizationMembership.objects.filter(
+            organization=service_record.organization, user=service_record.handled_by
+        ).first()
+        if membership and membership.signature and os.path.exists(membership.signature.path):
+            pdf.drawImage(
+                membership.signature.path,
+                margin_x + 455,
+                sig_y + 2,
+                width=80,
+                height=30,
+                mask='auto'
+            )
+    except Exception:
+        pass
+
     pdf.line(margin_x + 440, sig_y, margin_x + 550, sig_y)
     pdf.setFont("Helvetica-Bold", 8)
     pdf.drawCentredString(margin_x + 495, sig_y - 12, "AGENT SIGNATURE")

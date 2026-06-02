@@ -22,6 +22,7 @@ class MembershipInline(admin.TabularInline):
         'can_view_net_profit',
         'can_manage_referrals',
         'can_trigger_automation',
+        'signature',
     )
     readonly_fields = ('user',)
     verbose_name = "Agent / Member"

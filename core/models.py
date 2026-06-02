@@ -87,6 +87,7 @@ class OrganizationMembership(models.Model):
     can_manage_referrals = models.BooleanField(default=False, help_text="Can this agent manage referral partners?")
     can_trigger_automation = models.BooleanField(default=False, help_text="Can this user manually trigger the automation scan?")
     is_active = models.BooleanField(default=True, help_text="Enable or disable this agent in this PSB.")
+    signature = models.ImageField(upload_to="agent_signatures/", blank=True, null=True, help_text="Agent signature image to be displayed on receipts.")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
