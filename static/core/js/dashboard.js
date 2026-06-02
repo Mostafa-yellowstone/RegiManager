@@ -225,7 +225,7 @@ function proceedWithUpload(file, docType, dropzoneElement) {
         
         dropzoneElement.classList.remove('error', 'uploading');
         dropzoneElement.classList.add('success');
-        dropzoneElement.querySelector('.dz-status').textContent = `Attached ✓ (${formatFileSize(file.size)})`;
+        dropzoneElement.querySelector('.dz-status').textContent = `Attached \u2713 (${formatFileSize(file.size)})`;
         
         if (!dropzoneElement.querySelector('.dz-remove')) {
             const delBtn = document.createElement('span');
@@ -248,37 +248,81 @@ function proceedWithUpload(file, docType, dropzoneElement) {
     formData.append('file', file);
     formData.append('document_type', docType);
     
-    let uploadUrl = currentServiceId ? `/dashboard/service/${currentServiceId}/upload/` : `/dashboard/vehicle/${currentVehicleId}/upload/`;
+    let uploadUrl = currentServiceId
+        ? `/dashboard/service/${currentServiceId}/upload/`
+        : `/dashboard/vehicle/${currentVehicleId}/upload/`;
     
+    const statusDiv = dropzoneElement.querySelector('.dz-status');
     dropzoneElement.classList.remove('success', 'error');
     dropzoneElement.classList.add('uploading');
-    dropzoneElement.querySelector('.dz-status').textContent = 'Uploading...';
-    
-    fetch(uploadUrl, {
-        method: 'POST',
-        body: formData,
-        headers: { 'X-CSRFToken': getCookie('csrftoken') }
-    })
-    .then(r => r.json())
-    .then(data => {
+    if (statusDiv) statusDiv.textContent = 'Uploading... 0%';
+
+    // Use XHR so we can track upload progress and get proper HTTP status codes
+    const xhr = new XMLHttpRequest();
+
+    // --- Progress tracking ---
+    xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable && statusDiv) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            statusDiv.textContent = `Uploading... ${pct}%`;
+        }
+    });
+
+    // --- Upload complete ---
+    xhr.addEventListener('load', () => {
         dropzoneElement.classList.remove('uploading');
-        if (data.status === 'success') {
-            dropzoneElement.classList.add('success');
-            dropzoneElement.querySelector('.dz-status').textContent = `Uploaded ✓ (${formatFileSize(file.size)})`;
-        } else {
+        if (xhr.status === 413) {
+            // Nginx / server rejected upload as too large
             dropzoneElement.classList.add('error');
-            dropzoneElement.querySelector('.dz-status').textContent = data.message || 'Upload failed';
+            if (statusDiv) statusDiv.textContent = 'File too large for server (413)';
+            dropzoneElement.classList.add('shake');
+            setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
+            return;
+        }
+        try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.status === 'success') {
+                dropzoneElement.classList.add('success');
+                if (statusDiv) statusDiv.textContent = `Uploaded \u2713 (${formatFileSize(file.size)})`;
+                // If there's a post-upload callback registered (e.g. vehicle detail page), call it
+                if (typeof window._onUploadSuccess === 'function') {
+                    window._onUploadSuccess(data, docType, dropzoneElement);
+                }
+            } else {
+                dropzoneElement.classList.add('error');
+                if (statusDiv) statusDiv.textContent = data.message || 'Upload failed';
+                dropzoneElement.classList.add('shake');
+                setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
+            }
+        } catch (e) {
+            dropzoneElement.classList.add('error');
+            if (statusDiv) statusDiv.textContent = `Server error (${xhr.status})`;
             dropzoneElement.classList.add('shake');
             setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
         }
-    })
-    .catch(() => {
+    });
+
+    // --- Network / timeout error ---
+    const onError = () => {
         dropzoneElement.classList.remove('uploading');
         dropzoneElement.classList.add('error');
-        dropzoneElement.querySelector('.dz-status').textContent = 'Network Error';
+        if (statusDiv) statusDiv.textContent = 'Upload failed \u2014 check connection & server config';
+        dropzoneElement.classList.add('shake');
+        setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
+    };
+    xhr.addEventListener('error', onError);
+    xhr.addEventListener('timeout', () => {
+        dropzoneElement.classList.remove('uploading');
+        dropzoneElement.classList.add('error');
+        if (statusDiv) statusDiv.textContent = 'Upload timed out \u2014 try a smaller file';
         dropzoneElement.classList.add('shake');
         setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
     });
+
+    xhr.open('POST', uploadUrl);
+    xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
+    xhr.timeout = 120000; // 2-minute timeout
+    xhr.send(formData);
 }
 
 function fetchDocuments(id, type = 'service') {

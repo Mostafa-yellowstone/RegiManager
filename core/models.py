@@ -230,6 +230,13 @@ class Vehicle(SoftDeleteModel):
         ("motorcycle", "Motorcycle"),
         ("bus", "Bus"),
         ("trailer", "Trailer"),
+        ("moped", "Moped"),
+        ("boat", "Boat"),
+        ("jetski", "Jetski"),
+        ("mobile_home", "Mobile Home"),
+        ("snowmobile", "Snowmobile"),
+        ("atv", "ATV"),
+        ("dump", "Dump"),
         ("other", "Other"),
     ]
     BODY_TYPES = [
@@ -240,6 +247,16 @@ class Vehicle(SoftDeleteModel):
         ("coupe", "Coupe"),
         ("convertible", "Convertible"),
         ("suv", "SUV"),
+        ("motorcycle", "Motorcycle"),
+        ("van_truck", "Van Truck"),
+        ("flat_bed_truck", "Flat bed truck"),
+        ("tank_truck", "Tank Truck"),
+        ("tow", "Tow"),
+        ("limo", "Limo"),
+        ("light_trailer", "Light Trailer"),
+        ("wagon", "Wagon"),
+        ("tractor", "Tractor"),
+        ("na", "N/A"),
         ("other", "Other"),
     ]
     FUEL_TYPES = [
@@ -277,6 +294,9 @@ class Vehicle(SoftDeleteModel):
     PLATE_TYPES = [
         ("personal", "Personal Plates"),
         ("commercial", "Commercial Plates"),
+        ("motorcycle", "Motorcycle plates"),
+        ("atv", "ATV plates"),
+        ("trailer", "Trailer Plates"),
     ]
     plate_type = models.CharField(max_length=20, choices=PLATE_TYPES, default="personal")
     

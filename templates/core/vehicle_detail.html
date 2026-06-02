@@ -307,51 +307,10 @@
 
 <script src="{% static 'core/js/dashboard.js' %}"></script>
 <script>
-    // Override handleFileUpload on the vehicle detail page:
-    // The global function handles validation, icons, and size display.
-    // We wrap proceedWithUpload instead so that after a successful vehicle upload
-    // we also refresh the static documents table on this page.
-    const _origProceedWithUpload = proceedWithUpload;
-    proceedWithUpload = function(file, docType, dropzoneElement) {
-        // Only intercept live vehicle uploads (not pre-upload form mode)
-        if (currentVehicleId) {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('document_type', docType);
-
-            dropzoneElement.classList.remove('success', 'error');
-            dropzoneElement.classList.add('uploading');
-            dropzoneElement.querySelector('.dz-status').textContent = `${formatFileSize(file.size)} — uploading...`;
-
-            fetch(`/dashboard/vehicle/${currentVehicleId}/upload/`, {
-                method: 'POST',
-                body: formData,
-                headers: { 'X-CSRFToken': getCookie('csrftoken') }
-            })
-            .then(r => r.json())
-            .then(data => {
-                dropzoneElement.classList.remove('uploading');
-                if (data.status === 'success') {
-                    dropzoneElement.classList.add('success');
-                    dropzoneElement.querySelector('.dz-status').textContent = `Uploaded ✓ (${formatFileSize(file.size)})`;
-                    refreshDocsTable();
-                } else {
-                    dropzoneElement.classList.add('error');
-                    dropzoneElement.querySelector('.dz-status').textContent = data.message || 'Upload failed';
-                    dropzoneElement.classList.add('shake');
-                    setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
-                }
-            })
-            .catch(() => {
-                dropzoneElement.classList.remove('uploading');
-                dropzoneElement.classList.add('error');
-                dropzoneElement.querySelector('.dz-status').textContent = 'Network Error';
-                dropzoneElement.classList.add('shake');
-                setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
-            });
-        } else {
-            _origProceedWithUpload(file, docType, dropzoneElement);
-        }
+    // After a successful upload on the vehicle detail page, refresh the docs table.
+    // This uses the _onUploadSuccess hook that the global XHR-based proceedWithUpload calls.
+    window._onUploadSuccess = function(data, docType, dropzoneElement) {
+        refreshDocsTable();
     };
 
     function refreshDocsTable() {

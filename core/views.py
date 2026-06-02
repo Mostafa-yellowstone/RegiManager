@@ -2314,6 +2314,67 @@ def _fill_mv82b_overlay(can, service, client, vehicle):
     """
     pass
 
+def regenerate_mv82_document(service_document):
+    from django.core.files.base import ContentFile
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import letter
+    from pypdf import PdfReader, PdfWriter
+    from pypdf.generic import NameObject
+    import io
+    import os
+    from django.utils import timezone
+
+    service = service_document.service_record
+    vehicle = service_document.vehicle or (service.vehicle if service else None)
+    client = vehicle.client if vehicle else None
+    
+    if not service or not vehicle or not client:
+        return
+        
+    prefill = _build_form_prefill_payload(service, client, vehicle)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    template_path = os.path.join(current_dir, "static/core/pdf/mv82_template.pdf")
+    if not os.path.exists(template_path):
+        return
+    
+    packet = io.BytesIO()
+    can = canvas.Canvas(packet, pagesize=letter)
+    _fill_mv82_overlay(can, service, client, vehicle)
+    can.save()
+    packet.seek(0)
+    
+    new_pdf = PdfReader(packet)
+    template_pdf = PdfReader(template_path)
+    output = PdfWriter()
+
+    page1 = template_pdf.pages[0]
+    page1.merge_page(new_pdf.pages[0])
+    output.add_page(page1)
+    if len(template_pdf.pages) > 1:
+        output.add_page(template_pdf.pages[1])
+
+    if "/AcroForm" in template_pdf.trailer["/Root"]:
+        output._root_object.update({
+            NameObject("/AcroForm"): template_pdf.trailer["/Root"]["/AcroForm"]
+        })
+        fields = _build_acroform_prefill_fields("mv82", prefill)
+        if fields:
+            for page in output.pages:
+                output.update_page_form_field_values(page, fields)
+
+    final_output = io.BytesIO()
+    output.write(final_output)
+    final_output.seek(0)
+    
+    if service_document.file:
+        try:
+            service_document.file.delete(save=False)
+        except Exception:
+            pass
+        
+    doc_name = f"MV82-{vehicle.vin}-{timezone.now().strftime('%Y%m%d')}.pdf"
+    service_document.file.save(doc_name, ContentFile(final_output.read()), save=True)
+
 @login_required
 @xframe_options_exempt
 def intake_mv82_pdf(request, intake_id):
@@ -4545,6 +4606,12 @@ def edit_client(request, client_id):
                         client.referral = None
                     
                     client.save()
+                    from .models import ServiceDocument
+                    for doc in ServiceDocument.objects.filter(vehicle__client=client, document_type="mv82"):
+                        try:
+                            regenerate_mv82_document(doc)
+                        except Exception:
+                            pass
                 messages.success(request, f"Client {client.name} updated successfully.")
                 return redirect('client-detail', client_id=client.id)
             except Exception as e:
@@ -4578,6 +4645,12 @@ def edit_service(request, service_id):
                 record.referral = record.vehicle.client.referral
             
             record.save()
+            from .models import ServiceDocument
+            for doc in ServiceDocument.objects.filter(service_record=record, document_type="mv82"):
+                try:
+                    regenerate_mv82_document(doc)
+                except Exception:
+                    pass
             messages.success(request, "Service record updated successfully.")
             if record.vehicle_id:
                 return redirect('vehicle-detail', vehicle_id=record.vehicle_id)
@@ -4605,7 +4678,13 @@ def edit_vehicle(request, vehicle_id):
     if request.method == 'POST':
         form = VehicleForm(request.POST, instance=vehicle)
         if form.is_valid():
-            form.save()
+            vehicle = form.save()
+            from .models import ServiceDocument
+            for doc in ServiceDocument.objects.filter(vehicle=vehicle, document_type="mv82"):
+                try:
+                    regenerate_mv82_document(doc)
+                except Exception:
+                    pass
             return redirect('vehicle-detail', vehicle_id=vehicle.id)
     else:
         form = VehicleForm(instance=vehicle)
@@ -5160,7 +5239,8 @@ def inventory_list(request):
         except Exception as e:
             messages.error(request, f"Error creating inventory service: {e}")
         
-        return redirect("inventory-list")
+        redirect_target = request.POST.get("redirect_to", "inventory-list")
+        return redirect(redirect_target)
 
     inventory_items = InventoryService.objects.filter(organization__in=organizations).select_related("organization")
     return render(request, "core/inventory_list.html", {
@@ -5168,6 +5248,14 @@ def inventory_list(request):
         "is_owner": is_owner,
         "owner_orgs": owner_orgs,
     })
+
+
+def _redirect_to_insurance_detail(org):
+    from .models import InventoryService
+    insurance_card = InventoryService.objects.filter(organization=org, key="insurance").first()
+    if insurance_card:
+        return redirect("inventory-detail", inventory_id=insurance_card.id)
+    return redirect("spaces-home")
 
 
 @login_required
@@ -5214,6 +5302,66 @@ def inventory_detail(request, inventory_id):
             messages.error(request, f"Error updating inventory service: {e}")
         
         return redirect("inventory-detail", inventory_id=card.id)
+
+    # Special handling for the "Insurance" Space card
+    if card.key == "insurance":
+        from .models import InsuranceCompany, InsurancePolicy, BankAccount, BankTransaction
+        active_org = card.organization
+        
+        is_locked = active_org.insurance_space_locked and active_org.insurance_space_password
+        unlocked_session_key = f"insurance_unlocked_{active_org.id}"
+        is_unlocked = request.session.get(unlocked_session_key, False)
+        insurance_locked = is_locked and not is_unlocked
+        
+        clients = Client.objects.filter(organization=active_org)
+        insurance_companies = InsuranceCompany.objects.filter(organization=active_org)
+        policies = InsurancePolicy.objects.filter(organization=active_org).select_related("client", "insurance_company")
+        bank_accounts = BankAccount.objects.filter(organization=active_org)
+        bank_transactions = BankTransaction.objects.filter(bank_account__organization=active_org).select_related("bank_account")
+        
+        active_policies = policies.filter(status="active")
+        inactive_policies = policies.filter(status="inactive")
+        
+        total_premium = sum(p.premium for p in active_policies)
+        total_commission = sum(p.commission_amount for p in active_policies)
+        total_unearned_commission = sum(p.unearned_commission for p in inactive_policies)
+        
+        company_summaries = []
+        for company in insurance_companies:
+            comp_policies = policies.filter(insurance_company=company)
+            comp_unearned = sum(p.unearned_commission for p in comp_policies if p.status == "inactive")
+            comp_active_count = comp_policies.filter(status="active").count()
+            company_summaries.append({
+                "id": company.id,
+                "name": company.name,
+                "active_count": comp_active_count,
+                "unearned_commission": comp_unearned
+            })
+            
+        import json
+        income_categories = json.dumps(["Insurance Premium Receipt", "Commission Payment", "Interest", "Other Income"])
+        expense_categories = json.dumps(["Rent", "Utilities", "Payroll", "Office Supplies", "Marketing", "Other Expense"])
+        
+        context = {
+            "card": card,
+            "is_owner": is_owner,
+            "active_org": active_org,
+            "insurance_locked": insurance_locked,
+            "clients": clients,
+            "insurance_companies": insurance_companies,
+            "company_summaries": company_summaries,
+            "policies": policies,
+            "bank_accounts": bank_accounts,
+            "bank_transactions": bank_transactions,
+            "total_premium": total_premium,
+            "total_commission": total_commission,
+            "total_unearned_commission": total_unearned_commission,
+            "active_policies_count": active_policies.count(),
+            "inactive_policies_count": inactive_policies.count(),
+            "income_categories": income_categories,
+            "expense_categories": expense_categories,
+        }
+        return render(request, "core/insurance_space.html", context)
 
     # Fetch clients for the organization that have emails
     clients = Client.objects.filter(organization=card.organization).exclude(email__isnull=True).exclude(email="").order_by("first_name", "last_name")
@@ -5292,7 +5440,7 @@ def send_marketing_campaign_ajax(request, inventory_id):
 
 @login_required
 def spaces_home(request):
-    from .models import InventoryService, InsuranceCompany, InsurancePolicy, BankAccount, BankTransaction, Client
+    from .models import InventoryService
     organizations = _get_user_organizations(request)
     
     active_org_id = request.session.get('active_org_id')
@@ -5309,59 +5457,24 @@ def spaces_home(request):
             "organizations": organizations,
         })
         
-    is_locked = active_org.insurance_space_locked and active_org.insurance_space_password
-    unlocked_session_key = f"insurance_unlocked_{active_org.id}"
-    is_unlocked = request.session.get(unlocked_session_key, False)
-    insurance_locked = is_locked and not is_unlocked
-    
-    inventory_items = InventoryService.objects.filter(organization=active_org)
-    clients = Client.objects.filter(organization=active_org)
-    insurance_companies = InsuranceCompany.objects.filter(organization=active_org)
-    policies = InsurancePolicy.objects.filter(organization=active_org).select_related("client", "insurance_company")
-    bank_accounts = BankAccount.objects.filter(organization=active_org)
-    bank_transactions = BankTransaction.objects.filter(bank_account__organization=active_org).select_related("bank_account")
-    
-    active_policies = policies.filter(status="active")
-    inactive_policies = policies.filter(status="inactive")
-    
-    total_premium = sum(p.premium for p in active_policies)
-    total_commission = sum(p.commission_amount for p in active_policies)
-    total_unearned_commission = sum(p.unearned_commission for p in inactive_policies)
-    
-    company_summaries = []
-    for company in insurance_companies:
-        comp_policies = policies.filter(insurance_company=company)
-        comp_unearned = sum(p.unearned_commission for p in comp_policies if p.status == "inactive")
-        comp_active_count = comp_policies.filter(status="active").count()
-        company_summaries.append({
-            "id": company.id,
-            "name": company.name,
-            "active_count": comp_active_count,
-            "unearned_commission": comp_unearned
-        })
+    # Auto-ensure "Insurance" card exists for this active org
+    InventoryService.objects.get_or_create(
+        organization=active_org, 
+        key="insurance", 
+        defaults={
+            "label": "Insurance", 
+            "description": "Insurance CRM and Financial space", 
+            "price": 0.00, 
+            "stock": 0
+        }
+    )
         
-    import json
-    income_categories = json.dumps(["Insurance Premium Receipt", "Commission Payment", "Interest", "Other Income"])
-    expense_categories = json.dumps(["Rent", "Utilities", "Payroll", "Office Supplies", "Marketing", "Other Expense"])
-
+    inventory_items = InventoryService.objects.filter(organization=active_org)
+    
     context = {
         "needs_org_selection": False,
         "active_org": active_org,
-        "insurance_locked": insurance_locked,
         "inventory_items": inventory_items,
-        "clients": clients,
-        "insurance_companies": insurance_companies,
-        "company_summaries": company_summaries,
-        "policies": policies,
-        "bank_accounts": bank_accounts,
-        "bank_transactions": bank_transactions,
-        "total_premium": total_premium,
-        "total_commission": total_commission,
-        "total_unearned_commission": total_unearned_commission,
-        "active_policies_count": active_policies.count(),
-        "inactive_policies_count": inactive_policies.count(),
-        "income_categories": income_categories,
-        "expense_categories": expense_categories,
     }
     return render(request, "core/spaces_home.html", context)
 
@@ -5384,7 +5497,7 @@ def unlock_insurance_space(request):
     else:
         request.session[f"insurance_unlocked_{org.id}"] = True
         
-    return redirect("spaces-home")
+    return _redirect_to_insurance_detail(org)
 
 
 @login_required
@@ -5398,7 +5511,7 @@ def lock_insurance_space(request):
     if unlocked_key in request.session:
         del request.session[unlocked_key]
     messages.info(request, "Insurance Space locked.")
-    return redirect("spaces-home")
+    return _redirect_to_insurance_detail(org)
 
 
 @login_required
@@ -5421,7 +5534,7 @@ def toggle_insurance_lock(request):
         request.session[f"insurance_unlocked_{org.id}"] = True
         
     messages.success(request, "Lock settings updated.")
-    return redirect("spaces-home")
+    return _redirect_to_insurance_detail(org)
 
 
 @login_required
@@ -5432,8 +5545,32 @@ def add_insurance_policy(request):
     organizations = _get_user_organizations(request)
     org = get_object_or_404(organizations, id=org_id)
     
-    client_id = request.POST.get("client")
-    client = get_object_or_404(Client, id=client_id, organization=org)
+    client_name = request.POST.get("client_name", "").strip()
+    if not client_name:
+        messages.error(request, "Client name is required.")
+        return _redirect_to_insurance_detail(org)
+        
+    name_parts = client_name.split()
+    if len(name_parts) >= 2:
+        first_name = " ".join(name_parts[:-1])
+        last_name = name_parts[-1]
+    else:
+        first_name = client_name
+        last_name = "."
+        
+    client = Client.objects.filter(
+        organization=org,
+        first_name__iexact=first_name,
+        last_name__iexact=last_name
+    ).first()
+    
+    if not client:
+        client = Client.objects.create(
+            organization=org,
+            first_name=first_name,
+            last_name=last_name,
+            source="insurance"
+        )
     
     company_id = request.POST.get("insurance_company")
     company = get_object_or_404(InsuranceCompany, id=company_id, organization=org)
@@ -5465,7 +5602,7 @@ def add_insurance_policy(request):
     except Exception as e:
         messages.error(request, f"Error saving policy: {e}")
         
-    return redirect("spaces-home")
+    return _redirect_to_insurance_detail(org)
 
 
 @login_required
@@ -5475,8 +5612,32 @@ def edit_insurance_policy(request, policy_id):
     policy = get_object_or_404(InsurancePolicy, id=policy_id, organization__in=organizations)
     
     if request.method == "POST":
-        client_id = request.POST.get("client")
-        client = get_object_or_404(Client, id=client_id, organization=policy.organization)
+        client_name = request.POST.get("client_name", "").strip()
+        if not client_name:
+            messages.error(request, "Client name is required.")
+            return _redirect_to_insurance_detail(policy.organization)
+            
+        name_parts = client_name.split()
+        if len(name_parts) >= 2:
+            first_name = " ".join(name_parts[:-1])
+            last_name = name_parts[-1]
+        else:
+            first_name = client_name
+            last_name = "."
+            
+        client = Client.objects.filter(
+            organization=policy.organization,
+            first_name__iexact=first_name,
+            last_name__iexact=last_name
+        ).first()
+        
+        if not client:
+            client = Client.objects.create(
+                organization=policy.organization,
+                first_name=first_name,
+                last_name=last_name,
+                source="insurance"
+            )
         
         company_id = request.POST.get("insurance_company")
         company = get_object_or_404(InsuranceCompany, id=company_id, organization=policy.organization)
@@ -5499,10 +5660,11 @@ def edit_insurance_policy(request, policy_id):
             messages.success(request, "Insurance policy updated.")
         except Exception as e:
             messages.error(request, f"Error updating policy: {e}")
-        return redirect("spaces-home")
+        return _redirect_to_insurance_detail(policy.organization)
         
     return JsonResponse({
         "id": policy.id,
+        "client_name": policy.client.name if policy.client else "",
         "client_id": policy.client_id,
         "insurance_company_id": policy.insurance_company_id,
         "policy_number": policy.policy_number,
@@ -5521,9 +5683,10 @@ def delete_insurance_policy(request, policy_id):
     from .models import InsurancePolicy
     organizations = _get_user_organizations(request)
     policy = get_object_or_404(InsurancePolicy, id=policy_id, organization__in=organizations)
+    org = policy.organization
     policy.delete()
     messages.success(request, "Policy deleted.")
-    return redirect("spaces-home")
+    return _redirect_to_insurance_detail(org)
 
 
 @login_required
@@ -5541,7 +5704,7 @@ def add_insurance_company(request):
             messages.success(request, f"Company '{name}' added.")
         except Exception as e:
             messages.error(request, f"Error: {e}")
-    return redirect("spaces-home")
+    return _redirect_to_insurance_detail(org)
 
 
 @login_required
@@ -5549,9 +5712,10 @@ def delete_insurance_company(request, company_id):
     from .models import InsuranceCompany
     organizations = _get_user_organizations(request)
     company = get_object_or_404(InsuranceCompany, id=company_id, organization__in=organizations)
+    org = company.organization
     company.delete()
     messages.success(request, "Company deleted.")
-    return redirect("spaces-home")
+    return _redirect_to_insurance_detail(org)
 
 
 @login_required
@@ -5579,7 +5743,7 @@ def add_bank_account(request):
             messages.success(request, "Bank account added.")
         except Exception as e:
             messages.error(request, f"Error: {e}")
-    return redirect("spaces-home")
+    return _redirect_to_insurance_detail(org)
 
 
 @login_required
@@ -5587,9 +5751,10 @@ def delete_bank_account(request, account_id):
     from .models import BankAccount
     organizations = _get_user_organizations(request)
     account = get_object_or_404(BankAccount, id=account_id, organization__in=organizations)
+    org = account.organization
     account.delete()
     messages.success(request, "Bank account deleted.")
-    return redirect("spaces-home")
+    return _redirect_to_insurance_detail(org)
 
 
 @login_required
@@ -5622,7 +5787,7 @@ def add_bank_transaction(request):
     except Exception as e:
         messages.error(request, f"Error: {e}")
         
-    return redirect("spaces-home")
+    return _redirect_to_insurance_detail(org)
 
 
 @login_required
@@ -5634,9 +5799,10 @@ def delete_bank_transaction(request, transaction_id):
         id=transaction_id, 
         bank_account__organization__in=organizations
     )
+    org = transaction.bank_account.organization
     transaction.delete()
     messages.success(request, "Transaction deleted.")
-    return redirect("spaces-home")
+    return _redirect_to_insurance_detail(org)
 
 
 @login_required
