@@ -270,7 +270,7 @@ class Vehicle(SoftDeleteModel):
 
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="vehicles")
     vehicle_type = models.CharField(max_length=50, choices=VEHICLE_TYPES, default="passenger")
-    vin = models.CharField(max_length=50, unique=True, db_index=True)
+    vin = models.CharField(max_length=50, db_index=True)
     plate_number = models.CharField(max_length=50, blank=True, default="", db_index=True)
     
     year = models.IntegerField(blank=True, null=True)
@@ -338,6 +338,13 @@ class Vehicle(SoftDeleteModel):
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["vin"],
+                condition=models.Q(deleted_at__isnull=True),
+                name="unique_active_vin"
+            )
+        ]
 
 
 class ServiceRecord(SoftDeleteModel):

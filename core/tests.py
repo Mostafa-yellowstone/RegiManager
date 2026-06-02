@@ -2,7 +2,7 @@ from django.test import TestCase, Client as TestClient
 from django.urls import reverse
 from django.contrib.auth.models import User
 from decimal import Decimal
-from core.models import Organization, OrganizationMembership, Client, InsuranceCompany, InsurancePolicy, InventoryService
+from core.models import Organization, OrganizationMembership, Client, InsuranceCompany, InsurancePolicy, InventoryService, Vehicle
 
 class InsuranceSpaceTests(TestCase):
     def setUp(self):
@@ -75,3 +75,50 @@ class InsuranceSpaceTests(TestCase):
         # Verify the policy uses the existing client
         policy = InsurancePolicy.objects.filter(organization=self.org).first()
         self.assertEqual(policy.client, existing_client)
+
+
+class VehicleSoftDeleteTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Test Org", city="NYC")
+        self.client_obj = Client.objects.create(
+            organization=self.org,
+            first_name="Jane",
+            last_name="Smith",
+            source="walk-in"
+        )
+
+    def test_soft_deleted_vehicle_allows_duplicate_vin(self):
+        # 1. Create first vehicle
+        v1 = Vehicle.objects.create(
+            client=self.client_obj,
+            vin="1234567890ABCDEFG",
+            year=2020,
+            make="Toyota",
+            model="Camry"
+        )
+        
+        # 2. Soft-delete the first vehicle
+        v1.delete()
+        self.assertIsNotNone(v1.deleted_at)
+        
+        # 3. Create second vehicle with the same VIN (should succeed)
+        v2 = Vehicle.objects.create(
+            client=self.client_obj,
+            vin="1234567890ABCDEFG",
+            year=2022,
+            make="Toyota",
+            model="Rav4"
+        )
+        self.assertEqual(v2.vin, "1234567890ABCDEFG")
+        
+        # 4. Attempt to create a third vehicle with the same VIN while v2 is still active (should fail)
+        from django.db import IntegrityError
+        with self.assertRaises(IntegrityError):
+            Vehicle.objects.create(
+                client=self.client_obj,
+                vin="1234567890ABCDEFG",
+                year=2023,
+                make="Toyota",
+                model="Prius"
+            )
+
