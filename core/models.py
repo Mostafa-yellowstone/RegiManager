@@ -46,6 +46,8 @@ class Organization(models.Model):
     is_active = models.BooleanField(default=True, help_text="Enable or disable this PSB account.")
     show_review_button = models.BooleanField(default=False, verbose_name="Show Review Button on Success Page", help_text="Add a custom review button to the intake completion page.")
     review_link = models.URLField(max_length=500, blank=True, null=True, verbose_name="Review/Custom Link", help_text="The URL that the review button will link to.")
+    insurance_space_password = models.CharField(max_length=128, blank=True, default="", help_text="Password to access locked insurance space.")
+    insurance_space_locked = models.BooleanField(default=False, help_text="Is the insurance space password-locked?")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -844,3 +846,149 @@ class UserSession(models.Model):
 
     def __str__(self):
         return f"{self.user.username} → {self.session_key[:8]}..."
+
+
+class InsuranceCompany(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="insurance_companies")
+    name = models.CharField(max_length=120)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+        unique_together = ("organization", "name")
+
+    def __str__(self):
+        return self.name
+
+
+class InsurancePolicy(models.Model):
+    class StatusChoices(models.TextChoices):
+        ACTIVE = "active", "Active"
+        INACTIVE = "inactive", "Inactive"
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="insurance_policies")
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="insurance_policies")
+    policy_number = models.CharField(max_length=100)
+    insurance_company = models.ForeignKey(InsuranceCompany, on_delete=models.CASCADE, related_name="policies")
+    premium = models.DecimalField(max_digits=12, decimal_places=2)
+    commission_rate = models.DecimalField(max_digits=5, decimal_places=2, help_text="Commission rate in percentage (e.g. 15.00 for 15%)")
+    commission_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True)
+    status = models.CharField(max_length=20, choices=StatusChoices.choices, default=StatusChoices.ACTIVE)
+    
+    start_date = models.DateField()
+    end_date = models.DateField()
+    insurance_period_months = models.IntegerField(default=6, help_text="Total insurance period in months")
+    inactive_date = models.DateField(blank=True, null=True, help_text="Date the policy became inactive")
+    unearned_commission = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.policy_number} - {self.client.name if self.client else 'Unknown'}"
+
+    def save(self, *args, **kwargs):
+        # Calculate commission_amount
+        self.commission_amount = Decimal(str(self.premium)) * (Decimal(str(self.commission_rate)) / Decimal("100.00"))
+        
+        # Calculate unearned_commission if inactive
+        if self.status == self.StatusChoices.INACTIVE and self.inactive_date:
+            total_months = Decimal(str(self.insurance_period_months))
+            if total_months <= 0:
+                total_months = Decimal("6.00")
+            
+            if self.inactive_date < self.start_date:
+                remaining_months = total_months
+            elif self.inactive_date > self.end_date:
+                remaining_months = Decimal("0.00")
+            else:
+                delta_days = (self.end_date - self.inactive_date).days
+                if delta_days > 0:
+                    calculated_remaining = Decimal(str(delta_days)) / Decimal("30.436875")
+                    remaining_months = min(Decimal(round(calculated_remaining, 2)), total_months)
+                else:
+                    remaining_months = Decimal("0.00")
+            
+            self.unearned_commission = (self.commission_amount / total_months) * remaining_months
+        else:
+            self.unearned_commission = Decimal("0.00")
+
+        super().save(*args, **kwargs)
+
+
+class BankAccount(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="bank_accounts")
+    account_name = models.CharField(max_length=120)
+    bank_name = models.CharField(max_length=120, blank=True, default="")
+    account_number = models.CharField(max_length=50, blank=True, default="")
+    balance = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["account_name"]
+
+    def __str__(self):
+        return f"{self.account_name} ({self.bank_name}) - ${self.balance}"
+
+
+class BankTransaction(models.Model):
+    class TransactionType(models.TextChoices):
+        INCOME = "income", "Income"
+        EXPENSE = "expense", "Expense"
+
+    bank_account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name="transactions")
+    transaction_type = models.CharField(max_length=20, choices=TransactionType.choices)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    category = models.CharField(max_length=100)
+    description = models.TextField(blank=True, default="")
+    date = models.DateField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.transaction_type.upper()}: ${self.amount} ({self.category})"
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        old_amount = Decimal("0.00")
+        old_type = ""
+        if not is_new:
+            old_obj = BankTransaction.objects.get(pk=self.pk)
+            old_amount = old_obj.amount
+            old_type = old_obj.transaction_type
+
+        super().save(*args, **kwargs)
+
+        # Update balance
+        account = self.bank_account
+        if is_new:
+            if self.transaction_type == self.TransactionType.INCOME:
+                account.balance += self.amount
+            else:
+                account.balance -= self.amount
+        else:
+            # Revert old transaction effect
+            if old_type == self.TransactionType.INCOME:
+                account.balance -= old_amount
+            else:
+                account.balance += old_amount
+            # Apply new transaction effect
+            if self.transaction_type == self.TransactionType.INCOME:
+                account.balance += self.amount
+            else:
+                account.balance -= self.amount
+        account.save()
+
+    def delete(self, *args, **kwargs):
+        account = self.bank_account
+        if self.transaction_type == self.TransactionType.INCOME:
+            account.balance -= self.amount
+        else:
+            account.balance += self.amount
+        account.save()
+        super().delete(*args, **kwargs)

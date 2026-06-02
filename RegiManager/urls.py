@@ -98,6 +98,22 @@ from core.views import (
 
 
 from rest_framework.routers import DefaultRouter
+from core.views import (
+    spaces_home,
+    unlock_insurance_space,
+    lock_insurance_space,
+    toggle_insurance_lock,
+    add_insurance_policy,
+    edit_insurance_policy,
+    delete_insurance_policy,
+    add_insurance_company,
+    delete_insurance_company,
+    add_bank_account,
+    delete_bank_account,
+    add_bank_transaction,
+    delete_bank_transaction,
+    export_insurance_report_pdf,
+)
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from core.api import ClientViewSet, VehicleViewSet, ServiceRecordViewSet
 
@@ -196,6 +212,22 @@ urlpatterns = [
     path("dashboard/inventory/", inventory_list, name="inventory-list"),
     path("dashboard/inventory/<int:inventory_id>/", inventory_detail, name="inventory-detail"),
     path("dashboard/inventory/<int:inventory_id>/marketing/", send_marketing_campaign_ajax, name="send-marketing-campaign-ajax"),
+    
+    # Spaces Hub and Insurance CRM / Banking Routes
+    path("dashboard/spaces/", spaces_home, name="spaces-home"),
+    path("dashboard/spaces/unlock/", unlock_insurance_space, name="unlock-insurance-space"),
+    path("dashboard/spaces/lock/", lock_insurance_space, name="lock-insurance-space"),
+    path("dashboard/spaces/toggle-password-protection/", toggle_insurance_lock, name="toggle-insurance-lock"),
+    path("dashboard/spaces/insurance/policy/add/", add_insurance_policy, name="add-insurance-policy"),
+    path("dashboard/spaces/insurance/policy/<int:policy_id>/edit/", edit_insurance_policy, name="edit-insurance-policy"),
+    path("dashboard/spaces/insurance/policy/<int:policy_id>/delete/", delete_insurance_policy, name="delete-insurance-policy"),
+    path("dashboard/spaces/insurance/company/add/", add_insurance_company, name="add-insurance-company"),
+    path("dashboard/spaces/insurance/company/<int:company_id>/delete/", delete_insurance_company, name="delete-insurance-company"),
+    path("dashboard/spaces/banking/account/add/", add_bank_account, name="add-bank-account"),
+    path("dashboard/spaces/banking/account/<int:account_id>/delete/", delete_bank_account, name="delete-bank-account"),
+    path("dashboard/spaces/banking/transaction/add/", add_bank_transaction, name="add-bank-transaction"),
+    path("dashboard/spaces/banking/transaction/<int:transaction_id>/delete/", delete_bank_transaction, name="delete-bank-transaction"),
+    path("dashboard/spaces/insurance/report/pdf/", export_insurance_report_pdf, name="export-insurance-report-pdf"),
 ]
 
 

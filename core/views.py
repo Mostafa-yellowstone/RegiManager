@@ -5287,4 +5287,488 @@ def send_marketing_campaign_ajax(request, inventory_id):
         "success": True,
         "campaign_id": campaign_log.id,
         "message": f"Successfully queued marketing campaign to {clients.count()} recipients."
-    })
+    })
+
+
+@login_required
+def spaces_home(request):
+    from .models import InventoryService, InsuranceCompany, InsurancePolicy, BankAccount, BankTransaction, Client
+    organizations = _get_user_organizations(request)
+    
+    active_org_id = request.session.get('active_org_id')
+    active_org = None
+    if active_org_id:
+        active_org = organizations.filter(id=active_org_id).first()
+    elif organizations.count() == 1:
+        active_org = organizations.first()
+        request.session['active_org_id'] = active_org.id
+    
+    if not active_org:
+        return render(request, "core/spaces_home.html", {
+            "needs_org_selection": True,
+            "organizations": organizations,
+        })
+        
+    is_locked = active_org.insurance_space_locked and active_org.insurance_space_password
+    unlocked_session_key = f"insurance_unlocked_{active_org.id}"
+    is_unlocked = request.session.get(unlocked_session_key, False)
+    insurance_locked = is_locked and not is_unlocked
+    
+    inventory_items = InventoryService.objects.filter(organization=active_org)
+    clients = Client.objects.filter(organization=active_org)
+    insurance_companies = InsuranceCompany.objects.filter(organization=active_org)
+    policies = InsurancePolicy.objects.filter(organization=active_org).select_related("client", "insurance_company")
+    bank_accounts = BankAccount.objects.filter(organization=active_org)
+    bank_transactions = BankTransaction.objects.filter(bank_account__organization=active_org).select_related("bank_account")
+    
+    active_policies = policies.filter(status="active")
+    inactive_policies = policies.filter(status="inactive")
+    
+    total_premium = sum(p.premium for p in active_policies)
+    total_commission = sum(p.commission_amount for p in active_policies)
+    total_unearned_commission = sum(p.unearned_commission for p in inactive_policies)
+    
+    company_summaries = []
+    for company in insurance_companies:
+        comp_policies = policies.filter(insurance_company=company)
+        comp_unearned = sum(p.unearned_commission for p in comp_policies if p.status == "inactive")
+        comp_active_count = comp_policies.filter(status="active").count()
+        company_summaries.append({
+            "id": company.id,
+            "name": company.name,
+            "active_count": comp_active_count,
+            "unearned_commission": comp_unearned
+        })
+        
+    import json
+    income_categories = json.dumps(["Insurance Premium Receipt", "Commission Payment", "Interest", "Other Income"])
+    expense_categories = json.dumps(["Rent", "Utilities", "Payroll", "Office Supplies", "Marketing", "Other Expense"])
+
+    context = {
+        "needs_org_selection": False,
+        "active_org": active_org,
+        "insurance_locked": insurance_locked,
+        "inventory_items": inventory_items,
+        "clients": clients,
+        "insurance_companies": insurance_companies,
+        "company_summaries": company_summaries,
+        "policies": policies,
+        "bank_accounts": bank_accounts,
+        "bank_transactions": bank_transactions,
+        "total_premium": total_premium,
+        "total_commission": total_commission,
+        "total_unearned_commission": total_unearned_commission,
+        "active_policies_count": active_policies.count(),
+        "inactive_policies_count": inactive_policies.count(),
+        "income_categories": income_categories,
+        "expense_categories": expense_categories,
+    }
+    return render(request, "core/spaces_home.html", context)
+
+
+@login_required
+@require_POST
+def unlock_insurance_space(request):
+    from django.contrib.auth.hashers import check_password
+    org_id = request.POST.get("org_id")
+    password = request.POST.get("password", "")
+    organizations = _get_user_organizations(request)
+    org = get_object_or_404(organizations, id=org_id)
+    
+    if org.insurance_space_password:
+        if check_password(password, org.insurance_space_password) or password == org.insurance_space_password:
+            request.session[f"insurance_unlocked_{org.id}"] = True
+            messages.success(request, "Insurance Space unlocked.")
+        else:
+            messages.error(request, "Invalid password.")
+    else:
+        request.session[f"insurance_unlocked_{org.id}"] = True
+        
+    return redirect("spaces-home")
+
+
+@login_required
+@require_POST
+def lock_insurance_space(request):
+    org_id = request.POST.get("org_id")
+    organizations = _get_user_organizations(request)
+    org = get_object_or_404(organizations, id=org_id)
+    
+    unlocked_key = f"insurance_unlocked_{org.id}"
+    if unlocked_key in request.session:
+        del request.session[unlocked_key]
+    messages.info(request, "Insurance Space locked.")
+    return redirect("spaces-home")
+
+
+@login_required
+@require_POST
+def toggle_insurance_lock(request):
+    from django.contrib.auth.hashers import make_password
+    org_id = request.POST.get("org_id")
+    enabled = request.POST.get("enabled") == "on" or request.POST.get("enabled") == "true"
+    password = request.POST.get("password", "").strip()
+    
+    organizations = _get_user_organizations(request)
+    org = get_object_or_404(organizations, id=org_id)
+    
+    org.insurance_space_locked = enabled
+    if password:
+        org.insurance_space_password = make_password(password)
+    org.save()
+    
+    if enabled and password:
+        request.session[f"insurance_unlocked_{org.id}"] = True
+        
+    messages.success(request, "Lock settings updated.")
+    return redirect("spaces-home")
+
+
+@login_required
+@require_POST
+def add_insurance_policy(request):
+    from .models import InsurancePolicy, Client, InsuranceCompany
+    org_id = request.POST.get("organization")
+    organizations = _get_user_organizations(request)
+    org = get_object_or_404(organizations, id=org_id)
+    
+    client_id = request.POST.get("client")
+    client = get_object_or_404(Client, id=client_id, organization=org)
+    
+    company_id = request.POST.get("insurance_company")
+    company = get_object_or_404(InsuranceCompany, id=company_id, organization=org)
+    
+    policy_number = request.POST.get("policy_number", "").strip()
+    premium = request.POST.get("premium", "0.00").strip()
+    commission_rate = request.POST.get("commission_rate", "0.00").strip()
+    status = request.POST.get("status", "active")
+    start_date = request.POST.get("start_date")
+    end_date = request.POST.get("end_date")
+    insurance_period_months = request.POST.get("insurance_period_months", "6")
+    inactive_date = request.POST.get("inactive_date")
+    
+    try:
+        InsurancePolicy.objects.create(
+            organization=org,
+            client=client,
+            policy_number=policy_number,
+            insurance_company=company,
+            premium=Decimal(premium or "0.00"),
+            commission_rate=Decimal(commission_rate or "0.00"),
+            status=status,
+            start_date=start_date,
+            end_date=end_date,
+            insurance_period_months=int(insurance_period_months or 6),
+            inactive_date=inactive_date or None
+        )
+        messages.success(request, "Insurance policy created.")
+    except Exception as e:
+        messages.error(request, f"Error saving policy: {e}")
+        
+    return redirect("spaces-home")
+
+
+@login_required
+def edit_insurance_policy(request, policy_id):
+    from .models import InsurancePolicy, Client, InsuranceCompany
+    organizations = _get_user_organizations(request)
+    policy = get_object_or_404(InsurancePolicy, id=policy_id, organization__in=organizations)
+    
+    if request.method == "POST":
+        client_id = request.POST.get("client")
+        client = get_object_or_404(Client, id=client_id, organization=policy.organization)
+        
+        company_id = request.POST.get("insurance_company")
+        company = get_object_or_404(InsuranceCompany, id=company_id, organization=policy.organization)
+        
+        policy.client = client
+        policy.insurance_company = company
+        policy.policy_number = request.POST.get("policy_number", "").strip()
+        policy.premium = Decimal(request.POST.get("premium", "0.00").strip() or "0.00")
+        policy.commission_rate = Decimal(request.POST.get("commission_rate", "0.00").strip() or "0.00")
+        policy.status = request.POST.get("status", "active")
+        policy.start_date = request.POST.get("start_date")
+        policy.end_date = request.POST.get("end_date")
+        policy.insurance_period_months = int(request.POST.get("insurance_period_months", "6") or 6)
+        
+        inactive_date = request.POST.get("inactive_date")
+        policy.inactive_date = inactive_date or None
+        
+        try:
+            policy.save()
+            messages.success(request, "Insurance policy updated.")
+        except Exception as e:
+            messages.error(request, f"Error updating policy: {e}")
+        return redirect("spaces-home")
+        
+    return JsonResponse({
+        "id": policy.id,
+        "client_id": policy.client_id,
+        "insurance_company_id": policy.insurance_company_id,
+        "policy_number": policy.policy_number,
+        "premium": str(policy.premium),
+        "commission_rate": str(policy.commission_rate),
+        "status": policy.status,
+        "start_date": str(policy.start_date),
+        "end_date": str(policy.end_date),
+        "insurance_period_months": policy.insurance_period_months,
+        "inactive_date": str(policy.inactive_date) if policy.inactive_date else "",
+    })
+
+
+@login_required
+def delete_insurance_policy(request, policy_id):
+    from .models import InsurancePolicy
+    organizations = _get_user_organizations(request)
+    policy = get_object_or_404(InsurancePolicy, id=policy_id, organization__in=organizations)
+    policy.delete()
+    messages.success(request, "Policy deleted.")
+    return redirect("spaces-home")
+
+
+@login_required
+@require_POST
+def add_insurance_company(request):
+    from .models import InsuranceCompany
+    org_id = request.POST.get("organization")
+    organizations = _get_user_organizations(request)
+    org = get_object_or_404(organizations, id=org_id)
+    
+    name = request.POST.get("name", "").strip()
+    if name:
+        try:
+            InsuranceCompany.objects.create(organization=org, name=name)
+            messages.success(request, f"Company '{name}' added.")
+        except Exception as e:
+            messages.error(request, f"Error: {e}")
+    return redirect("spaces-home")
+
+
+@login_required
+def delete_insurance_company(request, company_id):
+    from .models import InsuranceCompany
+    organizations = _get_user_organizations(request)
+    company = get_object_or_404(InsuranceCompany, id=company_id, organization__in=organizations)
+    company.delete()
+    messages.success(request, "Company deleted.")
+    return redirect("spaces-home")
+
+
+@login_required
+@require_POST
+def add_bank_account(request):
+    from .models import BankAccount
+    org_id = request.POST.get("organization")
+    organizations = _get_user_organizations(request)
+    org = get_object_or_404(organizations, id=org_id)
+    
+    account_name = request.POST.get("account_name", "").strip()
+    bank_name = request.POST.get("bank_name", "").strip()
+    account_number = request.POST.get("account_number", "").strip()
+    balance = request.POST.get("balance", "0.00").strip()
+    
+    if account_name:
+        try:
+            BankAccount.objects.create(
+                organization=org,
+                account_name=account_name,
+                bank_name=bank_name,
+                account_number=account_number,
+                balance=Decimal(balance or "0.00")
+            )
+            messages.success(request, "Bank account added.")
+        except Exception as e:
+            messages.error(request, f"Error: {e}")
+    return redirect("spaces-home")
+
+
+@login_required
+def delete_bank_account(request, account_id):
+    from .models import BankAccount
+    organizations = _get_user_organizations(request)
+    account = get_object_or_404(BankAccount, id=account_id, organization__in=organizations)
+    account.delete()
+    messages.success(request, "Bank account deleted.")
+    return redirect("spaces-home")
+
+
+@login_required
+@require_POST
+def add_bank_transaction(request):
+    from .models import BankTransaction, BankAccount
+    org_id = request.POST.get("organization")
+    organizations = _get_user_organizations(request)
+    org = get_object_or_404(organizations, id=org_id)
+    
+    account_id = request.POST.get("bank_account")
+    account = get_object_or_404(BankAccount, id=account_id, organization=org)
+    
+    transaction_type = request.POST.get("transaction_type")
+    amount = request.POST.get("amount", "0.00").strip()
+    category = request.POST.get("category", "").strip()
+    description = request.POST.get("description", "").strip()
+    date = request.POST.get("date")
+    
+    try:
+        BankTransaction.objects.create(
+            bank_account=account,
+            transaction_type=transaction_type,
+            amount=Decimal(amount or "0.00"),
+            category=category,
+            description=description,
+            date=date or timezone.now().date()
+        )
+        messages.success(request, "Transaction recorded.")
+    except Exception as e:
+        messages.error(request, f"Error: {e}")
+        
+    return redirect("spaces-home")
+
+
+@login_required
+def delete_bank_transaction(request, transaction_id):
+    from .models import BankTransaction
+    organizations = _get_user_organizations(request)
+    transaction = get_object_or_404(
+        BankTransaction, 
+        id=transaction_id, 
+        bank_account__organization__in=organizations
+    )
+    transaction.delete()
+    messages.success(request, "Transaction deleted.")
+    return redirect("spaces-home")
+
+
+@login_required
+def export_insurance_report_pdf(request):
+    from .models import InsurancePolicy
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
+    
+    organizations = _get_user_organizations(request)
+    active_org_id = request.session.get('active_org_id')
+    org = get_object_or_404(organizations, id=active_org_id)
+    
+    is_locked = org.insurance_space_locked and org.insurance_space_password
+    unlocked_session_key = f"insurance_unlocked_{org.id}"
+    is_unlocked = request.session.get(unlocked_session_key, False)
+    if is_locked and not is_unlocked:
+        return HttpResponseForbidden("Access denied. Insurance Space is locked.")
+        
+    start_date_str = request.GET.get("start_date")
+    end_date_str = request.GET.get("end_date")
+    
+    policies = InsurancePolicy.objects.filter(organization=org).select_related("client", "insurance_company")
+    
+    if start_date_str:
+        policies = policies.filter(start_date__gte=start_date_str)
+    if end_date_str:
+        policies = policies.filter(start_date__lte=end_date_str)
+        
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="insurance-report-{org.id}.pdf"'
+    
+    pdf = canvas.Canvas(response, pagesize=A4)
+    width, height = A4
+    margin_x = 40
+    content_width = width - (margin_x * 2)
+    y = height - 60
+    
+    pdf.setFillColorRGB(0.06, 0.24, 0.47)
+    pdf.roundRect(margin_x, y - 40, content_width, 60, 8, fill=1, stroke=0)
+    pdf.setFillColorRGB(1, 1, 1)
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawCentredString(width / 2, y - 8, f"{org.name} - Insurance & Commission Report")
+    pdf.setFont("Helvetica", 9)
+    date_range_label = f"Range: {start_date_str or 'All Time'} to {end_date_str or 'All Time'}"
+    pdf.drawCentredString(width / 2, y - 24, date_range_label)
+    
+    y -= 80
+    pdf.setFillColorRGB(0.1, 0.1, 0.1)
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(margin_x, y, "Operational Metrics Summary:")
+    
+    active_policies = policies.filter(status="active")
+    inactive_policies = policies.filter(status="inactive")
+    tot_premium = sum(p.premium for p in active_policies)
+    tot_commission = sum(p.commission_amount for p in active_policies)
+    tot_unearned = sum(p.unearned_commission for p in inactive_policies)
+    
+    y -= 18
+    pdf.setFont("Helvetica", 9)
+    pdf.drawString(margin_x, y, f"Active Policies: {active_policies.count()}")
+    pdf.drawString(margin_x + 150, y, f"Total Active Premiums: ${tot_premium:,.2f}")
+    pdf.drawString(margin_x + 350, y, f"Total Active Commissions: ${tot_commission:,.2f}")
+    
+    y -= 14
+    pdf.drawString(margin_x, y, f"Inactive Policies: {inactive_policies.count()}")
+    pdf.drawString(margin_x + 150, y, f"Total Unearned Commissions (Due back): ${tot_unearned:,.2f}")
+    
+    y -= 30
+    pdf.setFillColorRGB(0.9, 0.9, 0.95)
+    pdf.rect(margin_x, y - 4, content_width, 16, fill=1, stroke=0)
+    pdf.setFillColorRGB(0.06, 0.24, 0.47)
+    pdf.setFont("Helvetica-Bold", 8)
+    
+    cols = [
+        ("Client", 110),
+        ("Policy #", 80),
+        ("Company", 90),
+        ("Premium", 60),
+        ("Rate", 45),
+        ("Comm Amount", 70),
+        ("Status", 55),
+    ]
+    
+    current_x = margin_x + 4
+    for title, w in cols:
+        pdf.drawString(current_x, y, title)
+        current_x += w
+        
+    y -= 4
+    pdf.setFillColorRGB(0.1, 0.1, 0.1)
+    pdf.setFont("Helvetica", 8)
+    
+    for p in policies:
+        y -= 16
+        if y < 40:
+            pdf.showPage()
+            y = height - 60
+            pdf.setFont("Helvetica-Bold", 8)
+            pdf.setFillColorRGB(0.06, 0.24, 0.47)
+            pdf.setFillColorRGB(0.9, 0.9, 0.95)
+            pdf.rect(margin_x, y - 4, content_width, 16, fill=1, stroke=0)
+            pdf.setFillColorRGB(0.06, 0.24, 0.47)
+            current_x = margin_x + 4
+            for title, w in cols:
+                pdf.drawString(current_x, y, title)
+                current_x += w
+            y -= 20
+            pdf.setFillColorRGB(0.1, 0.1, 0.1)
+            pdf.setFont("Helvetica", 8)
+            
+        current_x = margin_x + 4
+        client_name = p.client.name if p.client else "N/A"
+        if len(client_name) > 22:
+            client_name = client_name[:20] + ".."
+            
+        pdf.drawString(current_x, y, client_name)
+        current_x += 110
+        pdf.drawString(current_x, y, p.policy_number)
+        current_x += 80
+        pdf.drawString(current_x, y, p.insurance_company.name if p.insurance_company else "N/A")
+        current_x += 90
+        pdf.drawString(current_x, y, f"${p.premium:,.2f}")
+        current_x += 60
+        pdf.drawString(current_x, y, f"{p.commission_rate}%")
+        current_x += 45
+        pdf.drawString(current_x, y, f"${p.commission_amount:,.2f}")
+        current_x += 70
+        
+        status_label = p.status.upper()
+        if p.status == "inactive":
+            status_label += f" (${p.unearned_commission:,.2f} unearned)"
+        pdf.drawString(current_x, y, status_label)
+        
+    pdf.save()
+    return response
