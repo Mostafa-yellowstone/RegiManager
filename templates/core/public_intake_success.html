@@ -54,6 +54,33 @@
         line-height: 1.6;
         margin-bottom: 2.5rem;
     }
+    
+    /* Animated Review Button */
+    @keyframes pulse {
+        0% { transform: scale(1); box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2); }
+        50% { transform: scale(1.03); box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.4); }
+        100% { transform: scale(1); box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2); }
+    }
+    .review-btn {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white !important;
+        transition: all 0.3s ease;
+        animation: pulse 2s infinite ease-in-out;
+    }
+    .review-btn:hover {
+        background: linear-gradient(135deg, #059669, #047857);
+        transform: translateY(-2px);
+    }
+    .star-icon {
+        color: #fbbf24;
+        font-size: 1.3rem;
+        display: inline-block;
+        animation: spin 3s infinite linear;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
 </style>
 
 <div class="success-container">
@@ -75,7 +102,13 @@
             </ul>
         </div>
 
-        <a href="/intake/{{ request.GET.portal_token }}/" style="display: block; background: #3b82f6; color: white; padding: 1.25rem; border-radius: 12px; font-weight: 800; text-decoration: none; font-size: 1.1rem; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);">
+        {% if organization and organization.show_review_button and organization.review_link %}
+        <a href="{{ organization.review_link }}" target="_blank" class="review-btn" style="margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; border-radius: 12px; font-weight: 800; font-size: 1.1rem; padding: 1.25rem;">
+            <span class="star-icon">★</span> Leave us a Review!
+        </a>
+        {% endif %}
+
+        <a href="/intake/{% if organization %}{{ organization.portal_token }}{% else %}{{ request.GET.portal_token }}{% endif %}/" style="display: block; background: #3b82f6; color: white; padding: 1.25rem; border-radius: 12px; font-weight: 800; text-decoration: none; font-size: 1.1rem; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);">
             Submit Another Application &rarr;
         </a>
     </div>

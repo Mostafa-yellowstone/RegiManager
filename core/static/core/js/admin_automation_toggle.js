@@ -20,20 +20,36 @@
         }
     }
 
+    function syncReviewLinkVisibility(showButton, immediate) {
+        var $row = $('.field-review_link');
+        if (showButton) {
+            if (immediate) $row.show();
+            else $row.slideDown();
+        } else {
+            if (immediate) $row.hide();
+            else $row.slideUp();
+        }
+    }
+
     $(document).ready(function() {
         var $automationCheckbox = $('#id_is_automation_enabled');
+        var $reviewCheckbox = $('#id_show_review_button');
 
-        if ($automationCheckbox.length === 0) {
-            return; // Not on the Organization change page
+        // Automation toggle
+        if ($automationCheckbox.length > 0) {
+            syncAutomationVisibility($automationCheckbox.is(':checked'));
+            $automationCheckbox.on('change', function() {
+                syncAutomationVisibility($(this).is(':checked'));
+            });
         }
 
-        // Set initial state on page load
-        syncAutomationVisibility($automationCheckbox.is(':checked'));
-
-        // React to any change
-        $automationCheckbox.on('change', function() {
-            syncAutomationVisibility($(this).is(':checked'));
-        });
+        // Review link toggle
+        if ($reviewCheckbox.length > 0) {
+            syncReviewLinkVisibility($reviewCheckbox.is(':checked'), true);
+            $reviewCheckbox.on('change', function() {
+                syncReviewLinkVisibility($(this).is(':checked'), false);
+            });
+        }
     });
 
 })(django.jQuery);

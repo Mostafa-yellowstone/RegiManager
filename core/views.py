@@ -4864,7 +4864,11 @@ def reject_intake(request, intake_id):
 
 def public_intake_success(request):
     """Confirmation page after successful submission."""
-    return render(request, "core/public_intake_success.html")
+    token = request.GET.get("portal_token")
+    organization = None
+    if token:
+        organization = Organization.objects.filter(portal_token=token).first()
+    return render(request, "core/public_intake_success.html", {"organization": organization})
 
 
 @login_required
