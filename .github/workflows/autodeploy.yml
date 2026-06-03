@@ -17,4 +17,4 @@ jobs:
           echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/key
           chmod 600 ~/.ssh/key
           ssh-keyscan -H ${{ vars.VPS_HOST }} >> ~/.ssh/known_hosts
-          ssh -vvv -i ~/.ssh/key ${{ secrets.VPS_USER }}@${{ vars.VPS_HOST }} 'bash -l /home/Projects/sc.sh' 2>&1
+          ssh -vvv -i ~/.ssh/key ${{ secrets.VPS_USER }}@${{ vars.VPS_HOST }} 'bash -l /home/Projects/sc.sh'
