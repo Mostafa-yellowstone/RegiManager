@@ -909,9 +909,11 @@ class InsuranceCompany(models.Model):
 
 
 class InsurancePolicy(models.Model):
-    class StatusChoices(models.TextChoices):
+    class StageChoices(models.TextChoices):
         QUOTE = "quote", "Quote"
         BOUND = "bound", "Bound"
+
+    class StatusChoices(models.TextChoices):
         ACTIVE = "active", "Active"
         INACTIVE = "inactive", "Inactive"
 
@@ -923,6 +925,7 @@ class InsurancePolicy(models.Model):
     broker_fee = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, blank=True, help_text="Broker fee taken by the agent")
     commission_rate = models.DecimalField(max_digits=5, decimal_places=2, help_text="Commission rate in percentage (e.g. 15.00 for 15%)")
     commission_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True)
+    stage = models.CharField(max_length=20, choices=StageChoices.choices, default=StageChoices.QUOTE)
     status = models.CharField(max_length=20, choices=StatusChoices.choices, default=StatusChoices.ACTIVE)
     added_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="added_insurance_policies", help_text="Agent who added this policy/quote")
     
@@ -942,6 +945,25 @@ class InsurancePolicy(models.Model):
         return f"{self.policy_number} - {self.client.name if self.client else 'Unknown'}"
 
     def save(self, *args, **kwargs):
+        # Convert dates to date objects if they are strings
+        from datetime import date, datetime
+        
+        def _parse_date(val):
+            if not val:
+                return None
+            if isinstance(val, (date, datetime)):
+                if isinstance(val, datetime):
+                    return val.date()
+                return val
+            try:
+                return datetime.strptime(str(val).strip(), "%Y-%m-%d").date()
+            except ValueError:
+                return None
+
+        self.start_date = _parse_date(self.start_date)
+        self.end_date = _parse_date(self.end_date)
+        self.inactive_date = _parse_date(self.inactive_date)
+
         # Calculate commission_amount
         self.commission_amount = Decimal(str(self.premium)) * (Decimal(str(self.commission_rate)) / Decimal("100.00"))
         
@@ -991,6 +1013,7 @@ class BankTransaction(models.Model):
         EXPENSE = "expense", "Expense"
 
     bank_account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name="transactions")
+    insurance_company = models.ForeignKey(InsuranceCompany, on_delete=models.SET_NULL, null=True, blank=True, related_name="transactions")
     transaction_type = models.CharField(max_length=20, choices=TransactionType.choices)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     category = models.CharField(max_length=100)

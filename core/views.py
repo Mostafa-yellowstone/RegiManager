@@ -5345,6 +5345,7 @@ def inventory_detail(request, inventory_id):
         
         # Get query parameters for filtering
         search_query = request.GET.get("q", "").strip()
+        stage_filter = request.GET.get("stage", "").strip()
         status_filter = request.GET.get("status", "").strip()
         date_from = request.GET.get("date_from", "").strip()
         date_to = request.GET.get("date_to", "").strip()
@@ -5365,6 +5366,8 @@ def inventory_detail(request, inventory_id):
                 Q(client__first_name__icontains=search_query) |
                 Q(client__last_name__icontains=search_query)
             )
+        if stage_filter:
+            policies = policies.filter(stage=stage_filter)
         if status_filter:
             policies = policies.filter(status=status_filter)
         if date_from:
@@ -5387,8 +5390,8 @@ def inventory_detail(request, inventory_id):
                 pass
 
         # Global metrics calculations (unfiltered total stats)
-        active_policies = all_policies.filter(status="active")
-        inactive_policies = all_policies.filter(status="inactive")
+        active_policies = all_policies.filter(stage="bound", status="active")
+        inactive_policies = all_policies.filter(stage="bound", status="inactive")
         
         total_premium = sum(p.premium for p in active_policies)
         total_commission = sum(p.commission_amount for p in active_policies)
@@ -5408,13 +5411,18 @@ def inventory_detail(request, inventory_id):
         company_summaries = []
         for company in insurance_companies:
             comp_policies = all_policies.filter(insurance_company=company)
-            comp_unearned = sum(p.unearned_commission for p in comp_policies if p.status == "inactive")
-            comp_active_count = comp_policies.filter(status="active").count()
+            comp_unearned = sum(p.unearned_commission for p in comp_policies if p.stage == "bound" and p.status == "inactive")
+            comp_active_count = comp_policies.filter(stage="bound", status="active").count()
+            
+            # Fetch bank transactions linked to this company
+            company_transactions = company.transactions.all().select_related("bank_account").order_by("-date", "-created_at")
+            
             company_summaries.append({
                 "id": company.id,
                 "name": company.name,
                 "active_count": comp_active_count,
-                "unearned_commission": comp_unearned
+                "unearned_commission": comp_unearned,
+                "transactions": company_transactions
             })
             
         # Agent Auditing Logic
@@ -5433,10 +5441,10 @@ def inventory_detail(request, inventory_id):
             agent = m.user
             agent_policies = all_policies.filter(added_by=agent)
             
-            q_count = agent_policies.filter(status="quote").count()
-            p_bound = agent_policies.exclude(status="quote").count()
+            q_count = agent_policies.filter(stage="quote").count()
+            p_bound = agent_policies.filter(stage="bound").count()
             
-            bound_policies = agent_policies.exclude(status="quote")
+            bound_policies = agent_policies.filter(stage="bound")
             p_sum = sum(p.premium for p in bound_policies)
             c_sum = sum(p.commission_amount for p in bound_policies)
             b_sum = sum(p.broker_fee for p in bound_policies)
@@ -5538,6 +5546,7 @@ def inventory_detail(request, inventory_id):
             
             # Query filters to persist in form fields
             "search_query": search_query,
+            "stage_filter": stage_filter,
             "status_filter": status_filter,
             "date_from": date_from,
             "date_to": date_to,
@@ -5731,21 +5740,14 @@ def add_insurance_policy(request):
     premium = request.POST.get("premium", "0.00").strip()
     broker_fee = request.POST.get("broker_fee", "0.00").strip()
     commission_rate = request.POST.get("commission_rate", "0.00").strip()
+    stage = request.POST.get("stage", "quote")
     status = request.POST.get("status", "active")
     start_date = request.POST.get("start_date")
     end_date = request.POST.get("end_date")
     insurance_period_months = request.POST.get("insurance_period_months", "6")
     inactive_date = request.POST.get("inactive_date")
     
-    added_by_id = request.POST.get("added_by")
-    added_by = None
-    if added_by_id:
-        try:
-            added_by = User.objects.get(id=added_by_id)
-        except User.DoesNotExist:
-            pass
-    if not added_by:
-        added_by = request.user
+    added_by = request.user
         
     try:
         InsurancePolicy.objects.create(
@@ -5756,6 +5758,7 @@ def add_insurance_policy(request):
             premium=Decimal(premium or "0.00"),
             broker_fee=Decimal(broker_fee or "0.00"),
             commission_rate=Decimal(commission_rate or "0.00"),
+            stage=stage,
             status=status,
             start_date=start_date,
             end_date=end_date,
@@ -5813,6 +5816,7 @@ def edit_insurance_policy(request, policy_id):
         policy.premium = Decimal(request.POST.get("premium", "0.00").strip() or "0.00")
         policy.broker_fee = Decimal(request.POST.get("broker_fee", "0.00").strip() or "0.00")
         policy.commission_rate = Decimal(request.POST.get("commission_rate", "0.00").strip() or "0.00")
+        policy.stage = request.POST.get("stage", "quote")
         policy.status = request.POST.get("status", "active")
         policy.start_date = request.POST.get("start_date")
         policy.end_date = request.POST.get("end_date")
@@ -5821,12 +5825,8 @@ def edit_insurance_policy(request, policy_id):
         inactive_date = request.POST.get("inactive_date")
         policy.inactive_date = inactive_date or None
         
-        added_by_id = request.POST.get("added_by")
-        if added_by_id:
-            try:
-                policy.added_by = User.objects.get(id=added_by_id)
-            except User.DoesNotExist:
-                pass
+        if not policy.added_by:
+            policy.added_by = request.user
         
         try:
             policy.save()
@@ -5844,12 +5844,12 @@ def edit_insurance_policy(request, policy_id):
         "premium": str(policy.premium),
         "broker_fee": str(policy.broker_fee),
         "commission_rate": str(policy.commission_rate),
+        "stage": policy.stage,
         "status": policy.status,
         "start_date": str(policy.start_date),
         "end_date": str(policy.end_date),
         "insurance_period_months": policy.insurance_period_months,
         "inactive_date": str(policy.inactive_date) if policy.inactive_date else "",
-        "added_by_id": policy.added_by_id or "",
     })
 
 
@@ -5935,7 +5935,7 @@ def delete_bank_account(request, account_id):
 @login_required
 @require_POST
 def add_bank_transaction(request):
-    from .models import BankTransaction, BankAccount
+    from .models import BankTransaction, BankAccount, InsuranceCompany
     org_id = request.POST.get("organization")
     organizations = _get_user_organizations(request)
     org = get_object_or_404(organizations, id=org_id)
@@ -5949,6 +5949,11 @@ def add_bank_transaction(request):
     description = request.POST.get("description", "").strip()
     date = request.POST.get("date")
     
+    company_id = request.POST.get("insurance_company")
+    company = None
+    if company_id:
+        company = get_object_or_404(InsuranceCompany, id=company_id, organization=org)
+    
     try:
         BankTransaction.objects.create(
             bank_account=account,
@@ -5956,7 +5961,8 @@ def add_bank_transaction(request):
             amount=Decimal(amount or "0.00"),
             category=category,
             description=description,
-            date=date or timezone.now().date()
+            date=date or timezone.now().date(),
+            insurance_company=company
         )
         messages.success(request, "Transaction recorded.")
     except Exception as e:
@@ -6029,8 +6035,8 @@ def export_insurance_report_pdf(request):
     pdf.setFont("Helvetica-Bold", 10)
     pdf.drawString(margin_x, y, "Operational Metrics Summary:")
     
-    active_policies = policies.filter(status="active")
-    inactive_policies = policies.filter(status="inactive")
+    active_policies = policies.filter(stage="bound", status="active")
+    inactive_policies = policies.filter(stage="bound", status="inactive")
     tot_premium = sum(p.premium for p in active_policies)
     tot_commission = sum(p.commission_amount for p in active_policies)
     tot_unearned = sum(p.unearned_commission for p in inactive_policies)
@@ -6106,8 +6112,8 @@ def export_insurance_report_pdf(request):
         pdf.drawString(current_x, y, f"${p.commission_amount:,.2f}")
         current_x += 70
         
-        status_label = p.status.upper()
-        if p.status == "inactive":
+        status_label = f"{p.stage.upper()} / {p.status.upper()}"
+        if p.stage == "bound" and p.status == "inactive":
             status_label += f" (${p.unearned_commission:,.2f} unearned)"
         pdf.drawString(current_x, y, status_label)
         

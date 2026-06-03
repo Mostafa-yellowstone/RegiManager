@@ -26,6 +26,7 @@ class InsuranceSpaceTests(TestCase):
             "policy_number": "POL-999",
             "premium": "1200.00",
             "commission_rate": "10.00",
+            "stage": "bound",
             "status": "active",
             "start_date": "2026-06-01",
             "end_date": "2026-12-01",
@@ -63,6 +64,7 @@ class InsuranceSpaceTests(TestCase):
             "policy_number": "POL-888",
             "premium": "1000.00",
             "commission_rate": "15.00",
+            "stage": "bound",
             "status": "active",
             "start_date": "2026-06-01",
             "end_date": "2026-12-01",
@@ -240,13 +242,13 @@ class AgentAuditingTests(TestCase):
         InsurancePolicy.objects.create(
             organization=self.org, client=self.client_obj1, policy_number="POL-A1",
             insurance_company=self.company, premium=Decimal("500.00"), broker_fee=Decimal("10.00"),
-            commission_rate=Decimal("10.00"), status="quote", added_by=self.user1,
+            commission_rate=Decimal("10.00"), stage="quote", status="active", added_by=self.user1,
             start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6
         )
         InsurancePolicy.objects.create(
             organization=self.org, client=self.client_obj1, policy_number="POL-A2",
             insurance_company=self.company, premium=Decimal("1000.00"), broker_fee=Decimal("50.00"),
-            commission_rate=Decimal("10.00"), status="bound", added_by=self.user1,
+            commission_rate=Decimal("10.00"), stage="bound", status="active", added_by=self.user1,
             start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6
         )
         
@@ -255,7 +257,7 @@ class AgentAuditingTests(TestCase):
         InsurancePolicy.objects.create(
             organization=self.org, client=self.client_obj2, policy_number="POL-B1",
             insurance_company=self.company, premium=Decimal("2000.00"), broker_fee=Decimal("100.00"),
-            commission_rate=Decimal("15.00"), status="bound", added_by=self.user2,
+            commission_rate=Decimal("15.00"), stage="bound", status="active", added_by=self.user2,
             start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6
         )
         
@@ -306,19 +308,19 @@ class AgentAuditingTests(TestCase):
         InsurancePolicy.objects.create(
             organization=self.org, client=self.client_obj1, policy_number="POL-FILTER-A",
             insurance_company=self.company, premium=Decimal("1500.00"), broker_fee=Decimal("50.00"),
-            commission_rate=Decimal("10.00"), status="bound", added_by=self.user1,
+            commission_rate=Decimal("10.00"), stage="bound", status="active", added_by=self.user1,
             start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6
         )
         # Policy B
         InsurancePolicy.objects.create(
             organization=self.org, client=self.client_obj2, policy_number="POL-FILTER-B",
             insurance_company=self.company, premium=Decimal("2500.00"), broker_fee=Decimal("80.00"),
-            commission_rate=Decimal("12.00"), status="quote", added_by=self.user2,
+            commission_rate=Decimal("12.00"), stage="quote", status="active", added_by=self.user2,
             start_date="2026-06-15", end_date="2026-12-15", insurance_period_months=6
         )
         
-        # Filter by status = "bound"
-        response = self.client.get(reverse("inventory-detail", args=[self.space.id]) + "?status=bound")
+        # Filter by stage = "bound"
+        response = self.client.get(reverse("inventory-detail", args=[self.space.id]) + "?stage=bound")
         self.assertEqual(response.context["policies"].count(), 1)
         self.assertEqual(response.context["policies"].first().policy_number, "POL-FILTER-A")
         
