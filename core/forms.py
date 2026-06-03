@@ -291,12 +291,12 @@ class ClientForm(forms.ModelForm):
         is_commercial = cleaned_data.get("is_commercial", False)
         
         if is_commercial:
-            # Clear individual-field errors that don't apply to commercial accounts.
-            # (gender ChoiceField rejects '' even with required=False — must clear manually)
+            # Clear individual-field errors AND pop values unconditionally.
+            # Hidden individual fields always POST "" — if left in cleaned_data
+            # the empty string reaches _post_clean/full_clean which rejects blank=False.
             for f in ['first_name', 'last_name', 'gender']:
-                if f in self._errors:
-                    del self._errors[f]
-                    cleaned_data.pop(f, None)
+                self._errors.pop(f, None)
+                cleaned_data.pop(f, None)
 
             business_name = cleaned_data.get("business_name", "").strip()
             business_ein = cleaned_data.get("business_ein", "").strip()
@@ -304,8 +304,8 @@ class ClientForm(forms.ModelForm):
                 self.add_error("business_name", "Business name is required for commercial accounts.")
             if not business_ein:
                 self.add_error("business_ein", "Business EIN is required for commercial accounts.")
-            
-            # Set name fallbacks so DB not-null constraints are satisfied
+
+            # Direct assignment overrides the now-popped empty strings.
             if business_name:
                 cleaned_data["first_name"] = "Commercial"
                 cleaned_data["last_name"] = business_name
@@ -540,11 +540,12 @@ class ClientIntakeForm(forms.ModelForm):
         cleaned_data = super().clean()
         is_commercial = cleaned_data.get("is_commercial", False)
         if is_commercial:
-            # Clear individual-field errors that don't apply to commercial accounts.
+            # Pop unconditionally — hidden individual fields always POST "",
+            # so setdefault/conditional-pop silently leaves blank values that
+            # _post_clean/full_clean rejects because first_name is blank=False.
             for f in ['first_name', 'last_name', 'gender']:
-                if f in self._errors:
-                    del self._errors[f]
-                    cleaned_data.pop(f, None)
+                self._errors.pop(f, None)
+                cleaned_data.pop(f, None)
 
             business_name = cleaned_data.get("business_name", "").strip()
             business_ein = cleaned_data.get("business_ein", "").strip()
@@ -552,10 +553,10 @@ class ClientIntakeForm(forms.ModelForm):
                 self.add_error("business_name", "Business name is required for commercial accounts.")
             if not business_ein:
                 self.add_error("business_ein", "EIN is required for commercial accounts.")
-            # Set name fallbacks so DB not-null constraints are satisfied
+            # Direct assignment (not setdefault) overrides the popped empty strings.
             if business_name:
-                cleaned_data.setdefault("first_name", "Commercial")
-                cleaned_data.setdefault("last_name", business_name)
+                cleaned_data["first_name"] = "Commercial"
+                cleaned_data["last_name"] = business_name
             cleaned_data["gender"] = None
         else:
             if not cleaned_data.get("first_name"):
