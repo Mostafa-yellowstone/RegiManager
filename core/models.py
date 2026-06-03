@@ -772,6 +772,11 @@ class ClientIntake(models.Model):
     gender = models.CharField(max_length=20, blank=True, null=True)
     driver_license = models.CharField(max_length=50, blank=True, default="")
     ssn_last_4 = models.CharField(max_length=4, blank=True, default="")
+
+    # Commercial / Business Account
+    is_commercial = models.BooleanField(default=False)
+    business_name = models.CharField(max_length=200, blank=True, default="")
+    business_ein = models.CharField(max_length=20, blank=True, default="")
     
     # Address Data
     building_no = models.CharField(max_length=20, blank=True, default="")

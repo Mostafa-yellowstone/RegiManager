@@ -4899,6 +4899,9 @@ def approve_intake(request, intake_id):
             residence_city=intake.residence_city if not intake.residence_address_same else "",
             residence_zip_code=intake.residence_zip_code if not intake.residence_address_same else "",
             residence_county=intake.residence_county if not intake.residence_address_same else "",
+            is_commercial=intake.is_commercial,
+            business_name=intake.business_name,
+            business_ein=intake.business_ein,
         )
 
     # 4. Update or Create Vehicle

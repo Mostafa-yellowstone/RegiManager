@@ -454,7 +454,7 @@ class ClientIntakeForm(forms.ModelForm):
     class Meta:
         model = ClientIntake
         exclude = [
-            "organization", "status", "processed_at", "processed_by", 
+            "organization", "status", "processed_at", "processed_by",
             "additional_data", "requested_services",
             "mv82_file", "dtf802_file", "dtf803_file", "other_docs"
         ]
@@ -507,6 +507,8 @@ class ClientIntakeForm(forms.ModelForm):
             "lien_filing_code": forms.TextInput(attrs={"class": "form-control", "placeholder": "5-digit Code"}),
             "lessor_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Lessor Name"}),
             "lessor_address": forms.TextInput(attrs={"class": "form-control", "placeholder": "Lessor Address"}),
+            "business_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Legal Business Name"}),
+            "business_ein": forms.TextInput(attrs={"class": "form-control", "placeholder": "XX-XXXXXXX"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -518,5 +520,15 @@ class ClientIntakeForm(forms.ModelForm):
                 field.required = False
             else:
                 field.required = True
+
+    def clean(self):
+        cleaned_data = super().clean()
+        is_commercial = cleaned_data.get("is_commercial", False)
+        if is_commercial:
+            if not cleaned_data.get("business_name"):
+                self.add_error("business_name", "Business name is required for commercial accounts.")
+            if not cleaned_data.get("business_ein"):
+                self.add_error("business_ein", "EIN is required for commercial accounts.")
+        return cleaned_data
 
 
