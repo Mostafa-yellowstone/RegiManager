@@ -513,22 +513,40 @@ class ClientIntakeForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Only require the bare essentials
-        required_fields = ["first_name", "last_name", "vin", "phone_number", "gender"]
+        # Determine if this submission is commercial
+        is_commercial = False
+        if self.data:
+            is_commercial = self.data.get('is_commercial') in ['on', 'true', True, '1']
+        elif self.instance and self.instance.pk:
+            is_commercial = self.instance.is_commercial
+
+        # Only require the bare essentials (adjust for commercial accounts)
+        required_fields = ["vin", "phone_number"]
+        if not is_commercial:
+            required_fields += ["first_name", "last_name", "gender"]
+
         for field_name, field in self.fields.items():
-            if field_name not in required_fields:
-                field.required = False
-            else:
-                field.required = True
+            field.required = field_name in required_fields
 
     def clean(self):
         cleaned_data = super().clean()
         is_commercial = cleaned_data.get("is_commercial", False)
         if is_commercial:
-            if not cleaned_data.get("business_name"):
+            business_name = cleaned_data.get("business_name", "").strip()
+            business_ein = cleaned_data.get("business_ein", "").strip()
+            if not business_name:
                 self.add_error("business_name", "Business name is required for commercial accounts.")
-            if not cleaned_data.get("business_ein"):
+            if not business_ein:
                 self.add_error("business_ein", "EIN is required for commercial accounts.")
+            # Set name fallbacks so DB not-null constraints are satisfied
+            if business_name:
+                cleaned_data.setdefault("first_name", "Commercial")
+                cleaned_data.setdefault("last_name", business_name)
+        else:
+            if not cleaned_data.get("first_name"):
+                self.add_error("first_name", "First name is required.")
+            if not cleaned_data.get("last_name"):
+                self.add_error("last_name", "Last name is required.")
         return cleaned_data
 
 

@@ -560,8 +560,20 @@ def add_client(request):
         last_name = request.POST.get('last_name', '').strip()
         dl = request.POST.get('driver_license', '').strip().upper()
         org_id = request.POST.get('organization')
-        
-        if first_name and last_name and dl and org_id:
+        is_commercial = request.POST.get('is_commercial') in ['on', 'true', '1']
+        business_ein = request.POST.get('business_ein', '').strip()
+
+        if is_commercial and business_ein and org_id:
+            # Duplicate check for commercial: match by EIN
+            existing = Client.objects.filter(
+                is_commercial=True,
+                business_ein__iexact=business_ein,
+                organization_id=org_id
+            ).first()
+            if existing:
+                messages.info(request, f"Business {existing.name} already exists (EIN match). Redirecting to profile.")
+                return redirect("client-detail", client_id=existing.id)
+        elif first_name and last_name and dl and org_id:
             existing = Client.objects.filter(
                 first_name__iexact=first_name,
                 last_name__iexact=last_name,
@@ -637,7 +649,7 @@ def add_client(request):
             is_active=True
         )
         clients_qs = Client.objects.filter(
-            Q(ssn=search_q) | Q(driver_license=search_q) | Q(last_name__icontains=search_q),
+            Q(ssn=search_q) | Q(driver_license=search_q) | Q(last_name__icontains=search_q) | Q(business_name__icontains=search_q),
             organization__in=all_owner_orgs
         )
         
@@ -872,7 +884,9 @@ def all_clients(request):
             Q(last_name__icontains=query) |
             Q(email__icontains=query) |
             Q(phone_number__icontains=query) |
-            Q(city__icontains=query)
+            Q(city__icontains=query) |
+            Q(business_name__icontains=query) |
+            Q(business_ein__icontains=query)
         ).distinct()
     
     paginator = Paginator(clients, 12)
@@ -4845,13 +4859,20 @@ def approve_intake(request, intake_id):
             messages.error(request, "This intake is already being processed or has been completed.")
             return redirect("dashboard")
 
-        # 1. Check for Duplicate Client (By Name + DOB OR Driver License)
-        client = Client.objects.filter(
-            organization=intake.organization
-        ).filter(
-            Q(first_name=intake.first_name, last_name=intake.last_name, dob=intake.dob) |
-            Q(driver_license=intake.driver_license)
-        ).first()
+        # 1. Check for Duplicate Client (EIN for commercial, Name+DOB or DL for individuals)
+        if intake.is_commercial and intake.business_ein:
+            client = Client.objects.filter(
+                organization=intake.organization,
+                is_commercial=True,
+                business_ein__iexact=intake.business_ein
+            ).first()
+        else:
+            client = Client.objects.filter(
+                organization=intake.organization
+            ).filter(
+                Q(first_name=intake.first_name, last_name=intake.last_name, dob=intake.dob) |
+                Q(driver_license=intake.driver_license)
+            ).first()
         
         # 2. Check for Duplicate Vehicle
         existing_vehicle = Vehicle.objects.filter(vin=intake.vin).first()
@@ -5038,7 +5059,8 @@ def public_intake_success(request):
 def client_search_ajax(request):
     """
     Lightweight JSON endpoint for the dashboard command bar live search.
-    Returns up to `limit` clients matching the query by name, DL, phone, or plate.
+    Returns up to `limit` clients matching the query by name, DL, phone, plate,
+    business name, or EIN.
     """
     q     = request.GET.get("q", "").strip()
     limit = min(int(request.GET.get("limit", "8")), 20)
@@ -5056,18 +5078,23 @@ def client_search_ajax(request):
         | Q(driver_license__icontains=q)
         | Q(phone_number__icontains=q)
         | Q(vehicles__plate_number__icontains=q)
+        | Q(business_name__icontains=q)
+        | Q(business_ein__icontains=q)
     ).distinct().select_related("organization")[:limit]
 
     results = []
     for c in clients:
         plate = c.vehicles.values_list("plate_number", flat=True).first() or ""
+        display_name = c.business_name if c.is_commercial and c.business_name else f"{c.first_name} {c.last_name}".strip()
         results.append({
-            "name":    f"{c.first_name} {c.last_name}".strip(),
+            "name":       display_name,
             "first_name": c.first_name,
             "last_name":  c.last_name,
-            "identifier": c.driver_license or "",
+            "identifier": c.driver_license or c.business_ein or "",
             "plate":      plate,
             "url":        f"/dashboard/clients/{c.id}/",
+            "is_commercial": c.is_commercial,
+            "business_name": c.business_name or "",
         })
 
     return JsonResponse({"results": results})
