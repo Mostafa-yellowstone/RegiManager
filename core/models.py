@@ -89,6 +89,7 @@ class OrganizationMembership(models.Model):
     is_active = models.BooleanField(default=True, help_text="Enable or disable this agent in this PSB.")
     signature = models.ImageField(upload_to="agent_signatures/", blank=True, null=True, help_text="Agent signature image to be displayed on receipts.")
     can_view_spaces = models.BooleanField(default=False, help_text="Can this agent view the main Spaces page?")
+    can_deal_with_insurance = models.BooleanField(default=False, help_text="Can this agent deal with insurance and appear in the insurance workspace?")
     accessible_spaces = models.ManyToManyField("Space", blank=True, related_name="permitted_memberships", help_text="Specific spaces this agent has access to.")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -909,6 +910,8 @@ class InsuranceCompany(models.Model):
 
 class InsurancePolicy(models.Model):
     class StatusChoices(models.TextChoices):
+        QUOTE = "quote", "Quote"
+        BOUND = "bound", "Bound"
         ACTIVE = "active", "Active"
         INACTIVE = "inactive", "Inactive"
 
@@ -917,9 +920,11 @@ class InsurancePolicy(models.Model):
     policy_number = models.CharField(max_length=100)
     insurance_company = models.ForeignKey(InsuranceCompany, on_delete=models.CASCADE, related_name="policies")
     premium = models.DecimalField(max_digits=12, decimal_places=2)
+    broker_fee = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, blank=True, help_text="Broker fee taken by the agent")
     commission_rate = models.DecimalField(max_digits=5, decimal_places=2, help_text="Commission rate in percentage (e.g. 15.00 for 15%)")
     commission_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True)
     status = models.CharField(max_length=20, choices=StatusChoices.choices, default=StatusChoices.ACTIVE)
+    added_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="added_insurance_policies", help_text="Agent who added this policy/quote")
     
     start_date = models.DateField()
     end_date = models.DateField()

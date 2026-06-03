@@ -82,6 +82,7 @@
       <button class="tab-btn" id="tab-companies-btn" onclick="switchTab('companies')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🏢 Companies</button>
       <button class="tab-btn" id="tab-banking-btn" onclick="switchTab('banking')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🏦 Banking</button>
       <button class="tab-btn" id="tab-reporting-btn" onclick="switchTab('reporting')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">📊 Reports</button>
+      <button class="tab-btn" id="tab-agents-btn" onclick="switchTab('agents')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">👥 Agent Auditing</button>
     </div>
 
     <!-- INSURANCE CRM TAB -->
@@ -104,6 +105,71 @@
           <div style="font-size: 2rem; font-weight: 800; color: #dc2626;">${{ total_unearned_commission|floatformat:2 }}</div>
         </div>
       </div>
+      <!-- Search & Filters -->
+      <div style="background: #f8fafc; border-radius: 16px; padding: 1.25rem; border: 1px solid #e2e8f0; margin-bottom: 1.5rem;">
+        <form method="GET" style="display: flex; flex-direction: column; gap: 0.8rem;">
+          <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 0.3rem;">
+              <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Search Policies</label>
+              <input type="text" name="q" value="{{ search_query }}" placeholder="Search by Client name, Policy #..." style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; width: 100%;">
+            </div>
+            <div style="display: flex; gap: 0.8rem; align-items: flex-end;">
+              <button type="submit" style="padding: 8px 20px; background: #0f172a; color: white; border: none; font-weight: 700; border-radius: 8px; cursor: pointer;">Search</button>
+              <a href="{% url 'inventory-detail' card.id %}" style="padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 8px; text-decoration: none; color: #475569; background: white; font-weight: 700; font-size: 0.9rem; text-align: center;">Clear</a>
+            </div>
+          </div>
+          <details {% if status_filter or company_filter or agent_filter or date_from or date_to or min_premium or max_premium %}open{% endif %} style="width: 100%;">
+            <summary style="cursor: pointer; font-size: 0.85rem; font-weight: 700; color: #093de6; margin-top: 0.2rem; outline: none; user-select: none;">🔍 Advanced Filters</summary>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 0.8rem;">
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Status</label>
+                <select name="status" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
+                  <option value="">All Statuses</option>
+                  <option value="quote" {% if status_filter == "quote" %}selected{% endif %}>Quote</option>
+                  <option value="bound" {% if status_filter == "bound" %}selected{% endif %}>Bound</option>
+                  <option value="active" {% if status_filter == "active" %}selected{% endif %}>Active</option>
+                  <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>Inactive</option>
+                </select>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Company</label>
+                <select name="insurance_company" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
+                  <option value="">All Companies</option>
+                  {% for comp in insurance_companies %}
+                    <option value="{{ comp.id }}" {% if company_filter == comp.id|stringformat:"s" %}selected{% endif %}>{{ comp.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Agent</label>
+                <select name="agent" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
+                  <option value="">All Agents</option>
+                  {% for member in insurance_agents %}
+                    <option value="{{ member.user.id }}" {% if agent_filter == member.user.id|stringformat:"s" %}selected{% endif %}>{{ member.user.get_full_name|default:member.user.username }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">From Date</label>
+                <input type="date" name="date_from" value="{{ date_from }}" style="padding: 7px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">To Date</label>
+                <input type="date" name="date_to" value="{{ date_to }}" style="padding: 7px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Min Premium ($)</label>
+                <input type="number" step="0.01" name="min_premium" value="{{ min_premium }}" placeholder="0.00" style="padding: 7px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Max Premium ($)</label>
+                <input type="number" step="0.01" name="max_premium" value="{{ max_premium }}" placeholder="5000.00" style="padding: 7px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+              </div>
+            </div>
+          </details>
+        </form>
+      </div>
+
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
         <h3 style="margin: 0; color: #0f172a; font-weight: 800; font-size: 1.2rem;">Client Insurance Policies</h3>
         <button onclick="openAddPolicyModal()" style="padding: 8px 18px; background: #093de6; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Add Policy</button>
@@ -111,7 +177,7 @@
       <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
         <table class="spaces-table">
           <thead>
-            <tr><th>Client</th><th>Policy #</th><th>Company</th><th>Premium</th><th>Rate</th><th>Commission</th><th>Status</th><th>Actions</th></tr>
+            <tr><th>Client</th><th>Policy #</th><th>Company</th><th>Premium</th><th>Broker Fee</th><th>Rate</th><th>Commission</th><th>Agent</th><th>Status</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {% for policy in policies %}
@@ -126,22 +192,38 @@
               <td style="font-family: monospace; font-size: 0.88rem;">{{ policy.policy_number }}</td>
               <td>{{ policy.insurance_company.name }}</td>
               <td style="font-weight: 800;">${{ policy.premium }}</td>
+              <td style="font-weight: 700; color: #475569;">${{ policy.broker_fee }}</td>
               <td>{{ policy.commission_rate }}%</td>
               <td style="color: #16a34a; font-weight: 800;">${{ policy.commission_amount }}</td>
               <td>
+                {% if policy.added_by %}
+                  <span style="background-color: {{ policy.agent_bg_color }}; color: {{ policy.agent_text_color }}; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; white-space: nowrap;">
+                    {{ policy.added_by.get_full_name|default:policy.added_by.username }}
+                  </span>
+                {% else %}
+                  <span style="color: #94a3b8; font-style: italic; font-size: 0.82rem;">System</span>
+                {% endif %}
+              </td>
+              <td>
                 {% if policy.status == 'active' %}
                 <span class="chip-active">● Active</span>
+                {% elif policy.status == 'quote' %}
+                <span class="chip-quote" style="background: #eff6ff; color: #1d4ed8; padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; white-space: nowrap;">● Quote</span>
+                {% elif policy.status == 'bound' %}
+                <span class="chip-bound" style="background: #f0fdf4; color: #166534; padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; white-space: nowrap;">● Bound</span>
                 {% else %}
                 <span class="chip-inactive" title="Unearned: ${{ policy.unearned_commission|floatformat:2 }}">● Inactive (${{ policy.unearned_commission|floatformat:2 }})</span>
                 {% endif %}
               </td>
-              <td style="display: flex; gap: 0.5rem;">
-                <button onclick="editPolicy({{ policy.id }})" style="padding: 4px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; cursor: pointer; font-weight: 700; font-size: 0.8rem;">Edit</button>
-                <a href="{% url 'delete-insurance-policy' policy.id %}" onclick="return confirm('Delete this policy?')" style="padding: 4px 10px; border: 1px solid #fee2e2; border-radius: 6px; background: #fff5f5; color: #dc2626; text-decoration: none; font-weight: 700; font-size: 0.8rem;">Del</a>
+              <td>
+                <div style="display: flex; gap: 0.5rem;">
+                  <button onclick="editPolicy({{ policy.id }})" style="padding: 4px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; cursor: pointer; font-weight: 700; font-size: 0.8rem;">Edit</button>
+                  <a href="{% url 'delete-insurance-policy' policy.id %}" onclick="return confirm('Delete this policy?')" style="padding: 4px 10px; border: 1px solid #fee2e2; border-radius: 6px; background: #fff5f5; color: #dc2626; text-decoration: none; font-weight: 700; font-size: 0.8rem; text-align: center;">Del</a>
+                </div>
               </td>
             </tr>
             {% empty %}
-            <tr><td colspan="8" style="text-align: center; padding: 3rem; color: #64748b; font-weight: 600;">No policies yet.</td></tr>
+            <tr><td colspan="10" style="text-align: center; padding: 3rem; color: #64748b; font-weight: 600;">No policies yet.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -252,6 +334,115 @@
       </div>
     </div>
 
+    <!-- AGENTS AUDITING TAB -->
+    <div id="tab-agents" class="tab-panel" style="display: none;">
+      <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 2rem;">
+        
+        <!-- Analysis Insights Block -->
+        {% if analysis_points %}
+        <div style="background: #f0fdf4; border-radius: 16px; padding: 1.25rem 1.5rem; border: 1px solid #bbf7d0; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+          <h4 style="margin: 0; color: #166534; font-size: 1.05rem; font-weight: 800; margin-bottom: 0.75rem;">📊 Automated Performance Insights</h4>
+          <ul style="margin: 0; padding-left: 1.25rem; color: #1e3a1e; font-size: 0.9rem; line-height: 1.8; font-weight: 600;">
+            {% for point in analysis_points %}
+              <li>{{ point|safe }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        <!-- Agent Metrics Summary Row -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem;">
+          <div class="spaces-metric" style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem;">
+            <div style="color: #64748b; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.3rem;">Best Performer</div>
+            <div style="font-size: 1.2rem; font-weight: 800; color: #0f172a;">
+              {% if best_performer %}
+                🏆 {{ best_performer.fullname }}
+              {% else %}
+                N/A
+              {% endif %}
+            </div>
+          </div>
+          <div class="spaces-metric" style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem;">
+            <div style="color: #64748b; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.3rem;">Total Quotes Got</div>
+            <div style="font-size: 2rem; font-weight: 800; color: #1d4ed8;">
+              {{ total_quotes_count|default:0 }}
+            </div>
+          </div>
+          <div class="spaces-metric" style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem;">
+            <div style="color: #64748b; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.3rem;">Policies Bound</div>
+            <div style="font-size: 2rem; font-weight: 800; color: #16a34a;">
+              {{ total_policies_bound|default:0 }}
+            </div>
+          </div>
+          <div class="spaces-metric" style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem;">
+            <div style="color: #64748b; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.3rem;">Total Profit Brought</div>
+            <div style="font-size: 2rem; font-weight: 800; color: #093de6;">
+              ${{ total_agent_profits|floatformat:2 }}
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1.2fr; gap: 1.5rem; flex-wrap: wrap;">
+          <!-- Agent Breakdown Table -->
+          <div style="background: white; border-radius: 16px; padding: 1.5rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04); overflow-x: auto;">
+            <h3 style="margin: 0; color: #0f172a; font-weight: 800; font-size: 1.15rem; margin-bottom: 1.25rem;">Agent Audit Directory</h3>
+            <table class="spaces-table">
+              <thead>
+                <tr>
+                  <th>Agent</th>
+                  <th style="text-align: center;">Quotes</th>
+                  <th style="text-align: center;">Bound</th>
+                  <th>Premium</th>
+                  <th>Commission</th>
+                  <th>Broker Fees</th>
+                  <th>Total Profit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for stat in agent_stats %}
+                <tr>
+                  <td>
+                    <span style="background-color: {{ stat.bg_color }}; color: {{ stat.text_color }}; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; white-space: nowrap;">
+                      {{ stat.fullname }}
+                    </span>
+                    {% if stat.is_best %}
+                      <span title="Best Performer!" style="margin-left: 4px; font-size: 1.1rem; cursor: help;">👑</span>
+                    {% endif %}
+                  </td>
+                  <td style="text-align: center; font-weight: 700; color: #1d4ed8;">{{ stat.quotes_count }}</td>
+                  <td style="text-align: center; font-weight: 700; color: #16a34a;">{{ stat.policies_bound }}</td>
+                  <td style="font-weight: 700;">${{ stat.total_premium|floatformat:2 }}</td>
+                  <td style="color: #16a34a; font-weight: 700;">${{ stat.total_commission|floatformat:2 }}</td>
+                  <td style="color: #475569; font-weight: 700;">${{ stat.total_broker_fee|floatformat:2 }}</td>
+                  <td style="color: #093de6; font-weight: 800; font-size: 0.95rem;">${{ stat.total_profit|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" style="text-align: center; padding: 3rem; color: #64748b; font-weight: 600;">No insurance agents configured. Go to PSB Members in Admin to enable "Can deal with insurance".</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Charts Column -->
+          <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div style="background: white; border-radius: 16px; padding: 1.5rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+              <h4 style="margin: 0; color: #0f172a; font-weight: 800; font-size: 1rem; margin-bottom: 1rem; text-align: center;">Premium Comparison</h4>
+              <div style="height: 220px; position: relative;">
+                <canvas id="agentPremiumChart"></canvas>
+              </div>
+            </div>
+            <div style="background: white; border-radius: 16px; padding: 1.5rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+              <h4 style="margin: 0; color: #0f172a; font-weight: 800; font-size: 1rem; margin-bottom: 1rem; text-align: center;">Profit Contribution</h4>
+              <div style="height: 220px; position: relative;">
+                <canvas id="agentProfitChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 </main>
 
@@ -323,18 +514,29 @@
         </select>
       </div>
       <div style="margin-bottom: 1rem;"><label class="field-label">Policy Number</label><input type="text" name="policy_number" id="policyNumber" required class="field-input" placeholder="POL-1234567"></div>
-      <div class="grid-2" style="margin-bottom: 1rem;">
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem;">
         <div><label class="field-label">Premium ($)</label><input type="number" step="0.01" name="premium" id="policyPremium" required class="field-input" placeholder="0.00"></div>
+        <div><label class="field-label">Broker Fee ($)</label><input type="number" step="0.01" name="broker_fee" id="policyBrokerFee" required class="field-input" placeholder="0.00" value="0.00"></div>
         <div><label class="field-label">Commission Rate (%)</label><input type="number" step="0.01" name="commission_rate" id="policyRate" required class="field-input" placeholder="15.00"></div>
       </div>
       <div class="grid-2" style="margin-bottom: 1rem;">
         <div><label class="field-label">Start Date</label><input type="date" name="start_date" id="policyStart" required class="field-input"></div>
         <div><label class="field-label">End Date</label><input type="date" name="end_date" id="policyEnd" required class="field-input"></div>
       </div>
-      <div class="grid-2" style="margin-bottom: 1rem;">
+      <div class="grid-3" style="margin-bottom: 1rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
         <div><label class="field-label">Period (Months)</label><input type="number" name="insurance_period_months" id="policyPeriod" value="6" required class="field-input"></div>
+        <div><label class="field-label">Assigned Agent</label>
+          <select name="added_by" id="policyAgent" required class="field-input">
+            <option value="">-- Select Agent --</option>
+            {% for member in insurance_agents %}
+              <option value="{{ member.user.id }}">{{ member.user.get_full_name|default:member.user.username }}</option>
+            {% endfor %}
+          </select>
+        </div>
         <div><label class="field-label">Status</label>
           <select name="status" id="policyStatus" class="field-input" onchange="toggleInactiveDate()">
+            <option value="quote">Quote</option>
+            <option value="bound">Bound</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
@@ -405,8 +607,95 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const tabs = ['insurance','companies','banking','reporting'];
+const tabs = ['insurance','companies','banking','reporting','agents'];
+let premiumChart = null;
+let profitChart = null;
+
+function renderAgentCharts() {
+  const chartCanvasPrem = document.getElementById('agentPremiumChart');
+  const chartCanvasProf = document.getElementById('agentProfitChart');
+  if (!chartCanvasPrem || !chartCanvasProf) return;
+
+  const chartData = JSON.parse('{{ agent_chart_data_json|escapejs }}');
+  const names = chartData.names;
+  const premiums = chartData.premiums;
+  const profits = chartData.profits;
+
+  if (names.length === 0) return;
+
+  // Premium Comparison Bar Chart
+  const ctxPrem = chartCanvasPrem.getContext('2d');
+  if (premiumChart) premiumChart.destroy();
+  premiumChart = new Chart(ctxPrem, {
+    type: 'bar',
+    data: {
+      labels: names,
+      datasets: [{
+        label: 'Total Premium ($)',
+        data: premiums,
+        backgroundColor: 'rgba(9, 61, 230, 0.75)',
+        borderColor: 'rgb(9, 61, 230)',
+        borderWidth: 1,
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: '#f1f5f9' }
+        },
+        x: {
+          grid: { display: false }
+        }
+      },
+      plugins: {
+        legend: { display: false }
+      }
+    }
+  });
+
+  // Profit Contribution Doughnut Chart
+  const ctxProfit = chartCanvasProf.getContext('2d');
+  if (profitChart) profitChart.destroy();
+  
+  const colors = names.map(name => {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const h = Math.abs(hash * 37) % 360;
+    return `hsl(${h}, 70%, 60%)`;
+  });
+
+  profitChart = new Chart(ctxProfit, {
+    type: 'doughnut',
+    data: {
+      labels: names,
+      datasets: [{
+        data: profits,
+        backgroundColor: colors,
+        borderWidth: 2,
+        borderColor: '#ffffff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { boxWidth: 12, font: { size: 10 } }
+        }
+      }
+    }
+  });
+}
+
 function switchTab(name) {
   tabs.forEach(t => {
     document.getElementById('tab-'+t).style.display = (t===name) ? 'block' : 'none';
@@ -414,6 +703,9 @@ function switchTab(name) {
     if (t===name) { btn.style.color='#093de6'; btn.style.borderBottomColor='#093de6'; }
     else { btn.style.color='#64748b'; btn.style.borderBottomColor='transparent'; }
   });
+  if (name === 'agents') {
+    setTimeout(renderAgentCharts, 50);
+  }
 }
 
 function toggleInactiveDate() {
@@ -428,6 +720,8 @@ function openAddPolicyModal() {
   document.getElementById('policyModalTitle').textContent = '🛡️ Add Insurance Policy';
   document.getElementById('policyForm').action = "{% url 'add-insurance-policy' %}";
   document.getElementById('policyForm').reset();
+  document.getElementById('policyBrokerFee').value = '0.00';
+  document.getElementById('policyAgent').value = '';
   toggleInactiveDate();
   document.getElementById('addPolicyModal').classList.add('active');
 }
@@ -440,10 +734,12 @@ function editPolicy(id) {
       document.getElementById('policyCompany').value = data.insurance_company_id;
       document.getElementById('policyNumber').value = data.policy_number;
       document.getElementById('policyPremium').value = data.premium;
+      document.getElementById('policyBrokerFee').value = data.broker_fee || '0.00';
       document.getElementById('policyRate').value = data.commission_rate;
       document.getElementById('policyStart').value = data.start_date;
       document.getElementById('policyEnd').value = data.end_date;
       document.getElementById('policyPeriod').value = data.insurance_period_months;
+      document.getElementById('policyAgent').value = data.added_by_id || '';
       document.getElementById('policyStatus').value = data.status;
       toggleInactiveDate();
       if (data.status === 'inactive') document.getElementById('policyInactiveDate').value = data.inactive_date || '';

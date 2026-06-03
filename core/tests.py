@@ -195,3 +195,142 @@ class ReceiptAddressTests(TestCase):
         self.assertEqual(response["Content-Type"], "application/pdf")
 
 
+class AgentAuditingTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Test Org", city="NYC")
+        self.space = Space.objects.create(organization=self.org, label="Insurance Space", key="insurance")
+        self.company = InsuranceCompany.objects.create(organization=self.org, name="Geico")
+        
+        # User 1: Deal with insurance
+        self.user1 = User.objects.create_user(username="agent1", password="password123")
+        self.m1 = OrganizationMembership.objects.create(
+            user=self.user1, organization=self.org, is_active=True, role="agent",
+            can_deal_with_insurance=True, can_view_spaces=True
+        )
+        self.m1.accessible_spaces.add(self.space)
+        
+        # User 2: Deal with insurance
+        self.user2 = User.objects.create_user(username="agent2", password="password123")
+        self.m2 = OrganizationMembership.objects.create(
+            user=self.user2, organization=self.org, is_active=True, role="agent",
+            can_deal_with_insurance=True, can_view_spaces=True
+        )
+        self.m2.accessible_spaces.add(self.space)
+        
+        # User 3: Do NOT deal with insurance
+        self.user3 = User.objects.create_user(username="agent3", password="password123")
+        self.m3 = OrganizationMembership.objects.create(
+            user=self.user3, organization=self.org, is_active=True, role="agent",
+            can_deal_with_insurance=False, can_view_spaces=True
+        )
+        self.m3.accessible_spaces.add(self.space)
+
+        # Clients
+        self.client_obj1 = Client.objects.create(organization=self.org, first_name="Client", last_name="One")
+        self.client_obj2 = Client.objects.create(organization=self.org, first_name="Client", last_name="Two")
+        
+        self.client = TestClient()
+        self.client.login(username="agent1", password="password123")
+
+    def test_auditing_metrics_calculation(self):
+        # Create some policies/quotes
+        # Agent 1 has:
+        # - 1 quote
+        # - 1 bound policy (premium 1000.00, broker_fee 50.00, commission_rate 10%)
+        InsurancePolicy.objects.create(
+            organization=self.org, client=self.client_obj1, policy_number="POL-A1",
+            insurance_company=self.company, premium=Decimal("500.00"), broker_fee=Decimal("10.00"),
+            commission_rate=Decimal("10.00"), status="quote", added_by=self.user1,
+            start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6
+        )
+        InsurancePolicy.objects.create(
+            organization=self.org, client=self.client_obj1, policy_number="POL-A2",
+            insurance_company=self.company, premium=Decimal("1000.00"), broker_fee=Decimal("50.00"),
+            commission_rate=Decimal("10.00"), status="bound", added_by=self.user1,
+            start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6
+        )
+        
+        # Agent 2 has:
+        # - 1 bound policy (premium 2000.00, broker_fee 100.00, commission_rate 15%)
+        InsurancePolicy.objects.create(
+            organization=self.org, client=self.client_obj2, policy_number="POL-B1",
+            insurance_company=self.company, premium=Decimal("2000.00"), broker_fee=Decimal("100.00"),
+            commission_rate=Decimal("15.00"), status="bound", added_by=self.user2,
+            start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6
+        )
+        
+        # Access the inventory-detail view for the insurance space
+        response = self.client.get(reverse("inventory-detail", args=[self.space.id]))
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify only agents who can deal with insurance are in the list
+        insurance_agents = response.context["insurance_agents"]
+        self.assertEqual(len(insurance_agents), 2)
+        agent_ids = [m.user.id for m in insurance_agents]
+        self.assertIn(self.user1.id, agent_ids)
+        self.assertIn(self.user2.id, agent_ids)
+        self.assertNotIn(self.user3.id, agent_ids)
+        
+        # Verify stats calculations
+        agent_stats = response.context["agent_stats"]
+        self.assertEqual(len(agent_stats), 2)
+        
+        # Since agent_stats is sorted by premium volume descending:
+        # agent2: total_premium=2000.00, total_profit=400.00 (commission 300.00 + fee 100.00 = 400.00)
+        # agent1: total_premium=1000.00, total_profit=150.00 (commission 100.00 + fee 50.00 = 150.00)
+        
+        stats2 = agent_stats[0]
+        self.assertEqual(stats2["agent"], self.user2)
+        self.assertEqual(stats2["quotes_count"], 0)
+        self.assertEqual(stats2["policies_bound"], 1)
+        self.assertEqual(stats2["total_premium"], Decimal("2000.00"))
+        self.assertEqual(stats2["total_commission"], Decimal("300.00"))
+        self.assertEqual(stats2["total_broker_fee"], Decimal("100.00"))
+        self.assertEqual(stats2["total_profit"], Decimal("400.00"))
+        
+        stats1 = agent_stats[1]
+        self.assertEqual(stats1["agent"], self.user1)
+        self.assertEqual(stats1["quotes_count"], 1)
+        self.assertEqual(stats1["policies_bound"], 1)
+        self.assertEqual(stats1["total_premium"], Decimal("1000.00"))
+        self.assertEqual(stats1["total_commission"], Decimal("100.00"))
+        self.assertEqual(stats1["total_broker_fee"], Decimal("50.00"))
+        self.assertEqual(stats1["total_profit"], Decimal("150.00"))
+        
+        # Verify best performer
+        self.assertEqual(response.context["best_performer"]["agent"], self.user2)
+
+    def test_advanced_filters(self):
+        # Create different policies to test filter parameters
+        # Policy A
+        InsurancePolicy.objects.create(
+            organization=self.org, client=self.client_obj1, policy_number="POL-FILTER-A",
+            insurance_company=self.company, premium=Decimal("1500.00"), broker_fee=Decimal("50.00"),
+            commission_rate=Decimal("10.00"), status="bound", added_by=self.user1,
+            start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6
+        )
+        # Policy B
+        InsurancePolicy.objects.create(
+            organization=self.org, client=self.client_obj2, policy_number="POL-FILTER-B",
+            insurance_company=self.company, premium=Decimal("2500.00"), broker_fee=Decimal("80.00"),
+            commission_rate=Decimal("12.00"), status="quote", added_by=self.user2,
+            start_date="2026-06-15", end_date="2026-12-15", insurance_period_months=6
+        )
+        
+        # Filter by status = "bound"
+        response = self.client.get(reverse("inventory-detail", args=[self.space.id]) + "?status=bound")
+        self.assertEqual(response.context["policies"].count(), 1)
+        self.assertEqual(response.context["policies"].first().policy_number, "POL-FILTER-A")
+        
+        # Filter by agent
+        response = self.client.get(reverse("inventory-detail", args=[self.space.id]) + f"?agent={self.user2.id}")
+        self.assertEqual(response.context["policies"].count(), 1)
+        self.assertEqual(response.context["policies"].first().policy_number, "POL-FILTER-B")
+
+        # Filter by min_premium & max_premium
+        response = self.client.get(reverse("inventory-detail", args=[self.space.id]) + "?min_premium=2000")
+        self.assertEqual(response.context["policies"].count(), 1)
+        self.assertEqual(response.context["policies"].first().policy_number, "POL-FILTER-B")
+
+
+

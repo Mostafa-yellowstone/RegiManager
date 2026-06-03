@@ -5340,20 +5340,74 @@ def inventory_detail(request, inventory_id):
         
         clients = Client.objects.filter(organization=active_org)
         insurance_companies = InsuranceCompany.objects.filter(organization=active_org)
-        policies = InsurancePolicy.objects.filter(organization=active_org).select_related("client", "insurance_company")
         bank_accounts = BankAccount.objects.filter(organization=active_org)
         bank_transactions = BankTransaction.objects.filter(bank_account__organization=active_org).select_related("bank_account")
         
-        active_policies = policies.filter(status="active")
-        inactive_policies = policies.filter(status="inactive")
+        # Get query parameters for filtering
+        search_query = request.GET.get("q", "").strip()
+        status_filter = request.GET.get("status", "").strip()
+        date_from = request.GET.get("date_from", "").strip()
+        date_to = request.GET.get("date_to", "").strip()
+        company_filter = request.GET.get("insurance_company", "").strip()
+        agent_filter = request.GET.get("agent", "").strip()
+        min_premium = request.GET.get("min_premium", "").strip()
+        max_premium = request.GET.get("max_premium", "").strip()
+
+        # Base query for all policies
+        all_policies = InsurancePolicy.objects.filter(organization=active_org).select_related("client", "insurance_company", "added_by")
+        
+        # Filter policies for the CRM table
+        policies = all_policies
+        if search_query:
+            from django.db.models import Q
+            policies = policies.filter(
+                Q(policy_number__icontains=search_query) |
+                Q(client__first_name__icontains=search_query) |
+                Q(client__last_name__icontains=search_query)
+            )
+        if status_filter:
+            policies = policies.filter(status=status_filter)
+        if date_from:
+            policies = policies.filter(start_date__gte=date_from)
+        if date_to:
+            policies = policies.filter(start_date__lte=date_to)
+        if company_filter:
+            policies = policies.filter(insurance_company_id=company_filter)
+        if agent_filter:
+            policies = policies.filter(added_by_id=agent_filter)
+        if min_premium:
+            try:
+                policies = policies.filter(premium__gte=Decimal(min_premium))
+            except Exception:
+                pass
+        if max_premium:
+            try:
+                policies = policies.filter(premium__lte=Decimal(max_premium))
+            except Exception:
+                pass
+
+        # Global metrics calculations (unfiltered total stats)
+        active_policies = all_policies.filter(status="active")
+        inactive_policies = all_policies.filter(status="inactive")
         
         total_premium = sum(p.premium for p in active_policies)
         total_commission = sum(p.commission_amount for p in active_policies)
         total_unearned_commission = sum(p.unearned_commission for p in inactive_policies)
         
+        def get_user_colors(username):
+            # Deterministic pastel color for colorful customization
+            h = sum(ord(c) for c in username) * 37 % 360
+            return f"hsl({h}, 75%, 93%)", f"hsl({h}, 80%, 25%)"
+
+        for p in policies:
+            if p.added_by:
+                bg, text = get_user_colors(p.added_by.username)
+                p.agent_bg_color = bg
+                p.agent_text_color = text
+
         company_summaries = []
         for company in insurance_companies:
-            comp_policies = policies.filter(insurance_company=company)
+            comp_policies = all_policies.filter(insurance_company=company)
             comp_unearned = sum(p.unearned_commission for p in comp_policies if p.status == "inactive")
             comp_active_count = comp_policies.filter(status="active").count()
             company_summaries.append({
@@ -5363,7 +5417,93 @@ def inventory_detail(request, inventory_id):
                 "unearned_commission": comp_unearned
             })
             
+        # Agent Auditing Logic
+        insurance_memberships = OrganizationMembership.objects.filter(
+            organization=active_org,
+            can_deal_with_insurance=True,
+            is_active=True,
+            user__is_active=True
+        ).select_related("user")
+        
+        agent_stats = []
+        best_performer = None
+        highest_premium = Decimal("0.00")
+        
+        for m in insurance_memberships:
+            agent = m.user
+            agent_policies = all_policies.filter(added_by=agent)
+            
+            q_count = agent_policies.filter(status="quote").count()
+            p_bound = agent_policies.exclude(status="quote").count()
+            
+            bound_policies = agent_policies.exclude(status="quote")
+            p_sum = sum(p.premium for p in bound_policies)
+            c_sum = sum(p.commission_amount for p in bound_policies)
+            b_sum = sum(p.broker_fee for p in bound_policies)
+            t_profit = c_sum + b_sum
+            
+            bg, text = get_user_colors(agent.username)
+            
+            stats = {
+                "agent": agent,
+                "fullname": agent.get_full_name() or agent.username,
+                "quotes_count": q_count,
+                "policies_bound": p_bound,
+                "total_premium": p_sum,
+                "total_commission": c_sum,
+                "total_broker_fee": b_sum,
+                "total_profit": t_profit,
+                "bg_color": bg,
+                "text_color": text,
+            }
+            agent_stats.append(stats)
+            
+            if p_sum > highest_premium:
+                highest_premium = p_sum
+                best_performer = stats
+                
+        if best_performer:
+            best_performer["is_best"] = True
+            
+        # Sort agent stats by total premium descending
+        agent_stats.sort(key=lambda s: s["total_premium"], reverse=True)
+
+        chart_agent_names = [s["fullname"] for s in agent_stats]
+        chart_agent_premiums = [float(s["total_premium"]) for s in agent_stats]
+        chart_agent_profits = [float(s["total_profit"]) for s in agent_stats]
+        
+        agent_chart_data = {
+            "names": chart_agent_names,
+            "premiums": chart_agent_premiums,
+            "profits": chart_agent_profits,
+        }
+        
         import json
+        agent_chart_data_json = json.dumps(agent_chart_data)
+        
+        # Build automatic analysis
+        analysis_points = []
+        if best_performer:
+            analysis_points.append(f"🏆 <strong>{best_performer['fullname']}</strong> is the top performer this period, driving a total of <strong>${best_performer['total_premium']:,.2f}</strong> in premium volume.")
+        
+        total_quotes = sum(s["quotes_count"] for s in agent_stats)
+        total_bound = sum(s["policies_bound"] for s in agent_stats)
+        
+        if total_quotes > 0 or total_bound > 0:
+            total_leads = total_quotes + total_bound
+            conversion_rate = (total_bound / total_leads * 100) if total_leads > 0 else 0
+            analysis_points.append(f"📈 Overall quote-to-bind conversion rate is <strong>{conversion_rate:.1f}%</strong> across all active insurance agents.")
+        else:
+            analysis_points.append("ℹ️ Quote-to-bind conversion rate cannot be calculated (no quotes/policies logged yet).")
+            
+        avg_premium = (sum(s["total_premium"] for s in agent_stats) / total_bound) if total_bound > 0 else Decimal("0.00")
+        if avg_premium > 0:
+            analysis_points.append(f"💼 Average premium per bound policy is <strong>${avg_premium:,.2f}</strong>.")
+            
+        total_agent_profits = sum(s["total_profit"] for s in agent_stats)
+        if total_agent_profits > 0:
+            analysis_points.append(f"💵 Total profits brought in by all agents (commission + broker fees) is <strong>${total_agent_profits:,.2f}</strong>.")
+            
         income_categories = json.dumps(["Insurance Premium Receipt", "Commission Payment", "Interest", "Other Income"])
         expense_categories = json.dumps(["Rent", "Utilities", "Payroll", "Office Supplies", "Marketing", "Other Expense"])
         
@@ -5385,6 +5525,26 @@ def inventory_detail(request, inventory_id):
             "inactive_policies_count": inactive_policies.count(),
             "income_categories": income_categories,
             "expense_categories": expense_categories,
+            
+            # Auditing details
+            "insurance_agents": insurance_memberships,
+            "agent_stats": agent_stats,
+            "best_performer": best_performer,
+            "agent_chart_data_json": agent_chart_data_json,
+            "analysis_points": analysis_points,
+            "total_quotes_count": total_quotes,
+            "total_policies_bound": total_bound,
+            "total_agent_profits": total_agent_profits,
+            
+            # Query filters to persist in form fields
+            "search_query": search_query,
+            "status_filter": status_filter,
+            "date_from": date_from,
+            "date_to": date_to,
+            "company_filter": company_filter,
+            "agent_filter": agent_filter,
+            "min_premium": min_premium,
+            "max_premium": max_premium,
         }
         return render(request, "core/insurance_space.html", context)
 
@@ -5569,6 +5729,7 @@ def add_insurance_policy(request):
     
     policy_number = request.POST.get("policy_number", "").strip()
     premium = request.POST.get("premium", "0.00").strip()
+    broker_fee = request.POST.get("broker_fee", "0.00").strip()
     commission_rate = request.POST.get("commission_rate", "0.00").strip()
     status = request.POST.get("status", "active")
     start_date = request.POST.get("start_date")
@@ -5576,6 +5737,16 @@ def add_insurance_policy(request):
     insurance_period_months = request.POST.get("insurance_period_months", "6")
     inactive_date = request.POST.get("inactive_date")
     
+    added_by_id = request.POST.get("added_by")
+    added_by = None
+    if added_by_id:
+        try:
+            added_by = User.objects.get(id=added_by_id)
+        except User.DoesNotExist:
+            pass
+    if not added_by:
+        added_by = request.user
+        
     try:
         InsurancePolicy.objects.create(
             organization=org,
@@ -5583,12 +5754,14 @@ def add_insurance_policy(request):
             policy_number=policy_number,
             insurance_company=company,
             premium=Decimal(premium or "0.00"),
+            broker_fee=Decimal(broker_fee or "0.00"),
             commission_rate=Decimal(commission_rate or "0.00"),
             status=status,
             start_date=start_date,
             end_date=end_date,
             insurance_period_months=int(insurance_period_months or 6),
-            inactive_date=inactive_date or None
+            inactive_date=inactive_date or None,
+            added_by=added_by
         )
         messages.success(request, "Insurance policy created.")
     except Exception as e:
@@ -5638,6 +5811,7 @@ def edit_insurance_policy(request, policy_id):
         policy.insurance_company = company
         policy.policy_number = request.POST.get("policy_number", "").strip()
         policy.premium = Decimal(request.POST.get("premium", "0.00").strip() or "0.00")
+        policy.broker_fee = Decimal(request.POST.get("broker_fee", "0.00").strip() or "0.00")
         policy.commission_rate = Decimal(request.POST.get("commission_rate", "0.00").strip() or "0.00")
         policy.status = request.POST.get("status", "active")
         policy.start_date = request.POST.get("start_date")
@@ -5646,6 +5820,13 @@ def edit_insurance_policy(request, policy_id):
         
         inactive_date = request.POST.get("inactive_date")
         policy.inactive_date = inactive_date or None
+        
+        added_by_id = request.POST.get("added_by")
+        if added_by_id:
+            try:
+                policy.added_by = User.objects.get(id=added_by_id)
+            except User.DoesNotExist:
+                pass
         
         try:
             policy.save()
@@ -5661,12 +5842,14 @@ def edit_insurance_policy(request, policy_id):
         "insurance_company_id": policy.insurance_company_id,
         "policy_number": policy.policy_number,
         "premium": str(policy.premium),
+        "broker_fee": str(policy.broker_fee),
         "commission_rate": str(policy.commission_rate),
         "status": policy.status,
         "start_date": str(policy.start_date),
         "end_date": str(policy.end_date),
         "insurance_period_months": policy.insurance_period_months,
         "inactive_date": str(policy.inactive_date) if policy.inactive_date else "",
+        "added_by_id": policy.added_by_id or "",
     })
 
 
