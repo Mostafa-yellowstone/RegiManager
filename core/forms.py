@@ -303,8 +303,6 @@ class ClientForm(forms.ModelForm):
             business_ein = cleaned_data.get("business_ein", "").strip()
             if not business_name:
                 self.add_error("business_name", "Business name is required for commercial accounts.")
-            if not business_ein:
-                self.add_error("business_ein", "Business EIN is required for commercial accounts.")
 
             # Direct assignment overrides the now-popped empty strings.
             if business_name:
