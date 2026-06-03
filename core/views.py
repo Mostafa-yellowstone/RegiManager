@@ -191,7 +191,7 @@ def _build_form_prefill_payload(service, client, vehicle):
         "city": (client.city.upper() if client else "") or "",
         "state": (client.state.upper() if client else "NY") or "NY",
         "zip_code": (client.zip_code if client else "") or "",
-        "name_full": f"{client.last_name}, {client.first_name} {client.middle_name or ''}".upper() if client else "",
+        "name_full": (client.business_name or client.last_name).upper() if client and client.is_commercial else f"{client.last_name}, {client.first_name} {client.middle_name or ''}".upper() if client else "",
         "year": str(vehicle.year) if vehicle else "",
         "make": vehicle.make.upper() if vehicle else "",
         "model": vehicle.model.upper() if vehicle else "",
@@ -965,8 +965,10 @@ def check_vin_ajax(request):
         
     other_owners = []
     for v in other_vehicles.select_related("client"):
+        c = v.client
+        name_val = c.business_name if c.is_commercial and c.business_name else f"{c.first_name} {c.last_name}".strip()
         other_owners.append({
-            "name": f"{v.client.first_name} {v.client.last_name}",
+            "name": name_val,
             "vehicle": f"{v.year} {v.make} {v.model}",
             "plate": v.plate_number or "N/A"
         })
@@ -2342,7 +2344,10 @@ def _fill_mv82_overlay(can, service, client, vehicle):
     elif st == "replace_lost_item": can.drawString(344, 629, "X")
     elif st == "transfer_plate": can.drawString(536, 629, "X")
     if service.plate_number: can.drawString(465, 615, service.plate_number.upper())
-    name_str = f"{client.last_name if client else ''}, {client.first_name if client else ''} {client.middle_name or ''}"
+    if client and client.is_commercial:
+        name_str = client.business_name or client.last_name
+    else:
+        name_str = f"{client.last_name if client else ''}, {client.first_name if client else ''} {client.middle_name or ''}"
     can.drawString(40, 588, name_str.upper())
     phone = (client.phone_number if client and client.phone_number else "").replace("-", "").replace("(", "").replace(")", "").replace(" ", "")
     for i, char in enumerate(phone[:3]): can.drawString(463 + (i * 9), 560, char)
