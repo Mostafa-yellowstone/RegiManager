@@ -124,6 +124,35 @@ class VehicleSoftDeleteTests(TestCase):
                 model="Prius"
             )
 
+    def test_duplicate_vin_across_different_clients_allowed(self):
+        # 1. Create a second client
+        client2 = Client.objects.create(
+            organization=self.org,
+            first_name="Bob",
+            last_name="Johnson",
+            source="walk-in"
+        )
+        
+        # 2. Create vehicle with same VIN for client 1
+        Vehicle.objects.create(
+            client=self.client_obj,
+            vin="1234567890ABCDEFG",
+            year=2020,
+            make="Toyota",
+            model="Camry"
+        )
+        
+        # 3. Create vehicle with same VIN for client 2 (should succeed)
+        v2 = Vehicle.objects.create(
+            client=client2,
+            vin="1234567890ABCDEFG",
+            year=2022,
+            make="Toyota",
+            model="Rav4"
+        )
+        self.assertEqual(v2.vin, "1234567890ABCDEFG")
+
+
 
 class ReceiptAddressTests(TestCase):
     def setUp(self):

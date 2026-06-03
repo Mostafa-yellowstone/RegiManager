@@ -358,9 +358,9 @@ class Vehicle(SoftDeleteModel):
         ordering = ["-created_at"]
         constraints = [
             models.UniqueConstraint(
-                fields=["vin"],
+                fields=["client", "vin"],
                 condition=models.Q(deleted_at__isnull=True),
-                name="unique_active_vin"
+                name="unique_active_vin_per_client"
             )
         ]
 

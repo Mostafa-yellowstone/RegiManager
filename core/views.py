@@ -884,15 +884,13 @@ def add_vehicle(request, client_id):
     if request.method == "POST":
         vin = request.POST.get('vin', '').strip().upper()
         if vin:
-            existing = Vehicle.objects.filter(vin=vin).first()
-            if existing:
-                if existing.client_id == client.id:
-                    messages.info(request, f"This vehicle (VIN: {vin}) is already in {client}'s profile.")
-                else:
-                    messages.warning(request, f"VIN {vin} already exists! It belongs to {existing.client}. Redirecting to owner profile.")
-                return redirect("client-detail", client_id=existing.client_id)
+            # Block only if the same client already has this VIN (active vehicle)
+            existing_same_client = Vehicle.objects.filter(vin=vin, client=client).first()
+            if existing_same_client:
+                messages.info(request, f"This vehicle (VIN: {vin}) is already in {client}'s profile.")
+                return redirect("client-detail", client_id=client.id)
 
-        form = VehicleForm(request.POST)
+        form = VehicleForm(request.POST, client=client)
         if form.is_valid():
             vehicle = form.save(commit=False)
             vehicle.client = client
@@ -906,7 +904,7 @@ def add_vehicle(request, client_id):
     else:
         # Generate a unique auto-generic vehicle number
         auto_vnum = f"VEH-{get_random_string(6, allowed_chars='0123456789')}"
-        form = VehicleForm(initial={'vehicle_number': auto_vnum})
+        form = VehicleForm(initial={'vehicle_number': auto_vnum}, client=client)
     
     return render(request, "core/add_vehicle.html", {"client": client, "form": form})
 
@@ -915,6 +913,9 @@ def add_vehicle(request, client_id):
 def check_vin_ajax(request):
     vin = request.GET.get("vin", "").strip().upper()
     org_id = request.GET.get("org_id", "").strip()
+    client_id = request.GET.get("client_id", "").strip()
+    vehicle_id = request.GET.get("vehicle_id", "").strip()
+
     if not vin:
         return JsonResponse({"exists": False, "is_valid": False})
 
@@ -924,17 +925,58 @@ def check_vin_ajax(request):
     # Structural check (Modern VINs are 17 characters and don't contain I, O, or Q)
     is_valid_format = len(vin) == 17 and not any(c in vin for c in "IOQ")
     
-    # 1. Check for duplicates in our system
-    vehicle = Vehicle.objects.filter(vin=vin, client__organization_id=int(org_id)).first()
-    if vehicle:
-        return JsonResponse({
-            "exists": True,
-            "is_valid": is_valid_format,
-            "owner": str(vehicle.client),
-            "vehicle": f"{vehicle.year} {vehicle.make} {vehicle.model}",
-            "plate": vehicle.plate_number or "N/A",
-        })
+    # Base filter for active vehicles with this VIN in the organization
+    org_vehicles = Vehicle.objects.filter(vin=vin, client__organization_id=int(org_id))
+    if vehicle_id.isdigit():
+        org_vehicles = org_vehicles.exclude(id=int(vehicle_id))
     
+    exists_this_client = False
+    if client_id.isdigit():
+        exists_this_client = org_vehicles.filter(client_id=int(client_id)).exists()
+    
+    # Other owners (excluding the current client if client_id is passed)
+    other_vehicles = org_vehicles
+    if client_id.isdigit():
+        other_vehicles = other_vehicles.exclude(client_id=int(client_id))
+        
+    other_owners = []
+    for v in other_vehicles.select_related("client"):
+        other_owners.append({
+            "name": f"{v.client.first_name} {v.client.last_name}",
+            "vehicle": f"{v.year} {v.make} {v.model}",
+            "plate": v.plate_number or "N/A"
+        })
+        
+    primary_vehicle = org_vehicles.first()
+    
+    decoded_fallback = {}
+    if primary_vehicle:
+        decoded_fallback = {
+            "year": primary_vehicle.year,
+            "make": primary_vehicle.make,
+            "model": primary_vehicle.model,
+            "body_type": primary_vehicle.body_type,
+            "fuel_type": primary_vehicle.fuel_type,
+            "cylinders": primary_vehicle.cylinders,
+            "seats": primary_vehicle.seats,
+            "weight": primary_vehicle.weight,
+            "color": primary_vehicle.color
+        }
+
+    response_data = {
+        "exists": exists_this_client,  # keep 'exists' mapped to same-client for backward compatibility
+        "exists_this_client": exists_this_client,
+        "exists_other_client": len(other_owners) > 0,
+        "is_valid": is_valid_format,
+        "other_owners": other_owners,
+    }
+    
+    if decoded_fallback:
+        response_data["decoded"] = decoded_fallback
+        
+    if exists_this_client or len(other_owners) > 0:
+        return JsonResponse(response_data)
+        
     # 2. If it's a new VIN and valid, try to decode it via NHTSA API
     decoded_data = {}
     if is_valid_format:
@@ -957,15 +999,13 @@ def check_vin_ajax(request):
                     "seats": data.get("Seats"),
                     "color": data.get("ExteriorColor"),
                 }
-        except Exception as e:
-            # Avoid noisy stdout in production; this endpoint is best-effort.
+        except Exception:
             pass
-
-    return JsonResponse({
-        "exists": False, 
-        "is_valid": is_valid_format,
-        "decoded": decoded_data
-    })
+            
+    if decoded_data:
+        response_data["decoded"] = decoded_data
+        
+    return JsonResponse(response_data)
 
 
 @login_required
@@ -4707,7 +4747,7 @@ def edit_vehicle(request, vehicle_id):
         return HttpResponseForbidden()
     
     if request.method == 'POST':
-        form = VehicleForm(request.POST, instance=vehicle)
+        form = VehicleForm(request.POST, instance=vehicle, client=vehicle.client)
         if form.is_valid():
             vehicle = form.save()
             from .models import ServiceDocument
@@ -4718,7 +4758,7 @@ def edit_vehicle(request, vehicle_id):
                     pass
             return redirect('vehicle-detail', vehicle_id=vehicle.id)
     else:
-        form = VehicleForm(instance=vehicle)
+        form = VehicleForm(instance=vehicle, client=vehicle.client)
     
         return render(request, 'core/add_vehicle.html', {
         'form': form,

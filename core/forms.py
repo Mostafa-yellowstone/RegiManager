@@ -337,6 +337,7 @@ class VehicleForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.client = kwargs.pop("client", None)
         super().__init__(*args, **kwargs)
         for field_name, field in self.fields.items():
             field.widget.attrs["class"] = "form-control"
@@ -348,12 +349,15 @@ class VehicleForm(forms.ModelForm):
         vin = self.cleaned_data.get("vin", "").strip().upper()
         if not vin:
             raise forms.ValidationError("VIN is required.")
-        existing = Vehicle.objects.filter(vin=vin).first()
-        if existing and existing.pk != getattr(self.instance, "pk", None):
-            raise forms.ValidationError(
-                f"This VIN already exists! It belongs to {existing.client} "
-                f"({existing.year} {existing.make} {existing.model})."
-            )
+        # Only block duplicate VIN for the same client
+        client = self.client or getattr(self.instance, "client", None)
+        if client:
+            existing = Vehicle.objects.filter(vin=vin, client=client).first()
+            if existing and existing.pk != getattr(self.instance, "pk", None):
+                raise forms.ValidationError(
+                    f"This client already has a vehicle with VIN {vin} "
+                    f"({existing.year} {existing.make} {existing.model})."
+                )
         return vin
 
 

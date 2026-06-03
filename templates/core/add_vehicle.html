@@ -266,7 +266,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function checkVin(vin) {
         const orgId = "{{ client.organization_id }}";
-        const url = "{% url 'check-vin' %}?vin=" + encodeURIComponent(vin) + "&org_id=" + encodeURIComponent(orgId);
+        const clientId = "{{ client.id }}";
+        const vehicleId = "{% if edit_mode %}{{ vehicle.id }}{% else %}{% endif %}";
+        let url = "{% url 'check-vin' %}?vin=" + encodeURIComponent(vin) + "&org_id=" + encodeURIComponent(orgId) + "&client_id=" + encodeURIComponent(clientId);
+        if (vehicleId) {
+            url += "&vehicle_id=" + encodeURIComponent(vehicleId);
+        }
         
         fetch(url)
         .then(r => r.json())
@@ -279,7 +284,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (res.Results && res.Results[0]) {
                     const d = res.Results[0];
                     const fallbackData = {
-                        exists: false,
+                        exists_this_client: false,
+                        exists_other_client: false,
                         is_valid: true,
                         decoded: {
                             year: d.ModelYear,
@@ -305,9 +311,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function handleVinResponse(data) {
-        if (data.exists) {
+        if (data.exists_this_client) {
             if (warning) {
-                warning.innerHTML = `⚠️ This VIN already exists! It belongs to <strong>${data.owner}</strong> — ${data.vehicle} (Plate: ${data.plate}).`;
+                warning.style.background = '#fee2e2';
+                warning.style.color = '#991b1b';
+                warning.style.borderColor = '#fecaca';
+                warning.innerHTML = `⚠️ Duplicate VIN! This client already has a vehicle with this VIN.`;
                 warning.style.display = 'block';
             }
             updateBadge('error', 'DUPLICATE');
@@ -318,6 +327,9 @@ document.addEventListener('DOMContentLoaded', function() {
             vinInput.style.border = '2px solid #ef4444';
         } else if (!data.is_valid) {
             if (warning) {
+                warning.style.background = '#fee2e2';
+                warning.style.color = '#991b1b';
+                warning.style.borderColor = '#fecaca';
                 warning.innerHTML = `⚠️ Invalid VIN Format! A modern VIN must be exactly 17 characters and cannot contain letters I, O, or Q.`;
                 warning.style.display = 'block';
             }
@@ -328,8 +340,22 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             vinInput.style.border = '2px solid #ef4444';
         } else {
-            if (warning) warning.style.display = 'none';
-            updateBadge('success', 'VALID & UNIQUE');
+            if (data.exists_other_client) {
+                if (warning) {
+                    warning.style.background = '#fff7ed';
+                    warning.style.color = '#c2410c';
+                    warning.style.borderColor = '#fed7aa';
+                    
+                    let ownersList = data.other_owners.map(o => `<strong>${o.name}</strong> (${o.vehicle}, Plate: ${o.plate})`).join(', ');
+                    warning.innerHTML = `ℹ️ Note: This VIN is already registered to other client(s): ${ownersList}. (You can still save this vehicle).`;
+                    warning.style.display = 'block';
+                }
+                updateBadge('warning', 'SHARED VIN');
+            } else {
+                if (warning) warning.style.display = 'none';
+                updateBadge('success', 'VALID & UNIQUE');
+            }
+            
             if (submitBtn) {
                 submitBtn.disabled = false;
                 submitBtn.style.opacity = '1';
