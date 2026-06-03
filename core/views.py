@@ -5435,7 +5435,6 @@ def inventory_detail(request, inventory_id):
         
         total_premium = sum(p.premium for p in active_policies)
         total_commission = sum(p.commission_amount for p in active_policies)
-        total_unearned_commission = sum(p.unearned_commission for p in inactive_policies)
         
         def get_user_colors(username):
             # Deterministic pastel color for colorful customization
@@ -5449,13 +5448,20 @@ def inventory_detail(request, inventory_id):
                 p.agent_text_color = text
 
         company_summaries = []
+        total_refunded = Decimal("0.00")
         for company in insurance_companies:
             comp_policies = all_policies.filter(insurance_company=company)
-            comp_unearned = sum(p.unearned_commission for p in comp_policies if p.stage == "bound" and p.status == "inactive")
+            comp_unearned_raw = sum(p.unearned_commission for p in comp_policies if p.stage == "bound" and p.status == "inactive")
             comp_active_count = comp_policies.filter(stage="bound", status="active").count()
             
             # Fetch bank transactions linked to this company
             company_transactions = company.transactions.all().select_related("bank_account").order_by("-date", "-created_at")
+            
+            # Subtract any INCOME transactions (refunds received from this company)
+            company_refunded = sum(t.amount for t in company_transactions if t.transaction_type == "income")
+            total_refunded += company_refunded
+            
+            comp_unearned = max(Decimal("0.00"), comp_unearned_raw - company_refunded)
             
             company_summaries.append({
                 "id": company.id,
@@ -5464,6 +5470,8 @@ def inventory_detail(request, inventory_id):
                 "unearned_commission": comp_unearned,
                 "transactions": company_transactions
             })
+            
+        total_unearned_commission = max(Decimal("0.00"), sum(p.unearned_commission for p in inactive_policies) - total_refunded)
             
         # Agent Auditing Logic
         insurance_memberships = OrganizationMembership.objects.filter(
@@ -6079,7 +6087,18 @@ def export_insurance_report_pdf(request):
     inactive_policies = policies.filter(stage="bound", status="inactive")
     tot_premium = sum(p.premium for p in active_policies)
     tot_commission = sum(p.commission_amount for p in active_policies)
-    tot_unearned = sum(p.unearned_commission for p in inactive_policies)
+    
+    refunds = BankTransaction.objects.filter(
+        insurance_company__in=InsuranceCompany.objects.filter(organization=org),
+        transaction_type="income"
+    )
+    if start_date_str:
+        refunds = refunds.filter(date__gte=start_date_str)
+    if end_date_str:
+        refunds = refunds.filter(date__lte=end_date_str)
+        
+    total_refunded = sum(r.amount for r in refunds)
+    tot_unearned = max(Decimal("0.00"), sum(p.unearned_commission for p in inactive_policies) - total_refunded)
     
     y -= 18
     pdf.setFont("Helvetica", 9)
