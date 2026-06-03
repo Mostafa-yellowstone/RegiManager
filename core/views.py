@@ -50,6 +50,16 @@ import io
 from openpyxl import Workbook
 
 
+class CountableList(list):
+    def count(self, *args, **kwargs):
+        if not args and not kwargs:
+            return len(self)
+        return super().count(*args, **kwargs)
+        
+    def first(self):
+        return self[0] if self else None
+
+
 def send_email_robustly(task_func, *args, **kwargs):
     """
     Dispatches an email task. Tries Celery first if a worker is active,
@@ -5441,27 +5451,57 @@ def inventory_detail(request, inventory_id):
             h = sum(ord(c) for c in username) * 37 % 360
             return f"hsl({h}, 75%, 93%)", f"hsl({h}, 80%, 25%)"
 
-        for p in policies:
+        # Convert querysets to lists to safely mutate Python attributes
+        policies_list = CountableList(policies)
+        inactive_policies_list = list(inactive_policies)
+
+        # Distribute refunded amounts from bank transactions to calculate adjusted unearned commissions
+        adjusted_unearned_map = {}
+        for company in insurance_companies:
+            company_transactions = company.transactions.all()
+            company_refunded = sum(t.amount for t in company_transactions)
+            
+            comp_inactive_policies = all_policies.filter(
+                insurance_company=company,
+                stage="bound",
+                status="inactive"
+            ).order_by('inactive_date', 'id')
+            
+            remaining_refund = company_refunded
+            for p in comp_inactive_policies:
+                raw_val = p.unearned_commission
+                if remaining_refund >= raw_val:
+                    adjusted_unearned_map[p.id] = Decimal("0.00")
+                    remaining_refund -= raw_val
+                else:
+                    adjusted_unearned_map[p.id] = raw_val - remaining_refund
+                    remaining_refund = Decimal("0.00")
+
+        # Apply adjusted unearned commissions to lists
+        for p in policies_list:
+            if p.id in adjusted_unearned_map:
+                p.unearned_commission = adjusted_unearned_map[p.id]
             if p.added_by:
                 bg, text = get_user_colors(p.added_by.username)
                 p.agent_bg_color = bg
                 p.agent_text_color = text
 
+        for p in inactive_policies_list:
+            if p.id in adjusted_unearned_map:
+                p.unearned_commission = adjusted_unearned_map[p.id]
+
         company_summaries = []
-        total_refunded = Decimal("0.00")
         for company in insurance_companies:
             comp_policies = all_policies.filter(insurance_company=company)
-            comp_unearned_raw = sum(p.unearned_commission for p in comp_policies if p.stage == "bound" and p.status == "inactive")
+            comp_unearned = sum(
+                adjusted_unearned_map.get(p.id, p.unearned_commission)
+                for p in comp_policies
+                if p.stage == "bound" and p.status == "inactive"
+            )
             comp_active_count = comp_policies.filter(stage="bound", status="active").count()
             
             # Fetch bank transactions linked to this company
             company_transactions = company.transactions.all().select_related("bank_account").order_by("-date", "-created_at")
-            
-            # Subtract any INCOME transactions (refunds received from this company)
-            company_refunded = sum(t.amount for t in company_transactions if t.transaction_type == "income")
-            total_refunded += company_refunded
-            
-            comp_unearned = max(Decimal("0.00"), comp_unearned_raw - company_refunded)
             
             company_summaries.append({
                 "id": company.id,
@@ -5471,7 +5511,10 @@ def inventory_detail(request, inventory_id):
                 "transactions": company_transactions
             })
             
-        total_unearned_commission = max(Decimal("0.00"), sum(p.unearned_commission for p in inactive_policies) - total_refunded)
+        total_unearned_commission = sum(
+            adjusted_unearned_map.get(p.id, p.unearned_commission)
+            for p in inactive_policies_list
+        )
             
         # Agent Auditing Logic
         insurance_memberships = OrganizationMembership.objects.filter(
@@ -5571,7 +5614,7 @@ def inventory_detail(request, inventory_id):
             "clients": clients,
             "insurance_companies": insurance_companies,
             "company_summaries": company_summaries,
-            "policies": policies,
+            "policies": policies_list,
             "bank_accounts": bank_accounts,
             "bank_transactions": bank_transactions,
             "total_premium": total_premium,
@@ -6036,7 +6079,7 @@ def delete_bank_transaction(request, transaction_id):
 
 @login_required
 def export_insurance_report_pdf(request):
-    from .models import InsurancePolicy
+    from .models import InsurancePolicy, InsuranceCompany, BankTransaction
     from reportlab.lib.pagesizes import A4
     from reportlab.pdfgen import canvas
     
@@ -6083,31 +6126,67 @@ def export_insurance_report_pdf(request):
     pdf.setFont("Helvetica-Bold", 10)
     pdf.drawString(margin_x, y, "Operational Metrics Summary:")
     
-    active_policies = policies.filter(stage="bound", status="active")
-    inactive_policies = policies.filter(stage="bound", status="inactive")
-    tot_premium = sum(p.premium for p in active_policies)
-    tot_commission = sum(p.commission_amount for p in active_policies)
+    # Convert querysets to lists to safely mutate Python attributes
+    policies_list = list(policies)
     
+    # Calculate adjusted unearned commissions using the same distribution logic
+    insurance_companies = InsuranceCompany.objects.filter(organization=org)
+    all_inactive_policies = InsurancePolicy.objects.filter(
+        organization=org,
+        stage="bound",
+        status="inactive"
+    ).order_by('inactive_date', 'id')
+    
+    # Pre-fetch all bank transactions for the company (both income and expense)
     refunds = BankTransaction.objects.filter(
-        insurance_company__in=InsuranceCompany.objects.filter(organization=org),
-        transaction_type="income"
+        insurance_company__in=insurance_companies
     )
     if start_date_str:
         refunds = refunds.filter(date__gte=start_date_str)
     if end_date_str:
         refunds = refunds.filter(date__lte=end_date_str)
         
-    total_refunded = sum(r.amount for r in refunds)
-    tot_unearned = max(Decimal("0.00"), sum(p.unearned_commission for p in inactive_policies) - total_refunded)
+    adjusted_unearned_map = {}
+    for company in insurance_companies:
+        company_refunds = refunds.filter(insurance_company=company)
+        company_refunded = sum(r.amount for r in company_refunds)
+        
+        comp_inactive = all_inactive_policies.filter(insurance_company=company)
+        if start_date_str:
+            comp_inactive = comp_inactive.filter(start_date__gte=start_date_str)
+        if end_date_str:
+            comp_inactive = comp_inactive.filter(start_date__lte=end_date_str)
+            
+        remaining_refund = company_refunded
+        for p in comp_inactive:
+            raw_val = p.unearned_commission
+            if remaining_refund >= raw_val:
+                adjusted_unearned_map[p.id] = Decimal("0.00")
+                remaining_refund -= raw_val
+            else:
+                adjusted_unearned_map[p.id] = raw_val - remaining_refund
+                remaining_refund = Decimal("0.00")
+                
+    # Apply adjusted unearned commissions to the policies list
+    for p in policies_list:
+        if p.id in adjusted_unearned_map:
+            p.unearned_commission = adjusted_unearned_map[p.id]
+            
+    active_policies_list = [p for p in policies_list if p.stage == "bound" and p.status == "active"]
+    inactive_policies_list = [p for p in policies_list if p.stage == "bound" and p.status == "inactive"]
+    
+    tot_premium = sum(p.premium for p in active_policies_list)
+    tot_commission = sum(p.commission_amount for p in active_policies_list)
+    tot_unearned = sum(p.unearned_commission for p in inactive_policies_list)
     
     y -= 18
     pdf.setFont("Helvetica", 9)
-    pdf.drawString(margin_x, y, f"Active Policies: {active_policies.count()}")
+    pdf.drawString(margin_x, y, f"Active Policies: {len(active_policies_list)}")
     pdf.drawString(margin_x + 150, y, f"Total Active Premiums: ${tot_premium:,.2f}")
     pdf.drawString(margin_x + 350, y, f"Total Active Commissions: ${tot_commission:,.2f}")
     
     y -= 14
-    pdf.drawString(margin_x, y, f"Inactive Policies: {inactive_policies.count()}")
+    pdf.drawString(margin_x, y, f"Inactive Policies: {len(inactive_policies_list)}")
     pdf.drawString(margin_x + 150, y, f"Total Unearned Commissions (Due back): ${tot_unearned:,.2f}")
     
     y -= 30
@@ -6135,7 +6214,7 @@ def export_insurance_report_pdf(request):
     pdf.setFillColorRGB(0.1, 0.1, 0.1)
     pdf.setFont("Helvetica", 8)
     
-    for p in policies:
+    for p in policies_list:
         y -= 16
         if y < 40:
             pdf.showPage()

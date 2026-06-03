@@ -363,5 +363,77 @@ class AgentAuditingTests(TestCase):
         self.assertEqual(response.context["policies"].count(), 1)
         self.assertEqual(response.context["policies"].first().policy_number, "POL-FILTER-B")
 
+    def test_unearned_commission_deducted_by_transactions(self):
+        # Set active_org_id in session for PDF report endpoint compatibility
+        session = self.client.session
+        session['active_org_id'] = self.org.id
+        session.save()
+
+        # Create an inactive policy that has unearned commission
+        policy = InsurancePolicy.objects.create(
+            organization=self.org, client=self.client_obj1, policy_number="POL-UNEARNED",
+            insurance_company=self.company, premium=Decimal("1000.00"), broker_fee=Decimal("0.00"),
+            commission_rate=Decimal("10.00"), stage="bound", status="inactive", added_by=self.user1,
+            start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6,
+            inactive_date="2026-06-01"
+        )
+        # Verify initial unearned commission is exactly commission_amount ($100.00)
+        self.assertEqual(policy.commission_amount, Decimal("100.00"))
+        self.assertEqual(policy.unearned_commission, Decimal("100.00"))
+
+        # Access view and check initial unearned values
+        response = self.client.get(reverse("inventory-detail", args=[self.space.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["total_unearned_commission"], Decimal("100.00"))
+        
+        # Verify policy unearned in context policies list
+        context_policy = next(p for p in response.context["policies"] if p.id == policy.id)
+        self.assertEqual(context_policy.unearned_commission, Decimal("100.00"))
+
+        # Create a bank account
+        from .models import BankAccount, BankTransaction
+        bank_account = BankAccount.objects.create(
+            organization=self.org, account_name="Main Account", bank_name="Chase", balance=Decimal("1000.00")
+        )
+
+        # Log an income transaction (refund) linked to the company
+        tx1 = BankTransaction.objects.create(
+            bank_account=bank_account,
+            transaction_type=BankTransaction.TransactionType.INCOME,
+            amount=Decimal("40.00"),
+            category="Commission Refund",
+            insurance_company=self.company
+        )
+
+        # Access view and check if unearned commission has decreased by $40
+        response = self.client.get(reverse("inventory-detail", args=[self.space.id]))
+        self.assertEqual(response.context["total_unearned_commission"], Decimal("60.00"))
+        context_policy = next(p for p in response.context["policies"] if p.id == policy.id)
+        self.assertEqual(context_policy.unearned_commission, Decimal("60.00"))
+
+        # Log an expense transaction (another payback/refund) linked to the company
+        tx2 = BankTransaction.objects.create(
+            bank_account=bank_account,
+            transaction_type=BankTransaction.TransactionType.EXPENSE,
+            amount=Decimal("80.00"),
+            category="Commission Refund",
+            insurance_company=self.company
+        )
+
+        # Access view and check if unearned commission is now $0.00 (since 40 + 80 = 120 > 100)
+        response = self.client.get(reverse("inventory-detail", args=[self.space.id]))
+        self.assertEqual(response.context["total_unearned_commission"], Decimal("0.00"))
+        context_policy = next(p for p in response.context["policies"] if p.id == policy.id)
+        self.assertEqual(context_policy.unearned_commission, Decimal("0.00"))
+
+        # Verify company summaries unearned commission
+        company_summary = next(c for c in response.context["company_summaries"] if c["id"] == self.company.id)
+        self.assertEqual(company_summary["unearned_commission"], Decimal("0.00"))
+
+        # Verify PDF report matches
+        response_pdf = self.client.get(reverse("export-insurance-report-pdf"))
+        self.assertEqual(response_pdf.status_code, 200)
+
+
 
 
