@@ -200,6 +200,7 @@ class ClientForm(forms.ModelForm):
         model = Client
         fields = [
             "organization", "source",
+            "is_commercial", "business_name", "business_ein",
             "last_name", "first_name", "middle_name",
             "ssn", "driver_license", "dob", "phone_number",
             "building_no", "street_address", "apartment",
@@ -238,7 +239,21 @@ class ClientForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["organization"].queryset = organizations
         self.fields["phone_number"].required = True
-        self.fields["gender"].required = True
+        
+        is_commercial = False
+        if self.data:
+            is_commercial = self.data.get('is_commercial') in ['on', 'true', True]
+        elif self.instance and self.instance.pk:
+            is_commercial = self.instance.is_commercial
+            
+        if is_commercial:
+            self.fields["first_name"].required = False
+            self.fields["last_name"].required = False
+            self.fields["gender"].required = False
+        else:
+            self.fields["first_name"].required = True
+            self.fields["last_name"].required = True
+            self.fields["gender"].required = True
         
         if organizations.count() == 1:
             self.fields["organization"].initial = organizations.first()
@@ -273,21 +288,46 @@ class ClientForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        first_name = cleaned_data.get("first_name")
-        last_name = cleaned_data.get("last_name")
-        organization = cleaned_data.get("organization")
+        is_commercial = cleaned_data.get("is_commercial", False)
         
-        if first_name and last_name and organization:
-            dl = cleaned_data.get("driver_license", "").strip().upper()
-            if dl:
-                existing = Client.objects.filter(
-                    first_name__iexact=first_name, 
-                    last_name__iexact=last_name,
-                    driver_license__iexact=dl,
-                    organization=organization
-                ).exists()
-                if existing and not self.instance.pk:
-                    raise forms.ValidationError(f"A client with this name and DL already exists in this PSB.")
+        if is_commercial:
+            business_name = cleaned_data.get("business_name", "").strip()
+            business_ein = cleaned_data.get("business_ein", "").strip()
+            if not business_name:
+                self.add_error("business_name", "Business name is required for commercial accounts.")
+            if not business_ein:
+                self.add_error("business_ein", "Business EIN is required for commercial accounts.")
+            
+            # For model validation constraints: set first_name/last_name to avoid DB blank issues
+            if business_name:
+                cleaned_data["first_name"] = "Commercial"
+                cleaned_data["last_name"] = business_name
+        else:
+            first_name = cleaned_data.get("first_name")
+            last_name = cleaned_data.get("last_name")
+            gender = cleaned_data.get("gender")
+            if not first_name:
+                self.add_error("first_name", "First name is required.")
+            if not last_name:
+                self.add_error("last_name", "Last name is required.")
+            if not gender:
+                self.add_error("gender", "Gender is required.")
+            
+            # Perform duplicate check for non-commercial clients
+            organization = cleaned_data.get("organization")
+            if first_name and last_name and organization:
+                dl = cleaned_data.get("driver_license", "").strip().upper()
+                if dl:
+                    existing_query = Client.objects.filter(
+                        first_name__iexact=first_name, 
+                        last_name__iexact=last_name,
+                        driver_license__iexact=dl,
+                        organization=organization
+                    )
+                    if self.instance and self.instance.pk:
+                        existing_query = existing_query.exclude(pk=self.instance.pk)
+                    if existing_query.exists():
+                        raise forms.ValidationError("A client with this name and DL already exists in this PSB.")
         return cleaned_data
 
     def clean_mv82_file(self):

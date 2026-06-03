@@ -350,7 +350,10 @@ function fetchDocuments(id, type = 'service') {
                         <div class="doc-icon" style="color:${iconColor};">${iconSvg}</div>
                         <span class="doc-name">${doc.type_label}${pdfBadge}</span>
                     </div>
-                    <a href="${url}" target="_blank" class="btn btn-secondary btn-sm" style="min-height:auto; padding: 0.35rem 0.8rem; border-radius: 6px; font-size: 0.8rem;">${viewLabel}</a>
+                    <div style="display:flex; gap:0.4rem; align-items:center;">
+                        <a href="${url}" target="_blank" class="btn btn-secondary btn-sm" style="min-height:auto; padding: 0.35rem 0.8rem; border-radius: 6px; font-size: 0.8rem; margin:0;">${viewLabel}</a>
+                        <button onclick="deleteDocFromModal(${doc.id}, ${id}, '${type}')" class="btn btn-sm" style="min-height:auto; padding: 0.35rem 0.8rem; border-radius: 6px; font-size: 0.8rem; background:#fff5f5; color:#dc2626; border:1px solid #fee2e2; margin:0; cursor:pointer;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fff5f5'">Delete</button>
+                    </div>
                 `;
                 list.appendChild(li);
             });
@@ -360,6 +363,45 @@ function fetchDocuments(id, type = 'service') {
         }
     })
     .catch(err => console.error(err));
+}
+
+function deleteDocFromModal(docId, id, type) {
+    if (!confirm('Are you sure you want to delete this document?')) return;
+    
+    fetch(`/dashboard/docs/${docId}/delete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.status === 'ok') {
+            fetchDocuments(id, type);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Deleted!',
+                    text: 'Document has been deleted.',
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                alert('Document deleted successfully.');
+            }
+        } else {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire('Error', res.message || 'Failed to delete document.', 'error');
+            } else {
+                alert(res.message || 'Failed to delete document.');
+            }
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('An error occurred during deletion.');
+    });
 }
 
 function toggleAgentPermission(membershipId, field, isChecked) {

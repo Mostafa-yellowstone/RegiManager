@@ -202,6 +202,11 @@ class Client(SoftDeleteModel):
     email = models.EmailField(blank=True, null=True, db_index=True)
     gender = models.CharField(max_length=20, choices=GENDER_CHOICES, blank=True, null=True)
     
+    # Commercial / Business plates flag
+    is_commercial = models.BooleanField(default=False, help_text="Check if this is a commercial/business account")
+    business_name = models.CharField(max_length=200, blank=True, default="", help_text="Business or company name (for commercial accounts)")
+    business_ein = models.CharField(max_length=20, blank=True, default="", help_text="Employer Identification Number (EIN) for commercial accounts")
+    
     # Uploaded Documents
     mv82_file = models.FileField(upload_to="client_docs/mv82/", blank=True, null=True)
     
@@ -209,6 +214,8 @@ class Client(SoftDeleteModel):
 
     @property
     def name(self):
+        if self.is_commercial and self.business_name:
+            return self.business_name
         return f"{self.first_name} {self.last_name}"
 
     @property
@@ -925,8 +932,29 @@ class InsurancePolicy(models.Model):
     broker_fee = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, blank=True, help_text="Broker fee taken by the agent")
     commission_rate = models.DecimalField(max_digits=5, decimal_places=2, help_text="Commission rate in percentage (e.g. 15.00 for 15%)")
     commission_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True)
+    INSURANCE_TYPE_CHOICES = [
+        ("auto_personal", "AUTO PERSONAL"),
+        ("motor_cycle", "MOTOR CYCLE"),
+        ("commercial_auto", "COMMERCIAL AUTO"),
+        ("trucking", "TRUCKING"),
+        ("contractors", "CONTRACTORS"),
+        ("landscaping", "LANDSCAPING"),
+        ("dealer_plates", "DEALER PLATES"),
+        ("home_owners", "HOME OWNERS"),
+        ("ho3", "HO3"),
+        ("ho4", "HO4"),
+        ("ho6", "HO6"),
+        ("dwelling", "DWELLING"),
+        ("umbrella", "UMBRELLA"),
+        ("business_owners_policy", "BUSINESS OWNERS POLICY"),
+        ("general_liability", "GENERAL LIABILITY"),
+        ("workers_compensation", "WORKERS COMPENSATION"),
+        ("disability", "DISABILITY"),
+    ]
+
     stage = models.CharField(max_length=20, choices=StageChoices.choices, default=StageChoices.QUOTE)
     status = models.CharField(max_length=20, choices=StatusChoices.choices, default=StatusChoices.ACTIVE)
+    insurance_type = models.CharField(max_length=30, choices=INSURANCE_TYPE_CHOICES, blank=True, default="", help_text="Type of insurance policy")
     added_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="added_insurance_policies", help_text="Agent who added this policy/quote")
     
     start_date = models.DateField()

@@ -118,7 +118,7 @@
               <a href="{% url 'inventory-detail' card.id %}" style="padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 8px; text-decoration: none; color: #475569; background: white; font-weight: 700; font-size: 0.9rem; text-align: center;">Clear</a>
             </div>
           </div>
-          <details {% if stage_filter or status_filter or company_filter or agent_filter or date_from or date_to or min_premium or max_premium %}open{% endif %} style="width: 100%;">
+          <details {% if stage_filter or status_filter or type_filter or company_filter or agent_filter or date_from or date_to or min_premium or max_premium %}open{% endif %} style="width: 100%;">
             <summary style="cursor: pointer; font-size: 0.85rem; font-weight: 700; color: #093de6; margin-top: 0.2rem; outline: none; user-select: none;">🔍 Advanced Filters</summary>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 0.8rem;">
               <div style="display: flex; flex-direction: column; gap: 0.3rem;">
@@ -135,6 +135,29 @@
                   <option value="">All Statuses</option>
                   <option value="active" {% if status_filter == "active" %}selected{% endif %}>Active</option>
                   <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>Inactive</option>
+                </select>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Insurance Type</label>
+                <select name="insurance_type" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
+                  <option value="">All Types</option>
+                  <option value="auto_personal" {% if type_filter == "auto_personal" %}selected{% endif %}>AUTO PERSONAL</option>
+                  <option value="motor_cycle" {% if type_filter == "motor_cycle" %}selected{% endif %}>MOTOR CYCLE</option>
+                  <option value="commercial_auto" {% if type_filter == "commercial_auto" %}selected{% endif %}>COMMERCIAL AUTO</option>
+                  <option value="trucking" {% if type_filter == "trucking" %}selected{% endif %}>TRUCKING</option>
+                  <option value="contractors" {% if type_filter == "contractors" %}selected{% endif %}>CONTRACTORS</option>
+                  <option value="landscaping" {% if type_filter == "landscaping" %}selected{% endif %}>LANDSCAPING</option>
+                  <option value="dealer_plates" {% if type_filter == "dealer_plates" %}selected{% endif %}>DEALER PLATES</option>
+                  <option value="home_owners" {% if type_filter == "home_owners" %}selected{% endif %}>HOME OWNERS</option>
+                  <option value="ho3" {% if type_filter == "ho3" %}selected{% endif %}>HO3</option>
+                  <option value="ho4" {% if type_filter == "ho4" %}selected{% endif %}>HO4</option>
+                  <option value="ho6" {% if type_filter == "ho6" %}selected{% endif %}>HO6</option>
+                  <option value="dwelling" {% if type_filter == "dwelling" %}selected{% endif %}>DWELLING</option>
+                  <option value="umbrella" {% if type_filter == "umbrella" %}selected{% endif %}>UMBRELLA</option>
+                  <option value="business_owners_policy" {% if type_filter == "business_owners_policy" %}selected{% endif %}>BUSINESS OWNERS POLICY</option>
+                  <option value="general_liability" {% if type_filter == "general_liability" %}selected{% endif %}>GENERAL LIABILITY</option>
+                  <option value="workers_compensation" {% if type_filter == "workers_compensation" %}selected{% endif %}>WORKERS COMPENSATION</option>
+                  <option value="disability" {% if type_filter == "disability" %}selected{% endif %}>DISABILITY</option>
                 </select>
               </div>
               <div style="display: flex; flex-direction: column; gap: 0.3rem;">
@@ -183,7 +206,7 @@
       <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
         <table class="spaces-table">
           <thead>
-            <tr><th>Client</th><th>Policy #</th><th>Company</th><th>Premium</th><th>Broker Fee</th><th>Rate</th><th>Commission</th><th>Agent</th><th>Status</th><th>Actions</th></tr>
+            <tr><th>Client</th><th>Policy #</th><th>Type</th><th>Company</th><th>Premium</th><th>Broker Fee</th><th>Rate</th><th>Commission</th><th>Agent</th><th>Status</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {% for policy in policies %}
@@ -196,6 +219,7 @@
                 {% endif %}
               </td>
               <td style="font-family: monospace; font-size: 0.88rem;">{{ policy.policy_number }}</td>
+              <td>{{ policy.get_insurance_type_display|default:"—" }}</td>
               <td>{{ policy.insurance_company.name }}</td>
               <td style="font-weight: 800;">${{ policy.premium }}</td>
               <td style="font-weight: 700; color: #475569;">${{ policy.broker_fee }}</td>
@@ -233,7 +257,7 @@
               </td>
             </tr>
             {% empty %}
-            <tr><td colspan="10" style="text-align: center; padding: 3rem; color: #64748b; font-weight: 600;">No policies yet.</td></tr>
+            <tr><td colspan="11" style="text-align: center; padding: 3rem; color: #64748b; font-weight: 600;">No policies yet.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -598,6 +622,29 @@
           </select>
         </div>
       </div>
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Insurance Type</label>
+        <select name="insurance_type" id="policyInsuranceType" class="field-input">
+          <option value="">Select Insurance Type...</option>
+          <option value="auto_personal">AUTO PERSONAL</option>
+          <option value="motor_cycle">MOTOR CYCLE</option>
+          <option value="commercial_auto">COMMERCIAL AUTO</option>
+          <option value="trucking">TRUCKING</option>
+          <option value="contractors">CONTRACTORS</option>
+          <option value="landscaping">LANDSCAPING</option>
+          <option value="dealer_plates">DEALER PLATES</option>
+          <option value="home_owners">HOME OWNERS</option>
+          <option value="ho3">HO3</option>
+          <option value="ho4">HO4</option>
+          <option value="ho6">HO6</option>
+          <option value="dwelling">DWELLING</option>
+          <option value="umbrella">UMBRELLA</option>
+          <option value="business_owners_policy">BUSINESS OWNERS POLICY</option>
+          <option value="general_liability">GENERAL LIABILITY</option>
+          <option value="workers_compensation">WORKERS COMPENSATION</option>
+          <option value="disability">DISABILITY</option>
+        </select>
+      </div>
       <div id="inactiveDateRow" style="display: none; margin-bottom: 1rem;">
         <label class="field-label">Cancellation Date</label>
         <input type="date" name="inactive_date" id="policyInactiveDate" class="field-input">
@@ -832,6 +879,7 @@ function openAddPolicyModal() {
   document.getElementById('policyBrokerFee').value = '0.00';
   document.getElementById('policyStage').value = 'quote';
   document.getElementById('policyStatus').value = 'active';
+  document.getElementById('policyInsuranceType').value = '';
   toggleInactiveDate();
   document.getElementById('addPolicyModal').classList.add('active');
 }
@@ -851,6 +899,7 @@ function editPolicy(id) {
       document.getElementById('policyPeriod').value = data.insurance_period_months;
       document.getElementById('policyStage').value = data.stage;
       document.getElementById('policyStatus').value = data.status;
+      document.getElementById('policyInsuranceType').value = data.insurance_type || '';
       toggleInactiveDate();
       if (data.status === 'inactive') document.getElementById('policyInactiveDate').value = data.inactive_date || '';
       document.getElementById('policyModalTitle').textContent = '✏️ Edit Insurance Policy';

@@ -12,18 +12,36 @@
     <section class="dashboard-layout">
         <header class="dashboard-hero service-list-hero"
             style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 2rem; border-radius: 16px; margin-bottom: 2rem;">
-            <div>
-                <a href="{% url 'all-clients' %}" class="btn btn-secondary back-btn"
-                    style="margin-bottom: 1rem; display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white; text-decoration: none; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.9rem;">&larr;
-                    Back to List</a>
+            <div style="width: 100%;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; width: 100%;">
+                    <a href="{% url 'all-clients' %}" class="btn btn-secondary back-btn"
+                        style="display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white; text-decoration: none; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.9rem; margin: 0;">&larr;
+                        Back to List</a>
+                    <a href="{% url 'edit-client' client.id %}" class="btn"
+                        style="display: inline-block; background: #4f46e5; border: none; color: white; text-decoration: none; padding: 0.5rem 1.2rem; border-radius: 8px; font-size: 0.9rem; font-weight: 700; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">
+                        ✏️ Edit Profile
+                    </a>
+                </div>
                 <div style="display: flex; align-items: center; gap: 1.5rem;">
                     <div
                         style="width: 64px; height: 64px; border-radius: 14px; background: #f1f5f9; color: #1e293b; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; flex-shrink: 0;">
                         {{ client.name|slice:":1"|upper }}
                     </div>
                     <div>
-                        <h1 style="margin-bottom: 0.2rem; color: white;">{{ client.name }}</h1>
-                        <p class="subtitle" style="color: #cbd5e1; margin: 0;">{{ client.email|default:"No email" }} • {{ client.phone_number|default:"No phone" }} • {{ client.full_address|default:"No address" }}</p>
+                        <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                            <h1 style="margin: 0; color: white;">{{ client.name }}</h1>
+                            {% if client.is_commercial %}
+                                <span style="background: #10b981; color: white; padding: 4px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;">🏢 Commercial</span>
+                            {% endif %}
+                        </div>
+                        <p class="subtitle" style="color: #cbd5e1; margin-top: 0.4rem; margin-bottom: 0;">
+                            {{ client.email|default:"No email" }} • {{ client.phone_number|default:"No phone" }} • {{ client.full_address|default:"No address" }}
+                        </p>
+                        {% if client.is_commercial and client.business_ein %}
+                            <p style="color: #cbd5e1; margin: 0.2rem 0 0; font-size: 0.9rem;">
+                                <strong>EIN:</strong> {{ client.business_ein }}
+                            </p>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -288,11 +306,14 @@
                                         {% if doc.vehicle %}{{ doc.vehicle.make }} - {% endif %}{{ doc.uploaded_at|date:"M d, Y" }}
                                     </div>
                                 </div>
-                                {% if doc.file %}
-                                    <a href="{{ doc.file.url }}" target="_blank" class="btn btn-secondary btn-sm" style="min-height: auto; padding: 0.3rem 0.6rem; font-size: 0.8rem;">View</a>
-                                {% else %}
-                                    <span style="color: #94a3b8; font-size: 0.75rem; font-style: italic;">No file</span>
-                                {% endif %}
+                                <div style="display: flex; gap: 0.4rem; align-items: center;">
+                                    {% if doc.file %}
+                                        <a href="{{ doc.file.url }}" target="_blank" class="btn btn-secondary btn-sm" style="min-height: auto; padding: 0.3rem 0.6rem; font-size: 0.8rem; margin: 0;">View</a>
+                                    {% else %}
+                                        <span style="color: #94a3b8; font-size: 0.75rem; font-style: italic; margin-right: 0.5rem;">No file</span>
+                                    {% endif %}
+                                    <button onclick="deleteDocument({{ doc.id }}, this)" class="btn btn-sm" style="min-height: auto; padding: 0.3rem 0.6rem; font-size: 0.8rem; background: #fff5f5; color: #dc2626; border: 1.5px solid #fee2e2; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin: 0;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fff5f5'">Delete</button>
+                                </div>
                             </li>
                             {% empty %}
                             <li style="text-align: center; color: #94a3b8; padding: 1rem 0; border: none;">No documents found.</li>
@@ -380,6 +401,48 @@
         if (searchInput) searchInput.addEventListener('keyup', filterTransactions);
         if (statusFilter) statusFilter.addEventListener('change', filterTransactions);
     });
+
+    function deleteDocument(docId, btn) {
+        if (!confirm('Are you sure you want to delete this document?')) return;
+        
+        fetch(`/dashboard/docs/${docId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.status === 'ok') {
+                const li = btn.closest('li');
+                if (li) {
+                    li.remove();
+                    // If the list is empty, show empty state
+                    const list = document.querySelector('.agent-list');
+                    if (list && list.querySelectorAll('li:not([style*="display: none"])').length === 0) {
+                        const emptyLi = document.createElement('li');
+                        emptyLi.style.cssText = 'text-align: center; color: #94a3b8; padding: 1rem 0; border: none;';
+                        emptyLi.textContent = 'No documents found.';
+                        list.appendChild(emptyLi);
+                    }
+                }
+                Swal.fire({
+                    title: 'Deleted!',
+                    text: 'Document has been deleted successfully.',
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                Swal.fire('Error', res.message || 'Failed to delete document.', 'error');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            Swal.fire('Error', 'An error occurred during deletion.', 'error');
+        });
+    }
 </script>
 
 

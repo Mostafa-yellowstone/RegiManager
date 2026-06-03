@@ -5397,6 +5397,7 @@ def inventory_detail(request, inventory_id):
         search_query = request.GET.get("q", "").strip()
         stage_filter = request.GET.get("stage", "").strip()
         status_filter = request.GET.get("status", "").strip()
+        type_filter = request.GET.get("insurance_type", "").strip()
         date_from = request.GET.get("date_from", "").strip()
         date_to = request.GET.get("date_to", "").strip()
         company_filter = request.GET.get("insurance_company", "").strip()
@@ -5420,6 +5421,8 @@ def inventory_detail(request, inventory_id):
             policies = policies.filter(stage=stage_filter)
         if status_filter:
             policies = policies.filter(status=status_filter)
+        if type_filter:
+            policies = policies.filter(insurance_type=type_filter)
         if date_from:
             policies = policies.filter(start_date__gte=date_from)
         if date_to:
@@ -5639,6 +5642,7 @@ def inventory_detail(request, inventory_id):
             "search_query": search_query,
             "stage_filter": stage_filter,
             "status_filter": status_filter,
+            "type_filter": type_filter,
             "date_from": date_from,
             "date_to": date_to,
             "company_filter": company_filter,
@@ -5833,6 +5837,7 @@ def add_insurance_policy(request):
     commission_rate = request.POST.get("commission_rate", "0.00").strip()
     stage = request.POST.get("stage", "quote")
     status = request.POST.get("status", "active")
+    insurance_type = request.POST.get("insurance_type", "")
     start_date = request.POST.get("start_date")
     end_date = request.POST.get("end_date")
     insurance_period_months = request.POST.get("insurance_period_months", "6")
@@ -5851,6 +5856,7 @@ def add_insurance_policy(request):
             commission_rate=Decimal(commission_rate or "0.00"),
             stage=stage,
             status=status,
+            insurance_type=insurance_type,
             start_date=start_date,
             end_date=end_date,
             insurance_period_months=int(insurance_period_months or 6),
@@ -5909,6 +5915,7 @@ def edit_insurance_policy(request, policy_id):
         policy.commission_rate = Decimal(request.POST.get("commission_rate", "0.00").strip() or "0.00")
         policy.stage = request.POST.get("stage", "quote")
         policy.status = request.POST.get("status", "active")
+        policy.insurance_type = request.POST.get("insurance_type", "")
         policy.start_date = request.POST.get("start_date")
         policy.end_date = request.POST.get("end_date")
         policy.insurance_period_months = int(request.POST.get("insurance_period_months", "6") or 6)
@@ -5937,6 +5944,7 @@ def edit_insurance_policy(request, policy_id):
         "commission_rate": str(policy.commission_rate),
         "stage": policy.stage,
         "status": policy.status,
+        "insurance_type": policy.insurance_type,
         "start_date": str(policy.start_date),
         "end_date": str(policy.end_date),
         "insurance_period_months": policy.insurance_period_months,
@@ -5953,6 +5961,38 @@ def delete_insurance_policy(request, policy_id):
     policy.delete()
     messages.success(request, "Policy deleted.")
     return _redirect_to_insurance_detail(org)
+
+
+@login_required
+@require_POST
+def delete_document(request, doc_id):
+    """Delete a ServiceDocument (uploaded file) by its ID."""
+    doc = get_object_or_404(ServiceDocument, id=doc_id)
+    
+    # Permission check: user must belong to the org of the linked vehicle or service_record
+    org = None
+    if doc.vehicle:
+        org = doc.vehicle.client.organization
+    elif doc.service_record:
+        org = doc.service_record.organization
+    
+    if org:
+        organizations = _get_user_organizations(request)
+        if not organizations.filter(id=org.id).exists():
+            return JsonResponse({"status": "error", "message": "Access denied."}, status=403)
+    
+    try:
+        # Delete the physical file from storage
+        if doc.file:
+            import os
+            if os.path.isfile(doc.file.path):
+                os.remove(doc.file.path)
+    except Exception:
+        pass  # File may already be gone; proceed with DB deletion
+    
+    doc.delete()
+    return JsonResponse({"status": "ok", "message": "Document deleted."})
+
 
 
 @login_required

@@ -151,57 +151,86 @@
 
                 <!-- Row 2: Names -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px;">
-                    <h3 style="margin: 0; font-size: 1.1rem; color: #1e293b; font-weight: 800;">Personal Information</h3>
-                    <div style="position: relative;">
-                        <input type="file" id="dl-image-upload" accept="image/*" style="display: none;">
-                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('dl-image-upload').click()" style="padding: 0.5rem 1rem; font-size: 0.85rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 0.5rem; border: 1.5px solid #e2e8f0; color: #4f46e5; background: #e0e7ff; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.1);">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                            Auto-Fill from DL Image
-                        </button>
-                    </div>
-                </div>
-
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
-                    <div class="field-wrap">
-                        <label>Last Name</label>
-                        {{ form.last_name }}
-                    </div>
-                    <div class="field-wrap">
-                        <label>First Name</label>
-                        {{ form.first_name }}
-                    </div>
-                    <div class="field-wrap">
-                        <label>Middle Name</label>
-                        {{ form.middle_name }}
-                    </div>
-                </div>
-
-                <!-- Row 3: Identity & Contact -->
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
-                    <div class="field-wrap">
-                        <label>SSN</label>
-                        {{ form.ssn }}
-                    </div>
-                    <div class="field-wrap">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                            <label style="margin: 0;">Driver License</label>
-                            <div style="display: flex; gap: 10px;">
-                                <!-- Handheld Scanner -->
-                                <button type="button" id="dl-scan-trigger" style="cursor: pointer; color: #10b981; display: flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 700; background: #f0fdf4; padding: 2px 10px; border-radius: 8px; border: 1px solid #dcfce7; transition: all 0.2s; box-shadow: 0 2px 4px rgba(16,185,129,0.1);" title="Scan DL Barcode">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                                    SCAN DL
-                                </button>
-                            </div>
+                    <h3 id="personal-info-header" style="margin: 0; font-size: 1.1rem; color: #1e293b; font-weight: 800;">Personal Information</h3>
+                    <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; color: #475569; cursor: pointer; user-select: none;">
+                            {{ form.is_commercial }}
+                            <span>Commercial / Business Plates</span>
+                        </label>
+                        <div id="dl-image-upload-wrapper" style="position: relative;">
+                            <input type="file" id="dl-image-upload" accept="image/*" style="display: none;">
+                            <button type="button" class="btn btn-secondary" onclick="document.getElementById('dl-image-upload').click()" style="padding: 0.5rem 1rem; font-size: 0.85rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 0.5rem; border: 1.5px solid #e2e8f0; color: #4f46e5; background: #e0e7ff; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.1);">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                Auto-Fill from DL Image
+                            </button>
                         </div>
-                        {{ form.driver_license }}
+                    </div>
+                </div>
+
+                <div id="business-fields-container" style="display: none; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                    <div class="field-wrap">
+                        <label>Business / Company Name</label>
+                        {{ form.business_name }}
                     </div>
                     <div class="field-wrap">
-                        <label>Date of Birth</label>
-                        {{ form.dob }}
+                        <label>Business EIN</label>
+                        {{ form.business_ein }}
                     </div>
+                </div>
+
+                <div id="individual-fields-container">
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                        <div class="field-wrap">
+                            <label>Last Name</label>
+                            {{ form.last_name }}
+                        </div>
+                        <div class="field-wrap">
+                            <label>First Name</label>
+                            {{ form.first_name }}
+                        </div>
+                        <div class="field-wrap">
+                            <label>Middle Name</label>
+                            {{ form.middle_name }}
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+                        <div class="field-wrap">
+                            <label>SSN</label>
+                            {{ form.ssn }}
+                        </div>
+                        <div class="field-wrap">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                                <label style="margin: 0;">Driver License</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <button type="button" id="dl-scan-trigger" style="cursor: pointer; color: #10b981; display: flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 700; background: #f0fdf4; padding: 2px 10px; border-radius: 8px; border: 1px solid #dcfce7; transition: all 0.2s; box-shadow: 0 2px 4px rgba(16,185,129,0.1);" title="Scan DL Barcode">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                                        SCAN DL
+                                    </button>
+                                </div>
+                            </div>
+                            {{ form.driver_license }}
+                        </div>
+                        <div class="field-wrap">
+                            <label>Date of Birth</label>
+                            {{ form.dob }}
+                        </div>
+                        <div class="field-wrap">
+                            <label>Gender</label>
+                            {{ form.gender }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Common Contact Info -->
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
                     <div class="field-wrap">
                         <label>Phone Number</label>
                         {{ form.phone_number }}
+                    </div>
+                    <div class="field-wrap">
+                        <label>Email Address</label>
+                        {{ form.email }}
                     </div>
                 </div>
 
@@ -241,17 +270,7 @@
                     </div>
                 </div>
 
-                <!-- Row 6: Final Details -->
-                <div class="form-row" style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
-                    <div class="field-wrap">
-                        <label>Email Address</label>
-                        {{ form.email }}
-                    </div>
-                    <div class="field-wrap">
-                        <label>Gender</label>
-                        {{ form.gender }}
-                    </div>
-                </div>
+
 
 
 
@@ -419,9 +438,24 @@ document.addEventListener('DOMContentLoaded', function() {
     const orgSelect = document.getElementById('id_organization');
     const nameWarning = document.getElementById('name-warning');
 
+    const isCommercialCheckbox = document.getElementById('id_is_commercial');
+    const individualFieldsContainer = document.getElementById('individual-fields-container');
+    const businessFieldsContainer = document.getElementById('business-fields-container');
+    const dlImageUploadWrapper = document.getElementById('dl-image-upload-wrapper');
+    const personalInfoHeader = document.getElementById('personal-info-header');
+    const businessNameInput = document.getElementById('id_business_name');
+
     function checkClientName() {
-        const first = firstNameInput?.value.trim() || '';
-        const last = lastNameInput?.value.trim() || '';
+        const isComm = isCommercialCheckbox && isCommercialCheckbox.checked;
+        let first = '';
+        let last = '';
+        if (isComm) {
+            first = "Commercial";
+            last = businessNameInput?.value.trim() || '';
+        } else {
+            first = firstNameInput?.value.trim() || '';
+            last = lastNameInput?.value.trim() || '';
+        }
         const org = orgSelect?.value || '';
 
         if (first.length >= 2 && last.length >= 2 && org) {
@@ -430,7 +464,11 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(r => r.json())
             .then(data => {
                 if (data.exists) {
-                    nameWarning.innerHTML = `⚠️ <strong>Attention:</strong> A client named "<strong>${first} ${last}</strong>" is already registered in this PSB. Please verify if this is a duplicate before proceeding.`;
+                    if (isComm) {
+                        nameWarning.innerHTML = `⚠️ <strong>Attention:</strong> A business named "<strong>${last}</strong>" is already registered in this PSB. Please verify if this is a duplicate before proceeding.`;
+                    } else {
+                        nameWarning.innerHTML = `⚠️ <strong>Attention:</strong> A client named "<strong>${first} ${last}</strong>" is already registered in this PSB. Please verify if this is a duplicate before proceeding.`;
+                    }
                     nameWarning.style.display = 'block';
                 } else {
                     nameWarning.style.display = 'none';
@@ -446,6 +484,29 @@ document.addEventListener('DOMContentLoaded', function() {
         firstNameInput.addEventListener('blur', checkClientName);
         lastNameInput.addEventListener('blur', checkClientName);
         if (orgSelect) orgSelect.addEventListener('change', checkClientName);
+    }
+    if (businessNameInput) {
+        businessNameInput.addEventListener('blur', checkClientName);
+    }
+
+    function toggleCommercialFields() {
+        if (isCommercialCheckbox && isCommercialCheckbox.checked) {
+            if (individualFieldsContainer) individualFieldsContainer.style.display = 'none';
+            if (businessFieldsContainer) businessFieldsContainer.style.display = 'grid';
+            if (dlImageUploadWrapper) dlImageUploadWrapper.style.display = 'none';
+            if (personalInfoHeader) personalInfoHeader.textContent = 'Business Information';
+        } else {
+            if (individualFieldsContainer) individualFieldsContainer.style.display = 'block';
+            if (businessFieldsContainer) businessFieldsContainer.style.display = 'none';
+            if (dlImageUploadWrapper) dlImageUploadWrapper.style.display = 'block';
+            if (personalInfoHeader) personalInfoHeader.textContent = 'Personal Information';
+        }
+        checkClientName();
+    }
+
+    if (isCommercialCheckbox) {
+        isCommercialCheckbox.addEventListener('change', toggleCommercialFields);
+        toggleCommercialFields();
     }
 
     window.importGlobalClient = function(clientId) {
