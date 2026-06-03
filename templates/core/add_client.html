@@ -63,7 +63,7 @@
                 {% for g_client in existing_global_clients %}
                 <div style="padding: 10px 12px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
                     <div style="font-size: 0.85rem;">
-                        <span style="font-weight: 700; color: #1e293b;">{{ g_client.last_name }}, {{ g_client.first_name }}</span>
+                        <span style="font-weight: 700; color: #1e293b;">{{ g_client.name }}</span>
                         <span style="color: #64748b;"> - {{ g_client.organization.name }}</span>
                     </div>
                     <button type="button" class="btn btn-secondary btn-sm" onclick="importGlobalClient('{{ g_client.id }}')" style="color: #4f46e5; border-color: #c7d2fe; font-weight: 700; padding: 4px 10px; min-height: 28px;">Import</button>

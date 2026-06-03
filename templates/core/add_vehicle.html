@@ -34,7 +34,7 @@
         <header class="dashboard-hero service-list-hero compact-header" style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 1rem 1.5rem;">
             <div>
                 <a href="{% if edit_mode %}{% url 'vehicle-detail' vehicle.id %}{% else %}{% url 'client-detail' client.id %}{% endif %}" class="btn btn-secondary back-btn" style="margin-bottom: 0.5rem; display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white; padding: 0.2rem 0.6rem;">&larr; Back</a>
-                <h1 style="margin: 0; font-size: 1.5rem;">{{ title|default:"Add Vehicle" }} for {{ client.first_name }} {{ client.last_name }}</h1>
+                <h1 style="margin: 0; font-size: 1.5rem;">{{ title|default:"Add Vehicle" }} for {{ client.name }}</h1>
             </div>
         </header>
 

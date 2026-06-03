@@ -65,10 +65,15 @@
                                 <td>
                                     <div style="display: flex; align-items: center; gap: 1rem;">
                                         <div style="width: 36px; height: 36px; border-radius: 8px; background: #f1f5f9; color: #1e293b; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; flex-shrink: 0;">
-                                            {{ client.first_name|slice:":1"|upper }}
+                                            {{ client.name|slice:":1"|upper }}
                                         </div>
                                         <div>
-                                            <a href="{% url 'client-detail' client.id %}" style="font-weight: 600; color: #1e293b; text-decoration: none;">{{ client.first_name }} {{ client.last_name }}</a>
+                                            <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
+                                                <a href="{% url 'client-detail' client.id %}" style="font-weight: 600; color: #1e293b; text-decoration: none;">{{ client.name }}</a>
+                                                {% if client.is_commercial %}
+                                                    <span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; vertical-align: middle; display: inline-block;">Business</span>
+                                                {% endif %}
+                                            </div>
                                             {% if client.referral %}
                                                 <div style="font-size: 0.75rem; color: #64748b;">via {{ client.referral.name }}</div>
                                             {% endif %}

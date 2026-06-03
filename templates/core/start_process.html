@@ -10,7 +10,7 @@
             <div>
                 <a href="{% url 'client-detail' vehicle.client.id %}" class="btn btn-secondary back-btn" style="margin-bottom: 1rem; display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white;">&larr; Back to Client</a>
                 <h1>{% if edit_mode %}Edit Transaction{% else %}Start Transaction for {{ vehicle.year }} {{ vehicle.make }}{% endif %}</h1>
-                <p class="subtitle" style="color: #cbd5e1;">VIN: {{ vehicle.vin }} | Owner: {{ vehicle.client.first_name }} {{ vehicle.client.last_name }}</p>
+                <p class="subtitle" style="color: #cbd5e1;">VIN: {{ vehicle.vin }} | Owner: {{ vehicle.client.name }}</p>
             </div>
         </header>
 

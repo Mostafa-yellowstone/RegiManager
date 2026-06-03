@@ -870,8 +870,14 @@ class ClientIntake(models.Model):
         verbose_name = "Client Intake"
         verbose_name_plural = "Client Intakes"
 
+    @property
+    def name(self):
+        if self.is_commercial and self.business_name:
+            return self.business_name
+        return f"{self.first_name} {self.last_name}"
+
     def __str__(self):
-        return f"Intake: {self.first_name} {self.last_name} ({self.organization.name})"
+        return f"Intake: {self.name} ({self.organization.name})"
 
 
 class Space(models.Model):

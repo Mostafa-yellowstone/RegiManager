@@ -5,7 +5,7 @@
         <td>
             {% if record.vehicle and record.vehicle.client %}
                 <a href="{% url 'client-detail' record.vehicle.client.id %}" class="client-link" style="text-decoration: none; color: #2563eb; font-weight: 700;">
-                    {{ record.vehicle.client.first_name }} {{ record.vehicle.client.last_name }}
+                    {{ record.vehicle.client.name }}
                 </a>
             {% else %}
                 {{ record.client_name|default:"-" }}
