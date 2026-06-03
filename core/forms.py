@@ -250,6 +250,7 @@ class ClientForm(forms.ModelForm):
             self.fields["first_name"].required = False
             self.fields["last_name"].required = False
             self.fields["gender"].required = False
+            self.fields["state"].required = False
         else:
             self.fields["first_name"].required = True
             self.fields["last_name"].required = True
@@ -294,7 +295,7 @@ class ClientForm(forms.ModelForm):
             # Clear individual-field errors AND pop values unconditionally.
             # Hidden individual fields always POST "" — if left in cleaned_data
             # the empty string reaches _post_clean/full_clean which rejects blank=False.
-            for f in ['first_name', 'last_name', 'gender']:
+            for f in ['first_name', 'last_name', 'gender', 'state']:
                 self._errors.pop(f, None)
                 cleaned_data.pop(f, None)
 
@@ -310,6 +311,9 @@ class ClientForm(forms.ModelForm):
                 cleaned_data["first_name"] = "Commercial"
                 cleaned_data["last_name"] = business_name
             cleaned_data["gender"] = None
+            # state is required by the model — default to NY if not provided
+            if not cleaned_data.get("state"):
+                cleaned_data["state"] = "NY"
         else:
             first_name = cleaned_data.get("first_name")
             last_name = cleaned_data.get("last_name")
