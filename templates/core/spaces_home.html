@@ -169,7 +169,7 @@
               {% if item.key == 'insurance' %}
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               {% else %}
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
               {% endif %}
             </div>
             <span style="font-size: 0.72rem; font-weight: 800; background: #f1f5f9; padding: 4px 10px; border-radius: 8px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid #e2e8f0;">
@@ -180,21 +180,10 @@
           <h3 style="margin: 0 0 0.5rem; font-size: 1.35rem; font-weight: 850; color: #0f172a; letter-spacing: -0.3px;">{{ item.label }}</h3>
           <p style="color: #64748b; font-size: 0.95rem; line-height: 1.5; margin: 0 0 2rem; flex-grow: 1;">{{ item.description|default:"No description provided." }}</p>
           
-          <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 1.25rem; border-top: 1px solid #f1f5f9; margin-top: auto;">
-            {% if item.key == 'insurance' %}
-              <span style="font-size: 0.85rem; color: #093de6; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: inline-flex; align-items: center; gap: 4px;">
-                Open Workspace &rarr;
-              </span>
-            {% else %}
-              <div>
-                <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: block;">Price / Fee</span>
-                <strong style="font-size: 1.25rem; color: #093de6; font-weight: 850; display: block; margin-top: 2px;">${{ item.price }}</strong>
-              </div>
-              <div style="text-align: right;">
-                <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: block;">Stock</span>
-                <strong style="font-size: 1.25rem; color: {% if item.stock > 0 %}#10b981{% else %}#ef4444{% endif %}; font-weight: 850; display: block; margin-top: 2px;">{{ item.stock }}</strong>
-              </div>
-            {% endif %}
+          <div style="display: flex; justify-content: flex-end; align-items: center; padding-top: 1.25rem; border-top: 1px solid #f1f5f9; margin-top: auto;">
+            <span style="font-size: 0.85rem; color: #093de6; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: inline-flex; align-items: center; gap: 4px;">
+              Open Workspace &rarr;
+            </span>
           </div>
         </div>
       </a>
@@ -212,35 +201,27 @@
 <div class="modal-overlay" id="addInventoryModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-      <h3 style="margin: 0; font-weight: 850; color: #0f172a; font-size: 1.35rem; letter-spacing: -0.3px;">📦 Add Space Card</h3>
+      <h3 style="margin: 0; font-weight: 850; color: #0f172a; font-size: 1.35rem; letter-spacing: -0.3px;">📁 Add Space Card</h3>
       <button onclick="document.getElementById('addInventoryModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.8rem; cursor: pointer; color: #94a3b8; line-height: 1;">&times;</button>
     </div>
     <form method="POST" action="{% url 'inventory-list' %}">
       {% csrf_token %}
       <input type="hidden" name="organization" value="{{ active_org.id }}">
       <input type="hidden" name="redirect_to" value="spaces-home">
+      <input type="hidden" name="price" value="0.00">
+      <input type="hidden" name="stock" value="0">
       
       <div style="margin-bottom: 1.25rem;">
-        <label class="field-label">Service Label / Name</label>
+        <label class="field-label">Space Name / Label</label>
         <input type="text" name="label" required class="field-input" placeholder="e.g. Plate Protection Plan">
       </div>
       <div style="margin-bottom: 1.25rem;">
         <label class="field-label">Unique Code Identifier</label>
         <input type="text" name="key" class="field-input" placeholder="e.g. plate_protection (auto if blank)">
       </div>
-      <div style="margin-bottom: 1.25rem;">
+      <div style="margin-bottom: 2rem;">
         <label class="field-label">Description</label>
         <textarea name="description" class="field-input" style="height: 100px; resize: none; font-family: inherit;" placeholder="Describe the purpose or features of this space card..."></textarea>
-      </div>
-      <div class="grid-2" style="margin-bottom: 2rem;">
-        <div>
-          <label class="field-label">Price ($)</label>
-          <input type="number" step="0.01" name="price" required class="field-input" placeholder="0.00">
-        </div>
-        <div>
-          <label class="field-label">Stock Quantity</label>
-          <input type="number" name="stock" required class="field-input" value="0">
-        </div>
       </div>
       <button type="submit" class="btn-submit">Add Space Card</button>
     </form>

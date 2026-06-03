@@ -5260,12 +5260,7 @@ def inventory_list(request):
         redirect_target = request.POST.get("redirect_to", "inventory-list")
         return redirect(redirect_target)
 
-    inventory_items = InventoryService.objects.filter(organization__in=organizations).select_related("organization")
-    return render(request, "core/inventory_list.html", {
-        "inventory_items": inventory_items,
-        "is_owner": is_owner,
-        "owner_orgs": owner_orgs,
-    })
+    return redirect("spaces-home")
 
 
 def _redirect_to_insurance_detail(org):
@@ -5381,17 +5376,26 @@ def inventory_detail(request, inventory_id):
         }
         return render(request, "core/insurance_space.html", context)
 
-    # Fetch clients for the organization that have emails
-    clients = Client.objects.filter(organization=card.organization).exclude(email__isnull=True).exclude(email="").order_by("first_name", "last_name")
+    # Fetch service records matching this space key for the active organization
+    from .models import ServiceRecord
+    services = ServiceRecord.objects.filter(
+        organization=card.organization, service_type=card.key
+    ).select_related("vehicle", "handled_by")
     
-    # Fetch campaign logs
-    campaigns = card.campaigns.all().order_by("-sent_at")
+    total_count = services.count()
+    pending_count = services.filter(status="pending").count()
+    completed_count = services.filter(status="completed").count()
+    total_fees = sum(s.service_fee for s in services)
 
-    return render(request, "core/inventory_detail.html", {
+    return render(request, "core/custom_space.html", {
         "card": card,
         "is_owner": is_owner,
-        "clients": clients,
-        "campaigns": campaigns,
+        "active_org": card.organization,
+        "services": services,
+        "total_count": total_count,
+        "pending_count": pending_count,
+        "completed_count": completed_count,
+        "total_fees": total_fees,
     })
 
 
