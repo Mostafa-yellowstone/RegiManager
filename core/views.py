@@ -5191,7 +5191,7 @@ def site_news_list(request):
 @login_required
 def inventory_list(request):
     from django.utils.text import slugify
-    from .models import InventoryService
+    from .models import Space
     organizations = _get_user_organizations(request)
     
     # Check if user has active membership in any accessible org
@@ -5206,66 +5206,61 @@ def inventory_list(request):
         )
         is_active_member = memberships.exists()
     
-    # Allow any active member (agent or owner) to manage inventory cards
+    # Allow any active member (agent or owner) to manage spaces
     is_owner = is_active_member
     owner_orgs = organizations
 
     if request.method == "POST":
         if not is_owner:
-            messages.error(request, "You do not have permission to add inventory services.")
-            return redirect("inventory-list")
+            messages.error(request, "You do not have permission to add spaces.")
+            return redirect("spaces-home")
         
         org_id = request.POST.get("organization")
         if not org_id:
             messages.error(request, "Organization is required.")
-            return redirect("inventory-list")
+            return redirect("spaces-home")
             
         if not organizations.filter(id=org_id).exists():
             messages.error(request, "Invalid organization chosen.")
-            return redirect("inventory-list")
+            return redirect("spaces-home")
             
         org = get_object_or_404(Organization, id=org_id)
-
 
         label = request.POST.get("label", "").strip()
         key_raw = request.POST.get("key", "").strip()
         description = request.POST.get("description", "").strip()
-        price = request.POST.get("price", "0.00").strip()
-        stock = request.POST.get("stock", "0").strip()
 
         key = slugify(key_raw or label).replace("-", "_")
 
         if not label:
-            messages.error(request, "Service label is required.")
-            return redirect("inventory-list")
+            messages.error(request, "Space label is required.")
+            return redirect("spaces-home")
 
         # Unique together check
-        if InventoryService.objects.filter(organization=org, key=key).exists():
-            messages.error(request, f"An inventory service with code '{key}' already exists in this PSB.")
-            return redirect("inventory-list")
+        if Space.objects.filter(organization=org, key=key).exists():
+            messages.error(request, f"A space with code '{key}' already exists in this PSB.")
+            return redirect("spaces-home")
 
         try:
-            InventoryService.objects.create(
+            Space.objects.create(
                 organization=org,
                 key=key,
                 label=label,
-                description=description,
-                price=Decimal(price or "0.00"),
-                stock=int(stock or 0)
+                description=description
             )
-            messages.success(request, f"Inventory service '{label}' created successfully.")
+            messages.success(request, f"Space '{label}' created successfully.")
         except Exception as e:
-            messages.error(request, f"Error creating inventory service: {e}")
+            messages.error(request, f"Error creating space: {e}")
         
-        redirect_target = request.POST.get("redirect_to", "inventory-list")
+        redirect_target = request.POST.get("redirect_to", "spaces-home")
         return redirect(redirect_target)
 
     return redirect("spaces-home")
 
 
 def _redirect_to_insurance_detail(org):
-    from .models import InventoryService
-    insurance_card = InventoryService.objects.filter(organization=org, key="insurance").first()
+    from .models import Space
+    insurance_card = Space.objects.filter(organization=org, key="insurance").first()
     if insurance_card:
         return redirect("inventory-detail", inventory_id=insurance_card.id)
     return redirect("spaces-home")
@@ -5273,10 +5268,10 @@ def _redirect_to_insurance_detail(org):
 
 @login_required
 def inventory_detail(request, inventory_id):
-    from .models import InventoryService, Client
+    from .models import Space, Client
     organizations = _get_user_organizations(request)
     
-    card = get_object_or_404(InventoryService, id=inventory_id, organization__in=organizations)
+    card = get_object_or_404(Space, id=inventory_id, organization__in=organizations)
     
     # Check if user has active membership in card's organization
     if request.user.is_superuser:
@@ -5292,27 +5287,23 @@ def inventory_detail(request, inventory_id):
 
     if request.method == "POST":
         if not is_owner:
-            messages.error(request, "You do not have permission to update inventory services.")
+            messages.error(request, "You do not have permission to update spaces.")
             return redirect("inventory-detail", inventory_id=card.id)
 
         label = request.POST.get("label", "").strip()
         description = request.POST.get("description", "").strip()
-        price = request.POST.get("price", "0.00").strip()
-        stock = request.POST.get("stock", "0").strip()
 
         if not label:
-            messages.error(request, "Service label is required.")
+            messages.error(request, "Space label is required.")
             return redirect("inventory-detail", inventory_id=card.id)
 
         try:
             card.label = label
             card.description = description
-            card.price = Decimal(price or "0.00")
-            card.stock = int(stock or 0)
             card.save()
-            messages.success(request, f"Inventory service '{label}' updated successfully.")
+            messages.success(request, f"Space '{label}' updated successfully.")
         except Exception as e:
-            messages.error(request, f"Error updating inventory service: {e}")
+            messages.error(request, f"Error updating space: {e}")
         
         return redirect("inventory-detail", inventory_id=card.id)
 
@@ -5400,69 +5391,12 @@ def inventory_detail(request, inventory_id):
 
 
 
-@login_required
-@require_POST
-def send_marketing_campaign_ajax(request, inventory_id):
-    from .models import InventoryService, Client, MarketingCampaignLog
-    from .tasks import send_marketing_email
 
-    organizations = _get_user_organizations(request)
-    card = get_object_or_404(InventoryService, id=inventory_id, organization__in=organizations)
-    
-    subject = request.POST.get("subject", "").strip()
-    body = request.POST.get("body", "").strip()
-    client_ids = request.POST.getlist("clients[]") or request.POST.getlist("clients")
-
-    if not subject or not body:
-        return JsonResponse({"success": False, "error": "Subject and message body are required."}, status=400)
-    
-    if not client_ids:
-        return JsonResponse({"success": False, "error": "Please select at least one client."}, status=400)
-
-    # Resolve clients
-    clients = Client.objects.filter(id__in=client_ids, organization=card.organization).exclude(email__isnull=True).exclude(email="")
-    if not clients.exists():
-        return JsonResponse({"success": False, "error": "No valid client email addresses found."}, status=400)
-
-    # Handle image upload
-    image_file = request.FILES.get("image")
-    campaign_log = MarketingCampaignLog.objects.create(
-        organization=card.organization,
-        inventory_service=card,
-        subject=subject,
-        body=body,
-        image=image_file,
-        sent_by=request.user,
-        recipients_count=clients.count()
-    )
-
-    image_path = campaign_log.image.name if campaign_log.image else None
-
-    # Queue or send the emails
-    for client in clients:
-        # Pre-fill client personal variables in body
-        client_body = body.replace("{{first_name}}", client.first_name).replace("{{last_name}}", client.last_name).replace("{{client_name}}", client.name)
-        
-        send_email_robustly(
-            send_marketing_email,
-            to_email=client.email,
-            subject=subject,
-            content_html=client_body,
-            psb_name=card.organization.name,
-            psb_phone=card.organization.phone_number,
-            image_path=image_path
-        )
-
-    return JsonResponse({
-        "success": True,
-        "campaign_id": campaign_log.id,
-        "message": f"Successfully queued marketing campaign to {clients.count()} recipients."
-    })
 
 
 @login_required
 def spaces_home(request):
-    from .models import InventoryService
+    from .models import Space
     organizations = _get_user_organizations(request)
     
     active_org_id = request.session.get('active_org_id')
@@ -5480,18 +5414,16 @@ def spaces_home(request):
         })
         
     # Auto-ensure "Insurance" card exists for this active org
-    InventoryService.objects.get_or_create(
+    Space.objects.get_or_create(
         organization=active_org, 
         key="insurance", 
         defaults={
             "label": "Insurance", 
             "description": "Insurance CRM and Financial space", 
-            "price": 0.00, 
-            "stock": 0
         }
     )
         
-    inventory_items = InventoryService.objects.filter(organization=active_org)
+    inventory_items = Space.objects.filter(organization=active_org)
     
     context = {
         "needs_org_selection": False,

@@ -2,7 +2,7 @@ from django.test import TestCase, Client as TestClient
 from django.urls import reverse
 from django.contrib.auth.models import User
 from decimal import Decimal
-from core.models import Organization, OrganizationMembership, Client, InsuranceCompany, InsurancePolicy, InventoryService, Vehicle
+from core.models import Organization, OrganizationMembership, Client, InsuranceCompany, InsurancePolicy, Space, Vehicle
 
 class InsuranceSpaceTests(TestCase):
     def setUp(self):

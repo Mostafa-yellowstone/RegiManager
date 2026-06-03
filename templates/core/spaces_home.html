@@ -149,13 +149,7 @@
           🏢 {{ active_org.name }}
         </div>
         <h1 style="color: #0f172a; font-weight: 850; font-size: 2.25rem; margin: 0; letter-spacing: -0.75px;">Location Spaces</h1>
-        <p style="color: #64748b; margin: 0.4rem 0 0; font-weight: 500; font-size: 1.05rem;">Access and manage your localized products, CRM, and accounts.</p>
-      </div>
-      <div>
-        <button onclick="document.getElementById('addInventoryModal').classList.add('active')" style="padding: 12px 24px; background: linear-gradient(135deg, #093de6, #4f46e5); border: none; color: white; font-weight: 800; border-radius: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(9, 61, 230, 0.15); transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          Add Space Card
-        </button>
+        <p style="color: #64748b; margin: 0.4rem 0 0; font-weight: 500; font-size: 1.05rem;">Access and manage your localized workspaces.</p>
       </div>
     </div>
 
@@ -189,44 +183,13 @@
       </a>
       {% empty %}
       <div style="grid-column: 1/-1; text-align: center; padding: 5rem 2rem; color: #64748b; font-weight: 600; background: white; border-radius: 24px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
-        No space cards found. Click <strong>"Add Space Card"</strong> to create one.
+        No spaces found.
       </div>
       {% endfor %}
     </div>
 
   </div>
 </main>
-
-<!-- ADD INVENTORY MODAL -->
-<div class="modal-overlay" id="addInventoryModal" onclick="if(event.target===this)this.classList.remove('active')">
-  <div class="modal-box">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-      <h3 style="margin: 0; font-weight: 850; color: #0f172a; font-size: 1.35rem; letter-spacing: -0.3px;">📁 Add Space Card</h3>
-      <button onclick="document.getElementById('addInventoryModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.8rem; cursor: pointer; color: #94a3b8; line-height: 1;">&times;</button>
-    </div>
-    <form method="POST" action="{% url 'inventory-list' %}">
-      {% csrf_token %}
-      <input type="hidden" name="organization" value="{{ active_org.id }}">
-      <input type="hidden" name="redirect_to" value="spaces-home">
-      <input type="hidden" name="price" value="0.00">
-      <input type="hidden" name="stock" value="0">
-      
-      <div style="margin-bottom: 1.25rem;">
-        <label class="field-label">Space Name / Label</label>
-        <input type="text" name="label" required class="field-input" placeholder="e.g. Plate Protection Plan">
-      </div>
-      <div style="margin-bottom: 1.25rem;">
-        <label class="field-label">Unique Code Identifier</label>
-        <input type="text" name="key" class="field-input" placeholder="e.g. plate_protection (auto if blank)">
-      </div>
-      <div style="margin-bottom: 2rem;">
-        <label class="field-label">Description</label>
-        <textarea name="description" class="field-input" style="height: 100px; resize: none; font-family: inherit;" placeholder="Describe the purpose or features of this space card..."></textarea>
-      </div>
-      <button type="submit" class="btn-submit">Add Space Card</button>
-    </form>
-  </div>
-</div>
 {% endif %}
 
 {% endblock %}

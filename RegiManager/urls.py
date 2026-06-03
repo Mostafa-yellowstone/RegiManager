@@ -93,7 +93,6 @@ from core.views import (
     site_news_list,
     inventory_list,
     inventory_detail,
-    send_marketing_campaign_ajax,
 )
 
 
@@ -211,7 +210,6 @@ urlpatterns = [
     path("dashboard/site-news/", site_news_list, name="site-news-list"),
     path("dashboard/inventory/", inventory_list, name="inventory-list"),
     path("dashboard/inventory/<int:inventory_id>/", inventory_detail, name="inventory-detail"),
-    path("dashboard/inventory/<int:inventory_id>/marketing/", send_marketing_campaign_ajax, name="send-marketing-campaign-ajax"),
     
     # Spaces Hub and Insurance CRM / Banking Routes
     path("dashboard/spaces/", spaces_home, name="spaces-home"),

@@ -6,7 +6,7 @@ from decimal import Decimal
 from .models import (
     Organization, OrganizationMembership, ServiceAuditLog, ServiceRecord,
     CustomServiceType, SiteNews, ClientIntake, Client, Vehicle,
-    InventoryService, MarketingCampaignLog, Referral, ReferralPayment,
+    Space, Referral, ReferralPayment,
     UserSession,
 )
 
@@ -128,19 +128,11 @@ class ClientIntakeAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at", "processed_at", "processed_by")
 
 
-@admin.register(InventoryService)
-class InventoryServiceAdmin(admin.ModelAdmin):
-    list_display = ("label", "key", "organization", "price", "stock", "created_at")
+@admin.register(Space)
+class SpaceAdmin(admin.ModelAdmin):
+    list_display = ("label", "key", "organization", "created_at")
     list_filter = ("organization",)
     search_fields = ("label", "key", "organization__name")
-
-
-@admin.register(MarketingCampaignLog)
-class MarketingCampaignLogAdmin(admin.ModelAdmin):
-    list_display = ("subject", "inventory_service", "organization", "recipients_count", "sent_by", "sent_at")
-    list_filter = ("organization", "inventory_service")
-    search_fields = ("subject", "body", "sent_by__username")
-    readonly_fields = ("sent_at",)
 
 
 # ─────────────────────────────────────────────
