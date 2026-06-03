@@ -18,4 +18,4 @@ jobs:
           chmod 600 ~/.ssh/key
           ssh-keyscan -H ${{ vars.VPS_HOST }} >> ~/.ssh/known_hosts
 
-          ssh -vvv -i ~/.ssh/key ${{ secrets.VPS_USER }}@${{ vars.VPS_HOST }} "id && whoami && pwd && ls -la ~"
+          ssh -vvv -i ~/.ssh/key ${{ secrets.VPS_USER }}@${{ vars.VPS_HOST }} "echo OK"
