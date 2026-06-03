@@ -2,7 +2,7 @@ from django.test import TestCase, Client as TestClient
 from django.urls import reverse
 from django.contrib.auth.models import User
 from decimal import Decimal
-from core.models import Organization, OrganizationMembership, Client, InsuranceCompany, InsurancePolicy, Space, Vehicle
+from core.models import Organization, OrganizationMembership, Client, InsuranceCompany, InsurancePolicy, Space, Vehicle, ServiceRecord
 
 class InsuranceSpaceTests(TestCase):
     def setUp(self):
@@ -121,4 +121,77 @@ class VehicleSoftDeleteTests(TestCase):
                 make="Toyota",
                 model="Prius"
             )
+
+
+class ReceiptAddressTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="testuser", password="password123")
+        self.org = Organization.objects.create(name="Test Org", city="NYC")
+        OrganizationMembership.objects.create(user=self.user, organization=self.org, is_active=True, role="owner")
+        
+        self.client_obj = Client.objects.create(
+            organization=self.org,
+            first_name="John",
+            last_name="Doe",
+            building_no="123",
+            street_address="Main St",
+            city="New York",
+            state="NY",
+            zip_code="10001",
+            source="walk-in"
+        )
+        self.vehicle = Vehicle.objects.create(
+            client=self.client_obj,
+            vin="VIN1234567890ABCD",
+            vehicle_number="VEH-001"
+        )
+        self.client = TestClient()
+        self.client.login(username="testuser", password="password123")
+
+    def test_service_record_auto_populates_client_details_on_save(self):
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration"
+        )
+        self.assertEqual(record.client_name, "John Doe")
+        self.assertEqual(record.client_address, "123, Main St, New York, NY, 10001")
+        self.assertEqual(record.vehicle_number, "VEH-001")
+        self.assertEqual(record.vin, "VIN1234567890ABCD")
+
+    def test_client_save_updates_associated_service_records(self):
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration"
+        )
+        # Verify initial values
+        self.assertEqual(record.client_address, "123, Main St, New York, NY, 10001")
+        
+        # Modify client address and save client
+        self.client_obj.building_no = "456"
+        self.client_obj.street_address = "Broadway"
+        self.client_obj.save()
+        
+        # Refresh service record from DB and verify values updated
+        record.refresh_from_db()
+        self.assertEqual(record.client_address, "456, Broadway, New York, NY, 10001")
+
+    def test_pdf_receipt_renders_with_fallback(self):
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration"
+        )
+        # Clear the snapshot address to force fallback
+        record.client_address = ""
+        record.save()
+        
+        response = self.client.get(reverse("service-receipt-pdf", args=[record.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+
 

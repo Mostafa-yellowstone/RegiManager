@@ -88,6 +88,8 @@ class OrganizationMembership(models.Model):
     can_trigger_automation = models.BooleanField(default=False, help_text="Can this user manually trigger the automation scan?")
     is_active = models.BooleanField(default=True, help_text="Enable or disable this agent in this PSB.")
     signature = models.ImageField(upload_to="agent_signatures/", blank=True, null=True, help_text="Agent signature image to be displayed on receipts.")
+    can_view_spaces = models.BooleanField(default=False, help_text="Can this agent view the main Spaces page?")
+    accessible_spaces = models.ManyToManyField("Space", blank=True, related_name="permitted_memberships", help_text="Specific spaces this agent has access to.")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -215,6 +217,20 @@ class Client(SoftDeleteModel):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        if not is_new:
+            try:
+                from django.apps import apps
+                ServiceRecordModel = apps.get_model('core', 'ServiceRecord')
+                ServiceRecordModel.objects.filter(vehicle__client=self).update(
+                    client_name=self.name,
+                    client_address=self.full_address
+                )
+            except Exception:
+                pass
 
     class Meta:
         ordering = ["-created_at"]
@@ -464,6 +480,27 @@ class ServiceRecord(SoftDeleteModel):
         ]
 
     def save(self, *args, **kwargs):
+        if self.vehicle:
+            if not self.vehicle_number:
+                self.vehicle_number = self.vehicle.vehicle_number or ""
+            if not self.plate_number:
+                self.plate_number = self.vehicle.plate_number or ""
+            if not self.vin:
+                self.vin = self.vehicle.vin or ""
+            
+            client = self.vehicle.client
+            if client:
+                if not self.client_name:
+                    self.client_name = client.name
+                if not self.client_address:
+                    self.client_address = client.full_address
+                if not self.phone_no:
+                    self.phone_no = client.phone_number or ""
+                if not self.email:
+                    self.email = client.email
+                if not self.driver_license_number:
+                    self.driver_license_number = client.driver_license or ""
+
         if not self.receipt_number:
             ts = timezone.now().strftime("%Y%m%d%H%M%S")
             self.receipt_number = f"RCPT-{ts}-{self.organization_id or 'ORG'}"

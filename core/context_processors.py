@@ -43,6 +43,7 @@ def automation_status(request):
     
     can_view_partners = is_owner or any(m.can_manage_referrals for m in active_memberships)
     can_view_finance_bi = is_owner or any(m.can_view_reports for m in active_memberships)
+    can_view_spaces = request.user.is_superuser or is_owner or any(m.can_view_spaces for m in active_memberships)
     
     # Notifications (defensive against missing tables / unapplied migrations)
     try:
@@ -78,6 +79,7 @@ def automation_status(request):
         "user_nav_role": user_nav_role,
         "can_view_partners": can_view_partners,
         "can_view_finance_bi": can_view_finance_bi,
+        "can_view_spaces": can_view_spaces,
         "notif_unread_count": notif_unread_count,
         "top_notifications": top_notifications,
         "user_organizations": user_organizations,

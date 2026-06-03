@@ -1977,15 +1977,28 @@ def service_receipt_pdf(request, service_id):
     x += 85
     draw_box(x, y, 80, 16, "Receipt number", receipt_short)
     x += 85
-    draw_box(x, y, 80, 16, "Vehicle number", service_record.vehicle_number)
+    vehicle_number = service_record.vehicle_number
+    if not vehicle_number and service_record.vehicle:
+        vehicle_number = service_record.vehicle.vehicle_number
+    vehicle_number = vehicle_number or ""
+
+    draw_box(x, y, 80, 16, "Vehicle number", vehicle_number)
     x += 85
     draw_box(x, y, 70, 16, "Transaction type", service_record.transaction_type)
 
     y -= 45
-    draw_box(margin_x, y, 380, 16, "Client", service_record.client_name.upper())
+    client_name = service_record.client_name
+    if not client_name and service_record.vehicle and service_record.vehicle.client:
+        client_name = service_record.vehicle.client.name
+    client_name = (client_name or "").upper()
+    draw_box(margin_x, y, 380, 16, "Client", client_name)
 
     y -= 45
-    draw_box(margin_x, y, 380, 16, "Client Address", service_record.client_address.upper())
+    client_address = service_record.client_address
+    if not client_address and service_record.vehicle and service_record.vehicle.client:
+        client_address = service_record.vehicle.client.full_address
+    client_address = (client_address or "").upper()
+    draw_box(margin_x, y, 380, 16, "Client Address", client_address)
 
     y -= 40
     

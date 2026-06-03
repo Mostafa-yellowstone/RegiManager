@@ -16,7 +16,9 @@
             {% if can_view_partners %}
             <a href="{% url 'all-referrals' %}" class="nav-link {% if 'referral' in request.path %}active{% endif %}">Partners</a>
             {% endif %}
+            {% if can_view_spaces %}
             <a href="{% url 'spaces-home' %}" class="nav-link {% if 'spaces' in request.path or 'inventory' in request.path or 'insurance' in request.path %}active{% endif %}">Spaces</a>
+            {% endif %}
             <a href="{% url 'site-news-list' %}" class="nav-link {% if 'site-news' in request.path %}active{% endif %}">News</a>
         </div>
 
