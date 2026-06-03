@@ -291,6 +291,13 @@ class ClientForm(forms.ModelForm):
         is_commercial = cleaned_data.get("is_commercial", False)
         
         if is_commercial:
+            # Clear individual-field errors that don't apply to commercial accounts.
+            # (gender ChoiceField rejects '' even with required=False — must clear manually)
+            for f in ['first_name', 'last_name', 'gender']:
+                if f in self._errors:
+                    del self._errors[f]
+                    cleaned_data.pop(f, None)
+
             business_name = cleaned_data.get("business_name", "").strip()
             business_ein = cleaned_data.get("business_ein", "").strip()
             if not business_name:
@@ -298,10 +305,11 @@ class ClientForm(forms.ModelForm):
             if not business_ein:
                 self.add_error("business_ein", "Business EIN is required for commercial accounts.")
             
-            # For model validation constraints: set first_name/last_name to avoid DB blank issues
+            # Set name fallbacks so DB not-null constraints are satisfied
             if business_name:
                 cleaned_data["first_name"] = "Commercial"
                 cleaned_data["last_name"] = business_name
+            cleaned_data["gender"] = None
         else:
             first_name = cleaned_data.get("first_name")
             last_name = cleaned_data.get("last_name")
@@ -532,6 +540,12 @@ class ClientIntakeForm(forms.ModelForm):
         cleaned_data = super().clean()
         is_commercial = cleaned_data.get("is_commercial", False)
         if is_commercial:
+            # Clear individual-field errors that don't apply to commercial accounts.
+            for f in ['first_name', 'last_name', 'gender']:
+                if f in self._errors:
+                    del self._errors[f]
+                    cleaned_data.pop(f, None)
+
             business_name = cleaned_data.get("business_name", "").strip()
             business_ein = cleaned_data.get("business_ein", "").strip()
             if not business_name:
@@ -542,11 +556,10 @@ class ClientIntakeForm(forms.ModelForm):
             if business_name:
                 cleaned_data.setdefault("first_name", "Commercial")
                 cleaned_data.setdefault("last_name", business_name)
+            cleaned_data["gender"] = None
         else:
             if not cleaned_data.get("first_name"):
                 self.add_error("first_name", "First name is required.")
             if not cleaned_data.get("last_name"):
                 self.add_error("last_name", "Last name is required.")
         return cleaned_data
-
-
