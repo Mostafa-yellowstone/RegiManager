@@ -468,7 +468,8 @@ class ClientIntakeForm(forms.ModelForm):
         exclude = [
             "organization", "status", "processed_at", "processed_by",
             "additional_data", "requested_services",
-            "mv82_file", "dtf802_file", "dtf803_file", "other_docs"
+            "mv82_file", "dtf802_file", "dtf803_file", "other_docs",
+            "is_commercial", "business_name", "business_ein"
         ]
         widgets = {
             "dob": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
@@ -519,52 +520,14 @@ class ClientIntakeForm(forms.ModelForm):
             "lien_filing_code": forms.TextInput(attrs={"class": "form-control", "placeholder": "5-digit Code"}),
             "lessor_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Lessor Name"}),
             "lessor_address": forms.TextInput(attrs={"class": "form-control", "placeholder": "Lessor Address"}),
-            "business_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Legal Business Name"}),
-            "business_ein": forms.TextInput(attrs={"class": "form-control", "placeholder": "XX-XXXXXXX"}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Determine if this submission is commercial
-        is_commercial = False
-        if self.data:
-            is_commercial = self.data.get('is_commercial') in ['on', 'true', True, '1']
-        elif self.instance and self.instance.pk:
-            is_commercial = self.instance.is_commercial
-
-        # Only require the bare essentials (adjust for commercial accounts)
-        required_fields = ["vin", "phone_number"]
-        if not is_commercial:
-            required_fields += ["first_name", "last_name", "gender"]
-
+        # Only require the bare essentials
+        required_fields = ["first_name", "last_name", "vin", "phone_number", "gender"]
         for field_name, field in self.fields.items():
-            field.required = field_name in required_fields
-
-    def clean(self):
-        cleaned_data = super().clean()
-        is_commercial = cleaned_data.get("is_commercial", False)
-        if is_commercial:
-            # Pop unconditionally — hidden individual fields always POST "",
-            # so setdefault/conditional-pop silently leaves blank values that
-            # _post_clean/full_clean rejects because first_name is blank=False.
-            for f in ['first_name', 'last_name', 'gender']:
-                self._errors.pop(f, None)
-                cleaned_data.pop(f, None)
-
-            business_name = cleaned_data.get("business_name", "").strip()
-            business_ein = cleaned_data.get("business_ein", "").strip()
-            if not business_name:
-                self.add_error("business_name", "Business name is required for commercial accounts.")
-            if not business_ein:
-                self.add_error("business_ein", "EIN is required for commercial accounts.")
-            # Direct assignment (not setdefault) overrides the popped empty strings.
-            if business_name:
-                cleaned_data["first_name"] = "Commercial"
-                cleaned_data["last_name"] = business_name
-            cleaned_data["gender"] = None
-        else:
-            if not cleaned_data.get("first_name"):
-                self.add_error("first_name", "First name is required.")
-            if not cleaned_data.get("last_name"):
-                self.add_error("last_name", "Last name is required.")
-        return cleaned_data
+            if field_name not in required_fields:
+                field.required = False
+            else:
+                field.required = True

@@ -232,34 +232,6 @@
                     </div>
                 </div>
 
-                <!-- Commercial Account Toggle -->
-                <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem;">
-                    <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; text-transform: none; margin-bottom: 0;">
-                        <input type="checkbox" name="is_commercial" id="id_is_commercial_intake" style="width: 18px; height: 18px; accent-color: #0ea5e9;">
-                        <div>
-                            <span style="font-size: 0.9rem; font-weight: 700; color: #0369a1; display: block;">This is a Business / Commercial Account</span>
-                            <span style="font-size: 0.78rem; color: #64748b;">Check this box if registering under a company or business name.</span>
-                        </div>
-                    </label>
-                </div>
-
-                <!-- Business Fields (shown when commercial is checked) -->
-                <div id="businessFieldsIntake" style="display: none; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem;">
-                    <div style="font-size: 0.75rem; font-weight: 800; color: #0369a1; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1rem;">Business Information</div>
-                    <div class="form-grid">
-                        <div class="col-span-2">
-                            <label>Legal Business Name <span style="color: #ef4444;">*</span></label>
-                            {{ form.business_name }}
-                        </div>
-                        <div class="col-span-2">
-                            <label>EIN (Employer Identification Number) <span style="color: #ef4444;">*</span></label>
-                            {{ form.business_ein }}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Individual Personal Fields -->
-                <div id="individualFieldsIntake">
                 <div class="form-grid">
                     <div class="col-span-2">
                         <label>First Name</label>
@@ -313,38 +285,6 @@
                                 vehicle.</span>
                         </label>
                     </div>
-                </div>
-                </div>
-
-                <!-- Business: Compact contact fields (shown when commercial) -->
-                <div id="businessContactFieldsIntake" style="display: none;">
-                <div class="form-grid" style="margin-top: 1rem;">
-                    <div class="col-span-2">
-                        <label>Contact First Name</label>
-                        <input type="text" name="first_name" id="biz_first_name" class="form-control" placeholder="Contact First Name">
-                    </div>
-                    <div class="col-span-2">
-                        <label>Contact Last Name</label>
-                        <input type="text" name="last_name" id="biz_last_name" class="form-control" placeholder="Contact Last Name">
-                    </div>
-                    <div class="col-span-2">
-                        <label>Email Address</label>
-                        <input type="email" name="biz_email_mirror" id="biz_email" class="form-control" placeholder="business@email.com">
-                    </div>
-                    <div class="col-span-2">
-                        <label>Phone Number</label>
-                        <input type="text" name="biz_phone_mirror" id="biz_phone" class="form-control phone-mask" placeholder="(000) 000-0000">
-                    </div>
-                    <div class="col-span-4"
-                        style="background: #f8fafc; padding: 1rem; border-radius: 12px; margin-top: 0.5rem;">
-                        <label
-                            style="display: flex; align-items: center; gap: 10px; cursor: pointer; text-transform: none; margin-bottom: 0;">
-                            <input type="checkbox" id="id_is_registrant_owner_biz" checked
-                                style="width: 18px; height: 18px;">
-                            <span style="font-size: 0.85rem; font-weight: 700; color: #1e293b;">The business is the owner of this vehicle.</span>
-                        </label>
-                    </div>
-                </div>
                 </div>
             </section>
 
@@ -597,40 +537,6 @@
 <script>
     document.getElementById('id_is_registrant_owner').addEventListener('change', function () {
         document.getElementById('ownerSection').style.display = this.checked ? 'none' : 'block';
-    });
-
-    // Commercial/Business toggle
-    document.getElementById('id_is_commercial_intake').addEventListener('change', function () {
-        const isCommercial = this.checked;
-        document.getElementById('businessFieldsIntake').style.display = isCommercial ? 'block' : 'none';
-        document.getElementById('businessContactFieldsIntake').style.display = isCommercial ? 'block' : 'none';
-        document.getElementById('individualFieldsIntake').style.display = isCommercial ? 'none' : 'block';
-
-        // Sync the owner checkbox between individual and business sections
-        const bizOwnerCb = document.getElementById('id_is_registrant_owner_biz');
-        const indOwnerCb = document.getElementById('id_is_registrant_owner');
-        if (bizOwnerCb && indOwnerCb) {
-            bizOwnerCb.addEventListener('change', function () {
-                indOwnerCb.checked = this.checked;
-                document.getElementById('ownerSection').style.display = this.checked ? 'none' : 'block';
-            });
-        }
-    });
-
-    // Before submit: sync biz mirror fields → real form fields so they're included in POST
-    document.getElementById('intakeForm').addEventListener('submit', function () {
-        const isCommercial = document.getElementById('id_is_commercial_intake').checked;
-        if (isCommercial) {
-            // Sync email
-            const bizEmail = document.getElementById('biz_email');
-            const realEmail = document.querySelector('input[name="email"]');
-            if (bizEmail && realEmail) realEmail.value = bizEmail.value;
-
-            // Sync phone
-            const bizPhone = document.getElementById('biz_phone');
-            const realPhone = document.querySelector('input[name="phone_number"]');
-            if (bizPhone && realPhone) realPhone.value = bizPhone.value;
-        }
     });
 
     document.getElementById('id_residence_address_same').addEventListener('change', function () {
