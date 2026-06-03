@@ -5270,12 +5270,13 @@ def _redirect_to_insurance_detail(org):
 def inventory_detail(request, inventory_id):
     from .models import Space, Client
     organizations = _get_user_organizations(request)
-    
+
     card = get_object_or_404(Space, id=inventory_id, organization__in=organizations)
-    
-    # Check if user has active membership in card's organization
+
+    # Resolve membership and ownership
     if request.user.is_superuser:
         is_owner = True
+        membership = None
     else:
         membership = OrganizationMembership.objects.filter(
             user=request.user,
@@ -5283,7 +5284,14 @@ def inventory_detail(request, inventory_id):
             is_active=True,
             organization__is_active=True
         ).first()
-        is_owner = bool(membership) # True if they have active membership
+        if not membership:
+            return HttpResponseForbidden("Access denied.")
+        is_owner = (membership.role == OrganizationMembership.Role.OWNER)
+
+    # Non-owners must have the specific space in their accessible_spaces
+    if not request.user.is_superuser and not is_owner:
+        if not membership.accessible_spaces.filter(id=card.id).exists():
+            return HttpResponseForbidden("You do not have permission to access this space.")
 
     if request.method == "POST":
         if not is_owner:
@@ -5413,6 +5421,20 @@ def spaces_home(request):
             "organizations": organizations,
         })
         
+    # Resolve membership and check permissions
+    from .models import OrganizationMembership
+    is_owner = False
+    membership = None
+    if not request.user.is_superuser:
+        membership = OrganizationMembership.objects.filter(
+            user=request.user, organization=active_org, is_active=True
+        ).first()
+        if not membership:
+            return HttpResponseForbidden("Access denied.")
+        is_owner = (membership.role == OrganizationMembership.Role.OWNER)
+        if not is_owner and not membership.can_view_spaces:
+            return HttpResponseForbidden("You do not have permission to view Spaces.")
+
     # Auto-ensure "Insurance" card exists for this active org
     Space.objects.get_or_create(
         organization=active_org, 
@@ -5423,7 +5445,10 @@ def spaces_home(request):
         }
     )
         
-    inventory_items = Space.objects.filter(organization=active_org)
+    if request.user.is_superuser or is_owner:
+        inventory_items = Space.objects.filter(organization=active_org)
+    else:
+        inventory_items = membership.accessible_spaces.filter(organization=active_org)
     
     context = {
         "needs_org_selection": False,

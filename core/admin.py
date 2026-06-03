@@ -7,7 +7,7 @@ from .models import (
     Organization, OrganizationMembership, ServiceAuditLog, ServiceRecord,
     CustomServiceType, SiteNews, ClientIntake, Client, Vehicle,
     Space, Referral, ReferralPayment,
-    UserSession,
+    UserSession, ServiceDocument,
 )
 
 
@@ -22,6 +22,8 @@ class MembershipInline(admin.TabularInline):
         'can_view_net_profit',
         'can_manage_referrals',
         'can_trigger_automation',
+        'can_view_spaces',
+        'accessible_spaces',
         'signature',
     )
     readonly_fields = ('user',)
@@ -58,9 +60,33 @@ class OrganizationAdmin(admin.ModelAdmin):
 
 @admin.register(OrganizationMembership)
 class OrganizationMembershipAdmin(admin.ModelAdmin):
-    list_display = ("organization", "user", "role", "can_trigger_automation", "created_at")
-    list_filter = ("role", "organization")
+    list_display = ("organization", "user", "role", "can_view_spaces", "can_trigger_automation", "created_at")
+    list_filter = ("role", "organization", "can_view_spaces")
     search_fields = ("organization__name", "user__username", "user__email")
+    fieldsets = (
+        (None, {
+            "fields": ("organization", "user", "role", "is_active"),
+        }),
+        ("Permissions", {
+            "fields": (
+                "can_view_reports",
+                "can_view_net_profit",
+                "can_manage_referrals",
+                "can_trigger_automation",
+            ),
+        }),
+        ("Spaces Access", {
+            "description": "Grant access to the Spaces section and individual spaces below.",
+            "fields": (
+                "can_view_spaces",
+                "accessible_spaces",
+            ),
+        }),
+        ("Other", {
+            "fields": ("signature",),
+        }),
+    )
+    filter_horizontal = ("accessible_spaces",)
 
 
 @admin.register(ServiceRecord)
@@ -133,6 +159,63 @@ class SpaceAdmin(admin.ModelAdmin):
     list_display = ("label", "key", "organization", "created_at")
     list_filter = ("organization",)
     search_fields = ("label", "key", "organization__name")
+
+
+@admin.register(ServiceDocument)
+class ServiceDocumentAdmin(admin.ModelAdmin):
+    list_display = (
+        "document_type_display",
+        "linked_vehicle",
+        "linked_service_record",
+        "uploaded_at",
+        "file_download_link",
+    )
+    list_filter = ("document_type", "uploaded_at")
+    search_fields = (
+        "vehicle__vin",
+        "vehicle__plate_number",
+        "service_record__receipt_number",
+        "service_record__client_name",
+    )
+    readonly_fields = ("uploaded_at", "file_download_link")
+    ordering = ("-uploaded_at",)
+
+    def document_type_display(self, obj):
+        return obj.get_document_type_display()
+    document_type_display.short_description = "Document Type"
+    document_type_display.admin_order_field = "document_type"
+
+    def linked_vehicle(self, obj):
+        if obj.vehicle:
+            return format_html(
+                '<a href="/admin/core/vehicle/{}/change/">{} – {} {} {}</a>',
+                obj.vehicle.id,
+                obj.vehicle.vin or "—",
+                obj.vehicle.year or "",
+                obj.vehicle.make or "",
+                obj.vehicle.model or "",
+            )
+        return "—"
+    linked_vehicle.short_description = "Vehicle"
+
+    def linked_service_record(self, obj):
+        if obj.service_record:
+            return format_html(
+                '<a href="/admin/core/servicerecord/{}/change/">{}</a>',
+                obj.service_record.id,
+                obj.service_record.receipt_number or f"#{obj.service_record.id}",
+            )
+        return "—"
+    linked_service_record.short_description = "Service Record"
+
+    def file_download_link(self, obj):
+        if obj.file:
+            return format_html(
+                '<a href="{}" target="_blank" download>⬇ Download</a>',
+                obj.file.url,
+            )
+        return "No file"
+    file_download_link.short_description = "File"
 
 
 # ─────────────────────────────────────────────
@@ -254,4 +337,3 @@ def new_get_urls():
     return custom_urls + urls
 
 admin.site.get_urls = new_get_urls
-
