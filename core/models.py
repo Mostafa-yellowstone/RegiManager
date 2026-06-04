@@ -90,6 +90,7 @@ class OrganizationMembership(models.Model):
     signature = models.ImageField(upload_to="agent_signatures/", blank=True, null=True, help_text="Agent signature image to be displayed on receipts.")
     can_view_spaces = models.BooleanField(default=False, help_text="Can this agent view the main Spaces page?")
     can_deal_with_insurance = models.BooleanField(default=False, help_text="Can this agent deal with insurance and appear in the insurance workspace?")
+    can_delete_receipt = models.BooleanField(default=False, help_text="Can this agent delete/remove receipt records from the service list?")
     accessible_spaces = models.ManyToManyField("Space", blank=True, related_name="permitted_memberships", help_text="Specific spaces this agent has access to.")
     created_at = models.DateTimeField(auto_now_add=True)
 

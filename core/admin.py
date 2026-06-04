@@ -24,6 +24,7 @@ class MembershipInline(admin.TabularInline):
         'can_trigger_automation',
         'can_view_spaces',
         'can_deal_with_insurance',
+        'can_delete_receipt',
         'accessible_spaces',
         'signature',
     )
@@ -61,7 +62,7 @@ class OrganizationAdmin(admin.ModelAdmin):
 
 @admin.register(OrganizationMembership)
 class OrganizationMembershipAdmin(admin.ModelAdmin):
-    list_display = ("organization", "user", "role", "can_view_spaces", "can_deal_with_insurance", "can_trigger_automation", "created_at")
+    list_display = ("organization", "user", "role", "can_view_spaces", "can_deal_with_insurance", "can_delete_receipt", "can_trigger_automation", "created_at")
     list_filter = ("role", "organization", "can_view_spaces", "can_deal_with_insurance")
     search_fields = ("organization__name", "user__username", "user__email")
     fieldsets = (
@@ -75,6 +76,7 @@ class OrganizationMembershipAdmin(admin.ModelAdmin):
                 "can_manage_referrals",
                 "can_trigger_automation",
                 "can_deal_with_insurance",
+                "can_delete_receipt",
             ),
         }),
         ("Spaces Access", {

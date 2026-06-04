@@ -2798,6 +2798,11 @@ def service_list(request, service_type):
     filtered_query.pop("page", None)
     filtered_query.pop("export", None)
 
+    # Determine delete-receipt permission for the current user
+    can_delete_receipt = is_owner or memberships.filter(
+        can_delete_receipt=True
+    ).exists()
+
     return render(
         request,
         "core/service_list.html",
@@ -2833,6 +2838,8 @@ def service_list(request, service_type):
                 key=str.lower,
             ),
             "query_string_no_page": filtered_query.urlencode(),
+            "is_owner": is_owner,
+            "can_delete_receipt": can_delete_receipt,
         }
     )
 
@@ -6195,6 +6202,40 @@ def delete_document(request, doc_id):
     doc.delete()
     return JsonResponse({"status": "ok", "message": "Document deleted."})
 
+
+@login_required
+@require_POST
+def delete_service_record(request, service_id):
+    """Delete a ServiceRecord. Only owners or agents with can_delete_receipt=True can do this."""
+    record = get_object_or_404(ServiceRecord, id=service_id)
+
+    # Resolve the membership for this user in the record's org
+    membership = OrganizationMembership.objects.filter(
+        user=request.user,
+        organization=record.organization,
+        is_active=True,
+    ).first()
+
+    if not membership:
+        return JsonResponse({"status": "error", "message": "Access denied."}, status=403)
+
+    is_owner = membership.role == OrganizationMembership.Role.OWNER
+    can_delete = is_owner or membership.can_delete_receipt
+
+    if not can_delete:
+        return JsonResponse({"status": "error", "message": "You do not have permission to delete receipts."}, status=403)
+
+    receipt_number = record.receipt_number
+    record.delete()
+
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(
+        "Receipt %s (ID %s) deleted by %s",
+        receipt_number, service_id, request.user.username,
+    )
+
+    return JsonResponse({"status": "ok", "message": "Receipt deleted successfully."})
 
 
 @login_required

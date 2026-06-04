@@ -94,6 +94,7 @@ from core.views import (
     inventory_list,
     inventory_detail,
     delete_document,
+    delete_service_record,
 )
 
 
@@ -176,6 +177,7 @@ urlpatterns = [
     path("dashboard/vehicle/<int:vehicle_id>/upload/", upload_document_ajax_vehicle, name="upload-document-ajax-vehicle"),
     path("dashboard/vehicle/<int:vehicle_id>/docs/", get_documents_vehicle, name="get-documents-vehicle"),
     path("dashboard/docs/<int:doc_id>/delete/", delete_document, name="delete-document"),
+    path("dashboard/service/<int:service_id>/delete/", delete_service_record, name="delete-service-record"),
     path("dashboard/check-vin/", check_vin_ajax, name="check-vin"),
     path("dashboard/check-client-name/", check_client_name_ajax, name="check-client-name"),
     path("dashboard/service-search/", service_search_ajax, name="service-search-ajax"),
