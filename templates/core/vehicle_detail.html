@@ -159,7 +159,7 @@
                                 <td>${{ record.service_fee|floatformat:2 }}</td>
                                 <td>
                                     <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                        <a href="{% url 'service-receipt-pdf' record.id %}"
+                                        <a href="{% url 'service-receipt-pdf' record.id %}" target="_blank"
                                             class="btn btn-secondary btn-sm">Receipt</a>
                                         <a href="{% url 'edit-service' record.id %}" 
                                             style="color: #64748b; transition: color 0.2s;" title="Edit Transaction">

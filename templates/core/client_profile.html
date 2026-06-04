@@ -213,7 +213,7 @@
                                     </td>
                                     <td>{{ record.handled_by.get_full_name|default:record.handled_by.username }}</td>
                                     <td>
-                                            <a href="{% url 'service-receipt-pdf' record.id %}"
+                                            <a href="{% url 'service-receipt-pdf' record.id %}" target="_blank"
                                                 class="btn btn-sm btn-secondary"
                                                 style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" title="View Receipt">Receipt</a>
                                         </div>

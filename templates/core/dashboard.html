@@ -881,7 +881,7 @@ input:checked + .slider:before {
                                     <small>${{ record.service_fee }} ({{ record.get_status_display }})</small>
                                 </span>
                                 <div style="display: flex; gap: 4px;">
-                                    <a href="{% url 'service-receipt-pdf' record.id %}" class="btn btn-primary btn-sm" style="padding: 4px 8px; font-size: 0.7rem; font-weight: 800;">PDF</a>
+                                    <a href="{% url 'service-receipt-pdf' record.id %}" target="_blank" class="btn btn-primary btn-sm" style="padding: 4px 8px; font-size: 0.7rem; font-weight: 800;">PDF</a>
                                 </div>
                             </li>
                         {% endfor %}

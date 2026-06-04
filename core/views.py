@@ -1986,7 +1986,7 @@ def service_receipt_pdf(request, service_id):
 
     response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = (
-        f'attachment; filename="receipt-{service_record.receipt_number}.pdf"'
+        f'inline; filename="receipt-{service_record.receipt_number}.pdf"'
     )
 
     pdf = canvas.Canvas(response, pagesize=letter)

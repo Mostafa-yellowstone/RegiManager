@@ -182,7 +182,7 @@
                                     <td>
                                         <div class="action-col" style="display: flex; gap: 8px;">
                                             <button type="button" class="btn btn-sm btn-primary doc-upload-trigger" data-id="{{ record.id }}" data-receipt="{{ record.receipt_number }}">Docs</button>
-                                            <a href="{% url 'service-receipt-pdf' record.id %}" class="btn btn-sm btn-secondary">Receipt</a>
+                                            <a href="{% url 'service-receipt-pdf' record.id %}" target="_blank" class="btn btn-sm btn-secondary">Receipt</a>
                                         </div>
                                     </td>
                                 </tr>
