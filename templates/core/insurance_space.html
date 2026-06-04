@@ -87,6 +87,58 @@
 
     <!-- INSURANCE CRM TAB -->
     <div id="tab-insurance" class="tab-panel">
+      <!-- CRM COMPARISON SECTION -->
+      <div id="crmComparisonBlock" style="margin-bottom: 2rem;">
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); border-radius: 20px; padding: 1.75rem 2rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+            <div>
+              <div style="color: #93c5fd; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">📊 Performance Comparison</div>
+              <h3 style="color: white; font-weight: 800; font-size: 1.1rem; margin: 0;">{{ comp_period_label }}</h3>
+              <p style="color: #94a3b8; font-size: 0.82rem; margin: 0.2rem 0 0;">vs {{ prev_period_label }}</p>
+            </div>
+            <form method="GET" style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;" id="compForm">
+              <input type="hidden" name="tab" value="insurance">
+              <select name="comp_mode" onchange="document.getElementById('compForm').submit()" style="padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.12); color: white; font-weight: 700; font-size: 0.82rem; cursor: pointer; outline: none;">
+                <option value="monthly" {% if comp_mode == 'monthly' %}selected{% endif %}>Monthly</option>
+                <option value="quarterly" {% if comp_mode == 'quarterly' %}selected{% endif %}>Quarterly</option>
+                <option value="custom" {% if comp_mode == 'custom' %}selected{% endif %}>Custom Range</option>
+              </select>
+              {% if comp_mode == 'custom' %}
+              <input type="date" name="comp_from" value="{{ comp_custom_from }}" style="padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.12); color: white; font-size: 0.8rem;">
+              <span style="color: #94a3b8; font-size: 0.78rem;">to</span>
+              <input type="date" name="comp_to" value="{{ comp_custom_to }}" style="padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.12); color: white; font-size: 0.8rem;">
+              <button type="submit" style="padding: 6px 12px; border-radius: 8px; background: #093de6; border: none; color: white; font-weight: 700; font-size: 0.82rem; cursor: pointer;">Apply</button>
+              {% else %}
+              <input type="hidden" name="comp_month_offset" value="{{ comp_month_offset }}">
+              <a href="?comp_mode={{ comp_mode }}&comp_month_offset={{ comp_month_offset|add:"-1" }}" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; font-weight: 700; font-size: 0.9rem; text-decoration: none;">‹</a>
+              <a href="?comp_mode={{ comp_mode }}&comp_month_offset={{ comp_month_offset|add:"1" }}" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; font-weight: 700; font-size: 0.9rem; text-decoration: none;">›</a>
+              {% endif %}
+            </form>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
+            <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.1);">
+              <div style="color: #93c5fd; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Quotes</div>
+              <div style="font-size: 2rem; font-weight: 900; color: white;">{{ comp_current.quotes }}</div>
+              <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">Prev: {{ comp_previous.quotes }}</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.1);">
+              <div style="color: #6ee7b7; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Bound</div>
+              <div style="font-size: 2rem; font-weight: 900; color: white;">{{ comp_current.bound }}</div>
+              <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">Prev: {{ comp_previous.bound }}</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.1);">
+              <div style="color: #fde68a; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Conversion</div>
+              <div style="font-size: 2rem; font-weight: 900; color: white;">{{ comp_current.conversion }}%</div>
+              <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">Prev: {{ comp_previous.conversion }}%</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.1);">
+              <div style="color: #c4b5fd; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Premium</div>
+              <div style="font-size: 1.5rem; font-weight: 900; color: white;">${{ comp_current.premium|floatformat:2 }}</div>
+              <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">Prev: ${{ comp_previous.premium|floatformat:2 }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
         <div class="spaces-metric">
           <div style="color: #64748b; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.3rem;">Active Policies</div>
@@ -108,6 +160,7 @@
       <!-- Search & Filters -->
       <div style="background: #f8fafc; border-radius: 16px; padding: 1.25rem; border: 1px solid #e2e8f0; margin-bottom: 1.5rem;">
         <form method="GET" style="display: flex; flex-direction: column; gap: 0.8rem;">
+          <input type="hidden" name="tab" value="insurance">
           <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
             <div style="flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 0.3rem;">
               <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Search Policies</label>
@@ -276,68 +329,15 @@
             {% if crm_policies_page.number == i %}
               <span style="padding: 5px 11px; border-radius: 6px; background: #093de6; color: white; font-weight: 700; font-size: 0.8rem;">{{ i }}</span>
             {% elif i > crm_policies_page.number|add:"-3" and i < crm_policies_page.number|add:"3" %}
-              <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">{{ i }}</a>
+              <a href="?page={{ i }}&tab=insurance{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">{{ i }}</a>
             {% endif %}
           {% endfor %}
           {% if crm_policies_page.has_next %}
-          <a href="?page={{ crm_policies_page.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">Next →</a>
+          <a href="?page={{ crm_policies_page.next_page_number }}&tab=insurance{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">Next →</a>
           {% endif %}
         </div>
       </div>
       {% endif %}
-
-    <!-- CRM COMPARISON SECTION -->
-    <div id="crmComparisonBlock" style="margin-top: 1.5rem;">
-      <div style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); border-radius: 20px; padding: 1.75rem 2rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
-          <div>
-            <div style="color: #93c5fd; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">📊 Performance Comparison</div>
-            <h3 style="color: white; font-weight: 800; font-size: 1.1rem; margin: 0;">{{ comp_period_label }}</h3>
-            <p style="color: #94a3b8; font-size: 0.82rem; margin: 0.2rem 0 0;">vs {{ prev_period_label }}</p>
-          </div>
-          <form method="GET" style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;" id="compForm">
-            <input type="hidden" name="tab" value="insurance">
-            <select name="comp_mode" onchange="document.getElementById('compForm').submit()" style="padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.12); color: white; font-weight: 700; font-size: 0.82rem; cursor: pointer; outline: none;">
-              <option value="monthly" {% if comp_mode == 'monthly' %}selected{% endif %}>Monthly</option>
-              <option value="quarterly" {% if comp_mode == 'quarterly' %}selected{% endif %}>Quarterly</option>
-              <option value="custom" {% if comp_mode == 'custom' %}selected{% endif %}>Custom Range</option>
-            </select>
-            {% if comp_mode == 'custom' %}
-            <input type="date" name="comp_from" value="{{ comp_custom_from }}" style="padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.12); color: white; font-size: 0.8rem;">
-            <span style="color: #94a3b8; font-size: 0.78rem;">to</span>
-            <input type="date" name="comp_to" value="{{ comp_custom_to }}" style="padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.12); color: white; font-size: 0.8rem;">
-            <button type="submit" style="padding: 6px 12px; border-radius: 8px; background: #093de6; border: none; color: white; font-weight: 700; font-size: 0.82rem; cursor: pointer;">Apply</button>
-            {% else %}
-            <input type="hidden" name="comp_month_offset" value="{{ comp_month_offset }}">
-            <a href="?comp_mode={{ comp_mode }}&comp_month_offset={{ comp_month_offset|add:"-1" }}" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; font-weight: 700; font-size: 0.9rem; text-decoration: none;">‹</a>
-            <a href="?comp_mode={{ comp_mode }}&comp_month_offset={{ comp_month_offset|add:"1" }}" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; font-weight: 700; font-size: 0.9rem; text-decoration: none;">›</a>
-            {% endif %}
-          </form>
-        </div>
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
-          <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.1);">
-            <div style="color: #93c5fd; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Quotes</div>
-            <div style="font-size: 2rem; font-weight: 900; color: white;">{{ comp_current.quotes }}</div>
-            <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">Prev: {{ comp_previous.quotes }}</div>
-          </div>
-          <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.1);">
-            <div style="color: #6ee7b7; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Bound</div>
-            <div style="font-size: 2rem; font-weight: 900; color: white;">{{ comp_current.bound }}</div>
-            <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">Prev: {{ comp_previous.bound }}</div>
-          </div>
-          <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.1);">
-            <div style="color: #fde68a; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Conversion</div>
-            <div style="font-size: 2rem; font-weight: 900; color: white;">{{ comp_current.conversion }}%</div>
-            <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">Prev: {{ comp_previous.conversion }}%</div>
-          </div>
-          <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.1);">
-            <div style="color: #c4b5fd; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Premium</div>
-            <div style="font-size: 1.5rem; font-weight: 900; color: white;">${{ comp_current.premium|floatformat:2 }}</div>
-            <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">Prev: ${{ comp_previous.premium|floatformat:2 }}</div>
-          </div>
-        </div>
-      </div>
-    </div><!-- end crmComparisonBlock -->
     </div><!-- end tab-insurance -->
 
     <!-- COMPANIES TAB -->
@@ -1015,16 +1015,47 @@ function renderAgentCharts() {
 }
 
 function switchTab(name) {
+  localStorage.setItem('active_insurance_tab', name);
   tabs.forEach(t => {
-    document.getElementById('tab-'+t).style.display = (t===name) ? 'block' : 'none';
+    const el = document.getElementById('tab-'+t);
+    if (el) el.style.display = (t===name) ? 'block' : 'none';
     const btn = document.getElementById('tab-'+t+'-btn');
-    if (t===name) { btn.style.color='#093de6'; btn.style.borderBottomColor='#093de6'; }
-    else { btn.style.color='#64748b'; btn.style.borderBottomColor='transparent'; }
+    if (btn) {
+      if (t===name) { btn.style.color='#093de6'; btn.style.borderBottomColor='#093de6'; }
+      else { btn.style.color='#64748b'; btn.style.borderBottomColor='transparent'; }
+    }
   });
   if (name === 'agents') {
     setTimeout(renderAgentCharts, 50);
   }
 }
+
+// Preserve active tab and scroll position on DOM load
+window.addEventListener('DOMContentLoaded', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  let activeTab = urlParams.get('tab');
+  if (!activeTab) {
+    activeTab = localStorage.getItem('active_insurance_tab') || 'insurance';
+  }
+  switchTab(activeTab);
+
+  // Restore scroll position after a minimal timeout
+  const scrollPos = localStorage.getItem('insurance_scroll_pos');
+  if (scrollPos) {
+    setTimeout(() => {
+      window.scrollTo({
+        top: parseInt(scrollPos, 10),
+        behavior: 'instant'
+      });
+      localStorage.removeItem('insurance_scroll_pos');
+    }, 100);
+  }
+});
+
+// Capture scroll position before reload/unload
+window.addEventListener('beforeunload', () => {
+  localStorage.setItem('insurance_scroll_pos', window.scrollY);
+});
 
 function toggleInactiveDate() {
   const s = document.getElementById('policyStatus').value;
