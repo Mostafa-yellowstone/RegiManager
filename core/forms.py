@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
@@ -468,6 +469,18 @@ class VehicleServiceForm(forms.ModelForm):
         # self.fields["referral_balance"].widget.attrs["readonly"] = True
         for field_name, field in self.fields.items():
             field.widget.attrs["class"] = "form-control"
+
+    def clean_paid_amount(self):
+        val = self.cleaned_data.get("paid_amount")
+        if val is None:
+            return Decimal("0")
+        return val
+
+    def clean_paid_amount_2(self):
+        val = self.cleaned_data.get("paid_amount_2")
+        if val is None:
+            return Decimal("0")
+        return val
 class ClientIntakeForm(forms.ModelForm):
     class Meta:
         model = ClientIntake

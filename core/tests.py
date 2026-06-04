@@ -435,5 +435,88 @@ class AgentAuditingTests(TestCase):
         self.assertEqual(response_pdf.status_code, 200)
 
 
+class SplitPaymentTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="testuser", password="password123")
+        self.org = Organization.objects.create(name="Test Org", city="NYC")
+        OrganizationMembership.objects.create(user=self.user, organization=self.org, is_active=True, role="owner")
+        
+        self.client_obj = Client.objects.create(
+            organization=self.org,
+            first_name="John",
+            last_name="Doe",
+            source="walk-in"
+        )
+        self.vehicle = Vehicle.objects.create(
+            client=self.client_obj,
+            vin="VIN1234567890ABCD",
+            vehicle_number="VEH-001"
+        )
+        self.client = TestClient()
+        self.client.login(username="testuser", password="password123")
 
+    def test_start_process_empty_paid_amount_2_coerced_to_zero(self):
+        post_data = {
+            "transaction_date": "2026-06-04",
+            "service_type": "vehicle_registration",
+            "status": "pending",
+            "payment_method": "cash",
+            "payment_method_2": "",
+            "paid_amount_2": "",
+            "terminal_number": "123",
+            "transaction_type": "OLRS",
+            "processing_fee": "100.00",
+            "dmv_fee": "50.00",
+            "sales_tax": "10.00",
+            "dmv_sales_tax": "5.00",
+            "credit_card_fee": "0.00",
+            "other_fees": "0.00",
+            "other_dmv_fee": "0.00",
+            "paid_amount": "165.00",
+            "referral_balance": "0.00",
+            "notes": "Testing blank paid_amount_2"
+        }
+        response = self.client.post(reverse("start-process", args=[self.vehicle.id]), post_data)
+        self.assertEqual(response.status_code, 302)
+        
+        record = ServiceRecord.objects.filter(vehicle=self.vehicle).first()
+        self.assertIsNotNone(record)
+        self.assertEqual(record.paid_amount_2, Decimal("0.00"))
 
+    def test_edit_service_empty_paid_amount_2_coerced_to_zero(self):
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            payment_method="cash",
+            paid_amount=Decimal("100.00"),
+            paid_amount_2=Decimal("50.00"),
+            payment_method_2="cash"
+        )
+        post_data = {
+            "transaction_date": "2026-06-04",
+            "service_type": "vehicle_registration",
+            "status": "pending",
+            "payment_method": "cash",
+            "payment_method_2": "",
+            "paid_amount_2": "",
+            "terminal_number": "123",
+            "transaction_type": "OLRS",
+            "processing_fee": "100.00",
+            "dmv_fee": "50.00",
+            "sales_tax": "10.00",
+            "dmv_sales_tax": "5.00",
+            "credit_card_fee": "0.00",
+            "other_fees": "0.00",
+            "other_dmv_fee": "0.00",
+            "paid_amount": "165.00",
+            "referral_balance": "0.00",
+            "notes": "Testing blank paid_amount_2 in edit"
+        }
+        response = self.client.post(reverse("edit-service", args=[record.id]), post_data)
+        self.assertEqual(response.status_code, 302)
+        
+        record.refresh_from_db()
+        self.assertEqual(record.paid_amount_2, Decimal("0.00"))
+        self.assertIsNone(record.payment_method_2)
