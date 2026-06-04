@@ -113,6 +113,10 @@ from core.views import (
     add_bank_transaction,
     delete_bank_transaction,
     export_insurance_report_pdf,
+    insurance_company_detail,
+    insurance_company_upload_document,
+    insurance_company_delete_document,
+    insurance_agent_detail,
 )
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from core.api import ClientViewSet, VehicleViewSet, ServiceRecordViewSet
@@ -228,6 +232,10 @@ urlpatterns = [
     path("dashboard/spaces/banking/transaction/add/", add_bank_transaction, name="add-bank-transaction"),
     path("dashboard/spaces/banking/transaction/<int:transaction_id>/delete/", delete_bank_transaction, name="delete-bank-transaction"),
     path("dashboard/spaces/insurance/report/pdf/", export_insurance_report_pdf, name="export-insurance-report-pdf"),
+    path("dashboard/spaces/insurance/company/<int:company_id>/", insurance_company_detail, name="insurance-company-detail"),
+    path("dashboard/spaces/insurance/company/<int:company_id>/upload/", insurance_company_upload_document, name="insurance-company-upload-doc"),
+    path("dashboard/spaces/insurance/company/doc/<int:doc_id>/delete/", insurance_company_delete_document, name="insurance-company-delete-doc"),
+    path("dashboard/spaces/insurance/agent/<int:user_id>/", insurance_agent_detail, name="insurance-agent-detail"),
 ]
 
 

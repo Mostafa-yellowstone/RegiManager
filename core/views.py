@@ -5426,7 +5426,7 @@ def inventory_detail(request, inventory_id):
         clients = Client.objects.filter(organization=active_org)
         insurance_companies = InsuranceCompany.objects.filter(organization=active_org)
         bank_accounts = BankAccount.objects.filter(organization=active_org)
-        bank_transactions = BankTransaction.objects.filter(bank_account__organization=active_org).select_related("bank_account")
+        all_bank_transactions = BankTransaction.objects.filter(bank_account__organization=active_org).select_related("bank_account", "insurance_company")
         
         # Get query parameters for filtering
         search_query = request.GET.get("q", "").strip()
@@ -5477,12 +5477,130 @@ def inventory_detail(request, inventory_id):
             except Exception:
                 pass
 
+        # ── Banking advanced filters ──────────────────────────────────────────
+        bank_search = request.GET.get("bq", "").strip()
+        bank_account_filter = request.GET.get("bank_account", "").strip()
+        bank_type_filter = request.GET.get("bank_type", "").strip()
+        bank_category_filter = request.GET.get("bank_category", "").strip()
+        bank_company_filter = request.GET.get("bank_company", "").strip()
+        bank_date_from = request.GET.get("bank_date_from", "").strip()
+        bank_date_to = request.GET.get("bank_date_to", "").strip()
+        bank_min_amount = request.GET.get("bank_min_amount", "").strip()
+        bank_max_amount = request.GET.get("bank_max_amount", "").strip()
+
+        bank_transactions = all_bank_transactions
+        if bank_search:
+            from django.db.models import Q
+            bank_transactions = bank_transactions.filter(
+                Q(category__icontains=bank_search) |
+                Q(description__icontains=bank_search) |
+                Q(bank_account__account_name__icontains=bank_search)
+            )
+        if bank_account_filter:
+            bank_transactions = bank_transactions.filter(bank_account_id=bank_account_filter)
+        if bank_type_filter:
+            bank_transactions = bank_transactions.filter(transaction_type=bank_type_filter)
+        if bank_category_filter:
+            bank_transactions = bank_transactions.filter(category__icontains=bank_category_filter)
+        if bank_company_filter:
+            bank_transactions = bank_transactions.filter(insurance_company_id=bank_company_filter)
+        if bank_date_from:
+            bank_transactions = bank_transactions.filter(date__gte=bank_date_from)
+        if bank_date_to:
+            bank_transactions = bank_transactions.filter(date__lte=bank_date_to)
+        if bank_min_amount:
+            try:
+                bank_transactions = bank_transactions.filter(amount__gte=Decimal(bank_min_amount))
+            except Exception:
+                pass
+        if bank_max_amount:
+            try:
+                bank_transactions = bank_transactions.filter(amount__lte=Decimal(bank_max_amount))
+            except Exception:
+                pass
+
         # Global metrics calculations (unfiltered total stats)
         active_policies = all_policies.filter(stage="bound", status="active")
         inactive_policies = all_policies.filter(stage="bound", status="inactive")
         
         total_premium = sum(p.premium for p in active_policies)
         total_commission = sum(p.commission_amount for p in active_policies)
+
+        # ── CRM Comparison Stats ──────────────────────────────────────────────
+        import json as _json
+        from datetime import date as _date, datetime as _datetime
+        _today = _date.today()
+
+        # Comparison mode: monthly (default), quarterly, custom
+        comp_mode = request.GET.get("comp_mode", "monthly").strip()
+        comp_month_offset = 0
+        try:
+            comp_month_offset = int(request.GET.get("comp_month_offset", "0"))
+        except Exception:
+            pass
+        comp_custom_from = request.GET.get("comp_from", "").strip()
+        comp_custom_to = request.GET.get("comp_to", "").strip()
+
+        def _period_bounds(mode, month_offset, custom_from="", custom_to=""):
+            if mode == "custom" and custom_from and custom_to:
+                try:
+                    return _datetime.strptime(custom_from, "%Y-%m-%d").date(), _datetime.strptime(custom_to, "%Y-%m-%d").date()
+                except Exception:
+                    pass
+            # Compute target month
+            import calendar
+            yr, mo = _today.year, _today.month
+            total_months = yr * 12 + (mo - 1) + month_offset
+            yr = total_months // 12
+            mo = (total_months % 12) + 1
+            if mode == "quarterly":
+                q_start_mo = ((mo - 1) // 3) * 3 + 1
+                start = _date(yr, q_start_mo, 1)
+                end_mo = q_start_mo + 2
+                end_yr = yr
+                if end_mo > 12:
+                    end_mo -= 12
+                    end_yr += 1
+                import calendar
+                end = _date(end_yr, end_mo, calendar.monthrange(end_yr, end_mo)[1])
+            else:  # monthly
+                import calendar
+                start = _date(yr, mo, 1)
+                end = _date(yr, mo, calendar.monthrange(yr, mo)[1])
+            return start, end
+
+        def _prev_period_bounds(mode, month_offset, custom_from="", custom_to=""):
+            if mode == "quarterly":
+                return _period_bounds(mode, month_offset - 3)
+            elif mode == "custom":
+                # Shift by same duration
+                try:
+                    s = _datetime.strptime(custom_from, "%Y-%m-%d").date()
+                    e = _datetime.strptime(custom_to, "%Y-%m-%d").date()
+                    duration = (e - s).days
+                    from datetime import timedelta
+                    return s - _datetime.timedelta(days=duration + 1), s - _datetime.timedelta(days=1)
+                except Exception:
+                    return _period_bounds("monthly", month_offset - 1)
+            else:
+                return _period_bounds("monthly", month_offset - 1)
+
+        comp_start, comp_end = _period_bounds(comp_mode, comp_month_offset, comp_custom_from, comp_custom_to)
+        prev_start, prev_end = _prev_period_bounds(comp_mode, comp_month_offset, comp_custom_from, comp_custom_to)
+
+        def _period_stats(qs, start, end):
+            period_qs = qs.filter(created_at__date__gte=start, created_at__date__lte=end)
+            quotes = period_qs.filter(stage="quote").count()
+            bound = period_qs.filter(stage="bound").count()
+            total = quotes + bound
+            conversion = (bound / total * 100) if total > 0 else 0
+            premium = sum(p.premium for p in period_qs.filter(stage="bound", status="active"))
+            return {"quotes": quotes, "bound": bound, "conversion": round(conversion, 1), "premium": float(premium)}
+
+        comp_current = _period_stats(all_policies, comp_start, comp_end)
+        comp_previous = _period_stats(all_policies, prev_start, prev_end)
+        comp_period_label = f"{comp_start.strftime('%b %d')} – {comp_end.strftime('%b %d, %Y')}"
+        prev_period_label = f"{prev_start.strftime('%b %d')} – {prev_end.strftime('%b %d, %Y')}"
         
         def get_user_colors(username):
             # Deterministic pastel color for colorful customization
@@ -5553,6 +5671,22 @@ def inventory_detail(request, inventory_id):
             adjusted_unearned_map.get(p.id, p.unearned_commission)
             for p in inactive_policies_list
         )
+
+        # Paginate policies list
+        crm_page_num = request.GET.get("page", 1)
+        crm_paginator = Paginator(policies_list, 20)
+        try:
+            crm_policies_page = crm_paginator.page(crm_page_num)
+        except Exception:
+            crm_policies_page = crm_paginator.page(1)
+
+        # Paginate bank transactions
+        bank_page_num = request.GET.get("bank_page", 1)
+        bank_paginator = Paginator(list(bank_transactions), 20)
+        try:
+            bank_transactions_page = bank_paginator.page(bank_page_num)
+        except Exception:
+            bank_transactions_page = bank_paginator.page(1)
             
         # Agent Auditing Logic
         insurance_memberships = OrganizationMembership.objects.filter(
@@ -5583,6 +5717,7 @@ def inventory_detail(request, inventory_id):
             
             stats = {
                 "agent": agent,
+                "user_id": agent.id,
                 "fullname": agent.get_full_name() or agent.username,
                 "quotes_count": q_count,
                 "policies_bound": p_bound,
@@ -5652,9 +5787,11 @@ def inventory_detail(request, inventory_id):
             "clients": clients,
             "insurance_companies": insurance_companies,
             "company_summaries": company_summaries,
-            "policies": policies_list,
+            "policies": crm_policies_page,
+            "crm_policies_page": crm_policies_page,
             "bank_accounts": bank_accounts,
-            "bank_transactions": bank_transactions,
+            "bank_transactions": bank_transactions_page,
+            "bank_transactions_page": bank_transactions_page,
             "total_premium": total_premium,
             "total_commission": total_commission,
             "total_unearned_commission": total_unearned_commission,
@@ -5672,6 +5809,27 @@ def inventory_detail(request, inventory_id):
             "total_quotes_count": total_quotes,
             "total_policies_bound": total_bound,
             "total_agent_profits": total_agent_profits,
+            
+            # CRM comparison
+            "comp_mode": comp_mode,
+            "comp_month_offset": comp_month_offset,
+            "comp_custom_from": comp_custom_from,
+            "comp_custom_to": comp_custom_to,
+            "comp_current": comp_current,
+            "comp_previous": comp_previous,
+            "comp_period_label": comp_period_label,
+            "prev_period_label": prev_period_label,
+
+            # Banking filters persistence
+            "bank_search": bank_search,
+            "bank_account_filter": bank_account_filter,
+            "bank_type_filter": bank_type_filter,
+            "bank_category_filter": bank_category_filter,
+            "bank_company_filter": bank_company_filter,
+            "bank_date_from": bank_date_from,
+            "bank_date_to": bank_date_to,
+            "bank_min_amount": bank_min_amount,
+            "bank_max_amount": bank_max_amount,
             
             # Query filters to persist in form fields
             "search_query": search_query,
@@ -6331,4 +6489,337 @@ def export_insurance_report_pdf(request):
         pdf.drawString(current_x, y, status_label)
         
     pdf.save()
-    return response
+    return response
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INSURANCE COMPANY DETAIL PAGE
+# ─────────────────────────────────────────────────────────────────────────────
+
+@login_required
+def insurance_company_detail(request, company_id):
+    from .models import InsuranceCompany, InsurancePolicy, InsuranceCompanyDocument, BankTransaction
+    organizations = _get_user_organizations(request)
+    company = get_object_or_404(InsuranceCompany, id=company_id, organization__in=organizations)
+    active_org = company.organization
+
+    # Permission check
+    if not request.user.is_superuser:
+        membership = OrganizationMembership.objects.filter(
+            user=request.user, organization=active_org, is_active=True
+        ).first()
+        if not membership:
+            return HttpResponseForbidden("Access denied.")
+
+    # Lock check
+    is_locked = active_org.insurance_space_locked and active_org.insurance_space_password
+    unlocked_session_key = f"insurance_unlocked_{active_org.id}"
+    is_unlocked = request.session.get(unlocked_session_key, False)
+    if is_locked and not is_unlocked:
+        return redirect("inventory-detail", inventory_id=_get_insurance_space_id(active_org))
+
+    # Policy filters
+    search_query = request.GET.get("q", "").strip()
+    stage_filter = request.GET.get("stage", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+    type_filter = request.GET.get("insurance_type", "").strip()
+    agent_filter = request.GET.get("agent", "").strip()
+    date_from = request.GET.get("date_from", "").strip()
+    date_to = request.GET.get("date_to", "").strip()
+    min_premium = request.GET.get("min_premium", "").strip()
+    max_premium = request.GET.get("max_premium", "").strip()
+
+    policies = InsurancePolicy.objects.filter(
+        organization=active_org, insurance_company=company
+    ).select_related("client", "added_by")
+
+    if search_query:
+        from django.db.models import Q
+        policies = policies.filter(
+            Q(policy_number__icontains=search_query) |
+            Q(client__first_name__icontains=search_query) |
+            Q(client__last_name__icontains=search_query)
+        )
+    if stage_filter:
+        policies = policies.filter(stage=stage_filter)
+    if status_filter:
+        policies = policies.filter(status=status_filter)
+    if type_filter:
+        policies = policies.filter(insurance_type=type_filter)
+    if agent_filter:
+        policies = policies.filter(added_by_id=agent_filter)
+    if date_from:
+        policies = policies.filter(start_date__gte=date_from)
+    if date_to:
+        policies = policies.filter(start_date__lte=date_to)
+    if min_premium:
+        try:
+            policies = policies.filter(premium__gte=Decimal(min_premium))
+        except Exception:
+            pass
+    if max_premium:
+        try:
+            policies = policies.filter(premium__lte=Decimal(max_premium))
+        except Exception:
+            pass
+
+    # Pagination for policies
+    policy_page_num = request.GET.get("page", 1)
+    policy_paginator = Paginator(policies, 15)
+    try:
+        policies_page = policy_paginator.page(policy_page_num)
+    except Exception:
+        policies_page = policy_paginator.page(1)
+
+    # Metrics
+    all_policies = InsurancePolicy.objects.filter(organization=active_org, insurance_company=company)
+    active_count = all_policies.filter(stage="bound", status="active").count()
+    quote_count = all_policies.filter(stage="quote").count()
+    bound_count = all_policies.filter(stage="bound").count()
+    inactive_count = all_policies.filter(stage="bound", status="inactive").count()
+    pending_count = all_policies.filter(status="pending").count()
+    rejected_count = all_policies.filter(status="rejected").count()
+    total_premium = sum(p.premium for p in all_policies.filter(stage="bound", status="active"))
+    total_commission = sum(p.commission_amount for p in all_policies.filter(stage="bound", status="active"))
+    total_unearned = sum(p.unearned_commission for p in all_policies.filter(stage="bound", status="inactive"))
+
+    # Documents
+    documents = InsuranceCompanyDocument.objects.filter(insurance_company=company)
+
+    # Bank transactions for this company
+    company_transactions = BankTransaction.objects.filter(
+        insurance_company=company
+    ).select_related("bank_account").order_by("-date", "-created_at")
+
+    # Bank accounts for deposit modal
+    from .models import BankAccount
+    bank_accounts = BankAccount.objects.filter(organization=active_org)
+
+    import json
+    income_categories = json.dumps(["Insurance Premium Receipt", "Commission Payment", "Interest", "Other Income"])
+    expense_categories = json.dumps(["Rent", "Utilities", "Payroll", "Office Supplies", "Marketing", "Other Expense"])
+
+    # Insurance agents for agent filter
+    insurance_agents = OrganizationMembership.objects.filter(
+        organization=active_org,
+        can_deal_with_insurance=True,
+        is_active=True,
+        user__is_active=True
+    ).select_related("user")
+
+    return render(request, "core/insurance_company_detail.html", {
+        "company": company,
+        "active_org": active_org,
+        "policies_page": policies_page,
+        "documents": documents,
+        "company_transactions": company_transactions,
+        "bank_accounts": bank_accounts,
+        "active_count": active_count,
+        "quote_count": quote_count,
+        "bound_count": bound_count,
+        "inactive_count": inactive_count,
+        "pending_count": pending_count,
+        "rejected_count": rejected_count,
+        "total_premium": total_premium,
+        "total_commission": total_commission,
+        "total_unearned": total_unearned,
+        "insurance_agents": insurance_agents,
+        "income_categories": income_categories,
+        "expense_categories": expense_categories,
+        # Filter persistence
+        "search_query": search_query,
+        "stage_filter": stage_filter,
+        "status_filter": status_filter,
+        "type_filter": type_filter,
+        "agent_filter": agent_filter,
+        "date_from": date_from,
+        "date_to": date_to,
+        "min_premium": min_premium,
+        "max_premium": max_premium,
+    })
+
+
+def _get_insurance_space_id(org):
+    from .models import Space
+    space = Space.objects.filter(organization=org, key="insurance").first()
+    return space.id if space else 0
+
+
+@login_required
+@require_POST
+def insurance_company_upload_document(request, company_id):
+    from .models import InsuranceCompany, InsuranceCompanyDocument
+    organizations = _get_user_organizations(request)
+    company = get_object_or_404(InsuranceCompany, id=company_id, organization__in=organizations)
+
+    title = request.POST.get("title", "").strip()
+    document_date = request.POST.get("document_date", "") or None
+    uploaded_file = request.FILES.get("document")
+
+    if not uploaded_file:
+        messages.error(request, "Please select a file to upload.")
+        return redirect("insurance-company-detail", company_id=company.id)
+
+    try:
+        InsuranceCompanyDocument.objects.create(
+            insurance_company=company,
+            title=title,
+            document=uploaded_file,
+            document_date=document_date or None,
+        )
+        messages.success(request, "Document uploaded successfully.")
+    except Exception as e:
+        messages.error(request, f"Upload error: {e}")
+
+    return redirect("insurance-company-detail", company_id=company.id)
+
+
+@login_required
+def insurance_company_delete_document(request, doc_id):
+    from .models import InsuranceCompanyDocument
+    organizations = _get_user_organizations(request)
+    doc = get_object_or_404(InsuranceCompanyDocument, id=doc_id, insurance_company__organization__in=organizations)
+    company_id = doc.insurance_company_id
+    try:
+        import os
+        if doc.document and os.path.isfile(doc.document.path):
+            os.remove(doc.document.path)
+    except Exception:
+        pass
+    doc.delete()
+    messages.success(request, "Document deleted.")
+    return redirect("insurance-company-detail", company_id=company_id)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INSURANCE AGENT DETAIL PAGE
+# ─────────────────────────────────────────────────────────────────────────────
+
+@login_required
+def insurance_agent_detail(request, user_id):
+    from django.contrib.auth import get_user_model
+    from .models import InsurancePolicy, InsuranceCompany
+    User = get_user_model()
+    organizations = _get_user_organizations(request)
+
+    agent = get_object_or_404(User, id=user_id, is_active=True)
+
+    # Determine active org from session
+    active_org_id = request.session.get("active_org_id")
+    active_org = None
+    if active_org_id:
+        active_org = organizations.filter(id=active_org_id).first()
+    if not active_org:
+        active_org = organizations.filter(
+            organizationmembership__user=agent,
+            organizationmembership__is_active=True
+        ).first()
+    if not active_org:
+        return HttpResponseForbidden("No organization context found.")
+
+    # Permission check
+    if not request.user.is_superuser:
+        membership = OrganizationMembership.objects.filter(
+            user=request.user, organization=active_org, is_active=True
+        ).first()
+        if not membership:
+            return HttpResponseForbidden("Access denied.")
+
+    # Lock check
+    is_locked = active_org.insurance_space_locked and active_org.insurance_space_password
+    unlocked_session_key = f"insurance_unlocked_{active_org.id}"
+    is_unlocked = request.session.get(unlocked_session_key, False)
+    if is_locked and not is_unlocked:
+        return redirect("inventory-detail", inventory_id=_get_insurance_space_id(active_org))
+
+    # All agent policies
+    all_agent_policies = InsurancePolicy.objects.filter(
+        organization=active_org, added_by=agent
+    ).select_related("client", "insurance_company")
+
+    # Filters
+    search_query = request.GET.get("q", "").strip()
+    stage_filter = request.GET.get("stage", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+    type_filter = request.GET.get("insurance_type", "").strip()
+    company_filter = request.GET.get("insurance_company", "").strip()
+    date_from = request.GET.get("date_from", "").strip()
+    date_to = request.GET.get("date_to", "").strip()
+
+    policies = all_agent_policies
+    if search_query:
+        from django.db.models import Q
+        policies = policies.filter(
+            Q(policy_number__icontains=search_query) |
+            Q(client__first_name__icontains=search_query) |
+            Q(client__last_name__icontains=search_query)
+        )
+    if stage_filter:
+        policies = policies.filter(stage=stage_filter)
+    if status_filter:
+        policies = policies.filter(status=status_filter)
+    if type_filter:
+        policies = policies.filter(insurance_type=type_filter)
+    if company_filter:
+        policies = policies.filter(insurance_company_id=company_filter)
+    if date_from:
+        policies = policies.filter(start_date__gte=date_from)
+    if date_to:
+        policies = policies.filter(start_date__lte=date_to)
+
+    # Pagination
+    page_num = request.GET.get("page", 1)
+    paginator = Paginator(policies, 15)
+    try:
+        policies_page = paginator.page(page_num)
+    except Exception:
+        policies_page = paginator.page(1)
+
+    # Metrics
+    bound_policies = all_agent_policies.filter(stage="bound")
+    active_policies = all_agent_policies.filter(stage="bound", status="active")
+    inactive_policies = all_agent_policies.filter(stage="bound", status="inactive")
+    pending_policies = all_agent_policies.filter(status="pending")
+    rejected_policies = all_agent_policies.filter(status="rejected")
+
+    quote_count = all_agent_policies.filter(stage="quote").count()
+    bound_count = bound_policies.count()
+    active_count = active_policies.count()
+    inactive_count = inactive_policies.count()
+    pending_count = pending_policies.count()
+    rejected_count = rejected_policies.count()
+
+    total_premium = sum(p.premium for p in active_policies)
+    total_commission = sum(p.commission_amount for p in bound_policies)
+    total_broker_fees = sum(p.broker_fee for p in bound_policies)
+    total_profit = total_commission + total_broker_fees
+
+    conversion_rate = (bound_count / (quote_count + bound_count) * 100) if (quote_count + bound_count) > 0 else 0
+
+    insurance_companies = InsuranceCompany.objects.filter(organization=active_org)
+
+    return render(request, "core/insurance_agent_detail.html", {
+        "agent": agent,
+        "active_org": active_org,
+        "policies_page": policies_page,
+        "insurance_companies": insurance_companies,
+        "quote_count": quote_count,
+        "bound_count": bound_count,
+        "active_count": active_count,
+        "inactive_count": inactive_count,
+        "pending_count": pending_count,
+        "rejected_count": rejected_count,
+        "total_premium": total_premium,
+        "total_commission": total_commission,
+        "total_broker_fees": total_broker_fees,
+        "total_profit": total_profit,
+        "conversion_rate": conversion_rate,
+        # Filter persistence
+        "search_query": search_query,
+        "stage_filter": stage_filter,
+        "status_filter": status_filter,
+        "type_filter": type_filter,
+        "company_filter": company_filter,
+        "date_from": date_from,
+        "date_to": date_to,
+    })

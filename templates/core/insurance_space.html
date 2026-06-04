@@ -135,6 +135,8 @@
                   <option value="">All Statuses</option>
                   <option value="active" {% if status_filter == "active" %}selected{% endif %}>Active</option>
                   <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>Inactive</option>
+                  <option value="pending" {% if status_filter == "pending" %}selected{% endif %}>Pending</option>
+                  <option value="rejected" {% if status_filter == "rejected" %}selected{% endif %}>Rejected</option>
                 </select>
               </div>
               <div style="display: flex; flex-direction: column; gap: 0.3rem;">
@@ -262,7 +264,81 @@
           </tbody>
         </table>
       </div>
-    </div>
+      <!-- Policies Pagination -->
+      {% if crm_policies_page.has_other_pages %}
+      <div style="padding: 1rem 1.25rem; border-top: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+        <span style="font-size: 0.82rem; color: #64748b; font-weight: 600;">Showing {{ crm_policies_page.start_index }}–{{ crm_policies_page.end_index }} of {{ crm_policies_page.paginator.count }} policies</span>
+        <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+          {% if crm_policies_page.has_previous %}
+          <a href="?page={{ crm_policies_page.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">← Prev</a>
+          {% endif %}
+          {% for i in crm_policies_page.paginator.page_range %}
+            {% if crm_policies_page.number == i %}
+              <span style="padding: 5px 11px; border-radius: 6px; background: #093de6; color: white; font-weight: 700; font-size: 0.8rem;">{{ i }}</span>
+            {% elif i > crm_policies_page.number|add:"-3" and i < crm_policies_page.number|add:"3" %}
+              <a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">{{ i }}</a>
+            {% endif %}
+          {% endfor %}
+          {% if crm_policies_page.has_next %}
+          <a href="?page={{ crm_policies_page.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">Next →</a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+    <!-- CRM COMPARISON SECTION -->
+    <div id="crmComparisonBlock" style="margin-top: 1.5rem;">
+      <div style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); border-radius: 20px; padding: 1.75rem 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+          <div>
+            <div style="color: #93c5fd; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">📊 Performance Comparison</div>
+            <h3 style="color: white; font-weight: 800; font-size: 1.1rem; margin: 0;">{{ comp_period_label }}</h3>
+            <p style="color: #94a3b8; font-size: 0.82rem; margin: 0.2rem 0 0;">vs {{ prev_period_label }}</p>
+          </div>
+          <form method="GET" style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;" id="compForm">
+            <input type="hidden" name="tab" value="insurance">
+            <select name="comp_mode" onchange="document.getElementById('compForm').submit()" style="padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.12); color: white; font-weight: 700; font-size: 0.82rem; cursor: pointer; outline: none;">
+              <option value="monthly" {% if comp_mode == 'monthly' %}selected{% endif %}>Monthly</option>
+              <option value="quarterly" {% if comp_mode == 'quarterly' %}selected{% endif %}>Quarterly</option>
+              <option value="custom" {% if comp_mode == 'custom' %}selected{% endif %}>Custom Range</option>
+            </select>
+            {% if comp_mode == 'custom' %}
+            <input type="date" name="comp_from" value="{{ comp_custom_from }}" style="padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.12); color: white; font-size: 0.8rem;">
+            <span style="color: #94a3b8; font-size: 0.78rem;">to</span>
+            <input type="date" name="comp_to" value="{{ comp_custom_to }}" style="padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.12); color: white; font-size: 0.8rem;">
+            <button type="submit" style="padding: 6px 12px; border-radius: 8px; background: #093de6; border: none; color: white; font-weight: 700; font-size: 0.82rem; cursor: pointer;">Apply</button>
+            {% else %}
+            <input type="hidden" name="comp_month_offset" value="{{ comp_month_offset }}">
+            <a href="?comp_mode={{ comp_mode }}&comp_month_offset={{ comp_month_offset|add:"-1" }}" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; font-weight: 700; font-size: 0.9rem; text-decoration: none;">‹</a>
+            <a href="?comp_mode={{ comp_mode }}&comp_month_offset={{ comp_month_offset|add:"1" }}" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; font-weight: 700; font-size: 0.9rem; text-decoration: none;">›</a>
+            {% endif %}
+          </form>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
+          <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="color: #93c5fd; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Quotes</div>
+            <div style="font-size: 2rem; font-weight: 900; color: white;">{{ comp_current.quotes }}</div>
+            <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">Prev: {{ comp_previous.quotes }}</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="color: #6ee7b7; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Bound</div>
+            <div style="font-size: 2rem; font-weight: 900; color: white;">{{ comp_current.bound }}</div>
+            <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">Prev: {{ comp_previous.bound }}</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="color: #fde68a; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Conversion</div>
+            <div style="font-size: 2rem; font-weight: 900; color: white;">{{ comp_current.conversion }}%</div>
+            <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">Prev: {{ comp_previous.conversion }}%</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.1);">
+            <div style="color: #c4b5fd; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Premium</div>
+            <div style="font-size: 1.5rem; font-weight: 900; color: white;">${{ comp_current.premium|floatformat:2 }}</div>
+            <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;">Prev: ${{ comp_previous.premium|floatformat:2 }}</div>
+          </div>
+        </div>
+      </div>
+    </div><!-- end crmComparisonBlock -->
+    </div><!-- end tab-insurance -->
 
     <!-- COMPANIES TAB -->
     <div id="tab-companies" class="tab-panel" style="display: none;">
@@ -275,7 +351,7 @@
         <div style="background: white; border-radius: 16px; padding: 1.5rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04); display: flex; flex-direction: column; justify-content: space-between;">
           <div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-              <strong style="color: #0f172a; font-size: 1.05rem;">{{ entry.name }}</strong>
+              <a href="{% url 'insurance-company-detail' entry.id %}" style="color: #0f172a; font-size: 1.05rem; font-weight: 800; text-decoration: none; transition: color 0.15s;" onmouseover="this.style.color='#093de6'" onmouseout="this.style.color='#0f172a'">{{ entry.name }} →</a>
               <a href="{% url 'delete-insurance-company' entry.id %}" onclick="return confirm('Delete company?')" style="color: #dc2626; font-size: 0.78rem; text-decoration: none; font-weight: 700; background: #fff5f5; padding: 2px 8px; border-radius: 6px; border: 1px solid #fee2e2;">Remove</a>
             </div>
             <div style="color: #64748b; font-size: 0.85rem; margin-bottom: 0.75rem;">Active Policies: <strong style="color: #0f172a;">{{ entry.active_count }}</strong></div>
@@ -367,6 +443,67 @@
         <h3 style="margin: 0; color: #0f172a; font-weight: 800; font-size: 1.2rem;">Financial Ledger</h3>
         <button onclick="document.getElementById('addTransactionModal').classList.add('active')" style="padding: 8px 18px; background: #093de6; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Log Transaction</button>
       </div>
+
+      <!-- Banking Advanced Filters -->
+      <div style="background: #f8fafc; border-radius: 14px; padding: 1rem 1.25rem; border: 1px solid #e2e8f0; margin-bottom: 1.25rem;">
+        <form method="GET" style="display: flex; flex-direction: column; gap: 0.8rem;">
+          <input type="hidden" name="tab" value="banking">
+          <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 220px;">
+              <input type="text" name="bq" value="{{ bank_search }}" placeholder="Search description, category, account..." style="width: 100%; padding: 7px 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none; box-sizing: border-box;">
+            </div>
+            <button type="submit" style="padding: 7px 16px; background: #0f172a; color: white; border: none; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.85rem;">Search</button>
+            <a href="?tab=banking" style="padding: 7px 14px; border: 1px solid #e2e8f0; border-radius: 8px; text-decoration: none; color: #64748b; background: white; font-weight: 700; font-size: 0.85rem;">Clear</a>
+          </div>
+          <details {% if bank_account_filter or bank_type_filter or bank_category_filter or bank_company_filter or bank_date_from or bank_date_to or bank_min_amount or bank_max_amount %}open{% endif %}>
+            <summary style="cursor: pointer; font-size: 0.83rem; font-weight: 700; color: #093de6; outline: none; user-select: none;">🔍 Advanced Filters</summary>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 0.7rem; margin-top: 0.75rem;">
+              <div>
+                <label style="display: block; font-size: 0.71rem; font-weight: 800; color: #64748b; margin-bottom: 0.25rem; text-transform: uppercase;">Account</label>
+                <select name="bank_account" style="width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none;">
+                  <option value="">All Accounts</option>
+                  {% for acc in bank_accounts %}<option value="{{ acc.id }}" {% if bank_account_filter == acc.id|stringformat:"s" %}selected{% endif %}>{{ acc.account_name }}</option>{% endfor %}
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.71rem; font-weight: 800; color: #64748b; margin-bottom: 0.25rem; text-transform: uppercase;">Type</label>
+                <select name="bank_type" style="width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none;">
+                  <option value="">All Types</option>
+                  <option value="income" {% if bank_type_filter == 'income' %}selected{% endif %}>Income</option>
+                  <option value="expense" {% if bank_type_filter == 'expense' %}selected{% endif %}>Expense</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.71rem; font-weight: 800; color: #64748b; margin-bottom: 0.25rem; text-transform: uppercase;">Category</label>
+                <input type="text" name="bank_category" value="{{ bank_category_filter }}" placeholder="e.g. Commission" style="width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none; box-sizing: border-box;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.71rem; font-weight: 800; color: #64748b; margin-bottom: 0.25rem; text-transform: uppercase;">Insurance Co.</label>
+                <select name="bank_company" style="width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none;">
+                  <option value="">All Companies</option>
+                  {% for comp in insurance_companies %}<option value="{{ comp.id }}" {% if bank_company_filter == comp.id|stringformat:"s" %}selected{% endif %}>{{ comp.name }}</option>{% endfor %}
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.71rem; font-weight: 800; color: #64748b; margin-bottom: 0.25rem; text-transform: uppercase;">From Date</label>
+                <input type="date" name="bank_date_from" value="{{ bank_date_from }}" style="width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none; box-sizing: border-box;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.71rem; font-weight: 800; color: #64748b; margin-bottom: 0.25rem; text-transform: uppercase;">To Date</label>
+                <input type="date" name="bank_date_to" value="{{ bank_date_to }}" style="width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none; box-sizing: border-box;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.71rem; font-weight: 800; color: #64748b; margin-bottom: 0.25rem; text-transform: uppercase;">Min Amount ($)</label>
+                <input type="number" step="0.01" name="bank_min_amount" value="{{ bank_min_amount }}" placeholder="0.00" style="width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none; box-sizing: border-box;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.71rem; font-weight: 800; color: #64748b; margin-bottom: 0.25rem; text-transform: uppercase;">Max Amount ($)</label>
+                <input type="number" step="0.01" name="bank_max_amount" value="{{ bank_max_amount }}" placeholder="9999.00" style="width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none; box-sizing: border-box;">
+              </div>
+            </div>
+          </details>
+        </form>
+      </div>
       <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
         <table class="spaces-table">
           <thead>
@@ -389,7 +526,30 @@
           </tbody>
         </table>
       </div>
-    </div>
+
+      <!-- Banking Pagination -->
+      {% if bank_transactions_page.has_other_pages %}
+      <div style="padding: 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.5rem;">
+        <span style="font-size: 0.82rem; color: #64748b; font-weight: 600;">Showing {{ bank_transactions_page.start_index }}–{{ bank_transactions_page.end_index }} of {{ bank_transactions_page.paginator.count }} transactions</span>
+        <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+          {% if bank_transactions_page.has_previous %}
+          <a href="?bank_page={{ bank_transactions_page.previous_page_number }}&tab=banking{% if bank_search %}&bq={{ bank_search }}{% endif %}{% if bank_account_filter %}&bank_account={{ bank_account_filter }}{% endif %}{% if bank_type_filter %}&bank_type={{ bank_type_filter }}{% endif %}{% if bank_date_from %}&bank_date_from={{ bank_date_from }}{% endif %}{% if bank_date_to %}&bank_date_to={{ bank_date_to }}{% endif %}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">← Prev</a>
+          {% endif %}
+          {% for i in bank_transactions_page.paginator.page_range %}
+            {% if bank_transactions_page.number == i %}
+              <span style="padding: 5px 11px; border-radius: 6px; background: #093de6; color: white; font-weight: 700; font-size: 0.8rem;">{{ i }}</span>
+            {% elif i > bank_transactions_page.number|add:"-3" and i < bank_transactions_page.number|add:"3" %}
+              <a href="?bank_page={{ i }}&tab=banking{% if bank_search %}&bq={{ bank_search }}{% endif %}{% if bank_account_filter %}&bank_account={{ bank_account_filter }}{% endif %}{% if bank_type_filter %}&bank_type={{ bank_type_filter }}{% endif %}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">{{ i }}</a>
+            {% endif %}
+          {% endfor %}
+          {% if bank_transactions_page.has_next %}
+          <a href="?bank_page={{ bank_transactions_page.next_page_number }}&tab=banking{% if bank_search %}&bq={{ bank_search }}{% endif %}{% if bank_account_filter %}&bank_account={{ bank_account_filter }}{% endif %}{% if bank_type_filter %}&bank_type={{ bank_type_filter }}{% endif %}{% if bank_date_from %}&bank_date_from={{ bank_date_from }}{% endif %}{% if bank_date_to %}&bank_date_to={{ bank_date_to }}{% endif %}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">Next →</a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div><!-- end tab-banking -->
 
     <!-- REPORTING TAB -->
     <div id="tab-reporting" class="tab-panel" style="display: none;">
@@ -486,9 +646,9 @@
                 {% for stat in agent_stats %}
                 <tr>
                   <td>
-                    <span style="background-color: {{ stat.bg_color }}; color: {{ stat.text_color }}; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; white-space: nowrap;">
+                    <a href="{% url 'insurance-agent-detail' stat.user_id %}" style="background-color: {{ stat.bg_color }}; color: {{ stat.text_color }}; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; white-space: nowrap; text-decoration: none; display: inline-block;">
                       {{ stat.fullname }}
-                    </span>
+                    </a>
                     {% if stat.is_best %}
                       <span title="Best Performer!" style="margin-left: 4px; font-size: 1.1rem; cursor: help;">👑</span>
                     {% endif %}
@@ -619,6 +779,8 @@
           <select name="status" id="policyStatus" class="field-input" onchange="toggleInactiveDate()">
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
+            <option value="pending">Pending</option>
+            <option value="rejected">Rejected</option>
           </select>
         </div>
       </div>

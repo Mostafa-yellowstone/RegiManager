@@ -934,6 +934,8 @@ class InsurancePolicy(models.Model):
     class StatusChoices(models.TextChoices):
         ACTIVE = "active", "Active"
         INACTIVE = "inactive", "Inactive"
+        PENDING = "pending", "Pending"
+        REJECTED = "rejected", "Rejected"
 
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="insurance_policies")
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="insurance_policies")
@@ -1105,3 +1107,25 @@ class BankTransaction(models.Model):
             account.balance += self.amount
         account.save()
         super().delete(*args, **kwargs)
+
+
+def insurance_company_document_upload_path(instance, filename):
+    return f"insurance_company_docs/{instance.insurance_company.id}/{filename}"
+
+
+class InsuranceCompanyDocument(models.Model):
+    insurance_company = models.ForeignKey(
+        InsuranceCompany,
+        on_delete=models.CASCADE,
+        related_name="documents"
+    )
+    title = models.CharField(max_length=200, blank=True, default="")
+    document = models.FileField(upload_to=insurance_company_document_upload_path)
+    document_date = models.DateField(blank=True, null=True, help_text="Date associated with this document")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+
+    def __str__(self):
+        return f"{self.insurance_company.name} — {self.title or self.document.name}"

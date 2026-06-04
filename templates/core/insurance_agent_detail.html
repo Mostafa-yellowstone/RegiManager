@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ agent.get_full_name|default:agent.username }} — Agent Profile | RegiManager{% endblock %}
+
+{% block content %}
+{% include "partials/_top_nav.html" %}
+
+<style>
+:root { --blue: #093de6; --dark: #0f172a; --muted: #64748b; --border: #e2e8f0; --bg: #f8fafc; --green: #16a34a; --red: #dc2626; }
+.metric-card { background: white; border-radius: 16px; padding: 1.25rem 1.5rem; border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+.metric-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--muted); margin-bottom: 0.35rem; letter-spacing: 0.04em; }
+.metric-value { font-size: 1.8rem; font-weight: 800; color: var(--dark); line-height: 1; }
+.section-card { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04); overflow: hidden; }
+.section-header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); background: #f8fafc; }
+.section-title { font-size: 1.05rem; font-weight: 800; color: var(--dark); margin: 0; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.tbl th { padding: 0.75rem 1rem; background: #f8fafc; border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 700; font-size: 0.72rem; text-transform: uppercase; text-align: left; white-space: nowrap; }
+.tbl td { padding: 0.8rem 1rem; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: var(--dark); vertical-align: middle; }
+.tbl tr:last-child td { border-bottom: none; }
+.tbl tr:hover td { background: #fafafa; }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.chip-active { background: #dcfce7; color: #166534; }
+.chip-inactive { background: #ffe4e6; color: #9f1239; }
+.chip-quote { background: #eff6ff; color: #1d4ed8; }
+.chip-bound { background: #f0fdf4; color: #15803d; }
+.chip-pending { background: #fef9c3; color: #854d0e; }
+.chip-rejected { background: #fee2e2; color: #b91c1c; }
+.field-label { display: block; font-size: 0.73rem; font-weight: 800; color: var(--muted); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.field-input { width: 100%; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.88rem; outline: none; box-sizing: border-box; transition: border 0.2s; }
+.field-input:focus { border-color: var(--blue); }
+.page-btn { padding: 5px 11px; border-radius: 6px; border: 1px solid var(--border); background: white; color: var(--muted); font-weight: 700; font-size: 0.8rem; text-decoration: none; }
+.page-btn.active { background: var(--blue); color: white; border-color: var(--blue); }
+.page-btn:hover:not(.active) { border-color: #93c5fd; color: var(--blue); }
+</style>
+
+<main style="background: var(--bg); min-height: 100vh; padding-bottom: 4rem;">
+  <div style="max-width: 1300px; margin: 0 auto; padding: 2rem 1.5rem;">
+
+    <!-- Breadcrumb -->
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: var(--muted); font-weight: 600; flex-wrap: wrap;">
+      <a href="javascript:history.back()" style="color: var(--blue); text-decoration: none;">🛡️ Insurance Space</a>
+      <span>›</span>
+      <span>Agents</span>
+      <span>›</span>
+      <span style="color: var(--dark);">{{ agent.get_full_name|default:agent.username }}</span>
+    </div>
+
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.25rem; margin-bottom: 2rem;">
+      <div style="display: flex; align-items: center; gap: 1.25rem;">
+        <!-- Avatar -->
+        <div style="width: 72px; height: 72px; border-radius: 50%; background: hsl({{ agent.id|add:0 }}{{ agent.username|length }}0, 70%, 88%); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; color: hsl({{ agent.id|add:0 }}{{ agent.username|length }}0, 60%, 30%); border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+          {{ agent.first_name|slice:":1"|upper }}{{ agent.last_name|slice:":1"|upper }}
+        </div>
+        <div>
+          <div style="display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #4338ca; padding: 3px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.4rem; border: 1px solid #c7d2fe;">👤 Insurance Agent</div>
+          <h1 style="color: var(--dark); font-weight: 850; font-size: 1.9rem; margin: 0; letter-spacing: -0.5px;">{{ agent.get_full_name|default:agent.username }}</h1>
+          <p style="color: var(--muted); margin: 0.2rem 0 0; font-weight: 500; font-size: 0.92rem;">{{ agent.email }} · {{ active_org.name }}</p>
+        </div>
+      </div>
+      <a href="javascript:history.back()" style="padding: 8px 16px; background: white; border: 1px solid var(--border); border-radius: 10px; font-weight: 700; color: var(--muted); font-size: 0.88rem; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">← Back</a>
+    </div>
+
+    <!-- Conversion Rate Banner -->
+    <div style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); border-radius: 16px; padding: 1.5rem 2rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <div style="color: #93c5fd; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">Quote-to-Bind Conversion Rate</div>
+        <div style="font-size: 2.5rem; font-weight: 900; color: white; line-height: 1;">{{ conversion_rate|floatformat:1 }}%</div>
+      </div>
+      <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+        <div style="text-align: center;">
+          <div style="color: #60a5fa; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.2rem;">Quotes</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: white;">{{ quote_count }}</div>
+        </div>
+        <div style="text-align: center;">
+          <div style="color: #34d399; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.2rem;">Bound</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: white;">{{ bound_count }}</div>
+        </div>
+        <div style="text-align: center;">
+          <div style="color: #fbbf24; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.2rem;">Total Profit</div>
+          <div style="font-size: 1.5rem; font-weight: 800; color: white;">${{ total_profit|floatformat:2 }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metrics Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+      <div class="metric-card"><div class="metric-label">Active Policies</div><div class="metric-value" style="color: var(--green);">{{ active_count }}</div></div>
+      <div class="metric-card"><div class="metric-label">Inactive</div><div class="metric-value" style="color: var(--muted);">{{ inactive_count }}</div></div>
+      <div class="metric-card"><div class="metric-label">Pending</div><div class="metric-value" style="color: #b45309;">{{ pending_count }}</div></div>
+      <div class="metric-card"><div class="metric-label">Rejected</div><div class="metric-value" style="color: var(--red);">{{ rejected_count }}</div></div>
+      <div class="metric-card"><div class="metric-label">Total Premium</div><div class="metric-value" style="color: var(--blue); font-size: 1.4rem;">${{ total_premium|floatformat:2 }}</div></div>
+      <div class="metric-card"><div class="metric-label">Commission Earned</div><div class="metric-value" style="color: var(--green); font-size: 1.4rem;">${{ total_commission|floatformat:2 }}</div></div>
+      <div class="metric-card"><div class="metric-label">Broker Fees</div><div class="metric-value" style="color: #7c3aed; font-size: 1.4rem;">${{ total_broker_fees|floatformat:2 }}</div></div>
+    </div>
+
+    <!-- Policies Section -->
+    <div class="section-card">
+      <div class="section-header">
+        <h2 class="section-title">📋 Agent Policies</h2>
+        <span style="font-size: 0.82rem; color: var(--muted); font-weight: 600;">{{ policies_page.paginator.count }} total</span>
+      </div>
+
+      <!-- Filters -->
+      <div style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); background: #fafafa;">
+        <form method="GET" style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 220px;">
+              <input type="text" name="q" value="{{ search_query }}" placeholder="Search client, policy #..." class="field-input" style="padding: 7px 10px;">
+            </div>
+            <button type="submit" style="padding: 7px 16px; background: var(--dark); color: white; border: none; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.85rem;">Search</button>
+            <a href="{% url 'insurance-agent-detail' agent.id %}" style="padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--muted); background: white; font-weight: 700; font-size: 0.85rem;">Clear</a>
+          </div>
+          <details {% if stage_filter or status_filter or type_filter or company_filter or date_from or date_to %}open{% endif %}>
+            <summary style="cursor: pointer; font-size: 0.83rem; font-weight: 700; color: var(--blue); outline: none; user-select: none;">🔍 Advanced Filters</summary>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; margin-top: 0.75rem;">
+              <div>
+                <label class="field-label">Stage</label>
+                <select name="stage" class="field-input" style="padding: 6px;">
+                  <option value="">All Stages</option>
+                  <option value="quote" {% if stage_filter == "quote" %}selected{% endif %}>Quote</option>
+                  <option value="bound" {% if stage_filter == "bound" %}selected{% endif %}>Bound</option>
+                </select>
+              </div>
+              <div>
+                <label class="field-label">Status</label>
+                <select name="status" class="field-input" style="padding: 6px;">
+                  <option value="">All Statuses</option>
+                  <option value="active" {% if status_filter == "active" %}selected{% endif %}>Active</option>
+                  <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>Inactive</option>
+                  <option value="pending" {% if status_filter == "pending" %}selected{% endif %}>Pending</option>
+                  <option value="rejected" {% if status_filter == "rejected" %}selected{% endif %}>Rejected</option>
+                </select>
+              </div>
+              <div>
+                <label class="field-label">Company</label>
+                <select name="insurance_company" class="field-input" style="padding: 6px;">
+                  <option value="">All Companies</option>
+                  {% for comp in insurance_companies %}
+                  <option value="{{ comp.id }}" {% if company_filter == comp.id|stringformat:"s" %}selected{% endif %}>{{ comp.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div><label class="field-label">From Date</label><input type="date" name="date_from" value="{{ date_from }}" class="field-input" style="padding: 6px;"></div>
+              <div><label class="field-label">To Date</label><input type="date" name="date_to" value="{{ date_to }}" class="field-input" style="padding: 6px;"></div>
+            </div>
+          </details>
+        </form>
+      </div>
+
+      <!-- Table -->
+      <div style="overflow-x: auto;">
+        <table class="tbl">
+          <thead>
+            <tr><th>Client</th><th>Policy #</th><th>Type</th><th>Company</th><th>Premium</th><th>Commission</th><th>Broker Fee</th><th>Stage</th><th>Status</th><th>Start</th><th>End</th></tr>
+          </thead>
+          <tbody>
+            {% for policy in policies_page %}
+            <tr>
+              <td>
+                {% if policy.client %}<a href="{% url 'client-detail' policy.client.id %}" style="color: var(--blue); text-decoration: none; font-weight: 700;">{{ policy.client.name }}</a>{% else %}—{% endif %}
+              </td>
+              <td style="font-family: monospace; font-size: 0.82rem;">{{ policy.policy_number }}</td>
+              <td style="font-size: 0.8rem; color: var(--muted);">{{ policy.get_insurance_type_display|default:"—" }}</td>
+              <td style="font-size: 0.85rem; font-weight: 700;">{{ policy.insurance_company.name }}</td>
+              <td style="font-weight: 800;">${{ policy.premium|floatformat:2 }}</td>
+              <td style="color: var(--green); font-weight: 700;">${{ policy.commission_amount|floatformat:2 }}</td>
+              <td style="color: #475569; font-weight: 700;">${{ policy.broker_fee|floatformat:2 }}</td>
+              <td>{% if policy.stage == 'quote' %}<span class="chip chip-quote">Quote</span>{% else %}<span class="chip chip-bound">Bound</span>{% endif %}</td>
+              <td>
+                {% if policy.status == 'active' %}<span class="chip chip-active">Active</span>
+                {% elif policy.status == 'inactive' %}<span class="chip chip-inactive">Inactive</span>
+                {% elif policy.status == 'pending' %}<span class="chip chip-pending">Pending</span>
+                {% elif policy.status == 'rejected' %}<span class="chip chip-rejected">Rejected</span>
+                {% else %}<span class="chip" style="background:#f1f5f9;color:#475569;">{{ policy.status }}</span>{% endif %}
+              </td>
+              <td style="font-size: 0.82rem; color: var(--muted); white-space: nowrap;">{{ policy.start_date }}</td>
+              <td style="font-size: 0.82rem; color: var(--muted); white-space: nowrap;">{{ policy.end_date }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="11" style="text-align: center; padding: 3rem; color: var(--muted); font-weight: 600;">No policies found for this agent.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      {% if policies_page.has_other_pages %}
+      <div style="padding: 1rem 1.5rem; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+        <span style="font-size: 0.82rem; color: var(--muted); font-weight: 600;">Showing {{ policies_page.start_index }}–{{ policies_page.end_index }} of {{ policies_page.paginator.count }}</span>
+        <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+          {% if policies_page.has_previous %}<a href="?page={{ policies_page.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">← Prev</a>{% endif %}
+          {% for i in policies_page.paginator.page_range %}
+            {% if policies_page.number == i %}<span class="page-btn active">{{ i }}</span>
+            {% elif i > policies_page.number|add:"-3" and i < policies_page.number|add:"3" %}<a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">{{ i }}</a>{% endif %}
+          {% endfor %}
+          {% if policies_page.has_next %}<a href="?page={{ policies_page.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">Next →</a>{% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</main>
+
+{% if messages %}
+<div style="position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem;">
+  {% for msg in messages %}
+  <div style="background: {% if 'error' in msg.tags %}#fef2f2{% else %}#f0fdf4{% endif %}; border: 1px solid {% if 'error' in msg.tags %}#fee2e2{% else %}#bbf7d0{% endif %}; color: {% if 'error' in msg.tags %}#b91c1c{% else %}#166534{% endif %}; padding: 0.75rem 1.25rem; border-radius: 10px; font-weight: 700; font-size: 0.88rem; box-shadow: 0 4px 12px rgba(0,0,0,0.12);">{{ msg }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}

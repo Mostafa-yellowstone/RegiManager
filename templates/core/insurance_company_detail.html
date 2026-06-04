@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ company.name }} — Insurance Company | RegiManager{% endblock %}
+
+{% block content %}
+{% include "partials/_top_nav.html" %}
+
+<style>
+:root {
+  --blue: #093de6;
+  --dark: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --bg: #f8fafc;
+  --green: #16a34a;
+  --red: #dc2626;
+  --card-radius: 16px;
+}
+.metric-card { background: white; border-radius: var(--card-radius); padding: 1.25rem 1.5rem; border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+.metric-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--muted); margin-bottom: 0.35rem; letter-spacing: 0.04em; }
+.metric-value { font-size: 1.8rem; font-weight: 800; color: var(--dark); line-height: 1; }
+.section-card { background: white; border-radius: var(--card-radius); border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04); overflow: hidden; }
+.section-header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); background: #f8fafc; }
+.section-title { font-size: 1.05rem; font-weight: 800; color: var(--dark); margin: 0; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.tbl th { padding: 0.75rem 1rem; background: #f8fafc; border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 700; font-size: 0.72rem; text-transform: uppercase; text-align: left; white-space: nowrap; }
+.tbl td { padding: 0.8rem 1rem; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: var(--dark); vertical-align: middle; }
+.tbl tr:last-child td { border-bottom: none; }
+.tbl tr:hover td { background: #fafafa; }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.chip-active { background: #dcfce7; color: #166534; }
+.chip-inactive { background: #ffe4e6; color: #9f1239; }
+.chip-quote { background: #eff6ff; color: #1d4ed8; }
+.chip-bound { background: #f0fdf4; color: #15803d; }
+.chip-pending { background: #fef9c3; color: #854d0e; }
+.chip-rejected { background: #fee2e2; color: #b91c1c; }
+.btn-primary { padding: 8px 18px; background: var(--blue); border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.88rem; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; transition: background 0.2s; }
+.btn-primary:hover { background: #0836cc; }
+.btn-outline { padding: 7px 14px; background: white; border: 1px solid var(--border); color: var(--muted); font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s; }
+.btn-outline:hover { border-color: #93c5fd; color: var(--blue); }
+.field-label { display: block; font-size: 0.73rem; font-weight: 800; color: var(--muted); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.field-input { width: 100%; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.88rem; outline: none; box-sizing: border-box; transition: border 0.2s; }
+.field-input:focus { border-color: var(--blue); }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.35); backdrop-filter: blur(6px); z-index: 2000; align-items: center; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal-box { background: white; border-radius: 20px; padding: 2rem; max-width: 520px; width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); animation: mIn 0.22s ease; }
+@keyframes mIn { from { opacity: 0; transform: scale(0.96) translateY(8px); } to { opacity: 1; transform: none; } }
+.pagination-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.page-btn { padding: 5px 11px; border-radius: 6px; border: 1px solid var(--border); background: white; color: var(--muted); font-weight: 700; font-size: 0.8rem; text-decoration: none; cursor: pointer; }
+.page-btn.active { background: var(--blue); color: white; border-color: var(--blue); }
+.page-btn:hover:not(.active) { border-color: #93c5fd; color: var(--blue); }
+</style>
+
+<main style="background: var(--bg); min-height: 100vh; padding-bottom: 4rem;">
+  <div style="max-width: 1300px; margin: 0 auto; padding: 2rem 1.5rem;">
+
+    <!-- Breadcrumb -->
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: var(--muted); font-weight: 600; flex-wrap: wrap;">
+      <a href="javascript:history.back()" style="color: var(--blue); text-decoration: none;">🛡️ Insurance Space</a>
+      <span>›</span>
+      <span>Companies</span>
+      <span>›</span>
+      <span style="color: var(--dark);">{{ company.name }}</span>
+    </div>
+
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.25rem; margin-bottom: 2rem;">
+      <div>
+        <div style="display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #4338ca; padding: 3px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.5rem; border: 1px solid #c7d2fe;">🏢 Insurance Company</div>
+        <h1 style="color: var(--dark); font-weight: 850; font-size: 2rem; margin: 0; letter-spacing: -0.5px;">{{ company.name }}</h1>
+        <p style="color: var(--muted); margin: 0.25rem 0 0; font-weight: 500; font-size: 0.95rem;">{{ active_org.name }} · Since {{ company.created_at|date:"M d, Y" }}</p>
+      </div>
+      <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+        <button onclick="document.getElementById('depositModal').classList.add('active')" class="btn-primary">💰 Pay/Deposit</button>
+        <button onclick="document.getElementById('ledgerModal').classList.add('active')" class="btn-outline">📒 Ledger</button>
+        <a href="javascript:history.back()" class="btn-outline">← Back</a>
+      </div>
+    </div>
+
+    <!-- Metrics -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+      <div class="metric-card"><div class="metric-label">Active Policies</div><div class="metric-value" style="color: var(--green);">{{ active_count }}</div></div>
+      <div class="metric-card"><div class="metric-label">Quotes</div><div class="metric-value" style="color: #1d4ed8;">{{ quote_count }}</div></div>
+      <div class="metric-card"><div class="metric-label">Bound</div><div class="metric-value" style="color: #047857;">{{ bound_count }}</div></div>
+      <div class="metric-card"><div class="metric-label">Inactive</div><div class="metric-value" style="color: var(--muted);">{{ inactive_count }}</div></div>
+      <div class="metric-card"><div class="metric-label">Pending</div><div class="metric-value" style="color: #b45309;">{{ pending_count }}</div></div>
+      <div class="metric-card"><div class="metric-label">Rejected</div><div class="metric-value" style="color: var(--red);">{{ rejected_count }}</div></div>
+      <div class="metric-card"><div class="metric-label">Total Premium</div><div class="metric-value" style="color: var(--blue); font-size: 1.4rem;">${{ total_premium|floatformat:2 }}</div></div>
+      <div class="metric-card"><div class="metric-label">Earned Commission</div><div class="metric-value" style="color: var(--green); font-size: 1.4rem;">${{ total_commission|floatformat:2 }}</div></div>
+      <div class="metric-card"><div class="metric-label">Unearned (Return)</div><div class="metric-value" style="color: var(--red); font-size: 1.4rem;">${{ total_unearned|floatformat:2 }}</div></div>
+    </div>
+
+    <!-- Policies Section -->
+    <div class="section-card" style="margin-bottom: 2rem;">
+      <div class="section-header">
+        <h2 class="section-title">📋 Policies</h2>
+        <span style="font-size: 0.82rem; color: var(--muted); font-weight: 600;">{{ policies_page.paginator.count }} total</span>
+      </div>
+      <!-- Policy Filters -->
+      <div style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); background: #fafafa;">
+        <form method="GET" style="display: flex; flex-direction: column; gap: 0.8rem;">
+          <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 220px;">
+              <input type="text" name="q" value="{{ search_query }}" placeholder="Search client, policy #..." class="field-input" style="padding: 7px 10px;">
+            </div>
+            <button type="submit" style="padding: 7px 16px; background: var(--dark); color: white; border: none; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.85rem;">Search</button>
+            <a href="{% url 'insurance-company-detail' company.id %}" style="padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--muted); background: white; font-weight: 700; font-size: 0.85rem;">Clear</a>
+          </div>
+          <details {% if stage_filter or status_filter or type_filter or agent_filter or date_from or date_to or min_premium or max_premium %}open{% endif %}>
+            <summary style="cursor: pointer; font-size: 0.83rem; font-weight: 700; color: var(--blue); outline: none; user-select: none;">🔍 Advanced Filters</summary>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; margin-top: 0.75rem;">
+              <div>
+                <label class="field-label">Stage</label>
+                <select name="stage" class="field-input" style="padding: 6px;">
+                  <option value="">All Stages</option>
+                  <option value="quote" {% if stage_filter == "quote" %}selected{% endif %}>Quote</option>
+                  <option value="bound" {% if stage_filter == "bound" %}selected{% endif %}>Bound</option>
+                </select>
+              </div>
+              <div>
+                <label class="field-label">Status</label>
+                <select name="status" class="field-input" style="padding: 6px;">
+                  <option value="">All Statuses</option>
+                  <option value="active" {% if status_filter == "active" %}selected{% endif %}>Active</option>
+                  <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>Inactive</option>
+                  <option value="pending" {% if status_filter == "pending" %}selected{% endif %}>Pending</option>
+                  <option value="rejected" {% if status_filter == "rejected" %}selected{% endif %}>Rejected</option>
+                </select>
+              </div>
+              <div>
+                <label class="field-label">Agent</label>
+                <select name="agent" class="field-input" style="padding: 6px;">
+                  <option value="">All Agents</option>
+                  {% for m in insurance_agents %}
+                  <option value="{{ m.user.id }}" {% if agent_filter == m.user.id|stringformat:"s" %}selected{% endif %}>{{ m.user.get_full_name|default:m.user.username }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div><label class="field-label">From Date</label><input type="date" name="date_from" value="{{ date_from }}" class="field-input" style="padding: 6px;"></div>
+              <div><label class="field-label">To Date</label><input type="date" name="date_to" value="{{ date_to }}" class="field-input" style="padding: 6px;"></div>
+              <div><label class="field-label">Min Premium</label><input type="number" step="0.01" name="min_premium" value="{{ min_premium }}" placeholder="0.00" class="field-input" style="padding: 6px;"></div>
+              <div><label class="field-label">Max Premium</label><input type="number" step="0.01" name="max_premium" value="{{ max_premium }}" placeholder="9999.00" class="field-input" style="padding: 6px;"></div>
+            </div>
+          </details>
+        </form>
+      </div>
+      <div style="overflow-x: auto;">
+        <table class="tbl">
+          <thead>
+            <tr><th>Client</th><th>Policy #</th><th>Type</th><th>Premium</th><th>Commission</th><th>Agent</th><th>Stage</th><th>Status</th><th>Start</th><th>End</th></tr>
+          </thead>
+          <tbody>
+            {% for policy in policies_page %}
+            <tr>
+              <td>
+                {% if policy.client %}<a href="{% url 'client-detail' policy.client.id %}" style="color: var(--blue); text-decoration: none; font-weight: 700;">{{ policy.client.name }}</a>{% else %}—{% endif %}
+              </td>
+              <td style="font-family: monospace; font-size: 0.82rem;">{{ policy.policy_number }}</td>
+              <td style="font-size: 0.82rem; color: var(--muted);">{{ policy.get_insurance_type_display|default:"—" }}</td>
+              <td style="font-weight: 800;">${{ policy.premium|floatformat:2 }}</td>
+              <td style="color: var(--green); font-weight: 700;">${{ policy.commission_amount|floatformat:2 }}</td>
+              <td>{% if policy.added_by %}<span style="font-size: 0.8rem; font-weight: 700; color: #475569;">{{ policy.added_by.get_full_name|default:policy.added_by.username }}</span>{% else %}<span style="color: #94a3b8; font-style: italic; font-size: 0.8rem;">System</span>{% endif %}</td>
+              <td>{% if policy.stage == 'quote' %}<span class="chip chip-quote">Quote</span>{% else %}<span class="chip chip-bound">Bound</span>{% endif %}</td>
+              <td>
+                {% if policy.status == 'active' %}<span class="chip chip-active">Active</span>
+                {% elif policy.status == 'inactive' %}<span class="chip chip-inactive">Inactive</span>
+                {% elif policy.status == 'pending' %}<span class="chip chip-pending">Pending</span>
+                {% elif policy.status == 'rejected' %}<span class="chip chip-rejected">Rejected</span>
+                {% else %}<span class="chip" style="background:#f1f5f9;color:#475569;">{{ policy.status }}</span>{% endif %}
+              </td>
+              <td style="font-size: 0.82rem; color: var(--muted);">{{ policy.start_date }}</td>
+              <td style="font-size: 0.82rem; color: var(--muted);">{{ policy.end_date }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="10" style="text-align: center; padding: 3rem; color: var(--muted); font-weight: 600;">No policies found for this company.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <!-- Pagination -->
+      {% if policies_page.has_other_pages %}
+      <div style="padding: 1rem 1.5rem; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+        <span style="font-size: 0.82rem; color: var(--muted); font-weight: 600;">Showing {{ policies_page.start_index }}–{{ policies_page.end_index }} of {{ policies_page.paginator.count }}</span>
+        <div class="pagination-row">
+          {% if policies_page.has_previous %}<a href="?page={{ policies_page.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">← Prev</a>{% endif %}
+          {% for i in policies_page.paginator.page_range %}
+            {% if policies_page.number == i %}<span class="page-btn active">{{ i }}</span>
+            {% elif i > policies_page.number|add:"-3" and i < policies_page.number|add:"3" %}<a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">{{ i }}</a>{% endif %}
+          {% endfor %}
+          {% if policies_page.has_next %}<a href="?page={{ policies_page.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">Next →</a>{% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Documents Section -->
+    <div class="section-card" style="margin-bottom: 2rem;">
+      <div class="section-header">
+        <h2 class="section-title">📎 Documents</h2>
+        <button onclick="document.getElementById('uploadDocModal').classList.add('active')" class="btn-primary" style="font-size: 0.82rem; padding: 6px 14px;">+ Upload Document</button>
+      </div>
+      {% if documents %}
+      <div style="overflow-x: auto;">
+        <table class="tbl">
+          <thead>
+            <tr><th>Title</th><th>Document Date</th><th>Uploaded</th><th>File</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            {% for doc in documents %}
+            <tr>
+              <td style="font-weight: 700;">{{ doc.title|default:"Untitled" }}</td>
+              <td style="color: var(--muted); font-size: 0.85rem;">{{ doc.document_date|default:"—" }}</td>
+              <td style="color: var(--muted); font-size: 0.82rem;">{{ doc.uploaded_at|date:"M d, Y" }}</td>
+              <td><a href="{{ doc.document.url }}" target="_blank" style="color: var(--blue); text-decoration: none; font-weight: 700; font-size: 0.85rem;">📄 View/Download</a></td>
+              <td>
+                <a href="{% url 'insurance-company-delete-doc' doc.id %}" onclick="return confirm('Delete this document?')" style="color: var(--red); text-decoration: none; font-size: 0.82rem; font-weight: 700; background: #fff5f5; padding: 3px 8px; border-radius: 6px; border: 1px solid #fee2e2;">Delete</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div style="padding: 3rem; text-align: center; color: var(--muted); font-weight: 600;">
+        No documents uploaded yet. Click "Upload Document" to add files.
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Ledger Section -->
+    <div class="section-card">
+      <div class="section-header">
+        <h2 class="section-title">📒 Transaction Ledger</h2>
+        <button onclick="document.getElementById('depositModal').classList.add('active')" class="btn-primary" style="font-size: 0.82rem; padding: 6px 14px;">+ Log Transaction</button>
+      </div>
+      <div style="overflow-x: auto;">
+        <table class="tbl">
+          <thead>
+            <tr><th>Date</th><th>Account</th><th>Type</th><th>Category</th><th>Description</th><th style="text-align:right;">Amount</th></tr>
+          </thead>
+          <tbody>
+            {% for tx in company_transactions %}
+            <tr>
+              <td style="color: var(--muted); font-size: 0.82rem; white-space: nowrap;">{{ tx.date }}</td>
+              <td style="font-weight: 700; font-size: 0.85rem;">{{ tx.bank_account.account_name }}</td>
+              <td>
+                {% if tx.transaction_type == 'income' %}
+                  <span class="chip chip-active">IN</span>
+                {% else %}
+                  <span class="chip chip-inactive">OUT</span>
+                {% endif %}
+              </td>
+              <td style="font-size: 0.85rem; font-weight: 600;">{{ tx.category }}</td>
+              <td style="font-size: 0.82rem; color: var(--muted);">{{ tx.description|default:"—"|truncatechars:45 }}</td>
+              <td style="text-align: right; font-weight: 800; color: {% if tx.transaction_type == 'income' %}var(--green){% else %}var(--red){% endif %};">
+                {% if tx.transaction_type == 'income' %}+{% else %}−{% endif %}${{ tx.amount }}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align: center; padding: 3rem; color: var(--muted); font-weight: 600;">No transactions recorded for this company yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- PAY/DEPOSIT MODAL -->
+<div class="modal-overlay" id="depositModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <h3 style="margin: 0; font-weight: 800; color: var(--dark); font-size: 1.15rem;">💰 Log Transaction for {{ company.name }}</h3>
+      <button onclick="document.getElementById('depositModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
+    </div>
+    <form method="POST" action="{% url 'add-bank-transaction' %}">
+      {% csrf_token %}
+      <input type="hidden" name="organization" value="{{ active_org.id }}">
+      <input type="hidden" name="insurance_company" value="{{ company.id }}">
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Bank Account</label>
+        <select name="bank_account" required class="field-input">
+          <option value="">-- Select Account --</option>
+          {% for acc in bank_accounts %}<option value="{{ acc.id }}">{{ acc.account_name }} ({{ acc.bank_name }})</option>{% endfor %}
+        </select>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div>
+          <label class="field-label">Type</label>
+          <select name="transaction_type" id="depType" required class="field-input" onchange="updateDepCategories()">
+            <option value="income">Income (Received)</option>
+            <option value="expense">Expense (Paid)</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Date</label>
+          <input type="date" name="date" class="field-input" value="{% now 'Y-m-d' %}">
+        </div>
+      </div>
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Category</label>
+        <input type="text" name="category" id="depCategory" required class="field-input" list="depCategoryList" placeholder="e.g. Commission Payment">
+        <datalist id="depCategoryList">
+          <option value="Insurance Premium Receipt">
+          <option value="Commission Payment">
+          <option value="Unearned Commission Refund">
+          <option value="Other Income">
+          <option value="Other Expense">
+        </datalist>
+      </div>
+      <div style="margin-bottom: 1rem;"><label class="field-label">Amount ($)</label><input type="number" step="0.01" name="amount" required class="field-input" placeholder="0.00"></div>
+      <div style="margin-bottom: 1.5rem;"><label class="field-label">Description (optional)</label><textarea name="description" class="field-input" rows="2" placeholder="Notes about this transaction..."></textarea></div>
+      <button type="submit" style="width: 100%; padding: 0.8rem; background: linear-gradient(135deg, #093de6, #4f46e5); border: none; border-radius: 10px; color: white; font-weight: 700; cursor: pointer; font-size: 1rem;">Log Transaction</button>
+    </form>
+  </div>
+</div>
+
+<!-- LEDGER MODAL (quick view) -->
+<div class="modal-overlay" id="ledgerModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box" style="max-width: 700px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <h3 style="margin: 0; font-weight: 800; color: var(--dark); font-size: 1.1rem;">📒 {{ company.name }} Ledger</h3>
+      <button onclick="document.getElementById('ledgerModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
+    </div>
+    <div style="overflow-x: auto; max-height: 60vh; overflow-y: auto;">
+      <table class="tbl">
+        <thead><tr><th>Date</th><th>Account</th><th>Type</th><th>Category</th><th style="text-align:right;">Amount</th></tr></thead>
+        <tbody>
+          {% for tx in company_transactions %}
+          <tr>
+            <td style="font-size: 0.82rem; color: var(--muted);">{{ tx.date }}</td>
+            <td style="font-size: 0.85rem;">{{ tx.bank_account.account_name }}</td>
+            <td>{% if tx.transaction_type == 'income' %}<span class="chip chip-active" style="font-size: 0.65rem;">IN</span>{% else %}<span class="chip chip-inactive" style="font-size: 0.65rem;">OUT</span>{% endif %}</td>
+            <td style="font-size: 0.85rem;">{{ tx.category }}</td>
+            <td style="text-align: right; font-weight: 800; color: {% if tx.transaction_type == 'income' %}var(--green){% else %}var(--red){% endif %};">{% if tx.transaction_type == 'income' %}+{% else %}−{% endif %}${{ tx.amount }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--muted);">No transactions yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- UPLOAD DOCUMENT MODAL -->
+<div class="modal-overlay" id="uploadDocModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <h3 style="margin: 0; font-weight: 800; color: var(--dark); font-size: 1.15rem;">📎 Upload Document</h3>
+      <button onclick="document.getElementById('uploadDocModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
+    </div>
+    <form method="POST" action="{% url 'insurance-company-upload-doc' company.id %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div style="margin-bottom: 1rem;"><label class="field-label">Document Title</label><input type="text" name="title" class="field-input" placeholder="e.g. Policy Agreement 2025"></div>
+      <div style="margin-bottom: 1rem;"><label class="field-label">Document Date</label><input type="date" name="document_date" class="field-input"></div>
+      <div style="margin-bottom: 1.5rem;"><label class="field-label">Select File</label><input type="file" name="document" required class="field-input" style="padding: 6px;"></div>
+      <button type="submit" style="width: 100%; padding: 0.8rem; background: linear-gradient(135deg, #093de6, #4f46e5); border: none; border-radius: 10px; color: white; font-weight: 700; cursor: pointer; font-size: 1rem;">Upload Document</button>
+    </form>
+  </div>
+</div>
+
+{% if messages %}
+<div style="position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem;">
+  {% for msg in messages %}
+  <div style="background: {% if 'error' in msg.tags %}#fef2f2{% else %}#f0fdf4{% endif %}; border: 1px solid {% if 'error' in msg.tags %}#fee2e2{% else %}#bbf7d0{% endif %}; color: {% if 'error' in msg.tags %}#b91c1c{% else %}#166534{% endif %}; padding: 0.75rem 1.25rem; border-radius: 10px; font-weight: 700; font-size: 0.88rem; box-shadow: 0 4px 12px rgba(0,0,0,0.12);">{{ msg }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}
