@@ -240,6 +240,10 @@ class Client(SoftDeleteModel):
             except Exception:
                 pass
 
+    def delete(self, using=None, keep_parents=False):
+        self.notifications.all().delete()
+        super().delete(using=using, keep_parents=keep_parents)
+
     class Meta:
         ordering = ["-created_at"]
         indexes = [
@@ -439,6 +443,8 @@ class ServiceRecord(SoftDeleteModel):
     service_type = models.CharField(max_length=100, db_index=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending", db_index=True)
     payment_method = models.CharField(max_length=50, choices=PAYMENT_METHODS, default="cash")
+    payment_method_2 = models.CharField(max_length=50, choices=PAYMENT_METHODS, blank=True, null=True)
+    paid_amount_2 = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     source = models.CharField(max_length=100, default="walk-in")
     referral = models.ForeignKey(Referral, on_delete=models.SET_NULL, null=True, blank=True, related_name="service_records")
     
@@ -486,6 +492,23 @@ class ServiceRecord(SoftDeleteModel):
             models.Index(fields=["organization", "created_at"]),
             models.Index(fields=["organization", "status", "created_at"]),
         ]
+
+    def get_payment_method_display(self):
+        p1 = dict(self.PAYMENT_METHODS).get(self.payment_method, self.payment_method)
+        if self.payment_method_2:
+            p2 = dict(self.PAYMENT_METHODS).get(self.payment_method_2, self.payment_method_2)
+            for key, val in self.PAYMENT_METHODS:
+                if self.payment_method == key:
+                    p1 = val
+                if self.payment_method_2 == key:
+                    p2 = val
+            amt1 = (self.paid_amount or Decimal("0")) - (self.paid_amount_2 or Decimal("0"))
+            amt2 = self.paid_amount_2 or Decimal("0")
+            return f"{p1} (${amt1:.2f}) / {p2} (${amt2:.2f})"
+        for key, val in self.PAYMENT_METHODS:
+            if self.payment_method == key:
+                return val
+        return p1
 
     def save(self, *args, **kwargs):
         if self.vehicle:

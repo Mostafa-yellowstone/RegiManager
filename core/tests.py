@@ -350,18 +350,18 @@ class AgentAuditingTests(TestCase):
         
         # Filter by stage = "bound"
         response = self.client.get(reverse("inventory-detail", args=[self.space.id]) + "?stage=bound")
-        self.assertEqual(response.context["policies"].count(), 1)
-        self.assertEqual(response.context["policies"].first().policy_number, "POL-FILTER-A")
+        self.assertEqual(len(response.context["policies"]), 1)
+        self.assertEqual(response.context["policies"][0].policy_number, "POL-FILTER-A")
         
         # Filter by agent
         response = self.client.get(reverse("inventory-detail", args=[self.space.id]) + f"?agent={self.user2.id}")
-        self.assertEqual(response.context["policies"].count(), 1)
-        self.assertEqual(response.context["policies"].first().policy_number, "POL-FILTER-B")
+        self.assertEqual(len(response.context["policies"]), 1)
+        self.assertEqual(response.context["policies"][0].policy_number, "POL-FILTER-B")
 
         # Filter by min_premium & max_premium
         response = self.client.get(reverse("inventory-detail", args=[self.space.id]) + "?min_premium=2000")
-        self.assertEqual(response.context["policies"].count(), 1)
-        self.assertEqual(response.context["policies"].first().policy_number, "POL-FILTER-B")
+        self.assertEqual(len(response.context["policies"]), 1)
+        self.assertEqual(response.context["policies"][0].policy_number, "POL-FILTER-B")
 
     def test_unearned_commission_deducted_by_transactions(self):
         # Set active_org_id in session for PDF report endpoint compatibility

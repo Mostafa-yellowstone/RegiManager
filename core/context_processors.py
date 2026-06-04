@@ -52,6 +52,7 @@ def automation_status(request):
         # Note notifications stay visible until the related note is marked done.
         notif_qs = (
             Notification.objects.filter(user=request.user)
+            .filter(client__deleted_at__isnull=True)
             .filter(
                 Q(note__isnull=False, note__is_done=False)
                 | Q(note__isnull=True, is_read=False)

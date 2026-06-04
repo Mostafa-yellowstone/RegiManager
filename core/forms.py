@@ -424,12 +424,20 @@ class VehicleServiceForm(forms.ModelForm):
         label="Total Amount Paid Today",
         widget=forms.NumberInput(attrs={"placeholder": "0.00"})
     )
+    paid_amount_2 = forms.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        label="Secondary Paid Amount",
+        widget=forms.NumberInput(attrs={"placeholder": "0.00"})
+    )
     
     class Meta:
         model = ServiceRecord
         fields = [
             "transaction_date",
             "service_type", "status", "payment_method",
+            "payment_method_2", "paid_amount_2",
             "terminal_number", "transaction_type",
             "processing_fee", "dmv_fee", 
             "sales_tax", "dmv_sales_tax", 
