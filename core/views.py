@@ -5422,6 +5422,8 @@ def inventory_detail(request, inventory_id):
         stage_filter = request.GET.get("stage", "").strip()
         status_filter = request.GET.get("status", "").strip()
         type_filter = request.GET.get("insurance_type", "").strip()
+        source_filter = request.GET.get("source", "").strip()
+        business_type_filter = request.GET.get("business_type", "").strip()
         date_from = request.GET.get("date_from", "").strip()
         date_to = request.GET.get("date_to", "").strip()
         company_filter = request.GET.get("insurance_company", "").strip()
@@ -5431,7 +5433,7 @@ def inventory_detail(request, inventory_id):
 
         # Base query for all policies
         all_policies = InsurancePolicy.objects.filter(organization=active_org).select_related("client", "insurance_company", "added_by")
-        
+
         # Filter policies for the CRM table
         policies = all_policies
         if search_query:
@@ -5447,6 +5449,10 @@ def inventory_detail(request, inventory_id):
             policies = policies.filter(status=status_filter)
         if type_filter:
             policies = policies.filter(insurance_type=type_filter)
+        if source_filter:
+            policies = policies.filter(source=source_filter)
+        if business_type_filter:
+            policies = policies.filter(business_type=business_type_filter)
         if date_from:
             policies = policies.filter(start_date__gte=date_from)
         if date_to:
@@ -5819,12 +5825,14 @@ def inventory_detail(request, inventory_id):
             "bank_date_to": bank_date_to,
             "bank_min_amount": bank_min_amount,
             "bank_max_amount": bank_max_amount,
-            
+
             # Query filters to persist in form fields
             "search_query": search_query,
             "stage_filter": stage_filter,
             "status_filter": status_filter,
             "type_filter": type_filter,
+            "source_filter": source_filter,
+            "business_type_filter": business_type_filter,
             "date_from": date_from,
             "date_to": date_to,
             "company_filter": company_filter,
@@ -6020,13 +6028,16 @@ def add_insurance_policy(request):
     stage = request.POST.get("stage", "quote")
     status = request.POST.get("status", "active")
     insurance_type = request.POST.get("insurance_type", "")
+    source = request.POST.get("source", "walk_in")
+    business_type = request.POST.get("business_type", "new_business")
+    bound_date = request.POST.get("bound_date") or None
     start_date = request.POST.get("start_date")
     end_date = request.POST.get("end_date")
     insurance_period_months = request.POST.get("insurance_period_months", "6")
     inactive_date = request.POST.get("inactive_date")
-    
+
     added_by = request.user
-        
+
     try:
         InsurancePolicy.objects.create(
             organization=org,
@@ -6039,16 +6050,19 @@ def add_insurance_policy(request):
             stage=stage,
             status=status,
             insurance_type=insurance_type,
+            source=source,
+            business_type=business_type,
+            bound_date=bound_date,
             start_date=start_date,
             end_date=end_date,
             insurance_period_months=int(insurance_period_months or 6),
             inactive_date=inactive_date or None,
-            added_by=added_by
+            added_by=added_by,
         )
         messages.success(request, "Insurance policy created.")
     except Exception as e:
         messages.error(request, f"Error saving policy: {e}")
-        
+
     return _redirect_to_insurance_detail(org)
 
 
@@ -6098,23 +6112,26 @@ def edit_insurance_policy(request, policy_id):
         policy.stage = request.POST.get("stage", "quote")
         policy.status = request.POST.get("status", "active")
         policy.insurance_type = request.POST.get("insurance_type", "")
+        policy.source = request.POST.get("source", "walk_in")
+        policy.business_type = request.POST.get("business_type", "new_business")
+        policy.bound_date = request.POST.get("bound_date") or None
         policy.start_date = request.POST.get("start_date")
         policy.end_date = request.POST.get("end_date")
         policy.insurance_period_months = int(request.POST.get("insurance_period_months", "6") or 6)
-        
+
         inactive_date = request.POST.get("inactive_date")
         policy.inactive_date = inactive_date or None
-        
+
         if not policy.added_by:
             policy.added_by = request.user
-        
+
         try:
             policy.save()
             messages.success(request, "Insurance policy updated.")
         except Exception as e:
             messages.error(request, f"Error updating policy: {e}")
         return _redirect_to_insurance_detail(policy.organization)
-        
+
     return JsonResponse({
         "id": policy.id,
         "client_name": policy.client.name if policy.client else "",
@@ -6127,6 +6144,9 @@ def edit_insurance_policy(request, policy_id):
         "stage": policy.stage,
         "status": policy.status,
         "insurance_type": policy.insurance_type,
+        "source": policy.source,
+        "business_type": policy.business_type,
+        "bound_date": str(policy.bound_date) if policy.bound_date else "",
         "start_date": str(policy.start_date),
         "end_date": str(policy.end_date),
         "insurance_period_months": policy.insurance_period_months,
@@ -6615,6 +6635,7 @@ def insurance_company_detail(request, company_id):
         "insurance_agents": insurance_agents,
         "income_categories": income_categories,
         "expense_categories": expense_categories,
+        "insurance_space_id": _get_insurance_space_id(active_org),
         # Filter persistence
         "search_query": search_query,
         "stage_filter": stage_filter,
@@ -6688,6 +6709,8 @@ def insurance_company_delete_document(request, doc_id):
 def insurance_agent_detail(request, user_id):
     from django.contrib.auth import get_user_model
     from .models import InsurancePolicy, InsuranceCompany
+    from datetime import date as _date
+    import calendar as _calendar
     User = get_user_model()
     organizations = _get_user_organizations(request)
 
@@ -6700,8 +6723,8 @@ def insurance_agent_detail(request, user_id):
         active_org = organizations.filter(id=active_org_id).first()
     if not active_org:
         active_org = organizations.filter(
-            organizationmembership__user=agent,
-            organizationmembership__is_active=True
+            memberships__user=agent,
+            memberships__is_active=True
         ).first()
     if not active_org:
         return HttpResponseForbidden("No organization context found.")
@@ -6721,19 +6744,58 @@ def insurance_agent_detail(request, user_id):
     if is_locked and not is_unlocked:
         return redirect("inventory-detail", inventory_id=_get_insurance_space_id(active_org))
 
-    # All agent policies
+    # ── Period Auditing ──────────────────────────────────────────────────────
+    today = _date.today()
+    period = request.GET.get("period", "today").strip()
+    custom_from_str = request.GET.get("date_from", "").strip()
+    custom_to_str = request.GET.get("date_to", "").strip()
+
+    audit_start = None
+    audit_end = None
+
+    if period == "today":
+        audit_start = today
+        audit_end = today
+    elif period == "month":
+        audit_start = today.replace(day=1)
+        audit_end = today.replace(day=_calendar.monthrange(today.year, today.month)[1])
+    elif period == "year":
+        audit_start = today.replace(month=1, day=1)
+        audit_end = today.replace(month=12, day=31)
+    elif period == "custom" and custom_from_str and custom_to_str:
+        try:
+            from django.utils import timezone as tz
+            audit_start = tz.datetime.strptime(custom_from_str, "%Y-%m-%d").date()
+            audit_end = tz.datetime.strptime(custom_to_str, "%Y-%m-%d").date()
+        except Exception:
+            audit_start = today
+            audit_end = today
+    # period == "all" leaves audit_start/audit_end as None (no date filter)
+
+    # All agent policies (unfiltered by date – used for lifetime metrics)
     all_agent_policies = InsurancePolicy.objects.filter(
         organization=active_org, added_by=agent
     ).select_related("client", "insurance_company")
 
-    # Filters
+    # Period-scoped policies (for auditing metrics)
+    if audit_start and audit_end:
+        period_policies = all_agent_policies.filter(
+            created_at__date__gte=audit_start,
+            created_at__date__lte=audit_end,
+        )
+    else:
+        period_policies = all_agent_policies
+
+    # ── CRM Table Filters ─────────────────────────────────────────────────────
     search_query = request.GET.get("q", "").strip()
     stage_filter = request.GET.get("stage", "").strip()
     status_filter = request.GET.get("status", "").strip()
     type_filter = request.GET.get("insurance_type", "").strip()
+    source_filter = request.GET.get("source", "").strip()
+    business_type_filter = request.GET.get("business_type", "").strip()
     company_filter = request.GET.get("insurance_company", "").strip()
-    date_from = request.GET.get("date_from", "").strip()
-    date_to = request.GET.get("date_to", "").strip()
+    table_date_from = request.GET.get("tbl_date_from", "").strip()
+    table_date_to = request.GET.get("tbl_date_to", "").strip()
 
     policies = all_agent_policies
     if search_query:
@@ -6749,12 +6811,16 @@ def insurance_agent_detail(request, user_id):
         policies = policies.filter(status=status_filter)
     if type_filter:
         policies = policies.filter(insurance_type=type_filter)
+    if source_filter:
+        policies = policies.filter(source=source_filter)
+    if business_type_filter:
+        policies = policies.filter(business_type=business_type_filter)
     if company_filter:
         policies = policies.filter(insurance_company_id=company_filter)
-    if date_from:
-        policies = policies.filter(start_date__gte=date_from)
-    if date_to:
-        policies = policies.filter(start_date__lte=date_to)
+    if table_date_from:
+        policies = policies.filter(start_date__gte=table_date_from)
+    if table_date_to:
+        policies = policies.filter(start_date__lte=table_date_to)
 
     # Pagination
     page_num = request.GET.get("page", 1)
@@ -6764,34 +6830,42 @@ def insurance_agent_detail(request, user_id):
     except Exception:
         policies_page = paginator.page(1)
 
-    # Metrics
-    bound_policies = all_agent_policies.filter(stage="bound")
-    active_policies = all_agent_policies.filter(stage="bound", status="active")
-    inactive_policies = all_agent_policies.filter(stage="bound", status="inactive")
-    pending_policies = all_agent_policies.filter(status="pending")
-    rejected_policies = all_agent_policies.filter(status="rejected")
+    # ── Period Metrics ────────────────────────────────────────────────────────
+    bound_policies_period = period_policies.filter(stage="bound")
+    active_policies_period = period_policies.filter(stage="bound", status="active")
+    inactive_policies_period = period_policies.filter(stage="bound", status="inactive")
+    pending_policies_period = period_policies.filter(status="pending")
+    rejected_policies_period = period_policies.filter(status="rejected")
 
-    quote_count = all_agent_policies.filter(stage="quote").count()
-    bound_count = bound_policies.count()
-    active_count = active_policies.count()
-    inactive_count = inactive_policies.count()
-    pending_count = pending_policies.count()
-    rejected_count = rejected_policies.count()
+    quote_count = period_policies.filter(stage="quote").count()
+    bound_count = bound_policies_period.count()
+    active_count = active_policies_period.count()
+    inactive_count = inactive_policies_period.count()
+    pending_count = pending_policies_period.count()
+    rejected_count = rejected_policies_period.count()
 
-    total_premium = sum(p.premium for p in active_policies)
-    total_commission = sum(p.commission_amount for p in bound_policies)
-    total_broker_fees = sum(p.broker_fee for p in bound_policies)
+    total_premium = sum(p.premium for p in active_policies_period)
+    total_commission = sum(p.commission_amount for p in bound_policies_period)
+    total_broker_fees = sum(p.broker_fee for p in bound_policies_period)
     total_profit = total_commission + total_broker_fees
-
     conversion_rate = (bound_count / (quote_count + bound_count) * 100) if (quote_count + bound_count) > 0 else 0
 
     insurance_companies = InsuranceCompany.objects.filter(organization=active_org)
+    insurance_space_id = _get_insurance_space_id(active_org)
 
     return render(request, "core/insurance_agent_detail.html", {
         "agent": agent,
         "active_org": active_org,
+        "insurance_space_id": insurance_space_id,
         "policies_page": policies_page,
         "insurance_companies": insurance_companies,
+        # Period auditing
+        "period": period,
+        "audit_start": audit_start,
+        "audit_end": audit_end,
+        "custom_from_str": custom_from_str,
+        "custom_to_str": custom_to_str,
+        # Metrics
         "quote_count": quote_count,
         "bound_count": bound_count,
         "active_count": active_count,
@@ -6808,7 +6882,10 @@ def insurance_agent_detail(request, user_id):
         "stage_filter": stage_filter,
         "status_filter": status_filter,
         "type_filter": type_filter,
+        "source_filter": source_filter,
+        "business_type_filter": business_type_filter,
         "company_filter": company_filter,
-        "date_from": date_from,
-        "date_to": date_to,
-    })
+        "table_date_from": table_date_from,
+        "table_date_to": table_date_to,
+    })
+

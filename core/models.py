@@ -960,6 +960,21 @@ class InsurancePolicy(models.Model):
         PENDING = "pending", "Pending"
         REJECTED = "rejected", "Rejected"
 
+    class SourceChoices(models.TextChoices):
+        WALK_IN = "walk_in", "Walk-In"
+        GOOGLE_SEARCH = "google_search", "Google Search"
+        META_PLATFORM = "meta_platform", "Meta Platform"
+        GOOGLE_CAMPAIGNS = "google_campaigns", "Google Campaigns"
+        EXISTING_CLIENT = "existing_client", "Existing Client"
+        DEALER = "dealer", "Dealer"
+        REFERRAL = "referral", "Referral"
+        COLD_CALLING = "cold_calling", "Cold Calling"
+
+    class BusinessTypeChoices(models.TextChoices):
+        NEW_BUSINESS = "new_business", "New Business"
+        RENEWAL = "renewal", "Renewal"
+        REWRITE = "rewrite", "Rewrite"
+
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="insurance_policies")
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="insurance_policies")
     policy_number = models.CharField(max_length=100)
@@ -991,6 +1006,9 @@ class InsurancePolicy(models.Model):
     stage = models.CharField(max_length=20, choices=StageChoices.choices, default=StageChoices.QUOTE)
     status = models.CharField(max_length=20, choices=StatusChoices.choices, default=StatusChoices.ACTIVE)
     insurance_type = models.CharField(max_length=30, choices=INSURANCE_TYPE_CHOICES, blank=True, default="", help_text="Type of insurance policy")
+    source = models.CharField(max_length=50, choices=SourceChoices.choices, default=SourceChoices.WALK_IN)
+    business_type = models.CharField(max_length=50, choices=BusinessTypeChoices.choices, default=BusinessTypeChoices.NEW_BUSINESS)
+    bound_date = models.DateField(blank=True, null=True, help_text="Date the policy was bound")
     added_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="added_insurance_policies", help_text="Agent who added this policy/quote")
     
     start_date = models.DateField()

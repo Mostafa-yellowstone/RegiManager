@@ -26,12 +26,29 @@
 .chip-bound { background: #f0fdf4; color: #15803d; }
 .chip-pending { background: #fef9c3; color: #854d0e; }
 .chip-rejected { background: #fee2e2; color: #b91c1c; }
+/* Source chips */
+.src-walk_in { background:#e0f2fe; color:#075985; }
+.src-google_search { background:#fef9c3; color:#713f12; }
+.src-meta_platform { background:#ede9fe; color:#5b21b6; }
+.src-google_campaigns { background:#fef3c7; color:#92400e; }
+.src-existing_client { background:#dcfce7; color:#166534; }
+.src-dealer { background:#f0fdf4; color:#15803d; }
+.src-referral { background:#ffe4e6; color:#9f1239; }
+.src-cold_calling { background:#f1f5f9; color:#475569; }
+/* Business type chips */
+.bt-new_business { background:#e0e7ff; color:#3730a3; }
+.bt-renewal { background:#ecfdf5; color:#065f46; }
+.bt-rewrite { background:#fff7ed; color:#9a3412; }
 .field-label { display: block; font-size: 0.73rem; font-weight: 800; color: var(--muted); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
 .field-input { width: 100%; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.88rem; outline: none; box-sizing: border-box; transition: border 0.2s; }
 .field-input:focus { border-color: var(--blue); }
 .page-btn { padding: 5px 11px; border-radius: 6px; border: 1px solid var(--border); background: white; color: var(--muted); font-weight: 700; font-size: 0.8rem; text-decoration: none; }
 .page-btn.active { background: var(--blue); color: white; border-color: var(--blue); }
 .page-btn:hover:not(.active) { border-color: #93c5fd; color: var(--blue); }
+/* Period pills */
+.period-pill { display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; border: 1.5px solid var(--border); background: white; color: var(--muted); cursor: pointer; text-decoration: none; transition: all 0.15s; }
+.period-pill:hover { border-color: var(--blue); color: var(--blue); }
+.period-pill.selected { background: var(--blue); border-color: var(--blue); color: white; }
 </style>
 
 <main style="background: var(--bg); min-height: 100vh; padding-bottom: 4rem;">
@@ -39,18 +56,19 @@
 
     <!-- Breadcrumb -->
     <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: var(--muted); font-weight: 600; flex-wrap: wrap;">
-      <a href="javascript:history.back()" style="color: var(--blue); text-decoration: none;">🛡️ Insurance Space</a>
-      <span>›</span>
-      <span>Agents</span>
-      <span>›</span>
+      {% if insurance_space_id %}
+        <a href="{% url 'inventory-detail' insurance_space_id %}" style="color: var(--blue); text-decoration: none;">🛡️ Insurance Space</a>
+      {% else %}
+        <a href="{% url 'spaces-home' %}" style="color: var(--blue); text-decoration: none;">🛡️ Insurance Space</a>
+      {% endif %}
+      <span>›</span><span>Agents</span><span>›</span>
       <span style="color: var(--dark);">{{ agent.get_full_name|default:agent.username }}</span>
     </div>
 
     <!-- Header -->
     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.25rem; margin-bottom: 2rem;">
       <div style="display: flex; align-items: center; gap: 1.25rem;">
-        <!-- Avatar -->
-        <div style="width: 72px; height: 72px; border-radius: 50%; background: hsl({{ agent.id|add:0 }}{{ agent.username|length }}0, 70%, 88%); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; color: hsl({{ agent.id|add:0 }}{{ agent.username|length }}0, 60%, 30%); border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+        <div style="width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #4f46e5, #093de6); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; color: white; border: 3px solid white; box-shadow: 0 4px 12px rgba(9,61,230,0.25);">
           {{ agent.first_name|slice:":1"|upper }}{{ agent.last_name|slice:":1"|upper }}
         </div>
         <div>
@@ -59,28 +77,66 @@
           <p style="color: var(--muted); margin: 0.2rem 0 0; font-weight: 500; font-size: 0.92rem;">{{ agent.email }} · {{ active_org.name }}</p>
         </div>
       </div>
-      <a href="javascript:history.back()" style="padding: 8px 16px; background: white; border: 1px solid var(--border); border-radius: 10px; font-weight: 700; color: var(--muted); font-size: 0.88rem; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">← Back</a>
+      {% if insurance_space_id %}
+        <a href="{% url 'inventory-detail' insurance_space_id %}" style="padding: 8px 16px; background: white; border: 1px solid var(--border); border-radius: 10px; font-weight: 700; color: var(--muted); font-size: 0.88rem; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">← Back to Insurance</a>
+      {% else %}
+        <a href="{% url 'spaces-home' %}" style="padding: 8px 16px; background: white; border: 1px solid var(--border); border-radius: 10px; font-weight: 700; color: var(--muted); font-size: 0.88rem; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">← Back</a>
+      {% endif %}
+    </div>
+
+    <!-- ── Period Auditing Bar ──────────────────────────────────────────────── -->
+    <div style="background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04); padding: 1.25rem 1.5rem; margin-bottom: 1.75rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: 0.04em; margin-bottom: 0.4rem;">📅 Audit Period</div>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a href="?period=today" class="period-pill {% if period == 'today' %}selected{% endif %}">Today</a>
+            <a href="?period=month" class="period-pill {% if period == 'month' %}selected{% endif %}">This Month</a>
+            <a href="?period=year" class="period-pill {% if period == 'year' %}selected{% endif %}">This Year</a>
+            <a href="?period=all" class="period-pill {% if period == 'all' %}selected{% endif %}">All Time</a>
+            <a href="#" onclick="toggleCustomRange(event)" class="period-pill {% if period == 'custom' %}selected{% endif %}">Custom Range</a>
+          </div>
+        </div>
+        <div style="font-size: 0.85rem; color: var(--muted); font-weight: 600;">
+          {% if period == 'today' %}Showing data for <strong style="color:var(--dark);">today ({{ audit_start }})</strong>
+          {% elif period == 'month' %}Showing <strong style="color:var(--dark);">{{ audit_start }} → {{ audit_end }}</strong>
+          {% elif period == 'year' %}Showing <strong style="color:var(--dark);">{{ audit_start }} → {{ audit_end }}</strong>
+          {% elif period == 'custom' and audit_start %}Showing <strong style="color:var(--dark);">{{ audit_start }} → {{ audit_end }}</strong>
+          {% else %}Showing <strong style="color:var(--dark);">all time</strong>{% endif %}
+        </div>
+      </div>
+      <!-- Custom range row -->
+      <div id="customRangeRow" style="display:{% if period == 'custom' %}flex{% else %}none{% endif %}; gap:0.75rem; margin-top:1rem; align-items:flex-end; flex-wrap:wrap;">
+        <form method="GET" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
+          <input type="hidden" name="period" value="custom">
+          <div>
+            <label class="field-label">From</label>
+            <input type="date" name="date_from" value="{{ custom_from_str }}" class="field-input" style="width:160px; padding:6px 10px;">
+          </div>
+          <div>
+            <label class="field-label">To</label>
+            <input type="date" name="date_to" value="{{ custom_to_str }}" class="field-input" style="width:160px; padding:6px 10px;">
+          </div>
+          <button type="submit" style="padding:7px 18px; background: var(--blue); color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">Apply</button>
+        </form>
+      </div>
     </div>
 
     <!-- Conversion Rate Banner -->
     <div style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); border-radius: 16px; padding: 1.5rem 2rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
       <div>
-        <div style="color: #93c5fd; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">Quote-to-Bind Conversion Rate</div>
+        <div style="color: #93c5fd; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
+          Quote-to-Bind Conversion Rate
+          <span style="background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:6px; margin-left:0.5rem; font-size:0.68rem;">
+            {% if period == 'today' %}Today{% elif period == 'month' %}This Month{% elif period == 'year' %}This Year{% elif period == 'custom' %}Custom{% else %}All Time{% endif %}
+          </span>
+        </div>
         <div style="font-size: 2.5rem; font-weight: 900; color: white; line-height: 1;">{{ conversion_rate|floatformat:1 }}%</div>
       </div>
       <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
-        <div style="text-align: center;">
-          <div style="color: #60a5fa; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.2rem;">Quotes</div>
-          <div style="font-size: 1.8rem; font-weight: 800; color: white;">{{ quote_count }}</div>
-        </div>
-        <div style="text-align: center;">
-          <div style="color: #34d399; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.2rem;">Bound</div>
-          <div style="font-size: 1.8rem; font-weight: 800; color: white;">{{ bound_count }}</div>
-        </div>
-        <div style="text-align: center;">
-          <div style="color: #fbbf24; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.2rem;">Total Profit</div>
-          <div style="font-size: 1.5rem; font-weight: 800; color: white;">${{ total_profit|floatformat:2 }}</div>
-        </div>
+        <div style="text-align: center;"><div style="color: #60a5fa; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.2rem;">Quotes</div><div style="font-size: 1.8rem; font-weight: 800; color: white;">{{ quote_count }}</div></div>
+        <div style="text-align: center;"><div style="color: #34d399; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.2rem;">Bound</div><div style="font-size: 1.8rem; font-weight: 800; color: white;">{{ bound_count }}</div></div>
+        <div style="text-align: center;"><div style="color: #fbbf24; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.2rem;">Total Profit</div><div style="font-size: 1.5rem; font-weight: 800; color: white;">${{ total_profit|floatformat:2 }}</div></div>
       </div>
     </div>
 
@@ -105,16 +161,18 @@
       <!-- Filters -->
       <div style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); background: #fafafa;">
         <form method="GET" style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <input type="hidden" name="period" value="{{ period }}">
+          {% if period == 'custom' %}<input type="hidden" name="date_from" value="{{ custom_from_str }}"><input type="hidden" name="date_to" value="{{ custom_to_str }}">{% endif %}
           <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
             <div style="flex: 1; min-width: 220px;">
               <input type="text" name="q" value="{{ search_query }}" placeholder="Search client, policy #..." class="field-input" style="padding: 7px 10px;">
             </div>
             <button type="submit" style="padding: 7px 16px; background: var(--dark); color: white; border: none; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.85rem;">Search</button>
-            <a href="{% url 'insurance-agent-detail' agent.id %}" style="padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--muted); background: white; font-weight: 700; font-size: 0.85rem;">Clear</a>
+            <a href="{% url 'insurance-agent-detail' agent.id %}?period={{ period }}" style="padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--muted); background: white; font-weight: 700; font-size: 0.85rem;">Clear</a>
           </div>
-          <details {% if stage_filter or status_filter or type_filter or company_filter or date_from or date_to %}open{% endif %}>
+          <details {% if stage_filter or status_filter or type_filter or source_filter or business_type_filter or company_filter or table_date_from or table_date_to %}open{% endif %}>
             <summary style="cursor: pointer; font-size: 0.83rem; font-weight: 700; color: var(--blue); outline: none; user-select: none;">🔍 Advanced Filters</summary>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; margin-top: 0.75rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 0.75rem; margin-top: 0.75rem;">
               <div>
                 <label class="field-label">Stage</label>
                 <select name="stage" class="field-input" style="padding: 6px;">
@@ -134,6 +192,29 @@
                 </select>
               </div>
               <div>
+                <label class="field-label">Source</label>
+                <select name="source" class="field-input" style="padding: 6px;">
+                  <option value="">All Sources</option>
+                  <option value="walk_in" {% if source_filter == "walk_in" %}selected{% endif %}>🚶 Walk-in</option>
+                  <option value="google_search" {% if source_filter == "google_search" %}selected{% endif %}>🔍 Google Search</option>
+                  <option value="meta_platform" {% if source_filter == "meta_platform" %}selected{% endif %}>📘 Meta Platform</option>
+                  <option value="google_campaigns" {% if source_filter == "google_campaigns" %}selected{% endif %}>📢 Google Campaigns</option>
+                  <option value="existing_client" {% if source_filter == "existing_client" %}selected{% endif %}>🤝 Existing Client</option>
+                  <option value="dealer" {% if source_filter == "dealer" %}selected{% endif %}>🏪 Dealer</option>
+                  <option value="referral" {% if source_filter == "referral" %}selected{% endif %}>💬 Referral</option>
+                  <option value="cold_calling" {% if source_filter == "cold_calling" %}selected{% endif %}>📞 Cold Calling</option>
+                </select>
+              </div>
+              <div>
+                <label class="field-label">Business Type</label>
+                <select name="business_type" class="field-input" style="padding: 6px;">
+                  <option value="">All Types</option>
+                  <option value="new_business" {% if business_type_filter == "new_business" %}selected{% endif %}>🆕 New Business</option>
+                  <option value="renewal" {% if business_type_filter == "renewal" %}selected{% endif %}>🔄 Renewal</option>
+                  <option value="rewrite" {% if business_type_filter == "rewrite" %}selected{% endif %}>✏️ Rewrite</option>
+                </select>
+              </div>
+              <div>
                 <label class="field-label">Company</label>
                 <select name="insurance_company" class="field-input" style="padding: 6px;">
                   <option value="">All Companies</option>
@@ -142,9 +223,10 @@
                   {% endfor %}
                 </select>
               </div>
-              <div><label class="field-label">From Date</label><input type="date" name="date_from" value="{{ date_from }}" class="field-input" style="padding: 6px;"></div>
-              <div><label class="field-label">To Date</label><input type="date" name="date_to" value="{{ date_to }}" class="field-input" style="padding: 6px;"></div>
+              <div><label class="field-label">Start From</label><input type="date" name="tbl_date_from" value="{{ table_date_from }}" class="field-input" style="padding: 6px;"></div>
+              <div><label class="field-label">Start To</label><input type="date" name="tbl_date_to" value="{{ table_date_to }}" class="field-input" style="padding: 6px;"></div>
             </div>
+            <button type="submit" style="margin-top:0.75rem; padding: 6px 16px; background: var(--dark); color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.83rem;">Apply Filters</button>
           </details>
         </form>
       </div>
@@ -153,7 +235,11 @@
       <div style="overflow-x: auto;">
         <table class="tbl">
           <thead>
-            <tr><th>Client</th><th>Policy #</th><th>Type</th><th>Company</th><th>Premium</th><th>Commission</th><th>Broker Fee</th><th>Stage</th><th>Status</th><th>Start</th><th>End</th></tr>
+            <tr>
+              <th>Client</th><th>Policy #</th><th>Type</th><th>Source</th><th>Business Type</th>
+              <th>Company</th><th>Premium</th><th>Commission</th><th>Broker Fee</th>
+              <th>Stage</th><th>Status</th><th>Bound Date</th><th>Start</th><th>End</th>
+            </tr>
           </thead>
           <tbody>
             {% for policy in policies_page %}
@@ -163,6 +249,31 @@
               </td>
               <td style="font-family: monospace; font-size: 0.82rem;">{{ policy.policy_number }}</td>
               <td style="font-size: 0.8rem; color: var(--muted);">{{ policy.get_insurance_type_display|default:"—" }}</td>
+              <td>
+                {% if policy.source %}
+                <span class="chip src-{{ policy.source }}">
+                  {% if policy.source == 'walk_in' %}🚶 Walk-in
+                  {% elif policy.source == 'google_search' %}🔍 Google Search
+                  {% elif policy.source == 'meta_platform' %}📘 Meta
+                  {% elif policy.source == 'google_campaigns' %}📢 G. Campaigns
+                  {% elif policy.source == 'existing_client' %}🤝 Existing
+                  {% elif policy.source == 'dealer' %}🏪 Dealer
+                  {% elif policy.source == 'referral' %}💬 Referral
+                  {% elif policy.source == 'cold_calling' %}📞 Cold Call
+                  {% else %}{{ policy.source }}{% endif %}
+                </span>
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                {% if policy.business_type %}
+                <span class="chip bt-{{ policy.business_type }}">
+                  {% if policy.business_type == 'new_business' %}🆕 New
+                  {% elif policy.business_type == 'renewal' %}🔄 Renewal
+                  {% elif policy.business_type == 'rewrite' %}✏️ Rewrite
+                  {% else %}{{ policy.business_type }}{% endif %}
+                </span>
+                {% else %}—{% endif %}
+              </td>
               <td style="font-size: 0.85rem; font-weight: 700;">{{ policy.insurance_company.name }}</td>
               <td style="font-weight: 800;">${{ policy.premium|floatformat:2 }}</td>
               <td style="color: var(--green); font-weight: 700;">${{ policy.commission_amount|floatformat:2 }}</td>
@@ -175,11 +286,12 @@
                 {% elif policy.status == 'rejected' %}<span class="chip chip-rejected">Rejected</span>
                 {% else %}<span class="chip" style="background:#f1f5f9;color:#475569;">{{ policy.status }}</span>{% endif %}
               </td>
+              <td style="font-size: 0.82rem; color: var(--muted); white-space: nowrap;">{{ policy.bound_date|default:"—" }}</td>
               <td style="font-size: 0.82rem; color: var(--muted); white-space: nowrap;">{{ policy.start_date }}</td>
               <td style="font-size: 0.82rem; color: var(--muted); white-space: nowrap;">{{ policy.end_date }}</td>
             </tr>
             {% empty %}
-            <tr><td colspan="11" style="text-align: center; padding: 3rem; color: var(--muted); font-weight: 600;">No policies found for this agent.</td></tr>
+            <tr><td colspan="14" style="text-align: center; padding: 3rem; color: var(--muted); font-weight: 600;">No policies found for this agent.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -190,12 +302,12 @@
       <div style="padding: 1rem 1.5rem; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
         <span style="font-size: 0.82rem; color: var(--muted); font-weight: 600;">Showing {{ policies_page.start_index }}–{{ policies_page.end_index }} of {{ policies_page.paginator.count }}</span>
         <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
-          {% if policies_page.has_previous %}<a href="?page={{ policies_page.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">← Prev</a>{% endif %}
+          {% if policies_page.has_previous %}<a href="?page={{ policies_page.previous_page_number }}&period={{ period }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">← Prev</a>{% endif %}
           {% for i in policies_page.paginator.page_range %}
             {% if policies_page.number == i %}<span class="page-btn active">{{ i }}</span>
-            {% elif i > policies_page.number|add:"-3" and i < policies_page.number|add:"3" %}<a href="?page={{ i }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">{{ i }}</a>{% endif %}
+            {% elif i > policies_page.number|add:"-3" and i < policies_page.number|add:"3" %}<a href="?page={{ i }}&period={{ period }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">{{ i }}</a>{% endif %}
           {% endfor %}
-          {% if policies_page.has_next %}<a href="?page={{ policies_page.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">Next →</a>{% endif %}
+          {% if policies_page.has_next %}<a href="?page={{ policies_page.next_page_number }}&period={{ period }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">Next →</a>{% endif %}
         </div>
       </div>
       {% endif %}
@@ -211,5 +323,13 @@
   {% endfor %}
 </div>
 {% endif %}
+
+<script>
+function toggleCustomRange(e) {
+  e.preventDefault();
+  const row = document.getElementById('customRangeRow');
+  row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+}
+</script>
 
 {% endblock %}

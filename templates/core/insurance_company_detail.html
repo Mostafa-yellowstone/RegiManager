@@ -57,7 +57,11 @@
 
     <!-- Breadcrumb -->
     <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: var(--muted); font-weight: 600; flex-wrap: wrap;">
-      <a href="javascript:history.back()" style="color: var(--blue); text-decoration: none;">🛡️ Insurance Space</a>
+      {% if insurance_space_id %}
+        <a href="{% url 'inventory-detail' insurance_space_id %}?tab=companies" style="color: var(--blue); text-decoration: none;">🛡️ Insurance Space</a>
+      {% else %}
+        <a href="{% url 'spaces-home' %}" style="color: var(--blue); text-decoration: none;">🛡️ Insurance Space</a>
+      {% endif %}
       <span>›</span>
       <span>Companies</span>
       <span>›</span>
@@ -74,7 +78,11 @@
       <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
         <button onclick="document.getElementById('depositModal').classList.add('active')" class="btn-primary">💰 Pay/Deposit</button>
         <button onclick="document.getElementById('ledgerModal').classList.add('active')" class="btn-outline">📒 Ledger</button>
-        <a href="javascript:history.back()" class="btn-outline">← Back</a>
+        {% if insurance_space_id %}
+          <a href="{% url 'inventory-detail' insurance_space_id %}?tab=companies" class="btn-outline">← Back</a>
+        {% else %}
+          <a href="{% url 'spaces-home' %}" class="btn-outline">← Back</a>
+        {% endif %}
       </div>
     </div>
 

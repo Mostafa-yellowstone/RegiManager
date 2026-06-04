@@ -78,6 +78,99 @@ class InsuranceSpaceTests(TestCase):
         policy = InsurancePolicy.objects.filter(organization=self.org).first()
         self.assertEqual(policy.client, existing_client)
 
+    def test_add_policy_with_new_fields(self):
+        response = self.client.post(reverse("add-insurance-policy"), {
+            "organization": self.org.id,
+            "client_name": "New Field Client",
+            "insurance_company": self.company.id,
+            "policy_number": "POL-NEW-111",
+            "premium": "1500.00",
+            "commission_rate": "12.50",
+            "stage": "bound",
+            "status": "pending",
+            "insurance_type": "commercial_auto",
+            "source": "google_search",
+            "business_type": "renewal",
+            "bound_date": "2026-06-04",
+            "start_date": "2026-06-05",
+            "end_date": "2026-12-05",
+            "insurance_period_months": "6",
+        })
+        policy = InsurancePolicy.objects.filter(policy_number="POL-NEW-111").first()
+        self.assertIsNotNone(policy)
+        self.assertEqual(policy.status, "pending")
+        self.assertEqual(policy.source, "google_search")
+        self.assertEqual(policy.business_type, "renewal")
+        self.assertEqual(str(policy.bound_date), "2026-06-04")
+
+    def test_edit_policy_with_new_fields(self):
+        policy = InsurancePolicy.objects.create(
+            organization=self.org,
+            client=Client.objects.create(organization=self.org, first_name="A", last_name="B"),
+            insurance_company=self.company,
+            policy_number="POL-EDIT-222",
+            premium=Decimal("800.00"),
+            commission_rate=Decimal("15.00"),
+            start_date="2026-06-01",
+            end_date="2026-12-01",
+            stage="quote",
+            status="active"
+        )
+        # Edit policy via AJAX POST
+        response = self.client.post(reverse("edit-insurance-policy", args=[policy.id]), {
+            "insurance_company": self.company.id,
+            "client_name": "A B",
+            "policy_number": "POL-EDIT-222",
+            "premium": "850.00",
+            "commission_rate": "15.00",
+            "stage": "bound",
+            "status": "rejected",
+            "insurance_type": "trucking",
+            "source": "meta_platform",
+            "business_type": "rewrite",
+            "bound_date": "2026-06-02",
+            "start_date": "2026-06-03",
+            "end_date": "2026-12-03",
+            "insurance_period_months": "6",
+        })
+        policy.refresh_from_db()
+        self.assertEqual(policy.status, "rejected")
+        self.assertEqual(policy.source, "meta_platform")
+        self.assertEqual(policy.business_type, "rewrite")
+        self.assertEqual(str(policy.bound_date), "2026-06-02")
+        self.assertEqual(policy.premium, Decimal("850.00"))
+
+    def test_agent_detail_period_auditing(self):
+        # Assign agent role capabilities to user
+        membership = OrganizationMembership.objects.filter(user=self.user, organization=self.org).first()
+        membership.can_deal_with_insurance = True
+        membership.save()
+
+        client = Client.objects.create(organization=self.org, first_name="Audited", last_name="Client")
+        # Create policies with different dates
+        p1 = InsurancePolicy.objects.create(
+            organization=self.org,
+            client=client,
+            insurance_company=self.company,
+            policy_number="POL-A",
+            premium=Decimal("100.00"),
+            commission_rate=Decimal("15.00"),
+            start_date="2026-06-01",
+            end_date="2026-12-01",
+            stage="bound",
+            status="active",
+            added_by=self.user
+        )
+        p1.created_at = "2026-06-04 12:00:00" # today
+        p1.save()
+
+        # Request today audit
+        response = self.client.get(reverse("insurance-agent-detail", args=[self.user.id]) + "?period=today")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["bound_count"], 1)
+        self.assertEqual(response.context["total_premium"], Decimal("100.00"))
+
+
 
 class VehicleSoftDeleteTests(TestCase):
     def setUp(self):
