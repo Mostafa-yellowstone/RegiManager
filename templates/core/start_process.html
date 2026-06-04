@@ -4,311 +4,688 @@
 {% block title %}{% if edit_mode %}Edit Transaction{% else %}Start Transaction{% endif %} | {{ vehicle.vin }}{% endblock %}
 
 {% block content %}
-<main class="dashboard-shell">
-    <section class="dashboard-layout">
-        <header class="dashboard-hero service-list-hero" style="background: linear-gradient(135deg, #1e293b, #0f172a); padding-bottom: 2rem;">
-            <div>
-                <a href="{% url 'client-detail' vehicle.client.id %}" class="btn btn-secondary back-btn" style="margin-bottom: 1rem; display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white;">&larr; Back to Client</a>
-                <h1>{% if edit_mode %}Edit Transaction{% else %}Start Transaction for {{ vehicle.year }} {{ vehicle.make }}{% endif %}</h1>
-                <p class="subtitle" style="color: #cbd5e1;">VIN: {{ vehicle.vin }} | Owner: {{ vehicle.client.name }}</p>
-            </div>
-        </header>
+<style>
+/* ── Transaction Form Page ─────────────────────────────── */
+.tx-shell {
+    min-height: 100vh;
+    padding: 1.2rem;
+}
 
-        <article class="dashboard-panel" style="margin-top: -2rem; position: relative; z-index: 5;">
-            <form method="post" action="{% if edit_mode %}{% url 'edit-service' service.id %}{% else %}{% url 'start-process' vehicle.id %}{% endif %}" class="auth-form" id="process-form">
-                {% csrf_token %}
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-                    <div class="field-wrap">
+.tx-layout {
+    width: 100%;
+    max-width: 960px;      /* constrained width — not full-bleed */
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* Hero header */
+.tx-hero {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-radius: 18px;
+    padding: 1.6rem 2rem;
+    color: #fff;
+}
+
+.tx-hero .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #e2e8f0;
+    padding: 0.35rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+    margin-bottom: 1rem;
+    transition: background 0.2s;
+}
+.tx-hero .back-btn:hover { background: rgba(255,255,255,0.2); }
+
+.tx-hero h1 {
+    margin: 0 0 0.35rem;
+    font-size: 1.55rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.tx-hero .tx-meta {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    flex-wrap: wrap;
+}
+
+.tx-hero .tx-meta span {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+/* Form card sections */
+.tx-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 16px rgba(10,30,70,0.07);
+    overflow: hidden;
+}
+
+.tx-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.9rem 1.4rem;
+    background: #f8fafc;
+    border-bottom: 1px solid #e8edf5;
+}
+
+.tx-card-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.tx-card-icon.blue  { background: #dbeafe; color: #1d4ed8; }
+.tx-card-icon.green { background: #dcfce7; color: #15803d; }
+.tx-card-icon.amber { background: #fef9c3; color: #a16207; }
+.tx-card-icon.purple{ background: #f3e8ff; color: #7c3aed; }
+
+.tx-card-header h2 {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: 0.01em;
+}
+
+.tx-card-body {
+    padding: 1.4rem;
+}
+
+/* Grid helpers */
+.tx-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.tx-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+.tx-grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem; }
+
+/* Field wrap */
+.tx-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.tx-field label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.tx-field input,
+.tx-field select,
+.tx-field textarea,
+.tx-field .form-control {
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    height: 38px;
+    padding: 0 0.75rem;
+    background: #f8fafc;
+    font-size: 0.9rem;
+    color: #1e293b;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.tx-field textarea,
+.tx-field textarea.form-control {
+    height: auto;
+    min-height: 80px;
+    padding: 0.6rem 0.75rem;
+    resize: vertical;
+}
+
+.tx-field input:focus,
+.tx-field select:focus,
+.tx-field textarea:focus,
+.tx-field .form-control:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+    background: #fff;
+}
+
+.tx-field input[readonly],
+.tx-field .form-control[readonly],
+.tx-field input[disabled] {
+    background: #f1f5f9 !important;
+    color: #64748b;
+    cursor: not-allowed;
+}
+
+/* Split payment toggle */
+.split-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.1rem;
+    padding: 0.75rem 1rem;
+    background: #f0f7ff;
+    border-radius: 10px;
+    border: 1.5px solid #bfdbfe;
+}
+
+.split-toggle-row input[type="checkbox"] {
+    width: 17px;
+    height: 17px;
+    cursor: pointer;
+    accent-color: #2563eb;
+    flex-shrink: 0;
+}
+
+.split-toggle-row label {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #1e3a5f;
+    cursor: pointer;
+    margin: 0;
+}
+
+/* Split payment panels */
+.split-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+}
+
+.split-col {
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.split-col-title {
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 0.1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1.5px solid #e2e8f0;
+}
+
+.split-col-title.primary  { color: #2563eb; border-color: #bfdbfe; }
+.split-col-title.secondary{ color: #7c3aed; border-color: #ddd6fe; }
+
+/* Fees section */
+.fees-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 1rem;
+}
+
+.fees-divider {
+    grid-column: 1 / -1;
+    height: 1px;
+    background: #e8edf5;
+    margin: 0.25rem 0;
+}
+
+.cc-fee-field {
+    grid-column: span 2;
+}
+
+/* Outstanding balance row */
+.balance-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    align-items: end;
+}
+
+.balance-note {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-top: 0.25rem;
+    font-style: italic;
+}
+
+/* Computed value display */
+.computed-value {
+    display: flex;
+    align-items: center;
+    height: 38px;
+    padding: 0 0.75rem;
+    background: #f1f5f9;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+/* Form actions */
+.tx-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.2rem 1.4rem;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    border-radius: 0 0 14px 14px;
+}
+
+.btn-tx-cancel {
+    padding: 0.6rem 1.5rem;
+    border-radius: 9px;
+    border: 1.5px solid #cbd5e1;
+    background: #fff;
+    color: #475569;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.btn-tx-cancel:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+}
+
+.btn-tx-submit {
+    padding: 0.65rem 2.4rem;
+    border-radius: 9px;
+    border: none;
+    background: linear-gradient(135deg, #1861bf, #1f7ae0);
+    color: #fff;
+    font-size: 0.92rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+    box-shadow: 0 4px 12px rgba(31,122,224,0.3);
+}
+
+.btn-tx-submit:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+}
+
+@media (max-width: 700px) {
+    .tx-grid-2, .tx-grid-3, .tx-grid-4, .fees-grid, .split-panel, .balance-row {
+        grid-template-columns: 1fr !important;
+    }
+    .cc-fee-field { grid-column: span 1; }
+}
+</style>
+
+<main class="tx-shell">
+<div class="tx-layout">
+
+    <form method="post"
+          action="{% if edit_mode %}{% url 'edit-service' service.id %}{% else %}{% url 'start-process' vehicle.id %}{% endif %}"
+          id="process-form">
+        {% csrf_token %}
+
+        {# ── Hero ─────────────────────────────────────────────── #}
+        <div class="tx-hero">
+            <a href="{% url 'client-detail' vehicle.client.id %}" class="back-btn">&#8592; Back to Client</a>
+            <h1>{% if edit_mode %}Edit Transaction{% else %}New Transaction — {{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}{% endif %}</h1>
+            <div class="tx-meta">
+                <span>🪪 VIN: <strong style="color:#e2e8f0;">{{ vehicle.vin }}</strong></span>
+                <span>👤 Owner: <strong style="color:#e2e8f0;">{{ vehicle.client.name }}</strong></span>
+            </div>
+        </div>
+
+        {# ── Section 1 · Service Info ─────────────────────────── #}
+        <div class="tx-card">
+            <div class="tx-card-header">
+                <div class="tx-card-icon blue">📋</div>
+                <h2>Service Information</h2>
+            </div>
+            <div class="tx-card-body">
+                <div class="tx-grid-2">
+                    <div class="tx-field">
                         <label>Service Type</label>
                         {{ form.service_type }}
                     </div>
-                    <div class="field-wrap">
+                    <div class="tx-field">
                         <label>Status</label>
                         {{ form.status }}
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-                    <div class="field-wrap">
+        {# ── Section 2 · Transaction Details ─────────────────── #}
+        <div class="tx-card">
+            <div class="tx-card-header">
+                <div class="tx-card-icon green">🗂️</div>
+                <h2>Transaction Details</h2>
+            </div>
+            <div class="tx-card-body">
+                <div class="tx-grid-3">
+                    <div class="tx-field">
                         <label>Terminal Number</label>
                         {{ form.terminal_number }}
                     </div>
-                    <div class="field-wrap">
+                    <div class="tx-field">
                         <label>Transaction Type</label>
                         {{ form.transaction_type }}
                     </div>
-                    <div class="field-wrap">
+                    <div class="tx-field">
                         <label>Transaction Date</label>
                         {{ form.transaction_date }}
                     </div>
                 </div>
+            </div>
+        </div>
 
+        {# ── Section 3 · Payment ─────────────────────────────── #}
+        <div class="tx-card">
+            <div class="tx-card-header">
+                <div class="tx-card-icon purple">💳</div>
+                <h2>Payment</h2>
+            </div>
+            <div class="tx-card-body">
 
+                {# Toggle #}
+                <div class="split-toggle-row">
+                    <input type="checkbox" id="split-payment-toggle"
+                           {% if form.payment_method_2.value %}checked{% endif %}>
+                    <label for="split-payment-toggle">Split Payment — charge across two payment methods</label>
+                </div>
 
-                <div style="margin-bottom: 1.5rem; background: #f8fafc; padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0;">
-                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
-                        <input type="checkbox" id="split-payment-toggle" style="width: 18px; height: 18px; cursor: pointer;" {% if form.payment_method_2.value %}checked{% endif %}>
-                        <label for="split-payment-toggle" style="font-weight: 700; color: #0f172a; margin: 0; cursor: pointer; font-size: 0.95rem;">Enable Split Payment</label>
-                    </div>
-
-                    <!-- Single Payment Fields -->
-                    <div id="single-payment-fields" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-                        <div class="field-wrap">
+                {# ── Single payment ── #}
+                <div id="single-payment-fields">
+                    <div class="tx-grid-2">
+                        <div class="tx-field">
                             <label>Payment Method</label>
                             {{ form.payment_method }}
                         </div>
-                        <div class="field-wrap">
+                        <div class="tx-field">
                             <label>Total Paid Today</label>
                             {{ form.paid_amount }}
                         </div>
                     </div>
+                </div>
 
-                    <!-- Split Payment Fields (Hidden by default) -->
-                    <div id="split-payment-fields" style="display: none; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-                        <div style="border-right: 1px solid #e2e8f0; padding-right: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
-                            <h4 style="margin: 0; font-size: 0.9rem; color: #4f46e5; font-weight: 800;">Primary Payment</h4>
-                            <div class="field-wrap">
-                                <label>Payment Method 1</label>
+                {# ── Split payment ── #}
+                <div id="split-payment-fields" style="display:none;">
+                    <div class="split-panel">
+                        {# Primary #}
+                        <div class="split-col">
+                            <p class="split-col-title primary">① Primary Payment</p>
+                            <div class="tx-field">
+                                <label>Payment Method</label>
                                 <select id="id_payment_method_1_clone" class="form-control">
                                     {% for val, label in form.payment_method.field.choices %}
-                                        <option value="{{ val }}" {% if form.payment_method.value == val %}selected{% endif %}>{{ label }}</option>
+                                        <option value="{{ val }}"
+                                            {% if form.payment_method.value == val %}selected{% endif %}>
+                                            {{ label }}
+                                        </option>
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="field-wrap">
-                                <label>Paid Amount 1 (Base Amount)</label>
-                                <input type="number" step="0.01" id="id_paid_amount_1" class="form-control" placeholder="0.00">
+                            <div class="tx-field">
+                                <label>Base Amount</label>
+                                <input type="number" step="0.01" id="id_paid_amount_1"
+                                       class="form-control" placeholder="0.00">
                             </div>
                         </div>
-                        <div style="display: flex; flex-direction: column; gap: 1rem;">
-                            <h4 style="margin: 0; font-size: 0.9rem; color: #4f46e5; font-weight: 800;">Secondary Payment</h4>
-                            <div class="field-wrap">
-                                <label>Payment Method 2</label>
+                        {# Secondary #}
+                        <div class="split-col">
+                            <p class="split-col-title secondary">② Secondary Payment</p>
+                            <div class="tx-field">
+                                <label>Payment Method</label>
                                 {{ form.payment_method_2 }}
                             </div>
-                            <div class="field-wrap">
-                                <label>Paid Amount 2 (Base Amount)</label>
+                            <div class="tx-field">
+                                <label>Base Amount</label>
                                 {{ form.paid_amount_2 }}
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
-                    <div class="field-wrap" id="referral-balance-wrap" style="grid-column: 2;">
-                        <label>Outstanding Balance</label>
-                        {{ form.referral_balance }}
+                    {# Hidden summary shown in split mode #}
+                    <div style="margin-top:1rem; display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                        <div class="tx-field">
+                            <label>Total Paid Today (auto)</label>
+                            {{ form.paid_amount }}
+                        </div>
+                        <div class="tx-field">
+                            <label>Outstanding Balance</label>
+                            {{ form.referral_balance }}
+                            <span class="balance-note">Calculated automatically</span>
+                        </div>
                     </div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; background: #f8fafc; padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0;">
-                    <div class="field-wrap">
-                        <label>Processing Fee (PSB)</label>
+                {# Outstanding balance — single mode only #}
+                <div id="single-balance-row" style="margin-top:1rem;">
+                    <div style="max-width:50%; padding-right:0.5rem;">
+                        <div class="tx-field">
+                            <label>Outstanding Balance</label>
+                            {{ form.referral_balance }}
+                            <span class="balance-note">Calculated automatically</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        {# ── Section 4 · Fees ────────────────────────────────── #}
+        <div class="tx-card">
+            <div class="tx-card-header">
+                <div class="tx-card-icon amber">💰</div>
+                <h2>Fee Breakdown</h2>
+            </div>
+            <div class="tx-card-body">
+
+                {# PSB Fees row #}
+                <p style="font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:#7c3aed; margin:0 0 0.6rem;">PSB Fees</p>
+                <div class="tx-grid-3" style="margin-bottom:1rem;">
+                    <div class="tx-field">
+                        <label>Processing Fee</label>
                         {{ form.processing_fee }}
                     </div>
-                    <div class="field-wrap">
-                        <label>DMV Fee</label>
-                        {{ form.dmv_fee }}
-                    </div>
-                    <div class="field-wrap">
+                    <div class="tx-field">
                         <label>Sales Tax (PSB)</label>
                         {{ form.sales_tax }}
                     </div>
-                    <div class="field-wrap">
-                        <label>Sales Tax (DMV)</label>
-                        {{ form.dmv_sales_tax }}
-                    </div>
-                    <div class="field-wrap">
+                    <div class="tx-field">
                         <label>Other (PSB)</label>
                         {{ form.other_fees }}
                     </div>
-                    <div class="field-wrap">
+                </div>
+
+                {# DMV Fees row #}
+                <p style="font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; color:#0369a1; margin:0 0 0.6rem;">DMV Fees</p>
+                <div class="tx-grid-3" style="margin-bottom:1rem;">
+                    <div class="tx-field">
+                        <label>DMV Fee</label>
+                        {{ form.dmv_fee }}
+                    </div>
+                    <div class="tx-field">
+                        <label>Sales Tax (DMV)</label>
+                        {{ form.dmv_sales_tax }}
+                    </div>
+                    <div class="tx-field">
                         <label>Other (DMV)</label>
                         {{ form.other_dmv_fee }}
                     </div>
-                    <div class="field-wrap" style="grid-column: span 2;">
-                        <label>Credit Card Fee</label>
-                        {{ form.credit_card_fee }}
+                </div>
+
+                {# CC Fee (auto) #}
+                <div style="border-top:1px solid #e2e8f0; padding-top:1rem;">
+                    <div style="max-width:33%;">
+                        <div class="tx-field">
+                            <label>Credit Card Fee <span style="font-weight:400; color:#94a3b8;">(auto)</span></label>
+                            {{ form.credit_card_fee }}
+                        </div>
                     </div>
                 </div>
 
-                <div class="field-wrap" style="margin-bottom: 2rem;">
-                    <label>Notes</label>
+            </div>
+        </div>
+
+        {# ── Section 5 · Notes ───────────────────────────────── #}
+        <div class="tx-card">
+            <div class="tx-card-header">
+                <div class="tx-card-icon blue">📝</div>
+                <h2>Notes</h2>
+            </div>
+            <div class="tx-card-body">
+                <div class="tx-field">
+                    <label>Internal Notes <span style="font-weight:400; text-transform:none; font-size:0.75rem; color:#94a3b8;">(optional)</span></label>
                     {{ form.notes }}
                 </div>
+            </div>
 
-                <div class="form-actions" style="border-top: 1px solid #e2e8f0; padding-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
-                    <a href="{% url 'client-detail' vehicle.client.id %}" class="btn btn-secondary">Cancel</a>
-                    <button type="submit" class="btn btn-primary" style="padding: 0.8rem 3rem;">{% if edit_mode %}Save Changes{% else %}Create Transaction{% endif %}</button>
-                </div>
-            </form>
-        </article>
-    </section>
+            <div class="tx-actions">
+                <a href="{% url 'client-detail' vehicle.client.id %}" class="btn-tx-cancel">Cancel</a>
+                <button type="submit" class="btn-tx-submit">
+                    {% if edit_mode %}Save Changes{% else %}Create Transaction{% endif %}
+                </button>
+            </div>
+        </div>
+
+    </form>
+</div>
 </main>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const processingFee = document.querySelector('input[name="processing_fee"]');
-    const dmvFee = document.querySelector('input[name="dmv_fee"]');
-    const salesTax = document.querySelector('input[name="sales_tax"]');
-    const dmvSalesTax = document.querySelector('input[name="dmv_sales_tax"]');
-    const otherFees = document.querySelector('input[name="other_fees"]');
-    const otherDmvFee = document.querySelector('input[name="other_dmv_fee"]');
-    const ccFee = document.querySelector('input[name="credit_card_fee"]');
-    const totalPaid = document.querySelector('input[name="paid_amount"]');
+    const processingFee    = document.querySelector('input[name="processing_fee"]');
+    const dmvFee           = document.querySelector('input[name="dmv_fee"]');
+    const salesTax         = document.querySelector('input[name="sales_tax"]');
+    const dmvSalesTax      = document.querySelector('input[name="dmv_sales_tax"]');
+    const otherFees        = document.querySelector('input[name="other_fees"]');
+    const otherDmvFee      = document.querySelector('input[name="other_dmv_fee"]');
+    const ccFee            = document.querySelector('input[name="credit_card_fee"]');
+    const totalPaid        = document.querySelector('input[name="paid_amount"]');
     const outstandingBalance = document.querySelector('input[name="referral_balance"]');
-    const paymentMethod = document.querySelector('select[name="payment_method"]');
-    
-    // Split payment selectors
-    const splitToggle = document.getElementById('split-payment-toggle');
+    const paymentMethod    = document.querySelector('select[name="payment_method"]');
+
+    // Split payment elements
+    const splitToggle         = document.getElementById('split-payment-toggle');
     const singlePaymentFields = document.getElementById('single-payment-fields');
-    const splitPaymentFields = document.getElementById('split-payment-fields');
+    const singleBalanceRow    = document.getElementById('single-balance-row');
+    const splitPaymentFields  = document.getElementById('split-payment-fields');
     const paymentMethod1Clone = document.getElementById('id_payment_method_1_clone');
-    const paidAmount1 = document.getElementById('id_paid_amount_1');
-    const paymentMethod2 = document.querySelector('select[name="payment_method_2"]');
-    const paidAmount2 = document.querySelector('input[name="paid_amount_2"]');
+    const paidAmount1         = document.getElementById('id_paid_amount_1');
+    const paymentMethod2      = document.querySelector('select[name="payment_method_2"]');
+    const paidAmount2         = document.querySelector('input[name="paid_amount_2"]');
 
     function getCCFeeRate(method) {
-        if (method === 'american_express') {
-            return 0.05;
-        } else if (['visa', 'mastercard', 'discover', 'diners_club'].includes(method)) {
-            return 0.035;
-        }
+        if (method === 'american_express') return 0.05;
+        if (['visa','mastercard','discover','diners_club'].includes(method)) return 0.035;
         return 0.0;
     }
 
     function toggleSplitFields() {
         if (splitToggle.checked) {
             singlePaymentFields.style.display = 'none';
-            splitPaymentFields.style.display = 'grid';
+            singleBalanceRow.style.display    = 'none';
+            splitPaymentFields.style.display  = 'block';
             if (paymentMethod2) paymentMethod2.required = true;
-            if (paidAmount2) paidAmount2.required = true;
+            if (paidAmount2)    paidAmount2.required    = true;
         } else {
-            singlePaymentFields.style.display = 'grid';
-            splitPaymentFields.style.display = 'none';
-            if (paymentMethod2) {
-                paymentMethod2.required = false;
-                paymentMethod2.value = '';
-            }
-            if (paidAmount2) {
-                paidAmount2.required = false;
-                paidAmount2.value = '0.00';
-            }
+            singlePaymentFields.style.display = 'block';
+            singleBalanceRow.style.display    = 'block';
+            splitPaymentFields.style.display  = 'none';
+            if (paymentMethod2) { paymentMethod2.required = false; paymentMethod2.value = ''; }
+            if (paidAmount2)    { paidAmount2.required    = false; paidAmount2.value    = '0.00'; }
         }
         updateCalculations();
     }
 
     function updateCalculations() {
-        const baseTotal = parseFloat(processingFee.value || 0)
-                        + parseFloat(dmvFee.value || 0)
-                        + parseFloat(salesTax.value || 0)
-                        + parseFloat(dmvSalesTax ? dmvSalesTax.value || 0 : 0)
-                        + parseFloat(otherFees ? otherFees.value || 0 : 0)
-                        + parseFloat(otherDmvFee ? otherDmvFee.value || 0 : 0);
-        
+        const baseTotal = parseFloat(processingFee.value  || 0)
+                        + parseFloat(dmvFee.value          || 0)
+                        + parseFloat(salesTax.value        || 0)
+                        + parseFloat(dmvSalesTax  ? dmvSalesTax.value  || 0 : 0)
+                        + parseFloat(otherFees    ? otherFees.value    || 0 : 0)
+                        + parseFloat(otherDmvFee  ? otherDmvFee.value  || 0 : 0);
+
         if (!splitToggle.checked) {
-            // Single Payment Mode
-            let fee = 0;
+            // Single mode
             const rate = getCCFeeRate(paymentMethod.value);
-            fee = baseTotal * rate;
+            const fee  = baseTotal * rate;
             ccFee.value = fee.toFixed(2);
 
             const grandTotal = baseTotal + fee;
+            if (!totalPaid.dataset.manual) totalPaid.value = grandTotal.toFixed(2);
 
-            if (!totalPaid.dataset.manual) {
-                totalPaid.value = grandTotal.toFixed(2);
-            }
-
-            const paid = parseFloat(totalPaid.value || 0);
+            const paid    = parseFloat(totalPaid.value || 0);
             const balance = grandTotal - paid;
-            if (outstandingBalance) {
-                outstandingBalance.value = balance > 0 ? balance.toFixed(2) : "0.00";
-            }
+            if (outstandingBalance) outstandingBalance.value = balance > 0 ? balance.toFixed(2) : '0.00';
         } else {
-            // Split Payment Mode
+            // Split mode
             paymentMethod.value = paymentMethod1Clone.value;
 
             const p2Base = parseFloat(paidAmount2.value || 0);
-            
             if (!paidAmount1.dataset.manual) {
                 const remainder = baseTotal - p2Base;
-                paidAmount1.value = remainder > 0 ? remainder.toFixed(2) : "0.00";
+                paidAmount1.value = remainder > 0 ? remainder.toFixed(2) : '0.00';
             }
 
             const p1Base = parseFloat(paidAmount1.value || 0);
-
-            const rate1 = getCCFeeRate(paymentMethod1Clone.value);
-            const rate2 = getCCFeeRate(paymentMethod2.value);
-
-            const fee1 = p1Base * rate1;
-            const fee2 = p2Base * rate2;
-
+            const fee1   = p1Base  * getCCFeeRate(paymentMethod1Clone.value);
+            const fee2   = p2Base  * getCCFeeRate(paymentMethod2.value);
             const totalFee = fee1 + fee2;
-            ccFee.value = totalFee.toFixed(2);
 
-            const grandTotal = baseTotal + totalFee;
-            
-            const totalPaidValue = (p1Base + fee1) + (p2Base + fee2);
-            totalPaid.value = totalPaidValue.toFixed(2);
+            ccFee.value        = totalFee.toFixed(2);
+            const totalPaidVal = (p1Base + fee1) + (p2Base + fee2);
+            totalPaid.value    = totalPaidVal.toFixed(2);
 
-            const balance = grandTotal - totalPaidValue;
-            if (outstandingBalance) {
-                outstandingBalance.value = balance > 0 ? balance.toFixed(2) : "0.00";
-            }
+            const balance = (baseTotal + totalFee) - totalPaidVal;
+            if (outstandingBalance) outstandingBalance.value = balance > 0 ? balance.toFixed(2) : '0.00';
         }
     }
 
-    // Toggle listener
     splitToggle.addEventListener('change', toggleSplitFields);
 
-    // Initial check
+    // Restore split mode on page load (edit mode)
     if (splitToggle.checked) {
         toggleSplitFields();
-        const initFee = parseFloat(ccFee.value || 0);
-        const initTotalPaid = parseFloat(totalPaid.value || 0);
-        const initP2 = parseFloat(paidAmount2.value || 0);
-        const initP1Base = (initTotalPaid - initFee) - initP2;
-        paidAmount1.value = initP1Base > 0 ? initP1Base.toFixed(2) : "0.00";
+        const initFee  = parseFloat(ccFee.value      || 0);
+        const initPaid = parseFloat(totalPaid.value  || 0);
+        const initP2   = parseFloat(paidAmount2.value|| 0);
+        const initP1Base = (initPaid - initFee) - initP2;
+        paidAmount1.value = initP1Base > 0 ? initP1Base.toFixed(2) : '0.00';
     }
 
-    totalPaid.addEventListener('input', () => {
-        totalPaid.dataset.manual = "true";
-        updateCalculations();
-    });
+    totalPaid.addEventListener('input', () => { totalPaid.dataset.manual = 'true'; updateCalculations(); });
+    paidAmount1.addEventListener('input', () => { paidAmount1.dataset.manual = 'true'; updateCalculations(); });
+    paidAmount2.addEventListener('input', updateCalculations);
+    paymentMethod1Clone.addEventListener('change', updateCalculations);
+    if (paymentMethod2) paymentMethod2.addEventListener('change', updateCalculations);
 
-    paidAmount1.addEventListener('input', () => {
-        paidAmount1.dataset.manual = "true";
-        updateCalculations();
-    });
+    [processingFee, dmvFee, salesTax, dmvSalesTax, otherFees, otherDmvFee, paymentMethod]
+        .filter(Boolean)
+        .forEach(el => {
+            el.addEventListener('input',  updateCalculations);
+            el.addEventListener('change', updateCalculations);
+        });
 
-    paidAmount2.addEventListener('input', () => {
-        updateCalculations();
-    });
-
-    paymentMethod1Clone.addEventListener('change', () => {
-        updateCalculations();
-    });
-
-    if (paymentMethod2) {
-        paymentMethod2.addEventListener('change', updateCalculations);
-    }
-
-    const feeFields = [
-        processingFee,
-        dmvFee,
-        salesTax,
-        dmvSalesTax,
-        otherFees,
-        otherDmvFee,
-        paymentMethod
-    ].filter(Boolean);
-    feeFields.forEach(el => {
-        el.addEventListener('input', updateCalculations);
-        el.addEventListener('change', updateCalculations);
-    });
-
-    // Run once on load
     updateCalculations();
 });
 </script>
