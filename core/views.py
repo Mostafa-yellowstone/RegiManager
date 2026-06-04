@@ -2337,12 +2337,7 @@ def generate_dmv_form(request, form_type, service_id):
     return response
 
 def _fill_mv82_overlay(can, service, client, vehicle):
-    st = service.service_type
-    if st == "vehicle_registration": can.drawString(170, 644, "X")
-    elif st == "registration_renewal": can.drawString(304, 644, "X")
-    elif st == "get_title": can.drawString(601, 644, "X")
-    elif st == "replace_lost_item": can.drawString(344, 629, "X")
-    elif st == "transfer_plate": can.drawString(536, 629, "X")
+    st = service.service_type  # service type available but checkboxes are left blank (no X marks)
     if service.plate_number: can.drawString(465, 615, service.plate_number.upper())
     if client and client.is_commercial:
         name_str = client.business_name or client.last_name
@@ -2363,13 +2358,7 @@ def _fill_mv82_overlay(can, service, client, vehicle):
     can.setFont("Helvetica-Bold", 10)
     can.drawString(358, 407, str(vehicle.year) if vehicle else "")
     can.drawString(400, 407, vehicle.make.upper() if vehicle else "")
-    if vehicle and vehicle.body_type:
-        bt = vehicle.body_type.lower()
-        if "2door" in bt: can.drawString(493, 413, "X")
-        elif "4door" in bt: can.drawString(493, 402, "X")
-        elif "suv" in bt: can.drawString(549, 402, "X")
-        elif "van" in bt: can.drawString(493, 379, "X")
-        elif "convertible" in bt: can.drawString(549, 413, "X")
+    # Body type checkboxes intentionally left blank (no X marks)
     can.drawString(40, 381, vehicle.color.upper() if vehicle else "")
     can.drawString(90, 381, str(vehicle.weight) if vehicle else "")
     can.drawString(34, 355, str(vehicle.cylinders) if vehicle else "")
