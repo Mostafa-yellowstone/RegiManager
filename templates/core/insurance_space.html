@@ -1236,10 +1236,66 @@ function updateCategories() {
   });
 }
 updateCategories();
-</script>
-{% endif %}
 
-{% endblock %}
+// QUICK ADD COMPANY MINI-MODAL
+function handleCompanySelect(sel) {
+  if (sel.value === '__add_new__') {
+    sel.value = '';
+    const modal = document.getElementById('quickAddCompanyModal');
+    modal.style.display = 'flex';
+    setTimeout(() => document.getElementById('quickCompanyName').focus(), 50);
+  }
+}
+
+function closeQuickAddCompany() {
+  document.getElementById('quickAddCompanyModal').style.display = 'none';
+  document.getElementById('quickCompanyName').value = '';
+  document.getElementById('quickCompanyError').style.display = 'none';
+  const saveBtn = document.querySelector('#quickAddCompanyModal button:last-of-type');
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Company'; }
+}
+
+function submitQuickAddCompany() {
+  const name = document.getElementById('quickCompanyName').value.trim();
+  const errEl = document.getElementById('quickCompanyError');
+  errEl.style.display = 'none';
+  if (!name) { errEl.textContent = 'Company name cannot be empty.'; errEl.style.display = 'block'; return; }
+  const orgId = document.querySelector('input[name="organization"]').value;
+  const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '{{ csrf_token }}';
+  const fd = new FormData();
+  fd.append('organization', orgId);
+  fd.append('name', name);
+  fd.append('csrfmiddlewaretoken', csrfToken);
+  const saveBtn = document.querySelector('#quickAddCompanyModal button:last-of-type');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+  fetch('{% url "add-insurance-company" %}', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) {
+        errEl.textContent = data.error || 'Failed to add company.';
+        errEl.style.display = 'block';
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Company'; }
+        return;
+      }
+      const sel = document.getElementById('policyCompany');
+      let existing = Array.from(sel.options).find(o => o.value == data.id);
+      if (!existing) {
+        const newOpt = document.createElement('option');
+        newOpt.value = data.id;
+        newOpt.textContent = data.name;
+        const addNewOpt = Array.from(sel.options).find(o => o.value === '__add_new__');
+        sel.insertBefore(newOpt, addNewOpt || null);
+      }
+      sel.value = data.id;
+      closeQuickAddCompany();
+    })
+    .catch(() => {
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.style.display = 'block';
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Company'; }
+    });
+}
+</script>
 
 <!-- QUICK ADD COMPANY MINI-MODAL -->
 <div id="quickAddCompanyModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(15,23,42,0.55); align-items:center; justify-content:center;" onclick="if(event.target===this)closeQuickAddCompany()">
@@ -1254,69 +1310,4 @@ updateCategories();
   </div>
 </div>
 
-<script>
-function handleCompanySelect(sel) {
-  if (sel.value === '__add_new__') {
-    sel.value = '';
-    const modal = document.getElementById('quickAddCompanyModal');
-    modal.style.display = 'flex';
-    setTimeout(() => document.getElementById('quickCompanyName').focus(), 50);
-  }
-}
-
-function closeQuickAddCompany() {
-  document.getElementById('quickAddCompanyModal').style.display = 'none';
-  document.getElementById('quickCompanyName').value = '';
-  document.getElementById('quickCompanyError').style.display = 'none';
-}
-
-function submitQuickAddCompany() {
-  const name = document.getElementById('quickCompanyName').value.trim();
-  const errEl = document.getElementById('quickCompanyError');
-  if (!name) { errEl.textContent = 'Company name cannot be empty.'; errEl.style.display = 'block'; return; }
-  const orgId = document.querySelector('input[name="organization"]').value;
-  const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '{{ csrf_token }}';
-  const fd = new FormData();
-  fd.append('organization', orgId);
-  fd.append('name', name);
-  fd.append('csrfmiddlewaretoken', csrfToken);
-
-  // Disable button while saving
-  const saveBtn = document.querySelector('#quickAddCompanyModal button:last-of-type');
-  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
-
-  fetch('{% url "add-insurance-company" %}', { method: 'POST', body: fd })
-    .then(r => r.json())
-    .then(data => {
-      if (!data.success) {
-        errEl.textContent = data.error || 'Failed to add company.';
-        errEl.style.display = 'block';
-        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Company'; }
-        return;
-      }
-      // Inject the new company into the dropdown and select it
-      const sel = document.getElementById('policyCompany');
-      // Check if it already exists (get_or_create case)
-      let existing = Array.from(sel.options).find(o => o.value == data.id);
-      if (!existing) {
-        const newOpt = document.createElement('option');
-        newOpt.value = data.id;
-        newOpt.textContent = data.name;
-        // Insert before the "Add New Company" option
-        const addNewOpt = Array.from(sel.options).find(o => o.value === '__add_new__');
-        sel.insertBefore(newOpt, addNewOpt || null);
-        existing = newOpt;
-      }
-      sel.value = data.id;
-      closeQuickAddCompany();
-    })
-    .catch(() => {
-      errEl.textContent = 'Network error. Please try again.';
-      errEl.style.display = 'block';
-      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Company'; }
-    });
-}
-
-// Nothing needed here — new companies are injected live via submitQuickAddCompany()
-</script>
-
+{% endblock %}

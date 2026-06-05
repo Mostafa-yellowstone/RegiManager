@@ -5023,12 +5023,12 @@ def public_intake_success(request):
 def client_search_ajax(request):
     """
     Lightweight JSON endpoint for the dashboard command bar live search.
-    Returns up to `limit` clients matching the query by name, DL, phone, plate,
-    business name, or EIN.
-    Phone numbers are normalised (non-digit characters stripped) so that queries
-    like '(516) 555-1234', '516-555-1234', or '5165551234' all match the same record.
+    Searches by name, DL, phone (any US format), plate, business name, or EIN.
+    Phone normalisation: strips all non-digit chars from both the query and the
+    stored value so '7186756671', '(718) 675-6671', '718-675-6671' all match.
     """
     import re
+
     q     = request.GET.get("q", "").strip()
     limit = min(int(request.GET.get("limit", "8")), 20)
 
@@ -5036,58 +5036,65 @@ def client_search_ajax(request):
         return JsonResponse({"results": []})
 
     organizations = _get_user_organizations(request)
-    q_digits = re.sub(r'\D', '', q)  # digits-only version of query
+    q_digits = re.sub(r"\D", "", q)   # e.g. "7186756671"
 
-    # ── 1. Standard DB-level filter (name, DL, plate, EIN, business, raw phone) ──
-    standard_qs = Client.objects.filter(
-        organization__in=organizations
-    ).filter(
-        Q(first_name__icontains=q)
-        | Q(last_name__icontains=q)
-        | Q(driver_license__icontains=q)
-        | Q(phone_number__icontains=q)
-        | Q(vehicles__plate_number__icontains=q)
-        | Q(business_name__icontains=q)
-        | Q(business_ein__icontains=q)
-    ).distinct().select_related("organization")
+    # ── Pass 1: collect IDs via DB-level text filter ─────────────────────────
+    db_ids = list(
+        Client.objects.filter(organization__in=organizations)
+        .filter(
+            Q(first_name__icontains=q)
+            | Q(last_name__icontains=q)
+            | Q(driver_license__icontains=q)
+            | Q(phone_number__icontains=q)
+            | Q(vehicles__plate_number__icontains=q)
+            | Q(business_name__icontains=q)
+            | Q(business_ein__icontains=q)
+        )
+        .distinct()
+        .values_list("id", flat=True)[:limit]
+    )
 
-    # ── 2. Normalised phone search (Python) ──────────────────────────────────────
-    # Fetch candidate clients by phone and filter in Python so that
-    # '5165551234' matches a stored '(516) 555-1234' and vice-versa.
-    phone_matched_ids = set()
+    # ── Pass 2: phone normalisation (Python) ──────────────────────────────────
+    # Only runs when query looks like a phone number (7+ digits).
+    # Fetches id+phone_number only (cheap), strips non-digits, compares.
     if len(q_digits) >= 7:
-        for c in Client.objects.filter(
-            organization__in=organizations
-        ).exclude(phone_number="").only("id", "phone_number"):
-            stored_digits = re.sub(r'\D', '', c.phone_number or '')
-            if q_digits in stored_digits or stored_digits in q_digits:
-                phone_matched_ids.add(c.id)
+        phone_rows = (
+            Client.objects.filter(organization__in=organizations)
+            .exclude(phone_number="")
+            .values_list("id", "phone_number")
+        )
+        seen = set(db_ids)
+        for cid, phone in phone_rows:
+            if cid in seen:
+                continue
+            stored_digits = re.sub(r"\D", "", phone or "")
+            # Match if query digits appear in stored digits or vice-versa
+            if stored_digits and (q_digits in stored_digits or stored_digits in q_digits):
+                db_ids.append(cid)
+                seen.add(cid)
+                if len(db_ids) >= limit:
+                    break
 
-    # ── 3. Merge results (Python dict keyed by id to deduplicate) ────────────────
-    seen_ids = set()
-    client_list = []
+    # ── Pass 3: fetch full objects for matched IDs ────────────────────────────
+    if not db_ids:
+        return JsonResponse({"results": []})
 
-    for c in standard_qs[:limit]:
-        if c.id not in seen_ids:
-            seen_ids.add(c.id)
-            client_list.append(c)
-
-    if phone_matched_ids:
-        remaining = limit - len(client_list)
-        if remaining > 0:
-            extra_qs = Client.objects.filter(
-                id__in=phone_matched_ids - seen_ids,
-                organization__in=organizations,
-            ).select_related("organization")[:remaining]
-            for c in extra_qs:
-                if c.id not in seen_ids:
-                    seen_ids.add(c.id)
-                    client_list.append(c)
+    clients_by_id = {
+        c.id: c
+        for c in Client.objects.filter(id__in=db_ids).select_related("organization")
+    }
 
     results = []
-    for c in client_list:
+    for cid in db_ids:
+        c = clients_by_id.get(cid)
+        if not c:
+            continue
         plate = c.vehicles.values_list("plate_number", flat=True).first() or ""
-        display_name = c.business_name if c.is_commercial and c.business_name else f"{c.first_name} {c.last_name}".strip()
+        display_name = (
+            c.business_name
+            if c.is_commercial and c.business_name
+            else f"{c.first_name} {c.last_name}".strip()
+        )
         results.append({
             "name":          display_name,
             "first_name":    c.first_name,
@@ -5278,8 +5285,30 @@ def mark_balance_paid(request, record_id):
 @login_required
 def site_news_list(request):
     from .models import SiteNews
-    news_items = SiteNews.objects.all().order_by('-created_at')
-    return render(request, "core/site_news_list.html", {"news_items": news_items})
+    can_manage = request.user.is_superuser or request.user.is_staff
+
+    if request.method == "POST" and can_manage:
+        action = request.POST.get("action", "")
+        if action == "delete":
+            news_id = request.POST.get("news_id")
+            SiteNews.objects.filter(id=news_id).delete()
+            messages.success(request, "News item deleted.")
+        else:
+            title   = request.POST.get("title", "").strip()
+            content = request.POST.get("content", "").strip()
+            is_active = request.POST.get("is_active") == "on"
+            if title and content:
+                SiteNews.objects.create(title=title, content=content, is_active=is_active)
+                messages.success(request, "News item published successfully.")
+            else:
+                messages.error(request, "Title and content are required.")
+        return redirect("site-news-list")
+
+    news_items = SiteNews.objects.all().order_by("-created_at")
+    return render(request, "core/site_news_list.html", {
+        "news_items":   news_items,
+        "can_manage":   can_manage,
+    })
 
 
 @login_required
