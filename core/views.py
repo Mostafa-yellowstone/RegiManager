@@ -4736,10 +4736,6 @@ def edit_service(request, service_id):
         if form.is_valid():
             record = form.save(commit=False)
 
-            # Preserve the original paid amounts — payment changes go through Outstanding Balances
-            record.paid_amount   = service.paid_amount
-            record.paid_amount_2 = service.paid_amount_2
-
             # Auto-link to referral if this client came from a referralship and record doesn't have one
             if not record.referral and record.vehicle and record.vehicle.client.referral:
                 record.referral = record.vehicle.client.referral
@@ -6934,4 +6930,4 @@ def insurance_agent_detail(request, user_id):
         "table_date_from": table_date_from,
         "table_date_to": table_date_to,
     })
-
+

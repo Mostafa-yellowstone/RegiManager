@@ -148,6 +148,7 @@ class InsuranceSpaceTests(TestCase):
 
         client = Client.objects.create(organization=self.org, first_name="Audited", last_name="Client")
         # Create policies with different dates
+        from django.utils import timezone
         p1 = InsurancePolicy.objects.create(
             organization=self.org,
             client=client,
@@ -161,7 +162,7 @@ class InsuranceSpaceTests(TestCase):
             status="active",
             added_by=self.user
         )
-        p1.created_at = "2026-06-04 12:00:00" # today
+        p1.created_at = timezone.now() # today
         p1.save()
 
         # Request today audit
