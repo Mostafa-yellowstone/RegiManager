@@ -5672,7 +5672,7 @@ def inventory_detail(request, inventory_id):
 
         # Paginate policies list
         crm_page_num = request.GET.get("page", 1)
-        crm_paginator = Paginator(policies_list, 20)
+        crm_paginator = Paginator(policies_list, 12)
         try:
             crm_policies_page = crm_paginator.page(crm_page_num)
         except Exception:
