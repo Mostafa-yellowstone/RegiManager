@@ -345,6 +345,51 @@
                     <h2>Payment</h2>
                 </div>
 
+                {% if edit_mode %}
+                {# ── Edit mode: show saved payment info read-only ── #}
+                <div style="background:#eff6ff; border:1.5px solid #bfdbfe; border-radius:12px; padding:1rem 1.25rem; margin-bottom:1.25rem; display:flex; align-items:flex-start; gap:0.75rem;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <div style="font-size:0.85rem; color:#1e3a5f;">
+                        <strong>Payment amounts are locked in edit mode.</strong><br>
+                        To record a new payment or reduce the outstanding balance, use the
+                        <a href="{% url 'outstanding-balances' %}" style="color:#1d4ed8; font-weight:700;">Outstanding Balances</a> page.
+                    </div>
+                </div>
+                <div class="tx-grid-2" style="margin-bottom:1rem;">
+                    <div class="tx-field">
+                        <label>Payment Method</label>
+                        {{ form.payment_method }}
+                    </div>
+                    <div class="tx-field">
+                        <label>Total Paid (Saved)</label>
+                        <input type="text" class="form-control" value="${{ service.paid_amount|floatformat:2 }}" readonly style="background:#f1f5f9;color:#64748b;cursor:not-allowed;">
+                        {# Hidden field so the form still submits the original value #}
+                        <input type="hidden" name="paid_amount" value="{{ service.paid_amount }}">
+                    </div>
+                </div>
+                {% if service.payment_method_2 %}
+                <div class="tx-grid-2" style="margin-bottom:1rem;">
+                    <div class="tx-field">
+                        <label>Secondary Payment Method</label>
+                        {{ form.payment_method_2 }}
+                    </div>
+                    <div class="tx-field">
+                        <label>Secondary Paid (Saved)</label>
+                        <input type="text" class="form-control" value="${{ service.paid_amount_2|floatformat:2 }}" readonly style="background:#f1f5f9;color:#64748b;cursor:not-allowed;">
+                        <input type="hidden" name="paid_amount_2" value="{{ service.paid_amount_2 }}">
+                    </div>
+                </div>
+                {% endif %}
+                <div style="max-width:320px;">
+                    <div class="tx-field">
+                        <label>Outstanding Balance (Saved)</label>
+                        <input type="text" class="form-control" value="${{ service.referral_balance|floatformat:2 }}" readonly style="background:#f1f5f9;color:{% if service.referral_balance > 0 %}#b91c1c{% else %}#15803d{% endif %};font-weight:700;cursor:not-allowed;">
+                        <input type="hidden" name="referral_balance" value="{{ service.referral_balance }}">
+                    </div>
+                </div>
+
+                {% else %}
+                {# ── Create mode: full interactive payment UI ── #}
                 <label class="split-toggle-row">
                     <input type="checkbox" id="split-payment-toggle"
                            {% if form.payment_method_2.value %}checked{% endif %}>
@@ -365,9 +410,8 @@
                     </div>
                     <div style="margin-top:1rem; max-width:400px;">
                         <div class="tx-field">
-                            <label>Outstanding Balance</label>
+                            <label>Outstanding Balance <span style="font-weight:400;color:#94a3b8;font-style:italic;">(auto-calculated)</span></label>
                             {{ form.referral_balance }}
-                            <span class="balance-note">Calculated automatically</span>
                         </div>
                     </div>
                 </div>
@@ -386,7 +430,7 @@
                                 </select>
                             </div>
                             <div class="tx-field">
-                                <label>Base Amount</label>
+                                <label>Amount</label>
                                 <input type="number" step="0.01" id="id_paid_amount_1" class="form-control" placeholder="0.00">
                             </div>
                         </div>
@@ -397,7 +441,7 @@
                                 {{ form.payment_method_2 }}
                             </div>
                             <div class="tx-field">
-                                <label>Base Amount</label>
+                                <label>Amount</label>
                                 {{ form.paid_amount_2 }}
                             </div>
                         </div>
@@ -408,12 +452,12 @@
                             {{ form.paid_amount }}
                         </div>
                         <div class="tx-field">
-                            <label>Outstanding Balance</label>
+                            <label>Outstanding Balance <span style="font-weight:400;color:#94a3b8;font-style:italic;">(auto-calculated)</span></label>
                             {{ form.referral_balance }}
-                            <span class="balance-note">Calculated automatically</span>
                         </div>
                     </div>
                 </div>
+                {% endif %}
             </div>
 
             <div class="tx-divider"></div>
@@ -480,6 +524,10 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // In edit mode, the payment section is read-only — skip all JS calculations
+    const IS_EDIT_MODE = {{ edit_mode|yesno:'true,false' }};
+    if (IS_EDIT_MODE) return;
+
     const processingFee      = document.querySelector('input[name="processing_fee"]');
     const dmvFee             = document.querySelector('input[name="dmv_fee"]');
     const salesTax           = document.querySelector('input[name="sales_tax"]');
@@ -528,47 +576,49 @@ document.addEventListener('DOMContentLoaded', function () {
                         + parseFloat(otherFees    ? otherFees.value    || 0 : 0)
                         + parseFloat(otherDmvFee  ? otherDmvFee.value  || 0 : 0);
 
-        if (!splitToggle.checked) {
-            const fee = baseTotal * getCCFeeRate(paymentMethod.value);
-            ccFee.value = fee.toFixed(2);
-            const grand = baseTotal + fee;
-            if (!totalPaid.dataset.manual) totalPaid.value = grand.toFixed(2);
-            const bal = grand - parseFloat(totalPaid.value || 0);
-            if (outstandingBalance) outstandingBalance.value = bal > 0 ? bal.toFixed(2) : '0.00';
+        if (!splitToggle || !splitToggle.checked) {
+            if (paymentMethod && ccFee) {
+                const fee = baseTotal * getCCFeeRate(paymentMethod.value);
+                ccFee.value = fee.toFixed(2);
+                const grand = baseTotal + fee;
+                if (totalPaid && !totalPaid.dataset.manual) totalPaid.value = grand.toFixed(2);
+                const bal = grand - parseFloat((totalPaid && totalPaid.value) || 0);
+                if (outstandingBalance) outstandingBalance.value = bal > 0 ? bal.toFixed(2) : '0.00';
+            }
         } else {
-            paymentMethod.value = paymentMethod1Clone.value;
-            const p2Base = parseFloat(paidAmount2.value || 0);
-            if (!paidAmount1.dataset.manual) {
+            if (paymentMethod && paymentMethod1Clone) paymentMethod.value = paymentMethod1Clone.value;
+            const p2Base = parseFloat((paidAmount2 && paidAmount2.value) || 0);
+            if (paidAmount1 && !paidAmount1.dataset.manual) {
                 const rem = baseTotal - p2Base;
                 paidAmount1.value = rem > 0 ? rem.toFixed(2) : '0.00';
             }
-            const p1Base   = parseFloat(paidAmount1.value || 0);
-            const fee1     = p1Base * getCCFeeRate(paymentMethod1Clone.value);
-            const fee2     = p2Base * getCCFeeRate(paymentMethod2.value);
+            const p1Base   = parseFloat((paidAmount1 && paidAmount1.value) || 0);
+            const fee1     = p1Base * getCCFeeRate(paymentMethod1Clone ? paymentMethod1Clone.value : '');
+            const fee2     = p2Base * getCCFeeRate(paymentMethod2 ? paymentMethod2.value : '');
             const totalFee = fee1 + fee2;
-            ccFee.value    = totalFee.toFixed(2);
+            if (ccFee) ccFee.value = totalFee.toFixed(2);
             const paidVal  = (p1Base + fee1) + (p2Base + fee2);
-            totalPaid.value = paidVal.toFixed(2);
+            if (totalPaid) totalPaid.value = paidVal.toFixed(2);
             const bal = (baseTotal + totalFee) - paidVal;
             if (outstandingBalance) outstandingBalance.value = bal > 0 ? bal.toFixed(2) : '0.00';
         }
     }
 
-    splitToggle.addEventListener('change', toggleSplitFields);
+    if (splitToggle) splitToggle.addEventListener('change', toggleSplitFields);
 
-    if (splitToggle.checked) {
+    if (splitToggle && splitToggle.checked) {
         toggleSplitFields();
-        const initFee  = parseFloat(ccFee.value      || 0);
-        const initPaid = parseFloat(totalPaid.value  || 0);
-        const initP2   = parseFloat(paidAmount2.value|| 0);
+        const initFee  = parseFloat((ccFee && ccFee.value)      || 0);
+        const initPaid = parseFloat((totalPaid && totalPaid.value)  || 0);
+        const initP2   = parseFloat((paidAmount2 && paidAmount2.value) || 0);
         const p1b = (initPaid - initFee) - initP2;
-        paidAmount1.value = p1b > 0 ? p1b.toFixed(2) : '0.00';
+        if (paidAmount1) paidAmount1.value = p1b > 0 ? p1b.toFixed(2) : '0.00';
     }
 
-    totalPaid.addEventListener('input',       () => { totalPaid.dataset.manual  = 'true'; updateCalculations(); });
-    paidAmount1.addEventListener('input',     () => { paidAmount1.dataset.manual = 'true'; updateCalculations(); });
-    paidAmount2.addEventListener('input',     updateCalculations);
-    paymentMethod1Clone.addEventListener('change', updateCalculations);
+    if (totalPaid)  totalPaid.addEventListener('input',  () => { totalPaid.dataset.manual  = 'true'; updateCalculations(); });
+    if (paidAmount1) paidAmount1.addEventListener('input', () => { paidAmount1.dataset.manual = 'true'; updateCalculations(); });
+    if (paidAmount2) paidAmount2.addEventListener('input', updateCalculations);
+    if (paymentMethod1Clone) paymentMethod1Clone.addEventListener('change', updateCalculations);
     if (paymentMethod2) paymentMethod2.addEventListener('change', updateCalculations);
 
     [processingFee, dmvFee, salesTax, dmvSalesTax, otherFees, otherDmvFee, paymentMethod]

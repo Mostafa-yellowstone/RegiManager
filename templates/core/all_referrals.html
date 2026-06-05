@@ -7,12 +7,210 @@
 <style>
     .alert-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
     .alert-danger, .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-    .referral-card.is-unpaid { border-color: #f87171; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.1); }
-    .referral-card.is-unpaid .top-bar { background: #ef4444; }
-    .referral-card.is-paid .top-bar { background: #10b981; }
-    .outstanding-amount.is-unpaid { color: #dc2626; }
-    .outstanding-amount.is-paid { color: #10b981; }
     .d-none { display: none; }
+
+    /* ── Search/Filter bar ───────────────────────────────────────────── */
+    .ref-filter-bar {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        align-items: center;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 0.85rem 1.25rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(15,23,42,0.06);
+    }
+    .ref-filter-bar input[type="text"],
+    .ref-filter-bar select {
+        border: 1.5px solid #e2e8f0;
+        border-radius: 9px;
+        padding: 0.45rem 0.85rem;
+        font-size: 0.875rem;
+        color: #334155;
+        background: #f8fafc;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .ref-filter-bar input[type="text"] { min-width: 220px; }
+    .ref-filter-bar select { min-width: 150px; }
+    .ref-filter-bar input[type="text"]:focus,
+    .ref-filter-bar select:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+        background: #fff;
+    }
+    .ref-results-count {
+        margin-left: auto;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #94a3b8;
+    }
+
+    /* ── Cards grid ──────────────────────────────────────────────────── */
+    .ref-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    /* ── Individual card ─────────────────────────────────────────────── */
+    .ref-card-link { text-decoration: none; color: inherit; display: block; }
+    .ref-card {
+        background: #fff;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 16px;
+        overflow: hidden;
+        height: 270px;                   /* fixed standard height */
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+        position: relative;
+    }
+    .ref-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 32px rgba(15,23,42,0.12);
+        border-color: #a5b4fc;
+    }
+    .ref-card.is-unpaid { border-color: #fca5a5; }
+    .ref-card.is-unpaid:hover { border-color: #f87171; }
+    .ref-card.is-paid   { border-color: #6ee7b7; }
+    .ref-card.is-paid:hover  { border-color: #34d399; }
+
+    /* colour bar at the top */
+    .ref-card-bar { height: 4px; flex-shrink: 0; }
+    .ref-card.is-unpaid .ref-card-bar { background: #ef4444; }
+    .ref-card.is-paid   .ref-card-bar { background: #10b981; }
+
+    /* card body */
+    .ref-card-body {
+        flex: 1;
+        padding: 1.1rem 1.25rem 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        overflow: hidden;
+    }
+
+    /* name row */
+    .ref-card-name-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+    .ref-card-name {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.3;
+        word-break: break-word;        /* let name wrap, no truncation */
+    }
+    .ref-card-badges {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.3rem;
+        flex-shrink: 0;
+    }
+    .ref-cat-chip {
+        background: #f1f5f9;
+        color: #475569;
+        font-size: 0.6rem;
+        padding: 2px 7px;
+        border-radius: 99px;
+        font-weight: 800;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+    .ref-partner-chip {
+        background: #eef2ff;
+        color: #4338ca;
+        font-size: 0.6rem;
+        padding: 2px 7px;
+        border-radius: 99px;
+        font-weight: 700;
+        border: 1px solid #c7d2fe;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    /* contact info */
+    .ref-card-contact {
+        font-size: 0.8rem;
+        color: #64748b;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+    }
+    .ref-card-contact span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* stats bar */
+    .ref-card-stats {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8rem;
+        color: #475569;
+    }
+
+    /* footer */
+    .ref-card-footer {
+        flex-shrink: 0;
+        border-top: 1px solid #f1f5f9;
+        padding: 0.6rem 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .ref-outstanding-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        font-weight: 700;
+    }
+    .ref-outstanding-value {
+        font-size: 1.1rem;
+        font-weight: 800;
+    }
+    .ref-outstanding-value.unpaid { color: #dc2626; }
+    .ref-outstanding-value.paid   { color: #10b981; }
+
+    /* partner toggle */
+    .ref-toggle-wrap { display: flex; align-items: center; gap: 0.35rem; }
+
+    /* empty state */
+    .ref-empty {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 4rem 2rem;
+        background: #fff;
+        border-radius: 14px;
+        border: 1.5px dashed #cbd5e1;
+    }
+    .ref-empty h3 { color: #475569; margin-bottom: 0.5rem; }
+    .ref-empty p  { color: #64748b; margin: 0; }
+
+    /* no-results state */
+    #ref-no-results {
+        display: none;
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 3rem 2rem;
+        background: #f8fafc;
+        border-radius: 14px;
+        border: 1.5px dashed #e2e8f0;
+        color: #64748b;
+    }
 </style>
 
 <main class="dashboard-shell">
@@ -36,60 +234,104 @@
         {% endif %}
 
         <div style="display: grid; grid-template-columns: 1fr 300px; gap: 2rem; margin-top: 2rem;">
-            
-            <section class="service-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
-                {% for referral in referrals %}
-                    <a href="{% url 'referral-profile' referral.id %}" class="service-stat-card-link" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; height: 100%;">
-                        <article class="service-stat-card referral-card {% if referral.outstanding > 0 %}is-unpaid{% else %}is-paid{% endif %}" style="border: 1px solid #e2e8f0; transition: transform 0.2s, box-shadow 0.2s; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; height: 100%; flex: 1; box-sizing: border-box; min-height: 240px; padding: 1.5rem;">
-                            
-                            <div class="top-bar" style="position: absolute; top: 0; left: 0; right: 0; height: 4px;"></div>
-                            
-                            <div style="flex-grow: 1; display: flex; flex-direction: column;">
-                                <div style="display: flex; align-items: flex-start; margin-bottom: 1rem;">
-                                    <div style="width: 48px; height: 48px; border-radius: 8px; background: #f1f5f9; color: #475569; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: bold; margin-right: 1rem; flex-shrink: 0;">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
-                                    </div>
-                                    <div style="flex-grow: 1; min-width: 0;">
-                                        <h3 style="margin: 0 0 0.25rem 0; font-size: 1.1rem; color: #1e293b; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%;">
-                                            <span style="font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;" title="{{ referral.name }}">{{ referral.name }}</span>
-                                            <div style="display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0;" onclick="event.stopPropagation();">
-                                                <span style="background: #f1f5f9; color: #475569; font-size: 0.55rem; padding: 2px 6px; border-radius: 99px; font-weight: 800; text-transform: uppercase;">{{ referral.get_category_display }}</span>
-                                                <label class="switch" style="transform: scale(0.65); transform-origin: right;">
-                                                    <input type="checkbox" class="partner-toggle" data-referral-id="{{ referral.id }}" {% if referral.is_partner %}checked{% endif %}>
-                                                    <span class="slider round"></span>
-                                                </label>
-                                                <span class="partner-badge{% if not referral.is_partner %} d-none{% endif %}" style="background: #eef2ff; color: #4338ca; font-size: 0.6rem; padding: 0.1rem 0.4rem; border-radius: 99px; font-weight: 700; border: 1px solid #c7d2fe; text-transform: uppercase;">Partner</span>
-                                            </div>
-                                        </h3>
-                                        <p style="margin: 0; font-size: 0.85rem; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ referral.email|default:'No email provided' }}">{{ referral.email|default:"No email provided" }}</p>
-                                        {% if referral.website %}<p style="margin: 0; font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><a href="{{ referral.website }}" target="_blank" style="color: #3b82f6;">{{ referral.website|truncatechars:30 }}</a></p>{% endif %}
+
+            <div>
+                <!-- Search & Filter Bar -->
+                <div class="ref-filter-bar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" id="refSearch" placeholder="Search by name, email or phone…" oninput="filterReferrals()">
+
+                    <select id="refCategory" onchange="filterReferrals()">
+                        <option value="">All Categories</option>
+                        <option value="dealer">Car Dealer</option>
+                        <option value="travel">Travel Agency</option>
+                        <option value="broker">Broker</option>
+                        <option value="customer">Customer</option>
+                        <option value="custom">Custom</option>
+                    </select>
+
+                    <select id="refStatus" onchange="filterReferrals()">
+                        <option value="">All Statuses</option>
+                        <option value="unpaid">Has Outstanding</option>
+                        <option value="paid">All Cleared</option>
+                    </select>
+
+                    <span class="ref-results-count" id="refCount"></span>
+                </div>
+
+                <!-- Cards Grid -->
+                <div class="ref-cards-grid" id="refGrid">
+                    {% for referral in referrals %}
+                    <a href="{% url 'referral-profile' referral.id %}"
+                       class="ref-card-link"
+                       data-name="{{ referral.name|lower }}"
+                       data-email="{{ referral.email|lower|default:'' }}"
+                       data-phone="{{ referral.phone_no|default:'' }}"
+                       data-category="{{ referral.category }}"
+                       data-status="{% if referral.outstanding > 0 %}unpaid{% else %}paid{% endif %}">
+                        <article class="ref-card {% if referral.outstanding > 0 %}is-unpaid{% else %}is-paid{% endif %}">
+                            <div class="ref-card-bar"></div>
+
+                            <div class="ref-card-body">
+                                <!-- Name + badges -->
+                                <div class="ref-card-name-row">
+                                    <div class="ref-card-name">{{ referral.name }}</div>
+                                    <div class="ref-card-badges">
+                                        <span class="ref-cat-chip">{{ referral.get_category_display }}</span>
+                                        {% if referral.is_partner %}
+                                        <span class="ref-partner-chip">Partner</span>
+                                        {% endif %}
                                     </div>
                                 </div>
-                                
-                                <div style="background: #f8fafc; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; margin-top: auto;">
-                                    <p style="margin: 0 0 0.35rem 0; font-size: 0.85rem; color: #475569; display: flex; justify-content: space-between;"><strong>Phone:</strong> <span>{{ referral.phone_no|default:"N/A" }}</span></p>
-                                    <p style="margin: 0; font-size: 0.85rem; color: #475569; display: flex; justify-content: space-between;"><strong>Total Records:</strong> <span>{{ referral.record_count }}</span></p>
+
+                                <!-- Contact -->
+                                <div class="ref-card-contact">
+                                    {% if referral.email %}
+                                    <span title="{{ referral.email }}">✉ {{ referral.email }}</span>
+                                    {% endif %}
+                                    {% if referral.phone_no %}
+                                    <span>📞 {{ referral.phone_no }}</span>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Stats -->
+                                <div class="ref-card-stats">
+                                    <span><strong>{{ referral.record_count }}</strong> Records</span>
+                                    <div style="display:flex;align-items:center;gap:0.5rem;" onclick="event.stopPropagation();">
+                                        <label class="switch" style="transform:scale(0.65);transform-origin:right;margin:0;">
+                                            <input type="checkbox" class="partner-toggle" data-referral-id="{{ referral.id }}" {% if referral.is_partner %}checked{% endif %}>
+                                            <span class="slider round"></span>
+                                        </label>
+                                        <span style="font-size:0.72rem;color:#64748b;font-weight:600;">Partner</span>
+                                    </div>
                                 </div>
                             </div>
-                            
-                            <div style="display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 0.75rem; align-items: flex-end; flex-shrink: 0;">
+
+                            <!-- Footer -->
+                            <div class="ref-card-footer">
                                 <div>
-                                    <p style="margin: 0 0 0.2rem 0; font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Outstanding</p>
-                                    <strong class="outstanding-amount {% if referral.outstanding > 0 %}is-unpaid{% else %}is-paid{% endif %}" style="font-size: 1.15rem;">${{ referral.outstanding|floatformat:2 }}</strong>
+                                    <div class="ref-outstanding-label">Outstanding</div>
+                                    <div class="ref-outstanding-value {% if referral.outstanding > 0 %}unpaid{% else %}paid{% endif %}">
+                                        ${{ referral.outstanding|floatformat:2 }}
+                                    </div>
                                 </div>
-                                <div style="text-align: right; display: flex; align-items: center; height: 100%;">
-                                    <span style="font-size: 0.85rem; font-weight: 500; color: #3b82f6;">View Details &rarr;</span>
-                                </div>
+                                <span style="font-size:0.85rem;font-weight:600;color:#6366f1;">View &rarr;</span>
                             </div>
                         </article>
                     </a>
-                {% empty %}
-                    <div class="empty-state" style="grid-column: 1 / -1; padding: 4rem; text-align: center; background: white; border-radius: 12px; border: 1px dashed #cbd5e1;">
-                        <h3 style="color: #475569; margin-bottom: 0.5rem;">No Referralships Found</h3>
-                        <p style="color: #64748b;">You haven't registered any car referralships yet.</p>
+                    {% empty %}
+                    <div class="ref-empty">
+                        <h3>No Referralships Found</h3>
+                        <p>You haven't registered any referralships yet.</p>
                     </div>
-                {% endfor %}
-            </section>
+                    {% endfor %}
+
+                    <div id="ref-no-results">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="margin-bottom:0.75rem;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <p style="font-weight:600;margin:0;">No referrals match your search.</p>
+                    </div>
+                </div>
+            </div>
 
             <aside>
                 <div class="dashboard-panel" style="position: sticky; top: 20px;">
@@ -99,7 +341,7 @@
                         <div class="form-group" style="margin-bottom: 1rem;">
                             <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 0.3rem;">Referral Category *</label>
                             <select name="category" class="form-control" required style="width: 100%; box-sizing: border-box;">
-                                <option value="referral">Car Referral</option>
+                                <option value="dealer">Car Dealer</option>
                                 <option value="travel">Travel Agency</option>
                                 <option value="broker">Broker</option>
                                 <option value="customer">Customer</option>
@@ -137,53 +379,76 @@
                     </form>
                 </div>
             </aside>
-            
+
         </div>
     </section>
 </main>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const partnerToggles = document.querySelectorAll('.partner-toggle');
-    
-    partnerToggles.forEach(toggle => {
-        toggle.addEventListener('change', function() {
+// ── Client-side filter ────────────────────────────────────────────────
+function filterReferrals() {
+    const q        = document.getElementById('refSearch').value.toLowerCase().trim();
+    const category = document.getElementById('refCategory').value;
+    const status   = document.getElementById('refStatus').value;
+    const cards    = document.querySelectorAll('#refGrid .ref-card-link');
+    let   visible  = 0;
+
+    cards.forEach(card => {
+        const name  = card.dataset.name    || '';
+        const email = card.dataset.email   || '';
+        const phone = card.dataset.phone   || '';
+        const cat   = card.dataset.category|| '';
+        const st    = card.dataset.status  || '';
+
+        const matchText     = !q        || name.includes(q) || email.includes(q) || phone.includes(q);
+        const matchCategory = !category || cat === category;
+        const matchStatus   = !status   || st  === status;
+
+        if (matchText && matchCategory && matchStatus) {
+            card.style.display = '';
+            visible++;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+
+    const noRes = document.getElementById('ref-no-results');
+    const count = document.getElementById('refCount');
+    noRes.style.display = (visible === 0 && cards.length > 0) ? 'block' : 'none';
+    count.textContent = cards.length > 0 ? `${visible} of ${cards.length} shown` : '';
+}
+
+// ── Partner toggle (AJAX) ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.partner-toggle').forEach(toggle => {
+        toggle.addEventListener('change', function () {
             const referralId = this.dataset.referralId;
-            const isPartner = this.checked;
-            const badge = this.closest('div').querySelector('.partner-badge');
-            
-            const params = new URLSearchParams();
+            const isPartner  = this.checked;
+            const params     = new URLSearchParams();
             params.append('referral_id', referralId);
-            params.append('is_partner', isPartner);
-            
+            params.append('is_partner',  isPartner);
+
             fetch("{% url 'toggle-referral-partner' %}", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "X-CSRFToken": "{{ csrf_token }}"
-                },
-                body: params
+                method : 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': '{{ csrf_token }}' },
+                body   : params,
             })
-            .then(response => response.json())
+            .then(r => r.json())
             .then(data => {
-                if (data.status === 'success') {
-                    if (data.is_partner) {
-                        badge.classList.remove('d-none');
-                    } else {
-                        badge.classList.add('d-none');
-                    }
-                } else {
-                    alert('Error updating status: ' + data.message);
-                    this.checked = !isPartner; // Revert
+                if (data.status !== 'success') {
+                    alert('Error: ' + data.message);
+                    this.checked = !isPartner;
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
+            .catch(() => {
                 alert('An error occurred. Please try again.');
-                this.checked = !isPartner; // Revert
+                this.checked = !isPartner;
             });
         });
     });
+
+    // Initialise count display
+    filterReferrals();
 });
 </script>
 {% endblock %}

@@ -4735,11 +4735,15 @@ def edit_service(request, service_id):
         form = VehicleServiceForm(request.POST, instance=service, organization=service.organization)
         if form.is_valid():
             record = form.save(commit=False)
-            
+
+            # Preserve the original paid amounts — payment changes go through Outstanding Balances
+            record.paid_amount   = service.paid_amount
+            record.paid_amount_2 = service.paid_amount_2
+
             # Auto-link to referral if this client came from a referralship and record doesn't have one
             if not record.referral and record.vehicle and record.vehicle.client.referral:
                 record.referral = record.vehicle.client.referral
-            
+
             record.save()
             from .models import ServiceDocument
             for doc in ServiceDocument.objects.filter(service_record=record, document_type="mv82"):
@@ -4755,14 +4759,15 @@ def edit_service(request, service_id):
             messages.error(request, "Error updating service record. Please check the form.")
     else:
         form = VehicleServiceForm(instance=service, organization=service.organization)
-    
+
     return render(request, 'core/start_process.html', {
-        'form': form, 
-        'edit_mode': True, 
+        'form': form,
+        'edit_mode': True,
         'service': service,
         'vehicle': service.vehicle,
         'title': 'Edit Transaction'
     })
+
 
 @login_required
 def edit_vehicle(request, vehicle_id):

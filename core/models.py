@@ -549,13 +549,20 @@ class ServiceRecord(SoftDeleteModel):
             + (self.other_fees or Decimal("0"))
             + (self.other_dmv_fee or Decimal("0"))
         )
+
+        # Auto-derive outstanding balance: total due minus what was paid
+        paid = self.paid_amount or Decimal("0")
+        balance = self.service_fee - paid
+        self.referral_balance = balance if balance > Decimal("0") else Decimal("0")
+
         # Automatically mark as paid if balance is zero
         if self.referral_balance <= 0:
             self.is_referral_paid = True
         else:
             self.is_referral_paid = False
-            
+
         super().save(*args, **kwargs)
+
 
     def __str__(self):
         return f"{self.service_type} - {self.vehicle or 'No Vehicle'}"

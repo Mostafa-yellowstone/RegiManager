@@ -466,7 +466,9 @@ class VehicleServiceForm(forms.ModelForm):
         self.fields["service_type"].choices = base_choices
 
         self.fields["credit_card_fee"].widget.attrs["readonly"] = True
-        # self.fields["referral_balance"].widget.attrs["readonly"] = True
+        # referral_balance is always auto-computed in the model's save() — make it readonly display only
+        self.fields["referral_balance"].widget.attrs["readonly"] = True
+        self.fields["referral_balance"].required = False
         for field_name, field in self.fields.items():
             field.widget.attrs["class"] = "form-control"
 
@@ -481,6 +483,13 @@ class VehicleServiceForm(forms.ModelForm):
         if val is None:
             return Decimal("0")
         return val
+
+    def clean_referral_balance(self):
+        # Ignore whatever the user POSTed — the model.save() will recompute this
+        if self.instance and self.instance.pk:
+            return self.instance.referral_balance
+        return Decimal("0")
+
 class ClientIntakeForm(forms.ModelForm):
     class Meta:
         model = ClientIntake
