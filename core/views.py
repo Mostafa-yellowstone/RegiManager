@@ -3067,6 +3067,8 @@ def update_agent_permissions(request):
             membership.can_view_commission = value
         elif field == "can_view_banking":
             membership.can_view_banking = value
+        elif field == "can_manage_news":
+            membership.can_manage_news = value
             
         membership.save()
         
@@ -5284,8 +5286,15 @@ def mark_balance_paid(request, record_id):
 
 @login_required
 def site_news_list(request):
-    from .models import SiteNews
-    can_manage = request.user.is_superuser or request.user.is_staff
+    from .models import SiteNews, OrganizationMembership
+    from django.db.models import Q
+    
+    can_manage = request.user.is_superuser or request.user.is_staff or OrganizationMembership.objects.filter(
+        user=request.user,
+        is_active=True
+    ).filter(
+        Q(can_manage_news=True) | Q(role=OrganizationMembership.Role.OWNER)
+    ).exists()
 
     if request.method == "POST" and can_manage:
         action = request.POST.get("action", "")

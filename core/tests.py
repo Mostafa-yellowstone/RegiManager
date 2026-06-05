@@ -630,3 +630,52 @@ class SplitPaymentTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("service_paid_amount_1", response.context)
         self.assertEqual(response.context["service_paid_amount_1"], Decimal("100.00"))
+
+
+class NewsPermissionTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Test Org", city="NYC")
+        self.owner = User.objects.create_user(username="owner", password="password123")
+        self.agent = User.objects.create_user(username="agent", password="password123")
+        
+        # Owner membership
+        OrganizationMembership.objects.create(user=self.owner, organization=self.org, is_active=True, role="owner")
+        # Agent membership
+        self.membership = OrganizationMembership.objects.create(user=self.agent, organization=self.org, is_active=True, role="member")
+        
+        self.client = TestClient()
+
+    def test_owner_can_manage_news(self):
+        self.client.login(username="owner", password="password123")
+        response = self.client.get(reverse("site-news-list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["can_manage"])
+
+    def test_agent_cannot_manage_news_by_default(self):
+        self.client.login(username="agent", password="password123")
+        response = self.client.get(reverse("site-news-list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["can_manage"])
+
+    def test_agent_can_manage_news_when_permitted(self):
+        self.membership.can_manage_news = True
+        self.membership.save()
+        self.client.login(username="agent", password="password123")
+        response = self.client.get(reverse("site-news-list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["can_manage"])
+
+    def test_agent_post_news_permitted(self):
+        self.membership.can_manage_news = True
+        self.membership.save()
+        self.client.login(username="agent", password="password123")
+        response = self.client.post(reverse("site-news-list"), {
+            "title": "Agent Announcement",
+            "content": "Announcement content here",
+            "is_active": "on"
+        })
+        self.assertEqual(response.status_code, 302)
+        
+        from core.models import SiteNews
+        self.assertTrue(SiteNews.objects.filter(title="Agent Announcement").exists())
+

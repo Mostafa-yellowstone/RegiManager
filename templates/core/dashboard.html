@@ -778,6 +778,7 @@ input:checked + .slider:before {
                                 {% endif %}
                                 <th>Commission</th>
                                 <th>Banking</th>
+                                <th>News</th>
                                 <th>Audit</th>
                             </tr>
                         </thead>
@@ -843,6 +844,12 @@ input:checked + .slider:before {
                                     <td>
                                         <label class="switch">
                                             <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_view_banking" {% if agent_mem.can_view_banking %}checked{% endif %}>
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </td>
+                                    <td>
+                                        <label class="switch" title="Manage Site Announcements">
+                                            <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_manage_news" {% if agent_mem.can_manage_news %}checked{% endif %}>
                                             <span class="slider round"></span>
                                         </label>
                                     </td>
