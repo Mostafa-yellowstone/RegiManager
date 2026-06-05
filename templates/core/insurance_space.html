@@ -1242,7 +1242,7 @@ updateCategories();
 {% endblock %}
 
 <!-- QUICK ADD COMPANY MINI-MODAL -->
-<div id="quickAddCompanyModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(15,23,42,0.55); display:flex; align-items:center; justify-content:center;" onclick="if(event.target===this)closeQuickAddCompany()">
+<div id="quickAddCompanyModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(15,23,42,0.55); align-items:center; justify-content:center;" onclick="if(event.target===this)closeQuickAddCompany()">
   <div style="background:#fff; border-radius:18px; padding:2rem; width:380px; box-shadow:0 24px 48px rgba(0,0,0,0.18);" onclick="event.stopPropagation()">
     <h3 style="margin:0 0 1rem; font-size:1.1rem; font-weight:800; color:#0f172a;">➕ Add New Insurance Company</h3>
     <input type="text" id="quickCompanyName" placeholder="Company name..." style="width:100%; padding:0.75rem 1rem; border:1.5px solid #e2e8f0; border-radius:10px; font-size:0.95rem; font-family:inherit; box-sizing:border-box; margin-bottom:1rem;" onkeydown="if(event.key==='Enter')submitQuickAddCompany()">
@@ -1258,7 +1258,8 @@ updateCategories();
 function handleCompanySelect(sel) {
   if (sel.value === '__add_new__') {
     sel.value = '';
-    document.getElementById('quickAddCompanyModal').style.display = 'flex';
+    const modal = document.getElementById('quickAddCompanyModal');
+    modal.style.display = 'flex';
     setTimeout(() => document.getElementById('quickCompanyName').focus(), 50);
   }
 }
@@ -1279,31 +1280,43 @@ function submitQuickAddCompany() {
   fd.append('organization', orgId);
   fd.append('name', name);
   fd.append('csrfmiddlewaretoken', csrfToken);
+
+  // Disable button while saving
+  const saveBtn = document.querySelector('#quickAddCompanyModal button:last-of-type');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+
   fetch('{% url "add-insurance-company" %}', { method: 'POST', body: fd })
-    .then(r => { if (!r.ok) throw new Error('Server error'); return r; })
-    .then(() => {
-      // We need to get the new company ID — fetch updated company list via page reload approach
-      // Instead: POST and reload just the select options via a dedicated AJAX or use the redirect data
-      // Simple approach: reload the page keeping the new company name highlighted
-      sessionStorage.setItem('newCompanyName', name);
-      window.location.reload();
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) {
+        errEl.textContent = data.error || 'Failed to add company.';
+        errEl.style.display = 'block';
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Company'; }
+        return;
+      }
+      // Inject the new company into the dropdown and select it
+      const sel = document.getElementById('policyCompany');
+      // Check if it already exists (get_or_create case)
+      let existing = Array.from(sel.options).find(o => o.value == data.id);
+      if (!existing) {
+        const newOpt = document.createElement('option');
+        newOpt.value = data.id;
+        newOpt.textContent = data.name;
+        // Insert before the "Add New Company" option
+        const addNewOpt = Array.from(sel.options).find(o => o.value === '__add_new__');
+        sel.insertBefore(newOpt, addNewOpt || null);
+        existing = newOpt;
+      }
+      sel.value = data.id;
+      closeQuickAddCompany();
     })
-    .catch(e => { errEl.textContent = 'Failed to add company. Try again.'; errEl.style.display = 'block'; });
+    .catch(() => {
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.style.display = 'block';
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Company'; }
+    });
 }
 
-// Auto-select newly added company after page reload
-(function() {
-  const newName = sessionStorage.getItem('newCompanyName');
-  if (!newName) return;
-  sessionStorage.removeItem('newCompanyName');
-  const sel = document.getElementById('policyCompany');
-  if (!sel) return;
-  for (const opt of sel.options) {
-    if (opt.textContent.trim() === newName) { sel.value = opt.value; break; }
-  }
-  // Re-open the add policy modal
-  const modal = document.getElementById('addPolicyModal');
-  if (modal) { document.getElementById('policyModalTitle').textContent = '+ Add Insurance Policy'; modal.classList.add('active'); }
-})();
+// Nothing needed here — new companies are injected live via submitQuickAddCompany()
 </script>
 

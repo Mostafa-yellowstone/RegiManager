@@ -5036,9 +5036,12 @@ def client_search_ajax(request):
         return JsonResponse({"results": []})
 
     organizations = _get_user_organizations(request)
+    q_digits = re.sub(r'\D', '', q)  # digits-only version of query
 
-    # Build the base text filter (name, DL, plate, business…)
-    text_filter = (
+    # ── 1. Standard DB-level filter (name, DL, plate, EIN, business, raw phone) ──
+    standard_qs = Client.objects.filter(
+        organization__in=organizations
+    ).filter(
         Q(first_name__icontains=q)
         | Q(last_name__icontains=q)
         | Q(driver_license__icontains=q)
@@ -5046,58 +5049,52 @@ def client_search_ajax(request):
         | Q(vehicles__plate_number__icontains=q)
         | Q(business_name__icontains=q)
         | Q(business_ein__icontains=q)
-    )
+    ).distinct().select_related("organization")
 
-    # Also try a normalised phone comparison (digits-only) so that any US
-    # format like (516) 555-1234 or 516.555.1234 still finds the client.
-    q_digits = re.sub(r'\D', '', q)   # strip everything that isn't a digit
+    # ── 2. Normalised phone search (Python) ──────────────────────────────────────
+    # Fetch candidate clients by phone and filter in Python so that
+    # '5165551234' matches a stored '(516) 555-1234' and vice-versa.
+    phone_matched_ids = set()
     if len(q_digits) >= 7:
-        # Django doesn't have a built-in "strip non-digits" annotation,
-        # so we store phone digits server-side by matching the raw stored
-        # value stripped via Python after a broader pre-filter.
-        # Strategy: pre-query by the last 7+ digits pattern using icontains
-        # on the stored phone, which may be stored with or without formatting.
-        text_filter |= Q(phone_number__icontains=q_digits)
-        # Also handle the case where the user typed digits but the DB has dashes/parens:
-        # fetch candidates whose stored phone number normalised == q_digits
-        # We do this as a post-filter step below.
+        for c in Client.objects.filter(
+            organization__in=organizations
+        ).exclude(phone_number="").only("id", "phone_number"):
+            stored_digits = re.sub(r'\D', '', c.phone_number or '')
+            if q_digits in stored_digits or stored_digits in q_digits:
+                phone_matched_ids.add(c.id)
 
-    base_qs = Client.objects.filter(
-        organization__in=organizations
-    ).filter(text_filter).distinct().select_related("organization")
+    # ── 3. Merge results (Python dict keyed by id to deduplicate) ────────────────
+    seen_ids = set()
+    client_list = []
 
-    # Post-filter: if the query looks like a phone number, also sweep clients
-    # whose stored phone, once stripped of non-digits, matches q_digits.
-    if len(q_digits) >= 7:
-        # Pull a slightly wider set and filter in Python to catch all formats
-        phone_candidates = Client.objects.filter(
-            organization__in=organizations,
-            phone_number__isnull=False
-        ).exclude(phone_number="").select_related("organization")
-        phone_matched_ids = [
-            c.id for c in phone_candidates
-            if q_digits in re.sub(r'\D', '', c.phone_number)
-        ]
-        if phone_matched_ids:
-            from django.db.models import Q as DQ
-            base_qs = (base_qs | Client.objects.filter(
-                id__in=phone_matched_ids,
-                organization__in=organizations
-            ).select_related("organization")).distinct()
+    for c in standard_qs[:limit]:
+        if c.id not in seen_ids:
+            seen_ids.add(c.id)
+            client_list.append(c)
 
-    clients = base_qs[:limit]
+    if phone_matched_ids:
+        remaining = limit - len(client_list)
+        if remaining > 0:
+            extra_qs = Client.objects.filter(
+                id__in=phone_matched_ids - seen_ids,
+                organization__in=organizations,
+            ).select_related("organization")[:remaining]
+            for c in extra_qs:
+                if c.id not in seen_ids:
+                    seen_ids.add(c.id)
+                    client_list.append(c)
 
     results = []
-    for c in clients:
+    for c in client_list:
         plate = c.vehicles.values_list("plate_number", flat=True).first() or ""
         display_name = c.business_name if c.is_commercial and c.business_name else f"{c.first_name} {c.last_name}".strip()
         results.append({
-            "name":       display_name,
-            "first_name": c.first_name,
-            "last_name":  c.last_name,
-            "identifier": c.driver_license or c.business_ein or "",
-            "plate":      plate,
-            "url":        f"/dashboard/clients/{c.id}/",
+            "name":          display_name,
+            "first_name":    c.first_name,
+            "last_name":     c.last_name,
+            "identifier":    c.driver_license or c.business_ein or "",
+            "plate":         plate,
+            "url":           f"/dashboard/clients/{c.id}/",
             "is_commercial": c.is_commercial,
             "business_name": c.business_name or "",
         })
@@ -6253,15 +6250,16 @@ def add_insurance_company(request):
     org_id = request.POST.get("organization")
     organizations = _get_user_organizations(request)
     org = get_object_or_404(organizations, id=org_id)
-    
+
     name = request.POST.get("name", "").strip()
-    if name:
-        try:
-            InsuranceCompany.objects.create(organization=org, name=name)
-            messages.success(request, f"Company '{name}' added.")
-        except Exception as e:
-            messages.error(request, f"Error: {e}")
-    return _redirect_to_insurance_detail(org)
+    if not name:
+        return JsonResponse({"success": False, "error": "Company name cannot be empty."}, status=400)
+
+    try:
+        company, created = InsuranceCompany.objects.get_or_create(organization=org, name=name)
+        return JsonResponse({"success": True, "id": company.id, "name": company.name, "created": created})
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
 @login_required
