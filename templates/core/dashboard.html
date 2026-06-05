@@ -161,17 +161,23 @@ input:checked + .slider:before {
             <div class="hero-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem;">
                 <div class="metric-card" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 1.5rem; border-radius: 18px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
                     <span style="color: rgba(255,255,255,0.7); font-weight: 600; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase;">TODAY'S INCOME</span>
+                    {% if is_owner or user_can_view_net_profit %}
                     <strong style="display: block; font-size: 1.8rem; margin-top: 8px; color: #fff;">${{ daily_report.net_profit|floatformat:2 }}</strong>
+                    {% endif %}
                     <span style="font-size: 0.85rem; color: rgba(255,255,255,0.5);">{{ daily_report.total_records|default:0 }} records</span>
                 </div>
                 <div class="metric-card" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 1.5rem; border-radius: 18px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
                     <span style="color: rgba(255,255,255,0.7); font-weight: 600; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase;">This Month</span>
+                    {% if is_owner or user_can_view_net_profit %}
                     <strong style="display: block; font-size: 1.8rem; margin-top: 8px; color: #fff;">${{ monthly_report.net_profit|floatformat:2 }}</strong>
+                    {% endif %}
                     <span style="font-size: 0.85rem; color: rgba(255,255,255,0.5);">{{ monthly_report.total_records|default:0 }} records</span>
                 </div>
                 <div class="metric-card" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 1.5rem; border-radius: 18px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
                     <span style="color: rgba(255,255,255,0.7); font-weight: 600; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase;">This Year</span>
+                    {% if is_owner or user_can_view_net_profit %}
                     <strong style="display: block; font-size: 1.8rem; margin-top: 8px; color: #fff;">${{ yearly_report.net_profit|floatformat:2 }}</strong>
+                    {% endif %}
                     <span style="font-size: 0.85rem; color: rgba(255,255,255,0.5);">{{ yearly_report.total_records|default:0 }} records</span>
                 </div>
                 {% if is_owner or user_can_view_net_profit %}
@@ -770,6 +776,8 @@ input:checked + .slider:before {
                                 {% if user_can_trigger_automation %}
                                 <th class="auto-header{% if not automation_enabled %} d-none{% endif %}">Auto</th>
                                 {% endif %}
+                                <th>Commission</th>
+                                <th>Banking</th>
                                 <th>Audit</th>
                             </tr>
                         </thead>
@@ -826,6 +834,18 @@ input:checked + .slider:before {
                                         </label>
                                     </td>
                                     {% endif %}
+                                    <td>
+                                        <label class="switch">
+                                            <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_view_commission" {% if agent_mem.can_view_commission %}checked{% endif %}>
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </td>
+                                    <td>
+                                        <label class="switch">
+                                            <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_view_banking" {% if agent_mem.can_view_banking %}checked{% endif %}>
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </td>
                                     <td>
                                         <a href="{% url 'agent-audit' agent_mem.id %}" class="btn btn-secondary btn-sm" title="Audit Log">
                                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>

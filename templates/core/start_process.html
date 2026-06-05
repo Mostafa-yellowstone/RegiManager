@@ -345,6 +345,15 @@
                     <h2>Payment</h2>
                 </div>
 
+                {% if edit_mode %}
+                <div style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.25rem;">ℹ️</span>
+                    <span style="font-size: 0.9rem; font-weight: 500;">
+                        Payment information is locked in edit mode. To record a new payment, please use the <strong>Outstanding Balances</strong> page.
+                    </span>
+                </div>
+                {% endif %}
+
                 <label class="split-toggle-row">
                     <input type="checkbox" id="split-payment-toggle"
                            {% if form.payment_method_2.value %}checked{% endif %}>
@@ -376,7 +385,7 @@
                             </div>
                             <div class="tx-field">
                                 <label>Amount (Method 1)</label>
-                                <input type="number" step="0.01" min="0" id="id_paid_amount_1" class="form-control" placeholder="0.00" value="{{ form.paid_amount.value|default:'0.00' }}">
+                                <input type="number" step="0.01" min="0" id="id_paid_amount_1" class="form-control" placeholder="0.00" value="{% if edit_mode and service.payment_method_2 %}{{ service_paid_amount_1 }}{% else %}{{ form.paid_amount.value|default:'0.00' }}{% endif %}">
                             </div>
                         </div>
                         <div class="split-col">
@@ -470,6 +479,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const isEditMode         = {% if edit_mode %}true{% else %}false{% endif %};
     const processingFee      = document.querySelector('input[name="processing_fee"]');
     const dmvFee             = document.querySelector('input[name="dmv_fee"]');
     const salesTax           = document.querySelector('input[name="sales_tax"]');
@@ -499,8 +509,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (splitToggle.checked) {
             singlePaymentFields.style.display = 'none';
             splitPaymentFields.style.display  = 'block';
-            if (paymentMethod2) paymentMethod2.required = true;
-            if (paidAmount2)    paidAmount2.required    = true;
+            if (paymentMethod2 && !isEditMode) paymentMethod2.required = true;
+            if (paidAmount2 && !isEditMode)    paidAmount2.required    = true;
             if (totalPaid) {
                 totalPaid.readOnly = true;
                 totalPaid.style.backgroundColor = '#f1f5f9';
@@ -513,9 +523,9 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             singlePaymentFields.style.display = 'block';
             splitPaymentFields.style.display  = 'none';
-            if (paymentMethod2) { paymentMethod2.required = false; paymentMethod2.value = ''; }
-            if (paidAmount2)    { paidAmount2.required    = false; paidAmount2.value    = ''; }
-            if (totalPaid) {
+            if (paymentMethod2 && !isEditMode) { paymentMethod2.required = false; paymentMethod2.value = ''; }
+            if (paidAmount2 && !isEditMode)    { paidAmount2.required    = false; paidAmount2.value    = ''; }
+            if (totalPaid && !isEditMode) {
                 totalPaid.readOnly = false;
                 totalPaid.style.backgroundColor = '';
                 totalPaid.style.cursor = '';
@@ -566,6 +576,28 @@ document.addEventListener('DOMContentLoaded', function () {
             const bal   = grand - paidVal;
             if (outstandingBalance) outstandingBalance.value = bal > 0 ? bal.toFixed(2) : '0.00';
         }
+    }
+
+    // Lock payment fields in edit mode
+    if (isEditMode) {
+        if (splitToggle) {
+            splitToggle.style.pointerEvents = 'none';
+            splitToggle.style.opacity = '0.7';
+        }
+        [totalPaid, paidAmount1, paidAmount2].forEach(el => {
+            if (el) {
+                el.readOnly = true;
+                el.style.backgroundColor = '#f1f5f9';
+                el.style.cursor = 'not-allowed';
+            }
+        });
+        [paymentMethod, paymentMethod2, paymentMethod1Clone].forEach(el => {
+            if (el) {
+                el.style.pointerEvents = 'none';
+                el.style.backgroundColor = '#f1f5f9';
+                el.style.cursor = 'not-allowed';
+            }
+        });
     }
 
     // Wire up events

@@ -73,6 +73,12 @@
                                                 {% if client.is_commercial %}
                                                     <span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; vertical-align: middle; display: inline-block;">Business</span>
                                                 {% endif %}
+                                                {% if client.source == "insurance" %}
+                                                    <span style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; display: inline-flex; align-items: center; gap: 3px; box-shadow: 0 0 8px rgba(139,92,246,0.4);">
+                                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                                        Insurance
+                                                    </span>
+                                                {% endif %}
                                             </div>
                                             {% if client.referral %}
                                                 <div style="font-size: 0.75rem; color: #64748b;">via {{ client.referral.name }}</div>

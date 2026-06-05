@@ -1375,6 +1375,8 @@ def dashboard(request):
     user_can_view_net_profit = any(m.can_view_net_profit for m in memberships)
     user_can_manage_referrals = any(m.can_manage_referrals for m in memberships)
     user_can_trigger_automation = any(m.can_trigger_automation for m in memberships)
+    user_can_view_commission = any(m.can_view_commission for m in memberships)
+    user_can_view_banking = any(m.can_view_banking for m in memberships)
     
     # Also check if automation is enabled for any of the user's organizations
     automation_enabled = organizations.filter(is_automation_enabled=True).exists()
@@ -1465,6 +1467,8 @@ def dashboard(request):
             "user_can_manage_referrals": user_can_manage_referrals,
             "automation_enabled": automation_enabled,
             "user_can_trigger_automation": user_can_trigger_automation,
+            "user_can_view_commission": user_can_view_commission,
+            "user_can_view_banking": user_can_view_banking,
         },
     )
 
@@ -3059,6 +3063,10 @@ def update_agent_permissions(request):
             membership.can_manage_referrals = value
         elif field == "can_trigger_automation":
             membership.can_trigger_automation = value
+        elif field == "can_view_commission":
+            membership.can_view_commission = value
+        elif field == "can_view_banking":
+            membership.can_view_banking = value
             
         membership.save()
         
@@ -4752,12 +4760,31 @@ def edit_service(request, service_id):
     else:
         form = VehicleServiceForm(instance=service, organization=service.organization)
 
+    # Compute primary base amount for split payment display in edit mode
+    service_paid_amount_1 = Decimal("0.00")
+    if service.payment_method_2:
+        def get_rate(method):
+            if method == 'american_express':
+                return Decimal('0.05')
+            elif method in ['visa', 'mastercard', 'discover', 'diners_club']:
+                return Decimal('0.035')
+            return Decimal('0.0')
+        
+        rate1 = get_rate(service.payment_method)
+        rate2 = get_rate(service.payment_method_2)
+        p2_base = service.paid_amount_2 or Decimal("0")
+        p2_total = p2_base * (Decimal("1") + rate2)
+        p1_total = (service.paid_amount or Decimal("0")) - p2_total
+        p1_base = p1_total / (Decimal("1") + rate1)
+        service_paid_amount_1 = p1_base.quantize(Decimal("0.01"))
+
     return render(request, 'core/start_process.html', {
         'form': form,
         'edit_mode': True,
         'service': service,
         'vehicle': service.vehicle,
-        'title': 'Edit Transaction'
+        'title': 'Edit Transaction',
+        'service_paid_amount_1': service_paid_amount_1,
     })
 
 
@@ -4961,76 +4988,15 @@ def approve_intake(request, intake_id):
         }
     )
 
-    # 5. Create Service Record
-    service_type = "vehicle_registration" # Default
-    if "renewal" in intake.requested_services: service_type = "registration_renewal"
-    elif "title_only" in intake.requested_services: service_type = "get_title"
-    
-    service = ServiceRecord.objects.create(
-        organization=intake.organization,
-        vehicle=vehicle,
-        client_name=client.name,
-        client_identifier=client.driver_license,
-        vin=vehicle.vin,
-        service_type=service_type,
-        status="pending",
-        handled_by=request.user,
-        source="intake",
+    # 5. (Service record is NOT auto-created here — the agent will start the
+    #    transaction manually from the client or vehicle profile.)
+
+    messages.success(
+        request,
+        f"Intake approved! Client and vehicle profile created for {client.name}. "
+        f"Start a transaction from the profile whenever ready."
     )
-
-    # 6. Generate and Save MV-82 Document
-    try:
-        # Generate prefill payload
-        prefill = _build_form_prefill_payload(service, client, vehicle)
-        # More robust path resolution for production (Hostinger)
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        template_path = os.path.join(current_dir, "static/core/pdf/mv82_template.pdf")
-        
-        packet = io.BytesIO()
-        can = canvas.Canvas(packet, pagesize=letter)
-        _fill_mv82_overlay(can, service, client, vehicle)
-        can.save()
-        packet.seek(0)
-        
-        new_pdf = PdfReader(packet)
-        template_pdf = PdfReader(template_path)
-        output = PdfWriter()
-        from pypdf.generic import NameObject
-
-        page1 = template_pdf.pages[0]
-        page1.merge_page(new_pdf.pages[0])
-        output.add_page(page1)
-        if len(template_pdf.pages) > 1:
-            output.add_page(template_pdf.pages[1])
-
-        if "/AcroForm" in template_pdf.trailer["/Root"]:
-            output._root_object.update({
-                NameObject("/AcroForm"): template_pdf.trailer["/Root"]["/AcroForm"]
-            })
-            fields = _build_acroform_prefill_fields("mv82", prefill)
-            if fields:
-                for page in output.pages:
-                    output.update_page_form_field_values(page, fields)
-
-        final_output = io.BytesIO()
-        output.write(final_output)
-        final_output.seek(0)
-        
-        # Save as ServiceDocument
-        doc_name = f"MV82-{vehicle.vin}-{timezone.now().strftime('%Y%m%d')}.pdf"
-        # We don't save the object yet to avoid 'no file' errors if save fails
-        service_doc = ServiceDocument(
-            vehicle=vehicle,
-            service_record=service,
-            document_type="mv82",
-        )
-        service_doc.file.save(doc_name, ContentFile(final_output.read()), save=True)
-        
-    except Exception as e:
-        messages.error(request, f"Approved but failed to auto-generate PDF: {str(e)}")
-
-    messages.success(request, f"Intake approved for {client.name}. MV-82 has been archived.")
-    return redirect("vehicle-detail", vehicle_id=vehicle.id)
+    return redirect("client-detail", client_id=client.id)
 
 
 @login_required
@@ -5059,7 +5025,10 @@ def client_search_ajax(request):
     Lightweight JSON endpoint for the dashboard command bar live search.
     Returns up to `limit` clients matching the query by name, DL, phone, plate,
     business name, or EIN.
+    Phone numbers are normalised (non-digit characters stripped) so that queries
+    like '(516) 555-1234', '516-555-1234', or '5165551234' all match the same record.
     """
+    import re
     q     = request.GET.get("q", "").strip()
     limit = min(int(request.GET.get("limit", "8")), 20)
 
@@ -5068,9 +5037,8 @@ def client_search_ajax(request):
 
     organizations = _get_user_organizations(request)
 
-    clients = Client.objects.filter(
-        organization__in=organizations
-    ).filter(
+    # Build the base text filter (name, DL, plate, business…)
+    text_filter = (
         Q(first_name__icontains=q)
         | Q(last_name__icontains=q)
         | Q(driver_license__icontains=q)
@@ -5078,7 +5046,46 @@ def client_search_ajax(request):
         | Q(vehicles__plate_number__icontains=q)
         | Q(business_name__icontains=q)
         | Q(business_ein__icontains=q)
-    ).distinct().select_related("organization")[:limit]
+    )
+
+    # Also try a normalised phone comparison (digits-only) so that any US
+    # format like (516) 555-1234 or 516.555.1234 still finds the client.
+    q_digits = re.sub(r'\D', '', q)   # strip everything that isn't a digit
+    if len(q_digits) >= 7:
+        # Django doesn't have a built-in "strip non-digits" annotation,
+        # so we store phone digits server-side by matching the raw stored
+        # value stripped via Python after a broader pre-filter.
+        # Strategy: pre-query by the last 7+ digits pattern using icontains
+        # on the stored phone, which may be stored with or without formatting.
+        text_filter |= Q(phone_number__icontains=q_digits)
+        # Also handle the case where the user typed digits but the DB has dashes/parens:
+        # fetch candidates whose stored phone number normalised == q_digits
+        # We do this as a post-filter step below.
+
+    base_qs = Client.objects.filter(
+        organization__in=organizations
+    ).filter(text_filter).distinct().select_related("organization")
+
+    # Post-filter: if the query looks like a phone number, also sweep clients
+    # whose stored phone, once stripped of non-digits, matches q_digits.
+    if len(q_digits) >= 7:
+        # Pull a slightly wider set and filter in Python to catch all formats
+        phone_candidates = Client.objects.filter(
+            organization__in=organizations,
+            phone_number__isnull=False
+        ).exclude(phone_number="").select_related("organization")
+        phone_matched_ids = [
+            c.id for c in phone_candidates
+            if q_digits in re.sub(r'\D', '', c.phone_number)
+        ]
+        if phone_matched_ids:
+            from django.db.models import Q as DQ
+            base_qs = (base_qs | Client.objects.filter(
+                id__in=phone_matched_ids,
+                organization__in=organizations
+            ).select_related("organization")).distinct()
+
+    clients = base_qs[:limit]
 
     results = []
     for c in clients:
@@ -5377,6 +5384,9 @@ def inventory_detail(request, inventory_id):
         if not membership:
             return HttpResponseForbidden("Access denied.")
         is_owner = (membership.role == OrganizationMembership.Role.OWNER)
+
+    user_can_view_commission = is_owner or (membership and membership.can_view_commission)
+    user_can_view_banking = is_owner or (membership and membership.can_view_banking)
 
     # Non-owners must have the specific space in their accessible_spaces
     if not request.user.is_superuser and not is_owner:
@@ -5842,6 +5852,8 @@ def inventory_detail(request, inventory_id):
             "agent_filter": agent_filter,
             "min_premium": min_premium,
             "max_premium": max_premium,
+            "user_can_view_commission": user_can_view_commission,
+            "user_can_view_banking": user_can_view_banking,
         }
         return render(request, "core/insurance_space.html", context)
 

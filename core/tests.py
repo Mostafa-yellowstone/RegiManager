@@ -614,3 +614,19 @@ class SplitPaymentTests(TestCase):
         record.refresh_from_db()
         self.assertEqual(record.paid_amount_2, Decimal("0.00"))
         self.assertIsNone(record.payment_method_2)
+
+    def test_edit_service_calculates_paid_amount_1_correctly(self):
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            payment_method="visa",
+            paid_amount=Decimal("153.50"),
+            paid_amount_2=Decimal("50.00"),
+            payment_method_2="cash"
+        )
+        response = self.client.get(reverse("edit-service", args=[record.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("service_paid_amount_1", response.context)
+        self.assertEqual(response.context["service_paid_amount_1"], Decimal("100.00"))

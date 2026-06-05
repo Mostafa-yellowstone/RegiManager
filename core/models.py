@@ -91,6 +91,8 @@ class OrganizationMembership(models.Model):
     can_view_spaces = models.BooleanField(default=False, help_text="Can this agent view the main Spaces page?")
     can_deal_with_insurance = models.BooleanField(default=False, help_text="Can this agent deal with insurance and appear in the insurance workspace?")
     can_delete_receipt = models.BooleanField(default=False, help_text="Can this agent delete/remove receipt records from the service list?")
+    can_view_commission = models.BooleanField(default=False, help_text="Can this agent view commission rate, commission amount, and agency profit in the insurance space?")
+    can_view_banking = models.BooleanField(default=False, help_text="Can this agent view the banking section in the insurance space?")
     accessible_spaces = models.ManyToManyField("Space", blank=True, related_name="permitted_memberships", help_text="Specific spaces this agent has access to.")
     created_at = models.DateTimeField(auto_now_add=True)
 
