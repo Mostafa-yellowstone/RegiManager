@@ -358,16 +358,6 @@
                             <label>Payment Method</label>
                             {{ form.payment_method }}
                         </div>
-                        <div class="tx-field">
-                            <label>Total Paid Today <span style="font-weight:400;color:#94a3b8;">(enter 0 if nothing paid yet)</span></label>
-                            {{ form.paid_amount }}
-                        </div>
-                    </div>
-                    <div style="margin-top:1rem; max-width:400px;">
-                        <div class="tx-field">
-                            <label>Outstanding Balance <span style="font-weight:400;color:#94a3b8;font-style:italic;">(total fee − paid today)</span></label>
-                            {{ form.referral_balance }}
-                        </div>
                     </div>
                 </div>
 
@@ -401,15 +391,17 @@
                             </div>
                         </div>
                     </div>
-                    <div class="tx-grid-2" style="margin-top:1rem;">
-                        <div class="tx-field">
-                            <label>Total Paid Today <span style="font-weight:400;color:#94a3b8;">(sum of both)</span></label>
-                            {{ form.paid_amount }}
-                        </div>
-                        <div class="tx-field">
-                            <label>Outstanding Balance <span style="font-weight:400;color:#94a3b8;font-style:italic;">(total fee − paid today)</span></label>
-                            {{ form.referral_balance }}
-                        </div>
+                </div>
+
+                {# Unified Payment Summary (Rendered once) #}
+                <div class="tx-grid-2" style="margin-top:1.5rem; border-top:1px dashed #e2e8f0; padding-top:1.5rem;">
+                    <div class="tx-field">
+                        <label id="total-paid-label">Total Paid Today <span style="font-weight:400;color:#94a3b8;">(enter 0 if nothing paid yet)</span></label>
+                        {{ form.paid_amount }}
+                    </div>
+                    <div class="tx-field">
+                        <label>Outstanding Balance <span style="font-weight:400;color:#94a3b8;font-style:italic;">(total fee − paid today)</span></label>
+                        {{ form.referral_balance }}
                     </div>
                 </div>
             </div>
@@ -509,11 +501,29 @@ document.addEventListener('DOMContentLoaded', function () {
             splitPaymentFields.style.display  = 'block';
             if (paymentMethod2) paymentMethod2.required = true;
             if (paidAmount2)    paidAmount2.required    = true;
+            if (totalPaid) {
+                totalPaid.readOnly = true;
+                totalPaid.style.backgroundColor = '#f1f5f9';
+                totalPaid.style.cursor = 'not-allowed';
+            }
+            const label = document.getElementById('total-paid-label');
+            if (label) {
+                label.innerHTML = 'Total Paid Today <span style="font-weight:400;color:#94a3b8;">(sum of both)</span>';
+            }
         } else {
             singlePaymentFields.style.display = 'block';
             splitPaymentFields.style.display  = 'none';
             if (paymentMethod2) { paymentMethod2.required = false; paymentMethod2.value = ''; }
             if (paidAmount2)    { paidAmount2.required    = false; paidAmount2.value    = ''; }
+            if (totalPaid) {
+                totalPaid.readOnly = false;
+                totalPaid.style.backgroundColor = '';
+                totalPaid.style.cursor = '';
+            }
+            const label = document.getElementById('total-paid-label');
+            if (label) {
+                label.innerHTML = 'Total Paid Today <span style="font-weight:400;color:#94a3b8;">(enter 0 if nothing paid yet)</span>';
+            }
         }
         updateCalculations();
     }
@@ -561,11 +571,9 @@ document.addEventListener('DOMContentLoaded', function () {
     // Wire up events
     if (splitToggle) splitToggle.addEventListener('change', toggleSplitFields);
 
-    // On load: if split is already on (edit mode with saved split), restore paidAmount1
-    if (splitToggle && splitToggle.checked) {
-        singlePaymentFields.style.display = 'none';
-        splitPaymentFields.style.display  = 'block';
-        // paidAmount1 already has its value set via the HTML value= attribute
+    // On load: initialize split toggle state
+    if (splitToggle) {
+        toggleSplitFields();
     }
 
     // When user types paid_amount (single mode), recalculate outstanding

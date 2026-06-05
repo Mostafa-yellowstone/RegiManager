@@ -3564,11 +3564,7 @@ def referral_profile(request, referral_id):
             except:
                 payment_amount = Decimal("0")
                 
-            record.referral_balance -= payment_amount
-            if record.referral_balance <= 0:
-                record.referral_balance = Decimal("0")
-                record.is_referral_paid = True
-                
+            record.paid_amount = (record.paid_amount or Decimal("0")) + payment_amount
             record.save()
             
             # Create payment log
@@ -3605,14 +3601,14 @@ def referral_profile(request, referral_id):
                     if remaining <= 0:
                         break
                     if rec.referral_balance <= remaining:
-                        remaining -= rec.referral_balance
-                        rec.referral_balance = Decimal("0")
-                        rec.is_referral_paid = True
-                        rec.save()
+                        payment_applied = rec.referral_balance
+                        remaining -= payment_applied
                     else:
-                        rec.referral_balance -= remaining
+                        payment_applied = remaining
                         remaining = Decimal("0")
-                        rec.save()
+                    
+                    rec.paid_amount = (rec.paid_amount or Decimal("0")) + payment_applied
+                    rec.save()
                 
                 # If still remaining, apply to initial_balance
                 if remaining > 0:
@@ -5234,9 +5230,8 @@ def mark_balance_paid(request, record_id):
                 )
 
             # Apply
-            record.referral_balance = max(Decimal("0"), record.referral_balance - payment)
-            record.is_referral_paid = record.referral_balance <= Decimal("0")
-            record.save(update_fields=["referral_balance", "is_referral_paid", "updated_at"])
+            record.paid_amount = (record.paid_amount or Decimal("0")) + payment
+            record.save(update_fields=["paid_amount", "referral_balance", "is_referral_paid", "updated_at"])
 
             # Log against the referral entity if one is linked
             if record.referral_id:
