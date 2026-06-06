@@ -5425,9 +5425,9 @@ def inventory_detail(request, inventory_id):
     user_can_view_commission = is_owner or (membership and membership.can_view_commission)
     user_can_view_banking = is_owner or (membership and membership.can_view_banking)
 
-    # Non-owners must have the specific space in their accessible_spaces, or it must be the Knowledge Hub
+    # Non-owners must have the specific space in their accessible_spaces
     if not request.user.is_superuser and not is_owner:
-        if card.key != "knowledge_hub" and not membership.accessible_spaces.filter(id=card.id).exists():
+        if not membership.accessible_spaces.filter(id=card.id).exists():
             return HttpResponseForbidden("You do not have permission to access this space.")
 
     if request.method == "POST":
@@ -6024,10 +6024,8 @@ def spaces_home(request):
         
     if request.user.is_superuser or is_owner:
         inventory_items = Space.objects.filter(organization=active_org)
-    else:
-        from django.db.models import Q
         inventory_items = Space.objects.filter(
-            Q(id__in=membership.accessible_spaces.values_list('id', flat=True)) | Q(key="knowledge_hub"),
+            id__in=membership.accessible_spaces.values_list('id', flat=True),
             organization=active_org
         )
     
@@ -7055,10 +7053,9 @@ def add_knowledge_material(request, space_id):
             user=request.user, organization=space.organization, is_active=True
         ).first()
         if membership:
-            can_manage = (
-                membership.role == OrganizationMembership.Role.OWNER
-                or membership.can_manage_knowledge_hub
-            )
+            is_owner = (membership.role == OrganizationMembership.Role.OWNER)
+            has_space_access = membership.accessible_spaces.filter(id=space.id).exists()
+            can_manage = is_owner or (membership.can_manage_knowledge_hub and has_space_access)
 
     if not can_manage:
         return HttpResponseForbidden("You do not have permission to add training materials.")
@@ -7118,10 +7115,9 @@ def delete_knowledge_material(request, material_id):
             user=request.user, organization=space.organization, is_active=True
         ).first()
         if membership:
-            can_manage = (
-                membership.role == OrganizationMembership.Role.OWNER
-                or membership.can_manage_knowledge_hub
-            )
+            is_owner = (membership.role == OrganizationMembership.Role.OWNER)
+            has_space_access = membership.accessible_spaces.filter(id=space.id).exists()
+            can_manage = is_owner or (membership.can_manage_knowledge_hub and has_space_access)
 
     if not can_manage:
         return HttpResponseForbidden("You do not have permission to delete training materials.")
