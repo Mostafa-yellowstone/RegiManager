@@ -630,6 +630,8 @@ class SplitPaymentTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("service_paid_amount_1", response.context)
         self.assertEqual(response.context["service_paid_amount_1"], Decimal("100.00"))
+        self.assertIn("service_paid_amount_2", response.context)
+        self.assertEqual(response.context["service_paid_amount_2"], Decimal("50.00"))
 
 
 class NewsPermissionTests(TestCase):

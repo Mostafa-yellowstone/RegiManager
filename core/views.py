@@ -4909,8 +4909,12 @@ def edit_service(request, service_id):
     else:
         form = VehicleServiceForm(instance=service, organization=service.organization)
 
-    # Compute primary base amount for split payment display in edit mode
+    # Compute primary and secondary base amounts for split payment display in edit mode.
+    # paid_amount_2 is now stored as fee-inclusive (p2_base + p2_cc_fee).
+    # The Amount-1 field (id_paid_amount_1) should show the raw base for method 1,
+    # and the Amount-2 field should show the raw base for method 2.
     service_paid_amount_1 = Decimal("0.00")
+    service_paid_amount_2 = Decimal("0.00")
     if service.payment_method_2:
         def get_rate(method):
             if method == 'american_express':
@@ -4918,14 +4922,20 @@ def edit_service(request, service_id):
             elif method in ['visa', 'mastercard', 'discover', 'diners_club']:
                 return Decimal('0.035')
             return Decimal('0.0')
-        
+
+        # paid_amount_2 is fee-inclusive; derive raw p1 base:
+        # p1_total (fee-incl) = paid_amount - paid_amount_2
+        p1_inclusive = (service.paid_amount or Decimal("0")) - (service.paid_amount_2 or Decimal("0"))
         rate1 = get_rate(service.payment_method)
-        rate2 = get_rate(service.payment_method_2)
-        p2_base = service.paid_amount_2 or Decimal("0")
-        p2_total = p2_base * (Decimal("1") + rate2)
-        p1_total = (service.paid_amount or Decimal("0")) - p2_total
-        p1_base = p1_total / (Decimal("1") + rate1)
+        # Reverse the CC fee to get the raw base: base = inclusive / (1 + rate)
+        p1_base = p1_inclusive / (Decimal("1") + rate1) if rate1 else p1_inclusive
         service_paid_amount_1 = p1_base.quantize(Decimal("0.01"))
+
+        rate2 = get_rate(service.payment_method_2)
+        p2_inclusive = service.paid_amount_2 or Decimal("0")
+        p2_base = p2_inclusive / (Decimal("1") + rate2) if rate2 else p2_inclusive
+        service_paid_amount_2 = p2_base.quantize(Decimal("0.01"))
+
 
     return render(request, 'core/start_process.html', {
         'form': form,
@@ -4934,6 +4944,7 @@ def edit_service(request, service_id):
         'vehicle': service.vehicle,
         'title': 'Edit Transaction',
         'service_paid_amount_1': service_paid_amount_1,
+        'service_paid_amount_2': service_paid_amount_2,
     })
 
 

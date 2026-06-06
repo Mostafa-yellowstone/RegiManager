@@ -345,14 +345,7 @@
                     <h2>Payment</h2>
                 </div>
 
-                {% if edit_mode %}
-                <div style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.25rem;">ℹ️</span>
-                    <span style="font-size: 0.9rem; font-weight: 500;">
-                        Payment information is locked in edit mode. To record a new payment, please use the <strong>Outstanding Balances</strong> page.
-                    </span>
-                </div>
-                {% endif %}
+
 
                 <label class="split-toggle-row">
                     <input type="checkbox" id="split-payment-toggle"
@@ -396,7 +389,8 @@
                             </div>
                             <div class="tx-field">
                                 <label>Amount (Method 2)</label>
-                                {{ form.paid_amount_2 }}
+                                <input type="number" step="0.01" min="0" id="id_paid_amount_2_clone" class="form-control" placeholder="0.00" value="{% if edit_mode and service.payment_method_2 %}{{ service_paid_amount_2 }}{% else %}{{ form.paid_amount_2.value|default:'0.00' }}{% endif %}">
+                                <input type="hidden" name="paid_amount_2" id="id_paid_amount_2_real" value="{{ form.paid_amount_2.value|default:'0.00' }}">
                             </div>
                         </div>
                     </div>
@@ -497,7 +491,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const paymentMethod1Clone = document.getElementById('id_payment_method_1_clone');
     const paidAmount1         = document.getElementById('id_paid_amount_1');
     const paymentMethod2      = document.querySelector('select[name="payment_method_2"]');
-    const paidAmount2         = document.querySelector('input[name="paid_amount_2"]');
+    const paidAmount2Real     = document.querySelector('input[name="paid_amount_2"]');
+    const paidAmount2Clone    = document.getElementById('id_paid_amount_2_clone');
+
+    // Track whether user has interacted — prevents overwriting saved values on edit load
+    let userInteracted = false;
 
     function getCCFeeRate(method) {
         if (method === 'american_express') return 0.05;
@@ -505,12 +503,26 @@ document.addEventListener('DOMContentLoaded', function () {
         return 0.0;
     }
 
+    function getGrandTotal() {
+        // Grand total = all fees (including cc fee)
+        const baseTotal = parseFloat(processingFee ? processingFee.value || 0 : 0)
+                        + parseFloat(dmvFee        ? dmvFee.value         || 0 : 0)
+                        + parseFloat(salesTax      ? salesTax.value       || 0 : 0)
+                        + parseFloat(dmvSalesTax   ? dmvSalesTax.value    || 0 : 0)
+                        + parseFloat(otherFees     ? otherFees.value      || 0 : 0)
+                        + parseFloat(otherDmvFee   ? otherDmvFee.value    || 0 : 0);
+        const method = paymentMethod ? paymentMethod.value : '';
+        const ccRate = getCCFeeRate(method);
+        const cc = baseTotal * ccRate;
+        return { baseTotal, cc, grand: baseTotal + cc };
+    }
+
     function toggleSplitFields() {
         if (splitToggle.checked) {
             singlePaymentFields.style.display = 'none';
             splitPaymentFields.style.display  = 'block';
-            if (paymentMethod2 && !isEditMode) paymentMethod2.required = true;
-            if (paidAmount2 && !isEditMode)    paidAmount2.required    = true;
+            if (paymentMethod2) paymentMethod2.required = true;
+            if (paidAmount2Clone) paidAmount2Clone.required = true;
             if (totalPaid) {
                 totalPaid.readOnly = true;
                 totalPaid.style.backgroundColor = '#f1f5f9';
@@ -518,14 +530,14 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             const label = document.getElementById('total-paid-label');
             if (label) {
-                label.innerHTML = 'Total Paid Today <span style="font-weight:400;color:#94a3b8;">(sum of both)</span>';
+                label.innerHTML = 'Total Paid Today <span style="font-weight:400;color:#94a3b8;">(sum of both methods)</span>';
             }
         } else {
             singlePaymentFields.style.display = 'block';
             splitPaymentFields.style.display  = 'none';
-            if (paymentMethod2 && !isEditMode) { paymentMethod2.required = false; paymentMethod2.value = ''; }
-            if (paidAmount2 && !isEditMode)    { paidAmount2.required    = false; paidAmount2.value    = ''; }
-            if (totalPaid && !isEditMode) {
+            if (paymentMethod2) { paymentMethod2.required = false; }
+            if (paidAmount2Clone) { paidAmount2Clone.required = false; }
+            if (totalPaid) {
                 totalPaid.readOnly = false;
                 totalPaid.style.backgroundColor = '';
                 totalPaid.style.cursor = '';
@@ -535,42 +547,55 @@ document.addEventListener('DOMContentLoaded', function () {
                 label.innerHTML = 'Total Paid Today <span style="font-weight:400;color:#94a3b8;">(enter 0 if nothing paid yet)</span>';
             }
         }
-        updateCalculations();
+        if (userInteracted) updateCalculations();
     }
 
     function updateCalculations() {
-        const baseTotal = parseFloat(processingFee ? processingFee.value || 0 : 0)
-                        + parseFloat(dmvFee        ? dmvFee.value         || 0 : 0)
-                        + parseFloat(salesTax      ? salesTax.value       || 0 : 0)
-                        + parseFloat(dmvSalesTax   ? dmvSalesTax.value    || 0 : 0)
-                        + parseFloat(otherFees     ? otherFees.value      || 0 : 0)
-                        + parseFloat(otherDmvFee   ? otherDmvFee.value    || 0 : 0);
-
         if (!splitToggle || !splitToggle.checked) {
             // ── Single payment mode ──────────────────────────────────────────
+            const baseTotal = parseFloat(processingFee ? processingFee.value || 0 : 0)
+                            + parseFloat(dmvFee        ? dmvFee.value         || 0 : 0)
+                            + parseFloat(salesTax      ? salesTax.value       || 0 : 0)
+                            + parseFloat(dmvSalesTax   ? dmvSalesTax.value    || 0 : 0)
+                            + parseFloat(otherFees     ? otherFees.value      || 0 : 0)
+                            + parseFloat(otherDmvFee   ? otherDmvFee.value    || 0 : 0);
+
             const method = paymentMethod ? paymentMethod.value : '';
             const fee    = baseTotal * getCCFeeRate(method);
             if (ccFee) ccFee.value = fee.toFixed(2);
             const grand  = baseTotal + fee;
 
-            // DO NOT auto-fill paid_amount — the user enters what they collected today.
-            // paid_amount defaults to 0 (outstanding = full amount) unless user typed something.
             const paid = parseFloat((totalPaid && totalPaid.value) || 0);
             const bal  = grand - paid;
             if (outstandingBalance) outstandingBalance.value = bal > 0 ? bal.toFixed(2) : '0.00';
+
+            // Reset paid_amount_2 in single mode
+            if (paidAmount2Real) paidAmount2Real.value = '0.00';
         } else {
             // ── Split payment mode ──────────────────────────────────────────
+            const baseTotal = parseFloat(processingFee ? processingFee.value || 0 : 0)
+                            + parseFloat(dmvFee        ? dmvFee.value         || 0 : 0)
+                            + parseFloat(salesTax      ? salesTax.value       || 0 : 0)
+                            + parseFloat(dmvSalesTax   ? dmvSalesTax.value    || 0 : 0)
+                            + parseFloat(otherFees     ? otherFees.value      || 0 : 0)
+                            + parseFloat(otherDmvFee   ? otherDmvFee.value    || 0 : 0);
+
             if (paymentMethod && paymentMethod1Clone) paymentMethod.value = paymentMethod1Clone.value;
+
             const p1Base = parseFloat((paidAmount1 && paidAmount1.value) || 0);
-            const p2Base = parseFloat((paidAmount2 && paidAmount2.value) || 0);
+            // In split mode, paidAmount2Clone field holds the RAW base for method 2
+            const p2Raw  = parseFloat((paidAmount2Clone && paidAmount2Clone.value) || 0);
             const fee1   = p1Base * getCCFeeRate(paymentMethod1Clone ? paymentMethod1Clone.value : '');
-            const fee2   = p2Base * getCCFeeRate(paymentMethod2 ? paymentMethod2.value : '');
+            const fee2   = p2Raw  * getCCFeeRate(paymentMethod2 ? paymentMethod2.value : '');
             const totalFee = fee1 + fee2;
             if (ccFee) ccFee.value = totalFee.toFixed(2);
 
-            // Total paid = sum of both amounts including their CC fees
-            const paidVal = (p1Base + fee1) + (p2Base + fee2);
+            // Total paid = p1 inclusive + p2 inclusive
+            const paidVal = (p1Base + fee1) + (p2Raw + fee2);
             if (totalPaid) totalPaid.value = paidVal.toFixed(2);
+
+            // Store paid_amount_2 as fee-inclusive so model display math (paid - paid_amount_2 = p1 total) works
+            if (paidAmount2Real) paidAmount2Real.value = (p2Raw + fee2).toFixed(2);
 
             const grand = baseTotal + totalFee;
             const bal   = grand - paidVal;
@@ -578,52 +603,60 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Lock payment fields in edit mode
-    if (isEditMode) {
-        if (splitToggle) {
-            splitToggle.style.pointerEvents = 'none';
-            splitToggle.style.opacity = '0.7';
-        }
-        [totalPaid, paidAmount1, paidAmount2].forEach(el => {
-            if (el) {
-                el.readOnly = true;
-                el.style.backgroundColor = '#f1f5f9';
-                el.style.cursor = 'not-allowed';
-            }
-        });
-        [paymentMethod, paymentMethod2, paymentMethod1Clone].forEach(el => {
-            if (el) {
-                el.style.pointerEvents = 'none';
-                el.style.backgroundColor = '#f1f5f9';
-                el.style.cursor = 'not-allowed';
-            }
-        });
+    // Wire up: mark userInteracted on any field change
+    function markInteracted() {
+        userInteracted = true;
+        updateCalculations();
     }
 
-    // Wire up events
-    if (splitToggle) splitToggle.addEventListener('change', toggleSplitFields);
-
-    // On load: initialize split toggle state
-    if (splitToggle) {
+    if (splitToggle) splitToggle.addEventListener('change', function() {
+        userInteracted = true;
         toggleSplitFields();
-    }
+    });
 
-    // When user types paid_amount (single mode), recalculate outstanding
-    if (totalPaid)  totalPaid.addEventListener('input',  updateCalculations);
-    if (paidAmount1) paidAmount1.addEventListener('input', updateCalculations);
-    if (paidAmount2) paidAmount2.addEventListener('input', updateCalculations);
-    if (paymentMethod1Clone) paymentMethod1Clone.addEventListener('change', updateCalculations);
-    if (paymentMethod2) paymentMethod2.addEventListener('change', updateCalculations);
+    if (totalPaid)          totalPaid.addEventListener('input',  markInteracted);
+    if (paidAmount1)        paidAmount1.addEventListener('input', markInteracted);
+    if (paidAmount2Clone)   paidAmount2Clone.addEventListener('input', markInteracted);
+    if (paymentMethod1Clone) paymentMethod1Clone.addEventListener('change', markInteracted);
+    if (paymentMethod2)     paymentMethod2.addEventListener('change', markInteracted);
 
     [processingFee, dmvFee, salesTax, dmvSalesTax, otherFees, otherDmvFee, paymentMethod]
         .filter(Boolean)
         .forEach(el => {
-            el.addEventListener('input',  updateCalculations);
-            el.addEventListener('change', updateCalculations);
+            el.addEventListener('input',  markInteracted);
+            el.addEventListener('change', markInteracted);
         });
 
-    // Run once on load to set CC fee and outstanding correctly
-    updateCalculations();
+    // On load: initialize split toggle visibility
+    if (splitToggle && splitToggle.checked) {
+        singlePaymentFields.style.display = 'none';
+        splitPaymentFields.style.display  = 'block';
+        if (totalPaid) {
+            totalPaid.readOnly = true;
+            totalPaid.style.backgroundColor = '#f1f5f9';
+            totalPaid.style.cursor = 'not-allowed';
+        }
+    }
+
+    // On load in CREATE mode: run full calculation to pre-fill CC fee / outstanding
+    // On load in EDIT mode: only update outstanding balance display from saved values (don't recalculate CC fee)
+    if (!isEditMode) {
+        updateCalculations();
+    } else {
+        // In edit mode: just update outstanding display from current saved paid_amount and service_fee
+        // service_fee = sum of all fee fields + cc fee (read-only, already set)
+        const baseTotal = parseFloat(processingFee ? processingFee.value || 0 : 0)
+                        + parseFloat(dmvFee        ? dmvFee.value         || 0 : 0)
+                        + parseFloat(salesTax      ? salesTax.value       || 0 : 0)
+                        + parseFloat(dmvSalesTax   ? dmvSalesTax.value    || 0 : 0)
+                        + parseFloat(otherFees     ? otherFees.value      || 0 : 0)
+                        + parseFloat(otherDmvFee   ? otherDmvFee.value    || 0 : 0);
+        const cc    = parseFloat((ccFee && ccFee.value) || 0);
+        const grand = baseTotal + cc;
+        const paid  = parseFloat((totalPaid && totalPaid.value) || 0);
+        const bal   = grand - paid;
+        if (outstandingBalance) outstandingBalance.value = bal > 0 ? bal.toFixed(2) : '0.00';
+    }
 });
 </script>
 {% endblock %}
