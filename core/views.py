@@ -6024,6 +6024,7 @@ def spaces_home(request):
         
     if request.user.is_superuser or is_owner:
         inventory_items = Space.objects.filter(organization=active_org)
+    else:
         inventory_items = Space.objects.filter(
             id__in=membership.accessible_spaces.values_list('id', flat=True),
             organization=active_org
