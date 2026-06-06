@@ -930,6 +930,25 @@ class Space(models.Model):
         return f"{self.label} ({self.organization.name})"
 
 
+class KnowledgeHubMaterial(models.Model):
+    space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="materials")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True, default="")
+    file = models.FileField(upload_to="knowledge_hub/", blank=True, null=True, help_text="Upload training PDF, document, or media file")
+    external_url = models.URLField(blank=True, default="", help_text="Optional link to external video, course, or doc")
+    step_number = models.PositiveIntegerField(default=1, help_text="Roadmap step order (1, 2, 3...)")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["step_number", "created_at"]
+        verbose_name = "Knowledge Hub Material"
+        verbose_name_plural = "Knowledge Hub Materials"
+
+    def __str__(self):
+        return f"{self.step_number}. {self.title}"
+
+
 class UserSession(models.Model):
     """
     Tracks the single allowed active session per user.

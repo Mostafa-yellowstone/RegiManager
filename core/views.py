@@ -5423,9 +5423,9 @@ def inventory_detail(request, inventory_id):
     user_can_view_commission = is_owner or (membership and membership.can_view_commission)
     user_can_view_banking = is_owner or (membership and membership.can_view_banking)
 
-    # Non-owners must have the specific space in their accessible_spaces
+    # Non-owners must have the specific space in their accessible_spaces, or it must be the Knowledge Hub
     if not request.user.is_superuser and not is_owner:
-        if not membership.accessible_spaces.filter(id=card.id).exists():
+        if card.key != "knowledge_hub" and not membership.accessible_spaces.filter(id=card.id).exists():
             return HttpResponseForbidden("You do not have permission to access this space.")
 
     if request.method == "POST":
@@ -5892,6 +5892,15 @@ def inventory_detail(request, inventory_id):
         }
         return render(request, "core/insurance_space.html", context)
 
+    if card.key == "knowledge_hub":
+        materials = card.materials.all().order_by("step_number", "created_at")
+        return render(request, "core/knowledge_hub.html", {
+            "card": card,
+            "is_owner": is_owner,
+            "active_org": card.organization,
+            "materials": materials,
+        })
+
     # Fetch service records matching this space key for the active organization
     from .models import ServiceRecord
     services = ServiceRecord.objects.filter(
@@ -5961,11 +5970,24 @@ def spaces_home(request):
             "description": "Insurance CRM and Financial space", 
         }
     )
+    # Auto-ensure "Knowledge Hub" card exists for this active org
+    Space.objects.get_or_create(
+        organization=active_org, 
+        key="knowledge_hub", 
+        defaults={
+            "label": "Knowledge Hub", 
+            "description": "Training documents, roadmaps, and educational material", 
+        }
+    )
         
     if request.user.is_superuser or is_owner:
         inventory_items = Space.objects.filter(organization=active_org)
     else:
-        inventory_items = membership.accessible_spaces.filter(organization=active_org)
+        from django.db.models import Q
+        inventory_items = Space.objects.filter(
+            Q(id__in=membership.accessible_spaces.values_list('id', flat=True)) | Q(key="knowledge_hub"),
+            organization=active_org
+        )
     
     context = {
         "needs_org_selection": False,
@@ -6973,4 +6995,81 @@ def insurance_agent_detail(request, user_id):
         "table_date_from": table_date_from,
         "table_date_to": table_date_to,
     })
+
+
+@login_required
+@require_POST
+def add_knowledge_material(request, space_id):
+    from .models import Space, KnowledgeHubMaterial, OrganizationMembership
+    organizations = _get_user_organizations(request)
+    space = get_object_or_404(Space, id=space_id, organization__in=organizations)
+    
+    # Check if user is owner or superuser
+    is_owner = False
+    if request.user.is_superuser:
+        is_owner = True
+    else:
+        membership = OrganizationMembership.objects.filter(
+            user=request.user, organization=space.organization, is_active=True
+        ).first()
+        if membership:
+            is_owner = (membership.role == OrganizationMembership.Role.OWNER)
+            
+    if not is_owner:
+        return HttpResponseForbidden("You do not have permission to add training materials.")
+        
+    title = request.POST.get("title", "").strip()
+    description = request.POST.get("description", "").strip()
+    step_number = request.POST.get("step_number", "1").strip()
+    external_url = request.POST.get("external_url", "").strip()
+    
+    try:
+        step_number = int(step_number)
+    except ValueError:
+        step_number = 1
+        
+    file_attachment = request.FILES.get("file")
+    
+    if not title:
+        messages.error(request, "Material title is required.")
+        return redirect("inventory-detail", inventory_id=space.id)
+        
+    KnowledgeHubMaterial.objects.create(
+        space=space,
+        title=title,
+        description=description,
+        step_number=step_number,
+        external_url=external_url,
+        file=file_attachment
+    )
+    messages.success(request, f"Successfully added '{title}' to roadmap step {step_number}.")
+    return redirect("inventory-detail", inventory_id=space.id)
+
+
+@login_required
+@require_POST
+def delete_knowledge_material(request, material_id):
+    from .models import KnowledgeHubMaterial, OrganizationMembership
+    material = get_object_or_404(KnowledgeHubMaterial, id=material_id)
+    space = material.space
+    
+    # Check if user is owner or superuser
+    is_owner = False
+    if request.user.is_superuser:
+        is_owner = True
+    else:
+        membership = OrganizationMembership.objects.filter(
+            user=request.user, organization=space.organization, is_active=True
+        ).first()
+        if membership:
+            is_owner = (membership.role == OrganizationMembership.Role.OWNER)
+            
+    if not is_owner:
+        return HttpResponseForbidden("You do not have permission to delete training materials.")
+        
+    title = material.title
+    material.delete()
+    messages.success(request, f"Deleted material '{title}'.")
+    return redirect("inventory-detail", inventory_id=space.id)
+
 

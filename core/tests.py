@@ -679,3 +679,71 @@ class NewsPermissionTests(TestCase):
         from core.models import SiteNews
         self.assertTrue(SiteNews.objects.filter(title="Agent Announcement").exists())
 
+
+class KnowledgeHubTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Test Org", city="NYC")
+        self.owner = User.objects.create_user(username="owner", password="password123")
+        self.agent = User.objects.create_user(username="agent", password="password123")
+        
+        OrganizationMembership.objects.create(user=self.owner, organization=self.org, is_active=True, role="owner")
+        self.agent_membership = OrganizationMembership.objects.create(user=self.agent, organization=self.org, is_active=True, role="member")
+        
+        self.client = TestClient()
+
+    def test_spaces_home_auto_creates_knowledge_hub(self):
+        self.client.login(username="owner", password="password123")
+        response = self.client.get(reverse("spaces-home"))
+        self.assertEqual(response.status_code, 200)
+        
+        from core.models import Space
+        self.assertTrue(Space.objects.filter(organization=self.org, key="knowledge_hub").exists())
+
+    def test_agent_can_view_knowledge_hub_by_default(self):
+        self.client.login(username="agent", password="password123")
+        # trigger auto-creation first
+        from core.models import Space
+        space, _ = Space.objects.get_or_create(organization=self.org, key="knowledge_hub")
+        
+        response = self.client.get(reverse("inventory-detail", args=[space.id]))
+        self.assertEqual(response.status_code, 200)
+
+    def test_owner_can_add_material(self):
+        self.client.login(username="owner", password="password123")
+        from core.models import Space
+        space, _ = Space.objects.get_or_create(organization=self.org, key="knowledge_hub")
+        
+        response = self.client.post(reverse("add-knowledge-material", args=[space.id]), {
+            "title": "Test Guideline",
+            "description": "Step 1 details",
+            "step_number": 1,
+            "external_url": "https://google.com"
+        })
+        self.assertEqual(response.status_code, 302)
+        
+        from core.models import KnowledgeHubMaterial
+        self.assertTrue(KnowledgeHubMaterial.objects.filter(title="Test Guideline", step_number=1).exists())
+
+    def test_agent_cannot_add_material(self):
+        self.client.login(username="agent", password="password123")
+        from core.models import Space
+        space, _ = Space.objects.get_or_create(organization=self.org, key="knowledge_hub")
+        
+        response = self.client.post(reverse("add-knowledge-material", args=[space.id]), {
+            "title": "Hack material",
+            "description": "Agent adding material",
+            "step_number": 2
+        })
+        self.assertEqual(response.status_code, 403)
+
+    def test_owner_can_delete_material(self):
+        from core.models import Space, KnowledgeHubMaterial
+        space, _ = Space.objects.get_or_create(organization=self.org, key="knowledge_hub")
+        material = KnowledgeHubMaterial.objects.create(space=space, title="Delete Me", step_number=1)
+        
+        self.client.login(username="owner", password="password123")
+        response = self.client.post(reverse("delete-knowledge-material", args=[material.id]))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(KnowledgeHubMaterial.objects.filter(id=material.id).exists())
+
+
