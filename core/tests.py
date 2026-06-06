@@ -736,6 +736,47 @@ class KnowledgeHubTests(TestCase):
         })
         self.assertEqual(response.status_code, 403)
 
+    def test_agent_with_permission_can_add_material(self):
+        self.agent_membership.can_manage_knowledge_hub = True
+        self.agent_membership.save()
+        
+        self.client.login(username="agent", password="password123")
+        from core.models import Space
+        space, _ = Space.objects.get_or_create(organization=self.org, key="knowledge_hub")
+        
+        response = self.client.post(reverse("add-knowledge-material", args=[space.id]), {
+            "title": "Allowed Material",
+            "description": "Agent adding material with permission",
+            "step_number": 2
+        })
+        self.assertEqual(response.status_code, 302)
+        
+        from core.models import KnowledgeHubMaterial
+        self.assertTrue(KnowledgeHubMaterial.objects.filter(title="Allowed Material", step_number=2).exists())
+
+    def test_agent_without_permission_cannot_delete_material(self):
+        from core.models import Space, KnowledgeHubMaterial
+        space, _ = Space.objects.get_or_create(organization=self.org, key="knowledge_hub")
+        material = KnowledgeHubMaterial.objects.create(space=space, title="Delete Me Agent", step_number=1)
+        
+        self.client.login(username="agent", password="password123")
+        response = self.client.post(reverse("delete-knowledge-material", args=[material.id]))
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(KnowledgeHubMaterial.objects.filter(id=material.id).exists())
+
+    def test_agent_with_permission_can_delete_material(self):
+        self.agent_membership.can_manage_knowledge_hub = True
+        self.agent_membership.save()
+        
+        from core.models import Space, KnowledgeHubMaterial
+        space, _ = Space.objects.get_or_create(organization=self.org, key="knowledge_hub")
+        material = KnowledgeHubMaterial.objects.create(space=space, title="Delete Me Agent 2", step_number=1)
+        
+        self.client.login(username="agent", password="password123")
+        response = self.client.post(reverse("delete-knowledge-material", args=[material.id]))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(KnowledgeHubMaterial.objects.filter(id=material.id).exists())
+
     def test_owner_can_delete_material(self):
         from core.models import Space, KnowledgeHubMaterial
         space, _ = Space.objects.get_or_create(organization=self.org, key="knowledge_hub")
@@ -745,5 +786,28 @@ class KnowledgeHubTests(TestCase):
         response = self.client.post(reverse("delete-knowledge-material", args=[material.id]))
         self.assertEqual(response.status_code, 302)
         self.assertFalse(KnowledgeHubMaterial.objects.filter(id=material.id).exists())
+
+    def test_toggle_agent_knowledge_hub_permission(self):
+        self.client.login(username="owner", password="password123")
+        
+        response = self.client.post(reverse("update-agent-permissions"), {
+            "membership_id": self.agent_membership.id,
+            "field": "can_manage_knowledge_hub",
+            "value": "true"
+        })
+        self.assertEqual(response.status_code, 200)
+        self.agent_membership.refresh_from_db()
+        self.assertTrue(self.agent_membership.can_manage_knowledge_hub)
+
+        # toggle off
+        response = self.client.post(reverse("update-agent-permissions"), {
+            "membership_id": self.agent_membership.id,
+            "field": "can_manage_knowledge_hub",
+            "value": "false"
+        })
+        self.assertEqual(response.status_code, 200)
+        self.agent_membership.refresh_from_db()
+        self.assertFalse(self.agent_membership.can_manage_knowledge_hub)
+
 
 

@@ -779,6 +779,7 @@ input:checked + .slider:before {
                                 <th>Commission</th>
                                 <th>Banking</th>
                                 <th>News</th>
+                                <th title="Manage Knowledge Hub">Hub</th>
                                 <th>Audit</th>
                             </tr>
                         </thead>
@@ -850,6 +851,12 @@ input:checked + .slider:before {
                                     <td>
                                         <label class="switch" title="Manage Site Announcements">
                                             <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_manage_news" {% if agent_mem.can_manage_news %}checked{% endif %}>
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </td>
+                                    <td>
+                                        <label class="switch" title="Add/Delete Knowledge Hub Materials">
+                                            <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_manage_knowledge_hub" {% if agent_mem.can_manage_knowledge_hub %}checked{% endif %}>
                                             <span class="slider round"></span>
                                         </label>
                                     </td>

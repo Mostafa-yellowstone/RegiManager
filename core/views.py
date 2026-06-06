@@ -3069,6 +3069,8 @@ def update_agent_permissions(request):
             membership.can_view_banking = value
         elif field == "can_manage_news":
             membership.can_manage_news = value
+        elif field == "can_manage_knowledge_hub":
+            membership.can_manage_knowledge_hub = value
             
         membership.save()
         
@@ -5926,9 +5928,15 @@ def inventory_detail(request, inventory_id):
         roadmaps = [{"name": name, "steps": steps} for name, steps in roadmaps_dict.items()]
         all_roadmap_names = list(roadmaps_dict.keys())
 
+        # Check can_manage_knowledge_hub for agents
+        can_manage_kh = is_owner
+        if not is_owner and membership:
+            can_manage_kh = membership.can_manage_knowledge_hub
+
         return render(request, "core/knowledge_hub.html", {
             "card": card,
             "is_owner": is_owner,
+            "can_manage_kh": can_manage_kh,
             "active_org": card.organization,
             "materials": top_level_qs,
             "roadmaps": roadmaps,
@@ -7038,18 +7046,21 @@ def add_knowledge_material(request, space_id):
     organizations = _get_user_organizations(request)
     space = get_object_or_404(Space, id=space_id, organization__in=organizations)
     
-    # Check if user is owner or superuser
-    is_owner = False
+    # Check if user is owner, superuser, or has can_manage_knowledge_hub
+    can_manage = False
     if request.user.is_superuser:
-        is_owner = True
+        can_manage = True
     else:
         membership = OrganizationMembership.objects.filter(
             user=request.user, organization=space.organization, is_active=True
         ).first()
         if membership:
-            is_owner = (membership.role == OrganizationMembership.Role.OWNER)
-            
-    if not is_owner:
+            can_manage = (
+                membership.role == OrganizationMembership.Role.OWNER
+                or membership.can_manage_knowledge_hub
+            )
+
+    if not can_manage:
         return HttpResponseForbidden("You do not have permission to add training materials.")
         
     title = request.POST.get("title", "").strip()
@@ -7098,18 +7109,21 @@ def delete_knowledge_material(request, material_id):
     material = get_object_or_404(KnowledgeHubMaterial, id=material_id)
     space = material.space
     
-    # Check if user is owner or superuser
-    is_owner = False
+    # Check if user is owner, superuser, or has can_manage_knowledge_hub
+    can_manage = False
     if request.user.is_superuser:
-        is_owner = True
+        can_manage = True
     else:
         membership = OrganizationMembership.objects.filter(
             user=request.user, organization=space.organization, is_active=True
         ).first()
         if membership:
-            is_owner = (membership.role == OrganizationMembership.Role.OWNER)
-            
-    if not is_owner:
+            can_manage = (
+                membership.role == OrganizationMembership.Role.OWNER
+                or membership.can_manage_knowledge_hub
+            )
+
+    if not can_manage:
         return HttpResponseForbidden("You do not have permission to delete training materials.")
         
     title = material.title

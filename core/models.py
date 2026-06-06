@@ -94,6 +94,7 @@ class OrganizationMembership(models.Model):
     can_view_commission = models.BooleanField(default=False, help_text="Can this agent view commission rate, commission amount, and agency profit in the insurance space?")
     can_view_banking = models.BooleanField(default=False, help_text="Can this agent view the banking section in the insurance space?")
     can_manage_news = models.BooleanField(default=False, help_text="Can this agent add, edit, or delete news/announcements?")
+    can_manage_knowledge_hub = models.BooleanField(default=False, help_text="Can this agent add or delete materials in the Knowledge Hub?")
     accessible_spaces = models.ManyToManyField("Space", blank=True, related_name="permitted_memberships", help_text="Specific spaces this agent has access to.")
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -341,7 +341,7 @@
                     Master your workflow. Explore training roadmaps, follow step-by-step guides, and access all learning materials in one place.
                 </p>
             </div>
-            {% if is_owner %}
+            {% if can_manage_kh %}
             <div style="display:flex; gap:.75rem; flex-wrap:wrap;">
                 <button id="btn-new-roadmap" onclick="openModal('addRoadmapModal')" class="action-btn btn-secondary-hub" style="border-color:rgba(255,255,255,.2); color:#e2e8f0; background:rgba(255,255,255,.08);">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>
@@ -421,7 +421,7 @@
                         </div>
 
                         <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
-                            {% if is_owner %}
+                            {% if can_manage_kh %}
                             <button onclick="openSubStepModal({{ step.id }}, '{{ step.title|escapejs }}')" class="action-btn btn-sub-step">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                                 Sub-step
@@ -480,7 +480,7 @@
                                 <div class="sub-roadmap-card">
                                     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:.5rem; margin-bottom:.4rem; flex-wrap:wrap;">
                                         <h4 style="margin:0; font-size:1rem; font-weight:800; color:#1e293b;">{{ sub.title }}</h4>
-                                        {% if is_owner %}
+                                        {% if can_manage_kh %}
                                         <form method="post" action="{% url 'delete-knowledge-material' sub.id %}" onsubmit="return confirm('Remove this sub-step?');" style="margin:0;">
                                             {% csrf_token %}
                                             <button type="submit" class="btn-delete-tiny" style="padding:3px 8px; font-size:.65rem;">🗑</button>
@@ -525,7 +525,7 @@
                 <div style="font-size:3rem; margin-bottom:1rem; animation:float 3s ease-in-out infinite;">📋</div>
                 <h3 style="color:#0f172a; font-size:1.15rem; font-weight:800; margin:0 0 .4rem;">No steps yet in "{{ roadmap.name }}"</h3>
                 <p style="color:#64748b; font-size:.9rem; margin:0 0 1.5rem;">Add the first step to start building this roadmap.</p>
-                {% if is_owner %}
+                {% if can_manage_kh %}
                 <button onclick="setRoadmapAndOpen('{{ roadmap.name|escapejs }}')" class="action-btn btn-primary-hub">➕ Add First Step</button>
                 {% endif %}
             </div>
@@ -542,10 +542,10 @@
         <div style="font-size:4rem; margin-bottom:1rem; animation:float 3s ease-in-out infinite;">🧭</div>
         <h3 style="color:#0f172a; font-size:1.25rem; font-weight:800; margin:0 0 .5rem;">The Training Hub is Empty</h3>
         <p style="color:#64748b; font-size:.93rem; line-height:1.5; margin:0 0 2rem; font-weight:500;">
-            {% if is_owner %}Create your first roadmap and add training materials to get started.
+            {% if can_manage_kh %}Create your first roadmap and add training materials to get started.
             {% else %}Check back later — no training materials have been uploaded yet.{% endif %}
         </p>
-        {% if is_owner %}
+        {% if can_manage_kh %}
         <button onclick="openModal('addRoadmapModal')" class="action-btn btn-primary-hub">➕ Create First Roadmap</button>
         {% endif %}
     </div>
@@ -558,7 +558,7 @@
 <!-- ══════════════════════════════════════════════════════════════
      MODALS (Owner only)
 ══════════════════════════════════════════════════════════════ -->
-{% if is_owner %}
+{% if can_manage_kh %}
 
 <!-- ── 1. New Roadmap Modal ──────────────────────────────────── -->
 <div class="modal-overlay" id="addRoadmapModal" onclick="if(event.target===this)closeModal('addRoadmapModal')">
