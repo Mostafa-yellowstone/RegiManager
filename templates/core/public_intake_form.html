@@ -217,6 +217,24 @@
                     </label>
                     {% endfor %}
                 </div>
+
+                <!-- Source Dropdown -->
+                <div style="margin-top: 1.5rem; border-top: 1px solid #e2e8f0; padding-top: 1.5rem;">
+                    <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                        🔍 How did you hear about us? <span style="color: #ef4444;">*</span>
+                    </label>
+                    <select name="source" id="id_source" class="form-control" required style="max-width: 360px; padding: 0.65rem 0.9rem; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.92rem; background: #f8fafc; font-weight: 600; color: #1e293b;">
+                        <option value="google_search" selected>Google Search</option>
+                        <option value="walk_in">Walk-In</option>
+                        <option value="meta_platform">Meta Platform</option>
+                        <option value="google_campaigns">Google Campaigns</option>
+                        <option value="existing_client">Existing Client</option>
+                        <option value="dealer">Dealer</option>
+                        <option value="referral">Referral</option>
+                        <option value="cold_calling">Cold Calling</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
             </section>
 
             <!-- Step 1: Personal -->

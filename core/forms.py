@@ -491,6 +491,26 @@ class VehicleServiceForm(forms.ModelForm):
         return Decimal("0")
 
 class ClientIntakeForm(forms.ModelForm):
+    SOURCE_CHOICES = [
+        ("google_search", "Google Search"),
+        ("walk_in", "Walk-In"),
+        ("meta_platform", "Meta Platform"),
+        ("google_campaigns", "Google Campaigns"),
+        ("existing_client", "Existing Client"),
+        ("dealer", "Dealer"),
+        ("referral", "Referral"),
+        ("cold_calling", "Cold Calling"),
+        ("other", "Other"),
+    ]
+
+    source = forms.ChoiceField(
+        choices=SOURCE_CHOICES,
+        initial="google_search",
+        widget=forms.Select(attrs={"class": "form-control"}),
+        label="How did you hear about us?",
+        required=True,
+    )
+
     class Meta:
         model = ClientIntake
         exclude = [
@@ -553,9 +573,13 @@ class ClientIntakeForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Only require the bare essentials
-        required_fields = ["first_name", "last_name", "vin", "phone_number", "gender"]
+        required_fields = ["first_name", "last_name", "vin", "phone_number", "gender", "source"]
         for field_name, field in self.fields.items():
             if field_name not in required_fields:
                 field.required = False
             else:
                 field.required = True
+        # Default source to google_search for new (unbound) forms
+        if not self.data and not self.instance.pk:
+            self.fields["source"].initial = "google_search"
+

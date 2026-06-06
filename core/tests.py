@@ -851,4 +851,58 @@ class KnowledgeHubTests(TestCase):
         self.assertFalse(self.agent_membership.can_manage_knowledge_hub)
 
 
+class ClientIntakeTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="password123")
+        self.org = Organization.objects.create(name="Test Org", city="NYC", portal_token="test-portal-token", is_active=True)
+        OrganizationMembership.objects.create(user=self.user, organization=self.org, is_active=True, role="owner")
+        self.client = TestClient()
+
+    def test_public_intake_form_contains_source_dropdown(self):
+        response = self.client.get(reverse("public-intake-direct", args=[self.org.portal_token]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="source"')
+        self.assertContains(response, 'value="google_search" selected')
+
+    def test_public_intake_submission_saves_source(self):
+        from core.models import ClientIntake
+        # Submit the form
+        response = self.client.post(reverse("public-intake-direct", args=[self.org.portal_token]), {
+            "first_name": "Intake",
+            "last_name": "Test",
+            "gender": "male",
+            "phone_number": "1234567890",
+            "vin": "12345678901234567",
+            "source": "referral",
+            "services": ["registration_title"],
+        })
+        # Check redirect to success page
+        self.assertEqual(response.status_code, 302)
+        # Verify intake object is created and has correct source
+        intake = ClientIntake.objects.filter(organization=self.org).first()
+        self.assertIsNotNone(intake)
+        self.assertEqual(intake.source, "referral")
+
+    def test_approve_intake_propagates_source_to_client(self):
+        from core.models import ClientIntake
+        intake = ClientIntake.objects.create(
+            organization=self.org,
+            first_name="Intake",
+            last_name="Test",
+            gender="male",
+            phone_number="1234567890",
+            vin="12345678901234567",
+            source="meta_platform",
+        )
+        self.client.login(username="owner", password="password123")
+        response = self.client.get(reverse("approve-intake", args=[intake.id]))
+        self.assertEqual(response.status_code, 302) # Redirects to dashboard
+        
+        # Verify client was created with the correct source
+        client = Client.objects.filter(organization=self.org, first_name="Intake").first()
+        self.assertIsNotNone(client)
+        self.assertEqual(client.source, "meta_platform")
+
+
+
 

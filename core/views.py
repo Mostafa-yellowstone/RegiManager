@@ -4952,6 +4952,7 @@ def approve_intake(request, intake_id):
             is_commercial=intake.is_commercial,
             business_name=intake.business_name,
             business_ein=intake.business_ein,
+            source=intake.source,
         )
 
     # 4. Update or Create Vehicle

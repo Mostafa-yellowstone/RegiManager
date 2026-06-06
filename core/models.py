@@ -834,6 +834,20 @@ class ClientIntake(models.Model):
     weight = models.CharField(max_length=50, blank=True, default="")
     cylinders = models.CharField(max_length=20, blank=True, default="")
     
+    # Source / How did they find us
+    SOURCE_CHOICES = [
+        ("google_search", "Google Search"),
+        ("walk_in", "Walk-In"),
+        ("meta_platform", "Meta Platform"),
+        ("google_campaigns", "Google Campaigns"),
+        ("existing_client", "Existing Client"),
+        ("dealer", "Dealer"),
+        ("referral", "Referral"),
+        ("cold_calling", "Cold Calling"),
+        ("other", "Other"),
+    ]
+    source = models.CharField(max_length=50, choices=SOURCE_CHOICES, default="google_search")
+
     # Transaction Details
     transaction_type = models.CharField(max_length=100, default="Registration and Title")
     insurance_company = models.CharField(max_length=150, blank=True, default="")
