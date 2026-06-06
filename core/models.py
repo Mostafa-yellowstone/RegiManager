@@ -639,8 +639,15 @@ class ServiceDocument(models.Model):
         null=True, blank=True
     )
     document_type = models.CharField(max_length=30, choices=DOCUMENT_TYPES)
+    custom_name = models.CharField(max_length=150, blank=True, default="", help_text="Custom name for 'other' document types")
     file = models.FileField(upload_to="service_documents/")
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def display_name(self):
+        if self.document_type == "other" and self.custom_name:
+            return self.custom_name
+        return self.get_document_type_display()
 
     class Meta:
         ordering = ["-uploaded_at"]

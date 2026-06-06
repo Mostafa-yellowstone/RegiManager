@@ -95,6 +95,7 @@ from core.views import (
     inventory_detail,
     delete_document,
     delete_service_record,
+    generate_dmv_form_vehicle,
 )
 
 
@@ -157,6 +158,7 @@ urlpatterns = [
     path("dashboard/mv82-interactive/<int:service_id>/", mv82_interactive, name="mv82-interactive"),
     path("dashboard/receipts/<int:service_id>/", service_receipt_pdf, name="service-receipt-pdf"),
     path("dashboard/generate-form/<str:form_type>/<int:service_id>/", generate_dmv_form, name="generate-dmv-form"),
+    path("dashboard/generate-form-vehicle/<str:form_type>/<int:vehicle_id>/", generate_dmv_form_vehicle, name="generate-dmv-form-vehicle"),
     path("dashboard/mv82-form/<int:service_id>/", mv82_form_pdf, name="mv82-form-pdf"),
     path("dashboard/services/all-types/", all_service_types, name="all-service-types"),
     path("dashboard/services/add-custom/", add_custom_service, name="add-custom-service"),

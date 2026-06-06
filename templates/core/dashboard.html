@@ -961,6 +961,32 @@ input:checked + .slider:before {
     </div>
 </div>
 
+<!-- Custom File Upload Modal (Overlays the document drawer) -->
+<div id="customUploadModal" class="drawer-overlay" style="display: none; z-index: 2000; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px);">
+    <div class="drawer-panel" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); width: 90%; max-width: 450px; height: auto; border-radius: 24px; padding: 2rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); opacity: 0; display: block;">
+        <div class="drawer-header" style="padding: 0 0 1rem 0; margin-bottom: 1.5rem; border-bottom: 1px solid #f1f5f9; background: transparent; display: flex; justify-content: space-between; align-items: center; border-radius: 0;">
+            <h2 style="font-size: 1.25rem; font-weight: 800; color: #1e293b; margin: 0;">Custom File Upload</h2>
+            <button type="button" class="close-drawer" onclick="closeCustomUploadModal()" style="font-size: 1.8rem; color: #94a3b8; background: none; border: none; cursor: pointer; padding: 4px; line-height: 1;">&times;</button>
+        </div>
+        <div class="drawer-body" style="padding: 0; overflow: visible;">
+            <form id="custom-upload-form" onsubmit="submitCustomUpload(event)">
+                <div class="field-wrap" style="margin-bottom: 1.25rem;">
+                    <label for="custom-file-name" style="display: block; font-size: 0.85rem; font-weight: 700; color: #475569; margin-bottom: 0.5rem;">Document Name / Label</label>
+                    <input type="text" id="custom-file-name" class="form-control" placeholder="e.g. Power of Attorney, NYS Inspection" required style="width: 100%; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 0.65rem 0.9rem; font-size: 0.92rem; background: #f8fafc; font-weight: 600; color: #1e293b;">
+                </div>
+                <div class="field-wrap" style="margin-bottom: 1.5rem;">
+                    <label for="custom-file-input" style="display: block; font-size: 0.85rem; font-weight: 700; color: #475569; margin-bottom: 0.5rem;">Select File</label>
+                    <input type="file" id="custom-file-input" class="form-control" required accept="image/*,.pdf,application/pdf" style="width: 100%; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 0.5rem; font-size: 0.92rem; background: #f8fafc; color: #475569;">
+                </div>
+                <button type="submit" id="customUploadSubmitBtn" class="btn btn-primary" style="width: 100%; padding: 0.8rem; border-radius: 12px; font-weight: 700; font-size: 1rem; background: linear-gradient(135deg, #093de6, #4f46e5); color: white; border: none; box-shadow: 0 4px 12px rgba(9, 61, 230, 0.2);">
+                    Upload Document
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+
 <div id="addServiceModal" class="drawer-overlay" style="display: none;">
     <div class="drawer-panel" style="max-width: 450px;">
         <div class="drawer-header">

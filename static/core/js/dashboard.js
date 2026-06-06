@@ -131,7 +131,28 @@ function openDocUploadModal(id, label, type = 'service') {
         
         docGrid.appendChild(dropzone);
     });
-    
+
+    // ── Custom Upload card ──────────────────────────────────────────────
+    const customCard = document.createElement('div');
+    customCard.className = 'dropzone';
+    customCard.id = 'dropzone-custom';
+    customCard.title = 'Upload a file with a custom name';
+    customCard.style.cssText = 'border: 2px dashed #4f46e5; background: #f5f3ff; cursor: pointer; position: relative;';
+    customCard.innerHTML = `
+        <div class="dz-icon" style="color: #4f46e5;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="3"/>
+                <line x1="12" y1="8" x2="12" y2="16"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
+            </svg>
+        </div>
+        <div class="dz-text" style="color: #4f46e5;">Custom Upload</div>
+        <div class="dz-hint" style="font-size:0.68rem;color:#7c3aed;margin-top:2px;">Name it yourself</div>
+    `;
+    customCard.addEventListener('click', () => openCustomUploadModal());
+    docGrid.appendChild(customCard);
+    // ───────────────────────────────────────────────────────────────────
+
     const drawerOverlay = document.getElementById('docUploadDrawer');
     drawerOverlay.style.display = 'block';
     
@@ -441,6 +462,155 @@ window.addEventListener('DOMContentLoaded', () => {
         window.history.replaceState({path: newUrl}, '', newUrl);
     }
 });
+
+// ── Custom Upload Modal ──────────────────────────────────────────────────────
+function openCustomUploadModal() {
+    const modal = document.getElementById('customUploadModal');
+    if (!modal) return;
+    const panel = modal.querySelector('.drawer-panel');
+    modal.style.display = 'block';
+    void modal.offsetWidth;
+    modal.classList.add('open');
+    if (panel) {
+        panel.style.opacity = '1';
+        panel.style.transform = 'translate(-50%, -50%) scale(1)';
+    }
+    // reset form
+    const form = document.getElementById('custom-upload-form');
+    if (form) form.reset();
+    const btn = document.getElementById('customUploadSubmitBtn');
+    if (btn) { btn.disabled = false; btn.textContent = 'Upload Document'; }
+}
+
+function closeCustomUploadModal() {
+    const modal = document.getElementById('customUploadModal');
+    if (!modal) return;
+    const panel = modal.querySelector('.drawer-panel');
+    modal.classList.remove('open');
+    if (panel) {
+        panel.style.opacity = '0';
+        panel.style.transform = 'translate(-50%, -50%) scale(0.9)';
+    }
+    setTimeout(() => { modal.style.display = 'none'; }, 300);
+}
+
+function submitCustomUpload(e) {
+    e.preventDefault();
+    const nameInput = document.getElementById('custom-file-name');
+    const fileInput = document.getElementById('custom-file-input');
+    const btn = document.getElementById('customUploadSubmitBtn');
+
+    const customName = nameInput ? nameInput.value.trim() : '';
+    const file = fileInput && fileInput.files.length ? fileInput.files[0] : null;
+
+    if (!customName) {
+        alert('Please enter a document name.');
+        return;
+    }
+    if (!file) {
+        alert('Please select a file.');
+        return;
+    }
+
+    // Validate file type
+    if (!isImage(file) && !isPDF(file)) {
+        alert('Only images or PDF files are allowed.');
+        return;
+    }
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+        alert(`File too large: ${formatFileSize(file.size)} (max ${MAX_FILE_SIZE_MB}MB).`);
+        return;
+    }
+
+    if (!currentServiceId && !currentVehicleId) {
+        alert('No document context found. Please open the drawer from a service or vehicle.');
+        return;
+    }
+
+    const uploadUrl = currentServiceId
+        ? `/dashboard/service/${currentServiceId}/upload/`
+        : `/dashboard/vehicle/${currentVehicleId}/upload/`;
+
+    btn.disabled = true;
+    btn.textContent = 'Uploading...';
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('document_type', 'other');
+    formData.append('custom_name', customName);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', uploadUrl);
+    xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
+    xhr.timeout = 120000;
+
+    xhr.upload.addEventListener('progress', (ev) => {
+        if (ev.lengthComputable) {
+            const pct = Math.round((ev.loaded / ev.total) * 100);
+            btn.textContent = `Uploading... ${pct}%`;
+        }
+    });
+
+    xhr.addEventListener('load', () => {
+        try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.status === 'success') {
+                closeCustomUploadModal();
+                // Refresh the attached documents list in the drawer
+                const id = currentServiceId || currentVehicleId;
+                const type = currentServiceId ? 'service' : 'vehicle';
+                fetchDocuments(id, type);
+                // Mark the custom card as success briefly
+                const customCard = document.getElementById('dropzone-custom');
+                if (customCard) {
+                    customCard.classList.add('success');
+                    customCard.querySelector('.dz-text').textContent = '✓ Uploaded';
+                    setTimeout(() => {
+                        customCard.classList.remove('success');
+                        customCard.querySelector('.dz-text').textContent = 'Custom Upload';
+                    }, 2500);
+                }
+                // Call any parent page hooks (e.g., vehicle detail page refresh)
+                if (typeof window._onUploadSuccess === 'function') {
+                    window._onUploadSuccess(data, 'other', customCard);
+                }
+            } else {
+                alert(data.message || 'Upload failed.');
+                btn.disabled = false;
+                btn.textContent = 'Upload Document';
+            }
+        } catch {
+            alert(`Server error (${xhr.status}).`);
+            btn.disabled = false;
+            btn.textContent = 'Upload Document';
+        }
+    });
+
+    xhr.addEventListener('error', () => {
+        alert('Upload failed — check your connection.');
+        btn.disabled = false;
+        btn.textContent = 'Upload Document';
+    });
+    xhr.addEventListener('timeout', () => {
+        alert('Upload timed out — try a smaller file.');
+        btn.disabled = false;
+        btn.textContent = 'Upload Document';
+    });
+
+    xhr.send(formData);
+}
+
+// Close custom modal on overlay click
+document.addEventListener('DOMContentLoaded', () => {
+    const cModal = document.getElementById('customUploadModal');
+    if (cModal) {
+        cModal.addEventListener('click', (e) => {
+            if (e.target === cModal) closeCustomUploadModal();
+        });
+    }
+});
+// ─────────────────────────────────────────────────────────────────────────────
 
 function openAddServiceModal() {
     const modal = document.getElementById('addServiceModal');

@@ -877,7 +877,12 @@ def all_clients(request):
     organizations = _get_user_organizations(request)
     clients = Client.objects.filter(organization__in=organizations).order_by("-created_at")
     
-    query = request.GET.get('q')
+    # Advanced filter params
+    query = request.GET.get('q', '').strip()
+    selected_source = request.GET.get('source', '').strip()
+    selected_client_type = request.GET.get('client_type', '').strip()
+    selected_referral = request.GET.get('referral', '').strip()
+
     if query:
         clients = clients.filter(
             Q(first_name__icontains=query) |
@@ -887,15 +892,73 @@ def all_clients(request):
             Q(city__icontains=query) |
             Q(business_name__icontains=query) |
             Q(business_ein__icontains=query)
-        ).distinct()
+        )
     
+    if selected_source:
+        clients = clients.filter(source__iexact=selected_source)
+        
+    if selected_client_type == 'commercial':
+        clients = clients.filter(is_commercial=True)
+    elif selected_client_type == 'individual':
+        clients = clients.filter(is_commercial=False)
+        
+    if selected_referral:
+        clients = clients.filter(referral_id=selected_referral)
+
+    clients = clients.distinct()
+
+    # Dynamic filter choices
+    db_sources = Client.objects.filter(organization__in=organizations).values_list('source', flat=True).distinct()
+    SOURCE_LABELS = {
+        "google_search": "Google Search",
+        "walk_in": "Walk-In",
+        "walk-in": "Walk-In",
+        "website": "Website",
+        "meta_platform": "Meta Platform",
+        "google_campaigns": "Google Campaigns",
+        "existing_client": "Existing Client",
+        "dealer": "Dealer",
+        "referral": "Referral",
+        "cold_calling": "Cold Calling",
+        "insurance": "Insurance",
+        "other": "Other",
+    }
+    
+    source_choices = []
+    seen_sources = set()
+    standard_keys = ["google_search", "walk_in", "website", "meta_platform", "google_campaigns", "existing_client", "dealer", "referral", "cold_calling", "insurance", "other"]
+    
+    for sk in standard_keys:
+        source_choices.append({
+            "key": sk,
+            "label": SOURCE_LABELS.get(sk, sk.replace('_', ' ').replace('-', ' ').title())
+        })
+        seen_sources.add(sk)
+
+    for s in db_sources:
+        if s:
+            s_lower = s.lower().strip()
+            if s_lower not in seen_sources:
+                source_choices.append({
+                    "key": s_lower,
+                    "label": SOURCE_LABELS.get(s_lower, s.replace('_', ' ').replace('-', ' ').title())
+                })
+                seen_sources.add(s_lower)
+
+    referrals = Referral.objects.filter(organization__in=organizations).order_by('name')
+
     paginator = Paginator(clients, 12)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
         
     return render(request, "core/all_clients.html", {
         "page_obj": page_obj,
-        "search_query": query or "",
+        "search_query": query,
+        "selected_source": selected_source,
+        "selected_client_type": selected_client_type,
+        "selected_referral": selected_referral,
+        "source_choices": source_choices,
+        "referrals": referrals,
     })
 
 
@@ -2340,9 +2403,85 @@ def generate_dmv_form(request, form_type, service_id):
     response["Content-Disposition"] = f'inline; filename="{filename}"'
     return response
 
+
+@xframe_options_exempt
+@login_required
+def generate_dmv_form_vehicle(request, form_type, vehicle_id):
+    """
+    Generates all official NYS DMV forms directly from a Vehicle (no ServiceRecord needed).
+    """
+    vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+    if not _has_active_org_access(request.user, vehicle.client.organization_id):
+        return HttpResponseForbidden("Access denied.")
+
+    client = vehicle.client
+    prefill = _build_form_prefill_payload(None, client, vehicle)
+    
+    # Path mapping - using local paths within core app
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    form_map = {
+        "mv82": "static/core/pdf/mv82_template.pdf",
+        "dtf802": "static/core/pdf/dtf802_template.pdf",
+        "dtf803": "static/core/pdf/dtf803_template.pdf",
+        "mv82b": "static/core/pdf/mv82b_template.pdf",
+    }
+    
+    template_path = os.path.join(current_dir, form_map.get(form_type, form_map["mv82"]))
+    if not os.path.exists(template_path):
+        template_path = os.path.join(current_dir, form_map["mv82"])
+
+    packet = io.BytesIO()
+    can = canvas.Canvas(packet, pagesize=letter)
+    can.setFont("Helvetica-Bold", 10)
+    
+    if form_type == "mv82":
+        _fill_mv82_overlay(can, None, client, vehicle)
+    elif form_type == "dtf802":
+        _fill_dtf802_overlay(can, None, client, vehicle)
+    elif form_type == "dtf803":
+        _fill_dtf803_overlay(can, None, client, vehicle)
+    elif form_type == "mv82b":
+        _fill_mv82b_overlay(can, None, client, vehicle)
+    
+    can.save()
+    packet.seek(0)
+    new_pdf = PdfReader(packet)
+    template_pdf = PdfReader(template_path)
+    output = PdfWriter()
+    from pypdf.generic import NameObject
+
+    page1 = template_pdf.pages[0]
+    page1.merge_page(new_pdf.pages[0])
+    output.add_page(page1)
+    if len(template_pdf.pages) > 1:
+        output.add_page(template_pdf.pages[1])
+
+    if "/AcroForm" in template_pdf.trailer["/Root"]:
+        output._root_object.update({
+            NameObject("/AcroForm"): template_pdf.trailer["/Root"]["/AcroForm"]
+        })
+
+        fields = _build_acroform_prefill_fields(form_type, prefill)
+        if not fields and form_type in ("dtf802", "dtf803"):
+            fields = _build_dtf_token_prefill_fields(template_pdf, prefill)
+        if fields:
+            for page in output.pages:
+                output.update_page_form_field_values(page, fields)
+
+    final_output = io.BytesIO()
+    output.write(final_output)
+    final_output.seek(0)
+    response = HttpResponse(final_output.read(), content_type="application/pdf")
+    filename = f"PREFILLED-{form_type.upper()}-{vehicle.vin or vehicle.id}.pdf"
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    return response
+
+
 def _fill_mv82_overlay(can, service, client, vehicle):
-    st = service.service_type  # service type available but checkboxes are left blank (no X marks)
-    if service.plate_number: can.drawString(465, 615, service.plate_number.upper())
+    st = service.service_type if service else ""
+    plate_str = (service.plate_number if service else None) or (vehicle.plate_number if vehicle else "")
+    if plate_str:
+        can.drawString(465, 615, plate_str.upper())
     if client and client.is_commercial:
         name_str = client.business_name or client.last_name
     else:
@@ -2357,7 +2496,7 @@ def _fill_mv82_overlay(can, service, client, vehicle):
         can.setFont("Helvetica-Bold", 10)
     can.drawString(535, 442, client.county.upper() if client else "")
     can.setFont("Courier-Bold", 12)
-    vin_str = (service.vin or "").upper()
+    vin_str = ((service.vin or "") if service else (vehicle.vin or "") if vehicle else "").upper()
     for i, char in enumerate(vin_str[:17]): can.drawString(38 + (i * 18.4), 407, char)
     can.setFont("Helvetica-Bold", 10)
     can.drawString(358, 407, str(vehicle.year) if vehicle else "")
@@ -2387,6 +2526,7 @@ def _fill_mv82_overlay(can, service, client, vehicle):
         can.drawString(40, 320, vehicle.owner_name.upper())
         if vehicle.owner_nys_id:
             can.drawString(463, 320, vehicle.owner_nys_id)
+
 
 def _fill_dtf802_overlay(can, service, client, vehicle):
     """
@@ -2421,7 +2561,7 @@ def regenerate_mv82_document(service_document):
     vehicle = service_document.vehicle or (service.vehicle if service else None)
     client = vehicle.client if vehicle else None
     
-    if not service or not vehicle or not client:
+    if not vehicle or not client:
         return
         
     prefill = _build_form_prefill_payload(service, client, vehicle)
@@ -2936,11 +3076,14 @@ def upload_document_ajax(request, service_id):
     if doc_type not in valid_types:
         return JsonResponse({"status": "error", "message": "Invalid document type"}, status=400)
 
+    custom_name = request.POST.get('custom_name', '').strip()
+
     try:
         doc = ServiceDocument.objects.create(
             service_record=service_record,
             vehicle=service_record.vehicle, # Automatically link to vehicle too
             document_type=doc_type,
+            custom_name=custom_name,
             file=file_obj
         )
         return JsonResponse({
@@ -2988,10 +3131,13 @@ def upload_document_ajax_vehicle(request, vehicle_id):
     if doc_type not in valid_types:
         return JsonResponse({"status": "error", "message": "Invalid document type"}, status=400)
 
+    custom_name = request.POST.get('custom_name', '').strip()
+
     try:
         doc = ServiceDocument.objects.create(
             vehicle=vehicle,
             document_type=doc_type,
+            custom_name=custom_name,
             file=file_obj
         )
         return JsonResponse({
@@ -3105,7 +3251,7 @@ def get_documents(request, service_id):
         {
             "id": doc.id,
             "type": doc.document_type,
-            "type_label": doc_map.get(doc.document_type, doc.document_type),
+            "type_label": doc.display_name,
             "url": request.build_absolute_uri(doc.file.url) if doc.file else ""
         }
         for doc in documents
@@ -3129,13 +3275,12 @@ def get_documents_vehicle(request, vehicle_id):
         Q(vehicle__client=vehicle.client) | 
         Q(service_record__vehicle__client=vehicle.client)
     ).distinct()
-    doc_map = dict(ServiceDocument.DOCUMENT_TYPES)
     
     docs_data = [
         {
             "id": doc.id,
             "type": doc.document_type,
-            "type_label": doc_map.get(doc.document_type, doc.document_type),
+            "type_label": doc.display_name,
             "url": request.build_absolute_uri(doc.file.url) if doc.file else "",
             "uploaded_at": doc.uploaded_at.strftime("%b %d, %Y %H:%M") if doc.uploaded_at else ""
         }
