@@ -5893,12 +5893,46 @@ def inventory_detail(request, inventory_id):
         return render(request, "core/insurance_space.html", context)
 
     if card.key == "knowledge_hub":
-        materials = card.materials.all().order_by("step_number", "created_at")
+        from collections import defaultdict
+        # Only top-level materials (no parent)
+        top_level_qs = card.materials.filter(parent__isnull=True).order_by("roadmap_name", "step_number", "created_at")
+
+        # Group by roadmap name, building plain dicts so template can access sub_steps freely
+        roadmaps_dict = defaultdict(list)
+        for mat in top_level_qs:
+            sub_steps = list(mat.sub_materials.all().order_by("step_number", "created_at"))
+            roadmaps_dict[mat.roadmap_name].append({
+                "id": mat.id,
+                "title": mat.title,
+                "description": mat.description,
+                "step_number": mat.step_number,
+                "file": mat.file,
+                "file_url": mat.file.url if mat.file else None,
+                "external_url": mat.external_url,
+                "sub_steps": [
+                    {
+                        "id": s.id,
+                        "title": s.title,
+                        "description": s.description,
+                        "step_number": s.step_number,
+                        "file": s.file,
+                        "file_url": s.file.url if s.file else None,
+                        "external_url": s.external_url,
+                    }
+                    for s in sub_steps
+                ],
+            })
+
+        roadmaps = [{"name": name, "steps": steps} for name, steps in roadmaps_dict.items()]
+        all_roadmap_names = list(roadmaps_dict.keys())
+
         return render(request, "core/knowledge_hub.html", {
             "card": card,
             "is_owner": is_owner,
             "active_org": card.organization,
-            "materials": materials,
+            "materials": top_level_qs,
+            "roadmaps": roadmaps,
+            "all_roadmap_names": all_roadmap_names,
         })
 
     # Fetch service records matching this space key for the active organization
@@ -7022,6 +7056,8 @@ def add_knowledge_material(request, space_id):
     description = request.POST.get("description", "").strip()
     step_number = request.POST.get("step_number", "1").strip()
     external_url = request.POST.get("external_url", "").strip()
+    roadmap_name = request.POST.get("roadmap_name", "General Roadmap").strip() or "General Roadmap"
+    parent_id = request.POST.get("parent_id", "").strip()
     
     try:
         step_number = int(step_number)
@@ -7033,16 +7069,25 @@ def add_knowledge_material(request, space_id):
     if not title:
         messages.error(request, "Material title is required.")
         return redirect("inventory-detail", inventory_id=space.id)
+    
+    parent_obj = None
+    if parent_id:
+        try:
+            parent_obj = KnowledgeHubMaterial.objects.get(id=int(parent_id), space=space)
+        except (KnowledgeHubMaterial.DoesNotExist, ValueError):
+            parent_obj = None
         
     KnowledgeHubMaterial.objects.create(
         space=space,
+        parent=parent_obj,
+        roadmap_name=roadmap_name if not parent_obj else parent_obj.roadmap_name,
         title=title,
         description=description,
         step_number=step_number,
         external_url=external_url,
         file=file_attachment
     )
-    messages.success(request, f"Successfully added '{title}' to roadmap step {step_number}.")
+    messages.success(request, f"Successfully added '{title}' to '{roadmap_name}'.")
     return redirect("inventory-detail", inventory_id=space.id)
 
 
