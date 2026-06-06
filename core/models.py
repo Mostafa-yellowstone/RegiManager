@@ -932,6 +932,19 @@ class Space(models.Model):
 
 class KnowledgeHubMaterial(models.Model):
     space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="materials")
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="sub_materials",
+        help_text="Parent roadmap step for nesting sub-steps",
+    )
+    roadmap_name = models.CharField(
+        max_length=100,
+        default="General Roadmap",
+        help_text="Name of the training roadmap this step belongs to",
+    )
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True, default="")
     file = models.FileField(upload_to="knowledge_hub/", blank=True, null=True, help_text="Upload training PDF, document, or media file")
