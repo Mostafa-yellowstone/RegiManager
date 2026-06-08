@@ -266,8 +266,9 @@ body.portal-body .dashboard-hero .brand-pill {
 }
 
 .metric-card--profit {
-    background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(21, 128, 61, 0.2));
-    border-color: rgba(74, 222, 128, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(8px);
     text-align: center;
     display: flex;
     flex-direction: column;
@@ -276,14 +277,14 @@ body.portal-body .dashboard-hero .brand-pill {
 }
 
 .metric-card--profit .metric-label {
-    color: #4ade80;
-    font-weight: 800;
+    color: #94a3b8;
+    font-weight: 600;
 }
 
 .metric-card--profit .metric-value {
     font-size: 1.75rem;
-    color: #86efac;
-    text-shadow: 0 0 20px rgba(74, 222, 128, 0.35);
+    color: var(--portal-hero-title);
+    text-shadow: none;
 }
 
 .hero-actions {
@@ -310,29 +311,39 @@ body.portal-body .dashboard-hero .brand-pill {
 }
 
 .hero-btn-warning {
-    background: rgba(245, 158, 11, 0.15) !important;
-    border: 1px solid rgba(245, 158, 11, 0.4) !important;
-    color: #fde68a !important;
+    background: rgba(220, 38, 38, 0.28) !important;
+    border: 2px solid rgba(252, 165, 165, 0.75) !important;
+    color: #fff !important;
+    box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);
+    font-weight: 800 !important;
+}
+
+.hero-btn-warning:hover {
+    background: rgba(185, 28, 28, 0.45) !important;
+    border-color: #fecaca !important;
+    color: #fff !important;
 }
 
 .hero-badge-alert {
-    background: rgba(239, 68, 68, 0.25);
-    color: #fca5a5;
-    padding: 1px 8px;
+    background: #dc2626;
+    color: #fff;
+    padding: 2px 9px;
     border-radius: var(--portal-radius-pill);
     font-size: 0.78rem;
-    font-weight: 800;
+    font-weight: 900;
     margin-left: 6px;
+    border: 1px solid #fecaca;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .hero-alert-outstanding {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
+    background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
     color: white;
     padding: 1.25rem 1.5rem;
     border-radius: var(--portal-radius-md);
     margin-top: 1.25rem;
-    box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.45);
-    border: 1px solid #f87171;
+    box-shadow: 0 12px 28px -6px rgba(220, 38, 38, 0.55);
+    border: 2px solid #fca5a5;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -445,14 +456,14 @@ body.portal-body .dashboard-hero .brand-pill {
 }
 
 .nav-link:hover {
-    color: #b45309;
-    background: #fef9c3;
+    color: #5c4f2a;
+    background: #f3ead0;
 }
 
 .nav-link.active {
-    color: #92400e;
-    background: #fef08a;
-    box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.5);
+    color: #4a3f1f;
+    background: #e8d9a8;
+    box-shadow: inset 0 0 0 1px rgba(180, 155, 90, 0.45);
 }
 
 .nav-right {
@@ -693,15 +704,15 @@ body.portal-body .dashboard-hero .brand-pill {
 
 .user-name {
     font-size: 0.82rem;
-    font-weight: 700;
-    color: #1e293b;
+    font-weight: 800;
+    color: var(--portal-text);
     line-height: 1.2;
 }
 
 .user-role {
     font-size: 0.68rem;
-    color: var(--portal-text-muted);
-    font-weight: 600;
+    color: var(--portal-text-secondary);
+    font-weight: 700;
 }
 
 .logout-icon-btn {
@@ -1371,15 +1382,16 @@ body.portal-body .data-table .agent-psb-city {
 }
 
 @keyframes pulse-profit {
-    0% { transform: scale(1); color: #2e7d32; }
-    50% { transform: scale(1.05); color: #1b5e20; }
-    100% { transform: scale(1); color: #2e7d32; }
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.03); opacity: 0.88; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 .profit-animated {
     animation: pulse-profit 2s infinite ease-in-out;
     display: inline-block;
     font-size: 1.5rem !important;
+    color: var(--portal-hero-title);
 }
 
 .agent-row.inactive-agent {
@@ -1691,14 +1703,14 @@ html.portal-theme-dark .top-nav {
 }
 
 html.portal-theme-dark .nav-link:hover {
-    color: #fbbf24;
-    background: rgba(250, 204, 21, 0.14);
+    color: #e8d5a3;
+    background: rgba(210, 180, 100, 0.16);
 }
 
 html.portal-theme-dark .nav-link.active {
-    color: #fde047;
-    background: rgba(250, 204, 21, 0.22);
-    box-shadow: inset 0 0 0 1px rgba(253, 224, 71, 0.35);
+    color: #f0e6c8;
+    background: rgba(210, 180, 100, 0.26);
+    box-shadow: inset 0 0 0 1px rgba(210, 180, 100, 0.4);
 }
 
 html.portal-theme-dark .notif-btn {
@@ -1734,6 +1746,15 @@ html.portal-theme-dark .nav-btn {
 
 html.portal-theme-dark .user-profile-mini {
     background: var(--portal-surface-muted);
+    border-color: var(--portal-border-strong);
+}
+
+html.portal-theme-dark .user-name {
+    color: #f8fafc;
+}
+
+html.portal-theme-dark .user-role {
+    color: #e2e8f0;
 }
 
 html.portal-theme-dark .portal-dropdown,
