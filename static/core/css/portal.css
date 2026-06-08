@@ -51,6 +51,10 @@
     --portal-max-width: 1440px;
     --portal-nav-height: 64px;
     --portal-transition: 0.2s ease;
+
+    --portal-expiration-red: #b91c1c;
+    --portal-expiration-red-dark: #7f1d1d;
+    --portal-expiration-red-soft: #f87171;
 }
 
 /* ─── Portal body scope ───────────────────────────────────────── */
@@ -311,44 +315,52 @@ body.portal-body .dashboard-hero .brand-pill {
 }
 
 .hero-btn-warning {
-    background: rgba(220, 38, 38, 0.28) !important;
-    border: 2px solid rgba(252, 165, 165, 0.75) !important;
+    background: rgba(185, 28, 28, 0.22) !important;
+    border: 2px solid var(--portal-expiration-red) !important;
     color: #fff !important;
-    box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);
+    box-shadow: 0 4px 14px rgba(185, 28, 28, 0.32);
     font-weight: 800 !important;
 }
 
+.hero-btn-warning svg {
+    stroke: var(--portal-expiration-red-soft);
+}
+
 .hero-btn-warning:hover {
-    background: rgba(185, 28, 28, 0.45) !important;
-    border-color: #fecaca !important;
+    background: rgba(185, 28, 28, 0.38) !important;
+    border-color: var(--portal-expiration-red-soft) !important;
     color: #fff !important;
 }
 
 .hero-badge-alert {
-    background: #dc2626;
+    background: var(--portal-expiration-red);
     color: #fff;
     padding: 2px 9px;
     border-radius: var(--portal-radius-pill);
     font-size: 0.78rem;
     font-weight: 900;
     margin-left: 6px;
-    border: 1px solid #fecaca;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--portal-expiration-red-soft);
+    box-shadow: 0 2px 6px rgba(185, 28, 28, 0.35);
 }
 
 .hero-alert-outstanding {
-    background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+    background: linear-gradient(135deg, var(--portal-expiration-red) 0%, var(--portal-expiration-red-dark) 100%);
     color: white;
     padding: 1.25rem 1.5rem;
     border-radius: var(--portal-radius-md);
     margin-top: 1.25rem;
-    box-shadow: 0 12px 28px -6px rgba(220, 38, 38, 0.55);
-    border: 2px solid #fca5a5;
+    box-shadow: 0 12px 28px -6px rgba(185, 28, 28, 0.45);
+    border: 2px solid var(--portal-expiration-red-soft);
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
     flex-wrap: wrap;
+}
+
+.hero-alert-outstanding svg {
+    stroke: var(--portal-expiration-red-soft);
 }
 
 .hero-alert-outstanding strong {
@@ -1258,7 +1270,17 @@ body.portal-body .data-table .agent-psb-city {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    color: #b91c1c;
+    color: var(--portal-expiration-red);
+}
+
+.portal-expiration-link {
+    color: var(--portal-expiration-red);
+    transition: transform var(--portal-transition), color var(--portal-transition);
+}
+
+.portal-expiration-link:hover {
+    color: var(--portal-expiration-red-soft);
+    transform: scale(1.15);
 }
 
 .portal-automation-title span {
@@ -1695,6 +1717,9 @@ html.portal-theme-dark body.portal-body {
     --portal-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
     --portal-shadow-nav: 0 4px 6px rgba(0, 0, 0, 0.3);
     --portal-gradient-hero: linear-gradient(135deg, #0a0f1a 0%, #151f30 45%, #1e3a8a 100%);
+    --portal-expiration-red: #f87171;
+    --portal-expiration-red-dark: #b91c1c;
+    --portal-expiration-red-soft: #fecaca;
 }
 
 html.portal-theme-dark .top-nav {
@@ -2017,7 +2042,7 @@ html.portal-theme-dark body.portal-body .dashboard-panel h3 {
 }
 
 html.portal-theme-dark .portal-automation-title {
-    color: #f87171;
+    color: var(--portal-expiration-red);
 }
 
 /* ─── Insurance CRM ─────────────────────────────────────────────── */
