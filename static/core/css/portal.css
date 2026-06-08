@@ -1845,3 +1845,280 @@ html.portal-theme-dark body.portal-body .dashboard-panel h3 {
 html.portal-theme-dark .portal-automation-title {
     color: #f87171;
 }
+
+/* ─── Insurance CRM ─────────────────────────────────────────────── */
+.ins-section-title {
+    margin: 0;
+    color: var(--portal-text);
+    font-weight: 800;
+    font-size: 1.2rem;
+}
+
+.ins-section-title--sm {
+    font-size: 1.15rem;
+    margin-bottom: 1.25rem;
+}
+
+.ins-section-title--lg {
+    font-size: 1.4rem;
+    margin-bottom: 0.5rem;
+}
+
+.ins-company-name-link {
+    color: var(--portal-text);
+    font-size: 1.05rem;
+    font-weight: 800;
+    text-decoration: none;
+    transition: color var(--portal-transition);
+}
+
+.ins-company-name-link:hover {
+    color: var(--portal-primary);
+}
+
+.ins-surface-card {
+    background: var(--portal-surface);
+    border-radius: 16px;
+    padding: 1.5rem;
+    border: 1px solid var(--portal-border);
+    box-shadow: var(--portal-shadow-sm);
+}
+
+.ins-bank-name {
+    color: var(--portal-text);
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.ins-bank-meta {
+    color: var(--portal-text-muted);
+    font-size: 0.84rem;
+}
+
+.ins-report-card {
+    max-width: 580px;
+    margin: 0 auto;
+    background: var(--portal-surface);
+    border-radius: 20px;
+    padding: 2.5rem;
+    border: 1px solid var(--portal-border);
+    box-shadow: var(--portal-shadow-md);
+}
+
+.ins-report-includes {
+    margin-top: 1.5rem;
+    background: var(--portal-surface-muted);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--portal-border);
+}
+
+.ins-report-includes-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--portal-text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+}
+
+.ins-report-includes ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    color: var(--portal-text-muted);
+    font-size: 0.85rem;
+    line-height: 1.8;
+}
+
+.ins-performance-insights {
+    background: #f0fdf4;
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid #bbf7d0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.ins-performance-insights h4 {
+    margin: 0 0 0.75rem;
+    color: #166534;
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+
+.ins-performance-insights ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    color: #1e3a1e;
+    font-size: 0.9rem;
+    line-height: 1.8;
+    font-weight: 600;
+}
+
+/* Company profile page */
+.company-profile-page .metric-card,
+.company-profile-page .section-card,
+.company-profile-page .modal-box {
+    background: var(--portal-surface);
+    border-color: var(--portal-border);
+}
+
+.company-profile-page .section-header {
+    background: var(--portal-surface-muted);
+    border-bottom-color: var(--portal-border);
+}
+
+.company-profile-page .section-title,
+.company-profile-page .metric-value,
+.company-profile-page h1 {
+    color: var(--portal-text);
+}
+
+.company-profile-page .metric-label,
+.company-profile-page .field-label {
+    color: var(--portal-text-muted);
+}
+
+.company-profile-page .tbl th {
+    background: var(--portal-surface-muted);
+    color: var(--portal-text-muted);
+    border-bottom-color: var(--portal-border);
+}
+
+.company-profile-page .tbl td {
+    color: var(--portal-text-secondary);
+    border-bottom-color: var(--portal-border);
+}
+
+.company-profile-page .tbl tr:hover td {
+    background: var(--portal-surface-muted);
+}
+
+.company-profile-page .btn-outline,
+.company-profile-page .page-btn {
+    background: var(--portal-surface);
+    border-color: var(--portal-border);
+    color: var(--portal-text-muted);
+}
+
+.company-profile-page .field-input {
+    background: var(--portal-surface-muted);
+    color: var(--portal-text);
+    border-color: var(--portal-border);
+}
+
+/* Daily Payments ledger */
+.dpt-table-wrap {
+    background: var(--portal-surface);
+    border-radius: 18px;
+    border: 1px solid var(--portal-border);
+    overflow: hidden;
+    box-shadow: var(--portal-shadow-sm);
+    position: relative;
+}
+
+.dpt-ledger-title {
+    margin: 0;
+    font-weight: 800;
+    color: var(--portal-text);
+    font-size: 1rem;
+}
+
+.dpt-ledger-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--portal-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--portal-surface-muted);
+}
+
+.dpt-ledger-count {
+    font-size: 0.8rem;
+    color: var(--portal-text-muted);
+    font-weight: 700;
+}
+
+html.portal-theme-dark .dpt-drawer-panel {
+    background: var(--portal-surface);
+    color: var(--portal-text-secondary);
+}
+
+html.portal-theme-dark .dpt-date-item {
+    background: var(--portal-surface-muted);
+    border-color: var(--portal-border);
+    color: var(--portal-text);
+}
+
+html.portal-theme-dark .dpt-date-item:hover,
+html.portal-theme-dark .dpt-date-item.active {
+    background: var(--portal-primary-soft);
+    border-color: var(--portal-primary);
+    color: var(--portal-primary);
+}
+
+html.portal-theme-dark .dpt-table-wrap tbody td {
+    color: var(--portal-text-secondary);
+}
+
+html.portal-theme-dark .dpt-table-wrap tbody td[style*="color: #0f172a"],
+html.portal-theme-dark .dpt-table-wrap tbody td[style*="color: #334155"],
+html.portal-theme-dark .dpt-table-wrap tbody td[style*="color: #475569"],
+html.portal-theme-dark .dpt-table-wrap tbody td[style*="color: #64748b"] {
+    color: var(--portal-text-secondary) !important;
+}
+
+html.portal-theme-dark .dpt-clear-date {
+    background: var(--portal-surface-muted);
+    color: var(--portal-text);
+    border-color: var(--portal-border);
+}
+
+html.portal-theme-dark .dpt-clear-date:disabled {
+    background: var(--portal-surface);
+    color: var(--portal-text-muted);
+}
+
+/* Insurance CRM dark mode */
+html.portal-theme-dark .ins-company-name-link {
+    color: #f8fafc;
+}
+
+html.portal-theme-dark .ins-company-name-link:hover {
+    color: #93c5fd;
+}
+
+html.portal-theme-dark .ins-performance-insights {
+    background: linear-gradient(135deg, rgba(6, 78, 59, 0.55) 0%, rgba(30, 27, 75, 0.65) 55%, rgba(9, 61, 230, 0.2) 100%);
+    border: 1px solid rgba(74, 222, 128, 0.4);
+    box-shadow: 0 0 32px rgba(16, 185, 129, 0.18), 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+html.portal-theme-dark .ins-performance-insights h4 {
+    color: #6ee7b7;
+    text-shadow: 0 0 18px rgba(110, 231, 183, 0.35);
+}
+
+html.portal-theme-dark .ins-performance-insights ul {
+    color: #d1fae5;
+}
+
+html.portal-theme-dark body.portal-body .portal-space-shell a[style*="color: #0f172a"] {
+    color: #f1f5f9 !important;
+}
+
+html.portal-theme-dark body.portal-body .portal-space-shell h3[style*="color: #0f172a"],
+html.portal-theme-dark body.portal-body .portal-space-shell h4[style*="color: #0f172a"],
+html.portal-theme-dark body.portal-body .portal-space-shell strong[style*="color: #0f172a"] {
+    color: var(--portal-text) !important;
+}
+
+html.portal-theme-dark body.portal-body .portal-space-shell div[style*="color: #64748b"] {
+    color: var(--portal-text-muted) !important;
+}
+
+html.portal-theme-dark body.portal-body .portal-space-shell span[style*="color: #64748b"] {
+    color: var(--portal-text-muted) !important;
+}
+
+html.portal-theme-dark .dpt-row-cleared td {
+    background: linear-gradient(90deg, rgba(6, 78, 59, 0.35) 0%, rgba(20, 83, 45, 0.22) 100%) !important;
+}

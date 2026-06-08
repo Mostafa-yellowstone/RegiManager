@@ -291,7 +291,7 @@
       </div>
 
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-        <h3 style="margin: 0; color: #0f172a; font-weight: 800; font-size: 1.2rem;">Client Insurance Policies</h3>
+        <h3 class="ins-section-title">Client Insurance Policies</h3>
         <button onclick="openAddPolicyModal()" style="padding: 8px 18px; background: #093de6; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Add Policy</button>
       </div>
       <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
@@ -412,15 +412,15 @@
     <!-- COMPANIES TAB -->
     <div id="tab-companies" class="tab-panel" style="display: none;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-        <h3 style="margin: 0; color: #0f172a; font-weight: 800; font-size: 1.2rem;">Insurance Companies</h3>
+        <h3 class="ins-section-title">Insurance Companies</h3>
         <button onclick="document.getElementById('addCompanyModal').classList.add('active')" style="padding: 8px 18px; background: #093de6; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Add Company</button>
       </div>
       <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem;">
         {% for entry in company_summaries %}
-        <div style="background: white; border-radius: 16px; padding: 1.5rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04); display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="ins-surface-card" style="display: flex; flex-direction: column; justify-content: space-between;">
           <div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-              <a href="{% url 'insurance-company-detail' entry.id %}" style="color: #0f172a; font-size: 1.05rem; font-weight: 800; text-decoration: none; transition: color 0.15s;" onmouseover="this.style.color='#093de6'" onmouseout="this.style.color='#0f172a'">{{ entry.name }} →</a>
+              <a href="{% url 'insurance-company-detail' entry.id %}" class="ins-company-name-link">{{ entry.name }} →</a>
               <a href="{% url 'delete-insurance-company' entry.id %}" onclick="return confirm('Delete company?')" style="color: #dc2626; font-size: 0.78rem; text-decoration: none; font-weight: 700; background: #fff5f5; padding: 2px 8px; border-radius: 6px; border: 1px solid #fee2e2;">Remove</a>
             </div>
             <div style="color: #64748b; font-size: 0.85rem; margin-bottom: 0.75rem;">Active Policies: <strong style="color: #0f172a;">{{ entry.active_count }}</strong></div>
@@ -494,20 +494,20 @@
     <!-- BANKING TAB -->
     <div id="tab-banking" class="tab-panel" style="display: none;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-        <h3 style="margin: 0; color: #0f172a; font-weight: 800; font-size: 1.2rem;">Bank Accounts</h3>
+        <h3 class="ins-section-title">Bank Accounts</h3>
         <button onclick="document.getElementById('addAccountModal').classList.add('active')" style="padding: 8px 18px; background: #093de6; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Add Account</button>
       </div>
       <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem; margin-bottom: 2.5rem;">
         {% for acc in bank_accounts %}
-        <div style="background: white; border-radius: 16px; padding: 1.5rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+        <div class="ins-surface-card">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-            <strong style="color: #0f172a; font-size: 1.05rem;">{{ acc.account_name }}</strong>
+            <strong class="ins-bank-name">{{ acc.account_name }}</strong>
             <div style="display: flex; gap: 0.35rem;">
               <button type="button" onclick="openEditAccountModal({{ acc.id }}, '{{ acc.account_name|escapejs }}', '{{ acc.bank_name|escapejs }}', '{{ acc.account_number|escapejs }}', '{{ acc.balance }}')" style="color: #093de6; font-size: 0.78rem; font-weight: 700; background: #eff6ff; padding: 2px 8px; border-radius: 6px; border: 1px solid #bfdbfe; cursor: pointer;">Edit</button>
               <a href="{% url 'delete-bank-account' acc.id %}" onclick="return confirm('Delete account and all transactions?')" style="color: #dc2626; font-size: 0.78rem; text-decoration: none; font-weight: 700; background: #fff5f5; padding: 2px 8px; border-radius: 6px; border: 1px solid #fee2e2;">Delete</a>
             </div>
           </div>
-          <div style="color: #64748b; font-size: 0.84rem; margin-bottom: 1rem;">{{ acc.bank_name }}{% if acc.account_number %} · ****{{ acc.account_number }}{% endif %}</div>
+          <div class="ins-bank-meta" style="margin-bottom: 1rem;">{{ acc.bank_name }}{% if acc.account_number %} · ****{{ acc.account_number }}{% endif %}</div>
           <div style="border-top: 1px solid #f1f5f9; padding-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
             <span style="font-size: 0.78rem; color: #64748b; font-weight: 600;">Balance</span>
             <span style="font-weight: 800; color: {% if acc.balance >= 0 %}#16a34a{% else %}#dc2626{% endif %}; font-size: 1.2rem;">${{ acc.balance }}</span>
@@ -519,7 +519,7 @@
       </div>
 
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-        <h3 style="margin: 0; color: #0f172a; font-weight: 800; font-size: 1.2rem;">Financial Ledger</h3>
+        <h3 class="ins-section-title">Financial Ledger</h3>
         <button onclick="document.getElementById('addTransactionModal').classList.add('active')" style="padding: 8px 18px; background: #093de6; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Log Transaction</button>
       </div>
 
@@ -633,11 +633,11 @@
 
     <!-- REPORTING TAB -->
     <div id="tab-reporting" class="tab-panel" style="display: none;">
-      <div style="max-width: 580px; margin: 0 auto; background: white; border-radius: 20px; padding: 2.5rem; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+      <div class="ins-report-card">
         <div style="text-align: center; margin-bottom: 2rem;">
           <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">📊</div>
-          <h3 style="margin: 0; color: #0f172a; font-weight: 800; font-size: 1.4rem; margin-bottom: 0.5rem;">Professional Insurance Report</h3>
-          <p style="color: #64748b; font-size: 0.9rem; margin: 0; line-height: 1.6;">Generate a comprehensive PDF with premiums, commissions, and unearned commission breakdown.</p>
+          <h3 class="ins-section-title ins-section-title--lg">Professional Insurance Report</h3>
+          <p class="portal-space-subtitle" style="margin: 0;">Generate a comprehensive PDF with premiums, commissions, and unearned commission breakdown.</p>
         </div>
         <form method="GET" action="{% url 'export-insurance-report-pdf' %}" target="_blank">
           <div class="grid-2" style="margin-bottom: 1.5rem;">
@@ -646,9 +646,9 @@
           </div>
           <button type="submit" class="btn-submit">📄 Export PDF Report</button>
         </form>
-        <div style="margin-top: 1.5rem; background: #f8fafc; border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid #e2e8f0;">
-          <div style="font-size: 0.8rem; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 0.5rem;">Report Includes:</div>
-          <ul style="margin: 0; padding-left: 1.25rem; color: #64748b; font-size: 0.85rem; line-height: 1.8;">
+        <div class="ins-report-includes">
+          <div class="ins-report-includes-title">Report Includes:</div>
+          <ul>
             <li>Total active policies and premium volume</li>
             <li>Earned commission amounts per company</li>
             <li>Inactive policies with unearned commission</li>
@@ -669,9 +669,9 @@
         
         <!-- Analysis Insights Block -->
         {% if analysis_points %}
-        <div style="background: #f0fdf4; border-radius: 16px; padding: 1.25rem 1.5rem; border: 1px solid #bbf7d0; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
-          <h4 style="margin: 0; color: #166534; font-size: 1.05rem; font-weight: 800; margin-bottom: 0.75rem;">📊 Automated Performance Insights</h4>
-          <ul style="margin: 0; padding-left: 1.25rem; color: #1e3a1e; font-size: 0.9rem; line-height: 1.8; font-weight: 600;">
+        <div class="ins-performance-insights">
+          <h4>📊 Automated Performance Insights</h4>
+          <ul>
             {% for point in analysis_points %}
               <li>{{ point|safe }}</li>
             {% endfor %}
@@ -681,9 +681,9 @@
 
         <!-- Agent Metrics Summary Row -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem;">
-          <div class="spaces-metric" style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem;">
-            <div style="color: #64748b; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.3rem;">Best Performer</div>
-            <div style="font-size: 1.2rem; font-weight: 800; color: #0f172a;">
+          <div class="spaces-metric">
+            <div class="spaces-metric-label">Best Performer</div>
+            <div class="spaces-metric-value" style="font-size: 1.2rem;">
               {% if best_performer %}
                 🏆 {{ best_performer.fullname }}
               {% else %}
@@ -691,21 +691,21 @@
               {% endif %}
             </div>
           </div>
-          <div class="spaces-metric" style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem;">
-            <div style="color: #64748b; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.3rem;">Total Quotes Got</div>
-            <div style="font-size: 2rem; font-weight: 800; color: #1d4ed8;">
+          <div class="spaces-metric">
+            <div class="spaces-metric-label">Total Quotes Got</div>
+            <div class="spaces-metric-value" style="color: #1d4ed8;">
               {{ total_quotes_count|default:0 }}
             </div>
           </div>
-          <div class="spaces-metric" style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem;">
-            <div style="color: #64748b; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.3rem;">Policies Bound</div>
-            <div style="font-size: 2rem; font-weight: 800; color: #16a34a;">
+          <div class="spaces-metric">
+            <div class="spaces-metric-label">Policies Bound</div>
+            <div class="spaces-metric-value" style="color: #16a34a;">
               {{ total_policies_bound|default:0 }}
             </div>
           </div>
-          <div class="spaces-metric" style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem;">
-            <div style="color: #64748b; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.3rem;">Total Profit Brought</div>
-            <div style="font-size: 2rem; font-weight: 800; color: #093de6;">
+          <div class="spaces-metric">
+            <div class="spaces-metric-label">Total Profit Brought</div>
+            <div class="spaces-metric-value" style="color: var(--portal-primary);">
               ${{ total_agent_profits|floatformat:2 }}
             </div>
           </div>
@@ -713,8 +713,8 @@
 
         <div style="display: grid; grid-template-columns: 2fr 1.2fr; gap: 1.5rem; flex-wrap: wrap;">
           <!-- Agent Breakdown Table -->
-          <div style="background: white; border-radius: 16px; padding: 1.5rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04); overflow-x: auto;">
-            <h3 style="margin: 0; color: #0f172a; font-weight: 800; font-size: 1.15rem; margin-bottom: 1.25rem;">Agent Audit Directory</h3>
+          <div class="ins-surface-card" style="overflow-x: auto;">
+            <h3 class="ins-section-title ins-section-title--sm">Agent Audit Directory</h3>
             <table class="spaces-table">
               <thead>
                 <tr>

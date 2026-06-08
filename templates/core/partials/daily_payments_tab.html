@@ -8,11 +8,11 @@
   .dpt-total-card { background: linear-gradient(135deg, #111827 0%, #312e81 50%, #6366f1 100%); border-radius: 18px; padding: 1.15rem 1.25rem; color: white; box-shadow: 0 10px 30px rgba(49,46,129,0.25); min-height: 108px; display: flex; flex-direction: column; justify-content: center; }
   .dpt-drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 3000; backdrop-filter: blur(3px); }
   .dpt-drawer-overlay.active { display: flex; justify-content: flex-end; }
-  .dpt-drawer-panel { width: min(360px, 92vw); height: 100%; background: white; box-shadow: -8px 0 40px rgba(0,0,0,0.12); padding: 1.5rem; overflow-y: auto; animation: dptSlideIn 0.25s ease; }
+  .dpt-drawer-panel { width: min(360px, 92vw); height: 100%; background: var(--portal-surface, white); box-shadow: -8px 0 40px rgba(0,0,0,0.12); padding: 1.5rem; overflow-y: auto; animation: dptSlideIn 0.25s ease; }
   @keyframes dptSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
   .dpt-date-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0.9rem; border-radius: 12px; border: 1.5px solid #e2e8f0; margin-bottom: 0.5rem; text-decoration: none; color: #0f172a; font-weight: 700; font-size: 0.88rem; transition: all 0.15s; }
   .dpt-date-item:hover, .dpt-date-item.active { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
-  .dpt-table-wrap { background: white; border-radius: 18px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.04); position: relative; }
+  .dpt-table-wrap { background: var(--portal-surface, white); border-radius: 18px; border: 1px solid var(--portal-border, #e2e8f0); overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.04); position: relative; }
   .dpt-row-cleared td { background: linear-gradient(90deg, rgba(240,253,244,0.95) 0%, rgba(220,252,231,0.75) 100%); }
   .dpt-row-cleared td:first-child { box-shadow: inset 4px 0 0 #22c55e; }
   .dpt-clear-check { width: 16px; height: 16px; accent-color: #16a34a; cursor: pointer; }
@@ -69,9 +69,9 @@
 </div>
 
 <div class="dpt-table-wrap">
-  <div style="padding: 1rem 1.25rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
-    <h4 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 1rem;">Transaction Ledger</h4>
-    <span style="font-size: 0.8rem; color: #64748b; font-weight: 700;">{{ daily_transactions|length }} record{{ daily_transactions|length|pluralize }}</span>
+  <div class="dpt-ledger-header">
+    <h4 class="dpt-ledger-title">Transaction Ledger</h4>
+    <span class="dpt-ledger-count">{{ daily_transactions|length }} record{{ daily_transactions|length|pluralize }}</span>
   </div>
   <div style="overflow-x: auto;">
     <table class="spaces-table" style="width: 100%;">

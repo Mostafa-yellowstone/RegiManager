@@ -14,7 +14,7 @@
     .metric-error-rate.high-error { color: #fca5a5; }
     .metric-error-rate.low-error { color: #86efac; }
 </style>
-<main class="dashboard-shell" style="background-color: #f1f5f9;">
+<main class="dashboard-shell">
     <section class="dashboard-layout">
         <header class="dashboard-hero" style="background: linear-gradient(135deg, #1e293b, #0f172a); margin-bottom: 2rem;">
             <div style="width: 100%;">
@@ -60,8 +60,8 @@
         {% endif %}
 
         <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1rem;">
-            <h2 style="font-size: 1.5rem; color: #1e293b; margin: 0;">Performance Analytics</h2>
-            <form method="get" style="display: flex; gap: 1rem; align-items: flex-end; background: white; padding: 1rem; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <h2 class="portal-section-title" style="font-size: 1.5rem;">Performance Analytics</h2>
+            <form method="get" class="portal-card" style="display: flex; gap: 1rem; align-items: flex-end; padding: 1rem;">
                 <div>
                     <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 0.3rem;">Start Date</label>
                     <input type="date" name="start_date" value="{{ start_date }}" class="form-control" style="padding: 0.4rem; height: auto;" required>
