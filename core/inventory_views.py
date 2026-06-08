@@ -390,6 +390,12 @@ def add_inventory_invoice(request, space_id):
     invoice_date_str = request.POST.get("invoice_date", "").strip()
     payment_method = request.POST.get("payment_method", InventoryInvoice.PaymentMethod.CASH)
     notes = request.POST.get("notes", "").strip()
+    try:
+        sales_tax = Decimal(request.POST.get("sales_tax", "0") or "0")
+        if sales_tax < 0:
+            sales_tax = Decimal("0.00")
+    except (InvalidOperation, ValueError):
+        sales_tax = Decimal("0.00")
 
     try:
         invoice_date = (
@@ -437,6 +443,7 @@ def add_inventory_invoice(request, space_id):
                 status=InventoryInvoice.Status.COMPLETED,
                 payment_method=payment_method,
                 notes=notes,
+                sales_tax=sales_tax,
                 created_by=request.user,
             )
 
@@ -555,7 +562,7 @@ def export_inventory_report(request, space_id):
             ["Phone", space.business_phone],
             ["Email", space.business_email],
             [],
-            ["Invoice #", "Date", "Buyer", "Buyer Phone", "Payment Method", "Total", "Status"],
+            ["Invoice #", "Date", "Buyer", "Buyer Phone", "Payment Method", "Subtotal", "Sales Tax", "Total", "Status"],
         ]
         for inv in InventoryInvoice.objects.filter(space=space).order_by("-invoice_date"):
             rows.append([
@@ -564,6 +571,8 @@ def export_inventory_report(request, space_id):
                 inv.buyer_name,
                 inv.buyer_phone,
                 inv.get_payment_method_display(),
+                f"{inv.subtotal:.2f}",
+                f"{inv.sales_tax:.2f}",
                 f"{inv.total:.2f}",
                 inv.get_status_display(),
             ])

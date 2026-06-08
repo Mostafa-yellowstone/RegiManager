@@ -211,10 +211,10 @@ def render_inventory_invoice_pdf(pdf, invoice):
 
     y = _ensure_space(pdf, space, y - 80)
     notes_lines = _wrap_text(invoice.notes, 75) if invoice.notes else []
-    totals_lines = [
-        f"Subtotal: ${invoice.subtotal:,.2f}",
-        f"**TOTAL DUE: ${invoice.total:,.2f}",
-    ]
+    totals_lines = [f"Subtotal: ${invoice.subtotal:,.2f}"]
+    if invoice.sales_tax and invoice.sales_tax > 0:
+        totals_lines.append(f"Sales Tax: ${invoice.sales_tax:,.2f}")
+    totals_lines.append(f"**TOTAL DUE: ${invoice.total:,.2f}")
 
     if notes_lines:
         notes_h = _card_height(len(notes_lines))

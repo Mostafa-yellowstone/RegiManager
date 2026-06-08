@@ -77,9 +77,10 @@ def apply_invoice_stock_deductions(invoice, user=None):
 def recalculate_invoice_totals(invoice):
     lines = invoice.lines.all()
     subtotal = sum((line.line_total for line in lines), Decimal("0.00"))
+    sales_tax = invoice.sales_tax or Decimal("0.00")
     invoice.subtotal = subtotal
-    invoice.total = subtotal
-    invoice.save(update_fields=["subtotal", "total", "updated_at"])
+    invoice.total = subtotal + sales_tax
+    invoice.save(update_fields=["subtotal", "sales_tax", "total", "updated_at"])
     return invoice
 
 

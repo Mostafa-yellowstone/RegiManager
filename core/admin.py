@@ -201,7 +201,7 @@ class InventoryBuyerAdmin(admin.ModelAdmin):
 
 @admin.register(InventoryInvoice)
 class InventoryInvoiceAdmin(admin.ModelAdmin):
-    list_display = ("invoice_number", "buyer_name", "invoice_date", "total", "status")
+    list_display = ("invoice_number", "buyer_name", "invoice_date", "subtotal", "sales_tax", "total", "status")
     list_filter = ("status", "organization")
 
 

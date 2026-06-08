@@ -230,7 +230,7 @@
       </div>
       <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow-x: auto;">
         <table class="spaces-table">
-          <thead><tr><th>Invoice #</th><th>Date</th><th>Buyer</th><th>Items</th><th>Payment</th><th>Total</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Invoice #</th><th>Date</th><th>Buyer</th><th>Items</th><th>Payment</th><th>Subtotal</th><th>Tax</th><th>Total</th><th>Actions</th></tr></thead>
           <tbody>
             {% for inv in invoices %}
             <tr>
@@ -239,6 +239,8 @@
               <td>{{ inv.buyer_name }}</td>
               <td>{{ inv.lines.count }} item{{ inv.lines.count|pluralize }}</td>
               <td>{{ inv.get_payment_method_display }}</td>
+              <td>${{ inv.subtotal|floatformat:2 }}</td>
+              <td>{% if inv.sales_tax %}${{ inv.sales_tax|floatformat:2 }}{% else %}—{% endif %}</td>
               <td style="font-weight: 900;">${{ inv.total|floatformat:2 }}</td>
               <td>
                 <div style="display: flex; gap: 0.4rem;">
@@ -248,7 +250,7 @@
               </td>
             </tr>
             {% empty %}
-            <tr><td colspan="7" style="text-align: center; padding: 3rem; color: #94a3b8;">No invoices yet. Create one to record a sale.</td></tr>
+            <tr><td colspan="9" style="text-align: center; padding: 3rem; color: #94a3b8;">No invoices yet. Create one to record a sale.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -497,6 +499,10 @@
         </div>
       </div>
       <button type="button" onclick="addInvoiceLine()" style="margin: 0.5rem 0 1rem; padding: 0.4rem 0.8rem; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.82rem;">+ Add Line</button>
+      <div class="grid-2" style="margin-bottom: 1rem;">
+        <div><label class="field-label">Sales Tax ($)</label><input type="number" step="0.01" min="0" name="sales_tax" id="invoiceSalesTax" value="0.00" class="field-input" placeholder="0.00"></div>
+        <div style="display: flex; align-items: flex-end;"><p style="margin: 0 0 0.65rem; font-size: 0.8rem; color: #64748b;">Added to subtotal on the invoice and PDF receipt.</p></div>
+      </div>
       <div style="margin-bottom: 1.25rem;"><label class="field-label">Notes</label><input type="text" name="notes" class="field-input"></div>
       <button type="submit" class="btn-submit">Create Invoice & Deduct Stock</button>
     </form>
