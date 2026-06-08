@@ -2,8 +2,6 @@
 
 from decimal import Decimal
 
-from django.utils import timezone
-
 from .models import DailyPaymentTransaction
 
 PAYMENT_METHOD_META = {
@@ -31,12 +29,6 @@ PAYMENT_METHOD_META = {
         "gradient": "linear-gradient(135deg, #78350f 0%, #b45309 45%, #fbbf24 100%)",
         "accent": "#fef3c7",
     },
-}
-
-BUSINESS_TYPE_TO_PAYMENT_TYPE = {
-    "new_business": DailyPaymentTransaction.PaymentType.NEW_BUSINESS,
-    "renewal": DailyPaymentTransaction.PaymentType.RENEWAL,
-    "rewrite": DailyPaymentTransaction.PaymentType.ENDORSEMENT,
 }
 
 VALID_PAYMENT_METHODS = {key for key in PAYMENT_METHOD_META}
@@ -84,28 +76,3 @@ def enrich_daily_transactions(transactions):
             tx.agent_name = "—"
         enriched.append(tx)
     return enriched
-
-
-def create_daily_payment_from_policy(policy, payment_method, agent):
-    """Auto-log broker fee collection when a policy is saved with a payment method."""
-    if not payment_method or payment_method not in VALID_PAYMENT_METHODS:
-        return None
-    if not policy.broker_fee or policy.broker_fee <= 0:
-        return None
-
-    payment_type = BUSINESS_TYPE_TO_PAYMENT_TYPE.get(
-        policy.business_type,
-        DailyPaymentTransaction.PaymentType.MISC,
-    )
-
-    return DailyPaymentTransaction.objects.create(
-        organization=policy.organization,
-        client=policy.client,
-        insurance_policy=policy,
-        transaction_date=timezone.localdate(),
-        amount=policy.broker_fee,
-        payment_type=payment_type,
-        payment_method=payment_method,
-        recorded_by=agent,
-        notes=f"Auto-logged from policy {policy.policy_number}",
-    )

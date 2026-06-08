@@ -730,12 +730,22 @@ def client_detail(request, client_id):
     all_docs = ServiceDocument.objects.filter(
         Q(vehicle__client=client) | Q(service_record__vehicle__client=client)
     ).select_related("vehicle", "service_record").distinct().order_by("-uploaded_at")
-    
+
+    from .insurance_policy_display import enrich_policies_for_display
+
+    insurance_policies = list(
+        client.insurance_policies.select_related("insurance_company", "added_by").order_by("-created_at")
+    )
+    enrich_policies_for_display(insurance_policies)
+    show_insurance_section = bool(insurance_policies) or (client.source or "").lower() == "insurance"
+
     return render(request, "core/client_profile.html", {
-        "client": client, 
+        "client": client,
         "vehicles": vehicles,
         "records": records,
         "documents": all_docs,
+        "insurance_policies": insurance_policies,
+        "show_insurance_section": show_insurance_section,
         "notes": notes,
         "assignable_agents": assignable_agents,
         "total_spend": total_spend,
@@ -6325,12 +6335,11 @@ def add_insurance_policy(request):
     end_date = request.POST.get("end_date")
     insurance_period_months = request.POST.get("insurance_period_months", "6")
     inactive_date = request.POST.get("inactive_date")
-    payment_method = request.POST.get("payment_method", "").strip()
 
     added_by = request.user
 
     try:
-        policy = InsurancePolicy.objects.create(
+        InsurancePolicy.objects.create(
             organization=org,
             client=client,
             policy_number=policy_number,
@@ -6343,7 +6352,6 @@ def add_insurance_policy(request):
             insurance_type=insurance_type,
             source=source,
             business_type=business_type,
-            payment_method=payment_method,
             bound_date=bound_date,
             start_date=start_date,
             end_date=end_date,
@@ -6351,11 +6359,7 @@ def add_insurance_policy(request):
             inactive_date=inactive_date or None,
             added_by=added_by,
         )
-        from .daily_payments import create_daily_payment_from_policy
-        if create_daily_payment_from_policy(policy, payment_method, added_by):
-            messages.success(request, "Insurance policy created and payment logged for today.")
-        else:
-            messages.success(request, "Insurance policy created.")
+        messages.success(request, "Insurance policy created.")
     except Exception as e:
         messages.error(request, f"Error saving policy: {e}")
 
@@ -6410,7 +6414,6 @@ def edit_insurance_policy(request, policy_id):
         policy.insurance_type = request.POST.get("insurance_type", "")
         policy.source = request.POST.get("source", "walk_in")
         policy.business_type = request.POST.get("business_type", "new_business")
-        policy.payment_method = request.POST.get("payment_method", "").strip()
         policy.bound_date = request.POST.get("bound_date") or None
         policy.start_date = request.POST.get("start_date")
         policy.end_date = request.POST.get("end_date")
@@ -6443,13 +6446,27 @@ def edit_insurance_policy(request, policy_id):
         "insurance_type": policy.insurance_type,
         "source": policy.source,
         "business_type": policy.business_type,
-        "payment_method": policy.payment_method or "",
         "bound_date": str(policy.bound_date) if policy.bound_date else "",
         "start_date": str(policy.start_date),
         "end_date": str(policy.end_date),
         "insurance_period_months": policy.insurance_period_months,
         "inactive_date": str(policy.inactive_date) if policy.inactive_date else "",
     })
+
+
+@login_required
+def view_insurance_policy_card(request, policy_id):
+    from .models import InsurancePolicy
+    from .insurance_policy_display import enrich_policy_for_display
+
+    organizations = _get_user_organizations(request)
+    policy = get_object_or_404(
+        InsurancePolicy.objects.select_related("insurance_company", "added_by", "client"),
+        id=policy_id,
+        organization__in=organizations,
+    )
+    enrich_policy_for_display(policy)
+    return render(request, "core/partials/insurance_policy_card.html", {"policy": policy})
 
 
 @login_required

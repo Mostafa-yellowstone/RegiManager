@@ -1,0 +1,104 @@
+<div class="insurance-policy-card" style="
+    position: relative;
+    border-radius: 18px;
+    padding: 1.35rem 1.5rem;
+    color: white;
+    background: {{ policy.card_gradient }};
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18), 0 4px 12px rgba(15, 23, 42, 0.08);
+    overflow: hidden;
+    min-height: 210px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+">
+    <div style="
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(circle at 85% 15%, rgba(255,255,255,0.22) 0%, transparent 42%),
+            radial-gradient(circle at 10% 90%, rgba(255,255,255,0.12) 0%, transparent 38%),
+            radial-gradient(circle at {{ policy.card_pattern_hue }}% 50%, rgba(255,255,255,0.08) 0%, transparent 55%);
+        pointer-events: none;
+    "></div>
+
+    <div style="position: relative; z-index: 1;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; margin-bottom: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <div style="
+                    width: 36px; height: 36px; border-radius: 10px;
+                    background: rgba(255,255,255,0.2);
+                    border: 1px solid rgba(255,255,255,0.35);
+                    display: flex; align-items: center; justify-content: center;
+                    font-size: 1.1rem;
+                ">🛡️</div>
+                <div>
+                    <div style="font-size: 0.65rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.9;">Insurance Policy</div>
+                    <div style="font-size: 0.78rem; font-weight: 600; opacity: 0.85;">{{ policy.insurance_company.name }}</div>
+                </div>
+            </div>
+            {% if policy.get_insurance_type_display %}
+            <span style="
+                background: rgba(255,255,255,0.22);
+                border: 1px solid rgba(255,255,255,0.35);
+                padding: 4px 10px;
+                border-radius: 999px;
+                font-size: 0.68rem;
+                font-weight: 800;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+                white-space: nowrap;
+            ">{{ policy.get_insurance_type_display }}</span>
+            {% endif %}
+        </div>
+
+        <div style="margin-bottom: 0.85rem;">
+            <div style="font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.8; margin-bottom: 0.25rem;">Policy Number</div>
+            <div style="font-family: 'SF Mono', 'Consolas', monospace; font-size: 1.35rem; font-weight: 800; letter-spacing: 0.06em; text-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                {{ policy.policy_number|default:"—" }}
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem 1rem; font-size: 0.8rem;">
+            <div>
+                <div style="opacity: 0.75; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;">Premium</div>
+                <div style="font-weight: 800; font-size: 1rem;">${{ policy.premium }}</div>
+            </div>
+            <div>
+                <div style="opacity: 0.75; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;">Broker Fee</div>
+                <div style="font-weight: 800; font-size: 1rem;">${{ policy.broker_fee }}</div>
+            </div>
+            <div>
+                <div style="opacity: 0.75; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;">Period</div>
+                <div style="font-weight: 700;">{{ policy.start_date|date:"M d, Y" }} – {{ policy.end_date|date:"M d, Y" }}</div>
+            </div>
+            <div>
+                <div style="opacity: 0.75; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;">Quote / Bound</div>
+                <div style="font-weight: 700;">{{ policy.bound_date|date:"M d, Y"|default:"—" }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div style="position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid rgba(255,255,255,0.25);">
+        <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+            {% if policy.stage == 'quote' %}
+            <span style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800;">● Quote</span>
+            {% else %}
+            <span style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800;">● Bound</span>
+            {% endif %}
+            {% if policy.status == 'active' %}
+            <span style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800;">● Active</span>
+            {% elif policy.status == 'inactive' %}
+            <span style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800;">● Inactive</span>
+            {% elif policy.status == 'pending' %}
+            <span style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800;">● Pending</span>
+            {% elif policy.status == 'rejected' %}
+            <span style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800;">● Rejected</span>
+            {% endif %}
+        </div>
+        {% if policy.added_by %}
+        <span style="background: {{ policy.agent_bg_color }}; color: {{ policy.agent_text_color }}; padding: 4px 10px; border-radius: 8px; font-weight: 700; font-size: 0.75rem; box-shadow: 0 2px 6px rgba(0,0,0,0.12);">
+            {{ policy.added_by.get_full_name|default:policy.added_by.username }}
+        </span>
+        {% endif %}
+    </div>
+</div>

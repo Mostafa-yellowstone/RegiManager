@@ -343,6 +343,26 @@
                         </ul>
                     </div>
                 </section>
+
+                {% if show_insurance_section %}
+                <section class="dashboard-panel" style="margin: 0;">
+                    <h3 style="padding: 1.25rem 1.5rem; margin: 0; border-bottom: 1px solid #f1f5f9; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 1.1rem;">🛡️</span>
+                        Insurance Policies
+                    </h3>
+                    <div style="padding: 1.5rem;">
+                        {% if insurance_policies %}
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.25rem;">
+                            {% for policy in insurance_policies %}
+                            {% include "core/partials/insurance_policy_card.html" %}
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p style="text-align: center; color: #94a3b8; padding: 1rem 0; margin: 0;">No insurance policies on file yet.</p>
+                        {% endif %}
+                    </div>
+                </section>
+                {% endif %}
             </aside>
 
         </div>
