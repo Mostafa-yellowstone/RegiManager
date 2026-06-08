@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "base_portal.html" %}
 {% load static %}
 
 {% block title %}{{ title|default:"Add Vehicle" }} | {{ client }}{% endblock %}
 
-{% block content %}
+{% block portal_content %}
 <style>
     .alert-msg { padding: 0.8rem 1.2rem; border-radius: 10px; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem; }
     .alert-msg.error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }

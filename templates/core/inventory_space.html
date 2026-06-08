@@ -1,10 +1,9 @@
-{% extends "base.html" %}
+{% extends "base_portal.html" %}
 {% load static %}
 
 {% block title %}{{ card.label }} | Inventory{% endblock %}
 
-{% block content %}
-{% include "partials/_top_nav.html" %}
+{% block portal_content %}
 
 <style>
 .tab-btn { transition: all 0.2s; }

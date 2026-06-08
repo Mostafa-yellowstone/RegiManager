@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "base_portal.html" %}
 {% load static %}
 
 {% block title %}Financial Intelligence Hub | RegiManager{% endblock %}
 
-{% block extra_head %}
+{% block portal_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
     .finance-grid {
@@ -124,8 +124,7 @@
 </style>
 {% endblock %}
 
-{% block content %}
-{% include "partials/_top_nav.html" %}
+{% block portal_content %}
 
 <main class="dashboard-shell">
     <section class="dashboard-layout">

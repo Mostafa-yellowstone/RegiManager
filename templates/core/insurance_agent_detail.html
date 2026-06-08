@@ -1,10 +1,9 @@
-{% extends "base.html" %}
+{% extends "base_portal.html" %}
 {% load static %}
 
 {% block title %}{{ agent.get_full_name|default:agent.username }} — Agent Profile | RegiManager{% endblock %}
 
-{% block content %}
-{% include "partials/_top_nav.html" %}
+{% block portal_content %}
 
 <style>
 :root { --blue: #093de6; --dark: #0f172a; --muted: #64748b; --border: #e2e8f0; --bg: #f8fafc; --green: #16a34a; --red: #dc2626; }

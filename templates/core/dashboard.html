@@ -1,66 +1,10 @@
-{% extends "base.html" %}
+{% extends "base_portal.html" %}
 {% load static %}
 
 {% block title %}Dashboard | RegiManager{% endblock %}
 
-{% block content %}
+{% block portal_content %}
 <style>
-/* Toggle Switches */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 36px;
-  height: 20px;
-}
-
-.switch input { 
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #e2e8f0;
-  transition: .4s;
-}
-
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 14px;
-  width: 14px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: .4s;
-}
-
-input:checked + .slider {
-  background-color: #3b82f6;
-}
-
-input:focus + .slider {
-  box-shadow: 0 0 1px #3b82f6;
-}
-
-input:checked + .slider:before {
-  transform: translateX(16px);
-}
-
-.slider.round {
-  border-radius: 20px;
-}
-
-.slider.round:before {
-  border-radius: 50%;
-}
-
 @keyframes pulse-profit {
     0% { transform: scale(1); text-shadow: 0 0 0 rgba(46, 125, 50, 0.4); color: #2e7d32; }
     50% { transform: scale(1.05); text-shadow: 0 0 10px rgba(46, 125, 50, 0.6); color: #1b5e20; }
@@ -71,44 +15,12 @@ input:checked + .slider:before {
     display: inline-block;
     font-size: 1.5rem !important;
 }
-.d-none { display: none; }
-
-.premium-panel {
-  border: 1px solid #e2e8f0;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow: 0 12px 28px -18px rgba(15, 23, 42, 0.45);
-}
-
-.status-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 4px 10px;
-  border-radius: 999px;
-}
-
-.status-chip.active {
-  color: #166534;
-  background: #dcfce7;
-}
-
-.status-chip.inactive {
-  color: #9f1239;
-  background: #ffe4e6;
-}
-
 .agent-row.inactive-agent {
   opacity: 0.6;
   background: #f8fafc;
 }
 </style>
 
-{% include "partials/_top_nav.html" %}
 
 <main class="dashboard-shell">
     <section class="dashboard-layout">

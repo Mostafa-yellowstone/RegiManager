@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "base_portal.html" %}
 {% load static %}
 
 {% block title %}Audit: {{ agent_membership.user.get_full_name|default:agent_membership.user.username }} | RegiManager{% endblock %}
 
-{% block content %}
+{% block portal_content %}
 <style>
     .badge-pill { padding: 0.4rem 0.8rem; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; }
     .badge-pill.danger { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }

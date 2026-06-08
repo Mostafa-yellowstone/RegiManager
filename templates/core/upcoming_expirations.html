@@ -1,10 +1,9 @@
-{% extends "base.html" %}
+{% extends "base_portal.html" %}
 {% load static %}
 
 {% block title %}Automation Hub | RegiManager{% endblock %}
 
-{% block extra_head %}
-<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}">
+{% block portal_head %}
 <style>
     /* Dashboard-Specific Overrides for Automation Hub */
     .automation-hub-card {
@@ -51,7 +50,7 @@
 </style>
 {% endblock %}
 
-{% block content %}
+{% block portal_content %}
 
 <main class="dashboard-shell">
     <section class="dashboard-layout">

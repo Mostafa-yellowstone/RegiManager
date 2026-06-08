@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "base_portal.html" %}
 {% load static %}
 
 {% block title %}Analytics: {{ organization.name }} | RegiManager{% endblock %}
 
-{% block content %}
+{% block portal_content %}
 <style>
     .analytics-card { background: white; border-radius: 20px; padding: 2rem; border: 1px solid #e2e8f0; height: 100%; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
     .prediction-badge { background: #fef3c7; color: #92400e; padding: 0.5rem 1rem; border-radius: 999px; font-weight: 700; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 8px; border: 1px solid #fde68a; }

@@ -14,7 +14,7 @@
     {% block extra_head %}{% endblock %}
 </head>
 
-<body>
+<body {% block body_attrs %}{% endblock %}>
     <div style="display:none;">{% csrf_token %}</div>
     {% block content %}{% endblock %}
 

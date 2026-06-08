@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+{% extends "base_portal.html" %}
 {% load static %}
 
 {% block title %}Outstanding Balances | RegiManager{% endblock %}
 
-{% block content %}
+{% block portal_content %}
 <style>
 /* ── Page shell ───────────────────────────────────────────────────────── */
 .ob-shell {
@@ -317,7 +317,6 @@
 .ob-modal-cancel:hover { background: #f8fafc; }
 </style>
 
-{% include "partials/_top_nav.html" %}
 
 <main class="dashboard-shell">
 <div class="ob-shell" style="margin-top: 2rem;">

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block body_attrs %}class="portal-body" data-portal-app{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/portal.css' %}?v=portal-1">
+{% block portal_head %}{% endblock %}
+{% endblock %}
+
+{% block content %}
+{% block portal_top_nav %}
+{% include "partials/_top_nav.html" %}
+{% endblock %}
+<div class="portal-main">
+{% block portal_content %}{% endblock %}
+</div>
+<script src="{% static 'core/js/portal.js' %}?v=portal-1" defer></script>
+{% block portal_scripts %}{% endblock %}
+{% endblock %}
+
+{% block site_footer %}
+<footer class="portal-footer" role="contentinfo">
+    <div class="portal-footer-inner">
+        <div class="portal-footer-left">
+            <span class="portal-footer-brand">RegiManager</span>
+            <span class="portal-footer-copy">&copy; {% now "Y" %} Xpress Business Group</span>
+        </div>
+        <div class="portal-footer-right">
+            <a href="{% url 'dashboard' %}">{% trans "Dashboard" %}</a>
+            <a href="{% url 'site-news-list' %}">{% trans "News" %}</a>
+            <a href="{% url 'logout' %}">{% trans "Sign out" %}</a>
+        </div>
+    </div>
+    <p class="portal-footer-disclaimer">{% trans "This software solution is not affiliated with or endorsed by the DMV." %}</p>
+</footer>
+{% endblock %}

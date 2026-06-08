@@ -1,20 +1,16 @@
-{% extends "base.html" %}
+{% extends "base_portal.html" %}
 {% load static %}
 
 {% block title %}Client Directory | RegiManager{% endblock %}
 
-{% block content %}
-<style>
-    .alert-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-    .alert-danger, .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-</style>
+{% block portal_content %}
 <main class="dashboard-shell">
     <section class="dashboard-layout">
-        <header class="dashboard-hero service-list-hero" style="background: linear-gradient(135deg, #1e293b, #0f172a);">
+        <header class="dashboard-hero service-list-hero">
             <div>
-                <a href="{% url 'dashboard' %}" class="btn btn-secondary back-btn" style="margin-bottom: 1rem; display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white;">&larr; Back to Dashboard</a>
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary back-btn">&larr; Back to Dashboard</a>
                 <h1>Client Directory</h1>
-                <p class="subtitle" style="color: #cbd5e1;">View and manage all registered clients and their vehicle fleets.</p>
+                <p class="subtitle">View and manage all registered clients and their vehicle fleets.</p>
             </div>
         </header>
 
