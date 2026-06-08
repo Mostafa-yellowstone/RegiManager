@@ -121,12 +121,128 @@
         gap: 1rem;
         margin-top: 1rem;
     }
+
+    html.portal-theme-dark .finance-hub-page .stat-card-premium,
+    html.portal-theme-dark .finance-hub-page .chart-container,
+    html.portal-theme-dark .finance-hub-page .finance-filter-panel {
+        background: var(--portal-surface);
+        border-color: var(--portal-border);
+    }
+
+    html.portal-theme-dark .finance-hub-page .stat-card-premium h4,
+    html.portal-theme-dark .finance-hub-page .finance-filter-grid label {
+        color: var(--portal-text-muted);
+    }
+
+    html.portal-theme-dark .finance-hub-page .stat-card-premium .value {
+        color: var(--portal-text);
+    }
+
+    html.portal-theme-dark .finance-hub-page .report-card {
+        background: var(--portal-surface-muted);
+        border-color: var(--portal-border);
+    }
+
+    html.portal-theme-dark .finance-hub-page .report-card:hover {
+        background: var(--portal-surface);
+        border-color: var(--portal-primary);
+    }
+
+    html.portal-theme-dark .finance-hub-page .finance-filter-grid input,
+    html.portal-theme-dark .finance-hub-page .finance-filter-grid select {
+        background: var(--portal-surface-muted);
+        color: var(--portal-text);
+        border-color: var(--portal-border);
+    }
+
+    html.portal-theme-dark .finance-hub-page h3[style*="color:#0f172a"],
+    html.portal-theme-dark .finance-hub-page h3[style*="color: #0f172a"],
+    html.portal-theme-dark .finance-hub-page h4[style*="color:#0f172a"],
+    html.portal-theme-dark .finance-hub-page h4[style*="color: #0f172a"],
+    html.portal-theme-dark .finance-hub-page h3[style*="color: #1e293b"] {
+        color: var(--portal-text) !important;
+    }
+
+    html.portal-theme-dark .finance-hub-page div[style*="background:#f8fafc"],
+    html.portal-theme-dark .finance-hub-page div[style*="background: #f8fafc"],
+    html.portal-theme-dark .finance-hub-page div[style*="background: #ffffff"],
+    html.portal-theme-dark .finance-hub-page div[style*="background:#ffffff"] {
+        background: var(--portal-surface-muted) !important;
+        border-color: var(--portal-border) !important;
+    }
+
+    html.portal-theme-dark .finance-hub-page span[style*="color:#475569"],
+    html.portal-theme-dark .finance-hub-page span[style*="color: #475569"],
+    html.portal-theme-dark .finance-hub-page p[style*="color:#475569"],
+    html.portal-theme-dark .finance-hub-page div[style*="color:#64748b"],
+    html.portal-theme-dark .finance-hub-page div[style*="color: #64748b"] {
+        color: var(--portal-text-muted) !important;
+    }
+
+    html.portal-theme-dark .finance-hub-page strong[style*="color: #0f172a"],
+    html.portal-theme-dark .finance-hub-page strong[style*="color:#0f172a"] {
+        color: var(--portal-text) !important;
+    }
+
+    html.portal-theme-dark .finance-hub-page article.dashboard-panel[style*="background: white"] {
+        background: var(--portal-surface) !important;
+        border-color: var(--portal-border) !important;
+    }
+
+    html.portal-theme-dark .finance-hub-page .dashboard-panel {
+        background: var(--portal-surface);
+        border-color: var(--portal-border);
+    }
+
+    html.portal-theme-dark .finance-hub-page .dashboard-panel h3 {
+        color: var(--portal-text);
+    }
+
+    html.portal-theme-dark .finance-hub-page small[style*="color: #64748b"] {
+        color: var(--portal-text-muted) !important;
+    }
+
+    html.portal-theme-dark .finance-hub-page input[type="month"] {
+        background: var(--portal-surface-muted);
+        color: var(--portal-text);
+        border-color: var(--portal-border);
+        color-scheme: dark;
+    }
+
+    html.portal-theme-dark .finance-hub-page div[style*="border: 1px dashed #cbd5e1"] {
+        background: var(--portal-surface-muted) !important;
+        border-color: var(--portal-border-strong) !important;
+        color: var(--portal-text-muted) !important;
+    }
+
+    html.portal-theme-dark .finance-hub-page div[style*="background: #eef2ff"] {
+        background: rgba(37, 99, 235, 0.15) !important;
+        border-color: rgba(59, 130, 246, 0.3) !important;
+    }
+
+    html.portal-theme-dark .finance-hub-page div[style*="background: #eef2ff"] h4 {
+        color: #93c5fd !important;
+    }
+
+    html.portal-theme-dark .finance-hub-page div[style*="background: #eef2ff"] p {
+        color: #a5b4fc !important;
+    }
+
+    html.portal-theme-dark .finance-hub-page label[style*="color:#64748b"],
+    html.portal-theme-dark .finance-hub-page label[style*="color: #64748b"] {
+        color: var(--portal-text-muted) !important;
+    }
+
+    html.portal-theme-dark .finance-hub-page p[style*="color:#475569"],
+    html.portal-theme-dark .finance-hub-page p[style*="color: #475569"] {
+        color: var(--portal-text-secondary) !important;
+    }
 </style>
 {% endblock %}
 
 {% block portal_content %}
 
-<main class="dashboard-shell">
+<main class="dashboard-shell finance-hub-page">
     <section class="dashboard-layout">
         <!-- Elite Aero-Glass Hero -->
         <header class="dashboard-hero" style="background: linear-gradient(135deg, #0f172a, #1e293b); color: white; padding: 5rem 3rem; border-radius: 40px; margin-bottom: 5rem; position: relative; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">

@@ -54,6 +54,7 @@
 
     --portal-expiration-red: #b91c1c;
     --portal-expiration-red-dark: #7f1d1d;
+    --portal-expiration-red-hover: #5c1212;
     --portal-expiration-red-soft: #f87171;
 }
 
@@ -315,7 +316,7 @@ body.portal-body .dashboard-hero .brand-pill {
 }
 
 .hero-btn-warning {
-    background: var(--portal-expiration-red) !important;
+    background: var(--portal-expiration-red-dark) !important;
     border: none !important;
     color: #fff !important;
     box-shadow: none !important;
@@ -327,7 +328,7 @@ body.portal-body .dashboard-hero .brand-pill {
 }
 
 .hero-btn-warning:hover {
-    background: var(--portal-expiration-red-dark) !important;
+    background: var(--portal-expiration-red-hover) !important;
     border: none !important;
     color: #fff !important;
     box-shadow: none !important;
@@ -335,13 +336,13 @@ body.portal-body .dashboard-hero .brand-pill {
 
 .hero-btn-warning .hero-badge-alert {
     background: #fff;
-    color: var(--portal-expiration-red);
+    color: var(--portal-expiration-red-dark);
     border: none;
     box-shadow: none;
 }
 
 .hero-badge-alert {
-    background: var(--portal-expiration-red);
+    background: var(--portal-expiration-red-dark);
     color: #fff;
     padding: 2px 9px;
     border-radius: var(--portal-radius-pill);
@@ -352,13 +353,13 @@ body.portal-body .dashboard-hero .brand-pill {
 }
 
 .hero-alert-outstanding {
-    background: linear-gradient(135deg, var(--portal-expiration-red) 0%, var(--portal-expiration-red-dark) 100%);
+    background: var(--portal-expiration-red-dark);
     color: white;
     padding: 1.25rem 1.5rem;
     border-radius: var(--portal-radius-md);
     margin-top: 1.25rem;
-    box-shadow: 0 12px 28px -6px rgba(185, 28, 28, 0.45);
-    border: 2px solid var(--portal-expiration-red-soft);
+    box-shadow: 0 8px 20px -4px rgba(92, 18, 18, 0.45);
+    border: none;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1725,7 +1726,8 @@ html.portal-theme-dark body.portal-body {
     --portal-shadow-nav: 0 4px 6px rgba(0, 0, 0, 0.3);
     --portal-gradient-hero: linear-gradient(135deg, #0a0f1a 0%, #151f30 45%, #1e3a8a 100%);
     --portal-expiration-red: #f87171;
-    --portal-expiration-red-dark: #b91c1c;
+    --portal-expiration-red-dark: #7f1d1d;
+    --portal-expiration-red-hover: #5c1212;
     --portal-expiration-red-soft: #fecaca;
 }
 
@@ -2502,9 +2504,9 @@ html.portal-theme-dark .company-profile-page .modal-overlay h3[style*="color: va
 }
 
 html.portal-theme-dark .company-profile-page .page-btn.active {
-    background: var(--portal-primary);
-    border-color: var(--portal-primary);
-    color: #fff;
+    background: #0f172a !important;
+    border-color: #64748b !important;
+    color: #f8fafc !important;
 }
 
 html.portal-theme-dark .company-profile-page .field-input {
@@ -2577,9 +2579,9 @@ html.portal-theme-dark .agent-profile-page .tbl td[style*="font-weight: 700"] {
 }
 
 html.portal-theme-dark .agent-profile-page .page-btn.active {
-    background: var(--portal-primary);
-    border-color: var(--portal-primary);
-    color: #fff;
+    background: #0f172a !important;
+    border-color: #64748b !important;
+    color: #f8fafc !important;
 }
 
 html.portal-theme-dark .agent-profile-page .agent-audit-bar strong[style*="color:var(--dark)"],
@@ -2670,6 +2672,60 @@ html.portal-theme-dark .vehicle-detail-page .pagination-footer .btn-secondary[st
     background: var(--portal-surface) !important;
     border-color: var(--portal-border) !important;
     color: var(--portal-text-secondary) !important;
+}
+
+/* Global pagination (all portal list pages) */
+html.portal-theme-dark body.portal-body .pagination-footer {
+    background: var(--portal-surface-muted) !important;
+    border-top-color: var(--portal-border) !important;
+}
+
+html.portal-theme-dark body.portal-body .pagination-footer span[style*="color: #64748b"],
+html.portal-theme-dark body.portal-body .pagination-footer span[style*="color:#64748b"] {
+    color: var(--portal-text-muted) !important;
+}
+
+html.portal-theme-dark body.portal-body .pagination-footer span[style*="color: #0f172a"],
+html.portal-theme-dark body.portal-body .pagination-footer span[style*="color:#0f172a"] {
+    color: var(--portal-text) !important;
+}
+
+html.portal-theme-dark body.portal-body .pagination-nav a.btn-secondary.btn-sm,
+html.portal-theme-dark body.portal-body .pagination-nav .btn-secondary.btn-sm {
+    background: #1e293b !important;
+    border-color: #475569 !important;
+    color: #cbd5e1 !important;
+}
+
+html.portal-theme-dark body.portal-body .pagination-nav a.btn-secondary.btn-sm:hover {
+    background: #334155 !important;
+    border-color: #64748b !important;
+    color: #f1f5f9 !important;
+}
+
+html.portal-theme-dark body.portal-body .pagination-nav span.btn-primary.btn-sm,
+html.portal-theme-dark body.portal-body .pagination-nav a.btn-primary.btn-sm {
+    background: #0f172a !important;
+    border: 1px solid #64748b !important;
+    color: #f8fafc !important;
+}
+
+html.portal-theme-dark body.portal-body .page-btn {
+    background: #1e293b !important;
+    border-color: #475569 !important;
+    color: #94a3b8 !important;
+}
+
+html.portal-theme-dark body.portal-body .page-btn.active {
+    background: #0f172a !important;
+    border-color: #64748b !important;
+    color: #f8fafc !important;
+}
+
+html.portal-theme-dark body.portal-body .page-btn:hover:not(.active) {
+    background: #334155 !important;
+    border-color: #64748b !important;
+    color: #e2e8f0 !important;
 }
 
 /* Transaction screen */
