@@ -46,13 +46,13 @@
 
     <div class="nav-right">
         {% if user_organizations|length > 0 %}
-        <div class="location-switcher" style="position: relative;">
+        <div class="location-switcher">
             {% if user_organizations|length > 1 %}
             <button type="button" id="locBtn" class="nav-btn" aria-haspopup="true" aria-expanded="false">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                 <span>
                     {% if active_organization %}
-                        {{ active_organization.name }} <small style="opacity: 0.7; font-weight: 500;">({{ active_organization.city }})</small>
+                        {{ active_organization.name }} <small class="nav-meta">({{ active_organization.city }})</small>
                     {% else %}
                         All Locations
                     {% endif %}
@@ -64,7 +64,7 @@
                 <a href="{% url 'switch-organization' 0 %}" class="loc-dropdown-link {% if not active_organization %}active{% endif %}">All Locations</a>
                 {% for org in user_organizations %}
                 <a href="{% url 'switch-organization' org.id %}" class="loc-dropdown-link {% if active_organization.id == org.id %}active{% endif %}">
-                    {{ org.name }} <span style="font-size: 0.75rem; opacity: 0.6; font-weight: 500;">({{ org.city }})</span>
+                    {{ org.name }} <span class="nav-meta">({{ org.city }})</span>
                 </a>
                 {% endfor %}
             </div>
@@ -72,12 +72,21 @@
             {% with single_org=user_organizations.0 %}
             <div class="nav-btn nav-btn-static">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                <span>{{ single_org.name }} <small style="opacity: 0.7; font-weight: 500;">({{ single_org.city }})</small></span>
+                <span>{{ single_org.name }} <small class="nav-meta">({{ single_org.city }})</small></span>
             </div>
             {% endwith %}
             {% endif %}
         </div>
         {% endif %}
+
+        <button type="button" id="portalThemeToggle" class="portal-theme-toggle" aria-label="Toggle dark mode" title="Toggle light/dark mode">
+            <svg class="portal-theme-icon portal-theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+            <svg class="portal-theme-icon portal-theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+        </button>
 
         <div class="notif-wrap">
             <button type="button" class="notif-btn" id="notifBtn" title="Notifications" aria-haspopup="true" aria-expanded="false">
@@ -93,14 +102,14 @@
             <div id="notifDropdown" class="portal-dropdown notif-dropdown" role="menu">
                 <div class="notif-dropdown-header">
                     <strong>Notifications</strong>
-                    <span class="brand-pill" style="background:#fff7ed; color:#c2410c;">{{ notif_unread_count|default:0 }} unread</span>
+                    <span class="brand-pill notif-count-pill">{{ notif_unread_count|default:0 }} unread</span>
                 </div>
                 <div class="notif-dropdown-body">
                     {% for n in top_notifications %}
                     <a href="{% url 'open-notification' n.id %}" class="notif-item">
                         <div class="notif-item-inner">
                             <div class="notif-dot {% if n.level == 'warning' %}warning{% else %}info{% endif %}"></div>
-                            <div style="flex:1;">
+                            <div class="notif-item-body">
                                 <div class="notif-item-title">{{ n.title }}</div>
                                 <div class="notif-item-msg">{{ n.client.name }}{% if n.message %} • {{ n.message }}{% endif %}</div>
                                 <div class="notif-item-time">{{ n.created_at|date:"M d, H:i" }}</div>

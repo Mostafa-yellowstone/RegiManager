@@ -4,7 +4,17 @@
 {% block body_attrs %}class="portal-body" data-portal-app{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'core/css/portal.css' %}?v=portal-1">
+<script>
+(function () {
+    try {
+        var t = localStorage.getItem('portal-theme');
+        var dark = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('portal-theme-dark');
+        document.documentElement.setAttribute('data-portal-theme', dark ? 'dark' : 'light');
+    } catch (e) {}
+})();
+</script>
+<link rel="stylesheet" href="{% static 'core/css/portal.css' %}?v=portal-2">
 {% block portal_head %}{% endblock %}
 {% endblock %}
 
@@ -15,7 +25,7 @@
 <div class="portal-main">
 {% block portal_content %}{% endblock %}
 </div>
-<script src="{% static 'core/js/portal.js' %}?v=portal-1" defer></script>
+<script src="{% static 'core/js/portal.js' %}?v=portal-2" defer></script>
 {% block portal_scripts %}{% endblock %}
 {% endblock %}
 

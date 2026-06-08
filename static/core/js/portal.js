@@ -5,12 +5,53 @@
 (function () {
     'use strict';
 
+    const THEME_KEY = 'portal-theme';
+
     const Portal = {
         init() {
+            this.initTheme();
             this.initTopNav();
             this.initTabs();
             this.initFilterPanels();
             this.initModals();
+        },
+
+        applyTheme(theme) {
+            const isDark = theme === 'dark';
+            document.documentElement.classList.toggle('portal-theme-dark', isDark);
+            document.documentElement.setAttribute('data-portal-theme', theme);
+            const btn = document.getElementById('portalThemeToggle');
+            if (btn) {
+                btn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+                btn.title = isDark ? 'Light mode' : 'Dark mode';
+            }
+        },
+
+        initTheme() {
+            let theme = 'light';
+            try {
+                const stored = localStorage.getItem(THEME_KEY);
+                if (stored === 'dark' || stored === 'light') {
+                    theme = stored;
+                } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    theme = 'dark';
+                }
+            } catch (e) {
+                theme = 'light';
+            }
+
+            this.applyTheme(theme);
+
+            const btn = document.getElementById('portalThemeToggle');
+            if (!btn) return;
+
+            btn.addEventListener('click', () => {
+                const next = document.documentElement.classList.contains('portal-theme-dark') ? 'light' : 'dark';
+                this.applyTheme(next);
+                try {
+                    localStorage.setItem(THEME_KEY, next);
+                } catch (e) {}
+            });
         },
 
         initTopNav() {

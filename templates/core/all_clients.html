@@ -15,61 +15,58 @@
         </header>
 
         {% if messages %}
-        <div class="messages" style="margin-top: 1rem;">
+        <div class="portal-messages">
             {% for message in messages %}
-            <div class="alert alert-{{ message.tags }}" style="padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                {{ message }}
-            </div>
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
             {% endfor %}
         </div>
         {% endif %}
 
         <article class="dashboard-panel full-width-panel">
-            <div class="list-controls" style="display: flex; flex-direction: column; gap: 1rem; width: 100%;">
-                <form method="get" id="filter-form" style="display: flex; flex-direction: column; gap: 1rem; width: 100%; margin-bottom: 0.5rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 1.5rem; flex-wrap: wrap; width: 100%;">
-                        <div class="form-group search-group" style="margin: 0; flex: 1; min-width: 300px;">
-                            <label for="search-input" style="font-weight: 700; color: #475569; font-size: 0.85rem; margin-bottom: 0.4rem; display: block;">Search Clients</label>
-                            <input type="text" id="search-input" name="q" value="{{ search_query }}" placeholder="Search by name, email, phone or city..." style="width: 100%; border-radius: 10px; border: 1.5px solid #e2e8f0; padding: 0.65rem 1rem; font-size: 0.92rem; background: #f8fafc; color: #1e293b; font-weight: 600;">
+            <div class="list-controls">
+                <form method="get" id="filter-form" class="portal-filter-form">
+                    <div class="portal-filter-row">
+                        <div class="form-group search-group">
+                            <label for="search-input">Search Clients</label>
+                            <input type="text" id="search-input" name="q" value="{{ search_query }}" placeholder="Search by name, email, phone or city...">
                         </div>
-                        <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-                            <button type="button" id="toggle-filters-btn" class="btn btn-secondary" style="height: 42px; display: flex; align-items: center; gap: 0.5rem; background: #f1f5f9; border: 1.5px solid #e2e8f0; color: #475569; font-weight: 700; border-radius: 10px; cursor: pointer; padding: 0.5rem 1rem;">
+                        <div class="portal-filter-actions">
+                            <button type="button" id="toggle-filters-btn" class="portal-btn portal-btn-secondary" data-portal-filter-toggle aria-controls="advanced-filters-panel" aria-expanded="{% if selected_source or selected_client_type or selected_referral %}true{% else %}false{% endif %}">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
                                 Advanced Filters
                                 {% if selected_source or selected_client_type or selected_referral %}
-                                    <span style="background: #4f46e5; color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800;">!</span>
+                                    <span class="filter-active-dot">!</span>
                                 {% endif %}
                             </button>
-                            <button type="submit" class="btn btn-primary" style="height: 42px; font-weight: 700; border-radius: 10px; padding: 0.5rem 1.5rem;">Search</button>
+                            <button type="submit" class="portal-btn portal-btn-primary">Search</button>
                             {% if search_query or selected_source or selected_client_type or selected_referral %}
-                                <a href="{% url 'all-clients' %}" class="btn btn-secondary" style="height: 42px; display: flex; align-items: center; justify-content: center; font-weight: 700; border-radius: 10px; background: white; border: 1.5px solid #e2e8f0; color: #64748b; padding: 0.5rem 1rem;">Clear</a>
+                                <a href="{% url 'all-clients' %}" class="portal-btn portal-btn-secondary">Clear</a>
                             {% endif %}
-                            <a href="{% url 'add-client' %}" class="btn btn-primary" style="background: #10b981; border: none; height: 42px; display: flex; align-items: center; font-weight: 700; border-radius: 10px; padding: 0.5rem 1rem; color: white; text-decoration: none;">+ Add New Client</a>
+                            <a href="{% url 'add-client' %}" class="portal-btn portal-btn-success">+ Add New Client</a>
                         </div>
                     </div>
 
-                    <!-- Collapsible Advanced Filters Section -->
-                    <div id="advanced-filters-panel" style="display: {% if selected_source or selected_client_type or selected_referral %}grid{% else %}none{% endif %}; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 1.25rem; margin-top: 0.5rem;">
-                        <div class="form-group" style="margin: 0;">
-                            <label for="filter-client-type" style="font-weight: 700; color: #475569; font-size: 0.8rem; margin-bottom: 0.4rem; display: block;">Client Type</label>
-                            <select id="filter-client-type" name="client_type" style="width: 100%; border-radius: 10px; border: 1.5px solid #e2e8f0; padding: 0.6rem 0.8rem; font-size: 0.9rem; background: white; font-weight: 600; color: #1e293b;">
+                    <div id="advanced-filters-panel" class="portal-filter-panel{% if selected_source or selected_client_type or selected_referral %} is-open{% endif %}">
+                        <div class="form-group">
+                            <label for="filter-client-type">Client Type</label>
+                            <select id="filter-client-type" name="client_type">
                                 <option value="">All Types</option>
                                 <option value="individual" {% if selected_client_type == "individual" %}selected{% endif %}>Individual</option>
                                 <option value="commercial" {% if selected_client_type == "commercial" %}selected{% endif %}>Business / Commercial</option>
                             </select>
                         </div>
-                        <div class="form-group" style="margin: 0;">
-                            <label for="filter-source" style="font-weight: 700; color: #475569; font-size: 0.8rem; margin-bottom: 0.4rem; display: block;">Acquisition Source</label>
-                            <select id="filter-source" name="source" style="width: 100%; border-radius: 10px; border: 1.5px solid #e2e8f0; padding: 0.6rem 0.8rem; font-size: 0.9rem; background: white; font-weight: 600; color: #1e293b;">
+                        <div class="form-group">
+                            <label for="filter-source">Acquisition Source</label>
+                            <select id="filter-source" name="source">
                                 <option value="">All Sources</option>
                                 {% for sc in source_choices %}
                                     <option value="{{ sc.key }}" {% if selected_source == sc.key %}selected{% endif %}>{{ sc.label }}</option>
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="form-group" style="margin: 0;">
-                            <label for="filter-referral" style="font-weight: 700; color: #475569; font-size: 0.8rem; margin-bottom: 0.4rem; display: block;">Referral Entity</label>
-                            <select id="filter-referral" name="referral" style="width: 100%; border-radius: 10px; border: 1.5px solid #e2e8f0; padding: 0.6rem 0.8rem; font-size: 0.9rem; background: white; font-weight: 600; color: #1e293b;">
+                        <div class="form-group">
+                            <label for="filter-referral">Referral Entity</label>
+                            <select id="filter-referral" name="referral">
                                 <option value="">All Referral Entities</option>
                                 {% for ref in referrals %}
                                     <option value="{{ ref.id }}" {% if selected_referral == ref.id|stringformat:"s" %}selected{% endif %}>{{ ref.name }}</option>
@@ -207,22 +204,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const filterClientType = document.getElementById('filter-client-type');
     const filterSource = document.getElementById('filter-source');
     const filterReferral = document.getElementById('filter-referral');
-    const toggleFiltersBtn = document.getElementById('toggle-filters-btn');
-    const advancedFiltersPanel = document.getElementById('advanced-filters-panel');
     const resultsContainer = document.getElementById('client-results-container');
-    
-    let timeout = null;
 
-    // Toggle collapsible advanced filters panel
-    if (toggleFiltersBtn && advancedFiltersPanel) {
-        toggleFiltersBtn.addEventListener('click', function() {
-            if (advancedFiltersPanel.style.display === 'none') {
-                advancedFiltersPanel.style.display = 'grid';
-            } else {
-                advancedFiltersPanel.style.display = 'none';
-            }
-        });
-    }
+    let timeout = null;
 
     function triggerUpdate() {
         const query = searchInput.value;
