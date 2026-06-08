@@ -127,6 +127,20 @@ from core.views import (
     add_knowledge_material,
     delete_knowledge_material,
 )
+from core.inventory_views import (
+    add_inventory_category,
+    delete_inventory_category,
+    add_inventory_product,
+    edit_inventory_product,
+    delete_inventory_product,
+    adjust_inventory_stock,
+    add_inventory_buyer,
+    delete_inventory_buyer,
+    add_inventory_invoice,
+    delete_inventory_invoice,
+    inventory_invoice_pdf,
+    export_inventory_report,
+)
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from core.api import ClientViewSet, VehicleViewSet, ServiceRecordViewSet
 
@@ -254,6 +268,18 @@ urlpatterns = [
     path("dashboard/spaces/insurance/agent/<int:user_id>/", insurance_agent_detail, name="insurance-agent-detail"),
     path("dashboard/spaces/knowledge-hub/<int:space_id>/add/", add_knowledge_material, name="add-knowledge-material"),
     path("dashboard/spaces/knowledge-hub/material/<int:material_id>/delete/", delete_knowledge_material, name="delete-knowledge-material"),
+    path("dashboard/spaces/inventory/<int:space_id>/category/add/", add_inventory_category, name="add-inventory-category"),
+    path("dashboard/spaces/inventory/category/<int:category_id>/delete/", delete_inventory_category, name="delete-inventory-category"),
+    path("dashboard/spaces/inventory/<int:space_id>/product/add/", add_inventory_product, name="add-inventory-product"),
+    path("dashboard/spaces/inventory/product/<int:product_id>/edit/", edit_inventory_product, name="edit-inventory-product"),
+    path("dashboard/spaces/inventory/product/<int:product_id>/delete/", delete_inventory_product, name="delete-inventory-product"),
+    path("dashboard/spaces/inventory/product/<int:product_id>/adjust-stock/", adjust_inventory_stock, name="adjust-inventory-stock"),
+    path("dashboard/spaces/inventory/<int:space_id>/buyer/add/", add_inventory_buyer, name="add-inventory-buyer"),
+    path("dashboard/spaces/inventory/buyer/<int:buyer_id>/delete/", delete_inventory_buyer, name="delete-inventory-buyer"),
+    path("dashboard/spaces/inventory/<int:space_id>/invoice/add/", add_inventory_invoice, name="add-inventory-invoice"),
+    path("dashboard/spaces/inventory/invoice/<int:invoice_id>/delete/", delete_inventory_invoice, name="delete-inventory-invoice"),
+    path("dashboard/spaces/inventory/invoice/<int:invoice_id>/pdf/", inventory_invoice_pdf, name="inventory-invoice-pdf"),
+    path("dashboard/spaces/inventory/<int:space_id>/report/", export_inventory_report, name="export-inventory-report"),
 ]
 
 

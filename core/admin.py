@@ -8,6 +8,8 @@ from .models import (
     CustomServiceType, SiteNews, ClientIntake, Client, Vehicle,
     Space, Referral, ReferralPayment,
     UserSession, ServiceDocument, KnowledgeHubMaterial,
+    InventoryBuyer, InventoryCategory, InventoryInvoice,
+    InventoryProduct, InventoryStockMovement,
 )
 
 
@@ -177,6 +179,34 @@ class SpaceAdmin(admin.ModelAdmin):
     list_display = ("label", "key", "organization", "created_at")
     list_filter = ("organization",)
     search_fields = ("label", "key", "organization__name")
+
+
+@admin.register(InventoryCategory)
+class InventoryCategoryAdmin(admin.ModelAdmin):
+    list_display = ("name", "space", "organization")
+    list_filter = ("organization",)
+
+
+@admin.register(InventoryProduct)
+class InventoryProductAdmin(admin.ModelAdmin):
+    list_display = ("name", "sku", "category", "unit_price", "quantity", "space")
+    list_filter = ("organization", "is_active")
+
+
+@admin.register(InventoryBuyer)
+class InventoryBuyerAdmin(admin.ModelAdmin):
+    list_display = ("name", "phone", "space", "organization")
+
+
+@admin.register(InventoryInvoice)
+class InventoryInvoiceAdmin(admin.ModelAdmin):
+    list_display = ("invoice_number", "buyer_name", "invoice_date", "total", "status")
+    list_filter = ("status", "organization")
+
+
+@admin.register(InventoryStockMovement)
+class InventoryStockMovementAdmin(admin.ModelAdmin):
+    list_display = ("product", "movement_type", "quantity_change", "quantity_after", "created_at")
 
 
 @admin.register(ServiceDocument)

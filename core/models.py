@@ -984,6 +984,173 @@ class KnowledgeHubMaterial(models.Model):
         return f"{self.step_number}. {self.title}"
 
 
+class InventoryCategory(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="inventory_categories")
+    space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="inventory_categories")
+    name = models.CharField(max_length=120)
+    description = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("space", "name")
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class InventoryProduct(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="inventory_products")
+    space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="inventory_products")
+    category = models.ForeignKey(
+        InventoryCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="products",
+    )
+    name = models.CharField(max_length=200)
+    sku = models.CharField(max_length=80, blank=True, default="")
+    description = models.TextField(blank=True, default="")
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    quantity = models.IntegerField(default=0)
+    low_stock_threshold = models.IntegerField(default=5)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    @property
+    def total_value(self):
+        return self.unit_price * self.quantity
+
+    def __str__(self):
+        return self.name
+
+
+class InventoryBuyer(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="inventory_buyers")
+    space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="inventory_buyers")
+    name = models.CharField(max_length=200)
+    phone = models.CharField(max_length=40, blank=True, default="")
+    email = models.EmailField(blank=True, default="")
+    address = models.TextField(blank=True, default="")
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class InventoryInvoice(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    class PaymentMethod(models.TextChoices):
+        CASH = "cash", "Cash"
+        CARD = "card", "Credit/Debit Card"
+        ZELLE = "zelle", "Zelle"
+        CHECK = "check", "Check"
+        OTHER = "other", "Other"
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="inventory_invoices")
+    space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="inventory_invoices")
+    invoice_number = models.CharField(max_length=40, unique=True)
+    buyer = models.ForeignKey(
+        InventoryBuyer,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="invoices",
+    )
+    buyer_name = models.CharField(max_length=200)
+    buyer_phone = models.CharField(max_length=40, blank=True, default="")
+    buyer_email = models.EmailField(blank=True, default="")
+    invoice_date = models.DateField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.COMPLETED)
+    payment_method = models.CharField(max_length=20, choices=PaymentMethod.choices, default=PaymentMethod.CASH)
+    notes = models.TextField(blank=True, default="")
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inventory_invoices_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-invoice_date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.invoice_number} — {self.buyer_name}"
+
+
+class InventoryInvoiceLine(models.Model):
+    invoice = models.ForeignKey(InventoryInvoice, on_delete=models.CASCADE, related_name="lines")
+    product = models.ForeignKey(
+        InventoryProduct,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="invoice_lines",
+    )
+    description = models.CharField(max_length=255)
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+    line_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+
+    class Meta:
+        ordering = ["id"]
+
+    def save(self, *args, **kwargs):
+        self.line_total = Decimal(self.quantity) * self.unit_price
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.description} x{self.quantity}"
+
+
+class InventoryStockMovement(models.Model):
+    class MovementType(models.TextChoices):
+        SALE = "sale", "Sale"
+        RECEIVE = "receive", "Stock Received"
+        ADJUSTMENT = "adjustment", "Manual Adjustment"
+        RETURN = "return", "Return"
+
+    product = models.ForeignKey(InventoryProduct, on_delete=models.CASCADE, related_name="stock_movements")
+    movement_type = models.CharField(max_length=20, choices=MovementType.choices)
+    quantity_change = models.IntegerField()
+    quantity_after = models.IntegerField()
+    reference = models.CharField(max_length=80, blank=True, default="")
+    notes = models.TextField(blank=True, default="")
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inventory_stock_movements",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.product.name}: {self.quantity_change:+d}"
+
+
 class UserSession(models.Model):
     """
     Tracks the single allowed active session per user.

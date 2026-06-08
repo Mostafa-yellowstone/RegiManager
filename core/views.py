@@ -6081,6 +6081,11 @@ def inventory_detail(request, inventory_id):
         }
         return render(request, "core/insurance_space.html", context)
 
+    if card.key == "custom_inventory":
+        from .inventory_views import build_inventory_space_context
+        context = build_inventory_space_context(request, card, is_owner, membership)
+        return render(request, "core/inventory_space.html", context)
+
     if card.key == "knowledge_hub":
         from collections import defaultdict
         # Only top-level materials (no parent)
@@ -6207,6 +6212,15 @@ def spaces_home(request):
             "label": "Knowledge Hub", 
             "description": "Training documents, roadmaps, and educational material", 
         }
+    )
+    # Auto-ensure "Custom Inventory" card exists for this active org
+    Space.objects.get_or_create(
+        organization=active_org,
+        key="custom_inventory",
+        defaults={
+            "label": "Custom Inventory",
+            "description": "Product inventory, sales invoices, and stock tracking",
+        },
     )
         
     if request.user.is_superuser or is_owner:

@@ -1,0 +1,487 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ card.label }} | Inventory{% endblock %}
+
+{% block content %}
+{% include "partials/_top_nav.html" %}
+
+<style>
+.tab-btn { transition: all 0.2s; }
+.tab-btn.active { color: #0d9488 !important; border-bottom: 2px solid #0d9488 !important; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+.spaces-metric { background: white; border-radius: 16px; padding: 1.25rem 1.5rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.spaces-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; }
+.spaces-table th { padding: 0.9rem 1.1rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; }
+.spaces-table td { padding: 0.85rem 1.1rem; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #334155; }
+.spaces-table tr:hover td { background: #fafafa; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.35); backdrop-filter: blur(6px); z-index: 2000; align-items: center; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal-box { background: white; border-radius: 20px; padding: 1.75rem; max-width: 560px; width: 95%; max-height: 92vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+.modal-box.wide { max-width: 720px; }
+.field-label { display: block; font-size: 0.76rem; font-weight: 800; color: #475569; margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.field-input { width: 100%; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.88rem; outline: none; box-sizing: border-box; }
+.field-input:focus { border-color: #0d9488; }
+.btn-submit { width: 100%; padding: 0.75rem; background: linear-gradient(135deg, #0f766e, #14b8a6); border: none; border-radius: 10px; color: white; font-weight: 700; cursor: pointer; font-size: 0.95rem; }
+.btn-submit:hover { background: #0d9488; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.85rem; }
+.chip-low { background: #fef2f2; color: #b91c1c; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800; }
+.chip-ok { background: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800; }
+.inv-hero { background: linear-gradient(135deg, #0f172a 0%, #134e4a 55%, #0d9488 100%); border-radius: 20px; padding: 1.5rem 1.75rem; color: white; margin-bottom: 1.5rem; }
+.inv-line-row { display: grid; grid-template-columns: 2fr 0.7fr 1fr 40px; gap: 0.5rem; align-items: end; margin-bottom: 0.5rem; }
+</style>
+
+<main style="background: #f8fafc; min-height: 100vh; padding-bottom: 4rem;">
+  <div style="max-width: 100%; margin: 0 auto; padding: 2rem 2.5rem;">
+
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.25rem; margin-bottom: 1.5rem;">
+      <div>
+        <div style="display: inline-flex; align-items: center; gap: 6px; background: #ccfbf1; color: #0f766e; padding: 4px 12px; border-radius: 999px; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.5rem; border: 1px solid #99f6e4;">
+          🏢 {{ active_org.name }}
+        </div>
+        <h1 style="color: #0f172a; font-weight: 850; font-size: 2rem; margin: 0;">📦 {{ card.label }}</h1>
+        <p style="color: #64748b; margin: 0.25rem 0 0; font-weight: 500; font-size: 0.95rem;">{{ card.description|default:"Product inventory · Sales · Stock tracking" }}</p>
+      </div>
+      <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
+        <a href="{% url 'spaces-home' %}" style="text-decoration: none; padding: 9px 16px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; font-weight: 700; color: #475569; font-size: 0.88rem;">&larr; Back to Spaces</a>
+        {% if is_owner %}
+        <button type="button" onclick="document.getElementById('renameSpaceModal').classList.add('active')" style="padding: 9px 16px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; font-weight: 700; color: #475569; cursor: pointer; font-size: 0.88rem;">✏️ Rename Space</button>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="inv-hero">
+      <div style="font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #99f6e4; margin-bottom: 0.35rem;">Total Inventory Value</div>
+      <div style="font-size: 2.2rem; font-weight: 900; line-height: 1;">${{ stats.total_inventory_value|floatformat:2 }}</div>
+      <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; margin-top: 0.85rem; font-size: 0.85rem; color: #ccfbf1; font-weight: 600;">
+        <span>{{ stats.total_products }} products</span>
+        <span>{{ stats.total_units }} units in stock</span>
+        <span>{{ stats.category_count }} categories</span>
+        {% if stats.low_stock_count %}<span style="color: #fecaca;">⚠ {{ stats.low_stock_count }} low stock</span>{% endif %}
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 0; border-bottom: 2px solid #e2e8f0; margin-bottom: 1.75rem; flex-wrap: wrap;">
+      <button class="tab-btn {% if active_tab == 'dashboard' %}active{% endif %}" onclick="switchInvTab('dashboard', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">📊 Dashboard</button>
+      <button class="tab-btn {% if active_tab == 'categories' %}active{% endif %}" onclick="switchInvTab('categories', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🏷️ Categories</button>
+      <button class="tab-btn {% if active_tab == 'products' %}active{% endif %}" onclick="switchInvTab('products', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">📦 Products</button>
+      <button class="tab-btn {% if active_tab == 'buyers' %}active{% endif %}" onclick="switchInvTab('buyers', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">👤 Buyers</button>
+      <button class="tab-btn {% if active_tab == 'invoices' %}active{% endif %}" onclick="switchInvTab('invoices', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🧾 Invoices</button>
+      <button class="tab-btn {% if active_tab == 'reports' %}active{% endif %}" onclick="switchInvTab('reports', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">📈 Reports</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="tab-dashboard" class="tab-panel {% if active_tab == 'dashboard' %}active{% endif %}">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+        <div class="spaces-metric"><div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Sales Today</div><div style="font-size: 1.5rem; font-weight: 900; color: #0f172a;">${{ stats.sales_today_total|floatformat:2 }}</div><div style="font-size: 0.78rem; color: #94a3b8;">{{ stats.sales_today_count }} invoice{{ stats.sales_today_count|pluralize }}</div></div>
+        <div class="spaces-metric"><div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Sales This Month</div><div style="font-size: 1.5rem; font-weight: 900; color: #0f172a;">${{ stats.sales_month_total|floatformat:2 }}</div><div style="font-size: 0.78rem; color: #94a3b8;">{{ stats.sales_month_count }} invoice{{ stats.sales_month_count|pluralize }}</div></div>
+        <div class="spaces-metric"><div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Buyers</div><div style="font-size: 1.5rem; font-weight: 900; color: #0f172a;">{{ stats.buyer_count }}</div><div style="font-size: 0.78rem; color: #94a3b8;">Separate from main clients</div></div>
+        <div class="spaces-metric"><div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Completed Invoices</div><div style="font-size: 1.5rem; font-weight: 900; color: #0f172a;">{{ stats.invoice_count }}</div></div>
+      </div>
+      {% if stats.low_stock_products %}
+      <div style="background: white; border-radius: 16px; border: 1px solid #fecaca; padding: 1.25rem; margin-bottom: 1.5rem;">
+        <h4 style="margin: 0 0 1rem; color: #b91c1c; font-weight: 800;">⚠ Low Stock Alerts</h4>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+          {% for p in stats.low_stock_products %}
+          <span style="background: #fef2f2; color: #991b1b; padding: 6px 12px; border-radius: 8px; font-size: 0.82rem; font-weight: 700;">{{ p.name }} ({{ p.quantity }} left)</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden;">
+        <div style="padding: 1rem 1.25rem; border-bottom: 1px solid #f1f5f9; font-weight: 800;">Recent Stock Activity</div>
+        <table class="spaces-table">
+          <thead><tr><th>Product</th><th>Type</th><th>Change</th><th>After</th><th>Reference</th><th>Date</th></tr></thead>
+          <tbody>
+            {% for m in recent_movements %}
+            <tr>
+              <td>{{ m.product.name }}</td>
+              <td>{{ m.get_movement_type_display }}</td>
+              <td style="color: {% if m.quantity_change < 0 %}#dc2626{% else %}#16a34a{% endif %};">{% if m.quantity_change > 0 %}+{% endif %}{{ m.quantity_change }}</td>
+              <td>{{ m.quantity_after }}</td>
+              <td style="font-size: 0.8rem; color: #64748b;">{{ m.reference|default:"—" }}</td>
+              <td style="font-size: 0.8rem; color: #64748b;">{{ m.created_at|date:"M j, Y g:i A" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align: center; padding: 2rem; color: #94a3b8;">No stock movements yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CATEGORIES -->
+    <div id="tab-categories" class="tab-panel {% if active_tab == 'categories' %}active{% endif %}">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <h3 style="margin: 0; font-weight: 800;">Categories</h3>
+        <button type="button" onclick="document.getElementById('addCategoryModal').classList.add('active')" style="padding: 8px 16px; background: #0d9488; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">+ Add Category</button>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;">
+        {% for cs in category_stats %}
+        <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.25rem;">
+          <div style="display: flex; justify-content: space-between; align-items: start;">
+            <h4 style="margin: 0 0 0.5rem; font-weight: 800; color: #0f172a;">{{ cs.category.name }}</h4>
+            <a href="{% url 'delete-inventory-category' cs.category.id %}" onclick="return confirm('Delete category? Products will be uncategorized.')" style="color: #dc2626; font-size: 0.75rem; font-weight: 700; text-decoration: none;">Del</a>
+          </div>
+          <p style="margin: 0 0 0.75rem; font-size: 0.85rem; color: #64748b;">{{ cs.category.description|default:"No description" }}</p>
+          <div style="font-size: 0.82rem; font-weight: 700; color: #334155;">{{ cs.product_count }} products · {{ cs.total_units }} units</div>
+          <div style="font-size: 1.1rem; font-weight: 900; color: #0d9488; margin-top: 0.35rem;">${{ cs.total_value|floatformat:2 }}</div>
+        </div>
+        {% empty %}
+        <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #94a3b8; background: white; border-radius: 16px; border: 1px solid #e2e8f0;">No categories yet. Add one to organize products.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- PRODUCTS -->
+    <div id="tab-products" class="tab-panel {% if active_tab == 'products' %}active{% endif %}">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+        <h3 style="margin: 0; font-weight: 800;">Products</h3>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <form method="GET" style="display: flex; gap: 0.4rem; margin: 0;">
+            <input type="hidden" name="tab" value="products">
+            <input type="text" name="product_q" value="{{ product_filter }}" placeholder="Search..." class="field-input" style="width: 140px; min-height: auto; padding: 0.45rem 0.7rem;">
+            <select name="category_id" class="field-input" style="width: 130px; min-height: auto; padding: 0.45rem 0.7rem;">
+              <option value="">All categories</option>
+              {% for c in categories %}<option value="{{ c.id }}" {% if category_filter == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+            </select>
+            <button type="submit" style="padding: 0.45rem 0.9rem; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; font-weight: 700; cursor: pointer;">Filter</button>
+          </form>
+          <button type="button" onclick="document.getElementById('addProductModal').classList.add('active')" style="padding: 8px 16px; background: #0d9488; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">+ Add Product</button>
+        </div>
+      </div>
+      <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow-x: auto;">
+        <table class="spaces-table">
+          <thead><tr><th>Product</th><th>SKU</th><th>Category</th><th>Unit Price</th><th>Qty</th><th>Value</th><th>Stock</th><th>Actions</th></tr></thead>
+          <tbody>
+            {% for p in products %}
+            <tr>
+              <td style="font-weight: 800;">{{ p.name }}</td>
+              <td style="font-family: monospace; font-size: 0.8rem; color: #64748b;">{{ p.sku|default:"—" }}</td>
+              <td>{{ p.category.name|default:"—" }}</td>
+              <td>${{ p.unit_price|floatformat:2 }}</td>
+              <td style="font-weight: 800;">{{ p.quantity }}</td>
+              <td style="color: #0d9488; font-weight: 800;">${{ p.total_value|floatformat:2 }}</td>
+              <td>{% if p.quantity <= p.low_stock_threshold %}<span class="chip-low">Low</span>{% else %}<span class="chip-ok">OK</span>{% endif %}</td>
+              <td>
+                <div style="display: flex; gap: 0.35rem;">
+                  <button type="button" onclick="editProduct({{ p.id }})" style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; cursor: pointer; font-size: 0.75rem; font-weight: 700;">Edit</button>
+                  <button type="button" onclick="openStockModal({{ p.id }}, '{{ p.name|escapejs }}')" style="padding: 4px 8px; border: 1px solid #99f6e4; border-radius: 6px; background: #f0fdfa; cursor: pointer; font-size: 0.75rem; font-weight: 700; color: #0f766e;">Stock</button>
+                  <a href="{% url 'delete-inventory-product' p.id %}" onclick="return confirm('Delete product?')" style="padding: 4px 8px; color: #dc2626; font-size: 0.75rem; font-weight: 700; text-decoration: none;">Del</a>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" style="text-align: center; padding: 3rem; color: #94a3b8;">No products yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- BUYERS -->
+    <div id="tab-buyers" class="tab-panel {% if active_tab == 'buyers' %}active{% endif %}">
+      <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.85rem; color: #1e40af; font-weight: 600;">
+        ℹ️ Inventory buyers are separate from your main Client Directory — no profiles are created in All Clients.
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 1.25rem;">
+        <h3 style="margin: 0; font-weight: 800;">Buyers</h3>
+        <button type="button" onclick="document.getElementById('addBuyerModal').classList.add('active')" style="padding: 8px 16px; background: #0d9488; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">+ Add Buyer</button>
+      </div>
+      <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow-x: auto;">
+        <table class="spaces-table">
+          <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Notes</th><th>Added</th><th></th></tr></thead>
+          <tbody>
+            {% for b in buyers %}
+            <tr>
+              <td style="font-weight: 800;">{{ b.name }}</td>
+              <td>{{ b.phone|default:"—" }}</td>
+              <td>{{ b.email|default:"—" }}</td>
+              <td style="font-size: 0.82rem; color: #64748b;">{{ b.notes|truncatechars:40|default:"—" }}</td>
+              <td style="font-size: 0.8rem; color: #94a3b8;">{{ b.created_at|date:"M j, Y" }}</td>
+              <td><a href="{% url 'delete-inventory-buyer' b.id %}" onclick="return confirm('Remove buyer?')" style="color: #dc2626; font-size: 0.75rem; font-weight: 700; text-decoration: none;">Remove</a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" style="text-align: center; padding: 3rem; color: #94a3b8;">No buyers recorded yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- INVOICES -->
+    <div id="tab-invoices" class="tab-panel {% if active_tab == 'invoices' %}active{% endif %}">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 1.25rem;">
+        <h3 style="margin: 0; font-weight: 800;">Sales Invoices</h3>
+        <button type="button" onclick="document.getElementById('addInvoiceModal').classList.add('active')" style="padding: 8px 16px; background: #0d9488; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">+ New Invoice</button>
+      </div>
+      <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow-x: auto;">
+        <table class="spaces-table">
+          <thead><tr><th>Invoice #</th><th>Date</th><th>Buyer</th><th>Items</th><th>Payment</th><th>Total</th><th>Actions</th></tr></thead>
+          <tbody>
+            {% for inv in invoices %}
+            <tr>
+              <td style="font-family: monospace; font-weight: 800; color: #0f766e;">{{ inv.invoice_number }}</td>
+              <td>{{ inv.invoice_date|date:"M j, Y" }}</td>
+              <td>{{ inv.buyer_name }}</td>
+              <td>{{ inv.lines.count }} item{{ inv.lines.count|pluralize }}</td>
+              <td>{{ inv.get_payment_method_display }}</td>
+              <td style="font-weight: 900;">${{ inv.total|floatformat:2 }}</td>
+              <td>
+                <div style="display: flex; gap: 0.4rem;">
+                  <a href="{% url 'inventory-invoice-pdf' inv.id %}" target="_blank" style="padding: 4px 8px; background: #eff6ff; color: #1d4ed8; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-decoration: none;">PDF</a>
+                  <a href="{% url 'delete-inventory-invoice' inv.id %}" onclick="return confirm('Delete invoice? Stock will NOT be restored.')" style="color: #dc2626; font-size: 0.75rem; font-weight: 700; text-decoration: none;">Del</a>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align: center; padding: 3rem; color: #94a3b8;">No invoices yet. Create one to record a sale.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- REPORTS -->
+    <div id="tab-reports" class="tab-panel {% if active_tab == 'reports' %}active{% endif %}">
+      <h3 style="margin: 0 0 1.25rem; font-weight: 800;">Reports & Exports</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+        <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem;">
+          <h4 style="margin: 0 0 0.5rem; font-weight: 800;">📦 Stock Report</h4>
+          <p style="margin: 0 0 1rem; font-size: 0.85rem; color: #64748b;">All products with quantities, values, and low-stock flags.</p>
+          <a href="{% url 'export-inventory-report' card.id %}?type=inventory&export=csv" style="display: inline-block; padding: 0.55rem 1rem; background: #0d9488; color: white; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.85rem;">Download CSV</a>
+        </div>
+        <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem;">
+          <h4 style="margin: 0 0 0.5rem; font-weight: 800;">🧾 Sales Report</h4>
+          <p style="margin: 0 0 1rem; font-size: 0.85rem; color: #64748b;">All invoices with buyer, payment method, and totals.</p>
+          <a href="{% url 'export-inventory-report' card.id %}?type=sales&export=csv" style="display: inline-block; padding: 0.55rem 1rem; background: #0d9488; color: white; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.85rem;">Download CSV</a>
+        </div>
+        <div style="background: linear-gradient(135deg, #f0fdfa, #ccfbf1); border-radius: 16px; border: 1px solid #99f6e4; padding: 1.5rem;">
+          <h4 style="margin: 0 0 0.5rem; font-weight: 800; color: #0f766e;">Summary</h4>
+          <div style="font-size: 0.88rem; font-weight: 700; color: #334155; line-height: 1.8;">
+            Inventory value: <strong>${{ stats.total_inventory_value|floatformat:2 }}</strong><br>
+            Month sales: <strong>${{ stats.sales_month_total|floatformat:2 }}</strong><br>
+            Products: <strong>{{ stats.total_products }}</strong> · Units: <strong>{{ stats.total_units }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Rename Space Modal -->
+{% if is_owner %}
+<div class="modal-overlay" id="renameSpaceModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h3 style="margin: 0 0 1.25rem; font-weight: 800;">Rename Space</h3>
+    <form method="POST" action="{% url 'inventory-detail' card.id %}">
+      {% csrf_token %}
+      <div style="margin-bottom: 1rem;"><label class="field-label">Space Name</label><input type="text" name="label" value="{{ card.label }}" required class="field-input"></div>
+      <div style="margin-bottom: 1.25rem;"><label class="field-label">Description</label><textarea name="description" class="field-input" rows="3">{{ card.description }}</textarea></div>
+      <button type="submit" class="btn-submit">Save</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- Add Category Modal -->
+<div class="modal-overlay" id="addCategoryModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h3 style="margin: 0 0 1.25rem; font-weight: 800;">Add Category</h3>
+    <form method="POST" action="{% url 'add-inventory-category' card.id %}">
+      {% csrf_token %}
+      <div style="margin-bottom: 1rem;"><label class="field-label">Name</label><input type="text" name="name" required class="field-input" placeholder="e.g. Motorcycles"></div>
+      <div style="margin-bottom: 1.25rem;"><label class="field-label">Description</label><input type="text" name="description" class="field-input" placeholder="Optional"></div>
+      <button type="submit" class="btn-submit">Add Category</button>
+    </form>
+  </div>
+</div>
+
+<!-- Add Product Modal -->
+<div class="modal-overlay" id="addProductModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h3 style="margin: 0 0 1.25rem; font-weight: 800;">Add Product</h3>
+    <form method="POST" action="{% url 'add-inventory-product' card.id %}">
+      {% csrf_token %}
+      <div style="margin-bottom: 0.85rem;"><label class="field-label">Name</label><input type="text" name="name" required class="field-input"></div>
+      <div class="grid-2" style="margin-bottom: 0.85rem;">
+        <div><label class="field-label">SKU</label><input type="text" name="sku" class="field-input"></div>
+        <div><label class="field-label">Category</label><select name="category_id" class="field-input"><option value="">— None —</option>{% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
+      </div>
+      <div class="grid-3" style="margin-bottom: 0.85rem;">
+        <div><label class="field-label">Unit Price ($)</label><input type="number" step="0.01" name="unit_price" value="0" class="field-input"></div>
+        <div><label class="field-label">Quantity</label><input type="number" name="quantity" value="0" class="field-input"></div>
+        <div><label class="field-label">Low Stock At</label><input type="number" name="low_stock_threshold" value="5" class="field-input"></div>
+      </div>
+      <div style="margin-bottom: 1.25rem;"><label class="field-label">Description</label><input type="text" name="description" class="field-input"></div>
+      <button type="submit" class="btn-submit">Add Product</button>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Product Modal -->
+<div class="modal-overlay" id="editProductModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h3 style="margin: 0 0 1.25rem; font-weight: 800;">Edit Product</h3>
+    <form id="editProductForm" method="POST" action="">
+      {% csrf_token %}
+      <div style="margin-bottom: 0.85rem;"><label class="field-label">Name</label><input type="text" name="name" id="editProdName" required class="field-input"></div>
+      <div class="grid-2" style="margin-bottom: 0.85rem;">
+        <div><label class="field-label">SKU</label><input type="text" name="sku" id="editProdSku" class="field-input"></div>
+        <div><label class="field-label">Category</label><select name="category_id" id="editProdCategory" class="field-input"><option value="">— None —</option>{% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
+      </div>
+      <div class="grid-3" style="margin-bottom: 0.85rem;">
+        <div><label class="field-label">Unit Price ($)</label><input type="number" step="0.01" name="unit_price" id="editProdPrice" class="field-input"></div>
+        <div><label class="field-label">Quantity</label><input type="number" name="quantity" id="editProdQty" class="field-input"></div>
+        <div><label class="field-label">Low Stock At</label><input type="number" name="low_stock_threshold" id="editProdLow" class="field-input"></div>
+      </div>
+      <div style="margin-bottom: 0.85rem;"><label class="field-label">Description</label><input type="text" name="description" id="editProdDesc" class="field-input"></div>
+      <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.25rem; font-weight: 700; font-size: 0.88rem;"><input type="checkbox" name="is_active" id="editProdActive" value="1"> Active</label>
+      <button type="submit" class="btn-submit">Save Product</button>
+    </form>
+  </div>
+</div>
+
+<!-- Stock Adjust Modal -->
+<div class="modal-overlay" id="stockModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h3 style="margin: 0 0 1.25rem; font-weight: 800;" id="stockModalTitle">Adjust Stock</h3>
+    <form id="stockForm" method="POST" action="">
+      {% csrf_token %}
+      <div style="margin-bottom: 0.85rem;"><label class="field-label">Type</label>
+        <select name="movement_type" class="field-input">
+          <option value="receive">Stock Received (+)</option>
+          <option value="adjustment">Manual Adjustment (+/-)</option>
+          <option value="return">Return (+)</option>
+        </select>
+      </div>
+      <div style="margin-bottom: 0.85rem;"><label class="field-label">Quantity Change</label><input type="number" name="adjustment" required class="field-input" placeholder="Use negative to reduce"></div>
+      <div style="margin-bottom: 1.25rem;"><label class="field-label">Notes</label><input type="text" name="notes" class="field-input"></div>
+      <button type="submit" class="btn-submit">Update Stock</button>
+    </form>
+  </div>
+</div>
+
+<!-- Add Buyer Modal -->
+<div class="modal-overlay" id="addBuyerModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h3 style="margin: 0 0 1.25rem; font-weight: 800;">Add Buyer</h3>
+    <form method="POST" action="{% url 'add-inventory-buyer' card.id %}">
+      {% csrf_token %}
+      <div style="margin-bottom: 0.85rem;"><label class="field-label">Name</label><input type="text" name="name" required class="field-input"></div>
+      <div class="grid-2" style="margin-bottom: 0.85rem;">
+        <div><label class="field-label">Phone</label><input type="text" name="phone" class="field-input"></div>
+        <div><label class="field-label">Email</label><input type="email" name="email" class="field-input"></div>
+      </div>
+      <div style="margin-bottom: 1.25rem;"><label class="field-label">Notes</label><input type="text" name="notes" class="field-input"></div>
+      <button type="submit" class="btn-submit">Add Buyer</button>
+    </form>
+  </div>
+</div>
+
+<!-- Add Invoice Modal -->
+<div class="modal-overlay" id="addInvoiceModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box wide">
+    <h3 style="margin: 0 0 1.25rem; font-weight: 800;">New Sales Invoice</h3>
+    <form method="POST" action="{% url 'add-inventory-invoice' card.id %}">
+      {% csrf_token %}
+      <div class="grid-2" style="margin-bottom: 0.85rem;">
+        <div><label class="field-label">Buyer Name</label><input type="text" name="buyer_name" required class="field-input" list="buyerList" placeholder="Walk-in or buyer name"></div>
+        <div><label class="field-label">Existing Buyer</label><select name="buyer_id" class="field-input" onchange="fillBuyer(this)"><option value="">— New / walk-in —</option>{% for b in buyers %}<option value="{{ b.id }}" data-name="{{ b.name }}" data-phone="{{ b.phone }}" data-email="{{ b.email }}">{{ b.name }}</option>{% endfor %}</select></div>
+      </div>
+      <datalist id="buyerList">{% for b in buyers %}<option value="{{ b.name }}"></option>{% endfor %}</datalist>
+      <div class="grid-3" style="margin-bottom: 0.85rem;">
+        <div><label class="field-label">Phone</label><input type="text" name="buyer_phone" id="invBuyerPhone" class="field-input"></div>
+        <div><label class="field-label">Email</label><input type="email" name="buyer_email" id="invBuyerEmail" class="field-input"></div>
+        <div><label class="field-label">Invoice Date</label><input type="date" name="invoice_date" class="field-input"></div>
+      </div>
+      <div style="margin-bottom: 1rem;"><label class="field-label">Payment Method</label>
+        <select name="payment_method" class="field-input">
+          <option value="cash">Cash</option><option value="card">Credit/Debit Card</option><option value="zelle">Zelle</option><option value="check">Check</option><option value="other">Other</option>
+        </select>
+      </div>
+      <div style="margin-bottom: 0.5rem; font-weight: 800; font-size: 0.85rem; color: #334155;">Line Items <span style="font-weight: 600; color: #64748b;">(prices entered manually)</span></div>
+      <div id="invoiceLines">
+        <div class="inv-line-row">
+          <div><label class="field-label">Product / Description</label><select name="line_product_id" class="field-input line-product" onchange="fillLineFromProduct(this)"><option value="">Custom item</option>{% for p in products %}{% if p.is_active %}<option value="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.unit_price }}">{{ p.name }} (${{ p.unit_price }})</option>{% endif %}{% endfor %}</select><input type="text" name="line_description" class="field-input line-desc" style="margin-top:0.35rem;" placeholder="Description" required></div>
+          <div><label class="field-label">Qty</label><input type="number" name="line_quantity" value="1" min="1" class="field-input"></div>
+          <div><label class="field-label">Unit Price ($)</label><input type="number" step="0.01" name="line_unit_price" value="0" class="field-input"></div>
+          <div></div>
+        </div>
+      </div>
+      <button type="button" onclick="addInvoiceLine()" style="margin: 0.5rem 0 1rem; padding: 0.4rem 0.8rem; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.82rem;">+ Add Line</button>
+      <div style="margin-bottom: 1.25rem;"><label class="field-label">Notes</label><input type="text" name="notes" class="field-input"></div>
+      <button type="submit" class="btn-submit">Create Invoice & Deduct Stock</button>
+    </form>
+  </div>
+</div>
+
+<script>
+const productOptions = `{% for p in products %}{% if p.is_active %}<option value="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.unit_price }}">{{ p.name }} (${{ p.unit_price }})</option>{% endif %}{% endfor %}`;
+
+function switchInvTab(tab, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById('tab-' + tab);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  const url = new URL(window.location);
+  url.searchParams.set('tab', tab);
+  history.replaceState({}, '', url);
+}
+
+function editProduct(id) {
+  fetch('{% url "edit-inventory-product" 0 %}'.replace('/0/', '/' + id + '/'))
+    .then(r => r.json()).then(d => {
+      document.getElementById('editProductForm').action = '{% url "edit-inventory-product" 0 %}'.replace('/0/', '/' + id + '/');
+      document.getElementById('editProdName').value = d.name;
+      document.getElementById('editProdSku').value = d.sku;
+      document.getElementById('editProdDesc').value = d.description;
+      document.getElementById('editProdCategory').value = d.category_id;
+      document.getElementById('editProdPrice').value = d.unit_price;
+      document.getElementById('editProdQty').value = d.quantity;
+      document.getElementById('editProdLow').value = d.low_stock_threshold;
+      document.getElementById('editProdActive').checked = d.is_active;
+      document.getElementById('editProductModal').classList.add('active');
+    });
+}
+
+function openStockModal(id, name) {
+  document.getElementById('stockForm').action = '{% url "adjust-inventory-stock" 0 %}'.replace('/0/', '/' + id + '/');
+  document.getElementById('stockModalTitle').textContent = 'Adjust Stock: ' + name;
+  document.getElementById('stockModal').classList.add('active');
+}
+
+function fillBuyer(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt.dataset.name) return;
+  document.querySelector('[name=buyer_name]').value = opt.dataset.name;
+  document.getElementById('invBuyerPhone').value = opt.dataset.phone || '';
+  document.getElementById('invBuyerEmail').value = opt.dataset.email || '';
+}
+
+function fillLineFromProduct(sel) {
+  const row = sel.closest('.inv-line-row');
+  const opt = sel.options[sel.selectedIndex];
+  if (opt.value) {
+    row.querySelector('.line-desc').value = opt.dataset.name;
+    row.querySelector('[name=line_unit_price]').value = opt.dataset.price;
+  }
+}
+
+function addInvoiceLine() {
+  const wrap = document.getElementById('invoiceLines');
+  const row = document.createElement('div');
+  row.className = 'inv-line-row';
+  row.innerHTML = `
+    <div><select name="line_product_id" class="field-input line-product" onchange="fillLineFromProduct(this)"><option value="">Custom item</option>${productOptions}</select><input type="text" name="line_description" class="field-input line-desc" style="margin-top:0.35rem;" placeholder="Description" required></div>
+    <div><input type="number" name="line_quantity" value="1" min="1" class="field-input"></div>
+    <div><input type="number" step="0.01" name="line_unit_price" value="0" class="field-input"></div>
+    <div><button type="button" onclick="this.closest('.inv-line-row').remove()" style="padding:0.4rem; background:#fee2e2; border:none; border-radius:6px; cursor:pointer; color:#dc2626; font-weight:700;">×</button></div>`;
+  wrap.appendChild(row);
+}
+</script>
+{% endblock %}
