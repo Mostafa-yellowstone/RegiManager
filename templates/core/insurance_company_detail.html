@@ -95,7 +95,8 @@
       <div class="metric-card"><div class="metric-label">Pending</div><div class="metric-value" style="color: #b45309;">{{ pending_count }}</div></div>
       <div class="metric-card"><div class="metric-label">Rejected</div><div class="metric-value" style="color: var(--red);">{{ rejected_count }}</div></div>
       <div class="metric-card"><div class="metric-label">Total Premium</div><div class="metric-value" style="color: var(--blue); font-size: 1.4rem;">${{ total_premium|floatformat:2 }}</div></div>
-      <div class="metric-card"><div class="metric-label">Earned Commission</div><div class="metric-value" style="color: var(--green); font-size: 1.4rem;">${{ total_commission|floatformat:2 }}</div></div>
+      <div class="metric-card"><div class="metric-label">Earned Commission</div><div class="metric-value" style="color: var(--green); font-size: 1.4rem;">${{ total_commission|floatformat:2 }}</div><div style="font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem;">Outstanding balance</div></div>
+      <div class="metric-card"><div class="metric-label">Received Commission</div><div class="metric-value" style="color: #7c3aed; font-size: 1.4rem;">${{ total_received_commission|floatformat:2 }}</div><div style="font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem;">Commission payments logged</div></div>
       <div class="metric-card"><div class="metric-label">Unearned (Return)</div><div class="metric-value" style="color: var(--red); font-size: 1.4rem;">${{ total_unearned|floatformat:2 }}</div></div>
     </div>
 
