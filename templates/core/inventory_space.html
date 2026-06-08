@@ -67,6 +67,7 @@
       <button class="tab-btn {% if active_tab == 'dashboard' %}active{% endif %}" onclick="switchInvTab('dashboard', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">📊 Dashboard</button>
       <button class="tab-btn {% if active_tab == 'categories' %}active{% endif %}" onclick="switchInvTab('categories', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🏷️ Categories</button>
       <button class="tab-btn {% if active_tab == 'products' %}active{% endif %}" onclick="switchInvTab('products', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">📦 Products</button>
+      <button class="tab-btn {% if active_tab == 'suppliers' %}active{% endif %}" onclick="switchInvTab('suppliers', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🏭 Suppliers</button>
       <button class="tab-btn {% if active_tab == 'buyers' %}active{% endif %}" onclick="switchInvTab('buyers', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">👤 Buyers</button>
       <button class="tab-btn {% if active_tab == 'invoices' %}active{% endif %}" onclick="switchInvTab('invoices', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🧾 Invoices</button>
       <button class="tab-btn {% if active_tab == 'reports' %}active{% endif %}" onclick="switchInvTab('reports', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">📈 Reports</button>
@@ -79,6 +80,7 @@
         <div class="spaces-metric"><div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Sales This Month</div><div style="font-size: 1.5rem; font-weight: 900; color: #0f172a;">${{ stats.sales_month_total|floatformat:2 }}</div><div style="font-size: 0.78rem; color: #94a3b8;">{{ stats.sales_month_count }} invoice{{ stats.sales_month_count|pluralize }}</div></div>
         <div class="spaces-metric"><div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Buyers</div><div style="font-size: 1.5rem; font-weight: 900; color: #0f172a;">{{ stats.buyer_count }}</div><div style="font-size: 0.78rem; color: #94a3b8;">Separate from main clients</div></div>
         <div class="spaces-metric"><div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Completed Invoices</div><div style="font-size: 1.5rem; font-weight: 900; color: #0f172a;">{{ stats.invoice_count }}</div></div>
+        <div class="spaces-metric"><div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Supplier Spend</div><div style="font-size: 1.5rem; font-weight: 900; color: #b45309;">${{ stats.total_supplier_spend|floatformat:2 }}</div><div style="font-size: 0.78rem; color: #94a3b8;">{{ stats.supplier_count }} supplier{{ stats.supplier_count|pluralize }}</div></div>
       </div>
       {% if stats.low_stock_products %}
       <div style="background: white; border-radius: 16px; border: 1px solid #fecaca; padding: 1.25rem; margin-bottom: 1.5rem;">
@@ -154,14 +156,18 @@
       </div>
       <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow-x: auto;">
         <table class="spaces-table">
-          <thead><tr><th>Product</th><th>SKU</th><th>Category</th><th>Unit Price</th><th>Qty</th><th>Value</th><th>Stock</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Product</th><th>SKU</th><th>Category</th><th>Cost</th><th>Sell</th><th>Profit</th><th>Margin</th><th>Supplier</th><th>Qty</th><th>Value</th><th>Stock</th><th>Actions</th></tr></thead>
           <tbody>
             {% for p in products %}
             <tr>
               <td style="font-weight: 800;">{{ p.name }}</td>
               <td style="font-family: monospace; font-size: 0.8rem; color: #64748b;">{{ p.sku|default:"—" }}</td>
               <td>{{ p.category.name|default:"—" }}</td>
+              <td style="color: #b45309;">${{ p.cost_price|floatformat:2 }}</td>
               <td>${{ p.unit_price|floatformat:2 }}</td>
+              <td style="color: {% if p.unit_profit >= 0 %}#16a34a{% else %}#dc2626{% endif %}; font-weight: 800;">${{ p.unit_profit|floatformat:2 }}</td>
+              <td>{{ p.margin_percent|floatformat:1 }}%</td>
+              <td style="font-size: 0.8rem;">{{ p.primary_supplier.name|default:"—" }}</td>
               <td style="font-weight: 800;">{{ p.quantity }}</td>
               <td style="color: #0d9488; font-weight: 800;">${{ p.total_value|floatformat:2 }}</td>
               <td>{% if p.quantity <= p.low_stock_threshold %}<span class="chip-low">Low</span>{% else %}<span class="chip-ok">OK</span>{% endif %}</td>
@@ -174,11 +180,16 @@
               </td>
             </tr>
             {% empty %}
-            <tr><td colspan="8" style="text-align: center; padding: 3rem; color: #94a3b8;">No products yet.</td></tr>
+            <tr><td colspan="12" style="text-align: center; padding: 3rem; color: #94a3b8;">No products yet.</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
+    </div>
+
+    <!-- SUPPLIERS -->
+    <div id="tab-suppliers" class="tab-panel {% if active_tab == 'suppliers' %}active{% endif %}">
+      {% include "core/partials/inventory_suppliers_tab.html" %}
     </div>
 
     <!-- BUYERS -->
@@ -328,10 +339,14 @@
         <div><label class="field-label">SKU</label><input type="text" name="sku" class="field-input"></div>
         <div><label class="field-label">Category</label><select name="category_id" class="field-input"><option value="">— None —</option>{% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
       </div>
-      <div class="grid-3" style="margin-bottom: 0.85rem;">
-        <div><label class="field-label">Unit Price ($)</label><input type="number" step="0.01" name="unit_price" value="0" class="field-input"></div>
-        <div><label class="field-label">Quantity</label><input type="number" name="quantity" value="0" class="field-input"></div>
+      <div class="grid-2" style="margin-bottom: 0.85rem;">
+        <div><label class="field-label">Supplier</label><select name="primary_supplier_id" class="field-input"><option value="">— None —</option>{% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></div>
         <div><label class="field-label">Low Stock At</label><input type="number" name="low_stock_threshold" value="5" class="field-input"></div>
+      </div>
+      <div class="grid-3" style="margin-bottom: 0.85rem;">
+        <div><label class="field-label">Cost Price ($)</label><input type="number" step="0.01" name="cost_price" value="0" class="field-input"></div>
+        <div><label class="field-label">Sell Price ($)</label><input type="number" step="0.01" name="unit_price" value="0" class="field-input"></div>
+        <div><label class="field-label">Quantity</label><input type="number" name="quantity" value="0" class="field-input"></div>
       </div>
       <div style="margin-bottom: 1.25rem;"><label class="field-label">Description</label><input type="text" name="description" class="field-input"></div>
       <button type="submit" class="btn-submit">Add Product</button>
@@ -350,11 +365,13 @@
         <div><label class="field-label">SKU</label><input type="text" name="sku" id="editProdSku" class="field-input"></div>
         <div><label class="field-label">Category</label><select name="category_id" id="editProdCategory" class="field-input"><option value="">— None —</option>{% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
       </div>
+      <div style="margin-bottom: 0.85rem;"><label class="field-label">Supplier</label><select name="primary_supplier_id" id="editProdSupplier" class="field-input"><option value="">— None —</option>{% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select></div>
       <div class="grid-3" style="margin-bottom: 0.85rem;">
-        <div><label class="field-label">Unit Price ($)</label><input type="number" step="0.01" name="unit_price" id="editProdPrice" class="field-input"></div>
+        <div><label class="field-label">Cost Price ($)</label><input type="number" step="0.01" name="cost_price" id="editProdCost" class="field-input"></div>
+        <div><label class="field-label">Sell Price ($)</label><input type="number" step="0.01" name="unit_price" id="editProdPrice" class="field-input"></div>
         <div><label class="field-label">Quantity</label><input type="number" name="quantity" id="editProdQty" class="field-input"></div>
-        <div><label class="field-label">Low Stock At</label><input type="number" name="low_stock_threshold" id="editProdLow" class="field-input"></div>
       </div>
+      <div style="margin-bottom: 0.85rem;"><label class="field-label">Low Stock At</label><input type="number" name="low_stock_threshold" id="editProdLow" class="field-input"></div>
       <div style="margin-bottom: 0.85rem;"><label class="field-label">Description</label><input type="text" name="description" id="editProdDesc" class="field-input"></div>
       <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.25rem; font-weight: 700; font-size: 0.88rem;"><input type="checkbox" name="is_active" id="editProdActive" value="1"> Active</label>
       <button type="submit" class="btn-submit">Save Product</button>
@@ -378,6 +395,54 @@
       <div style="margin-bottom: 0.85rem;"><label class="field-label">Quantity Change</label><input type="number" name="adjustment" required class="field-input" placeholder="Use negative to reduce"></div>
       <div style="margin-bottom: 1.25rem;"><label class="field-label">Notes</label><input type="text" name="notes" class="field-input"></div>
       <button type="submit" class="btn-submit">Update Stock</button>
+    </form>
+  </div>
+</div>
+
+<!-- Add Supplier Modal -->
+<div class="modal-overlay" id="addSupplierModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h3 style="margin: 0 0 1.25rem; font-weight: 800;">Add Supplier</h3>
+    <form method="POST" action="{% url 'add-inventory-supplier' card.id %}">
+      {% csrf_token %}
+      <div style="margin-bottom: 0.85rem;"><label class="field-label">Supplier Name</label><input type="text" name="name" required class="field-input"></div>
+      <div class="grid-2" style="margin-bottom: 0.85rem;">
+        <div><label class="field-label">Company</label><input type="text" name="company_name" class="field-input"></div>
+        <div><label class="field-label">Contact Person</label><input type="text" name="contact_person" class="field-input"></div>
+      </div>
+      <div class="grid-2" style="margin-bottom: 0.85rem;">
+        <div><label class="field-label">Phone</label><input type="text" name="phone" class="field-input"></div>
+        <div><label class="field-label">Email</label><input type="email" name="email" class="field-input"></div>
+      </div>
+      <div style="margin-bottom: 0.85rem;"><label class="field-label">Address</label><textarea name="address" class="field-input" rows="2"></textarea></div>
+      <div style="margin-bottom: 1.25rem;"><label class="field-label">Notes</label><input type="text" name="notes" class="field-input"></div>
+      <button type="submit" class="btn-submit">Add Supplier</button>
+    </form>
+  </div>
+</div>
+
+<!-- Record Purchase Modal -->
+<div class="modal-overlay" id="addPurchaseModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box wide">
+    <h3 style="margin: 0 0 1.25rem; font-weight: 800;">Record Supplier Purchase</h3>
+    <form method="POST" action="{% url 'add-inventory-purchase' card.id %}">
+      {% csrf_token %}
+      <div class="grid-2" style="margin-bottom: 0.85rem;">
+        <div><label class="field-label">Supplier</label><select name="supplier_id" required class="field-input">{% for s in suppliers %}<option value="{{ s.id }}">{{ s.name }}</option>{% empty %}<option value="">Add a supplier first</option>{% endfor %}</select></div>
+        <div><label class="field-label">Purchase Date</label><input type="date" name="purchase_date" class="field-input"></div>
+      </div>
+      <div style="margin-bottom: 0.5rem; font-weight: 800; font-size: 0.85rem;">Received Items</div>
+      <div id="purchaseLines">
+        <div class="inv-line-row" style="grid-template-columns: 2fr 0.7fr 1fr 40px;">
+          <div><select name="line_product_id" class="field-input line-product" onchange="fillPurchaseLine(this)"><option value="">Select product</option>{% for p in products %}{% if p.is_active %}<option value="{{ p.id }}" data-name="{{ p.name }}">{{ p.name }}</option>{% endif %}{% endfor %}</select><input type="text" name="line_description" class="field-input line-desc" style="margin-top:0.35rem;" placeholder="Description" required></div>
+          <div><label class="field-label">Qty</label><input type="number" name="line_quantity" value="1" min="1" class="field-input"></div>
+          <div><label class="field-label">Unit Cost ($)</label><input type="number" step="0.01" name="line_unit_cost" value="0" class="field-input"></div>
+          <div></div>
+        </div>
+      </div>
+      <button type="button" onclick="addPurchaseLine()" style="margin: 0.5rem 0 1rem; padding: 0.4rem 0.8rem; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.82rem;">+ Add Line</button>
+      <div style="margin-bottom: 1.25rem;"><label class="field-label">Notes</label><input type="text" name="notes" class="field-input"></div>
+      <button type="submit" class="btn-submit">Receive Stock & Update Costs</button>
     </form>
   </div>
 </div>
@@ -460,7 +525,9 @@ function editProduct(id) {
       document.getElementById('editProdSku').value = d.sku;
       document.getElementById('editProdDesc').value = d.description;
       document.getElementById('editProdCategory').value = d.category_id;
+      document.getElementById('editProdCost').value = d.cost_price;
       document.getElementById('editProdPrice').value = d.unit_price;
+      document.getElementById('editProdSupplier').value = d.primary_supplier_id;
       document.getElementById('editProdQty').value = d.quantity;
       document.getElementById('editProdLow').value = d.low_stock_threshold;
       document.getElementById('editProdActive').checked = d.is_active;
@@ -481,6 +548,27 @@ function fillBuyer(sel) {
   document.getElementById('invBuyerPhone').value = opt.dataset.phone || '';
   document.getElementById('invBuyerEmail').value = opt.dataset.email || '';
   document.getElementById('invBuyerAddress').value = opt.dataset.address || '';
+}
+
+const purchaseProductOptions = `{% for p in products %}{% if p.is_active %}<option value="{{ p.id }}" data-name="{{ p.name }}">{{ p.name }}</option>{% endif %}{% endfor %}`;
+
+function fillPurchaseLine(sel) {
+  const row = sel.closest('.inv-line-row');
+  const opt = sel.options[sel.selectedIndex];
+  if (opt.value) row.querySelector('.line-desc').value = opt.dataset.name;
+}
+
+function addPurchaseLine() {
+  const wrap = document.getElementById('purchaseLines');
+  const row = document.createElement('div');
+  row.className = 'inv-line-row';
+  row.style.gridTemplateColumns = '2fr 0.7fr 1fr 40px';
+  row.innerHTML = `
+    <div><select name="line_product_id" class="field-input line-product" onchange="fillPurchaseLine(this)"><option value="">Select product</option>${purchaseProductOptions}</select><input type="text" name="line_description" class="field-input line-desc" style="margin-top:0.35rem;" placeholder="Description" required></div>
+    <div><input type="number" name="line_quantity" value="1" min="1" class="field-input"></div>
+    <div><input type="number" step="0.01" name="line_unit_cost" value="0" class="field-input"></div>
+    <div><button type="button" onclick="this.closest('.inv-line-row').remove()" style="padding:0.4rem; background:#fee2e2; border:none; border-radius:6px; cursor:pointer; color:#dc2626; font-weight:700;">×</button></div>`;
+  wrap.appendChild(row);
 }
 
 function fillLineFromProduct(sel) {

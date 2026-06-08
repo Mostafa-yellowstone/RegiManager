@@ -140,6 +140,9 @@ from core.inventory_views import (
     delete_inventory_invoice,
     inventory_invoice_pdf,
     export_inventory_report,
+    add_inventory_supplier,
+    delete_inventory_supplier,
+    add_inventory_purchase,
 )
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from core.api import ClientViewSet, VehicleViewSet, ServiceRecordViewSet
@@ -280,6 +283,9 @@ urlpatterns = [
     path("dashboard/spaces/inventory/invoice/<int:invoice_id>/delete/", delete_inventory_invoice, name="delete-inventory-invoice"),
     path("dashboard/spaces/inventory/invoice/<int:invoice_id>/pdf/", inventory_invoice_pdf, name="inventory-invoice-pdf"),
     path("dashboard/spaces/inventory/<int:space_id>/report/", export_inventory_report, name="export-inventory-report"),
+    path("dashboard/spaces/inventory/<int:space_id>/supplier/add/", add_inventory_supplier, name="add-inventory-supplier"),
+    path("dashboard/spaces/inventory/supplier/<int:supplier_id>/delete/", delete_inventory_supplier, name="delete-inventory-supplier"),
+    path("dashboard/spaces/inventory/<int:space_id>/purchase/add/", add_inventory_purchase, name="add-inventory-purchase"),
 ]
 
 

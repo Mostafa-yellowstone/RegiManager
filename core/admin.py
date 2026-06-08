@@ -9,7 +9,8 @@ from .models import (
     Space, Referral, ReferralPayment,
     UserSession, ServiceDocument, KnowledgeHubMaterial,
     InventoryBuyer, InventoryCategory, InventoryInvoice,
-    InventoryProduct, InventoryStockMovement,
+    InventoryProduct, InventoryPurchase, InventoryPurchaseLine,
+    InventoryStockMovement, InventorySupplier,
 )
 
 
@@ -207,6 +208,22 @@ class InventoryInvoiceAdmin(admin.ModelAdmin):
 @admin.register(InventoryStockMovement)
 class InventoryStockMovementAdmin(admin.ModelAdmin):
     list_display = ("product", "movement_type", "quantity_change", "quantity_after", "created_at")
+
+
+@admin.register(InventorySupplier)
+class InventorySupplierAdmin(admin.ModelAdmin):
+    list_display = ("name", "company_name", "space", "is_active")
+    list_filter = ("organization", "is_active")
+
+
+@admin.register(InventoryPurchase)
+class InventoryPurchaseAdmin(admin.ModelAdmin):
+    list_display = ("purchase_number", "supplier", "purchase_date", "total_cost", "space")
+
+
+@admin.register(InventoryPurchaseLine)
+class InventoryPurchaseLineAdmin(admin.ModelAdmin):
+    list_display = ("purchase", "description", "quantity", "unit_cost", "line_total")
 
 
 @admin.register(ServiceDocument)

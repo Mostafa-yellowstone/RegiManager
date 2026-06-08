@@ -24,13 +24,23 @@ from .inventory_crm import (
     recalculate_invoice_totals,
     record_stock_movement,
 )
+from .inventory_suppliers import (
+    apply_purchase_receipt,
+    enrich_product_profit,
+    generate_purchase_number,
+    recalculate_purchase_totals,
+    supplier_dashboard_data,
+)
 from .models import (
     InventoryBuyer,
     InventoryCategory,
     InventoryInvoice,
     InventoryInvoiceLine,
     InventoryProduct,
+    InventoryPurchase,
+    InventoryPurchaseLine,
     InventoryStockMovement,
+    InventorySupplier,
     OrganizationMembership,
     Space,
 )
@@ -65,9 +75,9 @@ def build_inventory_space_context(request, card, is_owner, membership):
     stats = inventory_dashboard_stats(card)
     cat_stats = category_stats(card)
 
-    products = (
+    products_qs = (
         InventoryProduct.objects.filter(space=card)
-        .select_related("category")
+        .select_related("category", "primary_supplier")
         .order_by("category__name", "name")
     )
     categories = InventoryCategory.objects.filter(space=card).order_by("name")
@@ -87,11 +97,17 @@ def build_inventory_space_context(request, card, is_owner, membership):
     product_filter = request.GET.get("product_q", "").strip()
     category_filter = request.GET.get("category_id", "").strip()
     if product_filter:
-        products = products.filter(
+        products_qs = products_qs.filter(
             Q(name__icontains=product_filter) | Q(sku__icontains=product_filter)
         )
     if category_filter.isdigit():
-        products = products.filter(category_id=int(category_filter))
+        products_qs = products_qs.filter(category_id=int(category_filter))
+    products = list(products_qs)
+    for p in products:
+        enrich_product_profit(p)
+
+    supplier_data = supplier_dashboard_data(card)
+    suppliers = InventorySupplier.objects.filter(space=card, is_active=True).order_by("name")
 
     return {
         "card": card,
@@ -107,6 +123,8 @@ def build_inventory_space_context(request, card, is_owner, membership):
         "recent_movements": recent_movements,
         "product_filter": product_filter,
         "category_filter": category_filter,
+        "suppliers": suppliers,
+        **supplier_data,
     }
 
 
@@ -170,6 +188,11 @@ def add_inventory_product(request, space_id):
     if category_id.isdigit():
         category = InventoryCategory.objects.filter(space=space, id=int(category_id)).first()
 
+    supplier = None
+    supplier_id = request.POST.get("primary_supplier_id", "").strip()
+    if supplier_id.isdigit():
+        supplier = InventorySupplier.objects.filter(space=space, id=int(supplier_id)).first()
+
     try:
         InventoryProduct.objects.create(
             organization=space.organization,
@@ -179,6 +202,8 @@ def add_inventory_product(request, space_id):
             sku=request.POST.get("sku", "").strip(),
             description=request.POST.get("description", "").strip(),
             unit_price=Decimal(request.POST.get("unit_price", "0") or "0"),
+            cost_price=Decimal(request.POST.get("cost_price", "0") or "0"),
+            primary_supplier=supplier,
             quantity=int(request.POST.get("quantity", "0") or 0),
             low_stock_threshold=int(request.POST.get("low_stock_threshold", "5") or 5),
         )
@@ -210,6 +235,8 @@ def edit_inventory_product(request, product_id):
             "description": product.description,
             "category_id": product.category_id or "",
             "unit_price": str(product.unit_price),
+            "cost_price": str(product.cost_price),
+            "primary_supplier_id": product.primary_supplier_id or "",
             "quantity": product.quantity,
             "low_stock_threshold": product.low_stock_threshold,
             "is_active": product.is_active,
@@ -231,6 +258,13 @@ def edit_inventory_product(request, product_id):
         product.description = request.POST.get("description", "").strip()
         product.category = category
         product.unit_price = Decimal(request.POST.get("unit_price", "0") or "0")
+        product.cost_price = Decimal(request.POST.get("cost_price", "0") or "0")
+        supplier_id = request.POST.get("primary_supplier_id", "").strip()
+        product.primary_supplier = (
+            InventorySupplier.objects.filter(space=space, id=int(supplier_id)).first()
+            if supplier_id.isdigit()
+            else None
+        )
         product.quantity = int(request.POST.get("quantity", "0") or 0)
         product.low_stock_threshold = int(request.POST.get("low_stock_threshold", "5") or 5)
         product.is_active = request.POST.get("is_active") in ("1", "on", "true")
@@ -542,16 +576,20 @@ def export_inventory_report(request, space_id):
             ["Phone", space.business_phone],
             ["Email", space.business_email],
             [],
-            ["Product", "SKU", "Category", "Unit Price", "Quantity", "Total Value", "Low Stock Alert"],
+            ["Product", "SKU", "Category", "Cost", "Sell Price", "Unit Profit", "Qty", "Retail Value", "Supplier", "Low Stock"],
         ]
-        for p in InventoryProduct.objects.filter(space=space).select_related("category").order_by("name"):
+        for p in InventoryProduct.objects.filter(space=space).select_related("category", "primary_supplier").order_by("name"):
+            enrich_product_profit(p)
             rows.append([
                 p.name,
                 p.sku,
                 p.category.name if p.category else "",
+                f"{p.cost_price:.2f}",
                 f"{p.unit_price:.2f}",
+                f"{p.unit_profit:.2f}",
                 str(p.quantity),
                 f"{p.unit_price * p.quantity:.2f}",
+                p.primary_supplier.name if p.primary_supplier else "",
                 "YES" if p.quantity <= p.low_stock_threshold else "NO",
             ])
         rows.extend([
@@ -568,3 +606,127 @@ def export_inventory_report(request, space_id):
     for row in rows:
         writer.writerow(row)
     return response
+
+
+@login_required
+@require_POST
+def add_inventory_supplier(request, space_id):
+    space, is_owner, membership = _resolve_space_access(request, space_id)
+    if not space:
+        return HttpResponseForbidden("Access denied.")
+
+    name = request.POST.get("name", "").strip()
+    if not name:
+        messages.error(request, "Supplier name is required.")
+        return redirect(f"/dashboard/inventory/{space.id}/?tab=suppliers")
+
+    InventorySupplier.objects.create(
+        organization=space.organization,
+        space=space,
+        name=name,
+        company_name=request.POST.get("company_name", "").strip(),
+        contact_person=request.POST.get("contact_person", "").strip(),
+        phone=request.POST.get("phone", "").strip(),
+        email=request.POST.get("email", "").strip(),
+        address=request.POST.get("address", "").strip(),
+        notes=request.POST.get("notes", "").strip(),
+    )
+    messages.success(request, f"Supplier '{name}' added.")
+    return redirect(f"/dashboard/inventory/{space.id}/?tab=suppliers")
+
+
+@login_required
+def delete_inventory_supplier(request, supplier_id):
+    organizations = _get_user_organizations(request)
+    supplier = get_object_or_404(
+        InventorySupplier,
+        id=supplier_id,
+        organization__in=organizations,
+        space__key="custom_inventory",
+    )
+    space = supplier.space
+    name = supplier.name
+    supplier.is_active = False
+    supplier.save(update_fields=["is_active", "updated_at"])
+    messages.success(request, f"Supplier '{name}' archived.")
+    return redirect(f"/dashboard/inventory/{space.id}/?tab=suppliers")
+
+
+@login_required
+@require_POST
+def add_inventory_purchase(request, space_id):
+    space, is_owner, membership = _resolve_space_access(request, space_id)
+    if not space:
+        return HttpResponseForbidden("Access denied.")
+
+    supplier_id = request.POST.get("supplier_id", "").strip()
+    if not supplier_id.isdigit():
+        messages.error(request, "Select a supplier.")
+        return redirect(f"/dashboard/inventory/{space.id}/?tab=suppliers")
+
+    supplier = get_object_or_404(InventorySupplier, id=int(supplier_id), space=space)
+    purchase_date_str = request.POST.get("purchase_date", "").strip()
+    try:
+        purchase_date = (
+            dt_parse.strptime(purchase_date_str, "%Y-%m-%d").date()
+            if purchase_date_str
+            else timezone.localdate()
+        )
+    except ValueError:
+        purchase_date = timezone.localdate()
+
+    descriptions = request.POST.getlist("line_description")
+    quantities = request.POST.getlist("line_quantity")
+    unit_costs = request.POST.getlist("line_unit_cost")
+    product_ids = request.POST.getlist("line_product_id")
+
+    try:
+        with transaction.atomic():
+            purchase = InventoryPurchase.objects.create(
+                organization=space.organization,
+                space=space,
+                supplier=supplier,
+                purchase_number=generate_purchase_number(space.organization),
+                purchase_date=purchase_date,
+                notes=request.POST.get("notes", "").strip(),
+                created_by=request.user,
+            )
+
+            for i, desc in enumerate(descriptions):
+                desc = desc.strip()
+                if not desc:
+                    continue
+                try:
+                    qty = int(quantities[i] if i < len(quantities) else 1)
+                    cost = Decimal(unit_costs[i] if i < len(unit_costs) else "0")
+                except (InvalidOperation, ValueError, IndexError):
+                    continue
+                if qty <= 0:
+                    continue
+
+                product = None
+                pid = product_ids[i] if i < len(product_ids) else ""
+                if str(pid).isdigit():
+                    product = InventoryProduct.objects.filter(space=space, id=int(pid)).first()
+
+                InventoryPurchaseLine.objects.create(
+                    purchase=purchase,
+                    product=product,
+                    description=desc,
+                    quantity=qty,
+                    unit_cost=cost,
+                )
+
+            if not purchase.lines.exists():
+                purchase.delete()
+                messages.error(request, "Add at least one valid purchase line.")
+                return redirect(f"/dashboard/inventory/{space.id}/?tab=suppliers")
+
+            recalculate_purchase_totals(purchase)
+            apply_purchase_receipt(purchase, user=request.user)
+
+        messages.success(request, f"Purchase {purchase.purchase_number} recorded — stock updated.")
+    except Exception as e:
+        messages.error(request, f"Error recording purchase: {e}")
+
+    return redirect(f"/dashboard/inventory/{space.id}/?tab=suppliers")

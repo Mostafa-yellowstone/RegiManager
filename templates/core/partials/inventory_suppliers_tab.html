@@ -1,0 +1,87 @@
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+  <div>
+    <h3 style="margin: 0; font-weight: 800;">Suppliers</h3>
+    <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: #64748b;">Track vendors, purchase costs, and per-product profitability.</p>
+  </div>
+  <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    <button type="button" onclick="document.getElementById('addSupplierModal').classList.add('active')" style="padding: 8px 16px; background: white; color: #0f766e; border: 1.5px solid #99f6e4; border-radius: 8px; font-weight: 700; cursor: pointer;">+ Add Supplier</button>
+    <button type="button" onclick="document.getElementById('addPurchaseModal').classList.add('active')" style="padding: 8px 16px; background: #0d9488; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">📥 Record Purchase</button>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+  <div class="spaces-metric"><div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Active Suppliers</div><div style="font-size: 1.4rem; font-weight: 900;">{{ supplier_count }}</div></div>
+  <div class="spaces-metric"><div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Total Spend</div><div style="font-size: 1.4rem; font-weight: 900; color: #b45309;">${{ total_supplier_spend|floatformat:2 }}</div></div>
+</div>
+
+{% for sc in supplier_cards %}
+<div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; margin-bottom: 1.25rem; overflow: hidden;">
+  <div style="padding: 1.15rem 1.35rem; background: linear-gradient(90deg, #f0fdfa, #fff); border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.75rem;">
+    <div>
+      <h4 style="margin: 0 0 0.25rem; font-weight: 800; color: #0f172a;">{{ sc.supplier.name }}</h4>
+      {% if sc.supplier.company_name %}<div style="font-size: 0.82rem; color: #64748b;">{{ sc.supplier.company_name }}</div>{% endif %}
+      {% if sc.supplier.contact_person %}<div style="font-size: 0.78rem; color: #94a3b8;">Contact: {{ sc.supplier.contact_person }}</div>{% endif %}
+    </div>
+    <div style="display: flex; gap: 1.25rem; text-align: right; flex-wrap: wrap;">
+      <div><div style="font-size: 0.68rem; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Spent</div><div style="font-weight: 900; color: #b45309;">${{ sc.total_spent|floatformat:2 }}</div></div>
+      <div><div style="font-size: 0.68rem; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Products</div><div style="font-weight: 900;">{{ sc.product_count }}</div></div>
+      <div><div style="font-size: 0.68rem; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Potential Profit</div><div style="font-weight: 900; color: #16a34a;">${{ sc.potential_profit|floatformat:2 }}</div></div>
+      <a href="{% url 'delete-inventory-supplier' sc.supplier.id %}" onclick="return confirm('Archive this supplier?')" style="color: #dc2626; font-size: 0.75rem; font-weight: 700; text-decoration: none; align-self: center;">Archive</a>
+    </div>
+  </div>
+  {% if sc.supplier.address or sc.supplier.phone %}
+  <div style="padding: 0.65rem 1.35rem; font-size: 0.8rem; color: #64748b; border-bottom: 1px solid #f1f5f9;">
+    {% if sc.supplier.address %}{{ sc.supplier.address|linebreaksbr }}{% endif %}
+    {% if sc.supplier.phone %} · {{ sc.supplier.phone }}{% endif %}
+    {% if sc.supplier.email %} · {{ sc.supplier.email }}{% endif %}
+  </div>
+  {% endif %}
+  {% if sc.products %}
+  <div style="overflow-x: auto;">
+    <table class="spaces-table">
+      <thead><tr><th>Product</th><th>Cost</th><th>Sell Price</th><th>Unit Profit</th><th>Margin</th><th>Qty</th><th>Stock Profit</th></tr></thead>
+      <tbody>
+        {% for p in sc.products %}
+        <tr>
+          <td style="font-weight: 800;">{{ p.name }}</td>
+          <td>${{ p.cost_price|floatformat:2 }}</td>
+          <td>${{ p.unit_price|floatformat:2 }}</td>
+          <td style="color: {% if p.unit_profit >= 0 %}#16a34a{% else %}#dc2626{% endif %}; font-weight: 800;">${{ p.unit_profit|floatformat:2 }}</td>
+          <td>{{ p.margin_percent|floatformat:1 }}%</td>
+          <td>{{ p.quantity }}</td>
+          <td style="font-weight: 800; color: #0f766e;">${{ p.potential_profit|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="padding: 1.25rem; text-align: center; color: #94a3b8; font-size: 0.88rem;">No products linked yet — record a purchase to assign stock and costs.</div>
+  {% endif %}
+</div>
+{% empty %}
+<div style="text-align: center; padding: 3rem; background: white; border-radius: 16px; border: 1px solid #e2e8f0; color: #94a3b8;">No suppliers yet. Add your first vendor to start tracking purchases and margins.</div>
+{% endfor %}
+
+<h4 style="margin: 1.5rem 0 1rem; font-weight: 800;">Recent Purchases</h4>
+<div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow-x: auto;">
+  <table class="spaces-table">
+    <thead><tr><th>PO #</th><th>Date</th><th>Supplier</th><th>Items</th><th>Total Cost</th><th>Lines</th></tr></thead>
+    <tbody>
+      {% for po in recent_purchases %}
+      <tr>
+        <td style="font-family: monospace; font-weight: 800; color: #b45309;">{{ po.purchase_number }}</td>
+        <td>{{ po.purchase_date|date:"M j, Y" }}</td>
+        <td style="font-weight: 700;">{{ po.supplier.name }}</td>
+        <td>{{ po.lines.count }}</td>
+        <td style="font-weight: 900;">${{ po.total_cost|floatformat:2 }}</td>
+        <td style="font-size: 0.78rem; color: #64748b;">
+          {% for line in po.lines.all %}{{ line.description }} ({{ line.quantity }}×${{ line.unit_cost|floatformat:2 }}){% if not forloop.last %}; {% endif %}{% endfor %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" style="text-align: center; padding: 2rem; color: #94a3b8;">No purchases recorded yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

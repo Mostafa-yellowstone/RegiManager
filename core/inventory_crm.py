@@ -13,7 +13,9 @@ from .models import (
     InventoryInvoice,
     InventoryInvoiceLine,
     InventoryProduct,
+    InventoryPurchase,
     InventoryStockMovement,
+    InventorySupplier,
 )
 
 
@@ -116,6 +118,13 @@ def inventory_dashboard_stats(space):
         "category_count": InventoryCategory.objects.filter(space=space).count(),
         "buyer_count": InventoryBuyer.objects.filter(space=space).count(),
         "invoice_count": invoices_qs.count(),
+        "supplier_count": InventorySupplier.objects.filter(space=space, is_active=True).count(),
+        "total_supplier_spend": (
+            InventoryPurchase.objects.filter(space=space).aggregate(
+                total=Coalesce(Sum("total_cost"), Decimal("0.00"))
+            )["total"]
+            or Decimal("0.00")
+        ),
     }
 
 

@@ -1021,6 +1021,19 @@ class InventoryProduct(models.Model):
     sku = models.CharField(max_length=80, blank=True, default="")
     description = models.TextField(blank=True, default="")
     unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    cost_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Last unit cost from supplier",
+    )
+    primary_supplier = models.ForeignKey(
+        "InventorySupplier",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="products",
+    )
     quantity = models.IntegerField(default=0)
     low_stock_threshold = models.IntegerField(default=5)
     is_active = models.BooleanField(default=True)
@@ -1157,6 +1170,77 @@ class InventoryStockMovement(models.Model):
 
     def __str__(self):
         return f"{self.product.name}: {self.quantity_change:+d}"
+
+
+class InventorySupplier(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="inventory_suppliers")
+    space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="inventory_suppliers")
+    name = models.CharField(max_length=200)
+    company_name = models.CharField(max_length=200, blank=True, default="")
+    contact_person = models.CharField(max_length=120, blank=True, default="")
+    phone = models.CharField(max_length=40, blank=True, default="")
+    email = models.EmailField(blank=True, default="")
+    address = models.TextField(blank=True, default="")
+    notes = models.TextField(blank=True, default="")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class InventoryPurchase(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="inventory_purchases")
+    space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="inventory_purchases")
+    supplier = models.ForeignKey(InventorySupplier, on_delete=models.CASCADE, related_name="purchases")
+    purchase_number = models.CharField(max_length=40, unique=True)
+    purchase_date = models.DateField()
+    notes = models.TextField(blank=True, default="")
+    total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inventory_purchases_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-purchase_date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.purchase_number} — {self.supplier.name}"
+
+
+class InventoryPurchaseLine(models.Model):
+    purchase = models.ForeignKey(InventoryPurchase, on_delete=models.CASCADE, related_name="lines")
+    product = models.ForeignKey(
+        InventoryProduct,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="purchase_lines",
+    )
+    description = models.CharField(max_length=255)
+    quantity = models.PositiveIntegerField(default=1)
+    unit_cost = models.DecimalField(max_digits=12, decimal_places=2)
+    line_total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+
+    class Meta:
+        ordering = ["id"]
+
+    def save(self, *args, **kwargs):
+        self.line_total = Decimal(self.quantity) * self.unit_cost
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.description} x{self.quantity}"
 
 
 class UserSession(models.Model):
