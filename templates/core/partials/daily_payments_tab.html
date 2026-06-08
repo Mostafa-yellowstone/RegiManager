@@ -1,0 +1,190 @@
+<style>
+  .dpt-hero { background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%); border-radius: 22px; padding: 1.5rem 1.75rem; margin-bottom: 1.5rem; color: white; box-shadow: 0 12px 40px rgba(15,23,42,0.18); }
+  .dpt-method-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
+  .dpt-method-card { border-radius: 18px; padding: 1.15rem 1.25rem; color: white; position: relative; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.12); min-height: 108px; display: flex; flex-direction: column; justify-content: space-between; }
+  .dpt-method-card::after { content: ''; position: absolute; top: -30%; right: -20%; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,0.12); }
+  .dpt-method-label { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.9; }
+  .dpt-method-amount { font-size: 1.65rem; font-weight: 900; line-height: 1.1; }
+  .dpt-total-card { background: linear-gradient(135deg, #111827 0%, #312e81 50%, #6366f1 100%); border-radius: 18px; padding: 1.15rem 1.25rem; color: white; box-shadow: 0 10px 30px rgba(49,46,129,0.25); min-height: 108px; display: flex; flex-direction: column; justify-content: center; }
+  .dpt-drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 3000; backdrop-filter: blur(3px); }
+  .dpt-drawer-overlay.active { display: flex; justify-content: flex-end; }
+  .dpt-drawer-panel { width: min(360px, 92vw); height: 100%; background: white; box-shadow: -8px 0 40px rgba(0,0,0,0.12); padding: 1.5rem; overflow-y: auto; animation: dptSlideIn 0.25s ease; }
+  @keyframes dptSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  .dpt-date-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0.9rem; border-radius: 12px; border: 1.5px solid #e2e8f0; margin-bottom: 0.5rem; text-decoration: none; color: #0f172a; font-weight: 700; font-size: 0.88rem; transition: all 0.15s; }
+  .dpt-date-item:hover, .dpt-date-item.active { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+  .dpt-table-wrap { background: white; border-radius: 18px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.04); }
+</style>
+
+<div class="dpt-hero">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <div style="font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #93c5fd; margin-bottom: 0.35rem;">Daily Payments Transactions</div>
+      <h3 style="margin: 0; font-size: 1.35rem; font-weight: 900;">
+        {% if daily_is_today %}Today{% else %}{{ daily_payment_date|date:"l, M j, Y" }}{% endif %}
+      </h3>
+      <p style="margin: 0.35rem 0 0; color: #94a3b8; font-size: 0.85rem;">
+        {% if daily_is_today %}Live daily ledger — resets each new day{% else %}Historical day view{% endif %}
+      </p>
+    </div>
+    <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+      <button type="button" onclick="openDailyDateDrawer()" style="padding: 0.55rem 1rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.1); color: white; font-weight: 700; font-size: 0.85rem; cursor: pointer;">📅 Select Day</button>
+      {% if not daily_is_today %}
+      <a href="?tab=daily-payments" style="padding: 0.55rem 1rem; border-radius: 10px; background: #093de6; color: white; font-weight: 700; font-size: 0.85rem; text-decoration: none;">↩ Today</a>
+      {% endif %}
+      <button type="button" onclick="document.getElementById('addDailyPaymentModal').classList.add('active')" style="padding: 0.55rem 1rem; border-radius: 10px; background: white; color: #0f172a; font-weight: 800; font-size: 0.85rem; border: none; cursor: pointer;">+ Add Payment</button>
+    </div>
+  </div>
+</div>
+
+<div class="dpt-method-grid">
+  {% for card in daily_method_cards %}
+  <div class="dpt-method-card" style="background: {{ card.gradient }};">
+    <div class="dpt-method-label">{{ card.icon }} {{ card.label }}</div>
+    <div class="dpt-method-amount">${{ card.total|floatformat:2 }}</div>
+  </div>
+  {% endfor %}
+  <div class="dpt-total-card">
+    <div class="dpt-method-label" style="color: #c7d2fe;">✨ Grand Total</div>
+    <div class="dpt-method-amount">${{ daily_grand_total|floatformat:2 }}</div>
+  </div>
+</div>
+
+<div class="dpt-table-wrap">
+  <div style="padding: 1rem 1.25rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+    <h4 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 1rem;">Transaction Ledger</h4>
+    <span style="font-size: 0.8rem; color: #64748b; font-weight: 700;">{{ daily_transactions|length }} record{{ daily_transactions|length|pluralize }}</span>
+  </div>
+  <div style="overflow-x: auto;">
+    <table class="spaces-table" style="width: 100%;">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Client</th>
+          <th>Payment Type</th>
+          <th>Method</th>
+          <th style="text-align: right;">Amount</th>
+          <th>Agent</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tx in daily_transactions %}
+        <tr>
+          <td style="font-size: 0.82rem; color: #64748b; white-space: nowrap;">{{ tx.transaction_date|date:"M j, Y" }}</td>
+          <td>
+            <a href="{% url 'client-detail' tx.client.id %}" style="color: #093de6; font-weight: 800; text-decoration: none;">{{ tx.client.name }}</a>
+          </td>
+          <td><span style="font-size: 0.78rem; font-weight: 700; color: #334155;">{{ tx.get_payment_type_display }}</span></td>
+          <td><span style="font-size: 0.78rem; font-weight: 700; color: #475569;">{{ tx.get_payment_method_display }}</span></td>
+          <td style="text-align: right; font-weight: 800; color: #0f172a;">${{ tx.amount|floatformat:2 }}</td>
+          <td>
+            <span style="background: {{ tx.agent_bg_color }}; color: {{ tx.agent_text_color }}; padding: 4px 10px; border-radius: 8px; font-weight: 700; font-size: 0.78rem; white-space: nowrap;">{{ tx.agent_name }}</span>
+          </td>
+          <td style="text-align: right;">
+            <a href="{% url 'delete-daily-payment' tx.id %}" onclick="return confirm('Remove this payment record?')" style="color: #dc2626; font-size: 0.75rem; font-weight: 700; text-decoration: none;">Remove</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" style="text-align: center; padding: 3rem; color: #94a3b8; font-weight: 600;">
+            No payments recorded for this day yet.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Date Selection Drawer -->
+<div class="dpt-drawer-overlay" id="dailyDateDrawer" onclick="if(event.target===this)closeDailyDateDrawer()">
+  <div class="dpt-drawer-panel" onclick="event.stopPropagation()">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <h4 style="margin: 0; font-weight: 800; color: #0f172a;">Select Day</h4>
+      <button type="button" onclick="closeDailyDateDrawer()" style="background: transparent; border: none; font-size: 1.4rem; cursor: pointer; color: #94a3b8;">&times;</button>
+    </div>
+    <form method="GET" style="margin-bottom: 1rem;">
+      <input type="hidden" name="tab" value="daily-payments">
+      <label style="font-size: 0.78rem; font-weight: 700; color: #64748b; display: block; margin-bottom: 0.35rem;">Jump to date</label>
+      <div style="display: flex; gap: 0.5rem;">
+        <input type="date" name="daily_date" value="{{ daily_payment_date|date:'Y-m-d' }}" class="field-input" style="flex: 1;">
+        <button type="submit" style="padding: 0.5rem 1rem; background: #093de6; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">Go</button>
+      </div>
+    </form>
+    <div style="font-size: 0.75rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem;">Recent Days</div>
+    <a href="?tab=daily-payments" class="dpt-date-item {% if daily_is_today %}active{% endif %}">
+      <span>Today</span>
+      <span style="font-size: 0.75rem; color: #64748b;">Live</span>
+    </a>
+    {% for d in daily_available_dates %}
+      {% if d != daily_payment_date or not daily_is_today %}
+      <a href="?tab=daily-payments&daily_date={{ d|date:'Y-m-d' }}" class="dpt-date-item {% if d == daily_payment_date %}active{% endif %}">
+        <span>{{ d|date:"l, M j, Y" }}</span>
+      </a>
+      {% endif %}
+    {% empty %}
+      <div style="padding: 1rem; color: #94a3b8; font-size: 0.85rem; text-align: center;">No prior payment days yet.</div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Add Daily Payment Modal -->
+<div class="modal-overlay" id="addDailyPaymentModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <h3 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 1.2rem;">💰 Add Daily Payment</h3>
+      <button onclick="document.getElementById('addDailyPaymentModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
+    </div>
+    <form method="POST" action="{% url 'add-daily-payment' %}">
+      {% csrf_token %}
+      <input type="hidden" name="organization" value="{{ active_org.id }}">
+      <input type="hidden" name="transaction_date" value="{{ daily_payment_date|date:'Y-m-d' }}">
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Client Name</label>
+        <input type="text" name="client_name" required class="field-input" list="dailyClientList" placeholder="e.g. John Doe">
+        <datalist id="dailyClientList">
+          {% for c in clients %}<option value="{{ c.name }}"></option>{% endfor %}
+        </datalist>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div>
+          <label class="field-label">Payment Type</label>
+          <select name="payment_type" required class="field-input">
+            <option value="new_business">New Business</option>
+            <option value="renewal">Renewal</option>
+            <option value="monthly_payment">Monthly Payment</option>
+            <option value="endorsement">Endorsement</option>
+            <option value="misc">Misc</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Payment Method</label>
+          <select name="payment_method" required class="field-input">
+            <option value="cash">Cash</option>
+            <option value="zelle">Zelle</option>
+            <option value="credit_card">Credit Card</option>
+            <option value="checks">Checks</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Amount ($)</label>
+        <input type="number" step="0.01" name="amount" required class="field-input" placeholder="0.00">
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <label class="field-label">Notes (optional)</label>
+        <input type="text" name="notes" class="field-input" placeholder="Additional details...">
+      </div>
+      <button type="submit" class="btn-submit">Record Payment</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function openDailyDateDrawer() {
+  document.getElementById('dailyDateDrawer').classList.add('active');
+}
+function closeDailyDateDrawer() {
+  document.getElementById('dailyDateDrawer').classList.remove('active');
+}
+</script>

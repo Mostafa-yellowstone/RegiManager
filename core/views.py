@@ -5526,11 +5526,20 @@ def inventory_list(request):
     return redirect("spaces-home")
 
 
-def _redirect_to_insurance_detail(org):
+def _redirect_to_insurance_detail(org, tab=None, query_params=None):
     from .models import Space
+    from django.urls import reverse
     insurance_card = Space.objects.filter(organization=org, key="insurance").first()
     if insurance_card:
-        return redirect("inventory-detail", inventory_id=insurance_card.id)
+        url = reverse("inventory-detail", kwargs={"inventory_id": insurance_card.id})
+        params = []
+        if tab:
+            params.append(f"tab={tab}")
+        if query_params:
+            params.extend(query_params)
+        if params:
+            url += "?" + "&".join(params)
+        return redirect(url)
     return redirect("spaces-home")
 
 
@@ -5956,7 +5965,33 @@ def inventory_detail(request, inventory_id):
             
         income_categories = json.dumps(["Insurance Premium Receipt", "Commission Payment", "Interest", "Other Income"])
         expense_categories = json.dumps(["Rent", "Utilities", "Payroll", "Office Supplies", "Marketing", "Other Expense"])
-        
+
+        # Daily Payment Transactions
+        from datetime import datetime as dt_parse
+        from .models import DailyPaymentTransaction
+        from .daily_payments import summarize_daily_payments, enrich_daily_transactions
+
+        daily_date_str = request.GET.get("daily_date", "").strip()
+        try:
+            daily_payment_date = dt_parse.strptime(daily_date_str, "%Y-%m-%d").date() if daily_date_str else timezone.localdate()
+        except ValueError:
+            daily_payment_date = timezone.localdate()
+
+        daily_tx_qs = DailyPaymentTransaction.objects.filter(
+            organization=active_org,
+            transaction_date=daily_payment_date,
+        ).select_related("client", "recorded_by", "insurance_policy")
+        daily_transactions = enrich_daily_transactions(list(daily_tx_qs))
+        daily_method_cards, daily_grand_total = summarize_daily_payments(daily_transactions)
+
+        daily_available_dates = list(
+            DailyPaymentTransaction.objects.filter(organization=active_org)
+            .order_by("-transaction_date")
+            .values_list("transaction_date", flat=True)
+            .distinct()[:90]
+        )
+        daily_is_today = daily_payment_date == timezone.localdate()
+
         context = {
             "card": card,
             "is_owner": is_owner,
@@ -6025,6 +6060,14 @@ def inventory_detail(request, inventory_id):
             "insurance_source_choices": INSURANCE_SOURCE_CHOICES,
             "user_can_view_commission": user_can_view_commission,
             "user_can_view_banking": user_can_view_banking,
+
+            # Daily payments tab
+            "daily_payment_date": daily_payment_date,
+            "daily_is_today": daily_is_today,
+            "daily_transactions": daily_transactions,
+            "daily_method_cards": daily_method_cards,
+            "daily_grand_total": daily_grand_total,
+            "daily_available_dates": daily_available_dates,
         }
         return render(request, "core/insurance_space.html", context)
 
@@ -6282,11 +6325,12 @@ def add_insurance_policy(request):
     end_date = request.POST.get("end_date")
     insurance_period_months = request.POST.get("insurance_period_months", "6")
     inactive_date = request.POST.get("inactive_date")
+    payment_method = request.POST.get("payment_method", "").strip()
 
     added_by = request.user
 
     try:
-        InsurancePolicy.objects.create(
+        policy = InsurancePolicy.objects.create(
             organization=org,
             client=client,
             policy_number=policy_number,
@@ -6299,6 +6343,7 @@ def add_insurance_policy(request):
             insurance_type=insurance_type,
             source=source,
             business_type=business_type,
+            payment_method=payment_method,
             bound_date=bound_date,
             start_date=start_date,
             end_date=end_date,
@@ -6306,7 +6351,11 @@ def add_insurance_policy(request):
             inactive_date=inactive_date or None,
             added_by=added_by,
         )
-        messages.success(request, "Insurance policy created.")
+        from .daily_payments import create_daily_payment_from_policy
+        if create_daily_payment_from_policy(policy, payment_method, added_by):
+            messages.success(request, "Insurance policy created and payment logged for today.")
+        else:
+            messages.success(request, "Insurance policy created.")
     except Exception as e:
         messages.error(request, f"Error saving policy: {e}")
 
@@ -6361,6 +6410,7 @@ def edit_insurance_policy(request, policy_id):
         policy.insurance_type = request.POST.get("insurance_type", "")
         policy.source = request.POST.get("source", "walk_in")
         policy.business_type = request.POST.get("business_type", "new_business")
+        policy.payment_method = request.POST.get("payment_method", "").strip()
         policy.bound_date = request.POST.get("bound_date") or None
         policy.start_date = request.POST.get("start_date")
         policy.end_date = request.POST.get("end_date")
@@ -6393,6 +6443,7 @@ def edit_insurance_policy(request, policy_id):
         "insurance_type": policy.insurance_type,
         "source": policy.source,
         "business_type": policy.business_type,
+        "payment_method": policy.payment_method or "",
         "bound_date": str(policy.bound_date) if policy.bound_date else "",
         "start_date": str(policy.start_date),
         "end_date": str(policy.end_date),
@@ -6506,6 +6557,104 @@ def delete_insurance_company(request, company_id):
     company.delete()
     messages.success(request, "Company deleted.")
     return _redirect_to_insurance_detail(org)
+
+
+@login_required
+@require_POST
+def add_daily_payment(request):
+    from datetime import datetime as dt_parse
+    from .models import DailyPaymentTransaction, Client
+    from .daily_payments import VALID_PAYMENT_METHODS, VALID_PAYMENT_TYPES
+
+    org_id = request.POST.get("organization")
+    organizations = _get_user_organizations(request)
+    org = get_object_or_404(organizations, id=org_id)
+
+    client_name = request.POST.get("client_name", "").strip()
+    amount = request.POST.get("amount", "0.00").strip()
+    payment_type = request.POST.get("payment_type", "").strip()
+    payment_method = request.POST.get("payment_method", "").strip()
+    transaction_date = request.POST.get("transaction_date", "").strip()
+    notes = request.POST.get("notes", "").strip()
+
+    if not client_name:
+        messages.error(request, "Client name is required.")
+        return _redirect_to_insurance_detail(org, tab="daily-payments")
+
+    name_parts = client_name.split()
+    if len(name_parts) >= 2:
+        first_name = " ".join(name_parts[:-1])
+        last_name = name_parts[-1]
+    else:
+        first_name = client_name
+        last_name = "."
+
+    client = Client.objects.filter(
+        organization=org,
+        first_name__iexact=first_name,
+        last_name__iexact=last_name,
+    ).first()
+    if not client:
+        client = Client.objects.create(
+            organization=org,
+            first_name=first_name,
+            last_name=last_name,
+            source="insurance",
+        )
+
+    try:
+        tx_date = dt_parse.strptime(transaction_date, "%Y-%m-%d").date() if transaction_date else timezone.localdate()
+    except ValueError:
+        tx_date = timezone.localdate()
+
+    if payment_type not in VALID_PAYMENT_TYPES:
+        messages.error(request, "Invalid payment type.")
+        return _redirect_to_insurance_detail(org, tab="daily-payments", query_params=[f"daily_date={tx_date}"])
+
+    if payment_method not in VALID_PAYMENT_METHODS:
+        messages.error(request, "Invalid payment method.")
+        return _redirect_to_insurance_detail(org, tab="daily-payments", query_params=[f"daily_date={tx_date}"])
+
+    try:
+        DailyPaymentTransaction.objects.create(
+            organization=org,
+            client=client,
+            transaction_date=tx_date,
+            amount=Decimal(amount or "0.00"),
+            payment_type=payment_type,
+            payment_method=payment_method,
+            recorded_by=request.user,
+            notes=notes,
+        )
+        messages.success(request, "Daily payment recorded.")
+    except Exception as e:
+        messages.error(request, f"Error saving payment: {e}")
+
+    return _redirect_to_insurance_detail(
+        org,
+        tab="daily-payments",
+        query_params=[f"daily_date={tx_date}"],
+    )
+
+
+@login_required
+def delete_daily_payment(request, transaction_id):
+    from .models import DailyPaymentTransaction
+    organizations = _get_user_organizations(request)
+    tx = get_object_or_404(
+        DailyPaymentTransaction,
+        id=transaction_id,
+        organization__in=organizations,
+    )
+    org = tx.organization
+    tx_date = tx.transaction_date
+    tx.delete()
+    messages.success(request, "Payment transaction removed.")
+    return _redirect_to_insurance_detail(
+        org,
+        tab="daily-payments",
+        query_params=[f"daily_date={tx_date}"],
+    )
 
 
 @login_required

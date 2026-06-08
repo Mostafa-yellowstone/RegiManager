@@ -98,6 +98,7 @@
       <button class="tab-btn" id="tab-companies-btn" onclick="switchTab('companies')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🏢 Companies</button>
       {% if user_can_view_banking %}<button class="tab-btn" id="tab-banking-btn" onclick="switchTab('banking')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🏦 Banking</button>{% endif %}
       <button class="tab-btn" id="tab-reporting-btn" onclick="switchTab('reporting')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">📊 Reports</button>
+      <button class="tab-btn" id="tab-daily-payments-btn" onclick="switchTab('daily-payments')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">💳 Daily Payments</button>
       <button class="tab-btn" id="tab-agents-btn" onclick="switchTab('agents')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">👥 Agent Auditing</button>
     </div>
 
@@ -657,6 +658,11 @@
       </div>
     </div>
 
+    <!-- DAILY PAYMENTS TAB -->
+    <div id="tab-daily-payments" class="tab-panel" style="display: none;">
+      {% include "core/partials/daily_payments_tab.html" %}
+    </div>
+
     <!-- AGENTS AUDITING TAB -->
     <div id="tab-agents" class="tab-panel" style="display: none;">
       <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 2rem;">
@@ -889,7 +895,7 @@
           <option value="disability">DISABILITY</option>
         </select>
       </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
         <div>
           <label class="field-label">Source</label>
           <select name="source" id="policySource" class="field-input" style="font-weight: 700;">
@@ -909,6 +915,16 @@
             <option value="new_business" style="background:#e0e7ff; color:#3730a3;">🆕 New Business</option>
             <option value="renewal" style="background:#ecfdf5; color:#065f46;">🔄 Renewal</option>
             <option value="rewrite" style="background:#fff7ed; color:#9a3412;">✏️ Rewrite</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Payment Method</label>
+          <select name="payment_method" id="policyPaymentMethod" class="field-input" style="font-weight: 700;">
+            <option value="">— None —</option>
+            <option value="cash">💵 Cash</option>
+            <option value="zelle">📱 Zelle</option>
+            <option value="credit_card">💳 Credit Card</option>
+            <option value="checks">📝 Checks</option>
           </select>
         </div>
       </div>
@@ -1056,7 +1072,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const tabs = ['insurance','companies','banking','reporting','agents'];
+const tabs = ['insurance','companies','banking','reporting','daily-payments','agents'];
 let premiumChart = null;
 let profitChart = null;
 
@@ -1204,6 +1220,7 @@ function openAddPolicyModal() {
   document.getElementById('policyInsuranceType').value = '';
   document.getElementById('policySource').value = 'walk_in';
   document.getElementById('policyBusinessType').value = 'new_business';
+  document.getElementById('policyPaymentMethod').value = '';
   document.getElementById('policyBoundDate').value = '';
   toggleInactiveDate();
   document.getElementById('addPolicyModal').classList.add('active');
@@ -1227,6 +1244,7 @@ function editPolicy(id) {
       document.getElementById('policyInsuranceType').value = data.insurance_type || '';
       document.getElementById('policySource').value = data.source || 'walk_in';
       document.getElementById('policyBusinessType').value = data.business_type || 'new_business';
+      document.getElementById('policyPaymentMethod').value = data.payment_method || '';
       document.getElementById('policyBoundDate').value = data.bound_date || '';
       toggleInactiveDate();
       if (data.status === 'inactive') document.getElementById('policyInactiveDate').value = data.inactive_date || '';

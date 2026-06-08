@@ -1073,6 +1073,20 @@ class InsurancePolicy(models.Model):
     insurance_type = models.CharField(max_length=30, choices=INSURANCE_TYPE_CHOICES, blank=True, default="", help_text="Type of insurance policy")
     source = models.CharField(max_length=50, choices=SourceChoices.choices, default=SourceChoices.WALK_IN)
     business_type = models.CharField(max_length=50, choices=BusinessTypeChoices.choices, default=BusinessTypeChoices.NEW_BUSINESS)
+
+    class PolicyPaymentMethod(models.TextChoices):
+        CASH = "cash", "Cash"
+        ZELLE = "zelle", "Zelle"
+        CREDIT_CARD = "credit_card", "Credit Card"
+        CHECKS = "checks", "Checks"
+
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PolicyPaymentMethod.choices,
+        blank=True,
+        default="",
+        help_text="How the broker fee was collected",
+    )
     bound_date = models.DateField(blank=True, null=True, help_text="Date the policy was bound")
     added_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="added_insurance_policies", help_text="Agent who added this policy/quote")
     
@@ -1137,6 +1151,50 @@ class InsurancePolicy(models.Model):
             self.unearned_commission = Decimal("0.00")
 
         super().save(*args, **kwargs)
+
+
+class DailyPaymentTransaction(models.Model):
+    class PaymentType(models.TextChoices):
+        NEW_BUSINESS = "new_business", "New Business"
+        RENEWAL = "renewal", "Renewal"
+        MONTHLY_PAYMENT = "monthly_payment", "Monthly Payment"
+        ENDORSEMENT = "endorsement", "Endorsement"
+        MISC = "misc", "Misc"
+
+    class PaymentMethod(models.TextChoices):
+        CASH = "cash", "Cash"
+        ZELLE = "zelle", "Zelle"
+        CREDIT_CARD = "credit_card", "Credit Card"
+        CHECKS = "checks", "Checks"
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="daily_payment_transactions")
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="daily_payment_transactions")
+    insurance_policy = models.ForeignKey(
+        InsurancePolicy,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="daily_payment_transactions",
+    )
+    transaction_date = models.DateField(db_index=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    payment_type = models.CharField(max_length=30, choices=PaymentType.choices)
+    payment_method = models.CharField(max_length=20, choices=PaymentMethod.choices)
+    recorded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="recorded_daily_payments",
+    )
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-transaction_date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.transaction_date} — {self.client} — ${self.amount}"
 
 
 class BankAccount(models.Model):
