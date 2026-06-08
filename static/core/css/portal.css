@@ -1096,6 +1096,67 @@ body.portal-body details.portal-advanced-filters > summary::-webkit-details-mark
     display: none;
 }
 
+/* CRM filter toolbar — Apply, Clear, Export CSV/Excel */
+.portal-crm-toolbar,
+.search-filter-form .portal-crm-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    align-items: center;
+    margin-top: 0.65rem;
+}
+
+.portal-crm-toolbar .btn.btn-primary,
+.search-filter-form .portal-crm-toolbar .btn.btn-primary {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+.portal-crm-toolbar .btn.btn-secondary,
+.search-filter-form .portal-crm-toolbar .btn.btn-secondary,
+.portal-crm-toolbar .portal-crm-toolbar-btn--secondary {
+    background: #eff6ff !important;
+    border: 1.5px solid #3b82f6 !important;
+    color: #1d4ed8 !important;
+    font-weight: 700 !important;
+    text-decoration: none;
+}
+
+.portal-crm-toolbar .btn.btn-secondary:hover,
+.search-filter-form .portal-crm-toolbar .btn.btn-secondary:hover,
+.portal-crm-toolbar .portal-crm-toolbar-btn--secondary:hover {
+    background: #dbeafe !important;
+    border-color: #2563eb !important;
+    color: #1e3a8a !important;
+}
+
+html.portal-theme-dark .portal-crm-toolbar .btn.btn-primary,
+html.portal-theme-dark .search-filter-form .portal-crm-toolbar .btn.btn-primary {
+    color: #ffffff !important;
+}
+
+html.portal-theme-dark .portal-crm-toolbar .btn.btn-secondary,
+html.portal-theme-dark .search-filter-form .portal-crm-toolbar .btn.btn-secondary,
+html.portal-theme-dark .portal-crm-toolbar .portal-crm-toolbar-btn--secondary {
+    background: #1e293b !important;
+    border-color: #60a5fa !important;
+    color: #e0f2fe !important;
+}
+
+html.portal-theme-dark .portal-crm-toolbar .btn.btn-secondary:hover,
+html.portal-theme-dark .search-filter-form .portal-crm-toolbar .btn.btn-secondary:hover,
+html.portal-theme-dark .portal-crm-toolbar .portal-crm-toolbar-btn--secondary:hover {
+    background: #334155 !important;
+    border-color: #93c5fd !important;
+    color: #f8fafc !important;
+}
+
+html.portal-theme-dark .portal-filter-actions .portal-btn-primary,
+html.portal-theme-dark .portal-filter-form .portal-btn-primary {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
 .portal-btn-success {
     background: var(--portal-success);
     color: white;

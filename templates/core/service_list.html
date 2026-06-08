@@ -111,10 +111,12 @@
                                 </div>
                             </div>
                         </details>
-                        <button type="submit" class="btn btn-primary">Apply</button>
-                        <a href="{% url 'service-list' service_type %}" class="btn btn-secondary">Clear</a>
-                        <a href="?{% if query_string_no_page %}{{ query_string_no_page }}&{% endif %}export=csv" class="btn btn-secondary">Export CSV</a>
-                        <a href="?{% if query_string_no_page %}{{ query_string_no_page }}&{% endif %}export=xlsx" class="btn btn-secondary">Export Excel</a>
+                        <div class="portal-crm-toolbar">
+                            <button type="submit" class="btn btn-primary">Apply</button>
+                            <a href="{% url 'service-list' service_type %}" class="btn btn-secondary portal-crm-toolbar-btn--secondary">Clear</a>
+                            <a href="?{% if query_string_no_page %}{{ query_string_no_page }}&{% endif %}export=csv" class="btn btn-secondary portal-crm-toolbar-btn--secondary">Export CSV</a>
+                            <a href="?{% if query_string_no_page %}{{ query_string_no_page }}&{% endif %}export=xlsx" class="btn btn-secondary portal-crm-toolbar-btn--secondary">Export Excel</a>
+                        </div>
                     </form>
                 </div>
 
