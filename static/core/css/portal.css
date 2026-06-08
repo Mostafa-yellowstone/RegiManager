@@ -2380,6 +2380,243 @@ html.portal-theme-dark .client-profile-page .form-control {
     border-color: var(--portal-border);
 }
 
+html.portal-theme-dark .company-profile-page .tbl td[style*="color: #475569"],
+html.portal-theme-dark .company-profile-page .tbl td[style*="color: var(--muted)"] {
+    color: var(--portal-text-muted) !important;
+}
+
+html.portal-theme-dark .company-profile-page .tbl td[style*="font-weight: 800"],
+html.portal-theme-dark .company-profile-page .tbl td[style*="font-weight: 700"] {
+    color: var(--portal-text) !important;
+}
+
+html.portal-theme-dark .company-profile-page a[style*="background: #fff5f5"] {
+    background: var(--portal-danger-bg) !important;
+    border-color: rgba(220, 38, 38, 0.25) !important;
+}
+
+html.portal-theme-dark .company-profile-page .modal-overlay h3[style*="color: var(--dark)"] {
+    color: var(--portal-text) !important;
+}
+
+html.portal-theme-dark .company-profile-page .page-btn.active {
+    background: var(--portal-primary);
+    border-color: var(--portal-primary);
+    color: #fff;
+}
+
+html.portal-theme-dark .company-profile-page .field-input {
+    color-scheme: dark;
+}
+
+html.portal-theme-dark .company-profile-page .company-search-input {
+    color-scheme: light;
+}
+
+/* Vehicle detail — official docs panel */
+.vehicle-detail-page .vd-official-docs {
+    border: 2px solid var(--portal-primary);
+    background: var(--portal-surface-muted);
+}
+
+.vehicle-detail-page .vd-official-docs-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--portal-primary);
+    margin: 0;
+}
+
+.vehicle-detail-page .vd-official-docs-desc {
+    font-size: 0.85rem;
+    color: var(--portal-text-muted);
+    margin-bottom: 1.25rem;
+    font-weight: 500;
+}
+
+.vehicle-detail-page .vd-official-docs-desc strong {
+    color: var(--portal-text);
+}
+
+.vehicle-detail-page .vd-official-docs-footer {
+    text-align: center;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--portal-border);
+}
+
+html.portal-theme-dark .vehicle-detail-page .vd-official-docs {
+    background: var(--portal-surface);
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15);
+}
+
+html.portal-theme-dark .vehicle-detail-page .vd-official-docs-title {
+    color: #60a5fa;
+}
+
+html.portal-theme-dark .vehicle-detail-page .vd-official-docs .btn-secondary {
+    background: var(--portal-surface-muted);
+    border-color: var(--portal-border);
+    color: var(--portal-text-secondary);
+}
+
+html.portal-theme-dark .vehicle-detail-page .vd-official-docs .btn-primary[style*="background: #0f172a"] {
+    background: #1e293b !important;
+    border: 1px solid var(--portal-border);
+}
+
+html.portal-theme-dark .vehicle-detail-page .dashboard-panel small[style*="color: #64748b"] {
+    color: var(--portal-text-muted) !important;
+}
+
+html.portal-theme-dark .vehicle-detail-page .dashboard-panel p strong {
+    color: var(--portal-text);
+}
+
+html.portal-theme-dark .vehicle-detail-page .pagination-footer {
+    background: var(--portal-surface-muted) !important;
+    border-top-color: var(--portal-border) !important;
+}
+
+html.portal-theme-dark .vehicle-detail-page .pagination-footer span[style*="color: #0f172a"] {
+    color: var(--portal-text) !important;
+}
+
+html.portal-theme-dark .vehicle-detail-page .pagination-footer span[style*="color: #64748b"] {
+    color: var(--portal-text-muted) !important;
+}
+
+html.portal-theme-dark .vehicle-detail-page .pagination-footer .btn-secondary[style*="background: white"] {
+    background: var(--portal-surface) !important;
+    border-color: var(--portal-border) !important;
+    color: var(--portal-text-secondary) !important;
+}
+
+/* Transaction screen */
+html.portal-theme-dark .tx-page .tx-form-card {
+    background: var(--portal-surface);
+    border-color: var(--portal-border);
+    box-shadow: var(--portal-shadow-md);
+}
+
+html.portal-theme-dark .tx-page .tx-section-title h2 {
+    color: var(--portal-text);
+}
+
+html.portal-theme-dark .tx-page .tx-field label {
+    color: var(--portal-text-muted);
+}
+
+html.portal-theme-dark .tx-page .tx-field input,
+html.portal-theme-dark .tx-page .tx-field select,
+html.portal-theme-dark .tx-page .tx-field .form-control {
+    background: var(--portal-surface-muted);
+    color: var(--portal-text);
+    border-color: var(--portal-border);
+    color-scheme: dark;
+}
+
+html.portal-theme-dark .tx-page .tx-field input:focus,
+html.portal-theme-dark .tx-page .tx-field select:focus,
+html.portal-theme-dark .tx-page .tx-field .form-control:focus {
+    border-color: var(--portal-primary);
+    box-shadow: 0 0 0 3px var(--portal-primary-soft);
+    background: var(--portal-surface-muted);
+}
+
+html.portal-theme-dark .tx-page .tx-field input[readonly],
+html.portal-theme-dark .tx-page .tx-field .form-control[readonly] {
+    background: var(--portal-surface) !important;
+    color: var(--portal-text-muted) !important;
+}
+
+html.portal-theme-dark .tx-page .tx-hint {
+    color: var(--portal-text-muted);
+}
+
+html.portal-theme-dark .tx-page .tx-divider {
+    background: linear-gradient(90deg, transparent, var(--portal-border) 15%, var(--portal-border) 85%, transparent);
+}
+
+html.portal-theme-dark .tx-page .split-toggle-row {
+    background: rgba(37, 99, 235, 0.12);
+    border-color: rgba(59, 130, 246, 0.35);
+}
+
+html.portal-theme-dark .tx-page .split-toggle-row label {
+    color: var(--portal-text-secondary);
+}
+
+html.portal-theme-dark .tx-page .split-col {
+    background: var(--portal-surface-muted);
+    border-color: var(--portal-border);
+}
+
+html.portal-theme-dark .tx-page .split-col-title.primary {
+    color: #60a5fa;
+    border-color: rgba(59, 130, 246, 0.35);
+}
+
+html.portal-theme-dark .tx-page .split-col-title.secondary {
+    color: #c4b5fd;
+    border-color: rgba(139, 92, 246, 0.35);
+}
+
+html.portal-theme-dark .tx-page .tx-sub-label.purple {
+    color: #c4b5fd;
+}
+
+html.portal-theme-dark .tx-page .tx-sub-label.blue {
+    color: #7dd3fc;
+}
+
+html.portal-theme-dark .tx-page .tx-icon.blue {
+    background: rgba(37, 99, 235, 0.2);
+    color: #60a5fa;
+}
+
+html.portal-theme-dark .tx-page .tx-icon.green {
+    background: rgba(22, 163, 74, 0.2);
+    color: #4ade80;
+}
+
+html.portal-theme-dark .tx-page .tx-icon.amber {
+    background: rgba(217, 119, 6, 0.2);
+    color: #fbbf24;
+}
+
+html.portal-theme-dark .tx-page .tx-icon.purple {
+    background: rgba(124, 58, 237, 0.2);
+    color: #c4b5fd;
+}
+
+html.portal-theme-dark .tx-page .tx-actions {
+    background: var(--portal-surface-muted);
+    border-top-color: var(--portal-border);
+}
+
+html.portal-theme-dark .tx-page .btn-tx-cancel {
+    background: var(--portal-surface);
+    border-color: var(--portal-border);
+    color: var(--portal-text-secondary);
+}
+
+html.portal-theme-dark .tx-page .btn-tx-cancel:hover {
+    background: var(--portal-surface-muted);
+    border-color: var(--portal-border-strong);
+}
+
+html.portal-theme-dark .tx-page div[style*="border-top:1px dashed #e2e8f0"],
+html.portal-theme-dark .tx-page div[style*="border-top: 1px dashed #e2e8f0"] {
+    border-top-color: var(--portal-border) !important;
+}
+
+html.portal-theme-dark .tx-page label span[style*="color:#94a3b8"],
+html.portal-theme-dark .tx-page label span[style*="color: #94a3b8"] {
+    color: var(--portal-text-muted) !important;
+}
+
 /* Daily Payments ledger */
 .dpt-table-wrap {
     background: var(--portal-surface);

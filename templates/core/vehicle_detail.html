@@ -9,7 +9,7 @@
     .status-badge.pending { background: #fef9c3; color: #854d0e; border: none; }
     .status-badge.failed, .status-badge.error { background: #fee2e2; color: #991b1b; border: none; }
 </style>
-<main class="dashboard-shell">
+<main class="dashboard-shell vehicle-detail-page">
     <section class="dashboard-layout">
         <header class="dashboard-hero"
             style="padding-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-end;">
@@ -58,14 +58,14 @@
 
         <div class="dashboard-panels" style="margin-top: -2rem;">
             <!-- Official Document Hub -->
-            <article class="dashboard-panel" style="border: 2px solid #093de6; background: #f8faff;">
-                <h3 style="display: flex; align-items: center; gap: 0.75rem; color: #093de6;">
+            <article class="dashboard-panel vd-official-docs">
+                <h3 class="vd-official-docs-title">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                     Official Document Automation
                 </h3>
                 <div style="padding: 0.5rem 0;">
                     {% if latest_service %}
-                        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1.25rem; font-weight: 500;">
+                        <p class="vd-official-docs-desc">
                             Generate pre-filled documents for the latest transaction (<strong>#{{ latest_service.receipt_number }}</strong>)
                         </p>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
@@ -83,7 +83,7 @@
                             </a>
                         </div>
                     {% else %}
-                        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1.25rem; font-weight: 500;">
+                        <p class="vd-official-docs-desc">
                             Generate pre-filled documents directly from the client & vehicle profile.
                         </p>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
@@ -100,8 +100,8 @@
                                 MV-82B Boat Registration
                             </a>
                         </div>
-                        <div style="text-align: center; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
-                            <p style="color: #64748b; font-size: 0.85rem; margin-bottom: 0.5rem; font-weight: 500;">Need to process a new transaction?</p>
+                        <div class="vd-official-docs-footer">
+                            <p class="vd-official-docs-desc" style="margin-bottom: 0.5rem;">Need to process a new transaction?</p>
                             <a href="{% url 'start-process' vehicle.id %}" class="btn btn-primary btn-sm" style="min-height: auto; padding: 0.5rem 1rem;">Start Transaction</a>
                         </div>
                     {% endif %}

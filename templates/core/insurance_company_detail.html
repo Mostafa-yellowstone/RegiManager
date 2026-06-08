@@ -38,6 +38,25 @@
 .btn-primary:hover { background: #0836cc; }
 .btn-outline { padding: 7px 14px; background: var(--portal-surface); border: 1px solid var(--border); color: var(--muted); font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s; }
 .btn-outline:hover { border-color: #93c5fd; color: var(--blue); }
+.company-profile-name { color: var(--dark); font-weight: 850; font-size: 2rem; margin: 0; letter-spacing: -0.5px; }
+.company-type-badge { display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #4338ca; padding: 3px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.5rem; border: 1px solid #c7d2fe; }
+.company-breadcrumb-current { color: var(--dark); }
+.company-policy-filters { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); background: #fafafa; }
+.company-search-input { padding: 7px 10px; }
+.company-search-btn { padding: 7px 16px; background: var(--dark); color: white; border: none; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+.company-clear-btn { padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--muted); background: white; font-weight: 700; font-size: 0.85rem; }
+html.portal-theme-dark .company-profile-page { --dark: #f1f5f9; --muted: #94a3b8; --border: #2d3a4d; --bg: #0b1220; }
+html.portal-theme-dark .company-profile-page .company-type-badge { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border-color: rgba(99, 102, 241, 0.35); }
+html.portal-theme-dark .company-profile-page .company-policy-filters { background: var(--portal-surface-muted); }
+html.portal-theme-dark .company-profile-page .company-search-input { background: #ffffff !important; color: #0f172a !important; border-color: #d5dceb !important; }
+html.portal-theme-dark .company-profile-page .company-search-btn { background: #0f172a !important; color: #ffffff !important; }
+html.portal-theme-dark .company-profile-page .company-clear-btn { background: #ffffff !important; color: #64748b !important; border-color: #e2e8f0 !important; }
+html.portal-theme-dark .company-profile-page .chip-active { background: rgba(22, 163, 74, 0.2); color: #4ade80; }
+html.portal-theme-dark .company-profile-page .chip-inactive { background: rgba(220, 38, 38, 0.15); color: #f87171; }
+html.portal-theme-dark .company-profile-page .chip-quote { background: rgba(37, 99, 235, 0.18); color: #60a5fa; }
+html.portal-theme-dark .company-profile-page .chip-bound { background: rgba(22, 163, 74, 0.18); color: #4ade80; }
+html.portal-theme-dark .company-profile-page .chip-pending { background: rgba(217, 119, 6, 0.18); color: #fbbf24; }
+html.portal-theme-dark .company-profile-page .chip-rejected { background: rgba(220, 38, 38, 0.18); color: #f87171; }
 .field-label { display: block; font-size: 0.73rem; font-weight: 800; color: var(--muted); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
 .field-input { width: 100%; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid var(--border); background: var(--portal-surface-muted); color: var(--dark); font-size: 0.88rem; outline: none; box-sizing: border-box; transition: border 0.2s; }
 .field-input:focus { border-color: var(--blue); }
@@ -64,14 +83,14 @@
       <span>›</span>
       <span>Companies</span>
       <span>›</span>
-      <span style="color: var(--dark);">{{ company.name }}</span>
+      <span class="company-breadcrumb-current">{{ company.name }}</span>
     </div>
 
     <!-- Header -->
     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.25rem; margin-bottom: 2rem;">
       <div>
-        <div style="display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #4338ca; padding: 3px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.5rem; border: 1px solid #c7d2fe;">🏢 Insurance Company</div>
-        <h1 style="color: var(--dark); font-weight: 850; font-size: 2rem; margin: 0; letter-spacing: -0.5px;">{{ company.name }}</h1>
+        <div class="company-type-badge">🏢 Insurance Company</div>
+        <h1 class="company-profile-name">{{ company.name }}</h1>
         <p style="color: var(--muted); margin: 0.25rem 0 0; font-weight: 500; font-size: 0.95rem;">{{ active_org.name }} · Since {{ company.created_at|date:"M d, Y" }}</p>
       </div>
       <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
@@ -106,14 +125,14 @@
         <span style="font-size: 0.82rem; color: var(--muted); font-weight: 600;">{{ policies_page.paginator.count }} total</span>
       </div>
       <!-- Policy Filters -->
-      <div style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); background: #fafafa;">
+      <div class="company-policy-filters">
         <form method="GET" style="display: flex; flex-direction: column; gap: 0.8rem;">
           <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
             <div style="flex: 1; min-width: 220px;">
-              <input type="text" name="q" value="{{ search_query }}" placeholder="Search client, policy #..." class="field-input" style="padding: 7px 10px;">
+              <input type="text" name="q" value="{{ search_query }}" placeholder="Search client, policy #..." class="field-input company-search-input">
             </div>
-            <button type="submit" style="padding: 7px 16px; background: var(--dark); color: white; border: none; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.85rem;">Search</button>
-            <a href="{% url 'insurance-company-detail' company.id %}" style="padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--muted); background: white; font-weight: 700; font-size: 0.85rem;">Clear</a>
+            <button type="submit" class="company-search-btn">Search</button>
+            <a href="{% url 'insurance-company-detail' company.id %}" class="company-clear-btn">Clear</a>
           </div>
           <details {% if stage_filter or status_filter or type_filter or source_filter or business_type_filter or agent_filter or date_from or date_to or min_premium or max_premium %}open{% endif %}>
             <summary style="cursor: pointer; font-size: 0.83rem; font-weight: 700; color: var(--blue); outline: none; user-select: none;">🔍 Advanced Filters</summary>
