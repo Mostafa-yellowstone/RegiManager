@@ -13,8 +13,8 @@
     margin-top: 2rem;
 }
 .space-card {
-    background: white;
-    border: 1px solid #e2e8f0;
+    background: var(--portal-surface);
+    border: 1px solid var(--portal-border);
     border-radius: 24px;
     padding: 2.25rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -39,7 +39,7 @@
 .space-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    border-color: #cbd5e1;
+    border-color: var(--portal-border-strong);
 }
 .space-card-link {
     text-decoration: none;
@@ -60,7 +60,7 @@
     display: flex;
 }
 .modal-box {
-    background: white;
+    background: var(--portal-surface);
     border-radius: 24px;
     padding: 2.5rem;
     max-width: 520px;
@@ -78,7 +78,7 @@
     display: block;
     font-size: 0.78rem;
     font-weight: 800;
-    color: #475569;
+    color: var(--portal-text-muted);
     margin-bottom: 0.5rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -87,7 +87,7 @@
     width: 100%;
     padding: 0.8rem 1.1rem;
     border-radius: 12px;
-    border: 1.5px solid #e2e8f0;
+    border: 1.5px solid var(--portal-border);
     font-size: 0.95rem;
     outline: none;
     transition: all 0.2s;
@@ -138,8 +138,8 @@
 </main>
 
 {% else %}
-<main style="background: #f8fafc; min-height: 100vh; padding-bottom: 5rem;">
-  <div style="max-width: 1300px; margin: 0 auto; padding: 3rem 1.5rem;">
+<main class="portal-space-shell">
+  <div class="portal-space-inner">
 
     <!-- Header -->
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 3rem;">
@@ -147,8 +147,8 @@
         <div style="display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #4338ca; padding: 5px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.75rem; border: 1px solid #c7d2fe;">
           🏢 {{ active_org.name }}
         </div>
-        <h1 style="color: #0f172a; font-weight: 850; font-size: 2.25rem; margin: 0; letter-spacing: -0.75px;">Location Spaces</h1>
-        <p style="color: #64748b; margin: 0.4rem 0 0; font-weight: 500; font-size: 1.05rem;">Access and manage your localized workspaces.</p>
+        <h1 class="portal-space-title">Location Spaces</h1>
+        <p class="portal-space-subtitle">Access and manage your localized workspaces.</p>
       </div>
     </div>
 
@@ -167,18 +167,14 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
               {% endif %}
             </div>
-            <span style="font-size: 0.72rem; font-weight: 800; background: #f1f5f9; padding: 4px 10px; border-radius: 8px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid #e2e8f0;">
-              {{ item.key }}
-            </span>
+            <span class="space-card-key">{{ item.key }}</span>
           </div>
           
-          <h3 style="margin: 0 0 0.5rem; font-size: 1.35rem; font-weight: 850; color: #0f172a; letter-spacing: -0.3px;">{{ item.label }}</h3>
-          <p style="color: #64748b; font-size: 0.95rem; line-height: 1.5; margin: 0 0 2rem; flex-grow: 1;">{{ item.description|default:"No description provided." }}</p>
+          <h3 class="space-card-title">{{ item.label }}</h3>
+          <p class="space-card-desc">{{ item.description|default:"No description provided." }}</p>
           
-          <div style="display: flex; justify-content: flex-end; align-items: center; padding-top: 1.25rem; border-top: 1px solid #f1f5f9; margin-top: auto;">
-            <span style="font-size: 0.85rem; color: #093de6; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: inline-flex; align-items: center; gap: 4px;">
-              Open Workspace &rarr;
-            </span>
+          <div style="display: flex; justify-content: flex-end; align-items: center; padding-top: 1.25rem; border-top: 1px solid var(--portal-border); margin-top: auto;">
+            <span class="space-card-cta">Open Workspace &rarr;</span>
           </div>
         </div>
       </a>

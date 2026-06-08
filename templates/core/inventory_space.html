@@ -10,17 +10,17 @@
 .tab-btn.active { color: #0d9488 !important; border-bottom: 2px solid #0d9488 !important; }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
-.spaces-metric { background: white; border-radius: 16px; padding: 1.25rem 1.5rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.spaces-metric { background: var(--portal-surface); border-radius: 16px; padding: 1.25rem 1.5rem; border: 1px solid var(--portal-border); box-shadow: var(--portal-shadow-sm); }
 .spaces-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; }
-.spaces-table th { padding: 0.9rem 1.1rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #475569; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; }
-.spaces-table td { padding: 0.85rem 1.1rem; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #334155; }
-.spaces-table tr:hover td { background: #fafafa; }
+.spaces-table th { padding: 0.9rem 1.1rem; background: var(--portal-surface-muted); border-bottom: 1px solid var(--portal-border); color: var(--portal-text-muted); font-weight: 700; font-size: 0.75rem; text-transform: uppercase; }
+.spaces-table td { padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--portal-border); font-weight: 600; color: var(--portal-text-secondary); }
+.spaces-table tr:hover td { background: var(--portal-surface-muted); }
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.35); backdrop-filter: blur(6px); z-index: 2000; align-items: center; justify-content: center; }
 .modal-overlay.active { display: flex; }
-.modal-box { background: white; border-radius: 20px; padding: 1.75rem; max-width: 560px; width: 95%; max-height: 92vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+.modal-box { background: var(--portal-surface); border-radius: 20px; padding: 1.75rem; max-width: 560px; width: 95%; max-height: 92vh; overflow-y: auto; box-shadow: var(--portal-shadow-lg); border: 1px solid var(--portal-border); }
 .modal-box.wide { max-width: 720px; }
-.field-label { display: block; font-size: 0.76rem; font-weight: 800; color: #475569; margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.04em; }
-.field-input { width: 100%; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.88rem; outline: none; box-sizing: border-box; }
+.field-label { display: block; font-size: 0.76rem; font-weight: 800; color: var(--portal-text-muted); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.field-input { width: 100%; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid var(--portal-border); background: var(--portal-surface-muted); color: var(--portal-text); font-size: 0.88rem; outline: none; box-sizing: border-box; }
 .field-input:focus { border-color: #0d9488; }
 .btn-submit { width: 100%; padding: 0.75rem; background: linear-gradient(135deg, #0f766e, #14b8a6); border: none; border-radius: 10px; color: white; font-weight: 700; cursor: pointer; font-size: 0.95rem; }
 .btn-submit:hover { background: #0d9488; }
@@ -32,16 +32,16 @@
 .inv-line-row { display: grid; grid-template-columns: 2fr 0.7fr 1fr 40px; gap: 0.5rem; align-items: end; margin-bottom: 0.5rem; }
 </style>
 
-<main style="background: #f8fafc; min-height: 100vh; padding-bottom: 4rem;">
-  <div style="max-width: 100%; margin: 0 auto; padding: 2rem 2.5rem;">
+<main class="portal-space-shell">
+  <div class="portal-space-inner portal-space-inner--wide">
 
     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.25rem; margin-bottom: 1.5rem;">
       <div>
         <div style="display: inline-flex; align-items: center; gap: 6px; background: #ccfbf1; color: #0f766e; padding: 4px 12px; border-radius: 999px; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.5rem; border: 1px solid #99f6e4;">
           🏢 {{ active_org.name }}
         </div>
-        <h1 style="color: #0f172a; font-weight: 850; font-size: 2rem; margin: 0;">📦 {{ card.label }}</h1>
-        <p style="color: #64748b; margin: 0.25rem 0 0; font-weight: 500; font-size: 0.95rem;">{{ card.description|default:"Product inventory · Sales · Stock tracking" }}</p>
+        <h1 class="portal-space-title">📦 {{ card.label }}</h1>
+        <p class="portal-space-subtitle">{{ card.description|default:"Product inventory · Sales · Stock tracking" }}</p>
       </div>
       <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
         <a href="{% url 'spaces-home' %}" style="text-decoration: none; padding: 9px 16px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; font-weight: 700; color: #475569; font-size: 0.88rem;">&larr; Back to Spaces</a>
@@ -75,11 +75,11 @@
     <!-- DASHBOARD -->
     <div id="tab-dashboard" class="tab-panel {% if active_tab == 'dashboard' %}active{% endif %}">
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-        <div class="spaces-metric"><div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Sales Today</div><div style="font-size: 1.5rem; font-weight: 900; color: #0f172a;">${{ stats.sales_today_total|floatformat:2 }}</div><div style="font-size: 0.78rem; color: #94a3b8;">{{ stats.sales_today_count }} invoice{{ stats.sales_today_count|pluralize }}</div></div>
-        <div class="spaces-metric"><div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Sales This Month</div><div style="font-size: 1.5rem; font-weight: 900; color: #0f172a;">${{ stats.sales_month_total|floatformat:2 }}</div><div style="font-size: 0.78rem; color: #94a3b8;">{{ stats.sales_month_count }} invoice{{ stats.sales_month_count|pluralize }}</div></div>
-        <div class="spaces-metric"><div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Buyers</div><div style="font-size: 1.5rem; font-weight: 900; color: #0f172a;">{{ stats.buyer_count }}</div><div style="font-size: 0.78rem; color: #94a3b8;">Separate from main clients</div></div>
-        <div class="spaces-metric"><div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Completed Invoices</div><div style="font-size: 1.5rem; font-weight: 900; color: #0f172a;">{{ stats.invoice_count }}</div></div>
-        <div class="spaces-metric"><div style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Supplier Spend</div><div style="font-size: 1.5rem; font-weight: 900; color: #b45309;">${{ stats.total_supplier_spend|floatformat:2 }}</div><div style="font-size: 0.78rem; color: #94a3b8;">{{ stats.supplier_count }} supplier{{ stats.supplier_count|pluralize }}</div></div>
+        <div class="spaces-metric"><div class="spaces-metric-label">Sales Today</div><div class="spaces-metric-value">${{ stats.sales_today_total|floatformat:2 }}</div><div class="spaces-metric-meta">{{ stats.sales_today_count }} invoice{{ stats.sales_today_count|pluralize }}</div></div>
+        <div class="spaces-metric"><div class="spaces-metric-label">Sales This Month</div><div class="spaces-metric-value">${{ stats.sales_month_total|floatformat:2 }}</div><div class="spaces-metric-meta">{{ stats.sales_month_count }} invoice{{ stats.sales_month_count|pluralize }}</div></div>
+        <div class="spaces-metric"><div class="spaces-metric-label">Buyers</div><div class="spaces-metric-value">{{ stats.buyer_count }}</div><div class="spaces-metric-meta">Separate from main clients</div></div>
+        <div class="spaces-metric"><div class="spaces-metric-label">Completed Invoices</div><div class="spaces-metric-value">{{ stats.invoice_count }}</div></div>
+        <div class="spaces-metric"><div class="spaces-metric-label">Supplier Spend</div><div class="spaces-metric-value" style="color: var(--portal-warning);">${{ stats.total_supplier_spend|floatformat:2 }}</div><div class="spaces-metric-meta">{{ stats.supplier_count }} supplier{{ stats.supplier_count|pluralize }}</div></div>
       </div>
       {% if stats.low_stock_products %}
       <div style="background: white; border-radius: 16px; border: 1px solid #fecaca; padding: 1.25rem; margin-bottom: 1.5rem;">

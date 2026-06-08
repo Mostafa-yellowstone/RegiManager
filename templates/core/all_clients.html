@@ -93,13 +93,13 @@
                         {% for client in page_obj %}
                             <tr>
                                 <td>
-                                    <div style="display: flex; align-items: center; gap: 1rem;">
-                                        <div style="width: 36px; height: 36px; border-radius: 8px; background: #f1f5f9; color: #1e293b; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1rem; flex-shrink: 0;">
+                                    <div class="client-name-cell">
+                                        <div class="client-avatar">
                                             {{ client.name|slice:":1"|upper }}
                                         </div>
                                         <div>
                                             <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
-                                                <a href="{% url 'client-detail' client.id %}" style="font-weight: 600; color: #1e293b; text-decoration: none;">{{ client.name }}</a>
+                                                <a href="{% url 'client-detail' client.id %}" class="client-name-link">{{ client.name }}</a>
                                                 {% if client.is_commercial %}
                                                     <span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; vertical-align: middle; display: inline-block;">Business</span>
                                                 {% endif %}
@@ -119,18 +119,18 @@
                                                 {% endif %}
                                             </div>
                                             {% if client.referral %}
-                                                <div style="font-size: 0.75rem; color: #64748b;">via {{ client.referral.name }}</div>
+                                                <div class="client-referral-meta">via {{ client.referral.name }}</div>
                                             {% endif %}
                                         </div>
                                     </div>
                                 </td>
                                 <td>
-                                    <div style="font-size: 0.9rem; color: #1e293b;">{{ client.phone_number }}</div>
-                                    <div style="font-size: 0.8rem; color: #64748b;">{{ client.email|default:"No email" }}</div>
+                                    <div class="client-contact-primary">{{ client.phone_number }}</div>
+                                    <div class="client-contact-secondary">{{ client.email|default:"No email" }}</div>
                                 </td>
                                 <td>
-                                    <div style="font-size: 0.9rem; color: #1e293b;">{{ client.city }}, {{ client.state }}</div>
-                                    <div style="font-size: 0.8rem; color: #64748b;">{{ client.county }} County</div>
+                                    <div class="client-location-primary">{{ client.city }}, {{ client.state }}</div>
+                                    <div class="client-location-secondary">{{ client.county }} County</div>
                                 </td>
                                 <td>
                                     <span class="brand-pill" style="background: #e0e7ff; color: #4338ca; border: none;">{{ client.vehicles.count }} Vehicles</span>
