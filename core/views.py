@@ -6632,6 +6632,19 @@ def add_daily_payment(request):
         messages.error(request, "Invalid payment method.")
         return _redirect_to_insurance_detail(org, tab="daily-payments", query_params=[f"daily_date={tx_date}"])
 
+    is_cleared = request.POST.get("is_cleared") in ("1", "on", "true")
+    cleared_date_str = request.POST.get("cleared_date", "").strip()
+    cleared_date = None
+    if is_cleared:
+        try:
+            cleared_date = (
+                dt_parse.strptime(cleared_date_str, "%Y-%m-%d").date()
+                if cleared_date_str
+                else timezone.localdate()
+            )
+        except ValueError:
+            cleared_date = timezone.localdate()
+
     try:
         DailyPaymentTransaction.objects.create(
             organization=org,
@@ -6642,6 +6655,8 @@ def add_daily_payment(request):
             payment_method=payment_method,
             recorded_by=request.user,
             notes=notes,
+            is_cleared=is_cleared,
+            cleared_date=cleared_date,
         )
         messages.success(request, "Daily payment recorded.")
     except Exception as e:
@@ -6672,6 +6687,45 @@ def delete_daily_payment(request, transaction_id):
         tab="daily-payments",
         query_params=[f"daily_date={tx_date}"],
     )
+
+
+@login_required
+@require_POST
+def toggle_daily_payment_clear(request, transaction_id):
+    from datetime import datetime as dt_parse
+    from .models import DailyPaymentTransaction
+
+    organizations = _get_user_organizations(request)
+    tx = get_object_or_404(
+        DailyPaymentTransaction,
+        id=transaction_id,
+        organization__in=organizations,
+    )
+
+    is_cleared = request.POST.get("is_cleared") in ("1", "on", "true")
+    cleared_date_str = request.POST.get("cleared_date", "").strip()
+
+    if is_cleared:
+        try:
+            tx.cleared_date = (
+                dt_parse.strptime(cleared_date_str, "%Y-%m-%d").date()
+                if cleared_date_str
+                else timezone.localdate()
+            )
+        except ValueError:
+            tx.cleared_date = timezone.localdate()
+        tx.is_cleared = True
+    else:
+        tx.is_cleared = False
+        tx.cleared_date = None
+
+    tx.save(update_fields=["is_cleared", "cleared_date"])
+
+    return JsonResponse({
+        "ok": True,
+        "is_cleared": tx.is_cleared,
+        "cleared_date": tx.cleared_date.isoformat() if tx.cleared_date else "",
+    })
 
 
 @login_required
