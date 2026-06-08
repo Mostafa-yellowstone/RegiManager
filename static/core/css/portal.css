@@ -2413,6 +2413,83 @@ html.portal-theme-dark .company-profile-page .company-search-input {
     color-scheme: light;
 }
 
+/* Agent profile page */
+.agent-profile-page .metric-card,
+.agent-profile-page .section-card {
+    background: var(--portal-surface);
+    border-color: var(--portal-border);
+}
+
+.agent-profile-page .section-header {
+    background: var(--portal-surface-muted);
+    border-bottom-color: var(--portal-border);
+}
+
+.agent-profile-page .section-title,
+.agent-profile-page .metric-value,
+.agent-profile-page .agent-profile-name {
+    color: var(--portal-text);
+}
+
+.agent-profile-page .metric-label,
+.agent-profile-page .field-label {
+    color: var(--portal-text-muted);
+}
+
+.agent-profile-page .tbl th {
+    background: var(--portal-surface-muted);
+    color: var(--portal-text-muted);
+    border-bottom-color: var(--portal-border);
+}
+
+.agent-profile-page .tbl td {
+    color: var(--portal-text-secondary);
+    border-bottom-color: var(--portal-border);
+}
+
+.agent-profile-page .tbl tr:hover td {
+    background: var(--portal-surface-muted);
+}
+
+.agent-profile-page .page-btn,
+.agent-profile-page .btn-outline {
+    background: var(--portal-surface);
+    border-color: var(--portal-border);
+    color: var(--portal-text-muted);
+}
+
+.agent-profile-page .field-input {
+    background: var(--portal-surface-muted);
+    color: var(--portal-text);
+    border-color: var(--portal-border);
+}
+
+html.portal-theme-dark .agent-profile-page .tbl td[style*="color: #475569"],
+html.portal-theme-dark .agent-profile-page .tbl td[style*="color: var(--muted)"] {
+    color: var(--portal-text-muted) !important;
+}
+
+html.portal-theme-dark .agent-profile-page .tbl td[style*="font-weight: 800"],
+html.portal-theme-dark .agent-profile-page .tbl td[style*="font-weight: 700"] {
+    color: var(--portal-text) !important;
+}
+
+html.portal-theme-dark .agent-profile-page .page-btn.active {
+    background: var(--portal-primary);
+    border-color: var(--portal-primary);
+    color: #fff;
+}
+
+html.portal-theme-dark .agent-profile-page .agent-audit-bar strong[style*="color:var(--dark)"],
+html.portal-theme-dark .agent-profile-page .agent-audit-bar strong[style*="color: var(--dark)"] {
+    color: var(--portal-text) !important;
+}
+
+html.portal-theme-dark .agent-profile-page .chip[style*="background:#f1f5f9"] {
+    background: var(--portal-surface-muted) !important;
+    color: var(--portal-text-muted) !important;
+}
+
 /* Vehicle detail — official docs panel */
 .vehicle-detail-page .vd-official-docs {
     border: 2px solid var(--portal-primary);

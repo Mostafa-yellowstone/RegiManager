@@ -6,18 +6,27 @@
 {% block portal_content %}
 
 <style>
-:root { --blue: #093de6; --dark: #0f172a; --muted: #64748b; --border: #e2e8f0; --bg: #f8fafc; --green: #16a34a; --red: #dc2626; }
-.metric-card { background: white; border-radius: 16px; padding: 1.25rem 1.5rem; border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+:root {
+  --blue: var(--portal-primary, #093de6);
+  --dark: var(--portal-text, #0f172a);
+  --muted: var(--portal-text-muted, #64748b);
+  --border: var(--portal-border, #e2e8f0);
+  --bg: var(--portal-bg, #f8fafc);
+  --green: #16a34a;
+  --red: #dc2626;
+  --card-radius: 16px;
+}
+.metric-card { background: var(--portal-surface); border-radius: var(--card-radius); padding: 1.25rem 1.5rem; border: 1px solid var(--border); box-shadow: var(--portal-shadow-sm); }
 .metric-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--muted); margin-bottom: 0.35rem; letter-spacing: 0.04em; }
 .metric-value { font-size: 1.8rem; font-weight: 800; color: var(--dark); line-height: 1; }
-.section-card { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04); overflow: hidden; }
-.section-header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); background: #f8fafc; }
+.section-card { background: var(--portal-surface); border-radius: var(--card-radius); border: 1px solid var(--border); box-shadow: var(--portal-shadow-sm); overflow: hidden; }
+.section-header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); background: var(--portal-surface-muted); }
 .section-title { font-size: 1.05rem; font-weight: 800; color: var(--dark); margin: 0; }
 .tbl { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-.tbl th { padding: 0.75rem 1rem; background: #f8fafc; border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 700; font-size: 0.72rem; text-transform: uppercase; text-align: left; white-space: nowrap; }
-.tbl td { padding: 0.8rem 1rem; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: var(--dark); vertical-align: middle; }
+.tbl th { padding: 0.75rem 1rem; background: var(--portal-surface-muted); border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 700; font-size: 0.72rem; text-transform: uppercase; text-align: left; white-space: nowrap; }
+.tbl td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--dark); vertical-align: middle; }
 .tbl tr:last-child td { border-bottom: none; }
-.tbl tr:hover td { background: #fafafa; }
+.tbl tr:hover td { background: var(--portal-surface-muted); }
 .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
 .chip-active { background: #dcfce7; color: #166534; }
 .chip-inactive { background: #ffe4e6; color: #9f1239; }
@@ -39,19 +48,56 @@
 .bt-renewal { background:#ecfdf5; color:#065f46; }
 .bt-rewrite { background:#fff7ed; color:#9a3412; }
 .field-label { display: block; font-size: 0.73rem; font-weight: 800; color: var(--muted); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
-.field-input { width: 100%; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.88rem; outline: none; box-sizing: border-box; transition: border 0.2s; }
+.field-input { width: 100%; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid var(--border); background: var(--portal-surface-muted); color: var(--dark); font-size: 0.88rem; outline: none; box-sizing: border-box; transition: border 0.2s; }
 .field-input:focus { border-color: var(--blue); }
-.page-btn { padding: 5px 11px; border-radius: 6px; border: 1px solid var(--border); background: white; color: var(--muted); font-weight: 700; font-size: 0.8rem; text-decoration: none; }
+.page-btn { padding: 5px 11px; border-radius: 6px; border: 1px solid var(--border); background: var(--portal-surface); color: var(--muted); font-weight: 700; font-size: 0.8rem; text-decoration: none; }
 .page-btn.active { background: var(--blue); color: white; border-color: var(--blue); }
 .page-btn:hover:not(.active) { border-color: #93c5fd; color: var(--blue); }
-/* Period pills */
-.period-pill { display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; border: 1.5px solid var(--border); background: white; color: var(--muted); cursor: pointer; text-decoration: none; transition: all 0.15s; }
+.btn-outline { padding: 8px 16px; background: var(--portal-surface); border: 1px solid var(--border); border-radius: 10px; font-weight: 700; color: var(--muted); font-size: 0.88rem; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; transition: all 0.15s; }
+.btn-outline:hover { border-color: #93c5fd; color: var(--blue); }
+.agent-profile-name { color: var(--dark); font-weight: 850; font-size: 1.9rem; margin: 0; letter-spacing: -0.5px; }
+.agent-type-badge { display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #4338ca; padding: 3px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.4rem; border: 1px solid #c7d2fe; }
+.agent-breadcrumb-current { color: var(--dark); }
+.agent-policy-filters { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); background: #fafafa; }
+.agent-search-input { padding: 7px 10px; }
+.agent-search-btn { padding: 7px 16px; background: var(--dark); color: white; border: none; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+.agent-clear-btn { padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--muted); background: white; font-weight: 700; font-size: 0.85rem; }
+.agent-filter-apply-btn { margin-top: 0.75rem; padding: 6px 16px; background: var(--dark); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.83rem; }
+.agent-audit-bar { background: var(--portal-surface); border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--portal-shadow-sm); padding: 1.25rem 1.5rem; margin-bottom: 1.75rem; }
+.period-pill { display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; border: 1.5px solid var(--border); background: var(--portal-surface); color: var(--muted); cursor: pointer; text-decoration: none; transition: all 0.15s; }
 .period-pill:hover { border-color: var(--blue); color: var(--blue); }
 .period-pill.selected { background: var(--blue); border-color: var(--blue); color: white; }
+html.portal-theme-dark .agent-profile-page { --dark: #f1f5f9; --muted: #94a3b8; --border: #2d3a4d; --bg: #0b1220; }
+html.portal-theme-dark .agent-profile-page .agent-type-badge { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border-color: rgba(99, 102, 241, 0.35); }
+html.portal-theme-dark .agent-profile-page .agent-policy-filters { background: var(--portal-surface-muted); }
+html.portal-theme-dark .agent-profile-page .agent-search-input { background: #ffffff !important; color: #0f172a !important; border-color: #d5dceb !important; color-scheme: light; }
+html.portal-theme-dark .agent-profile-page .agent-search-btn { background: #0f172a !important; color: #ffffff !important; }
+html.portal-theme-dark .agent-profile-page .agent-clear-btn { background: #ffffff !important; color: #64748b !important; border-color: #e2e8f0 !important; }
+html.portal-theme-dark .agent-profile-page .chip-active { background: rgba(22, 163, 74, 0.2); color: #4ade80; }
+html.portal-theme-dark .agent-profile-page .chip-inactive { background: rgba(220, 38, 38, 0.15); color: #f87171; }
+html.portal-theme-dark .agent-profile-page .chip-quote { background: rgba(37, 99, 235, 0.18); color: #60a5fa; }
+html.portal-theme-dark .agent-profile-page .chip-bound { background: rgba(22, 163, 74, 0.18); color: #4ade80; }
+html.portal-theme-dark .agent-profile-page .chip-pending { background: rgba(217, 119, 6, 0.18); color: #fbbf24; }
+html.portal-theme-dark .agent-profile-page .chip-rejected { background: rgba(220, 38, 38, 0.18); color: #f87171; }
+html.portal-theme-dark .agent-profile-page .period-pill { background: var(--portal-surface-muted); border-color: var(--portal-border); color: var(--portal-text-muted); }
+html.portal-theme-dark .agent-profile-page .period-pill.selected { background: var(--portal-primary); border-color: var(--portal-primary); color: #fff; }
+html.portal-theme-dark .agent-profile-page .field-input { color-scheme: dark; }
+html.portal-theme-dark .agent-profile-page .agent-filter-apply-btn { background: var(--portal-primary) !important; color: #fff !important; }
+html.portal-theme-dark .agent-profile-page .src-walk_in { background: rgba(14, 165, 233, 0.18); color: #7dd3fc; }
+html.portal-theme-dark .agent-profile-page .src-google_search { background: rgba(217, 119, 6, 0.18); color: #fbbf24; }
+html.portal-theme-dark .agent-profile-page .src-meta_platform { background: rgba(124, 58, 237, 0.18); color: #c4b5fd; }
+html.portal-theme-dark .agent-profile-page .src-google_campaigns { background: rgba(217, 119, 6, 0.18); color: #fbbf24; }
+html.portal-theme-dark .agent-profile-page .src-existing_client { background: rgba(22, 163, 74, 0.18); color: #4ade80; }
+html.portal-theme-dark .agent-profile-page .src-dealer { background: rgba(22, 163, 74, 0.18); color: #4ade80; }
+html.portal-theme-dark .agent-profile-page .src-referral { background: rgba(220, 38, 38, 0.15); color: #f87171; }
+html.portal-theme-dark .agent-profile-page .src-cold_calling { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; }
+html.portal-theme-dark .agent-profile-page .bt-new_business { background: rgba(99, 102, 241, 0.18); color: #a5b4fc; }
+html.portal-theme-dark .agent-profile-page .bt-renewal { background: rgba(22, 163, 74, 0.18); color: #4ade80; }
+html.portal-theme-dark .agent-profile-page .bt-rewrite { background: rgba(217, 119, 6, 0.18); color: #fb923c; }
 </style>
 
-<main style="background: var(--bg); min-height: 100vh; padding-bottom: 4rem;">
-  <div style="max-width: 1300px; margin: 0 auto; padding: 2rem 1.5rem;">
+<main class="portal-space-shell agent-profile-page">
+  <div class="portal-space-inner">
 
     <!-- Breadcrumb -->
     <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: var(--muted); font-weight: 600; flex-wrap: wrap;">
@@ -61,7 +107,7 @@
         <a href="{% url 'spaces-home' %}" style="color: var(--blue); text-decoration: none;">🛡️ Insurance Space</a>
       {% endif %}
       <span>›</span><span>Agents</span><span>›</span>
-      <span style="color: var(--dark);">{{ agent.get_full_name|default:agent.username }}</span>
+      <span class="agent-breadcrumb-current">{{ agent.get_full_name|default:agent.username }}</span>
     </div>
 
     <!-- Header -->
@@ -71,20 +117,20 @@
           {{ agent.first_name|slice:":1"|upper }}{{ agent.last_name|slice:":1"|upper }}
         </div>
         <div>
-          <div style="display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #4338ca; padding: 3px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.4rem; border: 1px solid #c7d2fe;">👤 Insurance Agent</div>
-          <h1 style="color: var(--dark); font-weight: 850; font-size: 1.9rem; margin: 0; letter-spacing: -0.5px;">{{ agent.get_full_name|default:agent.username }}</h1>
+          <div class="agent-type-badge">👤 Insurance Agent</div>
+          <h1 class="agent-profile-name">{{ agent.get_full_name|default:agent.username }}</h1>
           <p style="color: var(--muted); margin: 0.2rem 0 0; font-weight: 500; font-size: 0.92rem;">{{ agent.email }} · {{ active_org.name }}</p>
         </div>
       </div>
       {% if insurance_space_id %}
-        <a href="{% url 'inventory-detail' insurance_space_id %}" style="padding: 8px 16px; background: white; border: 1px solid var(--border); border-radius: 10px; font-weight: 700; color: var(--muted); font-size: 0.88rem; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">← Back to Insurance</a>
+        <a href="{% url 'inventory-detail' insurance_space_id %}" class="btn-outline">← Back to Insurance</a>
       {% else %}
-        <a href="{% url 'spaces-home' %}" style="padding: 8px 16px; background: white; border: 1px solid var(--border); border-radius: 10px; font-weight: 700; color: var(--muted); font-size: 0.88rem; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">← Back</a>
+        <a href="{% url 'spaces-home' %}" class="btn-outline">← Back</a>
       {% endif %}
     </div>
 
     <!-- ── Period Auditing Bar ──────────────────────────────────────────────── -->
-    <div style="background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04); padding: 1.25rem 1.5rem; margin-bottom: 1.75rem;">
+    <div class="agent-audit-bar">
       <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
         <div>
           <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: 0.04em; margin-bottom: 0.4rem;">📅 Audit Period</div>
@@ -158,16 +204,16 @@
       </div>
 
       <!-- Filters -->
-      <div style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); background: #fafafa;">
+      <div class="agent-policy-filters">
         <form method="GET" style="display: flex; flex-direction: column; gap: 0.75rem;">
           <input type="hidden" name="period" value="{{ period }}">
           {% if period == 'custom' %}<input type="hidden" name="date_from" value="{{ custom_from_str }}"><input type="hidden" name="date_to" value="{{ custom_to_str }}">{% endif %}
           <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
             <div style="flex: 1; min-width: 220px;">
-              <input type="text" name="q" value="{{ search_query }}" placeholder="Search client, policy #..." class="field-input" style="padding: 7px 10px;">
+              <input type="text" name="q" value="{{ search_query }}" placeholder="Search client, policy #..." class="field-input agent-search-input">
             </div>
-            <button type="submit" style="padding: 7px 16px; background: var(--dark); color: white; border: none; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.85rem;">Search</button>
-            <a href="{% url 'insurance-agent-detail' agent.id %}?period={{ period }}" style="padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--muted); background: white; font-weight: 700; font-size: 0.85rem;">Clear</a>
+            <button type="submit" class="agent-search-btn">Search</button>
+            <a href="{% url 'insurance-agent-detail' agent.id %}?period={{ period }}" class="agent-clear-btn">Clear</a>
           </div>
           <details {% if stage_filter or status_filter or type_filter or source_filter or business_type_filter or company_filter or table_date_from or table_date_to %}open{% endif %}>
             <summary style="cursor: pointer; font-size: 0.83rem; font-weight: 700; color: var(--blue); outline: none; user-select: none;">🔍 Advanced Filters</summary>
@@ -217,7 +263,7 @@
               <div><label class="field-label">Start From</label><input type="date" name="tbl_date_from" value="{{ table_date_from }}" class="field-input" style="padding: 6px;"></div>
               <div><label class="field-label">Start To</label><input type="date" name="tbl_date_to" value="{{ table_date_to }}" class="field-input" style="padding: 6px;"></div>
             </div>
-            <button type="submit" style="margin-top:0.75rem; padding: 6px 16px; background: var(--dark); color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.83rem;">Apply Filters</button>
+            <button type="submit" class="agent-filter-apply-btn">Apply Filters</button>
           </details>
         </form>
       </div>
