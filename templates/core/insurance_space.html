@@ -187,7 +187,7 @@
               <a href="{% url 'inventory-detail' card.id %}" style="padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 8px; text-decoration: none; color: #475569; background: white; font-weight: 700; font-size: 0.9rem; text-align: center;">Clear</a>
             </div>
           </div>
-          <details {% if stage_filter or status_filter or type_filter or company_filter or agent_filter or date_from or date_to or min_premium or max_premium %}open{% endif %} style="width: 100%;">
+          <details {% if stage_filter or status_filter or type_filter or source_filter or business_type_filter or company_filter or agent_filter or date_from or date_to or min_premium or max_premium %}open{% endif %} style="width: 100%;">
             <summary style="cursor: pointer; font-size: 0.85rem; font-weight: 700; color: #093de6; margin-top: 0.2rem; outline: none; user-select: none;">🔍 Advanced Filters</summary>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 0.8rem;">
               <div style="display: flex; flex-direction: column; gap: 0.3rem;">
@@ -234,15 +234,7 @@
               <div style="display: flex; flex-direction: column; gap: 0.3rem;">
                 <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Source</label>
                 <select name="source" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
-                  <option value="">All Sources</option>
-                  <option value="walk_in" {% if source_filter == "walk_in" %}selected{% endif %}>🚶 Walk-in</option>
-                  <option value="google_search" {% if source_filter == "google_search" %}selected{% endif %}>🔍 Google Search</option>
-                  <option value="meta_platform" {% if source_filter == "meta_platform" %}selected{% endif %}>📘 Meta Platform</option>
-                  <option value="google_campaigns" {% if source_filter == "google_campaigns" %}selected{% endif %}>📢 Google Campaigns</option>
-                  <option value="existing_client" {% if source_filter == "existing_client" %}selected{% endif %}>🤝 Existing Client</option>
-                  <option value="dealer" {% if source_filter == "dealer" %}selected{% endif %}>🏪 Dealer</option>
-                  <option value="referral" {% if source_filter == "referral" %}selected{% endif %}>💬 Referral</option>
-                  <option value="cold_calling" {% if source_filter == "cold_calling" %}selected{% endif %}>📞 Cold Calling</option>
+                  {% include "core/partials/insurance_source_options.html" %}
                 </select>
               </div>
               <div style="display: flex; flex-direction: column; gap: 0.3rem;">

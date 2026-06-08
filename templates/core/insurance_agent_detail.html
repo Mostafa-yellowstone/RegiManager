@@ -194,15 +194,7 @@
               <div>
                 <label class="field-label">Source</label>
                 <select name="source" class="field-input" style="padding: 6px;">
-                  <option value="">All Sources</option>
-                  <option value="walk_in" {% if source_filter == "walk_in" %}selected{% endif %}>🚶 Walk-in</option>
-                  <option value="google_search" {% if source_filter == "google_search" %}selected{% endif %}>🔍 Google Search</option>
-                  <option value="meta_platform" {% if source_filter == "meta_platform" %}selected{% endif %}>📘 Meta Platform</option>
-                  <option value="google_campaigns" {% if source_filter == "google_campaigns" %}selected{% endif %}>📢 Google Campaigns</option>
-                  <option value="existing_client" {% if source_filter == "existing_client" %}selected{% endif %}>🤝 Existing Client</option>
-                  <option value="dealer" {% if source_filter == "dealer" %}selected{% endif %}>🏪 Dealer</option>
-                  <option value="referral" {% if source_filter == "referral" %}selected{% endif %}>💬 Referral</option>
-                  <option value="cold_calling" {% if source_filter == "cold_calling" %}selected{% endif %}>📞 Cold Calling</option>
+                  {% include "core/partials/insurance_source_options.html" %}
                 </select>
               </div>
               <div>

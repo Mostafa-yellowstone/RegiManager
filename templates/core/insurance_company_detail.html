@@ -115,7 +115,7 @@
             <button type="submit" style="padding: 7px 16px; background: var(--dark); color: white; border: none; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.85rem;">Search</button>
             <a href="{% url 'insurance-company-detail' company.id %}" style="padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--muted); background: white; font-weight: 700; font-size: 0.85rem;">Clear</a>
           </div>
-          <details {% if stage_filter or status_filter or type_filter or agent_filter or date_from or date_to or min_premium or max_premium %}open{% endif %}>
+          <details {% if stage_filter or status_filter or type_filter or source_filter or business_type_filter or agent_filter or date_from or date_to or min_premium or max_premium %}open{% endif %}>
             <summary style="cursor: pointer; font-size: 0.83rem; font-weight: 700; color: var(--blue); outline: none; user-select: none;">🔍 Advanced Filters</summary>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; margin-top: 0.75rem;">
               <div>
@@ -134,6 +134,21 @@
                   <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>Inactive</option>
                   <option value="pending" {% if status_filter == "pending" %}selected{% endif %}>Pending</option>
                   <option value="rejected" {% if status_filter == "rejected" %}selected{% endif %}>Rejected</option>
+                </select>
+              </div>
+              <div>
+                <label class="field-label">Source</label>
+                <select name="source" class="field-input" style="padding: 6px;">
+                  {% include "core/partials/insurance_source_options.html" %}
+                </select>
+              </div>
+              <div>
+                <label class="field-label">Business Type</label>
+                <select name="business_type" class="field-input" style="padding: 6px;">
+                  <option value="">All Business Types</option>
+                  <option value="new_business" {% if business_type_filter == "new_business" %}selected{% endif %}>🆕 New Business</option>
+                  <option value="renewal" {% if business_type_filter == "renewal" %}selected{% endif %}>🔄 Renewal</option>
+                  <option value="rewrite" {% if business_type_filter == "rewrite" %}selected{% endif %}>✏️ Rewrite</option>
                 </select>
               </div>
               <div>

@@ -1,0 +1,4 @@
+<option value="">All Sources</option>
+{% for sc in insurance_source_choices %}
+  <option value="{{ sc.key }}" {% if source_filter == sc.key %}selected{% endif %}>{{ sc.label }}</option>
+{% endfor %}

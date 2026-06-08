@@ -3,6 +3,7 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
 from .models import Organization, ServiceRecord, CustomServiceType, CustomSourceType, Referral, Client, Vehicle, ClientIntake
+from .source_choices import build_form_source_choices
 
 
 
@@ -137,22 +138,21 @@ class ServiceRecordForm(forms.ModelForm):
         self.fields["referral_balance"].label = "Referral Outstanding Balance"
         
         base_choices = list(ServiceRecord.SERVICE_TYPES)
-        source_choices = [
-            ("walk-in", "Walk-in"),
-            ("website", "Website"),
-            ("referral", "Referral Entity"),
-            ("other", "Other"),
-        ]
-        
+        source_choices = build_form_source_choices(
+            organizations,
+            [
+                ("walk-in", "Walk-in"),
+                ("website", "Website"),
+                ("referral", "Referral Entity"),
+                ("other", "Other"),
+            ],
+        )
+
         if organizations.exists():
             custom_types = CustomServiceType.objects.filter(organization__in=organizations)
             for ct in custom_types:
                 base_choices.append((ct.key, ct.label))
-                
-            custom_sources = CustomSourceType.objects.filter(organization__in=organizations)
-            for cs in custom_sources:
-                source_choices.append((cs.label.lower(), cs.label))
-                
+
         self.fields["service_type"].choices = base_choices
         self.fields["source"].choices = source_choices
         
@@ -262,17 +262,15 @@ class ClientForm(forms.ModelForm):
             self.fields["organization"].disabled = True
             self.fields["organization"].widget.attrs["style"] = "background-color: #f8fafc; cursor: not-allowed; color: #475569; border-color: #e2e8f0; appearance: none; pointer-events: none;"
         
-        source_choices = [
-            ("walk-in", "Walk-in"),
-            ("website", "Website"),
-            ("referral", "Referral"),
-            ("other", "Other"),
-        ]
-        if organizations.exists():
-            custom_sources = CustomSourceType.objects.filter(organization__in=organizations)
-            for cs in custom_sources:
-                source_choices.append((cs.label.lower(), cs.label))
-        self.fields["source"].choices = source_choices
+        self.fields["source"].choices = build_form_source_choices(
+            organizations,
+            [
+                ("walk-in", "Walk-in"),
+                ("website", "Website"),
+                ("referral", "Referral"),
+                ("other", "Other"),
+            ],
+        )
 
         referral_choices = [("", "--- Select Referral ---"), ("new", "+ Create New Referral")]
         if organizations.exists():

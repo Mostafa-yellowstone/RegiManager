@@ -46,8 +46,24 @@ from django.db.utils import OperationalError, ProgrammingError
 from datetime import timedelta
 from .tasks import send_automation_email
 from .models import AutomationLog, FinanceStrategyNote, ClientNote, Notification
+from .source_choices import (
+    INSURANCE_SOURCE_CHOICES,
+    build_source_choices,
+    source_filter_q,
+)
 import io
 from openpyxl import Workbook
+
+
+def _build_source_choices_for_service_records(organizations):
+    db_sources = (
+        ServiceRecord.objects.filter(organization__in=organizations)
+        .exclude(source__isnull=True)
+        .exclude(source__exact="")
+        .values_list("source", flat=True)
+        .distinct()
+    )
+    return build_source_choices(db_sources, organizations=organizations)
 
 
 class CountableList(list):
@@ -895,7 +911,7 @@ def all_clients(request):
         )
     
     if selected_source:
-        clients = clients.filter(source__iexact=selected_source)
+        clients = clients.filter(source_filter_q(selected_source))
         
     if selected_client_type == 'commercial':
         clients = clients.filter(is_commercial=True)
@@ -907,43 +923,8 @@ def all_clients(request):
 
     clients = clients.distinct()
 
-    # Dynamic filter choices
     db_sources = Client.objects.filter(organization__in=organizations).values_list('source', flat=True).distinct()
-    SOURCE_LABELS = {
-        "google_search": "Google Search",
-        "walk_in": "Walk-In",
-        "walk-in": "Walk-In",
-        "website": "Website",
-        "meta_platform": "Meta Platform",
-        "google_campaigns": "Google Campaigns",
-        "existing_client": "Existing Client",
-        "dealer": "Dealer",
-        "referral": "Referral",
-        "cold_calling": "Cold Calling",
-        "insurance": "Insurance",
-        "other": "Other",
-    }
-    
-    source_choices = []
-    seen_sources = set()
-    standard_keys = ["google_search", "walk_in", "website", "meta_platform", "google_campaigns", "existing_client", "dealer", "referral", "cold_calling", "insurance", "other"]
-    
-    for sk in standard_keys:
-        source_choices.append({
-            "key": sk,
-            "label": SOURCE_LABELS.get(sk, sk.replace('_', ' ').replace('-', ' ').title())
-        })
-        seen_sources.add(sk)
-
-    for s in db_sources:
-        if s:
-            s_lower = s.lower().strip()
-            if s_lower not in seen_sources:
-                source_choices.append({
-                    "key": s_lower,
-                    "label": SOURCE_LABELS.get(s_lower, s.replace('_', ' ').replace('-', ' ').title())
-                })
-                seen_sources.add(s_lower)
+    source_choices = build_source_choices(db_sources, organizations=organizations)
 
     referrals = Referral.objects.filter(organization__in=organizations).order_by('name')
 
@@ -2797,7 +2778,7 @@ def service_list(request, service_type):
         scope_qs = scope_qs.filter(payment_method=payment_filter)
 
     if source_filter:
-        scope_qs = scope_qs.filter(source__iexact=source_filter)
+        scope_qs = scope_qs.filter(source_filter_q(source_filter))
 
     accessible_referrals = Referral.objects.filter(
         organization__in=organizations,
@@ -2971,16 +2952,7 @@ def service_list(request, service_type):
             "organizations_for_filter": organizations.order_by("name"),
             "agents_for_filter": accessible_agents.order_by("first_name", "last_name", "username"),
             "referrals_for_filter": accessible_referrals,
-            "sources_for_filter": sorted(
-                {
-                    s
-                    for s in ServiceRecord.objects.filter(organization__in=organizations)
-                    .exclude(source__isnull=True)
-                    .exclude(source__exact="")
-                    .values_list("source", flat=True)
-                },
-                key=str.lower,
-            ),
+            "sources_for_filter": _build_source_choices_for_service_records(organizations),
             "query_string_no_page": filtered_query.urlencode(),
             "is_owner": is_owner,
             "can_delete_receipt": can_delete_receipt,
@@ -6046,6 +6018,7 @@ def inventory_detail(request, inventory_id):
             "agent_filter": agent_filter,
             "min_premium": min_premium,
             "max_premium": max_premium,
+            "insurance_source_choices": INSURANCE_SOURCE_CHOICES,
             "user_can_view_commission": user_can_view_commission,
             "user_can_view_banking": user_can_view_banking,
         }
@@ -6837,6 +6810,8 @@ def insurance_company_detail(request, company_id):
     stage_filter = request.GET.get("stage", "").strip()
     status_filter = request.GET.get("status", "").strip()
     type_filter = request.GET.get("insurance_type", "").strip()
+    source_filter = request.GET.get("source", "").strip()
+    business_type_filter = request.GET.get("business_type", "").strip()
     agent_filter = request.GET.get("agent", "").strip()
     date_from = request.GET.get("date_from", "").strip()
     date_to = request.GET.get("date_to", "").strip()
@@ -6860,6 +6835,10 @@ def insurance_company_detail(request, company_id):
         policies = policies.filter(status=status_filter)
     if type_filter:
         policies = policies.filter(insurance_type=type_filter)
+    if source_filter:
+        policies = policies.filter(source=source_filter)
+    if business_type_filter:
+        policies = policies.filter(business_type=business_type_filter)
     if agent_filter:
         policies = policies.filter(added_by_id=agent_filter)
     if date_from:
@@ -6946,11 +6925,14 @@ def insurance_company_detail(request, company_id):
         "stage_filter": stage_filter,
         "status_filter": status_filter,
         "type_filter": type_filter,
+        "source_filter": source_filter,
+        "business_type_filter": business_type_filter,
         "agent_filter": agent_filter,
         "date_from": date_from,
         "date_to": date_to,
         "min_premium": min_premium,
         "max_premium": max_premium,
+        "insurance_source_choices": INSURANCE_SOURCE_CHOICES,
     })
 
 
@@ -7192,6 +7174,7 @@ def insurance_agent_detail(request, user_id):
         "company_filter": company_filter,
         "table_date_from": table_date_from,
         "table_date_to": table_date_to,
+        "insurance_source_choices": INSURANCE_SOURCE_CHOICES,
     })
 
 
