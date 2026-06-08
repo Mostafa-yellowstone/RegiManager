@@ -8,7 +8,7 @@
     .alert-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
     .alert-danger, .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
 </style>
-<main class="dashboard-shell">
+<main class="dashboard-shell client-profile-page">
     <section class="dashboard-layout">
         <header class="dashboard-hero service-list-hero"
             style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 2rem; border-radius: 16px; margin-bottom: 2rem;">
@@ -23,8 +23,7 @@
                     </a>
                 </div>
                 <div style="display: flex; align-items: center; gap: 1.5rem;">
-                    <div
-                        style="width: 64px; height: 64px; border-radius: 14px; background: #f1f5f9; color: #1e293b; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; flex-shrink: 0;">
+                    <div class="client-profile-avatar">
                         {{ client.name|slice:":1"|upper }}
                     </div>
                     <div>
@@ -98,22 +97,22 @@
             <section style="display: flex; flex-direction: column; gap: 1.5rem;">
                 <!-- Client Notes -->
                 <article class="dashboard-panel" style="margin: 0;">
-                    <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid #f1f5f9; display:flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
-                        <h3 style="margin: 0; border-bottom: none; font-size: 1.25rem; color: #1e293b;">Notes & Follow-ups</h3>
-                        <span class="brand-pill" style="background:#fff7ed; color:#c2410c;">Alerts show in the bell icon</span>
+                    <div class="cpp-panel-header">
+                        <h3 class="cpp-panel-title">Notes & Follow-ups</h3>
+                        <span class="brand-pill cpp-pill-warning">Alerts show in the bell icon</span>
                     </div>
                     <div style="padding: 1.25rem 1.5rem;">
                         <form method="post" action="{% url 'add-client-note' client.id %}" style="display:flex; flex-direction:column; gap: 0.85rem;">
                             {% csrf_token %}
                             <div>
-                                <label style="display:block; margin-bottom: 0.35rem; font-size: 0.78rem; font-weight: 800; color: #64748b; letter-spacing: 0.04em; text-transform: uppercase;">Note</label>
-                                <textarea name="content" required style="width:100%; min-height: 110px; resize: vertical; border: 1px solid #dbe2ea; border-radius: 12px; padding: 0.8rem 0.85rem; font-size: 0.92rem;" placeholder="Add a note about this client..."></textarea>
+                                <label class="cpp-form-label">Note</label>
+                                <textarea name="content" required class="cpp-field-input cpp-textarea" placeholder="Add a note about this client..."></textarea>
                             </div>
 
                             <div style="display:grid; grid-template-columns: minmax(240px, 1fr) 220px auto; gap: 0.75rem; align-items:end;">
                                 <div>
-                                    <label style="display:block; margin-bottom: 0.35rem; font-size: 0.78rem; font-weight: 800; color: #64748b; letter-spacing: 0.04em; text-transform: uppercase;">Assign to agent</label>
-                                    <select name="assigned_to" style="width:100%; border: 1px solid #dbe2ea; border-radius: 12px; padding: 0.65rem 0.75rem; font-size: 0.92rem;">
+                                    <label class="cpp-form-label">Assign to agent</label>
+                                    <select name="assigned_to" class="cpp-field-input">
                                         <option value="">Unassigned</option>
                                         {% for agent in assignable_agents %}
                                         <option value="{{ agent.id }}">{{ agent.get_full_name|default:agent.username }}</option>
@@ -121,8 +120,8 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label style="display:block; margin-bottom: 0.35rem; font-size: 0.78rem; font-weight: 800; color: #64748b; letter-spacing: 0.04em; text-transform: uppercase;">Follow-up date</label>
-                                    <input type="date" name="follow_up_date" style="width:100%; border: 1px solid #dbe2ea; border-radius: 12px; padding: 0.65rem 0.75rem; font-size: 0.92rem;">
+                                    <label class="cpp-form-label">Follow-up date</label>
+                                    <input type="date" name="follow_up_date" class="cpp-field-input">
                                 </div>
                                 <div style="display:flex; justify-content:flex-end;">
                                     <button type="submit" class="btn btn-primary" style="border-radius: 12px; font-weight: 900; min-width: 130px;">Save Note</button>
@@ -132,23 +131,23 @@
 
                         <div style="margin-top: 1.25rem;">
                             {% for note in notes %}
-                            <div id="note-{{ note.id }}" style="padding: 0.95rem 1rem; border: 1px solid #e2e8f0; border-radius: 14px; background: #ffffff; margin-bottom: 0.75rem;">
+                            <div id="note-{{ note.id }}" class="cpp-note-card">
                                 <div style="display:flex; justify-content: space-between; gap: 1rem; align-items:flex-start; flex-wrap:wrap;">
-                                    <div style="font-weight: 800; color:#0f172a;">
+                                    <div class="cpp-note-author">
                                         {{ note.created_by.get_full_name|default:note.created_by.username|default:"System" }}
-                                        <span style="font-weight: 700; color:#94a3b8; font-size:0.85rem;">• {{ note.created_at|date:"M d, Y H:i" }}</span>
+                                        <span class="cpp-note-date">• {{ note.created_at|date:"M d, Y H:i" }}</span>
                                     </div>
                                     {% if note.follow_up_date %}
-                                    <span class="brand-pill" style="background:#fff7ed; color:#c2410c;">Follow-up: {{ note.follow_up_date }}</span>
+                                    <span class="brand-pill cpp-pill-warning">Follow-up: {{ note.follow_up_date }}</span>
                                     {% endif %}
                                     {% if note.assigned_to %}
-                                    <span class="brand-pill" style="background:#eff6ff; color:#1d4ed8;">Assigned: {{ note.assigned_to.get_full_name|default:note.assigned_to.username }}</span>
+                                    <span class="brand-pill cpp-pill-info">Assigned: {{ note.assigned_to.get_full_name|default:note.assigned_to.username }}</span>
                                     {% endif %}
                                     {% if note.is_done %}
-                                    <span class="brand-pill" style="background:#dcfce7; color:#166534;">Done</span>
+                                    <span class="brand-pill cpp-pill-success">Done</span>
                                     {% endif %}
                                 </div>
-                                <div style="margin-top: 0.55rem; color:#334155; font-weight:600; white-space: pre-wrap;">{{ note.content }}</div>
+                                <div class="cpp-note-content">{{ note.content }}</div>
                                 {% if not note.is_done %}
                                 <div style="margin-top: 0.7rem; display:flex; justify-content:flex-end;">
                                     <form method="post" action="{% url 'mark-client-note-done' note.id %}">
@@ -160,7 +159,7 @@
                                 {% endif %}
                             </div>
                             {% empty %}
-                            <div style="padding: 1rem; text-align:center; color:#94a3b8; font-weight:700; border:1px dashed #cbd5e1; border-radius: 14px; background:#f8fafc;">
+                            <div class="cpp-empty-state">
                                 No notes yet.
                             </div>
                             {% endfor %}
@@ -170,7 +169,7 @@
                             {% if notes.has_previous %}
                             <a href="?notes_page={{ notes.previous_page_number }}&tx_page={{ records.number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Prev</a>
                             {% endif %}
-                            <span style="font-size:0.82rem; color:#64748b; font-weight:700;">Page {{ notes.number }} of {{ notes.paginator.num_pages }}</span>
+                            <span class="cpp-pagination-label">Page {{ notes.number }} of {{ notes.paginator.num_pages }}</span>
                             {% if notes.has_next %}
                             <a href="?notes_page={{ notes.next_page_number }}&tx_page={{ records.number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Next</a>
                             {% endif %}
@@ -181,10 +180,8 @@
 
                 <!-- Transaction History -->
                 <article class="dashboard-panel" style="margin: 0;">
-                    <div
-                        style="padding: 1.25rem 1.5rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                        <h3 style="margin: 0; border-bottom: none; font-size: 1.25rem; color: #1e293b;">Transaction
-                            History</h3>
+                    <div class="cpp-panel-header">
+                        <h3 class="cpp-panel-title">Transaction History</h3>
                         <div style="display: flex; gap: 0.75rem; align-items: center;">
                             <div style="position: relative;">
                                 <svg style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8;"
@@ -223,12 +220,11 @@
                                 <tr>
                                     <td>{{ record.created_at|date:"M d, Y H:i" }}</td>
                                     <td>
-                                        <strong style="color: #1e293b;">{{ record.service_type_label }}</strong>
+                                        <strong class="cpp-tx-service">{{ record.service_type_label }}</strong>
                                     </td>
                                     <td><strong style="color: #10b981;">${{ record.service_fee|floatformat:2 }}</strong>
                                     </td>
-                                    <td><code
-                                            style="background: #f1f5f9; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.85rem;">{{ record.receipt_number }}</code>
+                                    <td><code class="cpp-receipt-code">{{ record.receipt_number }}</code>
                                     </td>
                                     <td>
                                         <span class="status-badge status-{{ record.status }}">{{ record.get_status_display }}</span>
@@ -250,11 +246,11 @@
                         </table>
                     </div>
                     {% if records.has_other_pages %}
-                    <div style="padding: 0.9rem 1.5rem; border-top: 1px solid #f1f5f9; display:flex; justify-content:flex-end; align-items:center; gap:0.5rem;">
+                    <div class="cpp-panel-footer">
                         {% if records.has_previous %}
                         <a href="?notes_page={{ notes.number }}&tx_page={{ records.previous_page_number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Prev</a>
                         {% endif %}
-                        <span style="font-size:0.82rem; color:#64748b; font-weight:700;">Page {{ records.number }} of {{ records.paginator.num_pages }}</span>
+                        <span class="cpp-pagination-label">Page {{ records.number }} of {{ records.paginator.num_pages }}</span>
                         {% if records.has_next %}
                         <a href="?notes_page={{ notes.number }}&tx_page={{ records.next_page_number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Next</a>
                         {% endif %}
@@ -266,8 +262,7 @@
             <aside style="display: flex; flex-direction: column; gap: 1.5rem;">
                 <!-- Vehicle Fleet Card -->
                 <section class="dashboard-panel" style="margin: 0;">
-                    <h3
-                        style="padding: 1.25rem 1.5rem; margin: 0; border-bottom: 1px solid #f1f5f9; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <h3 class="cpp-panel-header cpp-panel-header--title">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path>
                             <circle cx="7" cy="17" r="2"></circle>
@@ -304,14 +299,14 @@
                             </svg>
                         </a>
                         {% empty %}
-                        <p style="text-align: center; color: #94a3b8; padding: 2rem 0;">No vehicles registered.</p>
+                        <p class="cpp-empty-message">No vehicles registered.</p>
                         {% endfor %}
                     </div>
                 </section>
 
                 <!-- Client Documents -->
                 <section class="dashboard-panel" style="margin: 0;">
-                    <h3 style="padding: 1.25rem 1.5rem; margin: 0; border-bottom: 1px solid #f1f5f9; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <h3 class="cpp-panel-header cpp-panel-header--title">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                             <polyline points="14 2 14 8 20 8"></polyline>
@@ -321,10 +316,10 @@
                     <div style="padding: 1.5rem;">
                         <ul class="agent-list" style="margin-bottom: 0;">
                             {% for doc in documents %}
-                            <li style="padding: 0.75rem 0; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+                            <li class="cpp-doc-row">
                                 <div>
-                                    <div style="font-weight: 600; font-size: 0.9rem; color: #1e293b;">{{ doc.display_name }}</div>
-                                    <div style="font-size: 0.75rem; color: #64748b;">
+                                    <div class="cpp-doc-name">{{ doc.display_name }}</div>
+                                    <div class="cpp-doc-meta">
                                         {% if doc.vehicle %}{{ doc.vehicle.make }} - {% endif %}{{ doc.uploaded_at|date:"M d, Y" }}
                                     </div>
                                 </div>
@@ -332,13 +327,13 @@
                                     {% if doc.file %}
                                         <a href="{{ doc.file.url }}" target="_blank" class="btn btn-secondary btn-sm" style="min-height: auto; padding: 0.3rem 0.6rem; font-size: 0.8rem; margin: 0;">View</a>
                                     {% else %}
-                                        <span style="color: #94a3b8; font-size: 0.75rem; font-style: italic; margin-right: 0.5rem;">No file</span>
+                                        <span class="cpp-doc-missing">No file</span>
                                     {% endif %}
-                                    <button onclick="deleteDocument({{ doc.id }}, this)" class="btn btn-sm" style="min-height: auto; padding: 0.3rem 0.6rem; font-size: 0.8rem; background: #fff5f5; color: #dc2626; border: 1.5px solid #fee2e2; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin: 0;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fff5f5'">Delete</button>
+                                    <button onclick="deleteDocument({{ doc.id }}, this)" class="btn btn-sm cpp-btn-delete">Delete</button>
                                 </div>
                             </li>
                             {% empty %}
-                            <li style="text-align: center; color: #94a3b8; padding: 1rem 0; border: none;">No documents found.</li>
+                            <li class="cpp-empty-message cpp-empty-message--list">No documents found.</li>
                             {% endfor %}
                         </ul>
                     </div>
@@ -346,7 +341,7 @@
 
                 {% if show_insurance_section %}
                 <section class="dashboard-panel" style="margin: 0;">
-                    <h3 style="padding: 1.25rem 1.5rem; margin: 0; border-bottom: 1px solid #f1f5f9; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <h3 class="cpp-panel-header cpp-panel-header--title">
                         <span style="font-size: 1.1rem;">🛡️</span>
                         Insurance Policies
                     </h3>
@@ -358,7 +353,7 @@
                             {% endfor %}
                         </div>
                         {% else %}
-                        <p style="text-align: center; color: #94a3b8; padding: 1rem 0; margin: 0;">No insurance policies on file yet.</p>
+                        <p class="cpp-empty-message">No insurance policies on file yet.</p>
                         {% endif %}
                     </div>
                 </section>
@@ -464,7 +459,7 @@
                     const list = document.querySelector('.agent-list');
                     if (list && list.querySelectorAll('li:not([style*="display: none"])').length === 0) {
                         const emptyLi = document.createElement('li');
-                        emptyLi.style.cssText = 'text-align: center; color: #94a3b8; padding: 1rem 0; border: none;';
+                        emptyLi.className = 'cpp-empty-message cpp-empty-message--list';
                         emptyLi.textContent = 'No documents found.';
                         list.appendChild(emptyLi);
                     }
