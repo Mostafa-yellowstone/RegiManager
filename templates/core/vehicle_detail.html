@@ -1,4 +1,5 @@
 {% extends "base_portal.html" %}
+{% load portal_extras %}
 {% load static %}
 
 {% block title %}Vehicle Profile | {{ vehicle.vin }}{% endblock %}
@@ -167,7 +168,7 @@
                         <tbody>
                             {% for record in services_page_obj %}
                             <tr>
-                                <td><strong>{{ record.receipt_number }}</strong></td>
+                                <td><span class="crm-receipt-no" title="{{ record.receipt_number }}">{{ record.receipt_number|short_receipt }}</span></td>
                                 <td>{{ record.service_type_label }}</td>
                                 <td>{{ record.created_at|date:"M d, Y" }}</td>
                                 <td>
@@ -177,7 +178,7 @@
                                 <td>
                                     <div style="display: flex; gap: 0.5rem; align-items: center;">
                                         <a href="{% url 'service-receipt-pdf' record.id %}" target="_blank"
-                                            class="btn btn-secondary btn-sm">Receipt</a>
+                                            class="btn btn-secondary btn-sm portal-receipt-btn">Receipt</a>
                                         <a href="{% url 'edit-service' record.id %}" 
                                             style="color: #64748b; transition: color 0.2s;" title="Edit Transaction">
                                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>

@@ -1,7 +1,8 @@
+{% load portal_extras %}
 {% for record in records %}
     <tr>
         <td>{{ record.created_at|date:"Y-m-d H:i" }}</td>
-        <td><strong>{{ record.receipt_number }}</strong></td>
+        <td><span class="crm-receipt-no" title="{{ record.receipt_number }}">{{ record.receipt_number|short_receipt }}</span></td>
         <td>
             {% if record.vehicle and record.vehicle.client %}
                 <a href="{% url 'client-detail' record.vehicle.client.id %}" class="client-link" style="text-decoration: none; color: #2563eb; font-weight: 700;">
@@ -11,7 +12,7 @@
                 {{ record.client_name|default:"-" }}
             {% endif %}
         </td>
-        <td style="font-weight: 600; color: #475569;">
+        <td class="crm-phone">
             {% if record.vehicle and record.vehicle.client %}
                 {{ record.vehicle.client.phone_number|default:"-" }}
             {% else %}
@@ -35,7 +36,7 @@
         <td>
             <div class="action-col" style="display: flex; gap: 8px;">
                 <button type="button" class="btn btn-sm btn-primary doc-upload-trigger" data-id="{{ record.id }}" data-receipt="{{ record.receipt_number }}">Docs</button>
-                <a href="{% url 'service-receipt-pdf' record.id %}" target="_blank" class="btn btn-sm btn-secondary">Receipt</a>
+                <a href="{% url 'service-receipt-pdf' record.id %}" target="_blank" class="btn btn-sm btn-secondary portal-receipt-btn">Receipt</a>
             </div>
         </td>
     </tr>

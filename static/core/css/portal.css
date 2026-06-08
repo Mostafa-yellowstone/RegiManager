@@ -977,6 +977,14 @@ body.portal-body .form-group textarea:focus {
 .status-chip.active {
     color: #166534;
     background: var(--portal-success-bg);
+    border: 1px solid #86efac;
+}
+
+.status-chip.active.portal-sent-badge {
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    padding: 5px 12px;
 }
 
 .status-chip.inactive {
@@ -1037,6 +1045,55 @@ body.portal-body .alert-warning {
     background: var(--portal-surface-muted);
     border: 1.5px solid var(--portal-border);
     color: var(--portal-text-secondary);
+}
+
+/* CRM table utilities */
+.crm-receipt-no {
+    display: inline-block;
+    max-width: 9.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--portal-text-secondary);
+    vertical-align: middle;
+}
+
+.crm-phone {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--portal-text-secondary);
+}
+
+.portal-receipt-btn,
+body.portal-body a.btn.portal-receipt-btn,
+body.portal-body a.btn-sm.portal-receipt-btn {
+    background: #eff6ff !important;
+    border: 1px solid #3b82f6 !important;
+    color: #1d4ed8 !important;
+    font-weight: 700 !important;
+}
+
+.portal-receipt-btn:hover,
+body.portal-body a.btn.portal-receipt-btn:hover,
+body.portal-body a.btn-sm.portal-receipt-btn:hover {
+    background: #dbeafe !important;
+    border-color: #2563eb !important;
+    color: #1e3a8a !important;
+}
+
+.portal-advanced-filter-toggle,
+body.portal-body details.portal-advanced-filters > summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: #1d4ed8;
+    list-style: none;
+}
+
+body.portal-body details.portal-advanced-filters > summary::-webkit-details-marker {
+    display: none;
 }
 
 .portal-btn-success {
@@ -1878,6 +1935,61 @@ html.portal-theme-dark .portal-automation-log-item:hover {
     background: rgba(255, 255, 255, 0.04);
 }
 
+html.portal-theme-dark .status-chip.active,
+html.portal-theme-dark .status-chip.active.portal-sent-badge {
+    color: #bbf7d0 !important;
+    background: rgba(22, 163, 74, 0.38) !important;
+    border: 1px solid rgba(74, 222, 128, 0.65) !important;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
+}
+
+html.portal-theme-dark .portal-btn-secondary,
+html.portal-theme-dark .portal-btn.portal-btn-secondary {
+    background: #1e293b !important;
+    border-color: #475569 !important;
+    color: #e2e8f0 !important;
+}
+
+html.portal-theme-dark .portal-btn-secondary:hover,
+html.portal-theme-dark .portal-btn.portal-btn-secondary:hover {
+    background: #334155 !important;
+    border-color: #64748b !important;
+    color: #f8fafc !important;
+}
+
+html.portal-theme-dark .portal-advanced-filter-toggle,
+html.portal-theme-dark body.portal-body details.portal-advanced-filters > summary,
+html.portal-theme-dark body.portal-body details summary[style*="color: #093de6"],
+html.portal-theme-dark body.portal-body details summary[style*="color: var(--blue)"],
+html.portal-theme-dark body.portal-body details summary[style*="color:#334155"] {
+    color: #93c5fd !important;
+}
+
+html.portal-theme-dark .crm-phone,
+html.portal-theme-dark body.portal-body .data-table td.crm-phone {
+    color: #f1f5f9 !important;
+}
+
+html.portal-theme-dark .crm-receipt-no {
+    color: #cbd5e1;
+}
+
+html.portal-theme-dark .portal-receipt-btn,
+html.portal-theme-dark body.portal-body a.btn.portal-receipt-btn,
+html.portal-theme-dark body.portal-body a.btn-sm.portal-receipt-btn {
+    background: rgba(37, 99, 235, 0.22) !important;
+    border-color: #60a5fa !important;
+    color: #dbeafe !important;
+}
+
+html.portal-theme-dark .portal-receipt-btn:hover,
+html.portal-theme-dark body.portal-body a.btn.portal-receipt-btn:hover,
+html.portal-theme-dark body.portal-body a.btn-sm.portal-receipt-btn:hover {
+    background: rgba(37, 99, 235, 0.38) !important;
+    border-color: #93c5fd !important;
+    color: #f8fafc !important;
+}
+
 html.portal-theme-dark body.portal-body .spaces-table th,
 html.portal-theme-dark body.portal-body .spaces-metric,
 html.portal-theme-dark body.portal-body .space-card,
@@ -2324,7 +2436,8 @@ html.portal-theme-dark .portal-automation-title {
     color: var(--portal-text-secondary);
     padding: 0.2rem 0.4rem;
     border-radius: 4px;
-    font-size: 0.85rem;
+    font-size: 0.76rem;
+    font-weight: 600;
     border: 1px solid var(--portal-border);
 }
 

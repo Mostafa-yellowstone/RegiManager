@@ -1,5 +1,5 @@
 {% extends "base_portal.html" %}
-{% load static %}
+{% load static portal_extras %}
 
 {% block title %}{{ service_label }} Records | RegiManager{% endblock %}
 
@@ -22,8 +22,8 @@
                             <label for="search-input">Search Client / Receipt</label>
                             <input type="text" id="search-input" name="q" value="{{ search_query }}" placeholder="Search by name, ID, or receipt...">
                         </div>
-                        <details {% if status_filter or date_from or date_to or org_filter or agent_filter or payment_filter or source_filter or referral_filter or min_amount or max_amount %}open{% endif %} style="width: 100%;">
-                            <summary style="cursor: pointer; font-weight: 700; color: #334155; margin: 0.4rem 0;">
+                        <details class="portal-advanced-filters" {% if status_filter or date_from or date_to or org_filter or agent_filter or payment_filter or source_filter or referral_filter or min_amount or max_amount %}open{% endif %} style="width: 100%;">
+                            <summary class="portal-advanced-filter-toggle" style="margin: 0.4rem 0;">
                                 Advanced Filters
                             </summary>
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem; margin-top: 0.8rem;">
@@ -138,7 +138,7 @@
                                 <tr>
                                     <td>{{ record.created_at|date:"Y-m-d H:i" }}</td>
                                     <td>
-                                        <strong>{{ record.receipt_number }}</strong>
+                                        <span class="crm-receipt-no" title="{{ record.receipt_number }}">{{ record.receipt_number|short_receipt }}</span>
                                         {% if record.service_type == "duplicate_registration" %}
                                             <br><span class="badge" style="background:#e0e7ff; color:#3730a3; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; white-space: nowrap;">Duplicate Reg</span>
                                         {% elif record.service_type == "duplicate_title" %}
@@ -158,7 +158,7 @@
                                             {{ record.client_name|default:"-" }}
                                         {% endif %}
                                     </td>
-                                    <td style="font-weight: 600; color: #475569;">
+                                    <td class="crm-phone">
                                         {% if record.vehicle and record.vehicle.client %}
                                             {{ record.vehicle.client.phone_number|default:"-" }}
                                         {% else %}
@@ -182,7 +182,7 @@
                                     <td>
                                         <div class="action-col" style="display: flex; gap: 8px; align-items: center;">
                                             <button type="button" class="btn btn-sm btn-primary doc-upload-trigger" data-id="{{ record.id }}" data-receipt="{{ record.receipt_number }}">Docs</button>
-                                            <a href="{% url 'service-receipt-pdf' record.id %}" target="_blank" class="btn btn-sm btn-secondary">Receipt</a>
+                                            <a href="{% url 'service-receipt-pdf' record.id %}" target="_blank" class="btn btn-sm btn-secondary portal-receipt-btn">Receipt</a>
                                             {% if can_delete_receipt %}
                                             <button type="button"
                                                 class="btn-delete-receipt"
