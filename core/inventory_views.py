@@ -351,6 +351,7 @@ def add_inventory_invoice(request, space_id):
 
     buyer_phone = request.POST.get("buyer_phone", "").strip()
     buyer_email = request.POST.get("buyer_email", "").strip()
+    buyer_address = request.POST.get("buyer_address", "").strip()
     buyer_id = request.POST.get("buyer_id", "").strip()
     invoice_date_str = request.POST.get("invoice_date", "").strip()
     payment_method = request.POST.get("payment_method", InventoryInvoice.PaymentMethod.CASH)
@@ -377,10 +378,15 @@ def add_inventory_invoice(request, space_id):
     buyer = None
     if buyer_id.isdigit():
         buyer = InventoryBuyer.objects.filter(space=space, id=int(buyer_id)).first()
+        if buyer and not buyer_address:
+            buyer_address = buyer.address
     if not buyer:
         buyer = get_or_create_buyer(
             space, space.organization, buyer_name, buyer_phone, buyer_email
         )
+        if buyer_address and not buyer.address:
+            buyer.address = buyer_address
+            buyer.save(update_fields=["address"])
 
     try:
         with transaction.atomic():
@@ -392,6 +398,7 @@ def add_inventory_invoice(request, space_id):
                 buyer_name=buyer_name,
                 buyer_phone=buyer_phone,
                 buyer_email=buyer_email,
+                buyer_address=buyer_address,
                 invoice_date=invoice_date,
                 status=InventoryInvoice.Status.COMPLETED,
                 payment_method=payment_method,
@@ -459,9 +466,14 @@ def delete_inventory_invoice(request, invoice_id):
 
 @login_required
 def inventory_invoice_pdf(request, invoice_id):
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+
+    from .inventory_pdf import render_inventory_invoice_pdf
+
     organizations = _get_user_organizations(request)
     invoice = get_object_or_404(
-        InventoryInvoice.objects.prefetch_related("lines"),
+        InventoryInvoice.objects.select_related("space").prefetch_related("lines"),
         id=invoice_id,
         organization__in=organizations,
         space__key="custom_inventory",
@@ -471,114 +483,84 @@ def inventory_invoice_pdf(request, invoice_id):
     response["Content-Disposition"] = f'inline; filename="invoice-{invoice.invoice_number}.pdf"'
 
     pdf = canvas.Canvas(response, pagesize=letter)
-    width, height = letter
-    margin_x = 50
-    y = height - 50
-
-    org = invoice.organization
-    pdf.setFont("Helvetica-Bold", 18)
-    pdf.drawString(margin_x, y, org.name.upper())
-    y -= 22
-    pdf.setFont("Helvetica", 10)
-    pdf.drawString(margin_x, y, "INVENTORY INVOICE")
-    y -= 30
-
-    pdf.setFont("Helvetica-Bold", 12)
-    pdf.drawString(margin_x, y, f"Invoice #: {invoice.invoice_number}")
-    pdf.drawRightString(width - margin_x, y, invoice.invoice_date.strftime("%B %d, %Y"))
-    y -= 24
-
-    pdf.setFont("Helvetica-Bold", 10)
-    pdf.drawString(margin_x, y, "Bill To:")
-    y -= 14
-    pdf.setFont("Helvetica", 10)
-    pdf.drawString(margin_x, y, invoice.buyer_name)
-    y -= 14
-    if invoice.buyer_phone:
-        pdf.drawString(margin_x, y, f"Phone: {invoice.buyer_phone}")
-        y -= 14
-    if invoice.buyer_email:
-        pdf.drawString(margin_x, y, f"Email: {invoice.buyer_email}")
-        y -= 14
-
-    y -= 10
-    pdf.setFont("Helvetica-Bold", 9)
-    pdf.drawString(margin_x, y, "Description")
-    pdf.drawString(margin_x + 280, y, "Qty")
-    pdf.drawString(margin_x + 330, y, "Unit Price")
-    pdf.drawRightString(width - margin_x, y, "Total")
-    y -= 6
-    pdf.line(margin_x, y, width - margin_x, y)
-    y -= 16
-
-    pdf.setFont("Helvetica", 9)
-    for line in invoice.lines.all():
-        if y < 100:
-            pdf.showPage()
-            y = height - 50
-            pdf.setFont("Helvetica", 9)
-        pdf.drawString(margin_x, y, line.description[:45])
-        pdf.drawString(margin_x + 280, y, str(line.quantity))
-        pdf.drawString(margin_x + 330, y, f"${line.unit_price:.2f}")
-        pdf.drawRightString(width - margin_x, y, f"${line.line_total:.2f}")
-        y -= 16
-
-    y -= 10
-    pdf.setFont("Helvetica-Bold", 11)
-    pdf.drawRightString(width - margin_x, y, f"TOTAL: ${invoice.total:.2f}")
-    y -= 18
-    pdf.setFont("Helvetica", 9)
-    pdf.drawString(margin_x, y, f"Payment: {invoice.get_payment_method_display()}")
-    if invoice.notes:
-        y -= 14
-        pdf.drawString(margin_x, y, f"Notes: {invoice.notes[:80]}")
-
-    y -= 30
-    pdf.setFont("Helvetica-Oblique", 8)
-    pdf.drawString(margin_x, y, "Thank you for your business.")
-
-    pdf.showPage()
+    render_inventory_invoice_pdf(pdf, invoice)
     pdf.save()
     return response
 
 
 @login_required
 def export_inventory_report(request, space_id):
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+
+    from .inventory_crm import inventory_dashboard_stats
+    from .inventory_pdf import render_inventory_report_pdf
+
     space, is_owner, membership = _resolve_space_access(request, space_id)
     if not space:
         return HttpResponseForbidden("Access denied.")
 
     report_type = request.GET.get("type", "inventory")
     export_fmt = request.GET.get("export", "csv")
+    stats = inventory_dashboard_stats(space)
+    safe_name = space.label.replace(" ", "-").lower()[:30]
+
+    if export_fmt == "pdf":
+        response = HttpResponse(content_type="application/pdf")
+        filename = f"{safe_name}-{'sales' if report_type == 'sales' else 'stock'}-report.pdf"
+        response["Content-Disposition"] = f'inline; filename="{filename}"'
+        pdf = canvas.Canvas(response, pagesize=letter)
+        render_inventory_report_pdf(pdf, space, report_type, stats)
+        pdf.save()
+        return response
 
     if report_type == "sales":
-        rows = [["Invoice #", "Date", "Buyer", "Payment", "Total", "Status"]]
+        rows = [
+            [space.label, "Sales Report"],
+            ["Business Address", space.business_address.replace("\n", ", ") if space.business_address else ""],
+            ["Phone", space.business_phone],
+            ["Email", space.business_email],
+            [],
+            ["Invoice #", "Date", "Buyer", "Buyer Phone", "Payment Method", "Total", "Status"],
+        ]
         for inv in InventoryInvoice.objects.filter(space=space).order_by("-invoice_date"):
             rows.append([
                 inv.invoice_number,
-                inv.invoice_date.isoformat(),
+                inv.invoice_date.strftime("%Y-%m-%d"),
                 inv.buyer_name,
+                inv.buyer_phone,
                 inv.get_payment_method_display(),
-                str(inv.total),
+                f"{inv.total:.2f}",
                 inv.get_status_display(),
             ])
-        filename = f"inventory-sales-{space.organization_id}"
+        rows.extend([[], ["Total Invoices", str(stats["invoice_count"])], ["Month Sales", f"{stats['sales_month_total']:.2f}"]])
+        filename = f"{safe_name}-sales-report"
     else:
-        rows = [["Product", "SKU", "Category", "Unit Price", "Qty", "Total Value", "Low Stock"]]
-        for p in InventoryProduct.objects.filter(space=space).select_related("category"):
+        rows = [
+            [space.label, "Inventory Stock Report"],
+            ["Business Address", space.business_address.replace("\n", ", ") if space.business_address else ""],
+            ["Phone", space.business_phone],
+            ["Email", space.business_email],
+            [],
+            ["Product", "SKU", "Category", "Unit Price", "Quantity", "Total Value", "Low Stock Alert"],
+        ]
+        for p in InventoryProduct.objects.filter(space=space).select_related("category").order_by("name"):
             rows.append([
                 p.name,
                 p.sku,
                 p.category.name if p.category else "",
-                str(p.unit_price),
+                f"{p.unit_price:.2f}",
                 str(p.quantity),
-                str(p.unit_price * p.quantity),
-                "Yes" if p.quantity <= p.low_stock_threshold else "No",
+                f"{p.unit_price * p.quantity:.2f}",
+                "YES" if p.quantity <= p.low_stock_threshold else "NO",
             ])
-        filename = f"inventory-stock-{space.organization_id}"
-
-    if export_fmt != "csv":
-        return HttpResponseForbidden("Only CSV export is supported.")
+        rows.extend([
+            [],
+            ["Total Products", str(stats["total_products"])],
+            ["Total Units", str(stats["total_units"])],
+            ["Total Inventory Value", f"{stats['total_inventory_value']:.2f}"],
+        ])
+        filename = f"{safe_name}-stock-report"
 
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = f'attachment; filename="{filename}.csv"'

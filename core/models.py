@@ -941,6 +941,13 @@ class Space(models.Model):
     key = models.CharField(max_length=60)
     label = models.CharField(max_length=120)
     description = models.TextField(blank=True, default="")
+    business_address = models.TextField(
+        blank=True,
+        default="",
+        help_text="Address shown on custom inventory invoices and reports",
+    )
+    business_phone = models.CharField(max_length=40, blank=True, default="")
+    business_email = models.EmailField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1074,6 +1081,7 @@ class InventoryInvoice(models.Model):
     buyer_name = models.CharField(max_length=200)
     buyer_phone = models.CharField(max_length=40, blank=True, default="")
     buyer_email = models.EmailField(blank=True, default="")
+    buyer_address = models.TextField(blank=True, default="")
     invoice_date = models.DateField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.COMPLETED)
     payment_method = models.CharField(max_length=20, choices=PaymentMethod.choices, default=PaymentMethod.CASH)

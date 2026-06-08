@@ -47,7 +47,7 @@
       <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
         <a href="{% url 'spaces-home' %}" style="text-decoration: none; padding: 9px 16px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; font-weight: 700; color: #475569; font-size: 0.88rem;">&larr; Back to Spaces</a>
         {% if is_owner %}
-        <button type="button" onclick="document.getElementById('renameSpaceModal').classList.add('active')" style="padding: 9px 16px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; font-weight: 700; color: #475569; cursor: pointer; font-size: 0.88rem;">✏️ Rename Space</button>
+        <button type="button" onclick="document.getElementById('renameSpaceModal').classList.add('active')" style="padding: 9px 16px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; font-weight: 700; color: #475569; cursor: pointer; font-size: 0.88rem;">⚙️ Business Settings</button>
         {% endif %}
       </div>
     </div>
@@ -192,14 +192,14 @@
       </div>
       <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow-x: auto;">
         <table class="spaces-table">
-          <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Notes</th><th>Added</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Address</th><th>Added</th><th></th></tr></thead>
           <tbody>
             {% for b in buyers %}
             <tr>
               <td style="font-weight: 800;">{{ b.name }}</td>
               <td>{{ b.phone|default:"—" }}</td>
               <td>{{ b.email|default:"—" }}</td>
-              <td style="font-size: 0.82rem; color: #64748b;">{{ b.notes|truncatechars:40|default:"—" }}</td>
+              <td style="font-size: 0.82rem; color: #64748b;">{{ b.address|truncatechars:40|default:"—" }}</td>
               <td style="font-size: 0.8rem; color: #94a3b8;">{{ b.created_at|date:"M j, Y" }}</td>
               <td><a href="{% url 'delete-inventory-buyer' b.id %}" onclick="return confirm('Remove buyer?')" style="color: #dc2626; font-size: 0.75rem; font-weight: 700; text-decoration: none;">Remove</a></td>
             </tr>
@@ -247,16 +247,27 @@
     <!-- REPORTS -->
     <div id="tab-reports" class="tab-panel {% if active_tab == 'reports' %}active{% endif %}">
       <h3 style="margin: 0 0 1.25rem; font-weight: 800;">Reports & Exports</h3>
+      {% if not card.business_address %}
+      <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.85rem; color: #92400e; font-weight: 600;">
+        Add your business address in <strong>Business Settings</strong> — it will appear on invoices and PDF reports (not your PSB name).
+      </div>
+      {% endif %}
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
         <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem;">
           <h4 style="margin: 0 0 0.5rem; font-weight: 800;">📦 Stock Report</h4>
-          <p style="margin: 0 0 1rem; font-size: 0.85rem; color: #64748b;">All products with quantities, values, and low-stock flags.</p>
-          <a href="{% url 'export-inventory-report' card.id %}?type=inventory&export=csv" style="display: inline-block; padding: 0.55rem 1rem; background: #0d9488; color: white; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.85rem;">Download CSV</a>
+          <p style="margin: 0 0 1rem; font-size: 0.85rem; color: #64748b;">Products, quantities, values, and low-stock flags under <strong>{{ card.label }}</strong>.</p>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a href="{% url 'export-inventory-report' card.id %}?type=inventory&export=pdf" target="_blank" style="display: inline-block; padding: 0.55rem 1rem; background: #0f766e; color: white; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.85rem;">PDF Report</a>
+            <a href="{% url 'export-inventory-report' card.id %}?type=inventory&export=csv" style="display: inline-block; padding: 0.55rem 1rem; background: white; color: #0f766e; border: 1.5px solid #99f6e4; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.85rem;">CSV</a>
+          </div>
         </div>
         <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem;">
           <h4 style="margin: 0 0 0.5rem; font-weight: 800;">🧾 Sales Report</h4>
-          <p style="margin: 0 0 1rem; font-size: 0.85rem; color: #64748b;">All invoices with buyer, payment method, and totals.</p>
-          <a href="{% url 'export-inventory-report' card.id %}?type=sales&export=csv" style="display: inline-block; padding: 0.55rem 1rem; background: #0d9488; color: white; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.85rem;">Download CSV</a>
+          <p style="margin: 0 0 1rem; font-size: 0.85rem; color: #64748b;">All invoices with buyer details, payment method, and totals.</p>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a href="{% url 'export-inventory-report' card.id %}?type=sales&export=pdf" target="_blank" style="display: inline-block; padding: 0.55rem 1rem; background: #0f766e; color: white; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.85rem;">PDF Report</a>
+            <a href="{% url 'export-inventory-report' card.id %}?type=sales&export=csv" style="display: inline-block; padding: 0.55rem 1rem; background: white; color: #0f766e; border: 1.5px solid #99f6e4; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.85rem;">CSV</a>
+          </div>
         </div>
         <div style="background: linear-gradient(135deg, #f0fdfa, #ccfbf1); border-radius: 16px; border: 1px solid #99f6e4; padding: 1.5rem;">
           <h4 style="margin: 0 0 0.5rem; font-weight: 800; color: #0f766e;">Summary</h4>
@@ -276,12 +287,18 @@
 {% if is_owner %}
 <div class="modal-overlay" id="renameSpaceModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box">
-    <h3 style="margin: 0 0 1.25rem; font-weight: 800;">Rename Space</h3>
+    <h3 style="margin: 0 0 0.35rem; font-weight: 800;">Business Settings</h3>
+    <p style="margin: 0 0 1.25rem; font-size: 0.85rem; color: #64748b;">This name and address appear on inventory invoices and reports — not your PSB organization name.</p>
     <form method="POST" action="{% url 'inventory-detail' card.id %}">
       {% csrf_token %}
-      <div style="margin-bottom: 1rem;"><label class="field-label">Space Name</label><input type="text" name="label" value="{{ card.label }}" required class="field-input"></div>
-      <div style="margin-bottom: 1.25rem;"><label class="field-label">Description</label><textarea name="description" class="field-input" rows="3">{{ card.description }}</textarea></div>
-      <button type="submit" class="btn-submit">Save</button>
+      <div style="margin-bottom: 1rem;"><label class="field-label">Business / Space Name</label><input type="text" name="label" value="{{ card.label }}" required class="field-input" placeholder="e.g. YellowStone Motors"></div>
+      <div style="margin-bottom: 1rem;"><label class="field-label">Business Address</label><textarea name="business_address" class="field-input" rows="3" placeholder="Street&#10;City, State ZIP">{{ card.business_address }}</textarea></div>
+      <div class="grid-2" style="margin-bottom: 1rem;">
+        <div><label class="field-label">Business Phone</label><input type="text" name="business_phone" value="{{ card.business_phone }}" class="field-input"></div>
+        <div><label class="field-label">Business Email</label><input type="email" name="business_email" value="{{ card.business_email }}" class="field-input"></div>
+      </div>
+      <div style="margin-bottom: 1.25rem;"><label class="field-label">Internal Description</label><textarea name="description" class="field-input" rows="2">{{ card.description }}</textarea></div>
+      <button type="submit" class="btn-submit">Save Settings</button>
     </form>
   </div>
 </div>
@@ -376,6 +393,7 @@
         <div><label class="field-label">Phone</label><input type="text" name="phone" class="field-input"></div>
         <div><label class="field-label">Email</label><input type="email" name="email" class="field-input"></div>
       </div>
+      <div style="margin-bottom: 0.85rem;"><label class="field-label">Address</label><textarea name="address" class="field-input" rows="2"></textarea></div>
       <div style="margin-bottom: 1.25rem;"><label class="field-label">Notes</label><input type="text" name="notes" class="field-input"></div>
       <button type="submit" class="btn-submit">Add Buyer</button>
     </form>
@@ -390,9 +408,10 @@
       {% csrf_token %}
       <div class="grid-2" style="margin-bottom: 0.85rem;">
         <div><label class="field-label">Buyer Name</label><input type="text" name="buyer_name" required class="field-input" list="buyerList" placeholder="Walk-in or buyer name"></div>
-        <div><label class="field-label">Existing Buyer</label><select name="buyer_id" class="field-input" onchange="fillBuyer(this)"><option value="">— New / walk-in —</option>{% for b in buyers %}<option value="{{ b.id }}" data-name="{{ b.name }}" data-phone="{{ b.phone }}" data-email="{{ b.email }}">{{ b.name }}</option>{% endfor %}</select></div>
+        <div><label class="field-label">Existing Buyer</label><select name="buyer_id" class="field-input" onchange="fillBuyer(this)"><option value="">— New / walk-in —</option>{% for b in buyers %}<option value="{{ b.id }}" data-name="{{ b.name }}" data-phone="{{ b.phone }}" data-email="{{ b.email }}" data-address="{{ b.address }}">{{ b.name }}</option>{% endfor %}</select></div>
       </div>
       <datalist id="buyerList">{% for b in buyers %}<option value="{{ b.name }}"></option>{% endfor %}</datalist>
+      <div style="margin-bottom: 0.85rem;"><label class="field-label">Buyer Address</label><textarea name="buyer_address" id="invBuyerAddress" class="field-input" rows="2" placeholder="Street, City, State ZIP"></textarea></div>
       <div class="grid-3" style="margin-bottom: 0.85rem;">
         <div><label class="field-label">Phone</label><input type="text" name="buyer_phone" id="invBuyerPhone" class="field-input"></div>
         <div><label class="field-label">Email</label><input type="email" name="buyer_email" id="invBuyerEmail" class="field-input"></div>
@@ -461,6 +480,7 @@ function fillBuyer(sel) {
   document.querySelector('[name=buyer_name]').value = opt.dataset.name;
   document.getElementById('invBuyerPhone').value = opt.dataset.phone || '';
   document.getElementById('invBuyerEmail').value = opt.dataset.email || '';
+  document.getElementById('invBuyerAddress').value = opt.dataset.address || '';
 }
 
 function fillLineFromProduct(sel) {

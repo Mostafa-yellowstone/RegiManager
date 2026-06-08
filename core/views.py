@@ -5598,6 +5598,10 @@ def inventory_detail(request, inventory_id):
         try:
             card.label = label
             card.description = description
+            if card.key == "custom_inventory":
+                card.business_address = request.POST.get("business_address", "").strip()
+                card.business_phone = request.POST.get("business_phone", "").strip()
+                card.business_email = request.POST.get("business_email", "").strip()
             card.save()
             messages.success(request, f"Space '{label}' updated successfully.")
         except Exception as e:
