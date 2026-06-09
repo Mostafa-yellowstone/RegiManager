@@ -337,6 +337,24 @@
         color: #e2e8f0;
     }
 
+    .finance-hero-date-form input[type="date"] {
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 12px;
+        color: #f1f5f9;
+        font-size: 1.1rem;
+        font-weight: 800;
+        padding: 0.55rem 0.75rem;
+        color-scheme: dark;
+        cursor: pointer;
+        min-width: 11rem;
+    }
+
+    .finance-hero-date-form input[type="date"]:focus {
+        outline: 2px solid rgba(59, 130, 246, 0.55);
+        outline-offset: 2px;
+    }
+
     .finance-hero-daily-total {
         margin-top: 0.5rem;
         font-size: 0.85rem;
@@ -597,12 +615,33 @@
                         <span class="brand-pill" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; font-weight: 700; font-size: 0.75rem;">LIVE ANALYTICS ENGINE</span>
                     </div>
                     <h1 class="finance-hero-title">Financial <span>Intelligence.</span></h1>
-                    <p class="finance-hero-subtitle">Today's collections by payment method — reset daily on transaction date. Month-end forecast helps you hit your revenue target before the calendar closes.</p>
+                    <p class="finance-hero-subtitle">
+                        {% if daily_is_today %}
+                        Today's collections by payment method — reset daily on transaction date.
+                        {% else %}
+                        Collections for {{ daily_payment_date|date:"M j, Y" }} by payment method.
+                        {% endif %}
+                        Month-end forecast helps you hit your revenue target before the calendar closes.
+                    </p>
                 </div>
                 <div class="finance-hero-date">
-                    <div class="finance-hero-date-label">Transaction Date</div>
-                    <div class="finance-hero-date-value">{{ today|date:"M j, Y" }}</div>
-                    <div class="finance-hero-daily-total">Today's intake: <strong>${{ daily_payment_total|floatformat:2 }}</strong></div>
+                    <form method="get" class="finance-hero-date-form" id="financeDailyDateForm">
+                        {% if org_filter %}<input type="hidden" name="organization" value="{{ org_filter }}">{% endif %}
+                        {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+                        {% if service_filter %}<input type="hidden" name="service_type" value="{{ service_filter }}">{% endif %}
+                        {% if agent_filter %}<input type="hidden" name="agent" value="{{ agent_filter }}">{% endif %}
+                        {% if date_from %}<input type="hidden" name="date_from" value="{{ date_from }}">{% endif %}
+                        {% if date_to %}<input type="hidden" name="date_to" value="{{ date_to }}">{% endif %}
+                        {% if compare_a %}<input type="hidden" name="compare_a" value="{{ compare_a }}">{% endif %}
+                        {% if compare_b %}<input type="hidden" name="compare_b" value="{{ compare_b }}">{% endif %}
+                        {% if compare_mode %}<input type="hidden" name="compare_mode" value="{{ compare_mode }}">{% endif %}
+                        <div class="finance-hero-date-label">Transaction Date</div>
+                        <input type="date" name="daily_date" value="{{ daily_payment_date|date:'Y-m-d' }}" aria-label="Transaction date" onchange="this.form.submit()">
+                    </form>
+                    <div class="finance-hero-daily-total">
+                        {% if daily_is_today %}Today's{% else %}{{ daily_payment_date|date:"M j" }}{% endif %} intake:
+                        <strong>${{ daily_payment_total|floatformat:2 }}</strong>
+                    </div>
                 </div>
             </div>
 
@@ -612,7 +651,7 @@
                     <div class="finance-pay-card-icon" aria-hidden="true">{{ card.icon }}</div>
                     <div class="finance-pay-card-label">{{ card.label }}</div>
                     <div class="finance-pay-card-value">${{ card.total|floatformat:2 }}</div>
-                    <div class="finance-pay-card-hint">Resets daily · {{ today|date:"M j" }}</div>
+                    <div class="finance-pay-card-hint">{% if daily_is_today %}Resets daily · {% endif %}{{ daily_payment_date|date:"M j, Y" }}</div>
                 </article>
                 {% endfor %}
             </div>

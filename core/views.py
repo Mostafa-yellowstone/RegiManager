@@ -271,13 +271,13 @@ def _build_form_prefill_payload(service, client, vehicle):
         "dob_y": dob_y,
         "driver_license": (client.driver_license if client else "") or "",
         "street_address": (f"{client.building_no} {client.street_address}".strip().upper() if client else "") or "",
-        "city": (client.city.upper() if client else "") or "",
+        "city": ((client.city or "").upper() if client else "") or "",
         "state": (client.state.upper() if client else "NY") or "NY",
         "zip_code": (client.zip_code if client else "") or "",
         "name_full": (client.business_name or client.last_name).upper() if client and client.is_commercial else f"{client.last_name}, {client.first_name} {client.middle_name or ''}".upper() if client else "",
-        "year": str(vehicle.year) if vehicle else "",
-        "make": vehicle.make.upper() if vehicle else "",
-        "model": vehicle.model.upper() if vehicle else "",
+        "year": str(vehicle.year) if vehicle and vehicle.year else "",
+        "make": (vehicle.make or "").upper() if vehicle else "",
+        "model": (vehicle.model or "").upper() if vehicle else "",
         "vin": (vehicle.vin if vehicle else "").upper(),
         "plate_number": (vehicle.plate_number if vehicle else "") or "",
         "county": (client.county.upper() if client and client.county else "") or "",
@@ -2405,6 +2405,7 @@ def logout_view(request):
 
 from django.views.decorators.clickjacking import xframe_options_exempt
 
+@login_required
 @xframe_options_exempt
 def generate_dmv_form(request, form_type, service_id):
     """
@@ -2489,6 +2490,8 @@ def generate_dmv_form_vehicle(request, form_type, vehicle_id):
     """
     Generates all official NYS DMV forms directly from a Vehicle (no ServiceRecord needed).
     """
+    from pypdf import PdfReader, PdfWriter
+
     vehicle = get_object_or_404(Vehicle, id=vehicle_id)
     if not _has_active_org_access(request.user, vehicle.client.organization_id):
         deny_access("Access denied.")
@@ -2578,10 +2581,10 @@ def _fill_mv82_overlay(can, service, client, vehicle):
     vin_str = ((service.vin or "") if service else (vehicle.vin or "") if vehicle else "").upper()
     for i, char in enumerate(vin_str[:17]): can.drawString(38 + (i * 18.4), 407, char)
     can.setFont("Helvetica-Bold", 10)
-    can.drawString(358, 407, str(vehicle.year) if vehicle else "")
-    can.drawString(400, 407, vehicle.make.upper() if vehicle else "")
+    can.drawString(358, 407, str(vehicle.year) if vehicle and vehicle.year else "")
+    can.drawString(400, 407, (vehicle.make or "").upper() if vehicle else "")
     # Body type checkboxes intentionally left blank (no X marks)
-    can.drawString(40, 381, vehicle.color.upper() if vehicle else "")
+    can.drawString(40, 381, (vehicle.color or "").upper() if vehicle else "")
     can.drawString(90, 381, str(vehicle.weight) if vehicle else "")
     can.drawString(34, 355, str(vehicle.cylinders) if vehicle else "")
     
@@ -2694,6 +2697,8 @@ def intake_mv82_pdf(request, intake_id):
     Allows agents to preview the MV-82 generated from an intake submission
     before it's approved.
     """
+    from pypdf import PdfReader, PdfWriter
+
     intake = get_object_or_404(ClientIntake, id=intake_id)
     if not _has_active_org_access(request.user, intake.organization_id):
         deny_access("Access denied.")
@@ -2739,7 +2744,7 @@ def intake_mv82_pdf(request, intake_id):
     for i, char in enumerate(vin_str[:17]): can.drawString(38 + (i * 18.4), 407, char)
     can.setFont("Helvetica-Bold", 10)
     can.drawString(358, 407, prefill["year"])
-    can.drawString(400, 407, prefill["make"].upper())
+    can.drawString(400, 407, (prefill["make"] or "").upper())
     
     can.save()
     packet.seek(0)
@@ -2770,6 +2775,7 @@ def intake_mv82_pdf(request, intake_id):
     response["Content-Disposition"] = f'inline; filename="PREVIEW-MV82-{intake.vin}.pdf"'
     return response
 
+@login_required
 @xframe_options_exempt
 def mv82_form_pdf(request, service_id):
     return generate_dmv_form(request, "mv82", service_id)
@@ -4545,13 +4551,26 @@ def finance_hub(request):
         strategy_note = ""
 
     today_date = timezone.localdate()
+    daily_date_str = request.GET.get("daily_date", "").strip()
+    try:
+        from datetime import datetime as dt_parse
+
+        daily_payment_date = (
+            dt_parse.strptime(daily_date_str, "%Y-%m-%d").date()
+            if daily_date_str
+            else today_date
+        )
+    except ValueError:
+        daily_payment_date = today_date
+    daily_is_today = daily_payment_date == today_date
+
     if org_filter.isdigit():
         org_ids_for_metrics = [int(org_filter)]
     else:
         org_ids_for_metrics = list(organizations.values_list("id", flat=True))
 
     daily_payment_cards, daily_payment_total = build_daily_payment_cards(
-        records, org_ids_for_metrics, today_date
+        records, org_ids_for_metrics, daily_payment_date
     )
     goal_forecast = build_month_goal_forecast(records, today_date)
 
@@ -4568,6 +4587,8 @@ def finance_hub(request):
         "pie_labels": json.dumps(pie_labels),
         "pie_data": json.dumps(pie_data),
         "today": today_date,
+        "daily_payment_date": daily_payment_date,
+        "daily_is_today": daily_is_today,
         "organizations_for_filter": organizations.order_by("name"),
         "agents_for_filter": agents_for_filter,
         "status_choices": ServiceRecord.STATUS_CHOICES,

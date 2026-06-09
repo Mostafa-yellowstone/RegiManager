@@ -23,6 +23,8 @@ def _bucket_for_method(payment_method):
         return "cash"
     if payment_method == "zelle":
         return "zelle"
+    if payment_method == "checks":
+        return "checks"
     if payment_method in CARD_METHODS:
         return "credit_card"
     return None
