@@ -11,7 +11,7 @@ from django.db.models import Count, Sum, Q
 from django.db.models.functions import TruncMonth, TruncDate, ExtractHour
 import calendar
 from django.core.paginator import Paginator
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import HttpResponse
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout
@@ -57,8 +57,17 @@ from .insurance_commissions import (
     refund_total,
 )
 from .finance_hub_metrics import build_daily_payment_cards, build_month_goal_forecast
+from .dashboard_metrics import build_service_cards
+from .insurance_space_metrics import (
+    build_adjusted_unearned_for_org,
+    build_agent_stats,
+    build_company_summaries,
+    decorate_policies,
+    period_stats,
+    prefetch_insurance_companies,
+)
+from .http import deny_access
 import io
-from openpyxl import Workbook
 from django.utils.text import slugify
 
 
@@ -132,16 +141,6 @@ def _build_source_choices_for_service_records(organizations):
         .distinct()
     )
     return build_source_choices(db_sources, organizations=organizations)
-
-
-class CountableList(list):
-    def count(self, *args, **kwargs):
-        if not args and not kwargs:
-            return len(self)
-        return super().count(*args, **kwargs)
-        
-    def first(self):
-        return self[0] if self else None
 
 
 def send_email_robustly(task_func, *args, **kwargs):
@@ -757,7 +756,7 @@ def add_client(request):
 def client_detail(request, client_id):
     client = get_object_or_404(Client, id=client_id)
     if not _has_active_org_access(request.user, client.organization_id):
-        return HttpResponseForbidden("Access denied.")
+        deny_access("Access denied.")
     
     vehicles = client.vehicles.all()
     records_qs = (
@@ -822,7 +821,7 @@ def client_detail(request, client_id):
 def add_client_note(request, client_id):
     client = get_object_or_404(Client, id=client_id)
     if not _has_active_org_access(request.user, client.organization_id):
-        return HttpResponseForbidden("Access denied.")
+        deny_access("Access denied.")
 
     content = (request.POST.get("content") or "").strip()
     follow_up_date = (request.POST.get("follow_up_date") or "").strip()
@@ -882,7 +881,7 @@ def add_client_note(request, client_id):
 def mark_client_note_done(request, note_id):
     note = get_object_or_404(ClientNote.objects.select_related("client", "created_by", "assigned_to"), id=note_id)
     if not _has_active_org_access(request.user, note.client.organization_id):
-        return HttpResponseForbidden("Access denied.")
+        deny_access("Access denied.")
 
     if not note.is_done:
         note.is_done = True
@@ -1025,7 +1024,7 @@ def all_clients(request):
 def add_vehicle(request, client_id):
     client = get_object_or_404(Client, id=client_id)
     if not _has_active_org_access(request.user, client.organization_id):
-        return HttpResponseForbidden("Access denied.")
+        deny_access("Access denied.")
 
     if request.method == "POST":
         vin = request.POST.get('vin', '').strip().upper()
@@ -1185,7 +1184,7 @@ def check_client_name_ajax(request):
 def vehicle_detail(request, vehicle_id):
     vehicle = get_object_or_404(Vehicle.all_objects, id=vehicle_id)
     if not _has_active_org_access(request.user, vehicle.client.organization_id):
-        return HttpResponseForbidden("Access denied.")
+        deny_access("Access denied.")
     
     from django.db.models import Q
     # Show all docs for this client's fleet
@@ -1220,7 +1219,7 @@ def vehicle_detail(request, vehicle_id):
 def start_process(request, vehicle_id):
     vehicle = get_object_or_404(Vehicle.all_objects, id=vehicle_id)
     if not _has_active_org_access(request.user, vehicle.client.organization_id):
-        return HttpResponseForbidden("Access denied.")
+        deny_access("Access denied.")
     
     if request.method == "POST":
         form = VehicleServiceForm(request.POST, organization=vehicle.client.organization)
@@ -1466,25 +1465,7 @@ def dashboard(request):
     daily_report["sales_tax"] = daily_report["sales_tax"] or Decimal("0")
     daily_report["credit_card_fee"] = daily_report["credit_card_fee"] or Decimal("0")
 
-    custom_types = CustomServiceType.objects.filter(organization__in=organizations)
-    all_service_keys = list(ServiceRecord.SERVICE_TYPES)
-    for ct in custom_types:
-        all_service_keys.append((ct.key, ct.label))
-
-    service_cards = []
-    for service_key, service_label in all_service_keys:
-        service_subset = scope_qs.filter(service_type=service_key)
-        service_cards.append(
-            {
-                "key": service_key,
-                "label": service_label,
-                "daily_count": service_subset.filter(created_at__date=today).count(),
-                "monthly_count": service_subset.filter(created_at__date__gte=month_start).count(),
-                "yearly_count": service_subset.filter(created_at__date__gte=year_start).count(),
-                "total_count": service_subset.count(),
-                "is_custom": service_key not in [t[0] for t in ServiceRecord.SERVICE_TYPES],
-            }
-        )
+    service_cards = build_service_cards(scope_qs, organizations, today, month_start, year_start)
 
     show_all_services_card = False
     if len(service_cards) >= 8:
@@ -1545,21 +1526,40 @@ def dashboard(request):
     # Location Comparison (Owner Only)
     location_stats = []
     if is_owner and not request.session.get('active_org_id') and organizations.count() > 1:
+        org_stats_map = {
+            row["organization_id"]: row
+            for row in ServiceRecord.objects.filter(organization__in=organizations)
+            .values("organization_id")
+            .annotate(
+                daily_profit=Sum("processing_fee", filter=Q(created_at__date=today)),
+                monthly_profit=Sum("processing_fee", filter=Q(created_at__date__gte=month_start)),
+                total_records=Count("id"),
+            )
+        }
         for org in organizations:
-            org_records = ServiceRecord.objects.filter(organization=org)
+            stats = org_stats_map.get(org.id, {})
             location_stats.append({
                 'id': org.id,
                 'name': org.name,
                 'city': org.city,
-                'daily_profit': org_records.filter(created_at__date=today).aggregate(Sum('processing_fee'))['processing_fee__sum'] or 0,
-                'monthly_profit': org_records.filter(created_at__date__gte=month_start).aggregate(Sum('processing_fee'))['processing_fee__sum'] or 0,
-                'total_records': org_records.count(),
+                'daily_profit': stats.get('daily_profit') or 0,
+                'monthly_profit': stats.get('monthly_profit') or 0,
+                'total_records': stats.get('total_records') or 0,
             })
         location_stats = sorted(location_stats, key=lambda x: x['monthly_profit'], reverse=True)
 
-    pending_intakes = ClientIntake.objects.filter(organization__in=organizations, status=ClientIntake.Status.PENDING).order_by("-created_at")
+    pending_intakes = list(
+        ClientIntake.objects.filter(
+            organization__in=organizations,
+            status=ClientIntake.Status.PENDING,
+        ).order_by("-created_at")
+    )
+    intake_vins = [intake.vin for intake in pending_intakes if intake.vin]
+    existing_intake_vins = set(
+        Vehicle.objects.filter(vin__in=intake_vins).values_list("vin", flat=True)
+    ) if intake_vins else set()
     for intake in pending_intakes:
-        intake.vin_exists = Vehicle.objects.filter(vin=intake.vin).exists()
+        intake.vin_exists = intake.vin in existing_intake_vins
 
     return render(
         request,
@@ -1607,7 +1607,7 @@ def owner_report_pdf(request):
         ).values_list("organization_id", flat=True)
     )
     if not owner_org_ids:
-        return HttpResponseForbidden("Owner access required.")
+        deny_access("Owner access required.")
 
     report_rows = (
         ServiceRecord.objects.filter(organization_id__in=owner_org_ids)
@@ -1748,7 +1748,7 @@ def monthly_report_pdf(request):
         ).values_list("organization_id", flat=True)
     )
     if not owner_org_ids:
-        return HttpResponseForbidden("Owner access required.")
+        deny_access("Owner access required.")
 
     today = timezone.localdate()
     month_start = today.replace(day=1)
@@ -1940,7 +1940,7 @@ def daily_report_pdf(request):
         ).values_list("organization_id", flat=True)
     )
     if not owner_org_ids:
-        return HttpResponseForbidden("Owner access required.")
+        deny_access("Owner access required.")
 
     today = timezone.localdate()
     daily_qs = ServiceRecord.objects.filter(
@@ -2112,7 +2112,7 @@ def service_receipt_pdf(request, service_id):
         organization=service_record.organization,
     ).exists()
     if not can_access:
-        return HttpResponseForbidden("You do not have access to this receipt.")
+        deny_access("You do not have access to this receipt.")
 
     response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = (
@@ -2388,17 +2388,17 @@ def logout_view(request):
 
 
 from django.views.decorators.clickjacking import xframe_options_exempt
-from pypdf import PdfReader, PdfWriter
-import os
 
 @xframe_options_exempt
 def generate_dmv_form(request, form_type, service_id):
     """
     Brilliant central hub for generating all official NYS DMV forms.
     """
+    from pypdf import PdfReader, PdfWriter
+
     service = get_object_or_404(ServiceRecord, id=service_id)
     if not _has_active_org_access(request.user, service.organization_id):
-        return HttpResponseForbidden("Access denied.")
+        deny_access("Access denied.")
 
     vehicle = service.vehicle
     if not vehicle and service.vin:
@@ -2475,7 +2475,7 @@ def generate_dmv_form_vehicle(request, form_type, vehicle_id):
     """
     vehicle = get_object_or_404(Vehicle, id=vehicle_id)
     if not _has_active_org_access(request.user, vehicle.client.organization_id):
-        return HttpResponseForbidden("Access denied.")
+        deny_access("Access denied.")
 
     client = vehicle.client
     prefill = _build_form_prefill_payload(None, client, vehicle)
@@ -2680,7 +2680,7 @@ def intake_mv82_pdf(request, intake_id):
     """
     intake = get_object_or_404(ClientIntake, id=intake_id)
     if not _has_active_org_access(request.user, intake.organization_id):
-        return HttpResponseForbidden("Access denied.")
+        deny_access("Access denied.")
 
     # Mock objects for prefill
     prefill = {
@@ -2775,7 +2775,7 @@ def mv82_interactive(request, service_id):
         organization=service.organization,
     ).exists()
     if not can_access:
-        return HttpResponseForbidden("Access Denied.")
+        deny_access("Access Denied.")
 
     context = {
         "service": service,
@@ -2950,6 +2950,8 @@ def service_list(request, service_type):
                     f"{record.service_fee or Decimal('0'):.2f}",
                 ])
             return response
+
+        from openpyxl import Workbook
 
         workbook = Workbook()
         sheet = workbook.active
@@ -3401,25 +3403,7 @@ def all_service_types(request):
     month_start = today.replace(day=1)
     year_start = today.replace(month=1, day=1)
 
-    custom_types = CustomServiceType.objects.filter(organization__in=organizations)
-    all_service_keys = list(ServiceRecord.SERVICE_TYPES)
-    for ct in custom_types:
-        all_service_keys.append((ct.key, ct.label))
-
-    service_cards = []
-    for service_key, service_label in all_service_keys:
-        service_subset = scope_qs.filter(service_type=service_key)
-        service_cards.append(
-            {
-                "key": service_key,
-                "label": service_label,
-                "daily_count": service_subset.filter(created_at__date=today).count(),
-                "monthly_count": service_subset.filter(created_at__date__gte=month_start).count(),
-                "yearly_count": service_subset.filter(created_at__date__gte=year_start).count(),
-                "total_count": service_subset.count(),
-                "is_custom": service_key not in [t[0] for t in ServiceRecord.SERVICE_TYPES],
-            }
-        )
+    service_cards = build_service_cards(scope_qs, organizations, today, month_start, year_start)
 
     return render(
         request,
@@ -3436,7 +3420,7 @@ def all_agents_directory(request):
     organizations = _get_user_organizations(request).filter(memberships__role=OrganizationMembership.Role.OWNER)
     owner_org_ids = list(organizations.values_list("id", flat=True))
     if not owner_org_ids:
-        return HttpResponseForbidden("Owner access required.")
+        deny_access("Owner access required.")
 
     agents = OrganizationMembership.objects.filter(
         organization_id__in=owner_org_ids
@@ -3479,7 +3463,7 @@ def agent_audit_view(request, membership_id):
     ).exists()
     
     if not is_owner:
-        return HttpResponseForbidden("Owner access required.")
+        deny_access("Owner access required.")
 
     today = timezone.localdate()
     month_start = today.replace(day=1)
@@ -3609,7 +3593,7 @@ def audit_log_list(request):
     is_owner = bool(owner_org_ids)
 
     if not is_owner:
-        return HttpResponseForbidden("Owner access required to view global audit logs.")
+        deny_access("Owner access required to view global audit logs.")
 
     search_query = request.GET.get('q', '').strip()
     action_filter = request.GET.get('action', '').strip()
@@ -3674,7 +3658,7 @@ def all_referrals(request):
     user_can_manage_referrals = any(m.can_manage_referrals for m in memberships)
 
     if not is_owner and not user_can_manage_referrals:
-        return HttpResponseForbidden("You do not have permission to manage referral entities.")
+        deny_access("You do not have permission to manage referral entities.")
 
     organizations = [m.organization for m in memberships]
     
@@ -3765,7 +3749,7 @@ def referral_profile(request, referral_id):
     user_can_manage_referrals = any(m.can_manage_referrals for m in memberships)
 
     if not is_owner and not user_can_manage_referrals:
-        return HttpResponseForbidden("You do not have permission to view referral profiles.")
+        deny_access("You do not have permission to view referral profiles.")
 
     organizations = [m.organization for m in memberships]
     referral = get_object_or_404(Referral, id=referral_id, organization__in=organizations)
@@ -4613,7 +4597,7 @@ def save_finance_strategy_note(request):
 def yearly_report_pdf(request):
     organizations = _get_user_organizations(request).filter(memberships__role=OrganizationMembership.Role.OWNER)
     owner_org_ids = list(organizations.values_list("id", flat=True))
-    if not owner_org_ids: return HttpResponseForbidden("Owner access required.")
+    if not owner_org_ids: deny_access("Owner access required.")
     
     today = timezone.localdate()
     qs = ServiceRecord.objects.filter(organization_id__in=owner_org_ids, created_at__year=today.year)
@@ -4787,7 +4771,7 @@ def branch_analytics(request, org_id):
     # Ensure user has access to this organization
     organizations = _get_user_organizations(request)
     if not organizations.filter(id=org_id).exists():
-        return HttpResponseForbidden('You do not have access to this branch.')
+        deny_access('You do not have access to this branch.')
     
     org = get_object_or_404(Organization, id=org_id)
     
@@ -4883,7 +4867,7 @@ def edit_client(request, client_id):
     client = get_object_or_404(Client, id=client_id)
     orgs = _get_user_organizations(request)
     if not orgs.filter(id=client.organization_id).exists():
-        return HttpResponseForbidden()
+        deny_access()
     
     if request.method == 'POST':
         form = ClientForm(request.POST, instance=client, organizations=orgs)
@@ -4956,7 +4940,7 @@ def edit_service(request, service_id):
     orgs = _get_user_organizations(request)
     
     if not orgs.filter(id=service.organization_id).exists():
-        return HttpResponseForbidden()
+        deny_access()
     
     if request.method == 'POST':
         form = VehicleServiceForm(request.POST, instance=service, organization=service.organization)
@@ -5027,7 +5011,7 @@ def edit_vehicle(request, vehicle_id):
     from .forms import VehicleForm
     vehicle = get_object_or_404(Vehicle.all_objects, id=vehicle_id)
     if not OrganizationMembership.objects.filter(user=request.user, organization=vehicle.client.organization).exists():
-        return HttpResponseForbidden()
+        deny_access()
     
     if request.method == 'POST':
         form = VehicleForm(request.POST, instance=vehicle, client=vehicle.client)
@@ -5349,7 +5333,7 @@ def outstanding_balances(request):
     """Show all outstanding (unpaid) service record balances across referrals and direct clients."""
     organizations = _get_user_organizations(request)
     if not organizations.exists():
-        return HttpResponseForbidden()
+        deny_access()
 
     filter_type = request.GET.get("filter", "all")  # all | referral | direct
 
@@ -5366,8 +5350,11 @@ def outstanding_balances(request):
 
     total = qs.aggregate(t=Sum("referral_balance"))["t"] or Decimal("0")
 
+    page_obj = Paginator(qs, 25).get_page(request.GET.get("page", 1))
+
     return render(request, "core/outstanding_balances.html", {
-        "records": qs,
+        "records": page_obj,
+        "page_obj": page_obj,
         "total": total,
         "filter_type": filter_type,
         "title": "Outstanding Balances",
@@ -5659,7 +5646,7 @@ def inventory_detail(request, inventory_id):
             organization__is_active=True
         ).first()
         if not membership:
-            return HttpResponseForbidden("Access denied.")
+            deny_access("Access denied.")
         is_owner = (membership.role == OrganizationMembership.Role.OWNER)
 
     user_can_view_commission = is_owner or (membership and membership.can_view_commission)
@@ -5668,7 +5655,7 @@ def inventory_detail(request, inventory_id):
     # Non-owners must have the specific space in their accessible_spaces
     if not request.user.is_superuser and not is_owner:
         if not membership.accessible_spaces.filter(id=card.id).exists():
-            return HttpResponseForbidden("You do not have permission to access this space.")
+            deny_access("You do not have permission to access this space.")
 
     if request.method == "POST":
         if not is_owner:
@@ -5706,8 +5693,8 @@ def inventory_detail(request, inventory_id):
         is_unlocked = request.session.get(unlocked_session_key, False)
         insurance_locked = is_locked and not is_unlocked
         
-        clients = Client.objects.filter(organization=active_org)
-        insurance_companies = InsuranceCompany.objects.filter(organization=active_org)
+        clients = Client.objects.filter(organization=active_org).order_by("first_name", "last_name")[:500]
+        insurance_companies = prefetch_insurance_companies(active_org)
         bank_accounts = BankAccount.objects.filter(organization=active_org)
         all_bank_transactions = BankTransaction.objects.filter(bank_account__organization=active_org).select_related("bank_account", "insurance_company")
         
@@ -5811,9 +5798,13 @@ def inventory_detail(request, inventory_id):
         # Global metrics calculations (unfiltered total stats)
         active_policies = all_policies.filter(stage="bound", status="active")
         inactive_policies = all_policies.filter(stage="bound", status="inactive")
-        
-        total_premium = sum(p.premium for p in active_policies)
-        total_commission = sum(p.commission_amount for p in active_policies)
+
+        active_totals = active_policies.aggregate(
+            total_premium=Sum("premium"),
+            total_commission=Sum("commission_amount"),
+        )
+        total_premium = active_totals["total_premium"] or Decimal("0")
+        total_commission = active_totals["total_commission"] or Decimal("0")
 
         # ── CRM Comparison Stats ──────────────────────────────────────────────
         import json as _json
@@ -5877,155 +5868,35 @@ def inventory_detail(request, inventory_id):
         comp_start, comp_end = _period_bounds(comp_mode, comp_month_offset, comp_custom_from, comp_custom_to)
         prev_start, prev_end = _prev_period_bounds(comp_mode, comp_month_offset, comp_custom_from, comp_custom_to)
 
-        def _period_stats(qs, start, end):
-            period_qs = qs.filter(created_at__date__gte=start, created_at__date__lte=end)
-            quotes = period_qs.filter(stage="quote").count()
-            bound = period_qs.filter(stage="bound").count()
-            total = quotes + bound
-            conversion = (bound / total * 100) if total > 0 else 0
-            bound_active = period_qs.filter(stage="bound", status="active")
-            premium = sum(p.premium for p in bound_active)
-            broker_fee = sum(p.broker_fee for p in bound_active)
-            return {
-                "quotes": quotes,
-                "bound": bound,
-                "conversion": round(conversion, 1),
-                "premium": float(premium),
-                "broker_fee": float(broker_fee),
-            }
-
-        comp_current = _period_stats(all_policies, comp_start, comp_end)
-        comp_previous = _period_stats(all_policies, prev_start, prev_end)
+        comp_current = period_stats(all_policies, comp_start, comp_end)
+        comp_previous = period_stats(all_policies, prev_start, prev_end)
         comp_period_label = f"{comp_start.strftime('%b %d')} – {comp_end.strftime('%b %d, %Y')}"
         prev_period_label = f"{prev_start.strftime('%b %d')} – {prev_end.strftime('%b %d, %Y')}"
-        
-        def get_user_colors(username):
-            # Deterministic pastel color for colorful customization
-            h = sum(ord(c) for c in username) * 37 % 360
-            return f"hsl({h}, 75%, 93%)", f"hsl({h}, 80%, 25%)"
 
-        # Convert querysets to lists to safely mutate Python attributes
-        policies_list = CountableList(policies)
-        inactive_policies_list = list(inactive_policies)
-
-        # Distribute refund-category transactions against unearned commissions
-        adjusted_unearned_map = {}
-        for company in insurance_companies:
-            company_transactions = list(company.transactions.all())
-            comp_inactive_policies = list(all_policies.filter(
-                insurance_company=company,
-                stage="bound",
-                status="inactive"
-            ).order_by('inactive_date', 'id'))
-            company_refunded = refund_total(company_transactions)
-            company_adjusted = build_adjusted_unearned_map(comp_inactive_policies, company_refunded)
-            adjusted_unearned_map.update(company_adjusted)
-
-        # Apply adjusted unearned commissions to lists
-        for p in policies_list:
-            if p.id in adjusted_unearned_map:
-                p.unearned_commission = adjusted_unearned_map[p.id]
-            if p.added_by:
-                bg, text = get_user_colors(p.added_by.username)
-                p.agent_bg_color = bg
-                p.agent_text_color = text
-
-        for p in inactive_policies_list:
-            if p.id in adjusted_unearned_map:
-                p.unearned_commission = adjusted_unearned_map[p.id]
-
-        company_summaries = []
-        for company in insurance_companies:
-            comp_policies = list(all_policies.filter(insurance_company=company))
-            company_transactions = list(
-                company.transactions.all().select_related("bank_account").order_by("-date", "-created_at")
-            )
-            summary = company_commission_summary(comp_policies, company_transactions)
-            comp_active_count = sum(
-                1 for p in comp_policies if p.stage == "bound" and p.status == "active"
-            )
-
-            company_summaries.append({
-                "id": company.id,
-                "name": company.name,
-                "active_count": comp_active_count,
-                "earned_commission": summary["earned_commission"],
-                "received_commission": summary["received_commission"],
-                "unearned_commission": summary["unearned_commission"],
-                "transactions": company_transactions,
-            })
-            
+        inactive_policies = inactive_policies.select_related("insurance_company", "added_by")
+        adjusted_unearned_map = build_adjusted_unearned_for_org(insurance_companies, inactive_policies)
+        company_summaries = build_company_summaries(insurance_companies, all_policies)
         total_unearned_commission = sum(
             adjusted_unearned_map.get(p.id, p.unearned_commission)
-            for p in inactive_policies_list
+            for p in inactive_policies.only("id", "unearned_commission")
         )
 
-        # Paginate policies list
         crm_page_num = request.GET.get("page", 1)
-        crm_paginator = Paginator(policies_list, 12)
-        try:
-            crm_policies_page = crm_paginator.page(crm_page_num)
-        except Exception:
-            crm_policies_page = crm_paginator.page(1)
+        crm_policies_page = Paginator(policies.order_by("-created_at"), 12).get_page(crm_page_num)
+        decorate_policies(crm_policies_page, adjusted_unearned_map)
 
-        # Paginate bank transactions
         bank_page_num = request.GET.get("bank_page", 1)
-        bank_paginator = Paginator(list(bank_transactions), 20)
-        try:
-            bank_transactions_page = bank_paginator.page(bank_page_num)
-        except Exception:
-            bank_transactions_page = bank_paginator.page(1)
-            
-        # Agent Auditing Logic
+        bank_transactions_page = Paginator(
+            bank_transactions.order_by("-date", "-created_at"), 20
+        ).get_page(bank_page_num)
+
         insurance_memberships = OrganizationMembership.objects.filter(
             organization=active_org,
             can_deal_with_insurance=True,
             is_active=True,
-            user__is_active=True
+            user__is_active=True,
         ).select_related("user")
-        
-        agent_stats = []
-        best_performer = None
-        
-        for m in insurance_memberships:
-            agent = m.user
-            agent_policies = all_policies.filter(added_by=agent)
-            
-            q_count = agent_policies.filter(stage="quote").count()
-            p_bound = agent_policies.filter(stage="bound").count()
-            
-            bound_policies = agent_policies.filter(stage="bound")
-            p_sum = sum(p.premium for p in bound_policies)
-            c_sum = sum(p.commission_amount for p in bound_policies)
-            b_sum = sum(p.broker_fee for p in bound_policies)
-            t_profit = c_sum + b_sum
-            
-            bg, text = get_user_colors(agent.username)
-            
-            stats = {
-                "agent": agent,
-                "user_id": agent.id,
-                "fullname": agent.get_full_name() or agent.username,
-                "quotes_count": q_count,
-                "policies_bound": p_bound,
-                "total_premium": p_sum,
-                "total_commission": c_sum,
-                "total_broker_fee": b_sum,
-                "total_profit": t_profit,
-                "bg_color": bg,
-                "text_color": text,
-                "is_best": False,
-                "is_second": False,
-            }
-            agent_stats.append(stats)
-
-        agent_stats.sort(key=lambda s: s["total_premium"], reverse=True)
-
-        if agent_stats:
-            agent_stats[0]["is_best"] = True
-            best_performer = agent_stats[0]
-        if len(agent_stats) > 1 and agent_stats[1]["total_premium"] > 0:
-            agent_stats[1]["is_second"] = True
+        agent_stats, best_performer = build_agent_stats(all_policies, insurance_memberships)
 
         chart_agent_names = [s["fullname"] for s in agent_stats]
         chart_agent_premiums = [float(s["total_premium"]) for s in agent_stats]
@@ -6281,10 +6152,10 @@ def spaces_home(request):
             user=request.user, organization=active_org, is_active=True
         ).first()
         if not membership:
-            return HttpResponseForbidden("Access denied.")
+            deny_access("Access denied.")
         is_owner = (membership.role == OrganizationMembership.Role.OWNER)
         if not is_owner and not membership.can_view_spaces:
-            return HttpResponseForbidden("You do not have permission to view Spaces.")
+            deny_access("You do not have permission to view Spaces.")
 
     # Auto-ensure "Insurance" card exists for this active org
     Space.objects.get_or_create(
@@ -7041,7 +6912,7 @@ def export_insurance_report_pdf(request):
     unlocked_session_key = f"insurance_unlocked_{org.id}"
     is_unlocked = request.session.get(unlocked_session_key, False)
     if is_locked and not is_unlocked:
-        return HttpResponseForbidden("Access denied. Insurance Space is locked.")
+        deny_access("Access denied. Insurance Space is locked.")
         
     start_date_str = request.GET.get("start_date")
     end_date_str = request.GET.get("end_date")
@@ -7207,6 +7078,26 @@ def export_insurance_report_pdf(request):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @login_required
+@login_required
+def insurance_company_ledger_fragment(request, company_id):
+    from .models import InsuranceCompany
+
+    company = get_object_or_404(InsuranceCompany, id=company_id)
+    if not OrganizationMembership.objects.filter(
+        user=request.user,
+        organization=company.organization,
+        is_active=True,
+    ).exists():
+        deny_access()
+    transactions = company.transactions.select_related("bank_account").order_by(
+        "-date", "-created_at"
+    )[:150]
+    return render(request, "core/partials/company_ledger_table.html", {
+        "transactions": transactions,
+    })
+
+
+@login_required
 def insurance_company_detail(request, company_id):
     from .models import InsuranceCompany, InsurancePolicy, InsuranceCompanyDocument, BankTransaction
     organizations = _get_user_organizations(request)
@@ -7219,7 +7110,7 @@ def insurance_company_detail(request, company_id):
             user=request.user, organization=active_org, is_active=True
         ).first()
         if not membership:
-            return HttpResponseForbidden("Access denied.")
+            deny_access("Access denied.")
 
     # Lock check
     is_locked = active_org.insurance_space_locked and active_org.insurance_space_password
@@ -7443,7 +7334,7 @@ def insurance_agent_detail(request, user_id):
             memberships__is_active=True
         ).first()
     if not active_org:
-        return HttpResponseForbidden("No organization context found.")
+        deny_access("No organization context found.")
 
     # Permission check
     if not request.user.is_superuser:
@@ -7451,7 +7342,7 @@ def insurance_agent_detail(request, user_id):
             user=request.user, organization=active_org, is_active=True
         ).first()
         if not membership:
-            return HttpResponseForbidden("Access denied.")
+            deny_access("Access denied.")
 
     # Lock check
     is_locked = active_org.insurance_space_locked and active_org.insurance_space_password
@@ -7628,7 +7519,7 @@ def add_knowledge_material(request, space_id):
             can_manage = is_owner or (membership.can_manage_knowledge_hub and has_space_access)
 
     if not can_manage:
-        return HttpResponseForbidden("You do not have permission to add training materials.")
+        deny_access("You do not have permission to add training materials.")
         
     title = request.POST.get("title", "").strip()
     description = request.POST.get("description", "").strip()
@@ -7690,7 +7581,7 @@ def delete_knowledge_material(request, material_id):
             can_manage = is_owner or (membership.can_manage_knowledge_hub and has_space_access)
 
     if not can_manage:
-        return HttpResponseForbidden("You do not have permission to delete training materials.")
+        deny_access("You do not have permission to delete training materials.")
         
     title = material.title
     material.delete()

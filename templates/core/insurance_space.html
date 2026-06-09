@@ -438,45 +438,6 @@
             </button>
           </div>
 
-          <!-- Hidden ledger HTML for JS extraction -->
-          <div id="company-ledger-data-{{ entry.id }}" style="display: none;">
-            <table class="spaces-table" style="width: 100%; border-collapse: collapse;">
-              <thead>
-                <tr style="border-bottom: 2px solid #e2e8f0; background: #f8fafc;">
-                  <th style="padding: 10px 8px; text-align: left; font-size: 0.8rem; font-weight: 700; color: #475569;">Date</th>
-                  <th style="padding: 10px 8px; text-align: left; font-size: 0.8rem; font-weight: 700; color: #475569;">Account</th>
-                  <th style="padding: 10px 8px; text-align: left; font-size: 0.8rem; font-weight: 700; color: #475569;">Type</th>
-                  <th style="padding: 10px 8px; text-align: left; font-size: 0.8rem; font-weight: 700; color: #475569;">Category</th>
-                  <th style="padding: 10px 8px; text-align: right; font-size: 0.8rem; font-weight: 700; color: #475569;">Amount</th>
-                  <th style="padding: 10px 8px; text-align: left; font-size: 0.8rem; font-weight: 700; color: #475569;">Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for tx in entry.transactions %}
-                <tr style="border-bottom: 1px solid #f1f5f9;">
-                  <td style="padding: 10px 8px; font-size: 0.8rem; color: #0f172a; white-space: nowrap;">{{ tx.date }}</td>
-                  <td style="padding: 10px 8px; font-size: 0.8rem; color: #475569;">{{ tx.bank_account.account_name }}</td>
-                  <td style="padding: 10px 8px; font-size: 0.8rem; white-space: nowrap;">
-                    {% if tx.transaction_type == 'income' %}
-                    <span style="color: #16a34a; font-weight: 700; background: #f0fdf4; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem;">IN</span>
-                    {% else %}
-                    <span style="color: #dc2626; font-weight: 700; background: #fef2f2; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem;">OUT</span>
-                    {% endif %}
-                  </td>
-                  <td style="padding: 10px 8px; font-size: 0.8rem; color: #0f172a; font-weight: 600;">{{ tx.category }}</td>
-                  <td style="padding: 10px 8px; font-size: 0.8rem; font-weight: 700; text-align: right; color: {% if tx.transaction_type == 'income' %}#16a34a{% else %}#dc2626{% endif %};">
-                    ${{ tx.amount }}
-                  </td>
-                  <td style="padding: 10px 8px; font-size: 0.8rem; color: #64748b;">{{ tx.description|default:"-" }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                  <td colspan="6" style="padding: 20px; text-align: center; color: #94a3b8; font-size: 0.85rem;">No transactions logged for this company.</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
         </div>
         {% empty %}
         <div style="grid-column: 1/-1; text-align: center; padding: 4rem; color: #64748b; font-weight: 600; background: white; border-radius: 16px; border: 1px solid #e2e8f0;">No insurance companies added yet.</div>
@@ -1260,10 +1221,22 @@ function openCompanyDepositModal(companyId, companyName, unearnedCommission) {
 }
 
 function openCompanyLedgerModal(companyId, companyName) {
-  const dataHtml = document.getElementById('company-ledger-data-' + companyId).innerHTML;
-  document.getElementById('companyLedgerTitle').textContent = companyName + ' - Transaction Ledger';
-  document.getElementById('companyLedgerBody').innerHTML = dataHtml;
+  const titleEl = document.getElementById('companyLedgerTitle');
+  const bodyEl = document.getElementById('companyLedgerBody');
+  titleEl.textContent = companyName + ' - Transaction Ledger';
+  bodyEl.innerHTML = '<div style="padding: 2rem; text-align: center; color: #64748b; font-weight: 600;">Loading ledger...</div>';
   document.getElementById('companyLedgerModal').classList.add('active');
+  fetch('/dashboard/spaces/insurance/company/' + companyId + '/ledger/')
+    .then(function (response) {
+      if (!response.ok) throw new Error('Ledger unavailable');
+      return response.text();
+    })
+    .then(function (html) {
+      bodyEl.innerHTML = html;
+    })
+    .catch(function () {
+      bodyEl.innerHTML = '<div style="padding: 2rem; text-align: center; color: #b91c1c; font-weight: 600;">Could not load ledger. Please refresh and try again.</div>';
+    });
 }
 
 function openEditAccountModal(accountId, accountName, bankName, accountNumber, balance) {

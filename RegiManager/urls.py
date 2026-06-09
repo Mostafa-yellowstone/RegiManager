@@ -123,6 +123,7 @@ from core.views import (
     delete_bank_transaction,
     export_insurance_report_pdf,
     insurance_company_detail,
+    insurance_company_ledger_fragment,
     insurance_company_upload_document,
     insurance_company_delete_document,
     insurance_agent_detail,
@@ -292,13 +293,37 @@ urlpatterns = [
     path("dashboard/spaces/inventory/<int:space_id>/purchase/add/", add_inventory_purchase, name="add-inventory-purchase"),
 ]
 
+from core.error_handlers import render_error_page
+
+urlpatterns += [
+    path("errors/502/", lambda request: render_error_page(request, 502)),
+    path("errors/503/", lambda request: render_error_page(request, 503)),
+    path(
+        "dashboard/spaces/insurance/company/<int:company_id>/ledger/",
+        insurance_company_ledger_fragment,
+        name="insurance-company-ledger",
+    ),
+]
+
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    
-    # Catch-all to show the custom 404 page even in DEBUG mode for testing
-    from django.urls import re_path
-    from django.shortcuts import render
+
+    from core.error_handlers import (
+        custom_page_not_found,
+        custom_permission_denied,
+        render_error_page,
+    )
+
     urlpatterns += [
-        re_path(r'^.*$', lambda request: render(request, '404.html', status=404))
+        path("__preview__/404/", custom_page_not_found),
+        path("__preview__/403/", custom_permission_denied),
+        path("__preview__/500/", lambda request: render_error_page(request, 500)),
+        path("__preview__/502/", lambda request: render_error_page(request, 502)),
+        path("__preview__/503/", lambda request: render_error_page(request, 503)),
     ]
+
+
+handler404 = "core.error_handlers.custom_page_not_found"
+handler403 = "core.error_handlers.custom_permission_denied"
+handler500 = "core.error_handlers.custom_server_error"

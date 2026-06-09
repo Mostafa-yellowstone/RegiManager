@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ error_title }} | RegiManager{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/errors.css' %}?v=portal-20">
+{% endblock %}
+
+{% block content %}
+<main class="error-shell">
+    <div class="error-card">
+        <div class="error-code-badge">{{ status_code }}</div>
+        <div class="error-icon" aria-hidden="true">{{ error_icon }}</div>
+        <h1 class="error-headline">{{ error_headline }}</h1>
+        <p class="error-summary">{{ error_summary }}</p>
+
+        <section class="error-solutions" aria-labelledby="error-solutions-title">
+            <h2 id="error-solutions-title">What you can do</h2>
+            <ul>
+                {% for item in error_solutions %}
+                <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        <div class="error-actions">
+            {% if is_authenticated %}
+            <a href="{% url 'dashboard' %}" class="error-btn error-btn--primary">Go to Dashboard</a>
+            {% else %}
+            <a href="{% url 'login' %}" class="error-btn error-btn--primary">Sign In</a>
+            {% endif %}
+            <button type="button" class="error-btn error-btn--secondary" onclick="window.location.reload()">Try Again</button>
+            <a href="{% url 'home' %}" class="error-btn error-btn--ghost">Home</a>
+        </div>
+
+        <p class="error-footnote">
+            RegiManager enterprise portal · If this continues, contact your PSB administrator with the error code <strong>{{ status_code }}</strong> and the time it occurred.
+        </p>
+    </div>
+</main>
+{% endblock %}

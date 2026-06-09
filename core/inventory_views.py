@@ -8,7 +8,9 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Q
-from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
+from django.http import HttpResponse, JsonResponse
+
+from .http import deny_access
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -133,7 +135,7 @@ def build_inventory_space_context(request, card, is_owner, membership):
 def add_inventory_category(request, space_id):
     space, is_owner, membership = _resolve_space_access(request, space_id)
     if not space:
-        return HttpResponseForbidden("Access denied.")
+        deny_access("Access denied.")
 
     name = request.POST.get("name", "").strip()
     description = request.POST.get("description", "").strip()
@@ -176,7 +178,7 @@ def delete_inventory_category(request, category_id):
 def add_inventory_product(request, space_id):
     space, is_owner, membership = _resolve_space_access(request, space_id)
     if not space:
-        return HttpResponseForbidden("Access denied.")
+        deny_access("Access denied.")
 
     name = request.POST.get("name", "").strip()
     if not name:
@@ -335,7 +337,7 @@ def adjust_inventory_stock(request, product_id):
 def add_inventory_buyer(request, space_id):
     space, is_owner, membership = _resolve_space_access(request, space_id)
     if not space:
-        return HttpResponseForbidden("Access denied.")
+        deny_access("Access denied.")
 
     name = request.POST.get("name", "").strip()
     if not name:
@@ -376,7 +378,7 @@ def delete_inventory_buyer(request, buyer_id):
 def add_inventory_invoice(request, space_id):
     space, is_owner, membership = _resolve_space_access(request, space_id)
     if not space:
-        return HttpResponseForbidden("Access denied.")
+        deny_access("Access denied.")
 
     buyer_name = request.POST.get("buyer_name", "").strip()
     if not buyer_name:
@@ -539,7 +541,7 @@ def export_inventory_report(request, space_id):
 
     space, is_owner, membership = _resolve_space_access(request, space_id)
     if not space:
-        return HttpResponseForbidden("Access denied.")
+        deny_access("Access denied.")
 
     report_type = request.GET.get("type", "inventory")
     export_fmt = request.GET.get("export", "csv")
@@ -622,7 +624,7 @@ def export_inventory_report(request, space_id):
 def add_inventory_supplier(request, space_id):
     space, is_owner, membership = _resolve_space_access(request, space_id)
     if not space:
-        return HttpResponseForbidden("Access denied.")
+        deny_access("Access denied.")
 
     name = request.POST.get("name", "").strip()
     if not name:
@@ -666,7 +668,7 @@ def delete_inventory_supplier(request, supplier_id):
 def add_inventory_purchase(request, space_id):
     space, is_owner, membership = _resolve_space_access(request, space_id)
     if not space:
-        return HttpResponseForbidden("Access denied.")
+        deny_access("Access denied.")
 
     supplier_id = request.POST.get("supplier_id", "").strip()
     if not supplier_id.isdigit():

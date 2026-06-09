@@ -12,3 +12,4 @@ staticfiles/
 .idea/
 .vscode/
 gunicorn.log
+scratch/
