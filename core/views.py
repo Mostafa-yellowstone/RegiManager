@@ -2832,8 +2832,8 @@ def service_list(request, service_type):
     if service_type != "all":
         if service_type == "vehicle_registration":
             scope_qs = scope_qs.filter(service_type__in=["vehicle_registration", "duplicate_registration"])
-        elif service_type == "get_title":
-            scope_qs = scope_qs.filter(service_type__in=["get_title", "title_only", "duplicate_title"])
+        elif service_type == "title_only":
+            scope_qs = scope_qs.filter(service_type__in=["title_only", "get_title"])
         elif service_type == "transfer_plate":
             scope_qs = scope_qs.filter(service_type__in=["transfer_plate", "new_plates"])
         else:

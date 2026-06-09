@@ -434,7 +434,6 @@ class ServiceRecord(SoftDeleteModel):
         ("vehicle_registration", "Vehicle Registration"),
         ("registration_renewal", "Registration Renewal"),
         ("duplicate_registration", "Duplicate Registration"),
-        ("get_title", "Get A Title"),
         ("duplicate_title", "Duplicate Title"),
         ("title_only", "Title Only"),
         ("transfer_plate", "Plate Transfer"),
@@ -527,6 +526,8 @@ class ServiceRecord(SoftDeleteModel):
 
     @property
     def service_type_label(self):
+        if self.service_type == "get_title":
+            return "Title Only"
         # First check standard choices
         for key, label in self.SERVICE_TYPES:
             if self.service_type == key:
