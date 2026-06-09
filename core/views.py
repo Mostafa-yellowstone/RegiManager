@@ -5873,12 +5873,24 @@ def inventory_detail(request, inventory_id):
         comp_period_label = f"{comp_start.strftime('%b %d')} – {comp_end.strftime('%b %d, %Y')}"
         prev_period_label = f"{prev_start.strftime('%b %d')} – {prev_end.strftime('%b %d, %Y')}"
 
-        inactive_policies = inactive_policies.select_related("insurance_company", "added_by")
-        adjusted_unearned_map = build_adjusted_unearned_for_org(insurance_companies, inactive_policies)
+        inactive_for_unearned = InsurancePolicy.objects.filter(
+            organization=active_org,
+            stage="bound",
+            status="inactive",
+        ).only(
+            "id",
+            "unearned_commission",
+            "inactive_date",
+            "start_date",
+            "insurance_company_id",
+        )
+        adjusted_unearned_map = build_adjusted_unearned_for_org(
+            insurance_companies, inactive_for_unearned
+        )
         company_summaries = build_company_summaries(insurance_companies, all_policies)
         total_unearned_commission = sum(
             adjusted_unearned_map.get(p.id, p.unearned_commission)
-            for p in inactive_policies.only("id", "unearned_commission")
+            for p in inactive_for_unearned
         )
 
         crm_page_num = request.GET.get("page", 1)

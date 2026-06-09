@@ -18,6 +18,17 @@ PLAIN_ERROR_MARKERS = (
     b"Service Unavailable",
 )
 
+# Django technical 404/500 pages — must never be shown to browsers in production.
+DEBUG_LEAK_MARKERS = (
+    b"Page not found (404)",
+    b"Django tried these URL patterns",
+    b"urlpatterns",
+    b"URLconf",
+    b"Request Method:",
+    b"Exception Type:",
+    b"Traceback ",
+)
+
 
 class FriendlyErrorMiddleware:
     """
@@ -73,12 +84,15 @@ class FriendlyErrorMiddleware:
 
     @staticmethod
     def _should_replace(response):
-        if response.status_code == 404 and len(response.content) > 8000:
-            return False
-        if len(response.content) < 4096:
+        content = response.content or b""
+        if any(marker in content for marker in DEBUG_LEAK_MARKERS):
             return True
-        content = response.content[:200]
-        return any(marker in content for marker in PLAIN_ERROR_MARKERS)
+        if response.status_code == 404:
+            # Never expose Django's debug URL listing for mistyped paths.
+            return True
+        if len(content) < 4096:
+            return True
+        return any(marker in content[:500] for marker in PLAIN_ERROR_MARKERS)
 
 
 class SingleSessionMiddleware:

@@ -114,6 +114,7 @@ def render_error_page(request, status_code, extra=None):
 
 
 def custom_page_not_found(request, exception=None):
+    """Always return a safe branded 404 — never Django's URL pattern debug page."""
     if _wants_json(request):
         return JsonResponse(
             {"status": "error", "code": 404, "message": "Page not found."},
