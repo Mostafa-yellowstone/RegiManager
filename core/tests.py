@@ -681,6 +681,26 @@ class NewsPermissionTests(TestCase):
         from core.models import SiteNews
         self.assertTrue(SiteNews.objects.filter(title="Agent Announcement").exists())
 
+    def test_owner_can_edit_news(self):
+        from core.models import SiteNews
+        news = SiteNews.objects.create(
+            title="Original Title",
+            content="Original content",
+            is_active=True,
+        )
+        self.client.login(username="owner", password="password123")
+        response = self.client.post(reverse("site-news-list"), {
+            "action": "edit",
+            "news_id": news.id,
+            "title": "Updated Title",
+            "content": "Updated content",
+        })
+        self.assertEqual(response.status_code, 302)
+        news.refresh_from_db()
+        self.assertEqual(news.title, "Updated Title")
+        self.assertEqual(news.content, "Updated content")
+        self.assertFalse(news.is_active)
+
 
 class KnowledgeHubTests(TestCase):
     def setUp(self):

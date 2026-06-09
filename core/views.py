@@ -5561,6 +5561,23 @@ def site_news_list(request):
             news_id = request.POST.get("news_id")
             SiteNews.objects.filter(id=news_id).delete()
             messages.success(request, "News item deleted.")
+        elif action == "edit":
+            news_id = request.POST.get("news_id", "").strip()
+            title = request.POST.get("title", "").strip()
+            content = request.POST.get("content", "").strip()
+            is_active = request.POST.get("is_active") == "on"
+            if news_id and title and content:
+                updated = SiteNews.objects.filter(id=news_id).update(
+                    title=title,
+                    content=content,
+                    is_active=is_active,
+                )
+                if updated:
+                    messages.success(request, "News item updated successfully.")
+                else:
+                    messages.error(request, "News item not found.")
+            else:
+                messages.error(request, "Title and content are required.")
         else:
             title   = request.POST.get("title", "").strip()
             content = request.POST.get("content", "").strip()
