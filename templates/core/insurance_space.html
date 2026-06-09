@@ -1151,8 +1151,17 @@ function toggleInactiveDate() {
   const s = document.getElementById('policyStatus').value;
   const row = document.getElementById('inactiveDateRow');
   const inp = document.getElementById('policyInactiveDate');
-  if (s === 'inactive') { row.style.display='block'; inp.required=true; }
-  else { row.style.display='none'; inp.required=false; inp.value=''; }
+  if (s === 'inactive') {
+    row.style.display = 'block';
+    inp.required = true;
+    if (!inp.value) {
+      inp.value = new Date().toISOString().split('T')[0];
+    }
+  } else {
+    row.style.display = 'none';
+    inp.required = false;
+    inp.value = '';
+  }
 }
 
 function openAddPolicyModal() {

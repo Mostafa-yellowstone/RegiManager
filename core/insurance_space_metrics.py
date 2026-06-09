@@ -7,6 +7,7 @@ from django.db.models import Count, Prefetch, Q, Sum
 from .insurance_commissions import (
     build_adjusted_unearned_map,
     company_commission_summary,
+    policy_unearned_commission,
     refund_total,
 )
 from .models import BankTransaction, InsuranceCompany
@@ -54,8 +55,10 @@ def build_adjusted_unearned_for_org(insurance_companies, inactive_policies_qs):
 
 def decorate_policies(policies, adjusted_unearned_map):
     for policy in policies:
-        if policy.id in adjusted_unearned_map:
-            policy.unearned_commission = adjusted_unearned_map[policy.id]
+        if policy.stage == "bound" and policy.status == "inactive":
+            policy.unearned_commission = adjusted_unearned_map.get(
+                policy.id, policy_unearned_commission(policy)
+            )
         if policy.added_by:
             bg, text = get_user_colors(policy.added_by.username)
             policy.agent_bg_color = bg

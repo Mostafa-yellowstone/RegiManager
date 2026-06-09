@@ -5932,17 +5932,23 @@ def inventory_detail(request, inventory_id):
             status="inactive",
         ).only(
             "id",
-            "unearned_commission",
+            "stage",
+            "status",
+            "commission_amount",
             "inactive_date",
             "start_date",
+            "end_date",
+            "insurance_period_months",
             "insurance_company_id",
         )
+        from .insurance_commissions import policy_unearned_commission
+
         adjusted_unearned_map = build_adjusted_unearned_for_org(
             insurance_companies, inactive_for_unearned
         )
         company_summaries = build_company_summaries(insurance_companies, all_policies)
         total_unearned_commission = sum(
-            adjusted_unearned_map.get(p.id, p.unearned_commission)
+            adjusted_unearned_map.get(p.id, policy_unearned_commission(p))
             for p in inactive_for_unearned
         )
 
@@ -6387,6 +6393,8 @@ def add_insurance_policy(request):
     end_date = request.POST.get("end_date")
     insurance_period_months = request.POST.get("insurance_period_months", "6")
     inactive_date = request.POST.get("inactive_date")
+    if status == "inactive" and not inactive_date:
+        inactive_date = timezone.now().date()
 
     added_by = request.user
 
@@ -6472,7 +6480,10 @@ def edit_insurance_policy(request, policy_id):
         policy.insurance_period_months = int(request.POST.get("insurance_period_months", "6") or 6)
 
         inactive_date = request.POST.get("inactive_date")
-        policy.inactive_date = inactive_date or None
+        if policy.status == "inactive":
+            policy.inactive_date = inactive_date or timezone.now().date()
+        else:
+            policy.inactive_date = None
 
         if not policy.added_by:
             policy.added_by = request.user
@@ -7057,10 +7068,13 @@ def export_insurance_report_pdf(request):
         company_adjusted = build_adjusted_unearned_map(comp_inactive, company_refunded)
         adjusted_unearned_map.update(company_adjusted)
                 
-    # Apply adjusted unearned commissions to the policies list
+    from .insurance_commissions import policy_unearned_commission
+
     for p in policies_list:
-        if p.id in adjusted_unearned_map:
-            p.unearned_commission = adjusted_unearned_map[p.id]
+        if p.stage == "bound" and p.status == "inactive":
+            p.unearned_commission = adjusted_unearned_map.get(
+                p.id, policy_unearned_commission(p)
+            )
             
     active_policies_list = [p for p in policies_list if p.stage == "bound" and p.status == "active"]
     inactive_policies_list = [p for p in policies_list if p.stage == "bound" and p.status == "inactive"]

@@ -1442,25 +1442,16 @@ class InsurancePolicy(models.Model):
         # Calculate commission_amount
         self.commission_amount = Decimal(str(self.premium)) * (Decimal(str(self.commission_rate)) / Decimal("100.00"))
         
-        # Calculate unearned_commission if inactive
-        if self.status == self.StatusChoices.INACTIVE and self.inactive_date:
-            total_months = Decimal(str(self.insurance_period_months))
-            if total_months <= 0:
-                total_months = Decimal("6.00")
-            
-            if self.inactive_date < self.start_date:
-                remaining_months = total_months
-            elif self.inactive_date > self.end_date:
-                remaining_months = Decimal("0.00")
-            else:
-                delta_days = (self.end_date - self.inactive_date).days
-                if delta_days > 0:
-                    calculated_remaining = Decimal(str(delta_days)) / Decimal("30.436875")
-                    remaining_months = min(Decimal(round(calculated_remaining, 2)), total_months)
-                else:
-                    remaining_months = Decimal("0.00")
-            
-            self.unearned_commission = (self.commission_amount / total_months) * remaining_months
+        from .insurance_commissions import calculate_unearned_commission
+
+        if self.status == self.StatusChoices.INACTIVE:
+            self.unearned_commission = calculate_unearned_commission(
+                self.commission_amount,
+                self.start_date,
+                self.end_date,
+                self.inactive_date,
+                insurance_period_months=self.insurance_period_months,
+            )
         else:
             self.unearned_commission = Decimal("0.00")
 

@@ -1209,3 +1209,117 @@ class MotorclubTests(TestCase):
         self.assertContains(crm_response, "Delete")
 
 
+class UnearnedCommissionCalculationTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Test Org", city="NYC")
+        self.user = User.objects.create_user(username="agent", password="password123")
+        OrganizationMembership.objects.create(
+            user=self.user, organization=self.org, is_active=True, role="owner",
+        )
+        self.company = InsuranceCompany.objects.create(organization=self.org, name="Progressive")
+        self.client_obj = Client.objects.create(
+            organization=self.org, first_name="Jane", last_name="Smith",
+        )
+
+    def _create_policy(self, **kwargs):
+        defaults = {
+            "organization": self.org,
+            "client": self.client_obj,
+            "policy_number": "POL-UNEARNED-CALC",
+            "insurance_company": self.company,
+            "premium": Decimal("1000.00"),
+            "broker_fee": Decimal("0.00"),
+            "commission_rate": Decimal("12.00"),
+            "stage": "bound",
+            "status": "inactive",
+            "added_by": self.user,
+            "start_date": "2026-05-01",
+            "end_date": "2026-11-01",
+            "insurance_period_months": 6,
+            "inactive_date": "2026-06-08",
+        }
+        defaults.update(kwargs)
+        return InsurancePolicy.objects.create(**defaults)
+
+    def test_mid_term_cancellation_prorates_unearned(self):
+        policy = self._create_policy()
+        self.assertEqual(policy.commission_amount, Decimal("120.00"))
+        term_days = (policy.end_date - policy.start_date).days
+        remaining_days = (policy.end_date - policy.inactive_date).days
+        expected = (Decimal("120.00") * Decimal(remaining_days) / Decimal(term_days)).quantize(
+            Decimal("0.01")
+        )
+        self.assertEqual(policy.unearned_commission, expected)
+        self.assertLess(policy.unearned_commission, policy.commission_amount)
+
+    def test_longer_end_date_not_capped_by_insurance_period_months(self):
+        """Regression: 12-month term with 6-month period must not return full commission."""
+        policy = self._create_policy(
+            end_date="2027-05-01",
+            insurance_period_months=6,
+        )
+        term_days = (policy.end_date - policy.start_date).days
+        remaining_days = (policy.end_date - policy.inactive_date).days
+        expected = (Decimal("120.00") * Decimal(remaining_days) / Decimal(term_days)).quantize(
+            Decimal("0.01")
+        )
+        self.assertEqual(policy.unearned_commission, expected)
+        self.assertLess(policy.unearned_commission, Decimal("120.00"))
+
+    def test_cancel_on_effective_date_returns_full_commission(self):
+        policy = self._create_policy(inactive_date="2026-05-01")
+        self.assertEqual(policy.unearned_commission, Decimal("120.00"))
+
+    def test_cancel_before_effective_date_returns_full_commission(self):
+        policy = self._create_policy(inactive_date="2026-04-15")
+        self.assertEqual(policy.unearned_commission, Decimal("120.00"))
+
+    def test_cancel_on_or_after_expiration_returns_zero(self):
+        policy = self._create_policy(inactive_date="2026-11-01")
+        self.assertEqual(policy.unearned_commission, Decimal("0.00"))
+        policy = self._create_policy(
+            policy_number="POL-UNEARNED-LATE",
+            inactive_date="2026-12-01",
+        )
+        self.assertEqual(policy.unearned_commission, Decimal("0.00"))
+
+    def test_inactive_without_cancellation_date_has_zero_unearned(self):
+        policy = self._create_policy(inactive_date=None)
+        self.assertEqual(policy.unearned_commission, Decimal("0.00"))
+
+    def test_calculate_unearned_commission_unit_cases(self):
+        from datetime import date
+        from core.insurance_commissions import calculate_unearned_commission
+
+        commission = Decimal("100.00")
+        start = date(2026, 5, 1)
+        end = date(2026, 11, 1)
+
+        self.assertEqual(
+            calculate_unearned_commission(commission, start, end, date(2026, 5, 1)),
+            Decimal("100.00"),
+        )
+        self.assertEqual(
+            calculate_unearned_commission(commission, start, end, date(2026, 11, 1)),
+            Decimal("0.00"),
+        )
+        self.assertEqual(
+            calculate_unearned_commission(commission, start, end, None),
+            Decimal("0.00"),
+        )
+        self.assertEqual(
+            calculate_unearned_commission(Decimal("0"), start, end, date(2026, 6, 1)),
+            Decimal("0.00"),
+        )
+
+        term_days = (end - start).days
+        remaining_days = (end - date(2026, 6, 8)).days
+        expected = (commission * Decimal(remaining_days) / Decimal(term_days)).quantize(
+            Decimal("0.01")
+        )
+        self.assertEqual(
+            calculate_unearned_commission(commission, start, end, date(2026, 6, 8)),
+            expected,
+        )
+
+
