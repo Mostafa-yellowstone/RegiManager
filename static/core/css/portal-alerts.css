@@ -1,0 +1,262 @@
+/**
+ * RegiManager — SweetAlert2 alerts (success, error, warning, info)
+ * Works with portal light/dark theme via html.portal-theme-dark.
+ */
+
+.portal-swal-popup {
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+    border-radius: 20px !important;
+    padding: 1.75rem 1.5rem 1.35rem !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow:
+        0 20px 48px rgba(15, 23, 42, 0.14),
+        0 0 0 1px rgba(15, 23, 42, 0.04) !important;
+    color: #475569 !important;
+}
+
+.portal-swal-title {
+    font-size: 1.35rem !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    letter-spacing: -0.02em !important;
+    margin-bottom: 0.35rem !important;
+}
+
+.portal-swal-text {
+    font-size: 0.95rem !important;
+    line-height: 1.55 !important;
+    color: #475569 !important;
+}
+
+.portal-swal-popup .portal-swal-icon {
+    margin: 0.75rem auto 1rem !important;
+    transform: scale(0.92);
+}
+
+.portal-swal-popup .swal2-icon.swal2-success {
+    border-color: #16a34a !important;
+}
+
+.portal-swal-popup .swal2-success-ring {
+    border-color: rgba(22, 163, 74, 0.28) !important;
+}
+
+.portal-swal-popup .swal2-success-line {
+    background-color: #16a34a !important;
+}
+
+.portal-swal-popup .swal2-icon.swal2-error {
+    border-color: #dc2626 !important;
+}
+
+.portal-swal-popup .swal2-x-mark-line {
+    background-color: #dc2626 !important;
+}
+
+.portal-swal-popup .swal2-icon.swal2-warning {
+    border-color: #d97706 !important;
+    color: #d97706 !important;
+}
+
+.portal-swal-popup .swal2-icon.swal2-info,
+.portal-swal-popup .swal2-icon.swal2-question {
+    border-color: #093de6 !important;
+    color: #093de6 !important;
+}
+
+.portal-swal-popup .swal2-actions {
+    gap: 0.65rem !important;
+    margin-top: 1.15rem !important;
+}
+
+.portal-swal-confirm {
+    background: linear-gradient(135deg, #093de6 0%, #4f46e5 100%) !important;
+    border: none !important;
+    border-radius: 12px !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+    padding: 0.65rem 1.4rem !important;
+    box-shadow: 0 4px 12px rgba(9, 61, 230, 0.28) !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.portal-swal-confirm:hover,
+.portal-swal-confirm:focus {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(9, 61, 230, 0.38) !important;
+    color: #ffffff !important;
+}
+
+.portal-swal-cancel {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    color: #475569 !important;
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+    padding: 0.65rem 1.25rem !important;
+    transition: background 0.15s ease, border-color 0.15s ease !important;
+}
+
+.portal-swal-cancel:hover,
+.portal-swal-cancel:focus {
+    background: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+    color: #334155 !important;
+}
+
+.portal-swal-popup--success {
+    border-color: #bbf7d0 !important;
+    box-shadow:
+        0 20px 48px rgba(22, 163, 74, 0.12),
+        0 0 0 1px rgba(22, 163, 74, 0.08) !important;
+}
+
+.portal-swal-popup--success .portal-swal-title {
+    color: #14532d !important;
+}
+
+.portal-swal-popup--success .portal-swal-text {
+    color: #166534 !important;
+}
+
+.portal-swal-popup--error {
+    border-color: #fecaca !important;
+}
+
+.portal-swal-popup--error .portal-swal-title {
+    color: #7f1d1d !important;
+}
+
+.portal-swal-popup--error .portal-swal-text {
+    color: #991b1b !important;
+}
+
+.portal-swal-popup--warning .portal-swal-title {
+    color: #92400e !important;
+}
+
+.portal-swal-popup--warning .portal-swal-text {
+    color: #b45309 !important;
+}
+
+.portal-swal-popup .swal2-timer-progress-bar-container {
+    background: rgba(9, 61, 230, 0.12) !important;
+    border-radius: 999px !important;
+    height: 4px !important;
+}
+
+.portal-swal-popup .swal2-timer-progress-bar {
+    background: linear-gradient(90deg, #093de6, #4f46e5) !important;
+}
+
+.swal2-container {
+    backdrop-filter: blur(6px);
+}
+
+/* ─── Dark theme ────────────────────────────────────────────────── */
+html.portal-theme-dark .portal-swal-popup {
+    background: #1a2332 !important;
+    border-color: #2d3a4d !important;
+    box-shadow:
+        0 24px 56px rgba(0, 0, 0, 0.45),
+        0 0 0 1px rgba(255, 255, 255, 0.04) !important;
+    color: #cbd5e1 !important;
+}
+
+html.portal-theme-dark .portal-swal-title {
+    color: #f1f5f9 !important;
+}
+
+html.portal-theme-dark .portal-swal-text {
+    color: #cbd5e1 !important;
+}
+
+html.portal-theme-dark .portal-swal-popup .swal2-icon.swal2-success {
+    border-color: #4ade80 !important;
+}
+
+html.portal-theme-dark .portal-swal-popup .swal2-success-ring {
+    border-color: rgba(74, 222, 128, 0.28) !important;
+}
+
+html.portal-theme-dark .portal-swal-popup .swal2-success-line {
+    background-color: #4ade80 !important;
+}
+
+html.portal-theme-dark .portal-swal-popup .swal2-icon.swal2-error {
+    border-color: #f87171 !important;
+}
+
+html.portal-theme-dark .portal-swal-popup .swal2-x-mark-line {
+    background-color: #f87171 !important;
+}
+
+html.portal-theme-dark .portal-swal-popup .swal2-icon.swal2-warning {
+    border-color: #fbbf24 !important;
+    color: #fbbf24 !important;
+}
+
+html.portal-theme-dark .portal-swal-popup .swal2-icon.swal2-info,
+html.portal-theme-dark .portal-swal-popup .swal2-icon.swal2-question {
+    border-color: #60a5fa !important;
+    color: #60a5fa !important;
+}
+
+html.portal-theme-dark .portal-swal-cancel {
+    background: #141c28 !important;
+    border-color: #3d4f66 !important;
+    color: #cbd5e1 !important;
+}
+
+html.portal-theme-dark .portal-swal-cancel:hover,
+html.portal-theme-dark .portal-swal-cancel:focus {
+    background: #1e293b !important;
+    border-color: #4b607a !important;
+    color: #f1f5f9 !important;
+}
+
+html.portal-theme-dark .portal-swal-popup--success {
+    border-color: rgba(74, 222, 128, 0.35) !important;
+    box-shadow:
+        0 24px 56px rgba(0, 0, 0, 0.45),
+        0 0 0 1px rgba(74, 222, 128, 0.12) !important;
+}
+
+html.portal-theme-dark .portal-swal-popup--success .portal-swal-title {
+    color: #bbf7d0 !important;
+}
+
+html.portal-theme-dark .portal-swal-popup--success .portal-swal-text {
+    color: #86efac !important;
+}
+
+html.portal-theme-dark .portal-swal-popup--error {
+    border-color: rgba(248, 113, 113, 0.35) !important;
+}
+
+html.portal-theme-dark .portal-swal-popup--error .portal-swal-title {
+    color: #fecaca !important;
+}
+
+html.portal-theme-dark .portal-swal-popup--error .portal-swal-text {
+    color: #fca5a5 !important;
+}
+
+html.portal-theme-dark .portal-swal-popup--warning .portal-swal-title {
+    color: #fde68a !important;
+}
+
+html.portal-theme-dark .portal-swal-popup--warning .portal-swal-text {
+    color: #fcd34d !important;
+}
+
+html.portal-theme-dark .portal-swal-popup .swal2-timer-progress-bar-container {
+    background: rgba(96, 165, 250, 0.18) !important;
+}
+
+html.portal-theme-dark .portal-swal-popup .swal2-timer-progress-bar {
+    background: linear-gradient(90deg, #3b82f6, #6366f1) !important;
+}

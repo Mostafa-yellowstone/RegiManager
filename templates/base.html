@@ -11,6 +11,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'core/css/dmv-auth.css' %}?v=footer-1">
+    <link rel="stylesheet" href="{% static 'core/css/portal-alerts.css' %}?v=portal-alerts-1">
     {% block extra_head %}{% endblock %}
 </head>
 
@@ -97,6 +98,45 @@
     </script>
     {% endif %}
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        (function () {
+            if (!window.Swal || window.Swal._portalThemed) return;
+
+            var portalSwalDefaults = {
+                buttonsStyling: false,
+                customClass: {
+                    popup: 'portal-swal-popup',
+                    title: 'portal-swal-title',
+                    htmlContainer: 'portal-swal-text',
+                    confirmButton: 'portal-swal-confirm',
+                    cancelButton: 'portal-swal-cancel',
+                    icon: 'portal-swal-icon',
+                },
+                confirmButtonText: 'Got it',
+            };
+
+            function mergePortalOptions(options) {
+                if (!options || typeof options !== 'object') return portalSwalDefaults;
+                var merged = Object.assign({}, portalSwalDefaults, options);
+                merged.customClass = Object.assign({}, portalSwalDefaults.customClass, options.customClass || {});
+                if (options.icon) {
+                    merged.customClass.popup = 'portal-swal-popup portal-swal-popup--' + options.icon;
+                }
+                return merged;
+            }
+
+            var nativeFire = Swal.fire.bind(Swal);
+            Swal.fire = function (arg1, arg2, arg3) {
+                if (typeof arg1 === 'object') {
+                    return nativeFire(mergePortalOptions(arg1));
+                }
+                var shorthand = { title: arg1, icon: arg3 };
+                if (arg2) shorthand.text = arg2;
+                return nativeFire(mergePortalOptions(shorthand));
+            };
+            Swal._portalThemed = true;
+        })();
+    </script>
     {% if messages %}
     <script id="django-messages" type="application/json">
         [
@@ -228,18 +268,25 @@
                 const messages = JSON.parse(messageElement.textContent);
                 messages.forEach(msg => {
                     let icon = 'info';
-                    let title = 'Attention';
-                    if (msg.tags.includes('success')) { icon = 'success'; title = 'Operation Successful'; }
-                    else if (msg.tags.includes('error') || msg.tags.includes('danger')) { icon = 'error'; title = 'System Error'; }
-                    else if (msg.tags.includes('warning')) { icon = 'warning'; }
+                    let title = 'Notice';
+                    if (msg.tags.includes('success')) {
+                        icon = 'success';
+                        title = 'Success';
+                    } else if (msg.tags.includes('error') || msg.tags.includes('danger')) {
+                        icon = 'error';
+                        title = 'Something went wrong';
+                    } else if (msg.tags.includes('warning')) {
+                        icon = 'warning';
+                        title = 'Please check';
+                    }
 
                     Swal.fire({
                         icon: icon,
                         title: title,
                         text: msg.text,
-                        confirmButtonColor: '#093de6',
-                        timer: 5000,
-                        timerProgressBar: true
+                        timer: icon === 'success' ? 4500 : 6000,
+                        timerProgressBar: true,
+                        showConfirmButton: true,
                     });
                 });
             }
