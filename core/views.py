@@ -1589,7 +1589,6 @@ def dashboard(request):
             "total_outstanding_referral_balance": total_outstanding_referral_balance,
             "automation_logs": automation_logs,
             "upcoming_expirations": upcoming_expirations,
-            "custom_types": custom_types,
             "user_can_manage_referrals": user_can_manage_referrals,
             "automation_enabled": automation_enabled,
             "user_can_trigger_automation": user_can_trigger_automation,
