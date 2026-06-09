@@ -2877,6 +2877,31 @@ html.portal-theme-dark body.portal-body .pagination-nav a.btn-secondary.btn-sm:h
     color: #f1f5f9 !important;
 }
 
+/* Client directory Profile, Motor Club CRM Edit, and similar table actions */
+html.portal-theme-dark body.portal-body .data-table .btn.btn-secondary,
+html.portal-theme-dark body.portal-body .data-table a.btn.btn-secondary,
+html.portal-theme-dark body.portal-body .data-table button.btn.btn-secondary,
+html.portal-theme-dark body.portal-body .mc-table .btn.btn-secondary,
+html.portal-theme-dark body.portal-body .mc-table a.btn.btn-secondary,
+html.portal-theme-dark body.portal-body .mc-table button.btn.btn-secondary,
+html.portal-theme-dark body.portal-body .portal-space-shell .btn.btn-secondary.btn-sm {
+    background: #1e293b !important;
+    border-color: #475569 !important;
+    color: #e2e8f0 !important;
+}
+
+html.portal-theme-dark body.portal-body .data-table .btn.btn-secondary:hover,
+html.portal-theme-dark body.portal-body .data-table a.btn.btn-secondary:hover,
+html.portal-theme-dark body.portal-body .data-table button.btn.btn-secondary:hover,
+html.portal-theme-dark body.portal-body .mc-table .btn.btn-secondary:hover,
+html.portal-theme-dark body.portal-body .mc-table a.btn.btn-secondary:hover,
+html.portal-theme-dark body.portal-body .mc-table button.btn.btn-secondary:hover,
+html.portal-theme-dark body.portal-body .portal-space-shell .btn.btn-secondary.btn-sm:hover {
+    background: #334155 !important;
+    border-color: #64748b !important;
+    color: #f8fafc !important;
+}
+
 html.portal-theme-dark body.portal-body .pagination-nav span.btn-primary.btn-sm,
 html.portal-theme-dark body.portal-body .pagination-nav a.btn-primary.btn-sm {
     background: #0f172a !important;
