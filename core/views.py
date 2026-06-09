@@ -7300,12 +7300,7 @@ def insurance_company_detail(request, company_id):
         membership = OrganizationMembership.objects.filter(
             user=request.user, organization=active_org, is_active=True
         ).first()
-        can_manage_commission = bool(
-            membership and (
-                membership.role == OrganizationMembership.Role.OWNER
-                or membership.can_deal_with_insurance
-            )
-        )
+        can_manage_commission = bool(membership and membership.can_view_commission)
 
     return render(request, "core/insurance_company_detail.html", {
         "company": company,
@@ -7363,10 +7358,7 @@ def toggle_policy_commission_received(request, policy_id):
         membership = OrganizationMembership.objects.filter(
             user=request.user, organization=policy.organization, is_active=True
         ).first()
-        if not membership or (
-            membership.role != OrganizationMembership.Role.OWNER
-            and not membership.can_deal_with_insurance
-        ):
+        if not membership or not membership.can_view_commission:
             return JsonResponse({"ok": False, "error": "Access denied."}, status=403)
 
     received = request.POST.get("received") in ("1", "true", "on", "yes")
