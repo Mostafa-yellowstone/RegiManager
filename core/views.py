@@ -801,13 +801,8 @@ def client_detail(request, client_id):
     enrich_policies_for_display(insurance_policies)
     show_insurance_section = bool(insurance_policies) or (client.source or "").lower() == "insurance"
 
-    from .models import MotorclubB2BPartner, MotorclubMembership, Space
-    from .motorclub_crm import (
-        enrich_membership,
-        get_or_create_config,
-        tier_preview_rows,
-        TIER_CHOICES,
-    )
+    from .models import MotorclubMembership
+    from .motorclub_crm import enrich_membership
 
     motorclub_memberships = list(
         client.motorclub_memberships.select_related("b2b_partner", "added_by").order_by("-created_at")
@@ -818,29 +813,7 @@ def client_detail(request, client_id):
         (m for m in motorclub_memberships if m.status == MotorclubMembership.StatusChoices.ACTIVE),
         motorclub_memberships[0] if motorclub_memberships else None,
     )
-
-    user_membership = OrganizationMembership.objects.filter(
-        user=request.user,
-        organization=client.organization,
-        is_active=True,
-    ).first()
-    is_org_owner = (
-        user_membership
-        and user_membership.role == OrganizationMembership.Role.OWNER
-    )
-    can_manage_motorclub = is_org_owner or (
-        user_membership and user_membership.can_deal_with_motorclub
-    )
-    motorclub_space = Space.objects.filter(
-        organization=client.organization,
-        key="motorclub",
-    ).first()
-    show_motorclub_card = bool(motorclub_memberships) or (
-        can_manage_motorclub and motorclub_space
-    )
-    motorclub_config = (
-        get_or_create_config(client.organization) if motorclub_space else None
-    )
+    show_motorclub_card = bool(motorclub_memberships)
 
     return render(request, "core/client_profile.html", {
         "client": client,
@@ -852,22 +825,6 @@ def client_detail(request, client_id):
         "motorclub_memberships": motorclub_memberships,
         "active_motorclub": active_motorclub,
         "show_motorclub_card": show_motorclub_card,
-        "can_manage_motorclub": can_manage_motorclub,
-        "motorclub_space": motorclub_space,
-        "motorclub_tier_choices": TIER_CHOICES,
-        "motorclub_status_choices": MotorclubMembership.StatusChoices.choices,
-        "motorclub_channel_choices": MotorclubMembership.ChannelChoices.choices,
-        "motorclub_b2b_partners": (
-            MotorclubB2BPartner.objects.filter(
-                organization=client.organization,
-                is_active=True,
-            ).order_by("name")
-            if motorclub_space
-            else []
-        ),
-        "motorclub_tier_preview": (
-            tier_preview_rows(motorclub_config) if motorclub_config else []
-        ),
         "notes": notes,
         "assignable_agents": assignable_agents,
         "total_spend": total_spend,

@@ -998,6 +998,12 @@ class MotorclubTests(TestCase):
         self.assertEqual(membership.tier, 50)
         self.assertTrue(membership.membership_number.startswith("MC-"))
 
+    def test_client_profile_hides_motorclub_without_membership(self):
+        response = self.client.get(reverse("client-detail", args=[self.client_obj.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Active Roadside Plan")
+        self.assertNotContains(response, "Motor Club history on file")
+
     def test_client_profile_shows_motorclub_card(self):
         from datetime import date
 

@@ -2349,6 +2349,35 @@ html.portal-theme-dark .portal-automation-title {
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+.client-profile-page .cpp-profile-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    min-height: 42px;
+    padding: 0;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    color: #f8fafc;
+    text-decoration: none;
+    flex-shrink: 0;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+
+.client-profile-page .cpp-profile-edit-btn:hover {
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.38);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.client-profile-page .cpp-profile-edit-btn:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.55);
+    outline-offset: 2px;
+}
+
 .client-profile-page .cpp-panel-header {
     padding: 1.25rem 1.5rem;
     border-bottom: 1px solid var(--portal-border);

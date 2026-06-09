@@ -27,9 +27,8 @@
                     <a href="{% url 'all-clients' %}" class="btn btn-secondary back-btn"
                         style="display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white; text-decoration: none; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.9rem; margin: 0;">&larr;
                         Back to List</a>
-                    <a href="{% url 'edit-client' client.id %}" class="btn"
-                        style="display: inline-block; background: #4f46e5; border: none; color: white; text-decoration: none; padding: 0.5rem 1.2rem; border-radius: 8px; font-size: 0.9rem; font-weight: 700; transition: background 0.2s;" onmouseover="this.style.background='#4338ca'" onmouseout="this.style.background='#4f46e5'">
-                        ✏️ Edit Profile
+                    <a href="{% url 'edit-client' client.id %}" class="cpp-profile-edit-btn" title="Edit Profile" aria-label="Edit Profile">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                     </a>
                 </div>
                 <div style="display: flex; align-items: center; gap: 1.5rem;">
@@ -356,14 +355,9 @@
 
                 {% if show_motorclub_card %}
                 <section class="dashboard-panel cpp-motorclub-card" style="margin: 0; min-height: 160px;">
-                    <h3 class="cpp-panel-header cpp-panel-header--title" style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;">
-                        <span style="display:inline-flex;align-items:center;gap:0.5rem;">
-                            <span style="font-size: 1.1rem;">🛟</span>
-                            Motor Club
-                        </span>
-                        {% if can_manage_motorclub and motorclub_space %}
-                        <button type="button" onclick="document.getElementById('cppAddMotorclubModal').classList.add('active')" class="btn btn-primary btn-sm" style="min-height:auto;padding:0.35rem 0.75rem;font-size:0.78rem;">+ Add Membership</button>
-                        {% endif %}
+                    <h3 class="cpp-panel-header cpp-panel-header--title">
+                        <span style="font-size: 1.1rem;">🛟</span>
+                        Motor Club
                     </h3>
                     <div style="padding: 1.25rem 1.5rem;">
                         {% if active_motorclub %}
@@ -385,8 +379,6 @@
                         {% if motorclub_memberships|length > 1 %}
                         <p style="font-size:0.8rem;color:#64748b;margin:0.75rem 0 0;">{{ motorclub_memberships|length }} total memberships on file.</p>
                         {% endif %}
-                        {% elif can_manage_motorclub %}
-                        <p class="cpp-empty-message">No Motor Club membership yet. Add one to sync it to the CRM.</p>
                         {% else %}
                         <p class="cpp-empty-message">Motor Club history on file (no active plan).</p>
                         {% endif %}
@@ -418,66 +410,6 @@
         </div>
     </section>
 </main>
-
-{% if can_manage_motorclub and motorclub_space %}
-<style>
-.cpp-mc-modal { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.35); backdrop-filter: blur(6px); z-index: 2000; align-items: center; justify-content: center; }
-.cpp-mc-modal.active { display: flex; }
-.cpp-mc-modal-box { background: var(--portal-surface, #fff); border-radius: 16px; padding: 1.5rem; max-width: 560px; width: 95%; max-height: 92vh; overflow-y: auto; border: 1px solid var(--portal-border, #e2e8f0); box-shadow: 0 20px 40px rgba(15,23,42,0.15); }
-.cpp-mc-field { width: 100%; padding: 0.6rem 0.8rem; border-radius: 8px; border: 1px solid var(--portal-border, #e2e8f0); font-size: 0.88rem; box-sizing: border-box; }
-.cpp-mc-label { display: block; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; margin-bottom: 0.3rem; }
-.cpp-mc-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
-</style>
-<div class="cpp-mc-modal" id="cppAddMotorclubModal" onclick="if(event.target===this)this.classList.remove('active')">
-    <div class="cpp-mc-modal-box" onclick="event.stopPropagation()">
-        <h3 style="margin:0 0 1rem;">Add Motor Club Membership</h3>
-        <p style="margin:0 0 1rem;font-size:0.85rem;color:#64748b;">Creates a CRM record for <strong>{{ client.name }}</strong> in Motor Club.</p>
-        <form method="post" action="{% url 'add-motorclub-membership-client' client.id %}">
-            {% csrf_token %}
-            <div class="cpp-mc-grid-2">
-                <div>
-                    <label class="cpp-mc-label">Sales channel</label>
-                    <select name="channel" class="cpp-mc-field">
-                        {% for val, label in motorclub_channel_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="cpp-mc-label">Plan tier</label>
-                    <select name="tier" id="cppMcTier" class="cpp-mc-field" onchange="cppMcUpdateProfits()">
-                        {% for val, label in motorclub_tier_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
-                    </select>
-                </div>
-            </div>
-            <div class="cpp-mc-grid-2" style="margin-top:0.75rem;">
-                <div>
-                    <label class="cpp-mc-label">Status</label>
-                    <select name="status" class="cpp-mc-field">
-                        {% for val, label in motorclub_status_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="cpp-mc-label">B2B partner (optional)</label>
-                    <select name="b2b_partner_id" class="cpp-mc-field">
-                        <option value="">— None —</option>
-                        {% for p in motorclub_b2b_partners %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
-                    </select>
-                </div>
-            </div>
-            <div class="cpp-mc-grid-2" style="margin-top:0.75rem;">
-                <div><label class="cpp-mc-label">Start date</label><input type="date" name="start_date" class="cpp-mc-field"></div>
-                <div><label class="cpp-mc-label">End date</label><input type="date" name="end_date" class="cpp-mc-field"></div>
-            </div>
-            <input type="hidden" name="provider_profit" id="cppMcProviderProfit">
-            <input type="hidden" name="psb_profit" id="cppMcPsbProfit">
-            <div style="margin-top:0.75rem;">
-                <label class="cpp-mc-label">Notes</label>
-                <textarea name="notes" class="cpp-mc-field" rows="2"></textarea>
-            </div>
-            <button type="submit" class="btn btn-primary" style="width:100%;margin-top:1rem;font-weight:700;">Add to Motor Club CRM</button>
-        </form>
-    </div>
-</div>
-{% endif %}
 
 <script>
     function filterTransactions() {
@@ -546,29 +478,12 @@
         }
     }
 
-    const CPP_MC_TIER_SPLITS = {
-        {% for row in motorclub_tier_preview %}{{ row.tier }}: { provider: {{ row.provider_profit }}, psb: {{ row.psb_profit }} }{% if not forloop.last %},{% endif %}
-        {% endfor %}
-    };
-    function cppMcUpdateProfits() {
-        const tierEl = document.getElementById('cppMcTier');
-        const providerEl = document.getElementById('cppMcProviderProfit');
-        const psbEl = document.getElementById('cppMcPsbProfit');
-        if (!tierEl || !providerEl || !psbEl) return;
-        const split = CPP_MC_TIER_SPLITS[parseInt(tierEl.value, 10)];
-        if (split) {
-            providerEl.value = split.provider.toFixed(2);
-            psbEl.value = split.psb.toFixed(2);
-        }
-    }
-
     document.addEventListener('DOMContentLoaded', () => {
         const searchInput = document.getElementById('transactionSearch');
         const statusFilter = document.getElementById('statusFilter');
 
         if (searchInput) searchInput.addEventListener('keyup', filterTransactions);
         if (statusFilter) statusFilter.addEventListener('change', filterTransactions);
-        cppMcUpdateProfits();
     });
 
     function deleteDocument(docId, btn) {
