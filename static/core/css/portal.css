@@ -3489,3 +3489,151 @@ html.portal-theme-dark .site-news-page article > div[style*="background: white"]
     background: var(--portal-surface) !important;
     border-color: var(--portal-border) !important;
 }
+
+/* ─── Team Directory ──────────────────────────────────────────── */
+.team-directory-page .team-directory-hero {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+}
+
+.team-directory-page .team-directory-back {
+    margin-bottom: 1rem;
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+}
+
+.team-directory-page .team-directory-hero .subtitle {
+    color: #cbd5e1;
+}
+
+.team-directory-page .team-directory-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    margin-top: 2rem;
+}
+
+.team-directory-page .team-agent-card-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+.team-directory-page .team-agent-card {
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.team-directory-page .team-agent-card-accent {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+}
+
+.team-directory-page .team-agent-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.team-directory-page .team-agent-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #e0e7ff;
+    color: #4338ca;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-right: 1rem;
+    flex-shrink: 0;
+}
+
+.team-directory-page .team-agent-name {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--portal-text);
+}
+
+.team-directory-page .team-agent-email {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--portal-text-muted);
+}
+
+.team-directory-page .team-agent-meta {
+    background: var(--portal-surface-muted);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.team-directory-page .team-agent-meta p {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.9rem;
+    color: var(--portal-text-muted);
+}
+
+.team-directory-page .team-agent-meta p:last-child {
+    margin-bottom: 0;
+}
+
+.team-directory-page .team-agent-meta strong {
+    color: var(--portal-text);
+}
+
+.team-directory-page .team-agent-stats {
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid var(--portal-border);
+    padding-top: 1rem;
+}
+
+.team-directory-page .team-agent-stat {
+    text-align: center;
+}
+
+.team-directory-page .team-agent-stat-label {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--portal-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.team-directory-page .team-agent-stat-value {
+    font-size: 1.2rem;
+    color: var(--portal-text);
+}
+
+.team-directory-page .team-directory-empty {
+    grid-column: 1 / -1;
+    padding: 4rem;
+    text-align: center;
+    background: var(--portal-surface);
+    border-radius: 12px;
+    border: 1px dashed var(--portal-border);
+}
+
+.team-directory-page .team-directory-empty h3 {
+    color: var(--portal-text);
+    margin-bottom: 0.5rem;
+}
+
+.team-directory-page .team-directory-empty p {
+    color: var(--portal-text-muted);
+    margin: 0;
+}
+
+html.portal-theme-dark .team-directory-page .team-agent-avatar {
+    background: rgba(99, 102, 241, 0.22);
+    color: #c7d2fe;
+}
+
+html.portal-theme-dark .team-directory-page .team-agent-card:hover {
+    border-color: #6366f1;
+}
