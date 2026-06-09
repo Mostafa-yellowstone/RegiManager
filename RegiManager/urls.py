@@ -130,6 +130,14 @@ from core.views import (
     add_knowledge_material,
     delete_knowledge_material,
 )
+from core.motorclub_views import (
+    save_motorclub_config,
+    add_motorclub_membership,
+    edit_motorclub_membership,
+    delete_motorclub_membership,
+    add_motorclub_b2b_partner,
+    delete_motorclub_b2b_partner,
+)
 from core.inventory_views import (
     add_inventory_category,
     delete_inventory_category,
@@ -291,6 +299,12 @@ urlpatterns = [
     path("dashboard/spaces/inventory/<int:space_id>/supplier/add/", add_inventory_supplier, name="add-inventory-supplier"),
     path("dashboard/spaces/inventory/supplier/<int:supplier_id>/delete/", delete_inventory_supplier, name="delete-inventory-supplier"),
     path("dashboard/spaces/inventory/<int:space_id>/purchase/add/", add_inventory_purchase, name="add-inventory-purchase"),
+    path("dashboard/spaces/motorclub/<int:space_id>/config/", save_motorclub_config, name="save-motorclub-config"),
+    path("dashboard/spaces/motorclub/<int:space_id>/member/add/", add_motorclub_membership, name="add-motorclub-membership"),
+    path("dashboard/spaces/motorclub/member/<int:membership_id>/edit/", edit_motorclub_membership, name="edit-motorclub-membership"),
+    path("dashboard/spaces/motorclub/member/<int:membership_id>/delete/", delete_motorclub_membership, name="delete-motorclub-membership"),
+    path("dashboard/spaces/motorclub/<int:space_id>/b2b/add/", add_motorclub_b2b_partner, name="add-motorclub-b2b-partner"),
+    path("dashboard/spaces/motorclub/b2b/<int:partner_id>/delete/", delete_motorclub_b2b_partner, name="delete-motorclub-b2b-partner"),
 ]
 
 from core.error_handlers import render_error_page

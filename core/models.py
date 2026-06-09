@@ -93,6 +93,10 @@ class OrganizationMembership(models.Model):
         help_text="Can this member (including PSB owners) view the main Spaces page?",
     )
     can_deal_with_insurance = models.BooleanField(default=False, help_text="Can this agent deal with insurance and appear in the insurance workspace?")
+    can_deal_with_motorclub = models.BooleanField(
+        default=False,
+        help_text="Can this member sell and manage Motor Club roadside memberships?",
+    )
     can_delete_receipt = models.BooleanField(default=False, help_text="Can this agent delete/remove receipt records from the service list?")
     can_view_commission = models.BooleanField(default=False, help_text="Can this agent view commission rate, commission amount, and agency profit in the insurance space?")
     can_view_banking = models.BooleanField(default=False, help_text="Can this agent view the banking section in the insurance space?")
@@ -1599,3 +1603,185 @@ class InsuranceCompanyDocument(models.Model):
 
     def __str__(self):
         return f"{self.insurance_company.name} — {self.title or self.document.name}"
+
+
+class MotorclubConfig(models.Model):
+    """Per-PSB profit split configuration for Motor Club tiers ($35 / $50 / $75 / $100)."""
+
+    organization = models.OneToOneField(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="motorclub_config",
+    )
+    tier_35_provider_take = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=Decimal("20.00"),
+        help_text="Amount the Motor Club provider keeps from the $35 plan.",
+    )
+    tier_50_provider_take = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=Decimal("28.00"),
+        help_text="Amount the Motor Club provider keeps from the $50 plan.",
+    )
+    tier_75_provider_take = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=Decimal("42.00"),
+        help_text="Amount the Motor Club provider keeps from the $75 plan.",
+    )
+    tier_100_provider_take = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=Decimal("55.00"),
+        help_text="Amount the Motor Club provider keeps from the $100 plan.",
+    )
+    provider_profit_notes = models.TextField(
+        blank=True,
+        default="",
+        help_text="Notes about Motor Club provider / company profit expectations.",
+    )
+    psb_profit_notes = models.TextField(
+        blank=True,
+        default="",
+        help_text="Notes about PSB profit goals for Motor Club sales.",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Motor Club configuration"
+
+    def __str__(self):
+        return f"Motor Club config — {self.organization.name}"
+
+
+class MotorclubB2BPartner(models.Model):
+    """Agency or company selling Motor Club through a B2B partnership."""
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="motorclub_b2b_partners",
+    )
+    name = models.CharField(max_length=160)
+    contact_name = models.CharField(max_length=120, blank=True, default="")
+    phone = models.CharField(max_length=40, blank=True, default="")
+    email = models.EmailField(blank=True, default="")
+    notes = models.TextField(blank=True, default="")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+        unique_together = ("organization", "name")
+
+    def __str__(self):
+        return self.name
+
+
+class MotorclubMembership(models.Model):
+    """Roadside assistance membership sold via insurance client, B2B, or direct."""
+
+    class TierChoices(models.IntegerChoices):
+        TIER_35 = 35, "$35 / year"
+        TIER_50 = 50, "$50 / year"
+        TIER_75 = 75, "$75 / year"
+        TIER_100 = 100, "$100 / year"
+
+    class ChannelChoices(models.TextChoices):
+        INSURANCE_CLIENT = "insurance_client", "Insurance Client"
+        B2B = "b2b", "B2B Partner"
+        DIRECT = "direct", "Direct / Walk-In"
+
+    class StatusChoices(models.TextChoices):
+        ACTIVE = "active", "Active"
+        PENDING = "pending", "Pending"
+        CANCELLED = "cancelled", "Cancelled"
+        EXPIRED = "expired", "Expired"
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="motorclub_memberships",
+    )
+    space = models.ForeignKey(
+        Space,
+        on_delete=models.CASCADE,
+        related_name="motorclub_memberships",
+    )
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name="motorclub_memberships",
+    )
+    b2b_partner = models.ForeignKey(
+        MotorclubB2BPartner,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="memberships",
+    )
+    insurance_policy = models.ForeignKey(
+        InsurancePolicy,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="motorclub_memberships",
+        help_text="Optional link when sold to an existing insurance client.",
+    )
+    channel = models.CharField(
+        max_length=20,
+        choices=ChannelChoices.choices,
+        default=ChannelChoices.DIRECT,
+    )
+    tier = models.PositiveSmallIntegerField(choices=TierChoices.choices)
+    status = models.CharField(
+        max_length=20,
+        choices=StatusChoices.choices,
+        default=StatusChoices.ACTIVE,
+    )
+    membership_number = models.CharField(max_length=40, blank=True, default="")
+    start_date = models.DateField(blank=True, null=True)
+    end_date = models.DateField(blank=True, null=True)
+    provider_profit = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Motor Club provider / company profit for this membership.",
+    )
+    psb_profit = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="PSB profit for this membership.",
+    )
+    notes = models.TextField(blank=True, default="")
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="added_motorclub_memberships",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        label = self.membership_number or f"MC-{self.id}"
+        return f"{label} — {self.client.name} (${self.tier})"
+
+    @property
+    def tier_price(self):
+        return Decimal(str(self.tier))
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        if is_new and not self.membership_number:
+            number = f"MC-{self.organization_id}-{self.id:05d}"
+            MotorclubMembership.objects.filter(pk=self.pk).update(membership_number=number)
+            self.membership_number = number

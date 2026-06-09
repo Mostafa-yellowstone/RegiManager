@@ -1,0 +1,367 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}{{ card.label }} | Motor Club{% endblock %}
+
+{% block portal_content %}
+<style>
+.mc-tab-btn { padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: var(--portal-text-muted); margin-bottom: -2px; transition: color 0.2s; }
+.mc-tab-btn.active { color: #c2410c !important; border-bottom: 2px solid #ea580c !important; }
+.mc-tab-panel { display: none; }
+.mc-tab-panel.active { display: block; }
+.mc-metric { background: var(--portal-surface); border-radius: 16px; padding: 1.25rem 1.5rem; border: 1px solid var(--portal-border); box-shadow: var(--portal-shadow-sm); }
+.mc-metric-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--portal-text-muted); margin-bottom: 0.35rem; }
+.mc-metric-value { font-size: 1.65rem; font-weight: 900; color: var(--portal-text); line-height: 1.1; }
+.mc-metric-meta { font-size: 0.8rem; color: var(--portal-text-muted); margin-top: 0.25rem; font-weight: 600; }
+.mc-hero { background: linear-gradient(135deg, #431407 0%, #9a3412 45%, #ea580c 100%); border-radius: 20px; padding: 1.5rem 1.75rem; color: white; margin-bottom: 1.5rem; }
+.mc-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.mc-table th { padding: 0.85rem 1rem; background: var(--portal-surface-muted); border-bottom: 1px solid var(--portal-border); color: var(--portal-text-muted); font-weight: 700; font-size: 0.72rem; text-transform: uppercase; text-align: left; }
+.mc-table td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--portal-border); color: var(--portal-text-secondary); font-weight: 600; }
+.mc-table tr:hover td { background: var(--portal-surface-muted); }
+.mc-chip { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; }
+.mc-chip-active { background: #dcfce7; color: #166534; }
+.mc-chip-pending { background: #fef9c3; color: #854d0e; }
+.mc-chip-cancelled { background: #fee2e2; color: #991b1b; }
+.mc-chip-insurance { background: #eef2ff; color: #4338ca; }
+.mc-chip-b2b { background: #fff7ed; color: #c2410c; }
+.mc-chip-direct { background: #f1f5f9; color: #475569; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.35); backdrop-filter: blur(6px); z-index: 2000; align-items: center; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal-box { background: var(--portal-surface); border-radius: 20px; padding: 1.75rem; max-width: 600px; width: 95%; max-height: 92vh; overflow-y: auto; box-shadow: var(--portal-shadow-lg); border: 1px solid var(--portal-border); }
+.modal-box.wide { max-width: 760px; }
+.field-label { display: block; font-size: 0.76rem; font-weight: 800; color: var(--portal-text-muted); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.field-input { width: 100%; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid var(--portal-border); background: var(--portal-surface-muted); color: var(--portal-text); font-size: 0.88rem; outline: none; box-sizing: border-box; }
+.field-input:focus { border-color: #ea580c; }
+.btn-submit { width: 100%; padding: 0.75rem; background: linear-gradient(135deg, #c2410c, #ea580c); border: none; border-radius: 10px; color: white; font-weight: 700; cursor: pointer; font-size: 0.95rem; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.85rem; }
+.tier-card { border: 1px solid var(--portal-border); border-radius: 14px; padding: 1rem; background: var(--portal-surface-muted); text-align: center; }
+.tier-card-price { font-size: 1.5rem; font-weight: 900; color: #c2410c; }
+html.portal-theme-dark .mc-chip-active { background: rgba(22,163,74,0.2); color: #4ade80; }
+html.portal-theme-dark .mc-chip-insurance { background: rgba(99,102,241,0.2); color: #a5b4fc; }
+html.portal-theme-dark .mc-chip-b2b { background: rgba(234,88,12,0.2); color: #fdba74; }
+</style>
+
+<main class="portal-space-shell">
+  <div class="portal-space-inner portal-space-inner--wide">
+
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1.25rem;margin-bottom:1.5rem;">
+      <div>
+        <div style="display:inline-flex;align-items:center;gap:6px;background:#ffedd5;color:#c2410c;padding:4px 12px;border-radius:999px;font-size:0.78rem;font-weight:800;text-transform:uppercase;margin-bottom:0.5rem;border:1px solid #fed7aa;">🚗 {{ active_org.name }}</div>
+        <h1 class="portal-space-title">🛟 {{ card.label }}</h1>
+        <p class="portal-space-subtitle">{{ card.description|default:"Roadside assistance — insurance upsell & B2B partnerships" }}</p>
+      </div>
+      <a href="{% url 'spaces-home' %}" style="text-decoration:none;padding:9px 16px;background:var(--portal-surface);border:1px solid var(--portal-border);border-radius:10px;font-weight:700;color:var(--portal-text-secondary);font-size:0.88rem;">&larr; Back to Spaces</a>
+    </div>
+
+    <div class="mc-hero">
+      <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#fed7aa;margin-bottom:0.35rem;">Active PSB Motor Club Revenue</div>
+      <div style="font-size:2.2rem;font-weight:900;line-height:1;">${{ stats.psb_revenue|floatformat:2 }}</div>
+      <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:0.85rem;font-size:0.85rem;color:#ffedd5;font-weight:600;">
+        <span>{{ stats.active_memberships }} active members</span>
+        <span>{{ stats.insurance_channel_count }} via insurance</span>
+        <span>{{ stats.b2b_channel_count }} B2B</span>
+        <span>{{ stats.b2b_partner_count }} partners</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--portal-border);margin-bottom:1.75rem;flex-wrap:wrap;">
+      <button type="button" class="mc-tab-btn {% if active_tab == 'dashboard' %}active{% endif %}" onclick="mcSwitchTab('dashboard', this)">📊 Dashboard</button>
+      <button type="button" class="mc-tab-btn {% if active_tab == 'members' %}active{% endif %}" onclick="mcSwitchTab('members', this)">👥 Members CRM</button>
+      <button type="button" class="mc-tab-btn {% if active_tab == 'b2b' %}active{% endif %}" onclick="mcSwitchTab('b2b', this)">🏢 B2B Partners</button>
+      <button type="button" class="mc-tab-btn {% if active_tab == 'configuration' %}active{% endif %}" onclick="mcSwitchTab('configuration', this)">⚙️ Configuration</button>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="mc-tab-dashboard" class="mc-tab-panel {% if active_tab == 'dashboard' %}active{% endif %}">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem;">
+        <div class="mc-metric"><div class="mc-metric-label">Total Members</div><div class="mc-metric-value">{{ stats.total_memberships }}</div></div>
+        <div class="mc-metric"><div class="mc-metric-label">Provider Revenue</div><div class="mc-metric-value">${{ stats.provider_revenue|floatformat:2 }}</div><div class="mc-metric-meta">Motor Club company share</div></div>
+        <div class="mc-metric"><div class="mc-metric-label">PSB Revenue</div><div class="mc-metric-value">${{ stats.psb_revenue|floatformat:2 }}</div><div class="mc-metric-meta">Your roadside profit</div></div>
+        <div class="mc-metric"><div class="mc-metric-label">Direct Sales</div><div class="mc-metric-value">{{ stats.direct_channel_count }}</div></div>
+      </div>
+      <div class="grid-4">
+        {% for row in tier_preview %}
+        <div class="tier-card">
+          <div class="tier-card-price">${{ row.tier }}</div>
+          <div style="font-size:0.78rem;color:var(--portal-text-muted);margin:0.5rem 0;">Provider: <strong style="color:var(--portal-text);">${{ row.provider_profit|floatformat:2 }}</strong></div>
+          <div style="font-size:0.78rem;color:var(--portal-text-muted);">PSB: <strong style="color:#c2410c;">${{ row.psb_profit|floatformat:2 }}</strong></div>
+          <div style="font-size:0.72rem;color:var(--portal-text-muted);margin-top:0.5rem;">{% if row.tier == 35 %}{{ stats.tier_35_count }}{% elif row.tier == 50 %}{{ stats.tier_50_count }}{% elif row.tier == 75 %}{{ stats.tier_75_count }}{% else %}{{ stats.tier_100_count }}{% endif %} active</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Members CRM -->
+    <div id="mc-tab-members" class="mc-tab-panel {% if active_tab == 'members' %}active{% endif %}">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+        <form method="get" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+          <input type="hidden" name="tab" value="members">
+          <input type="text" name="q" value="{{ search }}" placeholder="Search member, client…" class="field-input" style="width:200px;">
+          <select name="channel" class="field-input" style="width:auto;">
+            <option value="">All channels</option>
+            {% for val, label in channel_choices %}<option value="{{ val }}" {% if channel_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          <select name="status" class="field-input" style="width:auto;">
+            <option value="">All statuses</option>
+            {% for val, label in status_choices %}<option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          <select name="tier" class="field-input" style="width:auto;">
+            <option value="">All tiers</option>
+            {% for val, label in tier_choices %}<option value="{{ val }}" {% if tier_filter == val|stringformat:'s' %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+        </form>
+        {% if can_manage_motorclub %}
+        <button type="button" onclick="document.getElementById('addMemberModal').classList.add('active')" class="btn btn-primary btn-sm">+ Add Membership</button>
+        {% endif %}
+      </div>
+
+      <div style="background:var(--portal-surface);border:1px solid var(--portal-border);border-radius:16px;overflow:hidden;">
+        <table class="mc-table">
+          <thead>
+            <tr>
+              <th>Member #</th>
+              <th>Client</th>
+              <th>Channel</th>
+              <th>Plan</th>
+              <th>Provider $</th>
+              <th>PSB $</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in memberships %}
+            <tr>
+              <td><strong>{{ m.membership_number }}</strong></td>
+              <td><a href="{% url 'client-detail' m.client.id %}" style="color:#c2410c;text-decoration:none;font-weight:700;">{{ m.client.name }}</a>{% if m.b2b_partner %}<br><small style="color:var(--portal-text-muted);">{{ m.b2b_partner.name }}</small>{% endif %}</td>
+              <td><span class="mc-chip mc-chip-{{ m.channel }}">{{ m.channel_label }}</span></td>
+              <td>${{ m.tier }}</td>
+              <td>${{ m.provider_profit|floatformat:2 }}</td>
+              <td style="color:#c2410c;font-weight:800;">${{ m.psb_profit|floatformat:2 }}</td>
+              <td><span class="mc-chip mc-chip-{{ m.status }}">{{ m.status_label }}</span></td>
+              <td style="white-space:nowrap;">
+                {% if can_manage_motorclub %}
+                <button type="button" class="btn btn-secondary btn-sm" onclick="openEditMember({{ m.id }}, '{{ m.tier }}', '{{ m.status }}', '{{ m.channel }}', '{{ m.provider_profit }}', '{{ m.psb_profit }}', '{{ m.notes|escapejs }}', '{{ m.b2b_partner_id|default:'' }}')">Edit</button>
+                {% if is_owner %}
+                <form method="post" action="{% url 'delete-motorclub-membership' m.id %}" style="display:inline;" onsubmit="return confirm('Remove this membership?');">{% csrf_token %}<button type="submit" class="btn btn-sm" style="color:#b91c1c;">Delete</button></form>
+                {% endif %}
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--portal-text-muted);">No Motor Club memberships yet. Add your first member or upsell an insurance client.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if memberships_page.has_other_pages %}
+      <div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+        {% if memberships_page.has_previous %}<a href="?tab=members&page={{ memberships_page.previous_page_number }}&q={{ search }}&channel={{ channel_filter }}&status={{ status_filter }}&tier={{ tier_filter }}" class="btn btn-secondary btn-sm">← Prev</a>{% endif %}
+        <span style="padding:0.4rem 0.8rem;color:var(--portal-text-muted);font-weight:600;">Page {{ memberships_page.number }} of {{ memberships_page.paginator.num_pages }}</span>
+        {% if memberships_page.has_next %}<a href="?tab=members&page={{ memberships_page.next_page_number }}&q={{ search }}&channel={{ channel_filter }}&status={{ status_filter }}&tier={{ tier_filter }}" class="btn btn-secondary btn-sm">Next →</a>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- B2B -->
+    <div id="mc-tab-b2b" class="mc-tab-panel {% if active_tab == 'b2b' %}active{% endif %}">
+      <div style="display:flex;justify-content:space-between;margin-bottom:1rem;">
+        <p style="color:var(--portal-text-secondary);margin:0;max-width:560px;">Partner agencies and companies that sell Motor Club through your PSB — spin new business without walk-in traffic.</p>
+        {% if can_manage_motorclub %}<button type="button" onclick="document.getElementById('addB2BModal').classList.add('active')" class="btn btn-primary btn-sm">+ Add B2B Partner</button>{% endif %}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;">
+        {% for p in all_b2b_partners %}
+        <div class="mc-metric" style="{% if not p.is_active %}opacity:0.55;{% endif %}">
+          <div style="display:flex;justify-content:space-between;align-items:start;">
+            <strong style="font-size:1.05rem;color:var(--portal-text);">{{ p.name }}</strong>
+            {% if is_owner %}
+            <form method="post" action="{% url 'delete-motorclub-b2b-partner' p.id %}" onsubmit="return confirm('Remove partner?');">{% csrf_token %}<button type="submit" style="border:none;background:none;color:#b91c1c;cursor:pointer;font-size:0.8rem;">Remove</button></form>
+            {% endif %}
+          </div>
+          {% if p.contact_name %}<div style="font-size:0.85rem;color:var(--portal-text-muted);margin-top:0.35rem;">{{ p.contact_name }}</div>{% endif %}
+          {% if p.phone or p.email %}<div style="font-size:0.82rem;color:var(--portal-text-muted);">{{ p.phone }}{% if p.phone and p.email %} · {% endif %}{{ p.email }}</div>{% endif %}
+          {% if p.notes %}<div style="font-size:0.8rem;color:var(--portal-text-secondary);margin-top:0.5rem;">{{ p.notes|truncatewords:20 }}</div>{% endif %}
+        </div>
+        {% empty %}
+        <div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--portal-text-muted);">No B2B partners yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Configuration -->
+    <div id="mc-tab-configuration" class="mc-tab-panel {% if active_tab == 'configuration' %}active{% endif %}">
+      {% if can_manage_motorclub %}
+      <form method="post" action="{% url 'save-motorclub-config' card.id %}">
+        {% csrf_token %}
+        <p style="color:var(--portal-text-secondary);margin-bottom:1.25rem;">Set how much the Motor Club provider keeps per plan tier. PSB revenue = plan price minus provider take.</p>
+        <div class="grid-4" style="margin-bottom:1.25rem;">
+          {% for row in tier_preview %}
+          <div>
+            <label class="field-label">${{ row.tier }} — Provider takes</label>
+            <input type="number" step="0.01" min="0" max="{{ row.tier }}" name="{{ row.provider_field }}" value="{{ row.provider_take|floatformat:2 }}" class="field-input">
+            <div style="font-size:0.75rem;color:var(--portal-text-muted);margin-top:0.35rem;">PSB earns <strong style="color:#c2410c;">${{ row.psb_profit|floatformat:2 }}</strong></div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="grid-2" style="margin-bottom:1rem;">
+          <div>
+            <label class="field-label">Motor Club provider profit notes</label>
+            <textarea name="provider_profit_notes" class="field-input" rows="4" placeholder="Notes about provider / company profit expectations…">{{ config.provider_profit_notes }}</textarea>
+          </div>
+          <div>
+            <label class="field-label">PSB profit notes</label>
+            <textarea name="psb_profit_notes" class="field-input" rows="4" placeholder="Notes about PSB roadside profit goals…">{{ config.psb_profit_notes }}</textarea>
+          </div>
+        </div>
+        <button type="submit" class="btn-submit" style="max-width:320px;">Save Configuration</button>
+      </form>
+      {% else %}
+      <p style="color:var(--portal-text-muted);">You do not have permission to edit Motor Club configuration.</p>
+      {% endif %}
+    </div>
+
+  </div>
+</main>
+
+{% if can_manage_motorclub %}
+<div class="modal-overlay" id="addMemberModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box wide">
+    <h3 style="margin:0 0 1rem;color:var(--portal-text);">Add Motor Club Membership</h3>
+    <form method="post" action="{% url 'add-motorclub-membership' card.id %}">
+      {% csrf_token %}
+      <div class="grid-2">
+        <div>
+          <label class="field-label">Sales channel</label>
+          <select name="channel" class="field-input" id="mcChannel">
+            <option value="insurance_client">Insurance Client (upsell)</option>
+            <option value="b2b">B2B Partner</option>
+            <option value="direct">Direct / Walk-In</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Plan tier</label>
+          <select name="tier" class="field-input" id="mcTier" onchange="mcUpdateProfits()">
+            {% for val, label in tier_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:0.85rem;">
+        <label class="field-label">Client</label>
+        <select name="client_id" class="field-input" required>
+          <option value="">Select client…</option>
+          <optgroup label="Insurance clients (upsell targets)">
+            {% for c in insurance_clients %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+          </optgroup>
+          <optgroup label="All clients">
+            {% for c in clients %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+          </optgroup>
+        </select>
+      </div>
+      <div class="grid-2" style="margin-top:0.85rem;">
+        <div>
+          <label class="field-label">B2B partner (optional)</label>
+          <select name="b2b_partner_id" class="field-input">
+            <option value="">— None —</option>
+            {% for p in b2b_partners %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Status</label>
+          <select name="status" class="field-input">
+            {% for val, label in status_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:0.85rem;">
+        <div>
+          <label class="field-label">Provider profit ($)</label>
+          <input type="number" step="0.01" name="provider_profit" id="mcProviderProfit" class="field-input">
+        </div>
+        <div>
+          <label class="field-label">PSB profit ($)</label>
+          <input type="number" step="0.01" name="psb_profit" id="mcPsbProfit" class="field-input">
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:0.85rem;">
+        <div><label class="field-label">Start date</label><input type="date" name="start_date" class="field-input"></div>
+        <div><label class="field-label">End date</label><input type="date" name="end_date" class="field-input"></div>
+      </div>
+      <div style="margin-top:0.85rem;">
+        <label class="field-label">Notes</label>
+        <textarea name="notes" class="field-input" rows="2"></textarea>
+      </div>
+      <button type="submit" class="btn-submit" style="margin-top:1rem;">Add Membership</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editMemberModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h3 style="margin:0 0 1rem;">Edit Membership</h3>
+    <form method="post" id="editMemberForm" action="">
+      {% csrf_token %}
+      <div class="grid-2">
+        <div><label class="field-label">Tier</label><select name="tier" id="editTier" class="field-input">{% for val, label in tier_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+        <div><label class="field-label">Status</label><select name="status" id="editStatus" class="field-input">{% for val, label in status_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+      </div>
+      <div class="grid-2" style="margin-top:0.85rem;">
+        <div><label class="field-label">Provider profit</label><input type="number" step="0.01" name="provider_profit" id="editProvider" class="field-input"></div>
+        <div><label class="field-label">PSB profit</label><input type="number" step="0.01" name="psb_profit" id="editPsb" class="field-input"></div>
+      </div>
+      <div style="margin-top:0.85rem;"><label class="field-label">Notes</label><textarea name="notes" id="editNotes" class="field-input" rows="2"></textarea></div>
+      <button type="submit" class="btn-submit" style="margin-top:1rem;">Save Changes</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="addB2BModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h3 style="margin:0 0 1rem;">Add B2B Partner</h3>
+    <form method="post" action="{% url 'add-motorclub-b2b-partner' card.id %}">
+      {% csrf_token %}
+      <label class="field-label">Company name</label><input type="text" name="name" class="field-input" required>
+      <div class="grid-2" style="margin-top:0.85rem;">
+        <div><label class="field-label">Contact</label><input type="text" name="contact_name" class="field-input"></div>
+        <div><label class="field-label">Phone</label><input type="text" name="phone" class="field-input phone-mask"></div>
+      </div>
+      <div style="margin-top:0.85rem;"><label class="field-label">Email</label><input type="email" name="email" class="field-input"></div>
+      <div style="margin-top:0.85rem;"><label class="field-label">Notes</label><textarea name="notes" class="field-input" rows="2"></textarea></div>
+      <button type="submit" class="btn-submit" style="margin-top:1rem;">Add Partner</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<script>
+const MC_TIER_SPLITS = {
+  {% for row in tier_preview %}{{ row.tier }}: { provider: {{ row.provider_profit }}, psb: {{ row.psb_profit }} }{% if not forloop.last %},{% endif %}
+  {% endfor %}
+};
+function mcSwitchTab(id, btn) {
+  document.querySelectorAll('.mc-tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.mc-tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('mc-tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+function mcUpdateProfits() {
+  const tier = parseInt(document.getElementById('mcTier').value, 10);
+  const split = MC_TIER_SPLITS[tier];
+  if (split) {
+    document.getElementById('mcProviderProfit').value = split.provider.toFixed(2);
+    document.getElementById('mcPsbProfit').value = split.psb.toFixed(2);
+  }
+}
+function openEditMember(id, tier, status, channel, provider, psb, notes, partnerId) {
+  document.getElementById('editMemberForm').action = '/dashboard/spaces/motorclub/member/' + id + '/edit/';
+  document.getElementById('editTier').value = tier;
+  document.getElementById('editStatus').value = status;
+  document.getElementById('editProvider').value = provider;
+  document.getElementById('editPsb').value = psb;
+  document.getElementById('editNotes').value = notes;
+  document.getElementById('editMemberModal').classList.add('active');
+}
+document.addEventListener('DOMContentLoaded', mcUpdateProfits);
+</script>
+{% endblock %}

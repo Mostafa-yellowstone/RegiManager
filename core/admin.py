@@ -11,6 +11,7 @@ from .models import (
     InventoryBuyer, InventoryCategory, InventoryInvoice,
     InventoryProduct, InventoryPurchase, InventoryPurchaseLine,
     InventoryStockMovement, InventorySupplier,
+    MotorclubConfig, MotorclubB2BPartner, MotorclubMembership,
 )
 
 
@@ -83,6 +84,7 @@ class OrganizationMembershipAdmin(admin.ModelAdmin):
                 "can_manage_referrals",
                 "can_trigger_automation",
                 "can_deal_with_insurance",
+                "can_deal_with_motorclub",
                 "can_delete_receipt",
                 "can_view_commission",
                 "can_view_banking",
@@ -391,6 +393,24 @@ class UserSessionAdmin(admin.ModelAdmin):
 # Patch get_urls on default AdminSite to register crm-import
 from django.urls import path
 from .admin_views import crm_import_view
+
+@admin.register(MotorclubConfig)
+class MotorclubConfigAdmin(admin.ModelAdmin):
+    list_display = ("organization", "tier_35_provider_take", "tier_50_provider_take", "updated_at")
+
+
+@admin.register(MotorclubB2BPartner)
+class MotorclubB2BPartnerAdmin(admin.ModelAdmin):
+    list_display = ("name", "organization", "contact_name", "is_active", "created_at")
+    list_filter = ("organization", "is_active")
+
+
+@admin.register(MotorclubMembership)
+class MotorclubMembershipAdmin(admin.ModelAdmin):
+    list_display = ("membership_number", "client", "tier", "channel", "status", "psb_profit", "organization")
+    list_filter = ("organization", "channel", "status", "tier")
+    search_fields = ("membership_number", "client__first_name", "client__last_name")
+
 
 original_get_urls = admin.site.get_urls
 

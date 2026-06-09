@@ -801,6 +801,20 @@ def client_detail(request, client_id):
     enrich_policies_for_display(insurance_policies)
     show_insurance_section = bool(insurance_policies) or (client.source or "").lower() == "insurance"
 
+    from .models import MotorclubMembership
+    from .motorclub_crm import enrich_membership
+
+    motorclub_memberships = list(
+        client.motorclub_memberships.select_related("b2b_partner", "added_by").order_by("-created_at")
+    )
+    for mc in motorclub_memberships:
+        enrich_membership(mc)
+    active_motorclub = next(
+        (m for m in motorclub_memberships if m.status == MotorclubMembership.StatusChoices.ACTIVE),
+        motorclub_memberships[0] if motorclub_memberships else None,
+    )
+    show_motorclub_card = bool(motorclub_memberships)
+
     return render(request, "core/client_profile.html", {
         "client": client,
         "vehicles": vehicles,
@@ -808,6 +822,9 @@ def client_detail(request, client_id):
         "documents": all_docs,
         "insurance_policies": insurance_policies,
         "show_insurance_section": show_insurance_section,
+        "motorclub_memberships": motorclub_memberships,
+        "active_motorclub": active_motorclub,
+        "show_motorclub_card": show_motorclub_card,
         "notes": notes,
         "assignable_agents": assignable_agents,
         "total_spend": total_spend,
@@ -3272,6 +3289,8 @@ def update_agent_permissions(request):
             membership.can_manage_news = value
         elif field == "can_manage_knowledge_hub":
             membership.can_manage_knowledge_hub = value
+        elif field == "can_deal_with_motorclub":
+            membership.can_deal_with_motorclub = value
             
         membership.save()
         
@@ -6056,6 +6075,11 @@ def inventory_detail(request, inventory_id):
         context = build_inventory_space_context(request, card, is_owner, membership)
         return render(request, "core/inventory_space.html", context)
 
+    if card.key == "motorclub":
+        from .motorclub_views import build_motorclub_space_context
+        context = build_motorclub_space_context(request, card, is_owner, membership)
+        return render(request, "core/motorclub_space.html", context)
+
     if card.key == "knowledge_hub":
         from collections import defaultdict
         # Only top-level materials (no parent)
@@ -6190,6 +6214,14 @@ def spaces_home(request):
         defaults={
             "label": "Custom Inventory",
             "description": "Product inventory, sales invoices, and stock tracking",
+        },
+    )
+    Space.objects.get_or_create(
+        organization=active_org,
+        key="motorclub",
+        defaults={
+            "label": "Motor Club",
+            "description": "Roadside assistance memberships — insurance upsell & B2B partnerships",
         },
     )
         

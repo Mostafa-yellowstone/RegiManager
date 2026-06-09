@@ -942,5 +942,79 @@ class ClientIntakeTests(TestCase):
         self.assertEqual(client.source, "meta_platform")
 
 
+class MotorclubTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Motor Org", city="NYC")
+        self.owner = User.objects.create_user(username="mcowner", password="password123")
+        self.owner_membership = OrganizationMembership.objects.create(
+            user=self.owner,
+            organization=self.org,
+            is_active=True,
+            role="owner",
+            can_view_spaces=True,
+        )
+        self.space = Space.objects.create(
+            organization=self.org,
+            key="motorclub",
+            label="Motor Club",
+            description="Roadside assistance",
+        )
+        self.owner_membership.accessible_spaces.add(self.space)
+        self.client_obj = Client.objects.create(
+            organization=self.org,
+            first_name="Road",
+            last_name="Runner",
+        )
+        self.client = TestClient()
+        self.client.login(username="mcowner", password="password123")
+
+    def test_spaces_home_creates_motorclub_space(self):
+        response = self.client.get(reverse("spaces-home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Space.objects.filter(organization=self.org, key="motorclub").exists())
+
+    def test_motorclub_space_renders(self):
+        response = self.client.get(reverse("inventory-detail", args=[self.space.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Motor Club")
+
+    def test_add_membership_and_profit_split(self):
+        from core.models import MotorclubConfig, MotorclubMembership
+        from core.motorclub_crm import split_profits_for_tier
+
+        config = MotorclubConfig.objects.create(organization=self.org, tier_50_provider_take=Decimal("28.00"))
+        provider, psb = split_profits_for_tier(50, config)
+        self.assertEqual(provider, Decimal("28.00"))
+        self.assertEqual(psb, Decimal("22.00"))
+
+        response = self.client.post(reverse("add-motorclub-membership", args=[self.space.id]), {
+            "client_id": self.client_obj.id,
+            "tier": "50",
+            "channel": "insurance_client",
+            "status": "active",
+        })
+        self.assertEqual(response.status_code, 302)
+        membership = MotorclubMembership.objects.get(client=self.client_obj)
+        self.assertEqual(membership.tier, 50)
+        self.assertTrue(membership.membership_number.startswith("MC-"))
+
+    def test_client_profile_shows_motorclub_card(self):
+        from core.models import MotorclubMembership
+
+        MotorclubMembership.objects.create(
+            organization=self.org,
+            space=self.space,
+            client=self.client_obj,
+            tier=75,
+            channel="direct",
+            status="active",
+            provider_profit=Decimal("42.00"),
+            psb_profit=Decimal("33.00"),
+            added_by=self.owner,
+        )
+        response = self.client.get(reverse("client-detail", args=[self.client_obj.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Motor Club")
+        self.assertContains(response, "$75")
 
 
