@@ -3414,3 +3414,24 @@ select option.portal-add-new-option {
     color: #2563eb;
     font-weight: 700;
 }
+
+/* Site News page */
+html.portal-theme-dark .site-news-page h2[style*="color: #0f172a"],
+html.portal-theme-dark .site-news-page #addNewsModal h2 {
+    color: #f8fafc !important;
+}
+
+html.portal-theme-dark .site-news-page div[style*="color: #334155"] {
+    color: #e2e8f0 !important;
+}
+
+html.portal-theme-dark .site-news-page time[style*="color: #64748b"],
+html.portal-theme-dark .site-news-page p[style*="color: #64748b"],
+html.portal-theme-dark .site-news-page h3[style*="color: #475569"] {
+    color: #e2e8f0 !important;
+}
+
+html.portal-theme-dark .site-news-page article > div[style*="background: white"] {
+    background: var(--portal-surface) !important;
+    border-color: var(--portal-border) !important;
+}

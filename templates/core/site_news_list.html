@@ -5,7 +5,7 @@
 
 {% block portal_content %}
 
-<main class="dashboard-shell">
+<main class="dashboard-shell site-news-page">
     <div style="max-width: 900px; margin: 2rem auto; padding: 0 1.5rem 4rem;">
         
         <!-- Hero Header -->
@@ -149,6 +149,83 @@
 @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(16px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+html.portal-theme-dark .site-news-page div[style*="border-left: 2px solid #e2e8f0"] {
+    border-left-color: var(--portal-border) !important;
+}
+
+html.portal-theme-dark .site-news-page article div[style*="background: white"],
+html.portal-theme-dark .site-news-page div[style*="background: white"][style*="border: 1px dashed"] {
+    background: var(--portal-surface) !important;
+    border-color: var(--portal-border) !important;
+}
+
+html.portal-theme-dark .site-news-page article div[style*="box-shadow: 0 0 0 2px #e2e8f0"] {
+    box-shadow: 0 0 0 2px var(--portal-border) !important;
+    border-color: var(--portal-surface) !important;
+}
+
+html.portal-theme-dark .site-news-page time[style*="color: #64748b"] {
+    color: #cbd5e1 !important;
+}
+
+html.portal-theme-dark .site-news-page h2[style*="color: #0f172a"] {
+    color: #f8fafc !important;
+}
+
+html.portal-theme-dark .site-news-page div[style*="color: #334155"][style*="line-height: 1.6"] {
+    color: #e2e8f0 !important;
+}
+
+html.portal-theme-dark .site-news-page h3[style*="color: #475569"] {
+    color: #f1f5f9 !important;
+}
+
+html.portal-theme-dark .site-news-page p[style*="color: #64748b"] {
+    color: #cbd5e1 !important;
+}
+
+html.portal-theme-dark .site-news-page span[style*="background: #e0f2fe"] {
+    background: rgba(37, 99, 235, 0.22) !important;
+    color: #93c5fd !important;
+}
+
+html.portal-theme-dark .site-news-page span[style*="background: #f1f5f9"] {
+    background: var(--portal-surface-muted) !important;
+    color: #cbd5e1 !important;
+}
+
+html.portal-theme-dark .site-news-page #addNewsModal div[style*="background:white"],
+html.portal-theme-dark .site-news-page #addNewsModal div[style*="background: white"] {
+    background: var(--portal-surface) !important;
+}
+
+html.portal-theme-dark .site-news-page #addNewsModal h2[style*="color:#0f172a"],
+html.portal-theme-dark .site-news-page #addNewsModal h2[style*="color: #0f172a"] {
+    color: #f8fafc !important;
+}
+
+html.portal-theme-dark .site-news-page #addNewsModal label[style*="color:#64748b"],
+html.portal-theme-dark .site-news-page #addNewsModal label[style*="color: #64748b"],
+html.portal-theme-dark .site-news-page #addNewsModal label[style*="color:#334155"],
+html.portal-theme-dark .site-news-page #addNewsModal label[style*="color: #334155"] {
+    color: #e2e8f0 !important;
+}
+
+html.portal-theme-dark .site-news-page #addNewsModal input[type="text"],
+html.portal-theme-dark .site-news-page #addNewsModal textarea {
+    background: var(--portal-surface-muted) !important;
+    color: #f8fafc !important;
+    border-color: var(--portal-border) !important;
+    color-scheme: dark;
+}
+
+html.portal-theme-dark .site-news-page #addNewsModal button[style*="background:#f8fafc"],
+html.portal-theme-dark .site-news-page #addNewsModal button[style*="background: #f8fafc"] {
+    background: var(--portal-surface-muted) !important;
+    color: #f1f5f9 !important;
+    border-color: var(--portal-border) !important;
 }
 </style>
 {% endblock %}
