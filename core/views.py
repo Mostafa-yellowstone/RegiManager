@@ -5982,7 +5982,6 @@ def inventory_detail(request, inventory_id):
         
         agent_stats = []
         best_performer = None
-        highest_premium = Decimal("0.00")
         
         for m in insurance_memberships:
             agent = m.user
@@ -6011,18 +6010,18 @@ def inventory_detail(request, inventory_id):
                 "total_profit": t_profit,
                 "bg_color": bg,
                 "text_color": text,
+                "is_best": False,
+                "is_second": False,
             }
             agent_stats.append(stats)
-            
-            if p_sum > highest_premium:
-                highest_premium = p_sum
-                best_performer = stats
-                
-        if best_performer:
-            best_performer["is_best"] = True
-            
-        # Sort agent stats by total premium descending
+
         agent_stats.sort(key=lambda s: s["total_premium"], reverse=True)
+
+        if agent_stats:
+            agent_stats[0]["is_best"] = True
+            best_performer = agent_stats[0]
+        if len(agent_stats) > 1 and agent_stats[1]["total_premium"] > 0:
+            agent_stats[1]["is_second"] = True
 
         chart_agent_names = [s["fullname"] for s in agent_stats]
         chart_agent_premiums = [float(s["total_premium"]) for s in agent_stats]

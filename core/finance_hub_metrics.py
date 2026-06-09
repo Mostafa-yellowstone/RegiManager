@@ -81,7 +81,7 @@ def build_daily_payment_cards(records, organization_ids, target_date):
 
 
 def build_month_goal_forecast(records, target_date):
-    """Month-to-date pace and end-of-month projection using transaction_date."""
+    """Month-to-date profit pace and end-of-month projection using transaction_date."""
     month_start = target_date.replace(day=1)
     days_in_month = calendar.monthrange(target_date.year, target_date.month)[1]
     days_elapsed = max(target_date.day, 1)
@@ -91,7 +91,7 @@ def build_month_goal_forecast(records, target_date):
         transaction_date__gte=month_start,
         transaction_date__lte=target_date,
     )
-    mtd_revenue = mtd_qs.aggregate(total=Sum("service_fee"))["total"] or Decimal("0")
+    mtd_revenue = mtd_qs.aggregate(total=Sum("processing_fee"))["total"] or Decimal("0")
     mtd_records = mtd_qs.count()
 
     prev_month_end = month_start - timedelta(days=1)
@@ -100,7 +100,7 @@ def build_month_goal_forecast(records, target_date):
         records.filter(
             transaction_date__gte=prev_month_start,
             transaction_date__lte=prev_month_end,
-        ).aggregate(total=Sum("service_fee"))["total"]
+        ).aggregate(total=Sum("processing_fee"))["total"]
         or Decimal("0")
     )
 
@@ -123,7 +123,7 @@ def build_month_goal_forecast(records, target_date):
     if projected_month_end >= suggested_goal:
         status = "on_track"
         status_label = "On Track"
-        status_detail = "Current pace projects meeting your growth target."
+        status_detail = "Current pace projects meeting your profit target."
     elif pace_pct >= Decimal("85"):
         status = "caution"
         status_label = "Close — Push Pace"

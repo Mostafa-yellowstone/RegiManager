@@ -41,6 +41,28 @@
 .bt-new_business { background:#e0e7ff; color:#3730a3; }
 .bt-renewal { background:#ecfdf5; color:#065f46; }
 .bt-rewrite { background:#fff7ed; color:#9a3412; }
+.agent-rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 6px;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: help;
+    vertical-align: middle;
+}
+.agent-rank-badge--second {
+    font-size: 0.95rem;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+html.portal-theme-dark .agent-rank-badge--second {
+    background: linear-gradient(135deg, #334155, #1e293b);
+    border-color: #64748b;
+}
 </style>
 
 {% if insurance_locked %}
@@ -722,7 +744,9 @@
                       {{ stat.fullname }}
                     </a>
                     {% if stat.is_best %}
-                      <span title="Best Performer!" style="margin-left: 4px; font-size: 1.1rem; cursor: help;">👑</span>
+                      <span class="agent-rank-badge agent-rank-badge--first" title="Best Performer — #1 in premium volume">👑</span>
+                    {% elif stat.is_second %}
+                      <span class="agent-rank-badge agent-rank-badge--second" title="2nd in Performance — premium volume">🥈</span>
                     {% endif %}
                   </td>
                   <td style="text-align: center; font-weight: 700; color: #1d4ed8;">{{ stat.quotes_count }}</td>
