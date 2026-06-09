@@ -5647,14 +5647,11 @@ def inventory_detail(request, inventory_id):
         if not membership:
             deny_access("Access denied.")
         is_owner = (membership.role == OrganizationMembership.Role.OWNER)
+        from .space_access import require_space_access
+        require_space_access(membership, card)
 
     user_can_view_commission = is_owner or (membership and membership.can_view_commission)
     user_can_view_banking = is_owner or (membership and membership.can_view_banking)
-
-    # Non-owners must have the specific space in their accessible_spaces
-    if not request.user.is_superuser and not is_owner:
-        if not membership.accessible_spaces.filter(id=card.id).exists():
-            deny_access("You do not have permission to access this space.")
 
     if request.method == "POST":
         if not is_owner:
@@ -6165,8 +6162,8 @@ def spaces_home(request):
         if not membership:
             deny_access("Access denied.")
         is_owner = (membership.role == OrganizationMembership.Role.OWNER)
-        if not is_owner and not membership.can_view_spaces:
-            deny_access("You do not have permission to view Spaces.")
+        from .space_access import require_spaces_page_access
+        require_spaces_page_access(membership)
 
     # Auto-ensure "Insurance" card exists for this active org
     Space.objects.get_or_create(
@@ -6196,13 +6193,11 @@ def spaces_home(request):
         },
     )
         
-    if request.user.is_superuser or is_owner:
+    if request.user.is_superuser:
         inventory_items = Space.objects.filter(organization=active_org)
     else:
-        inventory_items = Space.objects.filter(
-            id__in=membership.accessible_spaces.values_list('id', flat=True),
-            organization=active_org
-        )
+        from .space_access import filter_accessible_spaces
+        inventory_items = filter_accessible_spaces(membership, active_org)
     
     context = {
         "needs_org_selection": False,

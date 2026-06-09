@@ -65,8 +65,14 @@ def _resolve_space_access(request, space_id):
     if not membership:
         return None, False, None
 
+    from django.core.exceptions import PermissionDenied
+
+    from .space_access import require_space_access
+
     is_owner = membership.role == OrganizationMembership.Role.OWNER
-    if not is_owner and not membership.accessible_spaces.filter(id=space.id).exists():
+    try:
+        require_space_access(membership, space)
+    except PermissionDenied:
         return None, False, membership
 
     return space, is_owner, membership

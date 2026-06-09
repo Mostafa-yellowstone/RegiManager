@@ -91,7 +91,7 @@ class OrganizationMembershipAdmin(admin.ModelAdmin):
             ),
         }),
         ("Spaces Access", {
-            "description": "Grant access to the Spaces section and individual spaces below.",
+            "description": "Required for all members, including PSB owners: enable Spaces page access, then pick which spaces they can open.",
             "fields": (
                 "can_view_spaces",
                 "accessible_spaces",

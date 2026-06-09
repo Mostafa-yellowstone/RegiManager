@@ -688,12 +688,18 @@ class KnowledgeHubTests(TestCase):
         self.owner = User.objects.create_user(username="owner", password="password123")
         self.agent = User.objects.create_user(username="agent", password="password123")
         
-        OrganizationMembership.objects.create(user=self.owner, organization=self.org, is_active=True, role="owner")
-        self.agent_membership = OrganizationMembership.objects.create(user=self.agent, organization=self.org, is_active=True, role="member")
+        self.owner_membership = OrganizationMembership.objects.create(
+            user=self.owner, organization=self.org, is_active=True, role="owner"
+        )
+        self.agent_membership = OrganizationMembership.objects.create(
+            user=self.agent, organization=self.org, is_active=True, role="member"
+        )
         
         self.client = TestClient()
 
     def test_spaces_home_auto_creates_knowledge_hub(self):
+        self.owner_membership.can_view_spaces = True
+        self.owner_membership.save()
         self.client.login(username="owner", password="password123")
         response = self.client.get(reverse("spaces-home"))
         self.assertEqual(response.status_code, 200)
@@ -711,6 +717,8 @@ class KnowledgeHubTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_agent_can_view_knowledge_hub_with_accessible_spaces(self):
+        self.agent_membership.can_view_spaces = True
+        self.agent_membership.save()
         self.client.login(username="agent", password="password123")
         # trigger auto-creation first
         from core.models import Space
@@ -722,9 +730,12 @@ class KnowledgeHubTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_owner_can_add_material(self):
+        self.owner_membership.can_view_spaces = True
+        self.owner_membership.save()
         self.client.login(username="owner", password="password123")
         from core.models import Space
         space, _ = Space.objects.get_or_create(organization=self.org, key="knowledge_hub")
+        self.owner_membership.accessible_spaces.add(space)
         
         response = self.client.post(reverse("add-knowledge-material", args=[space.id]), {
             "title": "Test Guideline",
@@ -749,8 +760,33 @@ class KnowledgeHubTests(TestCase):
         })
         self.assertEqual(response.status_code, 403)
 
+    def test_owner_cannot_view_spaces_without_permission(self):
+        self.client.login(username="owner", password="password123")
+        response = self.client.get(reverse("spaces-home"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_owner_cannot_view_space_without_accessible_spaces(self):
+        self.owner_membership.can_view_spaces = True
+        self.owner_membership.save()
+        self.client.login(username="owner", password="password123")
+        from core.models import Space
+        space, _ = Space.objects.get_or_create(organization=self.org, key="knowledge_hub")
+        response = self.client.get(reverse("inventory-detail", args=[space.id]))
+        self.assertEqual(response.status_code, 403)
+
+    def test_owner_can_view_space_with_permissions(self):
+        self.owner_membership.can_view_spaces = True
+        self.owner_membership.save()
+        self.client.login(username="owner", password="password123")
+        from core.models import Space
+        space, _ = Space.objects.get_or_create(organization=self.org, key="knowledge_hub")
+        self.owner_membership.accessible_spaces.add(space)
+        response = self.client.get(reverse("inventory-detail", args=[space.id]))
+        self.assertEqual(response.status_code, 200)
+
     def test_agent_with_permission_can_add_material(self):
         self.agent_membership.can_manage_knowledge_hub = True
+        self.agent_membership.can_view_spaces = True
         self.agent_membership.save()
         
         self.client.login(username="agent", password="password123")

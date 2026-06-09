@@ -45,6 +45,12 @@ class FriendlyErrorMiddleware:
         try:
             response = self.get_response(request)
         except Exception as exc:
+            from django.core.exceptions import PermissionDenied
+            from django.core.handlers.exception import response_for_exception
+            from django.http import Http404
+
+            if isinstance(exc, (PermissionDenied, Http404)):
+                return response_for_exception(request, exc)
             handled = self.process_exception(request, exc)
             if handled is not None:
                 return handled
@@ -61,6 +67,12 @@ class FriendlyErrorMiddleware:
         return render_error_page(request, response.status_code)
 
     def process_exception(self, request, exception):
+        from django.core.exceptions import PermissionDenied
+        from django.core.handlers.exception import response_for_exception
+        from django.http import Http404
+
+        if isinstance(exception, (PermissionDenied, Http404)):
+            return response_for_exception(request, exception)
         if settings.DEBUG:
             return None
         log_server_exception(request, exception)
