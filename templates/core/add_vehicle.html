@@ -264,6 +264,22 @@ document.addEventListener('DOMContentLoaded', function() {
         return !!(legacyVinCheckbox && legacyVinCheckbox.checked);
     }
 
+    function clientSideVinLooksValid(vin, legacy) {
+        if (!vin) return false;
+        if (legacy) {
+            if (vin.length === 17) return false;
+            return vin.length >= LEGACY_MIN && vin.length <= LEGACY_MAX && /^[A-Z0-9]+$/.test(vin);
+        }
+        if (vin.length !== 17) return false;
+        return /^[A-HJ-NPR-Z0-9]{17}$/.test(vin);
+    }
+
+    function setSubmitEnabled(enabled, opacity) {
+        if (!submitBtn) return;
+        submitBtn.disabled = !enabled;
+        submitBtn.style.opacity = opacity || (enabled ? '1' : '0.5');
+    }
+
     function applyVinInputMode() {
         if (!vinInput) return;
         if (isLegacyMode()) {
@@ -284,10 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (vin.length === 0) {
             if (badge) badge.style.display = 'none';
             if (warning) warning.style.display = 'none';
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.style.opacity = '1';
-            }
+            setSubmitEnabled(true);
             vinInput.style.border = '';
             return;
         }
@@ -295,10 +308,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (legacy) {
             if (vin.length < LEGACY_MIN) {
                 updateBadge('warning', `${vin.length}/${LEGACY_MIN}+`);
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.style.opacity = '0.7';
-                }
+                setSubmitEnabled(false, '0.7');
                 if (warning) warning.style.display = 'none';
                 vinInput.style.border = '2px solid #f59e0b';
                 return;
@@ -312,10 +322,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     warning.innerHTML = '17-digit VINs use standard validation — uncheck Legacy VIN.';
                     warning.style.display = 'block';
                 }
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.style.opacity = '0.5';
-                }
+                setSubmitEnabled(false);
                 vinInput.style.border = '2px solid #ef4444';
                 return;
             }
@@ -328,12 +335,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 warning.innerHTML = 'Short VIN detected. Enable <strong>Legacy / pre-1981 VIN</strong> only for older vehicles.';
                 warning.style.display = 'block';
             }
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.style.opacity = '0.7';
-            }
+            setSubmitEnabled(false, '0.7');
             vinInput.style.border = '2px solid #f59e0b';
             return;
+        }
+
+        if (clientSideVinLooksValid(vin, legacy)) {
+            setSubmitEnabled(true);
         }
 
         updateBadge('loading', 'Checking...');
@@ -350,9 +358,26 @@ document.addEventListener('DOMContentLoaded', function() {
             runVinValidation();
         });
         applyVinInputMode();
-        if (legacyVinCheckbox.checked && vinInput && vinInput.value.trim()) {
-            runVinValidation();
+    }
+
+    if (vinInput && vinInput.value.trim()) {
+        runVinValidation();
+    }
+
+    function offlineVinFallback(vin) {
+        if (!clientSideVinLooksValid(vin, isLegacyMode())) {
+            updateBadge('error', 'INVALID');
+            setSubmitEnabled(false);
+            return;
         }
+        handleVinResponse({
+            exists_this_client: false,
+            exists_other_client: false,
+            is_valid: true,
+            is_legacy: isLegacyMode(),
+            offline_check: true,
+            other_owners: [],
+        });
     }
 
     function checkVin(vin) {
@@ -371,13 +396,17 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(r => r.json())
         .then(data => handleVinResponse(data))
         .catch(() => {
-            // CLIENT-SIDE FALLBACK: If server-side decoding fails (common on Hostinger firewall), try direct NHTSA call
+            if (isLegacyMode()) {
+                offlineVinFallback(vin);
+                return;
+            }
+            // CLIENT-SIDE FALLBACK: If server-side decoding fails, try direct NHTSA call
             fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/${vin}?format=json`)
             .then(r => r.json())
             .then(res => {
                 if (res.Results && res.Results[0]) {
                     const d = res.Results[0];
-                    const fallbackData = {
+                    handleVinResponse({
                         exists_this_client: false,
                         exists_other_client: false,
                         is_valid: true,
@@ -391,16 +420,35 @@ document.addEventListener('DOMContentLoaded', function() {
                             weight: d.GVWR,
                             seats: d.Seats
                         }
-                    };
-                    // Re-run the fill logic with fallback data
-                    handleVinResponse(fallbackData);
+                    });
                 } else {
-                    updateBadge('warning', 'OFFLINE');
+                    offlineVinFallback(vin);
                 }
             })
-            .catch(() => {
-                updateBadge('warning', 'OFFLINE');
-            });
+            .catch(() => offlineVinFallback(vin));
+        });
+    }
+
+    const vehicleForm = document.getElementById('vehicle-form');
+    if (vehicleForm) {
+        vehicleForm.addEventListener('submit', function(e) {
+            const vin = (vinInput && vinInput.value.trim().toUpperCase()) || '';
+            const legacy = isLegacyMode();
+            if (!clientSideVinLooksValid(vin, legacy)) {
+                e.preventDefault();
+                runVinValidation();
+                if (warning) {
+                    warning.style.background = '#fee2e2';
+                    warning.style.color = '#991b1b';
+                    warning.style.borderColor = '#fecaca';
+                    warning.innerHTML = '⚠️ Enter a complete valid VIN before saving.';
+                    warning.style.display = 'block';
+                }
+                return;
+            }
+            if (submitBtn && submitBtn.disabled) {
+                setSubmitEnabled(true);
+            }
         });
     }
 
@@ -414,10 +462,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 warning.style.display = 'block';
             }
             updateBadge('error', 'DUPLICATE');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.style.opacity = '0.5';
-            }
+            setSubmitEnabled(false);
             vinInput.style.border = '2px solid #ef4444';
         } else if (!data.is_valid) {
             if (warning) {
@@ -428,10 +473,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 warning.style.display = 'block';
             }
             updateBadge('error', 'INVALID');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.style.opacity = '0.5';
-            }
+            setSubmitEnabled(false);
             vinInput.style.border = '2px solid #ef4444';
         } else if (data.is_legacy) {
             if (warning) {
@@ -442,13 +484,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 warning.style.display = 'block';
             }
             updateBadge('warning', 'LEGACY VIN');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.style.opacity = '1';
-            }
+            setSubmitEnabled(true);
             vinInput.style.border = '2px solid #f59e0b';
         } else {
-            if (data.exists_other_client) {
+            if (data.offline_check) {
+                if (warning) {
+                    warning.style.background = '#fff7ed';
+                    warning.style.color = '#c2410c';
+                    warning.style.borderColor = '#fed7aa';
+                    warning.innerHTML = 'ℹ️ VIN looks valid locally. Live duplicate check is offline — server will validate on save.';
+                    warning.style.display = 'block';
+                }
+                updateBadge('warning', 'OFFLINE OK');
+            } else if (data.exists_other_client) {
                 if (warning) {
                     warning.style.background = '#fff7ed';
                     warning.style.color = '#c2410c';
@@ -464,11 +512,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateBadge('success', 'VALID & UNIQUE');
             }
             
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.style.opacity = '1';
-            }
-            vinInput.style.border = '2px solid #10b981';
+            setSubmitEnabled(true);
+            vinInput.style.border = data.offline_check ? '2px solid #f59e0b' : '2px solid #10b981';
 
             // AUTO-FILL LOGIC
             if (data.decoded) {

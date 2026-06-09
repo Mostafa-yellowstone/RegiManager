@@ -173,6 +173,50 @@ class InsuranceSpaceTests(TestCase):
 
 
 
+class AddVehicleViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="owner", password="password123")
+        self.org = Organization.objects.create(name="Test Org", city="NYC")
+        OrganizationMembership.objects.create(
+            user=self.user,
+            organization=self.org,
+            is_active=True,
+            role="owner",
+        )
+        self.client_obj = Client.objects.create(
+            organization=self.org,
+            first_name="Jane",
+            last_name="Doe",
+        )
+        self.client = TestClient()
+        self.client.login(username="owner", password="password123")
+
+    def test_add_vehicle_post_succeeds(self):
+        response = self.client.post(
+            reverse("add-vehicle", args=[self.client_obj.id]),
+            {
+                "vehicle_type": "passenger",
+                "plate_type": "personal",
+                "vin": "1HGCM82633A123456",
+                "vehicle_number": "VEH-123456",
+                "year": "2003",
+                "make": "Honda",
+                "model": "Accord",
+                "fuel_type": "gas",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            Vehicle.objects.filter(client=self.client_obj, vin="1HGCM82633A123456").exists()
+        )
+
+    def test_add_vehicle_page_renders(self):
+        response = self.client.get(reverse("add-vehicle", args=[self.client_obj.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Save Vehicle")
+        self.assertContains(response, "clientSideVinLooksValid")
+
+
 class VehicleSoftDeleteTests(TestCase):
     def setUp(self):
         self.org = Organization.objects.create(name="Test Org", city="NYC")
