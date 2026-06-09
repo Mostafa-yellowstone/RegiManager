@@ -10,6 +10,26 @@
     .alert-msg.success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
     #vin-warning { padding: 0.8rem 1.2rem; border-radius: 10px; margin-bottom: 1.5rem; background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; font-weight: 600; font-size: 0.9rem; }
     #id_vin { width: 100% !important; }
+    .legacy-vin-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        margin-top: 0.5rem;
+        width: 100%;
+        font-size: 0.78rem;
+        color: #64748b;
+        font-weight: 600;
+        cursor: pointer;
+        line-height: 1.2;
+    }
+    .legacy-vin-toggle input[type="checkbox"] {
+        margin: 0;
+        width: 15px;
+        height: 15px;
+        flex-shrink: 0;
+        cursor: pointer;
+    }
 
     @media (max-width: 768px) {
         .form-row {
@@ -83,9 +103,9 @@
                             {{ form.vin }}
                             <div id="vin-status-badge" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.65rem; font-weight: 800; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; display: none; pointer-events: none;"></div>
                         </div>
-                        <label id="legacy-vin-toggle" style="display: flex; align-items: flex-start; gap: 0.5rem; margin-top: 0.45rem; font-size: 0.78rem; color: #64748b; font-weight: 600; cursor: pointer;">
+                        <label id="legacy-vin-toggle" class="legacy-vin-toggle" title="For pre-1981 vehicles: 5–16 characters, no auto-decode — enter year, make &amp; model manually">
                             {{ form.is_legacy_vin }}
-                            <span>Legacy / pre-1981 VIN (5–16 chars, no decoder — enter year, make &amp; model manually)</span>
+                            <span>Pre-1981 legacy VIN</span>
                         </label>
                     </div>
                     <div class="field-wrap">
