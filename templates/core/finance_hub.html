@@ -237,6 +237,351 @@
     html.portal-theme-dark .finance-hub-page p[style*="color: #475569"] {
         color: var(--portal-text-secondary) !important;
     }
+
+    .finance-hero {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #0f172a 100%);
+        color: #f8fafc;
+        padding: 3rem;
+        border-radius: 40px;
+        margin-bottom: 4rem;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45);
+    }
+
+    .finance-hero::before {
+        content: "";
+        position: absolute;
+        top: -80px;
+        right: -60px;
+        width: 320px;
+        height: 320px;
+        background: radial-gradient(circle, rgba(59, 130, 246, 0.18) 0%, transparent 70%);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    .finance-hero-top {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 2rem;
+        margin-bottom: 2.5rem;
+    }
+
+    .finance-hero-live {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 1rem;
+    }
+
+    .finance-hero-live-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #10b981;
+        box-shadow: 0 0 12px #10b981;
+        animation: finance-pulse 2s infinite;
+    }
+
+    @keyframes finance-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.6; transform: scale(0.92); }
+    }
+
+    .finance-hero-title {
+        font-size: clamp(2.4rem, 4vw, 3.6rem);
+        font-weight: 900;
+        line-height: 1.05;
+        letter-spacing: -1.5px;
+        margin: 0 0 0.75rem;
+        color: #fff;
+    }
+
+    .finance-hero-title span {
+        background: linear-gradient(to right, #3b82f6, #60a5fa);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .finance-hero-subtitle {
+        margin: 0;
+        opacity: 0.75;
+        font-size: 1.1rem;
+        font-weight: 500;
+        max-width: 560px;
+        line-height: 1.5;
+    }
+
+    .finance-hero-date {
+        text-align: right;
+        flex-shrink: 0;
+    }
+
+    .finance-hero-date-label {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: #94a3b8;
+        font-weight: 800;
+        margin-bottom: 0.35rem;
+    }
+
+    .finance-hero-date-value {
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: #e2e8f0;
+    }
+
+    .finance-hero-daily-total {
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+        color: #94a3b8;
+        font-weight: 600;
+    }
+
+    .finance-hero-daily-total strong {
+        color: #4ade80;
+        font-size: 1rem;
+    }
+
+    .finance-payment-grid {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.25rem;
+        margin-bottom: 1.75rem;
+    }
+
+    .finance-pay-card {
+        background: var(--pay-gradient);
+        border-radius: 24px;
+        padding: 1.5rem;
+        color: #fff;
+        box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        min-height: 140px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .finance-pay-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 18px 36px rgba(0, 0, 0, 0.28);
+    }
+
+    .finance-pay-card-icon {
+        font-size: 1.6rem;
+        line-height: 1;
+    }
+
+    .finance-pay-card-label {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-weight: 800;
+        opacity: 0.9;
+    }
+
+    .finance-pay-card-value {
+        font-size: clamp(1.6rem, 2.5vw, 2.1rem);
+        font-weight: 900;
+        letter-spacing: -0.5px;
+        margin-top: auto;
+    }
+
+    .finance-pay-card-hint {
+        font-size: 0.72rem;
+        opacity: 0.82;
+        font-weight: 600;
+    }
+
+    .finance-goal-engine {
+        position: relative;
+        z-index: 2;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(18px);
+        border-radius: 28px;
+        padding: 2rem;
+        display: grid;
+        grid-template-columns: 1.4fr 1fr 1fr;
+        gap: 2rem;
+        align-items: center;
+    }
+
+    .finance-goal-head {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .finance-goal-badge {
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        padding: 0.35rem 0.65rem;
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.2);
+        color: #93c5fd;
+        border: 1px solid rgba(59, 130, 246, 0.35);
+    }
+
+    .finance-goal-badge.is-on_track {
+        background: rgba(16, 185, 129, 0.2);
+        color: #6ee7b7;
+        border-color: rgba(16, 185, 129, 0.35);
+    }
+
+    .finance-goal-badge.is-caution {
+        background: rgba(245, 158, 11, 0.2);
+        color: #fcd34d;
+        border-color: rgba(245, 158, 11, 0.35);
+    }
+
+    .finance-goal-badge.is-behind {
+        background: rgba(239, 68, 68, 0.2);
+        color: #fca5a5;
+        border-color: rgba(239, 68, 68, 0.35);
+    }
+
+    .finance-goal-title {
+        margin: 0 0 0.35rem;
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: #f8fafc;
+    }
+
+    .finance-goal-detail {
+        margin: 0 0 1.25rem;
+        color: #94a3b8;
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+
+    .finance-goal-progress-wrap {
+        margin-bottom: 0.75rem;
+    }
+
+    .finance-goal-progress-meta {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #cbd5e1;
+        margin-bottom: 0.45rem;
+    }
+
+    .finance-goal-progress-bar {
+        height: 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+    }
+
+    .finance-goal-progress-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #3b82f6, #22d3ee);
+        width: 0%;
+        transition: width 0.4s ease;
+    }
+
+    .finance-goal-input-row {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        flex-wrap: wrap;
+    }
+
+    .finance-goal-input-row label {
+        font-size: 0.75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #94a3b8;
+    }
+
+    .finance-goal-input-row input {
+        width: 140px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: rgba(15, 23, 42, 0.55);
+        color: #f8fafc;
+        border-radius: 10px;
+        padding: 0.5rem 0.65rem;
+        font-weight: 700;
+        font-size: 0.95rem;
+    }
+
+    .finance-goal-stat {
+        text-align: center;
+    }
+
+    .finance-goal-stat-label {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #94a3b8;
+        font-weight: 800;
+        margin-bottom: 0.35rem;
+    }
+
+    .finance-goal-stat-value {
+        font-size: 1.75rem;
+        font-weight: 900;
+        color: #f8fafc;
+        letter-spacing: -0.5px;
+    }
+
+    .finance-goal-stat-sub {
+        margin-top: 0.35rem;
+        font-size: 0.78rem;
+        color: #64748b;
+        font-weight: 600;
+    }
+
+    @media (max-width: 1100px) {
+        .finance-payment-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .finance-goal-engine {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .finance-hero {
+            padding: 2rem 1.5rem;
+        }
+
+        .finance-hero-top {
+            flex-direction: column;
+        }
+
+        .finance-hero-date {
+            text-align: left;
+        }
+
+        .finance-payment-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    html.portal-theme-dark .finance-hub-page .finance-goal-input-row input {
+        background: rgba(15, 23, 42, 0.85);
+        border-color: rgba(148, 163, 184, 0.25);
+        color: #f1f5f9;
+        color-scheme: dark;
+    }
 </style>
 {% endblock %}
 
@@ -244,32 +589,74 @@
 
 <main class="dashboard-shell finance-hub-page">
     <section class="dashboard-layout">
-        <!-- Elite Aero-Glass Hero -->
-        <header class="dashboard-hero" style="background: linear-gradient(135deg, #0f172a, #1e293b); color: white; padding: 5rem 3rem; border-radius: 40px; margin-bottom: 5rem; position: relative; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
-            <div style="position: absolute; top: -50px; right: -50px; width: 300px; height: 300px; background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%); border-radius: 50%;"></div>
-            
-            <div style="position: relative; z-index: 2; display: flex; flex-direction: column; gap: 3rem;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <div>
-                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1.5rem;">
-                            <span style="background: #10b981; width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 10px #10b981; animation: pulse 2s infinite;"></span>
-                            <div class="brand-pill" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; font-weight: 700; font-size: 0.75rem;">LIVE ANALYTICS ENGINE</div>
+        <header class="finance-hero">
+            <div class="finance-hero-top">
+                <div>
+                    <div class="finance-hero-live">
+                        <span class="finance-hero-live-dot" aria-hidden="true"></span>
+                        <span class="brand-pill" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; font-weight: 700; font-size: 0.75rem;">LIVE ANALYTICS ENGINE</span>
+                    </div>
+                    <h1 class="finance-hero-title">Financial <span>Intelligence.</span></h1>
+                    <p class="finance-hero-subtitle">Today's collections by payment method — reset daily on transaction date. Month-end forecast helps you hit your revenue target before the calendar closes.</p>
+                </div>
+                <div class="finance-hero-date">
+                    <div class="finance-hero-date-label">Transaction Date</div>
+                    <div class="finance-hero-date-value">{{ today|date:"M j, Y" }}</div>
+                    <div class="finance-hero-daily-total">Today's intake: <strong>${{ daily_payment_total|floatformat:2 }}</strong></div>
+                </div>
+            </div>
+
+            <div class="finance-payment-grid">
+                {% for card in daily_payment_cards %}
+                <article class="finance-pay-card" style="--pay-gradient: {{ card.gradient }};">
+                    <div class="finance-pay-card-icon" aria-hidden="true">{{ card.icon }}</div>
+                    <div class="finance-pay-card-label">{{ card.label }}</div>
+                    <div class="finance-pay-card-value">${{ card.total|floatformat:2 }}</div>
+                    <div class="finance-pay-card-hint">Resets daily · {{ today|date:"M j" }}</div>
+                </article>
+                {% endfor %}
+            </div>
+
+            <div class="finance-goal-engine" id="financeGoalEngine"
+                 data-month-key="{{ goal_forecast.month_key }}"
+                 data-mtd="{{ goal_forecast.mtd_revenue }}"
+                 data-projected="{{ goal_forecast.projected_month_end }}"
+                 data-suggested-goal="{{ goal_forecast.suggested_goal }}"
+                 data-days-remaining="{{ goal_forecast.days_remaining }}"
+                 data-daily-run-rate="{{ goal_forecast.daily_run_rate }}"
+                 data-required-daily="{{ goal_forecast.required_daily_pace }}"
+                 data-prev-month="{{ goal_forecast.prev_month_revenue }}">
+                <div>
+                    <div class="finance-goal-head">
+                        <span class="finance-goal-badge is-{{ goal_forecast.status }}" id="goalStatusBadge">{{ goal_forecast.status_label }}</span>
+                        <span class="finance-goal-badge">Month-End Forecast</span>
+                    </div>
+                    <h2 class="finance-goal-title">Hit Your {{ goal_forecast.month_label }} Goal</h2>
+                    <p class="finance-goal-detail" id="goalStatusDetail">{{ goal_forecast.status_detail }}</p>
+                    <div class="finance-goal-progress-wrap">
+                        <div class="finance-goal-progress-meta">
+                            <span>Month progress</span>
+                            <span id="goalProgressPct">{{ goal_forecast.mtd_pct }}%</span>
                         </div>
-                        <h1 style="color: white; font-size: 4rem; font-weight: 900; line-height: 1; letter-spacing: -2px; margin-bottom: 1rem;">Financial <span style="background: linear-gradient(to right, #3b82f6, #60a5fa); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">Intelligence.</span></h1>
-                        <p style="opacity: 0.7; font-size: 1.25rem; font-weight: 500; max-width: 600px;">Strategic oversight for your psb. Track every dollar, analyze growth patterns, and optimize performance in real-time.</p>
+                        <div class="finance-goal-progress-bar">
+                            <div class="finance-goal-progress-fill" id="goalProgressFill" style="width: {% if goal_forecast.mtd_pct > 100 %}100{% else %}{{ goal_forecast.mtd_pct }}{% endif %}%;"></div>
+                        </div>
+                    </div>
+                    <div class="finance-goal-input-row">
+                        <label for="monthlyGoalInput">Monthly target ($)</label>
+                        <input type="number" id="monthlyGoalInput" min="0" step="100" value="{{ goal_forecast.suggested_goal|floatformat:0 }}" aria-label="Monthly revenue target">
+                        <span style="font-size: 0.75rem; color: #64748b; font-weight: 600;">Suggested: +5% vs last month (${{ goal_forecast.prev_month_revenue|floatformat:0 }})</span>
                     </div>
                 </div>
-                
-                <!-- Repositioned High-Worth Card -->
-                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(20px); padding: 2.5rem; border-radius: 32px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 15px 35px rgba(0,0,0,0.2);">
-                    <div>
-                        <div style="font-size: 0.85rem; text-transform: uppercase; color: #64748b; letter-spacing: 3px; font-weight: 800; margin-bottom: 0.5rem;">PSB Lifetime Value</div>
-                        <div style="font-size: 4rem; font-weight: 900; color: white; letter-spacing: -1px;">${{ total_revenue|floatformat:2 }}</div>
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="font-size: 1.1rem; color: #10b981; font-weight: 800; margin-bottom: 4px;">{{ total_services }} ASSETS</div>
-                        <div style="font-size: 0.85rem; color: #94a3b8; font-weight: 600;">Managed Organizations Records</div>
-                    </div>
+                <div class="finance-goal-stat">
+                    <div class="finance-goal-stat-label">Month-to-Date</div>
+                    <div class="finance-goal-stat-value">${{ goal_forecast.mtd_revenue|floatformat:0 }}</div>
+                    <div class="finance-goal-stat-sub">{{ goal_forecast.mtd_records }} transactions · {{ goal_forecast.days_elapsed }} days elapsed</div>
+                </div>
+                <div class="finance-goal-stat">
+                    <div class="finance-goal-stat-label">Projected Month-End</div>
+                    <div class="finance-goal-stat-value" id="goalProjectedValue">${{ goal_forecast.projected_month_end|floatformat:0 }}</div>
+                    <div class="finance-goal-stat-sub">Need <strong id="goalRequiredDaily">${{ goal_forecast.required_daily_pace|floatformat:0 }}</strong>/day · {{ goal_forecast.days_remaining }} days left</div>
                 </div>
             </div>
         </header>
@@ -487,6 +874,76 @@
         </div>
     </section>
 </main>
+
+<script>
+    (function () {
+        const engine = document.getElementById('financeGoalEngine');
+        const goalInput = document.getElementById('monthlyGoalInput');
+        const progressFill = document.getElementById('goalProgressFill');
+        const progressPct = document.getElementById('goalProgressPct');
+        const projectedValue = document.getElementById('goalProjectedValue');
+        const requiredDaily = document.getElementById('goalRequiredDaily');
+        const statusBadge = document.getElementById('goalStatusBadge');
+        const statusDetail = document.getElementById('goalStatusDetail');
+        if (!engine || !goalInput) return;
+
+        const monthKey = engine.dataset.monthKey || '';
+        const storageKey = `finance_monthly_goal_${monthKey}`;
+        const mtd = Number(engine.dataset.mtd || 0);
+        const projected = Number(engine.dataset.projected || 0);
+        const daysRemaining = Number(engine.dataset.daysRemaining || 0);
+
+        const savedGoal = localStorage.getItem(storageKey);
+        if (savedGoal && !Number.isNaN(Number(savedGoal))) {
+            goalInput.value = savedGoal;
+        }
+
+        function formatMoney(value) {
+            return '$' + Math.round(value).toLocaleString('en-US');
+        }
+
+        function updateForecast() {
+            const goal = Math.max(Number(goalInput.value) || 0, 0);
+            localStorage.setItem(storageKey, String(goal));
+
+            const mtdPct = goal > 0 ? (mtd / goal) * 100 : 0;
+            const barPct = Math.min(mtdPct, 100);
+            progressFill.style.width = barPct + '%';
+            progressPct.textContent = mtdPct.toFixed(1) + '%';
+
+            projectedValue.textContent = formatMoney(projected);
+
+            let required = 0;
+            if (daysRemaining > 0 && goal > mtd) {
+                required = (goal - mtd) / daysRemaining;
+            }
+            requiredDaily.textContent = formatMoney(required);
+
+            let status = 'on_track';
+            let label = 'On Track';
+            let detail = 'Current pace projects meeting your revenue target.';
+            const paceRatio = goal > 0 ? projected / goal : 0;
+
+            if (paceRatio < 0.85) {
+                status = 'behind';
+                label = 'Behind Pace';
+                detail = 'Daily run-rate must rise to close the gap before month-end.';
+            } else if (paceRatio < 1) {
+                status = 'caution';
+                label = 'Close — Push Pace';
+                detail = 'You are within striking distance. Increase daily collections slightly.';
+            }
+
+            statusBadge.className = 'finance-goal-badge is-' + status;
+            statusBadge.textContent = label;
+            statusDetail.textContent = detail;
+        }
+
+        goalInput.addEventListener('input', updateForecast);
+        goalInput.addEventListener('change', updateForecast);
+        updateForecast();
+    })();
+</script>
 
 <script>
     (function () {

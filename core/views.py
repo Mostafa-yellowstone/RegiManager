@@ -56,6 +56,7 @@ from .insurance_commissions import (
     company_commission_summary,
     refund_total,
 )
+from .finance_hub_metrics import build_daily_payment_cards, build_month_goal_forecast
 import io
 from openpyxl import Workbook
 from django.utils.text import slugify
@@ -4537,16 +4538,30 @@ def finance_hub(request):
         # DB migrations not applied yet (table missing). Keep page functional.
         strategy_note = ""
 
+    today_date = timezone.localdate()
+    if org_filter.isdigit():
+        org_ids_for_metrics = [int(org_filter)]
+    else:
+        org_ids_for_metrics = list(organizations.values_list("id", flat=True))
+
+    daily_payment_cards, daily_payment_total = build_daily_payment_cards(
+        records, org_ids_for_metrics, today_date
+    )
+    goal_forecast = build_month_goal_forecast(records, today_date)
+
     context = {
         "total_revenue": total_revenue,
         "total_services": total_services,
         "month_revenue": month_revenue,
         "avg_order_value": avg_order_value,
+        "daily_payment_cards": daily_payment_cards,
+        "daily_payment_total": daily_payment_total,
+        "goal_forecast": goal_forecast,
         "chart_labels": json.dumps(chart_labels),
         "chart_data": json.dumps(chart_data),
         "pie_labels": json.dumps(pie_labels),
         "pie_data": json.dumps(pie_data),
-        "today": now.date(),
+        "today": today_date,
         "organizations_for_filter": organizations.order_by("name"),
         "agents_for_filter": agents_for_filter,
         "status_choices": ServiceRecord.STATUS_CHOICES,
