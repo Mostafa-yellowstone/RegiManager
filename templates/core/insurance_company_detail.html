@@ -76,58 +76,137 @@ html.portal-theme-dark .company-profile-page .chip-rejected { background: rgba(2
 .company-policies-crm .tbl { min-width: 1100px; }
 .company-policies-crm .tbl th:first-child,
 .company-policies-crm .tbl td:first-child { width: 52px; text-align: center; }
-.policy-crm-row { position: relative; overflow: hidden; transition: background 0.25s ease; }
-.policy-crm-row.is-received td { background: rgba(124, 58, 237, 0.07); }
-.policy-crm-row.is-received:hover td { background: rgba(124, 58, 237, 0.11); }
-.policy-received-check {
-  width: 18px; height: 18px; accent-color: #7c3aed; cursor: pointer;
+.policy-crm-row td {
+  position: relative;
+  transition: background-color 0.35s ease, box-shadow 0.35s ease;
 }
-.policy-received-check:disabled { cursor: not-allowed; opacity: 0.65; }
+.policy-crm-row td > * { position: relative; z-index: 1; }
+.policy-crm-row.is-received td {
+  background: rgba(124, 58, 237, 0.07);
+  box-shadow: inset 3px 0 0 #7c3aed;
+}
+.policy-crm-row.is-received:hover td {
+  background: rgba(124, 58, 237, 0.1);
+}
+.policy-crm-row.celebrate td::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(124, 58, 237, 0.08) 20%,
+    rgba(124, 58, 237, 0.22) 42%,
+    rgba(34, 197, 94, 0.28) 50%,
+    rgba(124, 58, 237, 0.22) 58%,
+    rgba(124, 58, 237, 0.08) 80%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  background-position: 100% 0;
+  animation: policyRowSweep 1.05s ease-out forwards;
+}
+.policy-crm-row.celebrate td:first-child::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(180deg, #a78bfa, #7c3aed, #22c55e);
+  animation: policyEdgeGlow 1s ease-out forwards;
+}
+.policy-received-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+.policy-received-wrap input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+  z-index: 2;
+}
 .policy-received-label {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; border-radius: 8px;
-  border: 1.5px solid var(--border); background: var(--portal-surface-muted);
-  cursor: pointer; transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--portal-surface-muted);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+  will-change: box-shadow;
 }
-.policy-received-label:hover { border-color: #a78bfa; background: #f5f3ff; }
+.policy-received-label:hover {
+  border-color: #a78bfa;
+  background: #f5f3ff;
+}
 .policy-received-check:checked + .policy-received-label {
   background: linear-gradient(135deg, #7c3aed, #6366f1);
-  border-color: #7c3aed; color: white;
+  border-color: #7c3aed;
+  color: white;
   box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
 }
-.policy-received-wrap { display: inline-flex; align-items: center; justify-content: center; }
-.policy-received-wrap input { position: absolute; opacity: 0; width: 0; height: 0; }
-.policy-crm-row.celebrate::before {
-  content: '';
-  position: absolute; inset: 0; pointer-events: none; z-index: 3;
-  background: linear-gradient(90deg, transparent 0%, rgba(124,58,237,0.18) 35%, rgba(34,197,94,0.22) 50%, rgba(124,58,237,0.18) 65%, transparent 100%);
-  transform: translateX(-100%);
-  animation: policyCelebrateSweep 0.85s ease-out forwards;
-}
-.policy-crm-row.celebrate::after {
-  content: '✓';
-  position: absolute; right: 1rem; top: 50%; transform: translateY(-50%) scale(0);
-  font-size: 1.1rem; font-weight: 900; color: #7c3aed;
-  animation: policyCelebratePop 0.6s ease-out 0.15s forwards;
-  pointer-events: none; z-index: 4;
+.policy-received-label.just-checked {
+  animation: policyCheckCelebrate 0.65s cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 .policy-crm-row.celebrate .policy-commission-cell {
-  animation: policyCommissionPulse 0.55s ease-out;
+  animation: policyCommissionGlow 0.95s ease-out;
 }
-@keyframes policyCelebrateSweep {
-  0% { transform: translateX(-100%); opacity: 0; }
-  15% { opacity: 1; }
-  100% { transform: translateX(100%); opacity: 0; }
+.policy-commission-sparkle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  animation: policySparkle 0.75s ease-out forwards;
 }
-@keyframes policyCelebratePop {
-  0% { transform: translateY(-50%) scale(0); opacity: 0; }
-  60% { transform: translateY(-50%) scale(1.25); opacity: 1; }
-  100% { transform: translateY(-50%) scale(1); opacity: 0; }
+.metric-value.metric-updated {
+  animation: metricCommissionPop 0.55s cubic-bezier(0.34, 1.4, 0.64, 1);
 }
-@keyframes policyCommissionPulse {
-  0% { transform: scale(1); color: var(--green); }
-  40% { transform: scale(1.12); color: #7c3aed; }
-  100% { transform: scale(1); color: var(--green); }
+@keyframes policyRowSweep {
+  0% { opacity: 0; background-position: 100% 0; }
+  18% { opacity: 1; }
+  100% { opacity: 0; background-position: -100% 0; }
+}
+@keyframes policyEdgeGlow {
+  0% { opacity: 0; filter: blur(2px); }
+  25% { opacity: 1; filter: blur(0); }
+  100% { opacity: 0; }
+}
+@keyframes policyCheckCelebrate {
+  0% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.45); transform: scale(1); }
+  35% { box-shadow: 0 0 0 10px rgba(124, 58, 237, 0); transform: scale(1.12); }
+  70% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+@keyframes policyCommissionGlow {
+  0%, 100% { color: var(--green); text-shadow: none; }
+  45% { color: #7c3aed; text-shadow: 0 0 14px rgba(124, 58, 237, 0.45); }
+}
+@keyframes policySparkle {
+  0% { opacity: 0; transform: scale(0); }
+  30% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.2) translateY(-10px); }
+}
+@keyframes metricCommissionPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.08); color: #7c3aed; }
+  100% { transform: scale(1); }
 }
 html.portal-theme-dark .company-profile-page .policy-received-label { background: var(--portal-surface-muted); border-color: var(--border); }
 html.portal-theme-dark .company-profile-page .policy-received-label:hover { background: rgba(99, 102, 241, 0.2); border-color: #818cf8; }
@@ -506,8 +585,34 @@ function getCsrfToken() {
   return match ? decodeURIComponent(match[1]) : '';
 }
 
+function pulseMetricValue(el) {
+  if (!el) return;
+  el.classList.remove('metric-updated');
+  void el.offsetWidth;
+  el.classList.add('metric-updated');
+  setTimeout(() => el.classList.remove('metric-updated'), 600);
+}
+
+function spawnCommissionSparkles(cell) {
+  if (!cell) return;
+  const colors = ['#7c3aed', '#6366f1', '#22c55e', '#a78bfa'];
+  const rect = cell.getBoundingClientRect();
+  for (let i = 0; i < 6; i++) {
+    const spark = document.createElement('span');
+    spark.className = 'policy-commission-sparkle';
+    spark.style.background = colors[i % colors.length];
+    spark.style.left = (8 + Math.random() * Math.max(rect.width - 16, 20)) + 'px';
+    spark.style.top = (4 + Math.random() * Math.max(rect.height - 12, 8)) + 'px';
+    spark.style.animationDelay = (i * 0.05) + 's';
+    cell.appendChild(spark);
+    spark.addEventListener('animationend', () => spark.remove());
+  }
+}
+
 async function togglePolicyCommissionReceived(checkbox) {
   const row = checkbox.closest('.policy-crm-row');
+  const label = checkbox.nextElementSibling;
+  const commissionCell = row.querySelector('.policy-commission-cell');
   const policyId = checkbox.dataset.policyId;
   const previous = !checkbox.checked;
 
@@ -535,10 +640,22 @@ async function togglePolicyCommissionReceived(checkbox) {
     const earnedEl = document.getElementById('earnedCommissionValue');
     if (receivedEl) receivedEl.textContent = '$' + data.received_commission;
     if (earnedEl) earnedEl.textContent = '$' + data.earned_commission;
+    pulseMetricValue(receivedEl);
+    pulseMetricValue(earnedEl);
+
+    row.classList.remove('celebrate');
+    if (label) label.classList.remove('just-checked');
 
     if (checkbox.checked) {
-      row.classList.add('is-received', 'celebrate');
-      setTimeout(() => row.classList.remove('celebrate'), 900);
+      row.classList.add('is-received');
+      void row.offsetWidth;
+      row.classList.add('celebrate');
+      if (label) {
+        label.classList.add('just-checked');
+        label.addEventListener('animationend', () => label.classList.remove('just-checked'), { once: true });
+      }
+      spawnCommissionSparkles(commissionCell);
+      setTimeout(() => row.classList.remove('celebrate'), 1100);
     } else {
       row.classList.remove('is-received', 'celebrate');
     }
