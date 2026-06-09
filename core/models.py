@@ -337,6 +337,10 @@ class Vehicle(SoftDeleteModel):
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="vehicles")
     vehicle_type = models.CharField(max_length=50, choices=VEHICLE_TYPES, default="passenger")
     vin = models.CharField(max_length=50, db_index=True)
+    is_legacy_vin = models.BooleanField(
+        default=False,
+        help_text="Pre-1981 or non-standard VIN (fewer than 17 characters). Skips NHTSA decode.",
+    )
     plate_number = models.CharField(max_length=50, blank=True, default="", db_index=True)
     
     year = models.IntegerField(blank=True, null=True)

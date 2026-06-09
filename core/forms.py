@@ -369,7 +369,7 @@ class VehicleForm(forms.ModelForm):
     class Meta:
         model = Vehicle
         fields = [
-            "vehicle_type", "plate_type", "vin", "plate_number",
+            "vehicle_type", "plate_type", "vin", "is_legacy_vin", "plate_number",
             "vehicle_number",
             "year", "make", "model",
             "body_type", "color", "weight", "fuel_type",
@@ -391,14 +391,36 @@ class VehicleForm(forms.ModelForm):
         for field_name, field in self.fields.items():
             field.widget.attrs["class"] = "form-control"
         self.fields["vin"].widget.attrs["id"] = "id_vin"
+        self.fields["vin"].widget.attrs["maxlength"] = "17"
+        self.fields["is_legacy_vin"].widget.attrs["id"] = "id_is_legacy_vin"
+        self.fields["is_legacy_vin"].label = "Legacy / pre-1981 VIN"
         self.fields["vehicle_number"].widget.attrs["readonly"] = True
         self.fields["vehicle_number"].widget.attrs["style"] = "background-color: #f8fafc; cursor: not-allowed; color: #64748b;"
+        if self.instance.pk and self.instance.is_legacy_vin:
+            self.initial.setdefault("is_legacy_vin", True)
+            self.fields["vin"].widget.attrs["maxlength"] = "16"
+        elif (
+            self.instance.pk
+            and self.instance.vin
+            and len(self.instance.vin.strip()) < 17
+            and not self.instance.is_legacy_vin
+        ):
+            self.initial.setdefault("is_legacy_vin", True)
+            self.fields["vin"].widget.attrs["maxlength"] = "16"
 
     def clean_vin(self):
-        vin = self.cleaned_data.get("vin", "").strip().upper()
+        from .vin_validation import normalize_vin, validate_vin
+
+        raw_vin = self.cleaned_data.get("vin", "")
+        legacy = self.cleaned_data.get("is_legacy_vin", False)
+        vin = normalize_vin(raw_vin)
         if not vin:
             raise forms.ValidationError("VIN is required.")
-        # Only block duplicate VIN for the same client
+
+        is_valid, message = validate_vin(vin, legacy=legacy)
+        if not is_valid:
+            raise forms.ValidationError(message)
+
         client = self.client or getattr(self.instance, "client", None)
         if client:
             existing = Vehicle.objects.filter(vin=vin, client=client).first()
@@ -408,6 +430,24 @@ class VehicleForm(forms.ModelForm):
                     f"({existing.year} {existing.make} {existing.model})."
                 )
         return vin
+
+    def clean(self):
+        cleaned_data = super().clean()
+        legacy = cleaned_data.get("is_legacy_vin", False)
+        if legacy:
+            missing = []
+            if not cleaned_data.get("year"):
+                missing.append("year")
+            if not (cleaned_data.get("make") or "").strip():
+                missing.append("make")
+            if not (cleaned_data.get("model") or "").strip():
+                missing.append("model")
+            for field_name in missing:
+                self.add_error(
+                    field_name,
+                    "Required when using a legacy VIN (decoder cannot auto-fill).",
+                )
+        return cleaned_data
 
 
 class VehicleServiceForm(forms.ModelForm):

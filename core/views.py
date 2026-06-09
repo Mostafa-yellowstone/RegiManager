@@ -1057,19 +1057,21 @@ def add_vehicle(request, client_id):
 
 @login_required
 def check_vin_ajax(request):
-    vin = request.GET.get("vin", "").strip().upper()
+    from .vin_validation import normalize_vin, validate_vin
+
+    vin = normalize_vin(request.GET.get("vin", ""))
     org_id = request.GET.get("org_id", "").strip()
     client_id = request.GET.get("client_id", "").strip()
     vehicle_id = request.GET.get("vehicle_id", "").strip()
+    legacy_mode = request.GET.get("legacy", "").strip().lower() in {"1", "true", "yes"}
 
     if not vin:
         return JsonResponse({"exists": False, "is_valid": False})
 
     if not org_id.isdigit() or not _has_active_org_access(request.user, int(org_id)):
         return JsonResponse({"exists": False, "is_valid": False})
-    
-    # Structural check (Modern VINs are 17 characters and don't contain I, O, or Q)
-    is_valid_format = len(vin) == 17 and not any(c in vin for c in "IOQ")
+
+    is_valid_format, validation_message = validate_vin(vin, legacy=legacy_mode)
     
     # Base filter for active vehicles with this VIN in the organization
     org_vehicles = Vehicle.objects.filter(vin=vin, client__organization_id=int(org_id))
@@ -1116,6 +1118,8 @@ def check_vin_ajax(request):
         "exists_this_client": exists_this_client,
         "exists_other_client": len(other_owners) > 0,
         "is_valid": is_valid_format,
+        "is_legacy": legacy_mode and is_valid_format,
+        "validation_message": validation_message,
         "other_owners": other_owners,
     }
     
@@ -1125,9 +1129,9 @@ def check_vin_ajax(request):
     if exists_this_client or len(other_owners) > 0:
         return JsonResponse(response_data)
         
-    # 2. If it's a new VIN and valid, try to decode it via NHTSA API
+    # 2. If it's a new VIN and valid, try to decode it via NHTSA API (modern only)
     decoded_data = {}
-    if is_valid_format:
+    if is_valid_format and not legacy_mode:
         try:
             import requests
             url = f"https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/{vin}?format=json"

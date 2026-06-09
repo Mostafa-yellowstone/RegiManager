@@ -83,6 +83,10 @@
                             {{ form.vin }}
                             <div id="vin-status-badge" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.65rem; font-weight: 800; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; display: none; pointer-events: none;"></div>
                         </div>
+                        <label id="legacy-vin-toggle" style="display: flex; align-items: flex-start; gap: 0.5rem; margin-top: 0.45rem; font-size: 0.78rem; color: #64748b; font-weight: 600; cursor: pointer;">
+                            {{ form.is_legacy_vin }}
+                            <span>Legacy / pre-1981 VIN (5–16 chars, no decoder — enter year, make &amp; model manually)</span>
+                        </label>
                     </div>
                     <div class="field-wrap">
                         <label style="font-size: 0.85rem;">Plate Number</label>
@@ -200,10 +204,13 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const vinInput = document.getElementById('id_vin');
+    const legacyVinCheckbox = document.getElementById('id_is_legacy_vin');
     const warning = document.getElementById('vin-warning');
     // More robust button selector
     const submitBtn = document.querySelector('button[type="submit"]');
     const badge = document.getElementById('vin-status-badge');
+    const LEGACY_MIN = 5;
+    const LEGACY_MAX = 16;
     const titleScanTrigger = document.getElementById('title-scan-trigger');
     const vehicleScannerModal = document.getElementById('vehicleScannerModal');
     const vehicleScanInput = document.getElementById('vehicle-scan-input');
@@ -233,35 +240,99 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    if (vinInput) {
-        vinInput.addEventListener('input', function() {
-            clearTimeout(checkTimer);
-            const vin = this.value.trim().toUpperCase();
-            
-            if (vin.length === 0) {
-                if (badge) badge.style.display = 'none';
-                if (warning) warning.style.display = 'none';
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.style.opacity = '1';
-                }
-                vinInput.style.border = '';
-                return;
-            }
+    function isLegacyMode() {
+        return !!(legacyVinCheckbox && legacyVinCheckbox.checked);
+    }
 
-            if (vin.length < 17) {
-                updateBadge('warning', `${vin.length}/17`);
+    function applyVinInputMode() {
+        if (!vinInput) return;
+        if (isLegacyMode()) {
+            vinInput.setAttribute('maxlength', String(LEGACY_MAX));
+            vinInput.setAttribute('placeholder', 'Legacy VIN (5-16 chars)');
+        } else {
+            vinInput.setAttribute('maxlength', '17');
+            vinInput.setAttribute('placeholder', '17-digit VIN');
+        }
+    }
+
+    function runVinValidation() {
+        if (!vinInput) return;
+        clearTimeout(checkTimer);
+        const vin = vinInput.value.trim().toUpperCase();
+        const legacy = isLegacyMode();
+
+        if (vin.length === 0) {
+            if (badge) badge.style.display = 'none';
+            if (warning) warning.style.display = 'none';
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+            }
+            vinInput.style.border = '';
+            return;
+        }
+
+        if (legacy) {
+            if (vin.length < LEGACY_MIN) {
+                updateBadge('warning', `${vin.length}/${LEGACY_MIN}+`);
                 if (submitBtn) {
                     submitBtn.disabled = true;
                     submitBtn.style.opacity = '0.7';
                 }
                 if (warning) warning.style.display = 'none';
+                vinInput.style.border = '2px solid #f59e0b';
                 return;
             }
+            if (vin.length === 17) {
+                updateBadge('error', 'USE MODERN');
+                if (warning) {
+                    warning.style.background = '#fee2e2';
+                    warning.style.color = '#991b1b';
+                    warning.style.borderColor = '#fecaca';
+                    warning.innerHTML = '17-digit VINs use standard validation — uncheck Legacy VIN.';
+                    warning.style.display = 'block';
+                }
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.5';
+                }
+                vinInput.style.border = '2px solid #ef4444';
+                return;
+            }
+        } else if (vin.length < 17) {
+            updateBadge('warning', `${vin.length}/17`);
+            if (warning) {
+                warning.style.background = '#fff7ed';
+                warning.style.color = '#c2410c';
+                warning.style.borderColor = '#fed7aa';
+                warning.innerHTML = 'Short VIN detected. Enable <strong>Legacy / pre-1981 VIN</strong> only for older vehicles.';
+                warning.style.display = 'block';
+            }
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.style.opacity = '0.7';
+            }
+            vinInput.style.border = '2px solid #f59e0b';
+            return;
+        }
 
-            updateBadge('loading', 'Checking...');
-            checkTimer = setTimeout(() => checkVin(vin), 300);
+        updateBadge('loading', 'Checking...');
+        checkTimer = setTimeout(() => checkVin(vin), 300);
+    }
+
+    if (vinInput) {
+        vinInput.addEventListener('input', runVinValidation);
+    }
+
+    if (legacyVinCheckbox) {
+        legacyVinCheckbox.addEventListener('change', function() {
+            applyVinInputMode();
+            runVinValidation();
         });
+        applyVinInputMode();
+        if (legacyVinCheckbox.checked && vinInput && vinInput.value.trim()) {
+            runVinValidation();
+        }
     }
 
     function checkVin(vin) {
@@ -269,6 +340,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const clientId = "{{ client.id }}";
         const vehicleId = "{% if edit_mode %}{{ vehicle.id }}{% else %}{% endif %}";
         let url = "{% url 'check-vin' %}?vin=" + encodeURIComponent(vin) + "&org_id=" + encodeURIComponent(orgId) + "&client_id=" + encodeURIComponent(clientId);
+        if (isLegacyMode()) {
+            url += "&legacy=1";
+        }
         if (vehicleId) {
             url += "&vehicle_id=" + encodeURIComponent(vehicleId);
         }
@@ -330,7 +404,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 warning.style.background = '#fee2e2';
                 warning.style.color = '#991b1b';
                 warning.style.borderColor = '#fecaca';
-                warning.innerHTML = `⚠️ Invalid VIN Format! A modern VIN must be exactly 17 characters and cannot contain letters I, O, or Q.`;
+                warning.innerHTML = `⚠️ ${data.validation_message || 'Invalid VIN format.'}`;
                 warning.style.display = 'block';
             }
             updateBadge('error', 'INVALID');
@@ -339,6 +413,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitBtn.style.opacity = '0.5';
             }
             vinInput.style.border = '2px solid #ef4444';
+        } else if (data.is_legacy) {
+            if (warning) {
+                warning.style.background = '#fff7ed';
+                warning.style.color = '#c2410c';
+                warning.style.borderColor = '#fed7aa';
+                warning.innerHTML = 'Legacy VIN accepted. Enter <strong>year, make, and model</strong> manually — decoder is skipped.';
+                warning.style.display = 'block';
+            }
+            updateBadge('warning', 'LEGACY VIN');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+            }
+            vinInput.style.border = '2px solid #f59e0b';
         } else {
             if (data.exists_other_client) {
                 if (warning) {
