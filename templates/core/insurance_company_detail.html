@@ -68,10 +68,74 @@ html.portal-theme-dark .company-profile-page .chip-rejected { background: rgba(2
 .page-btn { padding: 5px 11px; border-radius: 6px; border: 1px solid var(--border); background: var(--portal-surface); color: var(--muted); font-weight: 700; font-size: 0.8rem; text-decoration: none; cursor: pointer; }
 .page-btn.active { background: var(--blue); color: white; border-color: var(--blue); }
 .page-btn:hover:not(.active) { border-color: #93c5fd; color: var(--blue); }
+
+/* Policies CRM */
+.company-policies-crm { width: 100%; margin-bottom: 2rem; }
+.company-policies-crm .section-header { flex-wrap: wrap; gap: 0.75rem; }
+.company-policies-crm-table-wrap { overflow-x: auto; width: 100%; }
+.company-policies-crm .tbl { min-width: 1100px; }
+.company-policies-crm .tbl th:first-child,
+.company-policies-crm .tbl td:first-child { width: 52px; text-align: center; }
+.policy-crm-row { position: relative; overflow: hidden; transition: background 0.25s ease; }
+.policy-crm-row.is-received td { background: rgba(124, 58, 237, 0.07); }
+.policy-crm-row.is-received:hover td { background: rgba(124, 58, 237, 0.11); }
+.policy-received-check {
+  width: 18px; height: 18px; accent-color: #7c3aed; cursor: pointer;
+}
+.policy-received-check:disabled { cursor: not-allowed; opacity: 0.65; }
+.policy-received-label {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 8px;
+  border: 1.5px solid var(--border); background: var(--portal-surface-muted);
+  cursor: pointer; transition: all 0.2s ease;
+}
+.policy-received-label:hover { border-color: #a78bfa; background: #f5f3ff; }
+.policy-received-check:checked + .policy-received-label {
+  background: linear-gradient(135deg, #7c3aed, #6366f1);
+  border-color: #7c3aed; color: white;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+}
+.policy-received-wrap { display: inline-flex; align-items: center; justify-content: center; }
+.policy-received-wrap input { position: absolute; opacity: 0; width: 0; height: 0; }
+.policy-crm-row.celebrate::before {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none; z-index: 3;
+  background: linear-gradient(90deg, transparent 0%, rgba(124,58,237,0.18) 35%, rgba(34,197,94,0.22) 50%, rgba(124,58,237,0.18) 65%, transparent 100%);
+  transform: translateX(-100%);
+  animation: policyCelebrateSweep 0.85s ease-out forwards;
+}
+.policy-crm-row.celebrate::after {
+  content: '✓';
+  position: absolute; right: 1rem; top: 50%; transform: translateY(-50%) scale(0);
+  font-size: 1.1rem; font-weight: 900; color: #7c3aed;
+  animation: policyCelebratePop 0.6s ease-out 0.15s forwards;
+  pointer-events: none; z-index: 4;
+}
+.policy-crm-row.celebrate .policy-commission-cell {
+  animation: policyCommissionPulse 0.55s ease-out;
+}
+@keyframes policyCelebrateSweep {
+  0% { transform: translateX(-100%); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+@keyframes policyCelebratePop {
+  0% { transform: translateY(-50%) scale(0); opacity: 0; }
+  60% { transform: translateY(-50%) scale(1.25); opacity: 1; }
+  100% { transform: translateY(-50%) scale(1); opacity: 0; }
+}
+@keyframes policyCommissionPulse {
+  0% { transform: scale(1); color: var(--green); }
+  40% { transform: scale(1.12); color: #7c3aed; }
+  100% { transform: scale(1); color: var(--green); }
+}
+html.portal-theme-dark .company-profile-page .policy-received-label { background: var(--portal-surface-muted); border-color: var(--border); }
+html.portal-theme-dark .company-profile-page .policy-received-label:hover { background: rgba(99, 102, 241, 0.2); border-color: #818cf8; }
+html.portal-theme-dark .company-profile-page .policy-crm-row.is-received td { background: rgba(124, 58, 237, 0.14); }
 </style>
 
 <main class="portal-space-shell company-profile-page">
-  <div class="portal-space-inner">
+  <div class="portal-space-inner portal-space-inner--wide">
 
     <!-- Breadcrumb -->
     <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: var(--muted); font-weight: 600; flex-wrap: wrap;">
@@ -113,15 +177,18 @@ html.portal-theme-dark .company-profile-page .chip-rejected { background: rgba(2
       <div class="metric-card"><div class="metric-label">Pending</div><div class="metric-value" style="color: #b45309;">{{ pending_count }}</div></div>
       <div class="metric-card"><div class="metric-label">Rejected</div><div class="metric-value" style="color: var(--red);">{{ rejected_count }}</div></div>
       <div class="metric-card"><div class="metric-label">Total Premium</div><div class="metric-value" style="color: var(--blue); font-size: 1.4rem;">${{ total_premium|floatformat:2 }}</div></div>
-      <div class="metric-card"><div class="metric-label">Earned Commission</div><div class="metric-value" style="color: var(--green); font-size: 1.4rem;">${{ total_commission|floatformat:2 }}</div><div style="font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem;">Outstanding balance</div></div>
-      <div class="metric-card"><div class="metric-label">Received Commission</div><div class="metric-value" style="color: #7c3aed; font-size: 1.4rem;">${{ total_received_commission|floatformat:2 }}</div><div style="font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem;">Commission payments logged</div></div>
+      <div class="metric-card"><div class="metric-label">Earned Commission</div><div class="metric-value" id="earnedCommissionValue" style="color: var(--green); font-size: 1.4rem;">${{ total_commission|floatformat:2 }}</div><div style="font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem;">Outstanding balance</div></div>
+      <div class="metric-card"><div class="metric-label">Received Commission</div><div class="metric-value" id="receivedCommissionValue" style="color: #7c3aed; font-size: 1.4rem;">${{ total_received_commission|floatformat:2 }}</div><div style="font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem;">Policies marked as received</div></div>
       <div class="metric-card"><div class="metric-label">Unearned (Return)</div><div class="metric-value" style="color: var(--red); font-size: 1.4rem;">${{ total_unearned|floatformat:2 }}</div></div>
     </div>
 
-    <!-- Policies Section -->
-    <div class="section-card" style="margin-bottom: 2rem;">
+    <!-- Policies CRM -->
+    <div class="section-card company-policies-crm">
       <div class="section-header">
-        <h2 class="section-title">📋 Policies</h2>
+        <div>
+          <h2 class="section-title">📋 Policies CRM</h2>
+          <p style="margin: 0.35rem 0 0; font-size: 0.82rem; color: var(--muted); font-weight: 600;">Check a row to count its commission in Received Commission</p>
+        </div>
         <span style="font-size: 0.82rem; color: var(--muted); font-weight: 600;">{{ policies_page.paginator.count }} total</span>
       </div>
       <!-- Policy Filters -->
@@ -187,35 +254,54 @@ html.portal-theme-dark .company-profile-page .chip-rejected { background: rgba(2
           </details>
         </form>
       </div>
-      <div style="overflow-x: auto;">
+      <div class="company-policies-crm-table-wrap">
         <table class="tbl">
           <thead>
-            <tr><th>Client</th><th>Policy #</th><th>Type</th><th>Premium</th><th>Commission</th><th>Agent</th><th>Stage</th><th>Status</th><th>Start</th><th>End</th></tr>
+            <tr>
+              <th title="Mark commission as received">✓</th>
+              <th>Client</th><th>Policy #</th><th>Type</th><th>Premium</th><th>Commission</th><th>Agent</th><th>Stage</th><th>Status</th><th>Start</th><th>End</th>
+            </tr>
           </thead>
           <tbody>
             {% for policy in policies_page %}
-            <tr>
+            <tr class="policy-crm-row{% if policy.commission_received %} is-received{% endif %}" data-policy-id="{{ policy.id }}">
+              <td>
+                {% if policy.stage == 'bound' and can_manage_commission %}
+                <label class="policy-received-wrap" title="Mark commission as received">
+                  <input type="checkbox" class="policy-received-check"
+                    data-policy-id="{{ policy.id }}"
+                    data-commission="{{ policy.commission_amount }}"
+                    {% if policy.commission_received %}checked{% endif %}
+                    onchange="togglePolicyCommissionReceived(this)">
+                  <span class="policy-received-label">✓</span>
+                </label>
+                {% elif policy.commission_received %}
+                <span class="chip chip-bound" style="font-size: 0.62rem;">RCV</span>
+                {% else %}
+                <span style="color: var(--muted); font-size: 0.75rem;">—</span>
+                {% endif %}
+              </td>
               <td>
                 {% if policy.client %}<a href="{% url 'client-detail' policy.client.id %}" style="color: var(--blue); text-decoration: none; font-weight: 700;">{{ policy.client.name }}</a>{% else %}—{% endif %}
               </td>
               <td style="font-family: monospace; font-size: 0.82rem;">{{ policy.policy_number }}</td>
               <td style="font-size: 0.82rem; color: var(--muted);">{{ policy.get_insurance_type_display|default:"—" }}</td>
               <td style="font-weight: 800;">${{ policy.premium|floatformat:2 }}</td>
-              <td style="color: var(--green); font-weight: 700;">${{ policy.commission_amount|floatformat:2 }}</td>
-              <td>{% if policy.added_by %}<span style="font-size: 0.8rem; font-weight: 700; color: #475569;">{{ policy.added_by.get_full_name|default:policy.added_by.username }}</span>{% else %}<span style="color: #94a3b8; font-style: italic; font-size: 0.8rem;">System</span>{% endif %}</td>
+              <td class="policy-commission-cell" style="color: var(--green); font-weight: 700;">${{ policy.commission_amount|floatformat:2 }}</td>
+              <td>{% if policy.added_by %}<span style="font-size: 0.8rem; font-weight: 700; color: var(--muted);">{{ policy.added_by.get_full_name|default:policy.added_by.username }}</span>{% else %}<span style="color: var(--muted); font-style: italic; font-size: 0.8rem;">System</span>{% endif %}</td>
               <td>{% if policy.stage == 'quote' %}<span class="chip chip-quote">Quote</span>{% else %}<span class="chip chip-bound">Bound</span>{% endif %}</td>
               <td>
                 {% if policy.status == 'active' %}<span class="chip chip-active">Active</span>
                 {% elif policy.status == 'inactive' %}<span class="chip chip-inactive">Inactive</span>
                 {% elif policy.status == 'pending' %}<span class="chip chip-pending">Pending</span>
                 {% elif policy.status == 'rejected' %}<span class="chip chip-rejected">Rejected</span>
-                {% else %}<span class="chip" style="background:#f1f5f9;color:#475569;">{{ policy.status }}</span>{% endif %}
+                {% else %}<span class="chip" style="background: var(--portal-surface-muted); color: var(--muted);">{{ policy.status }}</span>{% endif %}
               </td>
               <td style="font-size: 0.82rem; color: var(--muted);">{{ policy.start_date }}</td>
               <td style="font-size: 0.82rem; color: var(--muted);">{{ policy.end_date }}</td>
             </tr>
             {% empty %}
-            <tr><td colspan="10" style="text-align: center; padding: 3rem; color: var(--muted); font-weight: 600;">No policies found for this company.</td></tr>
+            <tr><td colspan="11" style="text-align: center; padding: 3rem; color: var(--muted); font-weight: 600;">No policies found for this company.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -411,5 +497,56 @@ html.portal-theme-dark .company-profile-page .chip-rejected { background: rgba(2
   {% endfor %}
 </div>
 {% endif %}
+
+<script>
+function getCsrfToken() {
+  const input = document.querySelector('[name=csrfmiddlewaretoken]');
+  if (input) return input.value;
+  const match = document.cookie.match(/csrftoken=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+async function togglePolicyCommissionReceived(checkbox) {
+  const row = checkbox.closest('.policy-crm-row');
+  const policyId = checkbox.dataset.policyId;
+  const previous = !checkbox.checked;
+
+  try {
+    const body = new URLSearchParams();
+    body.append('received', checkbox.checked ? '1' : '0');
+
+    const response = await fetch(`/dashboard/spaces/insurance/policy/${policyId}/toggle-commission-received/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCsrfToken(),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: body.toString(),
+    });
+
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      checkbox.checked = previous;
+      alert(data.error || 'Could not update commission received status.');
+      return;
+    }
+
+    const receivedEl = document.getElementById('receivedCommissionValue');
+    const earnedEl = document.getElementById('earnedCommissionValue');
+    if (receivedEl) receivedEl.textContent = '$' + data.received_commission;
+    if (earnedEl) earnedEl.textContent = '$' + data.earned_commission;
+
+    if (checkbox.checked) {
+      row.classList.add('is-received', 'celebrate');
+      setTimeout(() => row.classList.remove('celebrate'), 900);
+    } else {
+      row.classList.remove('is-received', 'celebrate');
+    }
+  } catch (err) {
+    checkbox.checked = previous;
+    alert('Network error. Please try again.');
+  }
+}
+</script>
 
 {% endblock %}

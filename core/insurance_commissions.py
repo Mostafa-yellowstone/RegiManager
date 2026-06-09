@@ -19,10 +19,18 @@ def refund_total(transactions):
 
 
 def received_commission_total(transactions):
-    """Sum of Commission Payment income transactions."""
+    """Legacy helper: sum of Commission Payment income transactions."""
     return sum(
         t.amount for t in transactions
         if t.transaction_type == "income" and t.category == COMMISSION_PAYMENT_CATEGORY
+    )
+
+
+def received_commission_from_policies(policies):
+    """Sum commission_amount for policies explicitly marked as received."""
+    return sum(
+        p.commission_amount for p in policies
+        if getattr(p, "commission_received", False)
     )
 
 
@@ -55,7 +63,7 @@ def build_adjusted_unearned_map(inactive_policies, refund_amount):
 def company_commission_summary(company_policies, company_transactions):
     """Return earned (outstanding), received, and unearned totals for a company."""
     gross = gross_earned_from_policies(company_policies)
-    received = received_commission_total(company_transactions)
+    received = received_commission_from_policies(company_policies)
     earned = outstanding_earned(gross, received)
 
     inactive = [

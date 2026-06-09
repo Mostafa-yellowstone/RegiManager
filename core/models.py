@@ -1405,6 +1405,10 @@ class InsurancePolicy(models.Model):
     insurance_period_months = models.IntegerField(default=6, help_text="Total insurance period in months")
     inactive_date = models.DateField(blank=True, null=True, help_text="Date the policy became inactive")
     unearned_commission = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, blank=True)
+    commission_received = models.BooleanField(
+        default=False,
+        help_text="When checked, this policy's commission counts toward Received Commission.",
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

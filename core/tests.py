@@ -529,6 +529,84 @@ class AgentAuditingTests(TestCase):
         self.assertEqual(response_pdf.status_code, 200)
 
 
+class CompanyProfileCommissionTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Test Org", city="NYC")
+        self.owner = User.objects.create_user(username="owner", password="password123")
+        OrganizationMembership.objects.create(
+            user=self.owner,
+            organization=self.org,
+            is_active=True,
+            role="owner",
+            can_deal_with_insurance=True,
+        )
+        self.company = InsuranceCompany.objects.create(organization=self.org, name="Geico")
+        self.client_obj = Client.objects.create(
+            organization=self.org,
+            first_name="John",
+            last_name="Doe",
+        )
+        self.policy = InsurancePolicy.objects.create(
+            organization=self.org,
+            client=self.client_obj,
+            policy_number="POL-RCV",
+            insurance_company=self.company,
+            premium=Decimal("1000.00"),
+            broker_fee=Decimal("0.00"),
+            commission_rate=Decimal("10.00"),
+            stage="bound",
+            status="active",
+            added_by=self.owner,
+            start_date="2026-06-01",
+            end_date="2026-12-01",
+            insurance_period_months=6,
+        )
+        self.client = TestClient()
+        self.client.login(username="owner", password="password123")
+
+    def test_bank_transaction_does_not_affect_received_commission(self):
+        from .models import BankAccount, BankTransaction
+
+        bank_account = BankAccount.objects.create(
+            organization=self.org,
+            account_name="Main",
+            bank_name="Chase",
+            balance=Decimal("1000.00"),
+        )
+        BankTransaction.objects.create(
+            bank_account=bank_account,
+            transaction_type=BankTransaction.TransactionType.INCOME,
+            amount=Decimal("50.00"),
+            category="Commission Payment",
+            insurance_company=self.company,
+        )
+        response = self.client.get(reverse("insurance-company-detail", args=[self.company.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["total_received_commission"], Decimal("0.00"))
+
+    def test_policy_checkbox_updates_received_commission(self):
+        response = self.client.get(reverse("insurance-company-detail", args=[self.company.id]))
+        self.assertEqual(response.context["total_received_commission"], Decimal("0.00"))
+        self.assertEqual(response.context["total_commission"], Decimal("100.00"))
+
+        response = self.client.post(
+            reverse("toggle-policy-commission-received", args=[self.policy.id]),
+            {"received": "1"},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["received_commission"], "100.00")
+        self.assertEqual(data["earned_commission"], "0.00")
+
+        self.policy.refresh_from_db()
+        self.assertTrue(self.policy.commission_received)
+
+        response = self.client.get(reverse("insurance-company-detail", args=[self.company.id]))
+        self.assertEqual(response.context["total_received_commission"], Decimal("100.00"))
+        self.assertEqual(response.context["total_commission"], Decimal("0.00"))
+
+
 class SplitPaymentTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="testuser", password="password123")

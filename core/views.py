@@ -7295,6 +7295,18 @@ def insurance_company_detail(request, company_id):
         user__is_active=True
     ).select_related("user")
 
+    can_manage_commission = request.user.is_superuser
+    if not can_manage_commission:
+        membership = OrganizationMembership.objects.filter(
+            user=request.user, organization=active_org, is_active=True
+        ).first()
+        can_manage_commission = bool(
+            membership and (
+                membership.role == OrganizationMembership.Role.OWNER
+                or membership.can_deal_with_insurance
+            )
+        )
+
     return render(request, "core/insurance_company_detail.html", {
         "company": company,
         "active_org": active_org,
@@ -7329,6 +7341,54 @@ def insurance_company_detail(request, company_id):
         "min_premium": min_premium,
         "max_premium": max_premium,
         "insurance_source_choices": INSURANCE_SOURCE_CHOICES,
+        "can_manage_commission": can_manage_commission,
+    })
+
+
+@login_required
+@require_POST
+def toggle_policy_commission_received(request, policy_id):
+    from django.http import JsonResponse
+    from .models import InsurancePolicy, BankTransaction
+
+    policy = get_object_or_404(
+        InsurancePolicy.objects.select_related("insurance_company", "organization"),
+        id=policy_id,
+    )
+    organizations = _get_user_organizations(request)
+    if not organizations.filter(id=policy.organization_id).exists():
+        return JsonResponse({"ok": False, "error": "Access denied."}, status=403)
+
+    if not request.user.is_superuser:
+        membership = OrganizationMembership.objects.filter(
+            user=request.user, organization=policy.organization, is_active=True
+        ).first()
+        if not membership or (
+            membership.role != OrganizationMembership.Role.OWNER
+            and not membership.can_deal_with_insurance
+        ):
+            return JsonResponse({"ok": False, "error": "Access denied."}, status=403)
+
+    received = request.POST.get("received") in ("1", "true", "on", "yes")
+    policy.commission_received = received
+    policy.save(update_fields=["commission_received", "updated_at"])
+
+    all_policies = list(
+        InsurancePolicy.objects.filter(
+            organization=policy.organization,
+            insurance_company=policy.insurance_company,
+        )
+    )
+    company_transactions = list(
+        BankTransaction.objects.filter(insurance_company=policy.insurance_company)
+    )
+    summary = company_commission_summary(all_policies, company_transactions)
+
+    return JsonResponse({
+        "ok": True,
+        "commission_received": received,
+        "received_commission": f"{summary['received_commission']:.2f}",
+        "earned_commission": f"{summary['earned_commission']:.2f}",
     })
 
 
