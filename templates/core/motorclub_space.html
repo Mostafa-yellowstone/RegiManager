@@ -125,10 +125,13 @@ html.portal-theme-dark .mc-chip-b2b { background: rgba(234,88,12,0.2); color: #f
               <th>Client</th>
               <th>Channel</th>
               <th>Plan</th>
+              <th>Start</th>
+              <th>End</th>
               <th>Provider $</th>
               <th>PSB $</th>
               <th>Status</th>
-              <th></th>
+              <th>Added by</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -138,20 +141,21 @@ html.portal-theme-dark .mc-chip-b2b { background: rgba(234,88,12,0.2); color: #f
               <td><a href="{% url 'client-detail' m.client.id %}" style="color:#c2410c;text-decoration:none;font-weight:700;">{{ m.client.name }}</a>{% if m.b2b_partner %}<br><small style="color:var(--portal-text-muted);">{{ m.b2b_partner.name }}</small>{% endif %}</td>
               <td><span class="mc-chip mc-chip-{{ m.channel }}">{{ m.channel_label }}</span></td>
               <td>${{ m.tier }}</td>
+              <td>{% if m.start_date %}{{ m.start_date|date:"M j, Y" }}{% else %}—{% endif %}</td>
+              <td>{% if m.end_date %}{{ m.end_date|date:"M j, Y" }}{% else %}—{% endif %}</td>
               <td>${{ m.provider_profit|floatformat:2 }}</td>
               <td style="color:#c2410c;font-weight:800;">${{ m.psb_profit|floatformat:2 }}</td>
               <td><span class="mc-chip mc-chip-{{ m.status }}">{{ m.status_label }}</span></td>
+              <td>{% if m.added_by_name %}{{ m.added_by_name }}{% else %}—{% endif %}</td>
               <td style="white-space:nowrap;">
                 {% if can_manage_motorclub %}
                 <button type="button" class="btn btn-secondary btn-sm" onclick="openEditMember({{ m.id }}, '{{ m.tier }}', '{{ m.status }}', '{{ m.channel }}', '{{ m.provider_profit }}', '{{ m.psb_profit }}', '{{ m.notes|escapejs }}', '{{ m.b2b_partner_id|default:'' }}')">Edit</button>
-                {% if is_owner %}
-                <form method="post" action="{% url 'delete-motorclub-membership' m.id %}" style="display:inline;" onsubmit="return confirm('Remove this membership?');">{% csrf_token %}<button type="submit" class="btn btn-sm" style="color:#b91c1c;">Delete</button></form>
-                {% endif %}
+                <form method="post" action="{% url 'delete-motorclub-membership' m.id %}" style="display:inline;" onsubmit="return confirm('Remove this membership?');">{% csrf_token %}<button type="submit" class="btn btn-sm" style="color:#b91c1c;border:1px solid #fecaca;">Delete</button></form>
                 {% endif %}
               </td>
             </tr>
             {% empty %}
-            <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--portal-text-muted);">No Motor Club memberships yet. Add your first member or upsell an insurance client.</td></tr>
+            <tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--portal-text-muted);">No Motor Club memberships yet. Add your first member or upsell an insurance client.</td></tr>
             {% endfor %}
           </tbody>
         </table>

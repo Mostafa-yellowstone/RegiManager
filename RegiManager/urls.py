@@ -133,6 +133,7 @@ from core.views import (
 from core.motorclub_views import (
     save_motorclub_config,
     add_motorclub_membership,
+    add_motorclub_membership_from_client,
     edit_motorclub_membership,
     delete_motorclub_membership,
     add_motorclub_b2b_partner,
@@ -206,6 +207,11 @@ urlpatterns = [
     path("dashboard/clients/", all_clients, name="all-clients"),
     path("dashboard/clients/add/", add_client, name="add-client"),
     path("dashboard/clients/<int:client_id>/", client_detail, name="client-detail"),
+    path(
+        "dashboard/clients/<int:client_id>/motorclub/add/",
+        add_motorclub_membership_from_client,
+        name="add-motorclub-membership-client",
+    ),
     path("dashboard/clients/<int:client_id>/add-vehicle/", add_vehicle, name="add-vehicle"),
     path("dashboard/vehicles/<int:vehicle_id>/", vehicle_detail, name="vehicle-detail"),
     path("dashboard/vehicles/<int:vehicle_id>/edit/", edit_vehicle, name="edit-vehicle"),

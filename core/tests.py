@@ -999,6 +999,8 @@ class MotorclubTests(TestCase):
         self.assertTrue(membership.membership_number.startswith("MC-"))
 
     def test_client_profile_shows_motorclub_card(self):
+        from datetime import date
+
         from core.models import MotorclubMembership
 
         MotorclubMembership.objects.create(
@@ -1008,6 +1010,8 @@ class MotorclubTests(TestCase):
             tier=75,
             channel="direct",
             status="active",
+            start_date=date(2026, 1, 15),
+            end_date=date(2027, 1, 15),
             provider_profit=Decimal("42.00"),
             psb_profit=Decimal("33.00"),
             added_by=self.owner,
@@ -1016,5 +1020,30 @@ class MotorclubTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Motor Club")
         self.assertContains(response, "$75")
+        self.assertContains(response, "Jan 15, 2026")
+        self.assertNotContains(response, "PSB profit")
+
+    def test_add_membership_from_client_syncs_to_crm(self):
+        from core.models import MotorclubMembership
+
+        response = self.client.post(
+            reverse("add-motorclub-membership-client", args=[self.client_obj.id]),
+            {
+                "tier": "35",
+                "channel": "direct",
+                "status": "active",
+                "start_date": "2026-06-01",
+                "end_date": "2027-06-01",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        membership = MotorclubMembership.objects.get(client=self.client_obj)
+        self.assertEqual(membership.tier, 35)
+        self.assertEqual(str(membership.start_date), "2026-06-01")
+        self.assertIn("tab=members", response.url)
+
+        crm_response = self.client.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=members")
+        self.assertContains(crm_response, self.client_obj.name)
+        self.assertContains(crm_response, "Delete")
 
 

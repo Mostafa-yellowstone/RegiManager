@@ -28,7 +28,7 @@ from .motorclub_crm import (
     split_profits_for_tier,
     tier_preview_rows,
 )
-from .space_access import require_space_access
+from .space_access import get_org_membership, require_space_access
 from .views import _get_user_organizations
 
 
@@ -177,19 +177,11 @@ def save_motorclub_config(request, space_id):
     return _redirect_motorclub(card, tab="configuration")
 
 
-@login_required
-@require_POST
-def add_motorclub_membership(request, space_id):
-    card, is_owner, membership = _resolve_motorclub_access(request, space_id=space_id)
-    if not is_owner and not (membership and membership.can_deal_with_motorclub):
-        deny_access("You do not have permission to add Motor Club memberships.")
-
-    client_id = request.POST.get("client_id")
-    client = get_object_or_404(Client, id=client_id, organization=card.organization)
+def _create_motorclub_membership_from_request(request, card, client):
+    """Create a Motor Club CRM membership from POST data."""
     tier = _parse_tier(request.POST.get("tier"))
     if not tier:
-        messages.error(request, "Select a valid plan tier ($35, $50, $75, or $100).")
-        return _redirect_motorclub(card)
+        return None, "Select a valid plan tier ($35, $50, $75, or $100)."
 
     channel = request.POST.get("channel", MotorclubMembership.ChannelChoices.DIRECT)
     if channel not in dict(MotorclubMembership.ChannelChoices.choices):
@@ -225,7 +217,7 @@ def add_motorclub_membership(request, space_id):
     if status not in dict(MotorclubMembership.StatusChoices.choices):
         status = MotorclubMembership.StatusChoices.ACTIVE
 
-    MotorclubMembership.objects.create(
+    membership = MotorclubMembership.objects.create(
         organization=card.organization,
         space=card,
         client=client,
@@ -241,8 +233,59 @@ def add_motorclub_membership(request, space_id):
         notes=request.POST.get("notes", "").strip(),
         added_by=request.user,
     )
+    return membership, None
+
+
+def _user_can_manage_motorclub(is_owner, membership):
+    return is_owner or (membership and membership.can_deal_with_motorclub)
+
+
+@login_required
+@require_POST
+def add_motorclub_membership(request, space_id):
+    card, is_owner, membership = _resolve_motorclub_access(request, space_id=space_id)
+    if not _user_can_manage_motorclub(is_owner, membership):
+        deny_access("You do not have permission to add Motor Club memberships.")
+
+    client_id = request.POST.get("client_id")
+    client = get_object_or_404(Client, id=client_id, organization=card.organization)
+    created, error = _create_motorclub_membership_from_request(request, card, client)
+    if error:
+        messages.error(request, error)
+        return _redirect_motorclub(card, tab="members")
+
     messages.success(request, f"Motor Club membership added for {client.name}.")
     return _redirect_motorclub(card, tab="members")
+
+
+@login_required
+@require_POST
+def add_motorclub_membership_from_client(request, client_id):
+    """Add a Motor Club membership from the client profile — syncs to the space CRM."""
+    from django.urls import reverse
+
+    client = get_object_or_404(Client, id=client_id)
+    get_org_membership(request.user, client.organization)
+
+    card = Space.objects.filter(organization=client.organization, key="motorclub").first()
+    if not card:
+        messages.error(request, "Motor Club space is not set up for this PSB.")
+        return redirect("client-detail", client_id=client.id)
+
+    _, is_owner, membership = _resolve_motorclub_access(request, card=card)
+    if not _user_can_manage_motorclub(is_owner, membership):
+        deny_access("You do not have permission to add Motor Club memberships.")
+
+    created, error = _create_motorclub_membership_from_request(request, card, client)
+    if error:
+        messages.error(request, error)
+        return redirect("client-detail", client_id=client.id)
+
+    messages.success(
+        request,
+        f"Motor Club membership added for {client.name} and synced to CRM.",
+    )
+    return redirect(reverse("inventory-detail", args=[card.id]) + "?tab=members")
 
 
 @login_required
@@ -295,8 +338,8 @@ def delete_motorclub_membership(request, membership_id):
         id=membership_id,
     )
     card, is_owner, m = _resolve_motorclub_access(request, card=membership.space)
-    if not is_owner:
-        deny_access("Only PSB owners can delete Motor Club memberships.")
+    if not _user_can_manage_motorclub(is_owner, m):
+        deny_access("You do not have permission to delete Motor Club memberships.")
 
     client_name = membership.client.name
     membership.delete()

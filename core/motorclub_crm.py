@@ -71,6 +71,13 @@ def enrich_membership(membership):
     membership.channel_label = membership.get_channel_display()
     membership.status_label = membership.get_status_display()
     membership.tier_label = membership.get_tier_display()
+    if membership.added_by:
+        membership.added_by_name = (
+            membership.added_by.get_full_name().strip()
+            or membership.added_by.username
+        )
+    else:
+        membership.added_by_name = ""
     return membership
 
 
