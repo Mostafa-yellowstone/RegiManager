@@ -213,7 +213,7 @@
     }
 </style>
 
-<main class="dashboard-shell">
+<main class="dashboard-shell partners-page">
     <section class="dashboard-layout">
         <header class="dashboard-hero service-list-hero" style="background: linear-gradient(135deg, #1e293b, #0f172a);">
             <div>
@@ -243,11 +243,9 @@
 
                     <select id="refCategory" onchange="filterReferrals()">
                         <option value="">All Categories</option>
-                        <option value="dealer">Car Dealer</option>
-                        <option value="travel">Travel Agency</option>
-                        <option value="broker">Broker</option>
-                        <option value="customer">Customer</option>
-                        <option value="custom">Custom</option>
+                        {% for opt in category_options %}
+                        <option value="{{ opt.key }}">{{ opt.label }}</option>
+                        {% endfor %}
                     </select>
 
                     <select id="refStatus" onchange="filterReferrals()">
@@ -277,7 +275,7 @@
                                 <div class="ref-card-name-row">
                                     <div class="ref-card-name">{{ referral.name }}</div>
                                     <div class="ref-card-badges">
-                                        <span class="ref-cat-chip">{{ referral.get_category_display }}</span>
+                                        <span class="ref-cat-chip">{{ referral.display_category }}</span>
                                         {% if referral.is_partner %}
                                         <span class="ref-partner-chip">Partner</span>
                                         {% endif %}
@@ -340,12 +338,11 @@
                         {% csrf_token %}
                         <div class="form-group" style="margin-bottom: 1rem;">
                             <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 0.3rem;">Referral Category *</label>
-                            <select name="category" class="form-control" required style="width: 100%; box-sizing: border-box;">
-                                <option value="dealer">Car Dealer</option>
-                                <option value="travel">Travel Agency</option>
-                                <option value="broker">Broker</option>
-                                <option value="customer">Customer</option>
-                                <option value="custom">Custom</option>
+                            <select name="category" id="referralCategorySelect" class="form-control" required style="width: 100%; box-sizing: border-box;" onchange="handleReferralCategorySelect(this)">
+                                {% for opt in category_options %}
+                                <option value="{{ opt.key }}">{{ opt.label }}</option>
+                                {% endfor %}
+                                <option value="__add_new__" class="portal-add-new-option">➕ Add New Category</option>
                             </select>
                         </div>
                         <div class="form-group" style="margin-bottom: 1rem;">
@@ -384,7 +381,86 @@
     </section>
 </main>
 
+<div id="quickAddReferralCategoryModal" class="portal-quick-add-modal" onclick="if(event.target===this)closeQuickAddReferralCategory()">
+    <div class="portal-quick-add-modal-box" onclick="event.stopPropagation()">
+        <h3>➕ Add New Referral Category</h3>
+        <input type="text" id="quickReferralCategoryName" placeholder="Category name..." onkeydown="if(event.key==='Enter')submitQuickAddReferralCategory()">
+        <div class="portal-quick-add-modal-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeQuickAddReferralCategory()">Cancel</button>
+            <button type="button" class="btn btn-primary" id="quickReferralCategorySaveBtn" onclick="submitQuickAddReferralCategory()">Save Category</button>
+        </div>
+        <p id="quickReferralCategoryError" class="portal-quick-add-error"></p>
+    </div>
+</div>
+
 <script>
+function handleReferralCategorySelect(sel) {
+    if (sel.value === '__add_new__') {
+        sel.value = sel.options[0]?.value || 'dealer';
+        const modal = document.getElementById('quickAddReferralCategoryModal');
+        modal.classList.add('is-open');
+        setTimeout(() => document.getElementById('quickReferralCategoryName').focus(), 50);
+    }
+}
+
+function closeQuickAddReferralCategory() {
+    const modal = document.getElementById('quickAddReferralCategoryModal');
+    modal.classList.remove('is-open');
+    document.getElementById('quickReferralCategoryName').value = '';
+    const err = document.getElementById('quickReferralCategoryError');
+    err.style.display = 'none';
+    const btn = document.getElementById('quickReferralCategorySaveBtn');
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Category'; }
+}
+
+function insertDropdownOption(select, key, label, beforeValue) {
+    let existing = Array.from(select.options).find(o => o.value === key);
+    if (!existing) {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = label;
+        const anchor = Array.from(select.options).find(o => o.value === beforeValue);
+        select.insertBefore(opt, anchor || null);
+    }
+    select.value = key;
+}
+
+function submitQuickAddReferralCategory() {
+    const label = document.getElementById('quickReferralCategoryName').value.trim();
+    const errEl = document.getElementById('quickReferralCategoryError');
+    errEl.style.display = 'none';
+    if (!label) {
+        errEl.textContent = 'Category name cannot be empty.';
+        errEl.style.display = 'block';
+        return;
+    }
+    const fd = new FormData();
+    fd.append('organization', '{{ primary_org.id }}');
+    fd.append('label', label);
+    fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    const btn = document.getElementById('quickReferralCategorySaveBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    fetch('{% url "add-referral-category" %}', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) {
+                errEl.textContent = data.error || 'Failed to add category.';
+                errEl.style.display = 'block';
+                if (btn) { btn.disabled = false; btn.textContent = 'Save Category'; }
+                return;
+            }
+            insertDropdownOption(document.getElementById('referralCategorySelect'), data.key, data.label, '__add_new__');
+            const filterSel = document.getElementById('refCategory');
+            if (filterSel) insertDropdownOption(filterSel, data.key, data.label, '');
+            closeQuickAddReferralCategory();
+        })
+        .catch(() => {
+            errEl.textContent = 'Network error. Please try again.';
+            errEl.style.display = 'block';
+            if (btn) { btn.disabled = false; btn.textContent = 'Save Category'; }
+        });
+}
+
 // ── Client-side filter ────────────────────────────────────────────────
 function filterReferrals() {
     const q        = document.getElementById('refSearch').value.toLowerCase().trim();

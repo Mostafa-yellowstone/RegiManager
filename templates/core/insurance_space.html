@@ -215,25 +215,12 @@
               </div>
               <div style="display: flex; flex-direction: column; gap: 0.3rem;">
                 <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Insurance Type</label>
-                <select name="insurance_type" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
+                <select name="insurance_type" id="insuranceTypeFilter" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;" onchange="handleInsuranceTypeSelect(this, 'quickAddInsuranceTypeModal', 'insuranceTypeFilter')">
                   <option value="">All Types</option>
-                  <option value="auto_personal" {% if type_filter == "auto_personal" %}selected{% endif %}>AUTO PERSONAL</option>
-                  <option value="motor_cycle" {% if type_filter == "motor_cycle" %}selected{% endif %}>MOTOR CYCLE</option>
-                  <option value="commercial_auto" {% if type_filter == "commercial_auto" %}selected{% endif %}>COMMERCIAL AUTO</option>
-                  <option value="trucking" {% if type_filter == "trucking" %}selected{% endif %}>TRUCKING</option>
-                  <option value="contractors" {% if type_filter == "contractors" %}selected{% endif %}>CONTRACTORS</option>
-                  <option value="landscaping" {% if type_filter == "landscaping" %}selected{% endif %}>LANDSCAPING</option>
-                  <option value="dealer_plates" {% if type_filter == "dealer_plates" %}selected{% endif %}>DEALER PLATES</option>
-                  <option value="home_owners" {% if type_filter == "home_owners" %}selected{% endif %}>HOME OWNERS</option>
-                  <option value="ho3" {% if type_filter == "ho3" %}selected{% endif %}>HO3</option>
-                  <option value="ho4" {% if type_filter == "ho4" %}selected{% endif %}>HO4</option>
-                  <option value="ho6" {% if type_filter == "ho6" %}selected{% endif %}>HO6</option>
-                  <option value="dwelling" {% if type_filter == "dwelling" %}selected{% endif %}>DWELLING</option>
-                  <option value="umbrella" {% if type_filter == "umbrella" %}selected{% endif %}>UMBRELLA</option>
-                  <option value="business_owners_policy" {% if type_filter == "business_owners_policy" %}selected{% endif %}>BUSINESS OWNERS POLICY</option>
-                  <option value="general_liability" {% if type_filter == "general_liability" %}selected{% endif %}>GENERAL LIABILITY</option>
-                  <option value="workers_compensation" {% if type_filter == "workers_compensation" %}selected{% endif %}>WORKERS COMPENSATION</option>
-                  <option value="disability" {% if type_filter == "disability" %}selected{% endif %}>DISABILITY</option>
+                  {% for opt in insurance_type_options %}
+                  <option value="{{ opt.key }}" {% if type_filter == opt.key %}selected{% endif %}>{{ opt.label }}</option>
+                  {% endfor %}
+                  <option value="__add_new__" class="portal-add-new-option">➕ Add New Insurance Type</option>
                 </select>
               </div>
               <div style="display: flex; flex-direction: column; gap: 0.3rem;">
@@ -885,25 +872,12 @@
       </div>
       <div style="margin-bottom: 1rem;">
         <label class="field-label">Insurance Type</label>
-        <select name="insurance_type" id="policyInsuranceType" class="field-input">
+        <select name="insurance_type" id="policyInsuranceType" class="field-input" onchange="handleInsuranceTypeSelect(this, 'quickAddInsuranceTypeModal', 'policyInsuranceType')">
           <option value="">Select Insurance Type...</option>
-          <option value="auto_personal">AUTO PERSONAL</option>
-          <option value="motor_cycle">MOTOR CYCLE</option>
-          <option value="commercial_auto">COMMERCIAL AUTO</option>
-          <option value="trucking">TRUCKING</option>
-          <option value="contractors">CONTRACTORS</option>
-          <option value="landscaping">LANDSCAPING</option>
-          <option value="dealer_plates">DEALER PLATES</option>
-          <option value="home_owners">HOME OWNERS</option>
-          <option value="ho3">HO3</option>
-          <option value="ho4">HO4</option>
-          <option value="ho6">HO6</option>
-          <option value="dwelling">DWELLING</option>
-          <option value="umbrella">UMBRELLA</option>
-          <option value="business_owners_policy">BUSINESS OWNERS POLICY</option>
-          <option value="general_liability">GENERAL LIABILITY</option>
-          <option value="workers_compensation">WORKERS COMPENSATION</option>
-          <option value="disability">DISABILITY</option>
+          {% for opt in insurance_type_options %}
+          <option value="{{ opt.key }}">{{ opt.label }}</option>
+          {% endfor %}
+          <option value="__add_new__" class="portal-add-new-option">➕ Add New Insurance Type</option>
         </select>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
@@ -1316,6 +1290,74 @@ function handleCompanySelect(sel) {
   }
 }
 
+function handleInsuranceTypeSelect(sel, modalId, restoreSelectId) {
+  if (sel.value !== '__add_new__') return;
+  const restoreSel = document.getElementById(restoreSelectId);
+  if (restoreSel && restoreSel.options.length) {
+    restoreSel.value = restoreSel.options[0].value || '';
+  } else {
+    sel.value = '';
+  }
+  const modal = document.getElementById(modalId);
+  modal.dataset.targetSelectId = restoreSelectId;
+  modal.classList.add('is-open');
+  setTimeout(() => document.getElementById('quickInsuranceTypeName').focus(), 50);
+}
+
+function closeQuickAddInsuranceType() {
+  const modal = document.getElementById('quickAddInsuranceTypeModal');
+  modal.classList.remove('is-open');
+  document.getElementById('quickInsuranceTypeName').value = '';
+  document.getElementById('quickInsuranceTypeError').style.display = 'none';
+  const saveBtn = document.getElementById('quickInsuranceTypeSaveBtn');
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Type'; }
+}
+
+function submitQuickAddInsuranceType() {
+  const label = document.getElementById('quickInsuranceTypeName').value.trim();
+  const errEl = document.getElementById('quickInsuranceTypeError');
+  errEl.style.display = 'none';
+  if (!label) { errEl.textContent = 'Insurance type name cannot be empty.'; errEl.style.display = 'block'; return; }
+  const modal = document.getElementById('quickAddInsuranceTypeModal');
+  const targetId = modal.dataset.targetSelectId || 'policyInsuranceType';
+  const orgId = document.querySelector('input[name="organization"]').value;
+  const fd = new FormData();
+  fd.append('organization', orgId);
+  fd.append('label', label);
+  fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+  const saveBtn = document.getElementById('quickInsuranceTypeSaveBtn');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+  fetch('{% url "add-insurance-type" %}', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) {
+        errEl.textContent = data.error || 'Failed to add insurance type.';
+        errEl.style.display = 'block';
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Type'; }
+        return;
+      }
+      ['policyInsuranceType', 'insuranceTypeFilter'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        let existing = Array.from(sel.options).find(o => o.value === data.key);
+        if (!existing) {
+          const opt = document.createElement('option');
+          opt.value = data.key;
+          opt.textContent = data.label;
+          const addNew = Array.from(sel.options).find(o => o.value === '__add_new__');
+          sel.insertBefore(opt, addNew || null);
+        }
+        if (id === targetId) sel.value = data.key;
+      });
+      closeQuickAddInsuranceType();
+    })
+    .catch(() => {
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.style.display = 'block';
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Type'; }
+    });
+}
+
 function closeQuickAddCompany() {
   document.getElementById('quickAddCompanyModal').style.display = 'none';
   document.getElementById('quickCompanyName').value = '';
@@ -1365,6 +1407,19 @@ function submitQuickAddCompany() {
     });
 }
 </script>
+
+<!-- QUICK ADD INSURANCE TYPE MINI-MODAL -->
+<div id="quickAddInsuranceTypeModal" class="portal-quick-add-modal" onclick="if(event.target===this)closeQuickAddInsuranceType()">
+  <div class="portal-quick-add-modal-box" onclick="event.stopPropagation()">
+    <h3>➕ Add New Insurance Type</h3>
+    <input type="text" id="quickInsuranceTypeName" placeholder="Insurance type name..." onkeydown="if(event.key==='Enter')submitQuickAddInsuranceType()">
+    <div class="portal-quick-add-modal-actions">
+      <button type="button" onclick="closeQuickAddInsuranceType()" style="padding:0.6rem 1.2rem; border:1.5px solid #e2e8f0; border-radius:8px; background:#f8fafc; font-weight:700; cursor:pointer; font-size:0.9rem;">Cancel</button>
+      <button type="button" id="quickInsuranceTypeSaveBtn" onclick="submitQuickAddInsuranceType()" style="padding:0.6rem 1.4rem; border:none; border-radius:8px; background:#0f172a; color:#fff; font-weight:700; cursor:pointer; font-size:0.9rem;">Save Type</button>
+    </div>
+    <p id="quickInsuranceTypeError" class="portal-quick-add-error"></p>
+  </div>
+</div>
 
 <!-- QUICK ADD COMPANY MINI-MODAL -->
 <div id="quickAddCompanyModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(15,23,42,0.55); align-items:center; justify-content:center;" onclick="if(event.target===this)closeQuickAddCompany()">

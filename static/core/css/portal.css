@@ -3143,3 +3143,274 @@ html.portal-theme-dark body.portal-body .portal-space-shell span[style*="color: 
 html.portal-theme-dark .dpt-row-cleared td {
     background: linear-gradient(90deg, rgba(6, 78, 59, 0.35) 0%, rgba(20, 83, 45, 0.22) 100%) !important;
 }
+
+/* Partners (Referralship) page */
+html.portal-theme-dark .partners-page .ref-filter-bar {
+    background: var(--portal-surface);
+    border-color: var(--portal-border);
+    box-shadow: var(--portal-shadow-sm);
+}
+
+html.portal-theme-dark .partners-page .ref-filter-bar input[type="text"],
+html.portal-theme-dark .partners-page .ref-filter-bar select {
+    background: var(--portal-surface-muted);
+    color: var(--portal-text);
+    border-color: var(--portal-border);
+    color-scheme: dark;
+}
+
+html.portal-theme-dark .partners-page .ref-results-count {
+    color: var(--portal-text-muted);
+}
+
+html.portal-theme-dark .partners-page .ref-card {
+    background: var(--portal-surface);
+    border-color: var(--portal-border);
+}
+
+html.portal-theme-dark .partners-page .ref-card:hover {
+    border-color: #818cf8;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+html.portal-theme-dark .partners-page .ref-card.is-unpaid {
+    border-color: rgba(248, 113, 113, 0.55);
+}
+
+html.portal-theme-dark .partners-page .ref-card.is-paid {
+    border-color: rgba(52, 211, 153, 0.45);
+}
+
+html.portal-theme-dark .partners-page .ref-card-name {
+    color: var(--portal-text);
+}
+
+html.portal-theme-dark .partners-page .ref-cat-chip {
+    background: var(--portal-surface-muted);
+    color: var(--portal-text-secondary);
+}
+
+html.portal-theme-dark .partners-page .ref-partner-chip {
+    background: rgba(67, 56, 202, 0.2);
+    color: #a5b4fc;
+    border-color: rgba(129, 140, 248, 0.45);
+}
+
+html.portal-theme-dark .partners-page .ref-card-contact {
+    color: var(--portal-text-muted);
+}
+
+html.portal-theme-dark .partners-page .ref-card-stats {
+    background: var(--portal-surface-muted);
+    color: var(--portal-text-secondary);
+}
+
+html.portal-theme-dark .partners-page .ref-card-footer {
+    border-top-color: var(--portal-border);
+}
+
+html.portal-theme-dark .partners-page .ref-outstanding-label {
+    color: var(--portal-text-muted);
+}
+
+html.portal-theme-dark .partners-page .ref-empty,
+html.portal-theme-dark .partners-page #ref-no-results {
+    background: var(--portal-surface-muted);
+    border-color: var(--portal-border);
+    color: var(--portal-text-muted);
+}
+
+html.portal-theme-dark .partners-page .ref-empty h3 {
+    color: var(--portal-text-secondary);
+}
+
+html.portal-theme-dark .partners-page .dashboard-panel h3 {
+    color: var(--portal-text);
+}
+
+html.portal-theme-dark .partners-page .dashboard-panel label,
+html.portal-theme-dark .partners-page .dashboard-panel span[style*="color: #475569"] {
+    color: var(--portal-text-muted) !important;
+}
+
+html.portal-theme-dark .partners-page .dashboard-panel .form-control {
+    background: var(--portal-surface-muted);
+    color: var(--portal-text);
+    border-color: var(--portal-border);
+    color-scheme: dark;
+}
+
+html.portal-theme-dark .partners-page .ref-card-footer span[style*="color:#6366f1"] {
+    color: #93c5fd !important;
+}
+
+/* Automation Hub */
+html.portal-theme-dark .automation-hub-page .automation-hub-card {
+    background: var(--portal-surface);
+    border-color: var(--portal-border);
+    box-shadow: var(--portal-shadow-md);
+}
+
+html.portal-theme-dark .automation-hub-page .hub-header-row {
+    background: var(--portal-surface-muted);
+    border-bottom-color: var(--portal-border);
+}
+
+html.portal-theme-dark .automation-hub-page .hub-header-row h3 {
+    color: var(--portal-text) !important;
+}
+
+html.portal-theme-dark .automation-hub-page .hub-header-row span[style*="color: #64748b"] {
+    color: var(--portal-text-muted) !important;
+}
+
+html.portal-theme-dark .automation-hub-page .record-row:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+html.portal-theme-dark .automation-hub-page .data-table th[style*="color: #64748b"] {
+    color: var(--portal-text-muted) !important;
+    border-bottom-color: var(--portal-border) !important;
+}
+
+html.portal-theme-dark .automation-hub-page .data-table td[style*="color: #1e293b"],
+html.portal-theme-dark .automation-hub-page .data-table td[style*="color: #334155"] {
+    color: var(--portal-text) !important;
+}
+
+html.portal-theme-dark .automation-hub-page .data-table td[style*="color: #64748b"] {
+    color: var(--portal-text-muted) !important;
+}
+
+html.portal-theme-dark .automation-hub-page .data-table code[style*="background: #f1f5f9"] {
+    background: var(--portal-surface-muted) !important;
+    color: var(--portal-text-secondary) !important;
+}
+
+html.portal-theme-dark .automation-hub-page .data-table tr[style*="border-bottom: 1px solid #f1f5f9"] {
+    border-bottom-color: var(--portal-border) !important;
+}
+
+html.portal-theme-dark .automation-hub-page .btn.btn-secondary.btn-sm {
+    background: #1e293b !important;
+    border-color: #475569 !important;
+    color: #e2e8f0 !important;
+}
+
+/* Automation audit logs */
+html.portal-theme-dark .automation-logs-page .dashboard-panel[style*="background: white"] {
+    background: var(--portal-surface) !important;
+    border-color: var(--portal-border);
+    box-shadow: var(--portal-shadow-md);
+}
+
+html.portal-theme-dark .automation-logs-page .data-table thead tr[style*="background: #f8fafc"] {
+    background: var(--portal-surface-muted) !important;
+}
+
+html.portal-theme-dark .automation-logs-page .data-table th[style*="color: #64748b"] {
+    color: var(--portal-text-muted) !important;
+}
+
+html.portal-theme-dark .automation-logs-page .data-table td[style*="color: #0f172a"],
+html.portal-theme-dark .automation-logs-page .data-table td[style*="font-weight: 600; color: #334155"] {
+    color: var(--portal-text) !important;
+}
+
+html.portal-theme-dark .automation-logs-page .data-table td[style*="color: #64748b"],
+html.portal-theme-dark .automation-logs-page .data-table td[style*="color: #94a3b8"] {
+    color: var(--portal-text-muted) !important;
+}
+
+html.portal-theme-dark .automation-logs-page .data-table td[style*="border-bottom: 1px solid #f1f5f9"] {
+    border-bottom-color: var(--portal-border) !important;
+}
+
+html.portal-theme-dark .automation-logs-page .data-table code[style*="background: #f8fafc"] {
+    background: var(--portal-surface-muted) !important;
+    color: var(--portal-text-secondary) !important;
+}
+
+html.portal-theme-dark .automation-logs-page .data-table tr:hover {
+    background: rgba(255, 255, 255, 0.04) !important;
+}
+
+html.portal-theme-dark .automation-logs-page div[style*="background: rgba(255,255,255,0.05)"] {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: var(--portal-border) !important;
+}
+
+/* Shared quick-add mini modal */
+.portal-quick-add-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(15, 23, 42, 0.55);
+    align-items: center;
+    justify-content: center;
+}
+
+.portal-quick-add-modal.is-open {
+    display: flex;
+}
+
+.portal-quick-add-modal-box {
+    background: #fff;
+    border-radius: 18px;
+    padding: 2rem;
+    width: min(380px, 92vw);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+}
+
+.portal-quick-add-modal-box h3 {
+    margin: 0 0 1rem;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.portal-quick-add-modal-box input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    box-sizing: border-box;
+    margin-bottom: 1rem;
+}
+
+.portal-quick-add-modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+}
+
+.portal-quick-add-error {
+    color: #dc2626;
+    font-size: 0.85rem;
+    margin-top: 0.75rem;
+    display: none;
+}
+
+html.portal-theme-dark .portal-quick-add-modal-box {
+    background: var(--portal-surface);
+    border: 1px solid var(--portal-border);
+}
+
+html.portal-theme-dark .portal-quick-add-modal-box h3 {
+    color: var(--portal-text);
+}
+
+html.portal-theme-dark .portal-quick-add-modal-box input {
+    background: var(--portal-surface-muted);
+    color: var(--portal-text);
+    border-color: var(--portal-border);
+    color-scheme: dark;
+}
+
+select option.portal-add-new-option {
+    color: #2563eb;
+    font-weight: 700;
+}

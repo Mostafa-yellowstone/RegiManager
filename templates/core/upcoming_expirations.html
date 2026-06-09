@@ -47,12 +47,34 @@
 
     .status-expired { background: #fee2e2; color: #ef4444; }
     .status-pending { background: #fef3c7; color: #f59e0b; }
+
+    html.portal-theme-dark .automation-hub-page .automation-hub-card {
+        background: var(--portal-surface);
+        border-color: var(--portal-border);
+    }
+
+    html.portal-theme-dark .automation-hub-page .hub-header-row {
+        background: var(--portal-surface-muted);
+        border-bottom-color: var(--portal-border);
+    }
+
+    html.portal-theme-dark .automation-hub-page .hub-header-row h3 {
+        color: var(--portal-text) !important;
+    }
+
+    html.portal-theme-dark .automation-hub-page .record-row {
+        border-bottom-color: var(--portal-border) !important;
+    }
+
+    html.portal-theme-dark .automation-hub-page .data-table td[colspan] p {
+        color: var(--portal-text-muted);
+    }
 </style>
 {% endblock %}
 
 {% block portal_content %}
 
-<main class="dashboard-shell">
+<main class="dashboard-shell automation-hub-page">
     <section class="dashboard-layout">
         <!-- Dashboard Style Hero -->
         <header class="dashboard-hero" style="padding-bottom: 4rem; display: flex; justify-content: space-between; align-items: flex-end; background: linear-gradient(135deg, #0f172a, #1e293b); color: white; padding: 3rem 2.5rem;">

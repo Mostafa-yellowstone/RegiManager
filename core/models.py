@@ -138,6 +138,38 @@ class Referral(SoftDeleteModel):
         return f"{self.name} ({self.get_category_display()})"
 
 
+class ReferralCategoryOption(models.Model):
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="referral_category_options"
+    )
+    key = models.CharField(max_length=50)
+    label = models.CharField(max_length=120)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("organization", "key")
+        ordering = ["label"]
+
+    def __str__(self):
+        return self.label
+
+
+class InsuranceTypeOption(models.Model):
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="insurance_type_options"
+    )
+    key = models.CharField(max_length=30)
+    label = models.CharField(max_length=120)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("organization", "key")
+        ordering = ["label"]
+
+    def __str__(self):
+        return self.label
+
+
 class CustomServiceType(models.Model):
     organization = models.ForeignKey(
         Organization, on_delete=models.CASCADE, related_name="custom_services"

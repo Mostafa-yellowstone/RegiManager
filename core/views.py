@@ -58,6 +58,68 @@ from .insurance_commissions import (
 )
 import io
 from openpyxl import Workbook
+from django.utils.text import slugify
+
+
+def _referral_category_options_for_org(org):
+    from .models import ReferralCategoryOption
+
+    built_in = [
+        {"key": key, "label": label}
+        for key, label in Referral.CATEGORY_CHOICES
+        if key != "custom"
+    ]
+    extra = list(
+        ReferralCategoryOption.objects.filter(organization=org)
+        .order_by("label")
+        .values("key", "label")
+    )
+    seen = {item["key"] for item in built_in}
+    for item in extra:
+        if item["key"] not in seen:
+            built_in.append(item)
+            seen.add(item["key"])
+    return built_in
+
+
+def _referral_category_label(org, key):
+    for item in _referral_category_options_for_org(org):
+        if item["key"] == key:
+            return item["label"]
+    return dict(Referral.CATEGORY_CHOICES).get(key, key.replace("_", " ").title())
+
+
+def _insurance_type_options_for_org(org):
+    from .models import InsurancePolicy, InsuranceTypeOption
+
+    built_in = [
+        {"key": key, "label": label}
+        for key, label in InsurancePolicy.INSURANCE_TYPE_CHOICES
+    ]
+    extra = list(
+        InsuranceTypeOption.objects.filter(organization=org)
+        .order_by("label")
+        .values("key", "label")
+    )
+    seen = {item["key"] for item in built_in}
+    for item in extra:
+        if item["key"] not in seen:
+            built_in.append(item)
+            seen.add(item["key"])
+    return built_in
+
+
+def _insurance_type_label(org, key):
+    if not key:
+        return "—"
+    for item in _insurance_type_options_for_org(org):
+        if item["key"] == key:
+            return item["label"]
+    from .models import InsurancePolicy
+
+    return dict(InsurancePolicy.INSURANCE_TYPE_CHOICES).get(
+        key, key.replace("_", " ").upper()
+    )
 
 
 def _build_source_choices_for_service_records(organizations):
@@ -3634,9 +3696,12 @@ def all_referrals(request):
             messages.success(request, f"Referral entity '{name}' registered successfully.")
             return redirect("all-referrals")
 
+    primary_org = organizations[0]
     referrals = Referral.objects.filter(organization__in=organizations).annotate(
         record_count=Count('service_records')
     ).order_by('name')
+
+    category_options = _referral_category_options_for_org(primary_org)
 
     # Calculate outstanding balance per referral
     for ref in referrals:
@@ -3645,6 +3710,7 @@ def all_referrals(request):
             is_referral_paid=False
         ).distinct().aggregate(total=Sum('referral_balance'))['total'] or Decimal('0')
         ref.outstanding = service_outstanding + ref.initial_balance
+        ref.display_category = _referral_category_label(ref.organization, ref.category)
 
     return render(
         request,
@@ -3652,6 +3718,8 @@ def all_referrals(request):
         {
             "referrals": referrals,
             "is_owner": is_owner,
+            "category_options": category_options,
+            "primary_org": primary_org,
         }
     )
 
@@ -6082,6 +6150,7 @@ def inventory_detail(request, inventory_id):
             "daily_method_cards": daily_method_cards,
             "daily_grand_total": daily_grand_total,
             "daily_available_dates": daily_available_dates,
+            "insurance_type_options": _insurance_type_options_for_org(active_org),
         }
         return render(request, "core/insurance_space.html", context)
 
@@ -6562,6 +6631,76 @@ def delete_service_record(request, service_id):
     )
 
     return JsonResponse({"status": "ok", "message": "Receipt deleted successfully."})
+
+
+@login_required
+@require_POST
+def add_referral_category_option(request):
+    from .models import ReferralCategoryOption
+
+    organizations = _get_user_organizations(request)
+    org_id = request.POST.get("organization")
+    org = get_object_or_404(organizations, id=org_id)
+
+    label = request.POST.get("label", "").strip()
+    if not label:
+        return JsonResponse({"success": False, "error": "Category name cannot be empty."}, status=400)
+
+    key = slugify(label).replace("-", "_")[:50]
+    if not key:
+        return JsonResponse({"success": False, "error": "Invalid category name."}, status=400)
+
+    if key in dict(Referral.CATEGORY_CHOICES):
+        return JsonResponse(
+            {"success": False, "error": "That category already exists."},
+            status=400,
+        )
+
+    obj, created = ReferralCategoryOption.objects.get_or_create(
+        organization=org,
+        key=key,
+        defaults={"label": label},
+    )
+    if not created and obj.label != label:
+        obj.label = label
+        obj.save(update_fields=["label"])
+
+    return JsonResponse({"success": True, "key": obj.key, "label": obj.label, "created": created})
+
+
+@login_required
+@require_POST
+def add_insurance_type_option(request):
+    from .models import InsurancePolicy, InsuranceTypeOption
+
+    organizations = _get_user_organizations(request)
+    org_id = request.POST.get("organization")
+    org = get_object_or_404(organizations, id=org_id)
+
+    label = request.POST.get("label", "").strip()
+    if not label:
+        return JsonResponse({"success": False, "error": "Insurance type name cannot be empty."}, status=400)
+
+    key = slugify(label).replace("-", "_")[:30]
+    if not key:
+        return JsonResponse({"success": False, "error": "Invalid insurance type name."}, status=400)
+
+    if key in dict(InsurancePolicy.INSURANCE_TYPE_CHOICES):
+        return JsonResponse(
+            {"success": False, "error": "That insurance type already exists."},
+            status=400,
+        )
+
+    obj, created = InsuranceTypeOption.objects.get_or_create(
+        organization=org,
+        key=key,
+        defaults={"label": label},
+    )
+    if not created and obj.label != label:
+        obj.label = label
+        obj.save(update_fields=["label"])
+
+    return JsonResponse({"success": True, "key": obj.key, "label": obj.label, "created": created})
 
 
 @login_required
