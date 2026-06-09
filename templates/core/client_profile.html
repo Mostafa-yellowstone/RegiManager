@@ -17,6 +17,19 @@
     html.portal-theme-dark .cpp-motorclub-card div[style*="c2410c"] {
         color: #fdba74 !important;
     }
+    .cpp-motorclub-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        color: #ea580c;
+    }
+    .cpp-motorclub-icon--light {
+        color: #ffffff;
+    }
+    html.portal-theme-dark .cpp-motorclub-card .cpp-motorclub-icon {
+        color: #fb923c;
+    }
 </style>
 <main class="dashboard-shell client-profile-page">
     <section class="dashboard-layout">
@@ -41,9 +54,12 @@
                             {% if client.is_commercial %}
                                 <span style="background: #10b981; color: white; padding: 4px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;">🏢 Commercial</span>
                             {% endif %}
-                            {% if show_motorclub_card and active_motorclub %}
+                            {% if show_motorclub_card %}
                                 <span style="background: linear-gradient(135deg, #ea580c 0%, #f97316 100%); color: white; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 5px; border: 1px solid rgba(255,255,255,0.25);">
-                                    🛟 Motor Club
+                                    <span class="cpp-motorclub-icon cpp-motorclub-icon--light" aria-hidden="true">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+                                    </span>
+                                    Motor Club
                                 </span>
                             {% endif %}
                             {% if client.source == "insurance" %}
@@ -356,7 +372,9 @@
                 {% if show_motorclub_card %}
                 <section class="dashboard-panel cpp-motorclub-card" style="margin: 0; min-height: 160px;">
                     <h3 class="cpp-panel-header cpp-panel-header--title">
-                        <span style="font-size: 1.1rem;">🛟</span>
+                        <span class="cpp-motorclub-icon" aria-hidden="true">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+                        </span>
                         Motor Club
                     </h3>
                     <div style="padding: 1.25rem 1.5rem;">

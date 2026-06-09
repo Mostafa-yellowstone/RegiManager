@@ -67,6 +67,40 @@ def tier_preview_rows(config):
     return rows
 
 
+def get_client_motorclub_memberships(client):
+    """
+    Return Motor Club memberships that belong on this client's profile.
+
+    Includes direct client links, insurance-policy links, and same-person
+    matches within the PSB (SSN or driver license).
+    """
+    base_qs = MotorclubMembership.objects.filter(
+        organization=client.organization,
+    ).select_related("b2b_partner", "added_by", "insurance_policy", "client")
+
+    filters = Q(client=client) | Q(insurance_policy__client=client)
+
+    ssn = (client.ssn or "").strip()
+    if ssn:
+        filters |= Q(client__ssn=ssn)
+
+    driver_license = (client.driver_license or "").strip()
+    if driver_license:
+        filters |= Q(client__driver_license=driver_license)
+
+    return list(base_qs.filter(filters).order_by("-created_at").distinct())
+
+
+def pick_active_motorclub(memberships):
+    """Prefer an active plan; otherwise show the most recent membership."""
+    if not memberships:
+        return None
+    return next(
+        (m for m in memberships if m.status == MotorclubMembership.StatusChoices.ACTIVE),
+        memberships[0],
+    )
+
+
 def enrich_membership(membership):
     membership.channel_label = membership.get_channel_display()
     membership.status_label = membership.get_status_display()

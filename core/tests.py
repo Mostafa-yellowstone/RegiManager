@@ -1181,9 +1181,87 @@ class MotorclubTests(TestCase):
         response = self.client.get(reverse("client-detail", args=[self.client_obj.id]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Motor Club")
+        self.assertContains(response, "cpp-motorclub-icon")
         self.assertContains(response, "$75")
         self.assertContains(response, "Jan 15, 2026")
         self.assertNotContains(response, "PSB profit")
+
+    def test_client_profile_finds_motorclub_via_insurance_policy_link(self):
+        from datetime import date
+
+        from core.models import InsuranceCompany, InsurancePolicy, MotorclubMembership
+
+        other_client = Client.objects.create(
+            organization=self.org,
+            first_name="Road",
+            last_name="Runner",
+        )
+        company = InsuranceCompany.objects.create(organization=self.org, name="Geico")
+        policy = InsurancePolicy.objects.create(
+            organization=self.org,
+            client=self.client_obj,
+            policy_number="POL-MC-LINK",
+            insurance_company=company,
+            premium=Decimal("1000.00"),
+            commission_rate=Decimal("10.00"),
+            stage="bound",
+            status="active",
+            added_by=self.owner,
+            start_date="2026-05-01",
+            end_date="2026-11-01",
+        )
+        MotorclubMembership.objects.create(
+            organization=self.org,
+            space=self.space,
+            client=other_client,
+            insurance_policy=policy,
+            tier=50,
+            channel="insurance_client",
+            status="active",
+            start_date=date(2026, 2, 1),
+            end_date=date(2027, 2, 1),
+            provider_profit=Decimal("28.00"),
+            psb_profit=Decimal("22.00"),
+            added_by=self.owner,
+        )
+
+        response = self.client.get(reverse("client-detail", args=[self.client_obj.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "cpp-motorclub-icon")
+        self.assertContains(response, "$50")
+        self.assertContains(response, "Active Roadside Plan")
+
+    def test_client_profile_finds_motorclub_via_matching_ssn(self):
+        from datetime import date
+
+        from core.models import MotorclubMembership
+
+        self.client_obj.ssn = "123-45-6789"
+        self.client_obj.save()
+        duplicate_client = Client.objects.create(
+            organization=self.org,
+            first_name="Road",
+            last_name="Runner",
+            ssn="123-45-6789",
+        )
+        MotorclubMembership.objects.create(
+            organization=self.org,
+            space=self.space,
+            client=duplicate_client,
+            tier=35,
+            channel="direct",
+            status="active",
+            start_date=date(2026, 3, 1),
+            end_date=date(2027, 3, 1),
+            provider_profit=Decimal("20.00"),
+            psb_profit=Decimal("15.00"),
+            added_by=self.owner,
+        )
+
+        response = self.client.get(reverse("client-detail", args=[self.client_obj.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "cpp-motorclub-icon")
+        self.assertContains(response, "$35")
 
     def test_add_membership_from_client_syncs_to_crm(self):
         from core.models import MotorclubMembership

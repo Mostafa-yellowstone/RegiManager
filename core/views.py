@@ -801,18 +801,16 @@ def client_detail(request, client_id):
     enrich_policies_for_display(insurance_policies)
     show_insurance_section = bool(insurance_policies) or (client.source or "").lower() == "insurance"
 
-    from .models import MotorclubMembership
-    from .motorclub_crm import enrich_membership
-
-    motorclub_memberships = list(
-        client.motorclub_memberships.select_related("b2b_partner", "added_by").order_by("-created_at")
+    from .motorclub_crm import (
+        enrich_membership,
+        get_client_motorclub_memberships,
+        pick_active_motorclub,
     )
+
+    motorclub_memberships = get_client_motorclub_memberships(client)
     for mc in motorclub_memberships:
         enrich_membership(mc)
-    active_motorclub = next(
-        (m for m in motorclub_memberships if m.status == MotorclubMembership.StatusChoices.ACTIVE),
-        motorclub_memberships[0] if motorclub_memberships else None,
-    )
+    active_motorclub = pick_active_motorclub(motorclub_memberships)
     show_motorclub_card = bool(motorclub_memberships)
 
     return render(request, "core/client_profile.html", {
