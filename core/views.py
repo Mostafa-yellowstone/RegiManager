@@ -4417,6 +4417,9 @@ def finance_hub(request):
         records = records.filter(service_type=service_filter)
     if agent_filter.isdigit():
         records = records.filter(handled_by_id=int(agent_filter))
+
+    # Hero metrics (daily intake, month goal) ignore advanced date-range filters.
+    metrics_records = records
     if date_from:
         records = records.filter(transaction_date__gte=date_from)
     if date_to:
@@ -4429,7 +4432,7 @@ def finance_hub(request):
     
     today_date = timezone.localdate()
     month_start_date = today_date.replace(day=1)
-    month_revenue = records.filter(monthly_record_q(month_start_date, today_date)).aggregate(Sum("service_fee"))["service_fee__sum"] or Decimal("0")
+    month_revenue = metrics_records.filter(monthly_record_q(month_start_date, today_date)).aggregate(Sum("service_fee"))["service_fee__sum"] or Decimal("0")
     
     # Last 12 Months Chart Data - single grouped query
     chart_end = month_start_date
@@ -4441,11 +4444,19 @@ def finance_hub(request):
         .annotate(revenue=Sum("service_fee"))
         .order_by("month")
     )
-    month_map = {row["month"].date().strftime("%Y-%m"): float(row["revenue"] or 0) for row in monthly_rows}
+
+    def _chart_month_key(value):
+        from datetime import datetime as dt_cls
+
+        if isinstance(value, dt_cls):
+            value = value.date()
+        return value.strftime("%Y-%m")
+
+    month_map = {_chart_month_key(row["month"]): float(row["revenue"] or 0) for row in monthly_rows}
     chart_labels = []
     chart_data = []
-    cursor = chart_start.date()
-    end_cursor = chart_end.date()
+    cursor = chart_start
+    end_cursor = chart_end
     while cursor <= end_cursor:
         key = cursor.strftime("%Y-%m")
         chart_labels.append(cursor.strftime("%b %Y"))
@@ -4564,9 +4575,9 @@ def finance_hub(request):
         org_ids_for_metrics = list(organizations.values_list("id", flat=True))
 
     daily_payment_cards, daily_payment_total = build_daily_payment_cards(
-        records, org_ids_for_metrics, daily_payment_date
+        metrics_records, org_ids_for_metrics, daily_payment_date
     )
-    goal_forecast = build_month_goal_forecast(records, today_date)
+    goal_forecast = build_month_goal_forecast(metrics_records, today_date)
 
     context = {
         "total_revenue": total_revenue,

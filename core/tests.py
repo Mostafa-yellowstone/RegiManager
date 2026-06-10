@@ -6,6 +6,7 @@ from django.contrib.auth.models import User
 from decimal import Decimal
 from core.models import Organization, OrganizationMembership, Client, InsuranceCompany, InsurancePolicy, Space, Vehicle, ServiceRecord
 from core.dashboard_metrics import build_service_cards
+from core.finance_hub_metrics import build_daily_payment_cards, build_month_goal_forecast
 
 class InsuranceSpaceTests(TestCase):
     def setUp(self):
@@ -1514,6 +1515,72 @@ class FinanceBiTransactionDateTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/pdf")
+
+    def test_daily_payment_cards_bucket_cash_by_transaction_date(self):
+        tx_date = date(2026, 6, 4)
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_date=tx_date,
+            payment_method="cash",
+            paid_amount=Decimal("150.00"),
+            service_fee=Decimal("150.00"),
+        )
+        scope = ServiceRecord.objects.filter(organization=self.org)
+        cards, total = build_daily_payment_cards(scope, [self.org.id], tx_date)
+        cash_card = next(c for c in cards if c["key"] == "cash")
+        self.assertEqual(cash_card["total"], Decimal("150.00"))
+        self.assertEqual(total, Decimal("150.00"))
+
+    def test_finance_hub_page_loads_successfully(self):
+        response = self.http.get(reverse("finance-hub"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_finance_hub_daily_intake_not_cleared_by_unrelated_date_filters(self):
+        tx_date = date(2026, 6, 8)
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_date=tx_date,
+            payment_method="cash",
+            paid_amount=Decimal("200.00"),
+            service_fee=Decimal("200.00"),
+        )
+        response = self.http.get(
+            reverse("finance-hub"),
+            {
+                "date_from": "2026-01-01",
+                "date_to": "2026-06-01",
+                "daily_date": tx_date.strftime("%Y-%m-%d"),
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "$200.00")
+
+    def test_finance_hub_month_goal_uses_transaction_date_when_filters_applied(self):
+        today = date(2026, 6, 8)
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_date=date(2026, 6, 4),
+            processing_fee=Decimal("40.00"),
+        )
+        filtered = ServiceRecord.objects.filter(
+            organization=self.org,
+            transaction_date__lte=date(2026, 6, 1),
+        )
+        forecast = build_month_goal_forecast(filtered, today)
+        self.assertEqual(forecast["mtd_revenue"], Decimal("0.00"))
+
+        unfiltered = ServiceRecord.objects.filter(organization=self.org)
+        forecast_all = build_month_goal_forecast(unfiltered, today)
+        self.assertEqual(forecast_all["mtd_revenue"], Decimal("40.00"))
 
 
 class ClientSearchAjaxTests(TestCase):
