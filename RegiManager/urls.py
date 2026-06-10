@@ -139,6 +139,13 @@ from core.motorclub_views import (
     add_motorclub_b2b_partner,
     delete_motorclub_b2b_partner,
 )
+from core.documents_views import (
+    add_document_folder,
+    delete_document_folder,
+    add_document_type,
+    add_document_record,
+    delete_document_record,
+)
 from core.inventory_views import (
     add_inventory_category,
     delete_inventory_category,
@@ -311,6 +318,11 @@ urlpatterns = [
     path("dashboard/spaces/motorclub/member/<int:membership_id>/delete/", delete_motorclub_membership, name="delete-motorclub-membership"),
     path("dashboard/spaces/motorclub/<int:space_id>/b2b/add/", add_motorclub_b2b_partner, name="add-motorclub-b2b-partner"),
     path("dashboard/spaces/motorclub/b2b/<int:partner_id>/delete/", delete_motorclub_b2b_partner, name="delete-motorclub-b2b-partner"),
+    path("dashboard/spaces/documents/<int:space_id>/folder/add/", add_document_folder, name="add-document-folder"),
+    path("dashboard/spaces/documents/folder/<int:folder_id>/delete/", delete_document_folder, name="delete-document-folder"),
+    path("dashboard/spaces/documents/<int:space_id>/type/add/", add_document_type, name="add-document-type"),
+    path("dashboard/spaces/documents/<int:space_id>/record/add/", add_document_record, name="add-document-record"),
+    path("dashboard/spaces/documents/record/<int:record_id>/delete/", delete_document_record, name="delete-document-record"),
 ]
 
 from core.error_handlers import render_error_page

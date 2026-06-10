@@ -12,6 +12,7 @@ from .models import (
     InventoryProduct, InventoryPurchase, InventoryPurchaseLine,
     InventoryStockMovement, InventorySupplier,
     MotorclubConfig, MotorclubB2BPartner, MotorclubMembership,
+    DocumentFolder, SpaceDocumentType, SpaceDocumentRecord,
 )
 
 
@@ -70,8 +71,8 @@ class OrganizationAdmin(admin.ModelAdmin):
 
 @admin.register(OrganizationMembership)
 class OrganizationMembershipAdmin(admin.ModelAdmin):
-    list_display = ("organization", "user", "role", "can_view_spaces", "can_deal_with_insurance", "can_delete_receipt", "can_trigger_automation", "can_view_commission", "can_view_banking", "can_manage_news", "can_manage_knowledge_hub", "created_at")
-    list_filter = ("role", "organization", "can_view_spaces", "can_deal_with_insurance", "can_view_commission", "can_view_banking", "can_manage_news", "can_manage_knowledge_hub")
+    list_display = ("organization", "user", "role", "can_view_spaces", "can_deal_with_insurance", "can_delete_receipt", "can_trigger_automation", "can_view_commission", "can_view_banking", "can_manage_news", "can_manage_knowledge_hub", "can_manage_documents", "created_at")
+    list_filter = ("role", "organization", "can_view_spaces", "can_deal_with_insurance", "can_view_commission", "can_view_banking", "can_manage_news", "can_manage_knowledge_hub", "can_manage_documents")
     search_fields = ("organization__name", "user__username", "user__email")
     fieldsets = (
         (None, {
@@ -90,6 +91,7 @@ class OrganizationMembershipAdmin(admin.ModelAdmin):
                 "can_view_banking",
                 "can_manage_news",
                 "can_manage_knowledge_hub",
+                "can_manage_documents",
             ),
         }),
         ("Spaces Access", {
@@ -182,6 +184,25 @@ class SpaceAdmin(admin.ModelAdmin):
     list_display = ("label", "key", "organization", "created_at")
     list_filter = ("organization",)
     search_fields = ("label", "key", "organization__name")
+
+
+@admin.register(DocumentFolder)
+class DocumentFolderAdmin(admin.ModelAdmin):
+    list_display = ("name", "space", "parent", "organization", "created_at")
+    list_filter = ("organization",)
+
+
+@admin.register(SpaceDocumentType)
+class SpaceDocumentTypeAdmin(admin.ModelAdmin):
+    list_display = ("name", "space", "organization", "created_at")
+    list_filter = ("organization",)
+
+
+@admin.register(SpaceDocumentRecord)
+class SpaceDocumentRecordAdmin(admin.ModelAdmin):
+    list_display = ("record_number", "document_type", "order_number", "total_amount", "space", "added_by", "created_at")
+    list_filter = ("organization", "document_type")
+    search_fields = ("record_number", "order_number", "range_start", "range_end")
 
 
 @admin.register(InventoryCategory)

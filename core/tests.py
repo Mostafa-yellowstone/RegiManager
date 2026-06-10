@@ -1180,6 +1180,80 @@ class ClientIntakeTests(TestCase):
         self.assertEqual(client.source, "meta_platform")
 
 
+class DocumentsSpaceTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Docs Org", city="NYC")
+        self.owner = User.objects.create_user(username="docsowner", password="password123")
+        self.owner_membership = OrganizationMembership.objects.create(
+            user=self.owner,
+            organization=self.org,
+            is_active=True,
+            role="owner",
+            can_view_spaces=True,
+            can_manage_documents=True,
+        )
+        self.space = Space.objects.create(
+            organization=self.org,
+            key="documents",
+            label="Documents",
+            description="Document records",
+        )
+        self.owner_membership.accessible_spaces.add(self.space)
+        self.client = TestClient()
+        self.client.login(username="docsowner", password="password123")
+
+    def test_spaces_home_creates_documents_space(self):
+        response = self.client.get(reverse("spaces-home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Space.objects.filter(organization=self.org, key="documents").exists())
+
+    def test_documents_space_renders(self):
+        response = self.client.get(reverse("inventory-detail", args=[self.space.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Documents")
+        self.assertContains(response, "Document Type")
+
+    def test_no_default_document_types_seeded(self):
+        from core.models import SpaceDocumentType
+
+        self.client.get(reverse("inventory-detail", args=[self.space.id]))
+        self.assertEqual(SpaceDocumentType.objects.filter(space=self.space).count(), 0)
+
+    def test_add_folder_and_record(self):
+        from core.models import DocumentFolder, SpaceDocumentRecord, SpaceDocumentType
+
+        response = self.client.post(
+            reverse("add-document-folder", args=[self.space.id]),
+            {"name": "DMV Forms"},
+        )
+        self.assertEqual(response.status_code, 302)
+        folder = DocumentFolder.objects.get(space=self.space, name="DMV Forms")
+        doc_type = SpaceDocumentType.objects.create(
+            space=self.space,
+            organization=self.org,
+            name="MV-82",
+        )
+        response = self.client.post(
+            reverse("add-document-record", args=[self.space.id]),
+            {
+                "folder_id": folder.id,
+                "document_type": doc_type.id,
+                "order_number": "ORD-100",
+                "range_start": "5001",
+                "range_end": "5100",
+                "total_amount": "250.00",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        record = SpaceDocumentRecord.objects.get(space=self.space)
+        self.assertTrue(record.record_number.startswith("DOC-"))
+        self.assertEqual(record.order_number, "ORD-100")
+        self.assertEqual(record.range_start, "5001")
+        self.assertEqual(record.range_end, "5100")
+        self.assertEqual(record.total_amount, Decimal("250.00"))
+        self.assertEqual(record.added_by, self.owner)
+
+
 class MotorclubTests(TestCase):
     def setUp(self):
         self.org = Organization.objects.create(name="Motor Org", city="NYC")

@@ -671,6 +671,7 @@
                                 <th>Banking</th>
                                 <th>News</th>
                                 <th title="Manage Knowledge Hub">Hub</th>
+                                <th title="Manage Documents Space">Docs</th>
                                 <th>Audit</th>
                             </tr>
                         </thead>
@@ -748,6 +749,12 @@
                                     <td>
                                         <label class="switch" title="Add/Delete Knowledge Hub Materials">
                                             <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_manage_knowledge_hub" {% if agent_mem.can_manage_knowledge_hub %}checked{% endif %}>
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </td>
+                                    <td>
+                                        <label class="switch" title="Manage Documents Space">
+                                            <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_manage_documents" {% if agent_mem.can_manage_documents %}checked{% endif %}>
                                             <span class="slider round"></span>
                                         </label>
                                     </td>

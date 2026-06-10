@@ -1,0 +1,552 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}{{ card.label }} | Documents{% endblock %}
+
+{% block portal_content %}
+<style>
+.doc-hero {
+    background: linear-gradient(135deg, #1e1b4b 0%, #3730a3 45%, #6366f1 100%);
+    border-radius: 20px;
+    padding: 1.5rem 1.75rem;
+    color: white;
+    margin-bottom: 1.5rem;
+}
+.doc-metric {
+    background: var(--portal-surface);
+    border-radius: 16px;
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--portal-border);
+    box-shadow: var(--portal-shadow-sm);
+}
+.doc-metric-label {
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--portal-text-muted);
+    margin-bottom: 0.3rem;
+}
+.doc-metric-value {
+    font-size: 1.45rem;
+    font-weight: 900;
+    color: var(--portal-text);
+    line-height: 1.1;
+}
+.doc-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 1.25rem;
+    align-items: start;
+}
+@media (max-width: 960px) {
+    .doc-layout { grid-template-columns: 1fr; }
+}
+.doc-sidebar {
+    background: var(--portal-surface);
+    border: 1px solid var(--portal-border);
+    border-radius: 16px;
+    padding: 1rem;
+    position: sticky;
+    top: 1rem;
+}
+.doc-sidebar-title {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--portal-text-muted);
+    margin-bottom: 0.75rem;
+}
+.doc-crumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+.doc-crumb a {
+    color: #4f46e5;
+    text-decoration: none;
+}
+.doc-crumb a:hover { text-decoration: underline; }
+.doc-crumb-sep { color: var(--portal-text-muted); }
+.doc-folder-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.85rem;
+    margin-bottom: 1.25rem;
+}
+.doc-folder-card {
+    background: var(--portal-surface-muted);
+    border: 1px solid var(--portal-border);
+    border-radius: 14px;
+    padding: 1rem;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-height: 88px;
+}
+.doc-folder-card:hover {
+    border-color: #6366f1;
+    transform: translateY(-2px);
+    box-shadow: var(--portal-shadow-sm);
+}
+.doc-folder-icon { font-size: 1.5rem; }
+.doc-folder-name {
+    font-weight: 800;
+    font-size: 0.88rem;
+    color: var(--portal-text);
+    word-break: break-word;
+}
+.doc-folder-meta {
+    font-size: 0.72rem;
+    color: var(--portal-text-muted);
+    font-weight: 600;
+}
+.doc-table-wrap {
+    background: var(--portal-surface);
+    border: 1px solid var(--portal-border);
+    border-radius: 16px;
+    overflow: hidden;
+}
+.doc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+}
+.doc-table th {
+    padding: 0.85rem 1rem;
+    background: var(--portal-surface-muted);
+    border-bottom: 1px solid var(--portal-border);
+    color: var(--portal-text-muted);
+    font-weight: 700;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    text-align: left;
+    white-space: nowrap;
+}
+.doc-table td {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid var(--portal-border);
+    color: var(--portal-text-secondary);
+    font-weight: 600;
+    vertical-align: middle;
+}
+.doc-table tr:hover td { background: var(--portal-surface-muted); }
+.doc-type-chip {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    background: #eef2ff;
+    color: #4338ca;
+}
+.doc-record-num {
+    font-weight: 900;
+    color: var(--portal-text);
+    font-family: ui-monospace, monospace;
+    font-size: 0.82rem;
+}
+.doc-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+.doc-type-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+}
+.doc-type-pill {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--portal-surface-muted);
+    border: 1px solid var(--portal-border);
+    color: var(--portal-text-secondary);
+}
+.modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.35);
+    backdrop-filter: blur(6px);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal-box {
+    background: var(--portal-surface);
+    border-radius: 20px;
+    padding: 1.75rem;
+    max-width: 560px;
+    width: 95%;
+    max-height: 92vh;
+    overflow-y: auto;
+    box-shadow: var(--portal-shadow-lg);
+    border: 1px solid var(--portal-border);
+}
+.modal-box.wide { max-width: 720px; }
+.field-label {
+    display: block;
+    font-size: 0.76rem;
+    font-weight: 800;
+    color: var(--portal-text-muted);
+    margin-bottom: 0.35rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.field-input {
+    width: 100%;
+    padding: 0.65rem 0.9rem;
+    border-radius: 8px;
+    border: 1px solid var(--portal-border);
+    background: var(--portal-surface-muted);
+    color: var(--portal-text);
+    font-size: 0.88rem;
+    outline: none;
+    box-sizing: border-box;
+}
+.field-input:focus { border-color: #6366f1; }
+.btn-submit {
+    width: 100%;
+    padding: 0.75rem;
+    background: linear-gradient(135deg, #3730a3, #6366f1);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.95rem;
+}
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.85rem; }
+.doc-empty {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    color: var(--portal-text-muted);
+    font-weight: 600;
+}
+.doc-total-bar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.85rem 1rem;
+    background: var(--portal-surface-muted);
+    border-top: 1px solid var(--portal-border);
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--portal-text-secondary);
+}
+.doc-total-bar strong {
+    font-size: 1.1rem;
+    color: #4f46e5;
+}
+html.portal-theme-dark .doc-crumb a { color: #a5b4fc; }
+html.portal-theme-dark .doc-type-chip { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
+html.portal-theme-dark .doc-total-bar strong { color: #a5b4fc; }
+html.portal-theme-dark .doc-folder-card:hover { border-color: #818cf8; }
+</style>
+
+<main class="portal-space-shell">
+  <div class="portal-space-inner portal-space-inner--wide">
+
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1.25rem;margin-bottom:1.5rem;">
+      <div>
+        <div style="display:inline-flex;align-items:center;gap:6px;background:#eef2ff;color:#4338ca;padding:4px 12px;border-radius:999px;font-size:0.78rem;font-weight:800;text-transform:uppercase;margin-bottom:0.5rem;border:1px solid #c7d2fe;">📁 {{ active_org.name }}</div>
+        <h1 class="portal-space-title">📄 {{ card.label }}</h1>
+        <p class="portal-space-subtitle">{{ card.description|default:"Organized document records with folders, types, and range tracking" }}</p>
+      </div>
+      <a href="{% url 'spaces-home' %}" style="text-decoration:none;padding:9px 16px;background:var(--portal-surface);border:1px solid var(--portal-border);border-radius:10px;font-weight:700;color:var(--portal-text-secondary);font-size:0.88rem;">&larr; Back to Spaces</a>
+    </div>
+
+    <div class="doc-hero">
+      <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#c7d2fe;margin-bottom:0.35rem;">Document Workspace</div>
+      <div style="display:flex;gap:2rem;flex-wrap:wrap;align-items:flex-end;">
+        <div>
+          <div style="font-size:2rem;font-weight:900;line-height:1;">{{ stats.record_count }}</div>
+          <div style="font-size:0.85rem;color:#c7d2fe;font-weight:600;margin-top:0.25rem;">Total records</div>
+        </div>
+        <div>
+          <div style="font-size:1.5rem;font-weight:900;line-height:1;">{{ stats.folder_count }}</div>
+          <div style="font-size:0.85rem;color:#c7d2fe;font-weight:600;margin-top:0.25rem;">Folders</div>
+        </div>
+        <div>
+          <div style="font-size:1.5rem;font-weight:900;line-height:1;">{{ stats.type_count }}</div>
+          <div style="font-size:0.85rem;color:#c7d2fe;font-weight:600;margin-top:0.25rem;">Document types</div>
+        </div>
+        {% if current_folder %}
+        <div>
+          <div style="font-size:1.5rem;font-weight:900;line-height:1;">${{ stats.folder_total_amount|floatformat:2 }}</div>
+          <div style="font-size:0.85rem;color:#c7d2fe;font-weight:600;margin-top:0.25rem;">This folder total</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="doc-layout">
+      <aside class="doc-sidebar">
+        <div class="doc-sidebar-title">Quick actions</div>
+        {% if can_manage_documents %}
+        <button type="button" class="btn btn-primary btn-sm" style="width:100%;margin-bottom:0.5rem;" onclick="openModal('addFolderModal')">+ New Folder</button>
+        <button type="button" class="btn btn-secondary btn-sm" style="width:100%;margin-bottom:0.5rem;" onclick="openModal('addTypeModal')">+ Document Type</button>
+        <button type="button" class="btn btn-secondary btn-sm" style="width:100%;" onclick="openModal('addRecordModal')">+ Add Record</button>
+        {% else %}
+        <p style="font-size:0.82rem;color:var(--portal-text-muted);margin:0;">View-only access. Ask an owner to enable Documents management.</p>
+        {% endif %}
+
+        <div class="doc-sidebar-title" style="margin-top:1.25rem;">Document types</div>
+        <div class="doc-type-list">
+          {% for dt in document_types %}
+          <span class="doc-type-pill">{{ dt.name }}</span>
+          {% empty %}
+          <p style="font-size:0.8rem;color:var(--portal-text-muted);margin:0;">No types yet.{% if can_manage_documents %} Use <strong>+ Document Type</strong> to add your own.{% endif %}</p>
+          {% endfor %}
+        </div>
+      </aside>
+
+      <section>
+        <nav class="doc-crumb" aria-label="Folder path">
+          <a href="{% url 'inventory-detail' card.id %}">📂 Root</a>
+          {% for crumb in breadcrumbs %}
+          <span class="doc-crumb-sep">/</span>
+          <a href="{% url 'inventory-detail' card.id %}?folder={{ crumb.id }}">{{ crumb.name }}</a>
+          {% endfor %}
+        </nav>
+
+        <div class="doc-toolbar">
+          <form method="get" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+            {% if current_folder %}<input type="hidden" name="folder" value="{{ current_folder.id }}">{% endif %}
+            <input type="text" name="q" value="{{ search }}" placeholder="Search records…" class="field-input" style="width:200px;">
+            <select name="doc_type" class="field-input" style="width:auto;">
+              <option value="">All types</option>
+              {% for dt in document_types %}
+              <option value="{{ dt.id }}" {% if type_filter == dt.id|stringformat:'s' %}selected{% endif %}>{{ dt.name }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+          </form>
+          {% if can_manage_documents %}
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+            <button type="button" class="btn btn-primary btn-sm" onclick="openModal('addRecordModal')">+ Add Record</button>
+          </div>
+          {% endif %}
+        </div>
+
+        {% if subfolders %}
+        <div class="doc-folder-grid">
+          {% for folder in subfolders %}
+          <div style="position:relative;">
+            <a href="{% url 'inventory-detail' card.id %}?folder={{ folder.id }}" class="doc-folder-card">
+              <span class="doc-folder-icon">📁</span>
+              <span class="doc-folder-name">{{ folder.name }}</span>
+              <span class="doc-folder-meta">{% if folder.created_by %}{{ folder.created_by.username }}{% else %}—{% endif %}</span>
+            </a>
+            {% if can_manage_documents %}
+            <form method="post" action="{% url 'delete-document-folder' folder.id %}" style="position:absolute;top:6px;right:6px;" onsubmit="return confirm('Delete folder “{{ folder.name }}”?');">
+              {% csrf_token %}
+              <button type="submit" title="Delete folder" style="border:none;background:rgba(239,68,68,0.12);color:#dc2626;width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:0.75rem;">✕</button>
+            </form>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="doc-table-wrap">
+          <table class="doc-table">
+            <thead>
+              <tr>
+                <th>Record #</th>
+                <th>Document Type</th>
+                <th>Order #</th>
+                <th>Range Start</th>
+                <th>Range End</th>
+                <th>Total Amount</th>
+                <th>Agent</th>
+                <th>Created</th>
+                <th>File</th>
+                {% if can_manage_documents %}<th></th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for rec in records %}
+              <tr>
+                <td><span class="doc-record-num">{{ rec.record_number }}</span></td>
+                <td><span class="doc-type-chip">{{ rec.document_type.name }}</span></td>
+                <td>{{ rec.order_number|default:"—" }}</td>
+                <td>{{ rec.range_start|default:"—" }}</td>
+                <td>{{ rec.range_end|default:"—" }}</td>
+                <td style="font-weight:800;color:#4f46e5;">${{ rec.total_amount|floatformat:2 }}</td>
+                <td>{% if rec.added_by %}{{ rec.added_by.get_full_name|default:rec.added_by.username }}{% else %}—{% endif %}</td>
+                <td>{{ rec.created_at|date:"M j, Y" }}<br><small style="color:var(--portal-text-muted);">{{ rec.created_at|date:"g:i A" }}</small></td>
+                <td>
+                  {% if rec.file %}
+                  <a href="{{ rec.file.url }}" target="_blank" rel="noopener" style="color:#4f46e5;font-weight:700;text-decoration:none;">View</a>
+                  {% else %}—{% endif %}
+                </td>
+                {% if can_manage_documents %}
+                <td>
+                  <form method="post" action="{% url 'delete-document-record' rec.id %}" onsubmit="return confirm('Delete record {{ rec.record_number }}?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.72rem;">Delete</button>
+                  </form>
+                </td>
+                {% endif %}
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="{% if can_manage_documents %}10{% else %}9{% endif %}">
+                  <div class="doc-empty">
+                    {% if search or type_filter %}No records match your filters.{% else %}No document records in this folder yet.{% if can_manage_documents %} Click <strong>+ Add Record</strong> to get started.{% endif %}{% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% if records %}
+          <div class="doc-total-bar">
+            <span>{{ stats.folder_record_count }} record{{ stats.folder_record_count|pluralize }} in view</span>
+            <span>Total: <strong>${{ stats.folder_total_amount|floatformat:2 }}</strong></span>
+          </div>
+          {% endif %}
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <div style="display:flex;justify-content:center;gap:0.5rem;margin-top:1rem;flex-wrap:wrap;">
+          {% if page_obj.has_previous %}
+          <a href="?{% if current_folder %}folder={{ current_folder.id }}&{% endif %}{% if search %}q={{ search }}&{% endif %}{% if type_filter %}doc_type={{ type_filter }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-secondary btn-sm">Previous</a>
+          {% endif %}
+          <span style="padding:0.5rem 1rem;font-weight:700;color:var(--portal-text-muted);font-size:0.85rem;">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+          {% if page_obj.has_next %}
+          <a href="?{% if current_folder %}folder={{ current_folder.id }}&{% endif %}{% if search %}q={{ search }}&{% endif %}{% if type_filter %}doc_type={{ type_filter }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-secondary btn-sm">Next</a>
+          {% endif %}
+        </div>
+        {% endif %}
+      </section>
+    </div>
+  </div>
+</main>
+
+{% if can_manage_documents %}
+<!-- New Folder Modal -->
+<div id="addFolderModal" class="modal-overlay" onclick="if(event.target===this)closeModal('addFolderModal')">
+  <div class="modal-box">
+    <h2 style="margin:0 0 1.25rem;font-weight:900;color:var(--portal-text);">New Folder</h2>
+    <form method="post" action="{% url 'add-document-folder' card.id %}">
+      {% csrf_token %}
+      <input type="hidden" name="parent_id" value="{% if current_folder %}{{ current_folder.id }}{% endif %}">
+      <label class="field-label">Folder name</label>
+      <input type="text" name="name" class="field-input" required placeholder="e.g. DMV Forms 2026" autofocus>
+      <p style="font-size:0.8rem;color:var(--portal-text-muted);margin:0.75rem 0 1.25rem;">{% if current_folder %}Created inside <strong>{{ current_folder.name }}</strong>{% else %}Created at workspace root{% endif %}</p>
+      <button type="submit" class="btn-submit">Create Folder</button>
+    </form>
+  </div>
+</div>
+
+<!-- New Document Type Modal -->
+<div id="addTypeModal" class="modal-overlay" onclick="if(event.target===this)closeModal('addTypeModal')">
+  <div class="modal-box">
+    <h2 style="margin:0 0 1.25rem;font-weight:900;color:var(--portal-text);">Add Document Type</h2>
+    <form method="post" action="{% url 'add-document-type' card.id %}">
+      {% csrf_token %}
+      <input type="hidden" name="folder_id" value="{% if current_folder %}{{ current_folder.id }}{% endif %}">
+      <label class="field-label">Type name</label>
+      <input type="text" name="name" class="field-input" required placeholder="e.g. MV-900">
+      <p style="font-size:0.8rem;color:var(--portal-text-muted);margin:0.75rem 0 1.25rem;">Custom types appear in the dropdown when adding records.</p>
+      <button type="submit" class="btn-submit">Add Type</button>
+    </form>
+  </div>
+</div>
+
+<!-- Add Record Modal -->
+<div id="addRecordModal" class="modal-overlay" onclick="if(event.target===this)closeModal('addRecordModal')">
+  <div class="modal-box wide">
+    <h2 style="margin:0 0 1.25rem;font-weight:900;color:var(--portal-text);">Add Document Record</h2>
+    <form method="post" action="{% url 'add-document-record' card.id %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="folder_id" value="{% if current_folder %}{{ current_folder.id }}{% endif %}">
+
+      <div style="margin-bottom:0.85rem;">
+        <label class="field-label">Document Type</label>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <select name="document_type" class="field-input" required style="flex:1;">
+            <option value="">Select type…</option>
+            {% for dt in document_types %}
+            <option value="{{ dt.id }}">{{ dt.name }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('addRecordModal');openModal('addTypeModal');" title="Add custom type" style="white-space:nowrap;">+ Type</button>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:0.85rem;">
+        <div>
+          <label class="field-label">Order Number</label>
+          <input type="text" name="order_number" class="field-input" placeholder="e.g. ORD-1042">
+        </div>
+        <div>
+          <label class="field-label">Total Amount</label>
+          <input type="number" name="total_amount" class="field-input" step="0.01" min="0" placeholder="0.00">
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:0.85rem;">
+        <div>
+          <label class="field-label">Range Start</label>
+          <input type="text" name="range_start" class="field-input" placeholder="e.g. 10001">
+        </div>
+        <div>
+          <label class="field-label">Range End</label>
+          <input type="text" name="range_end" class="field-input" placeholder="e.g. 10500">
+        </div>
+      </div>
+
+      <div style="margin-bottom:0.85rem;">
+        <label class="field-label">Attach File (optional)</label>
+        <input type="file" name="file" class="field-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx">
+      </div>
+
+      <div style="margin-bottom:1.25rem;">
+        <label class="field-label">Notes (optional)</label>
+        <textarea name="notes" class="field-input" rows="2" placeholder="Additional details…"></textarea>
+      </div>
+
+      <p style="font-size:0.78rem;color:var(--portal-text-muted);margin:0 0 1rem;">Record number and created date are assigned automatically. Agent: <strong>{{ request.user.get_full_name|default:request.user.username }}</strong></p>
+      <button type="submit" class="btn-submit">Save Record</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<script>
+function openModal(id) {
+  var el = document.getElementById(id);
+  if (el) el.classList.add('active');
+}
+function closeModal(id) {
+  var el = document.getElementById(id);
+  if (el) el.classList.remove('active');
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.active').forEach(function(m) { m.classList.remove('active'); });
+  }
+});
+</script>
+{% endblock %}

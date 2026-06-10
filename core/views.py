@@ -3169,6 +3169,8 @@ def update_agent_permissions(request):
             membership.can_manage_knowledge_hub = value
         elif field == "can_deal_with_motorclub":
             membership.can_deal_with_motorclub = value
+        elif field == "can_manage_documents":
+            membership.can_manage_documents = value
         membership.save()
         
         return JsonResponse({"status": "success"})
@@ -6120,6 +6122,11 @@ def inventory_detail(request, inventory_id):
         context = build_motorclub_space_context(request, card, is_owner, membership)
         return render(request, "core/motorclub_space.html", context)
 
+    if card.key == "documents":
+        from .documents_views import build_documents_space_context
+        context = build_documents_space_context(request, card, is_owner, membership)
+        return render(request, "core/documents_space.html", context)
+
     if card.key == "knowledge_hub":
         from collections import defaultdict
         # Only top-level materials (no parent)
@@ -6262,6 +6269,14 @@ def spaces_home(request):
         defaults={
             "label": "Motor Club",
             "description": "Roadside assistance memberships — insurance upsell & B2B partnerships",
+        },
+    )
+    Space.objects.get_or_create(
+        organization=active_org,
+        key="documents",
+        defaults={
+            "label": "Documents",
+            "description": "Organized document records — folders, types, order numbers & ranges",
         },
     )
         

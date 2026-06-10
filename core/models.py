@@ -108,6 +108,10 @@ class OrganizationMembership(models.Model):
     can_view_banking = models.BooleanField(default=False, help_text="Can this agent view the banking section in the insurance space?")
     can_manage_news = models.BooleanField(default=False, help_text="Can this agent add, edit, or delete news/announcements?")
     can_manage_knowledge_hub = models.BooleanField(default=False, help_text="Can this agent add or delete materials in the Knowledge Hub?")
+    can_manage_documents = models.BooleanField(
+        default=False,
+        help_text="Can this agent create folders, document types, and records in the Documents space?",
+    )
     accessible_spaces = models.ManyToManyField(
         "Space",
         blank=True,
@@ -1013,6 +1017,111 @@ class Space(models.Model):
 
     def __str__(self):
         return f"{self.label} ({self.organization.name})"
+
+
+class DocumentFolder(models.Model):
+    space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="document_folders")
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="document_folders",
+    )
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="children",
+    )
+    name = models.CharField(max_length=200)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="document_folders_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["space", "parent", "name"],
+                name="unique_document_folder_name_per_parent",
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class SpaceDocumentType(models.Model):
+    space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="document_types")
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="document_types",
+    )
+    name = models.CharField(max_length=120)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+        unique_together = ("space", "name")
+
+    def __str__(self):
+        return self.name
+
+
+class SpaceDocumentRecord(models.Model):
+    space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="document_records")
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="document_records",
+    )
+    folder = models.ForeignKey(
+        DocumentFolder,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="documents",
+    )
+    document_type = models.ForeignKey(
+        SpaceDocumentType,
+        on_delete=models.PROTECT,
+        related_name="records",
+    )
+    record_number = models.CharField(max_length=40, blank=True, default="", db_index=True)
+    order_number = models.CharField(max_length=80, blank=True, default="")
+    range_start = models.CharField(max_length=80, blank=True, default="")
+    range_end = models.CharField(max_length=80, blank=True, default="")
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    file = models.FileField(upload_to="space_documents/%Y/%m/", blank=True, null=True)
+    notes = models.TextField(blank=True, default="")
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="space_documents_added",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.record_number or f"DOC-{self.id}"
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        if is_new and not self.record_number:
+            number = f"DOC-{self.organization_id}-{self.id:05d}"
+            SpaceDocumentRecord.objects.filter(pk=self.pk).update(record_number=number)
+            self.record_number = number
 
 
 class KnowledgeHubMaterial(models.Model):
