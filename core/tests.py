@@ -1561,6 +1561,62 @@ class FinanceBiTransactionDateTests(TestCase):
     def test_finance_hub_page_loads_successfully(self):
         response = self.http.get(reverse("finance-hub"))
         self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Owner's Strategic Audit")
+
+    def test_finance_hub_crm_tab_lists_transactions_with_pagination(self):
+        for idx in range(16):
+            ServiceRecord.objects.create(
+                organization=self.org,
+                handled_by=self.user,
+                vehicle=self.vehicle,
+                service_type="vehicle_registration",
+                transaction_date=date(2026, 6, 1 + (idx % 5)),
+                service_fee=Decimal("100.00") + idx,
+                receipt_number=f"RCPT-CRM-{idx:04d}-{self.org.id}",
+            )
+
+        response = self.http.get(reverse("finance-hub"), {"tab": "crm"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Transaction CRM")
+        self.assertContains(response, "Showing")
+        self.assertContains(response, "16")
+
+        page_two = self.http.get(reverse("finance-hub"), {"tab": "crm", "page": 2})
+        self.assertEqual(page_two.status_code, 200)
+        self.assertContains(page_two, "Previous")
+
+    def test_finance_hub_crm_filters_by_transaction_date(self):
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_date=date(2026, 5, 10),
+            service_fee=Decimal("50.00"),
+            receipt_number=f"RCPT-MAY-{self.org.id}",
+        )
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="title_only",
+            transaction_date=date(2026, 6, 10),
+            service_fee=Decimal("75.00"),
+            receipt_number=f"RCPT-JUN-{self.org.id}",
+        )
+
+        response = self.http.get(
+            reverse("finance-hub"),
+            {
+                "tab": "crm",
+                "date_from": "2026-06-01",
+                "date_to": "2026-06-30",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Title Only")
+        self.assertContains(response, "2026-06-10")
+        self.assertNotContains(response, "RCPT-MAY")
 
     def test_finance_hub_daily_intake_not_cleared_by_unrelated_date_filters(self):
         tx_date = date(2026, 6, 8)

@@ -1,0 +1,198 @@
+{% load portal_extras %}
+<section class="finance-crm-section">
+    <article class="dashboard-panel full-width-panel finance-crm-panel">
+        <div class="finance-crm-head">
+            <div>
+                <h3>Transaction CRM</h3>
+                <p class="finance-crm-subtitle">All service types and transaction history with advanced filters. Dates use transaction date.</p>
+            </div>
+        </div>
+
+        <div class="list-controls">
+            <form method="get" class="search-filter-form">
+                <input type="hidden" name="tab" value="crm">
+                {% if daily_payment_date %}<input type="hidden" name="daily_date" value="{{ daily_payment_date|date:'Y-m-d' }}">{% endif %}
+                <div class="form-group search-group" style="min-width: 240px;">
+                    <label for="finance-crm-search">Search Client / Receipt</label>
+                    <input type="text" id="finance-crm-search" name="q" value="{{ search_query }}" placeholder="Search by name, ID, or receipt...">
+                </div>
+                <details class="portal-advanced-filters" {% if status_filter or date_from or date_to or org_filter or agent_filter or service_filter or payment_filter or source_filter or referral_filter or min_amount or max_amount %}open{% endif %} style="width: 100%;">
+                    <summary class="portal-advanced-filter-toggle" style="margin: 0.4rem 0;">
+                        Advanced Filters
+                    </summary>
+                    <div class="finance-filter-grid" style="margin-top: 0.8rem;">
+                        <div class="form-group filter-group">
+                            <label for="finance-crm-status">Status</label>
+                            <select id="finance-crm-status" name="status">
+                                <option value="">All Statuses</option>
+                                {% for val, label in status_choices %}
+                                    <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group filter-group">
+                            <label for="finance-crm-service">Service Type</label>
+                            <select id="finance-crm-service" name="service_type">
+                                <option value="">All Services</option>
+                                {% for val, label in service_choices %}
+                                    <option value="{{ val }}" {% if service_filter == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group filter-group">
+                            <label for="finance-crm-date-from">Transaction From</label>
+                            <input type="date" id="finance-crm-date-from" name="date_from" value="{{ date_from }}">
+                        </div>
+                        <div class="form-group filter-group">
+                            <label for="finance-crm-date-to">Transaction To</label>
+                            <input type="date" id="finance-crm-date-to" name="date_to" value="{{ date_to }}">
+                        </div>
+                        <div class="form-group filter-group">
+                            <label for="finance-crm-org">PSB</label>
+                            <select id="finance-crm-org" name="organization">
+                                <option value="">All PSBs</option>
+                                {% for org in organizations_for_filter %}
+                                    <option value="{{ org.id }}" {% if org_filter == org.id|stringformat:"s" %}selected{% endif %}>{{ org.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group filter-group">
+                            <label for="finance-crm-agent">Agent</label>
+                            <select id="finance-crm-agent" name="agent">
+                                <option value="">All Agents</option>
+                                {% for agent in agents_for_filter %}
+                                    <option value="{{ agent.id }}" {% if agent_filter == agent.id|stringformat:"s" %}selected{% endif %}>
+                                        {{ agent.get_full_name|default:agent.username }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group filter-group">
+                            <label for="finance-crm-payment">Payment</label>
+                            <select id="finance-crm-payment" name="payment_method">
+                                <option value="">All Methods</option>
+                                {% for val, label in payment_choices %}
+                                    <option value="{{ val }}" {% if payment_filter == val %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group filter-group">
+                            <label for="finance-crm-source">Source</label>
+                            <select id="finance-crm-source" name="source">
+                                <option value="">All Sources</option>
+                                {% for src in sources_for_filter %}
+                                    <option value="{{ src.key }}" {% if source_filter == src.key %}selected{% endif %}>{{ src.label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group filter-group">
+                            <label for="finance-crm-referral">Referral</label>
+                            <select id="finance-crm-referral" name="referral">
+                                <option value="">All Referrals</option>
+                                {% for referral in referrals_for_filter %}
+                                    <option value="{{ referral.id }}" {% if referral_filter == referral.id|stringformat:"s" %}selected{% endif %}>{{ referral.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group filter-group">
+                            <label for="finance-crm-sort">Sort By</label>
+                            <select id="finance-crm-sort" name="sort_by">
+                                <option value="-created_at" {% if sort_by == "-created_at" %}selected{% endif %}>Newest First</option>
+                                <option value="created_at" {% if sort_by == "created_at" %}selected{% endif %}>Oldest First</option>
+                                <option value="-service_fee" {% if sort_by == "-service_fee" %}selected{% endif %}>Highest Amount</option>
+                                <option value="service_fee" {% if sort_by == "service_fee" %}selected{% endif %}>Lowest Amount</option>
+                                <option value="client_name" {% if sort_by == "client_name" %}selected{% endif %}>Client Name A-Z</option>
+                            </select>
+                        </div>
+                        <div class="form-group filter-group">
+                            <label for="finance-crm-min">Min Amount</label>
+                            <input id="finance-crm-min" type="number" step="0.01" name="min_amount" value="{{ min_amount }}" placeholder="0.00">
+                        </div>
+                        <div class="form-group filter-group">
+                            <label for="finance-crm-max">Max Amount</label>
+                            <input id="finance-crm-max" type="number" step="0.01" name="max_amount" value="{{ max_amount }}" placeholder="9999.99">
+                        </div>
+                    </div>
+                </details>
+                <div class="portal-crm-toolbar">
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                    <a href="{% url 'finance-hub' %}?tab=crm" class="btn btn-secondary portal-crm-toolbar-btn--secondary">Clear</a>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Transaction Date</th>
+                        <th>Receipt No</th>
+                        <th>PSB</th>
+                        <th>Service Type</th>
+                        <th>Client</th>
+                        <th>Status</th>
+                        <th>Agent</th>
+                        <th>Amount</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in crm_page_obj %}
+                    <tr>
+                        <td>{{ record.transaction_date|date:"Y-m-d" }}</td>
+                        <td>
+                            <span class="crm-receipt-no" title="{{ record.receipt_number }}">{{ record.receipt_number|short_receipt }}</span>
+                        </td>
+                        <td>{{ record.organization.name }}</td>
+                        <td>{{ record.service_type_label }}</td>
+                        <td>
+                            {% if record.vehicle and record.vehicle.client %}
+                                <a href="{% url 'client-detail' record.vehicle.client.id %}" class="client-link">{{ record.vehicle.client.name }}</a>
+                            {% else %}
+                                {{ record.client_name|default:"-" }}
+                            {% endif %}
+                        </td>
+                        <td><span class="status-badge status-{{ record.status }}">{{ record.get_status_display }}</span></td>
+                        <td>{{ record.handled_by.get_full_name|default:record.handled_by.username }}</td>
+                        <td>${{ record.service_fee|floatformat:2 }}</td>
+                        <td>
+                            <a href="{% url 'service-receipt-pdf' record.id %}" target="_blank" class="btn btn-sm btn-secondary portal-receipt-btn">Receipt</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="empty-state">No transactions found matching your filters.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if crm_page_obj.has_other_pages %}
+        <div class="pagination-footer finance-crm-pagination">
+            <div class="finance-crm-pagination-meta">
+                Showing <strong>{{ crm_page_obj.start_index }}-{{ crm_page_obj.end_index }}</strong> of <strong>{{ crm_page_obj.paginator.count }}</strong> transactions
+            </div>
+            <div class="pagination-nav">
+                {% if crm_page_obj.has_previous %}
+                    <a href="?page={{ crm_page_obj.previous_page_number }}&{{ crm_query_string_no_page }}" class="btn btn-secondary btn-sm">Previous</a>
+                {% endif %}
+                {% for i in crm_page_obj.paginator.page_range %}
+                    {% if crm_page_obj.number == i %}
+                        <span class="btn btn-primary btn-sm">{{ i }}</span>
+                    {% elif i > crm_page_obj.number|add:'-3' and i < crm_page_obj.number|add:'3' %}
+                        <a href="?page={{ i }}&{{ crm_query_string_no_page }}" class="btn btn-secondary btn-sm">{{ i }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if crm_page_obj.has_next %}
+                    <a href="?page={{ crm_page_obj.next_page_number }}&{{ crm_query_string_no_page }}" class="btn btn-secondary btn-sm">Next</a>
+                {% endif %}
+            </div>
+        </div>
+        {% elif crm_page_obj.paginator.count %}
+        <div class="finance-crm-pagination-meta" style="padding: 1rem 1.5rem; border-top: 1px solid #e2e8f0;">
+            Showing all <strong>{{ crm_page_obj.paginator.count }}</strong> transactions
+        </div>
+        {% endif %}
+    </article>
+</section>

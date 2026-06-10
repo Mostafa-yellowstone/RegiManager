@@ -1615,147 +1615,6 @@ def dashboard(request):
 
 
 @login_required
-def owner_report_pdf(request):
-    owner_org_ids = set(
-        OrganizationMembership.objects.filter(
-            user=request.user, role=OrganizationMembership.Role.OWNER
-        ).values_list("organization_id", flat=True)
-    )
-    if not owner_org_ids:
-        deny_access("Owner access required.")
-
-    report_rows = (
-        ServiceRecord.objects.filter(organization_id__in=owner_org_ids)
-        .values("organization__name", "service_type", "status")
-        .annotate(
-            total=Count("id"),
-            amount=Sum("service_fee"),
-            processing=Sum("processing_fee"),
-            dmv=Sum("dmv_fee"),
-            tax=Sum("sales_tax"),
-            card=Sum("credit_card_fee"),
-        )
-        .order_by("organization__name", "service_type")
-    )
-    totals = ServiceRecord.objects.filter(organization_id__in=owner_org_ids).aggregate(
-        total_amount=Sum("service_fee"),
-        total_processing=Sum("processing_fee"),
-        total_dmv=Sum("dmv_fee"),
-        total_tax=Sum("sales_tax"),
-        total_card=Sum("credit_card_fee"),
-    )
-
-    response = HttpResponse(content_type="application/pdf")
-    response["Content-Disposition"] = 'attachment; filename="owner-service-report.pdf"'
-    pdf = canvas.Canvas(response, pagesize=A4)
-    width, height = A4
-    margin_x = 48
-    content_width = width - (margin_x * 2)
-    y = height - 62
-
-    org_for_logo = Organization.objects.filter(id__in=owner_org_ids).order_by("id").first()
-    pdf.setFillColorRGB(0.06, 0.24, 0.47)
-    pdf.roundRect(margin_x, y - 34, content_width, 60, 10, fill=1, stroke=0)
-    _draw_org_logo(pdf, org_for_logo, margin_x + 12, y + 10, size=24)
-    pdf.setFillColorRGB(1, 1, 1)
-    pdf.setFont("Helvetica-Bold", 16)
-    pdf.drawCentredString(width / 2, y + 10, "Owner Financial Service Report")
-    pdf.setFont("Helvetica", 9)
-    pdf.drawCentredString(width / 2, y - 4, f"Owner: {request.user.username}")
-    pdf.drawCentredString(width / 2, y - 16, "Professional DMV printable layout")
-    y -= 48
-    columns = [
-        ("Org", 78),
-        ("Service", 74),
-        ("Status", 50),
-        ("Count", 38),
-        ("Processing", 58),
-        ("Total Gross", 58),
-        ("DMV", 52),
-        ("Tax", 52),
-        ("Card", 50),
-    ]
-    table_x = margin_x
-    row_height = 14
-
-    def draw_header(current_y):
-        pdf.setFillColorRGB(0.95, 0.97, 1)
-        pdf.roundRect(table_x, current_y - 10, content_width, 18, 5, fill=1, stroke=0)
-        pdf.setFillColorRGB(0.12, 0.2, 0.34)
-        pdf.setFont("Helvetica-Bold", 8)
-        running_x = table_x
-        for title, col_width in columns:
-            pdf.drawCentredString(running_x + (col_width / 2), current_y - 2, title)
-            running_x += col_width
-        return current_y - 16
-
-    y = draw_header(y)
-    pdf.setFont("Helvetica", 7)
-
-    for row in report_rows:
-        pdf.setFillColor(colors.whitesmoke if int(y / row_height) % 2 == 0 else colors.white)
-        pdf.rect(table_x, y - 3, content_width, 12, fill=1, stroke=0)
-        pdf.setStrokeColorRGB(0.86, 0.9, 0.96)
-        pdf.rect(table_x, y - 3, content_width, 12, fill=0, stroke=1)
-        pdf.setFillColor(colors.black)
-
-        cells = [
-            row["organization__name"],
-            str(row["service_type"]).replace("_", " ").title(),
-            str(row["status"]).title(),
-            row["total"],
-            _currency(row["processing"]),
-            _currency(row["amount"]),
-            _currency(row["dmv"]),
-            _currency(row["tax"]),
-            _currency(row["card"]),
-        ]
-        running_x = table_x
-        for idx, (_, col_width) in enumerate(columns):
-            text = _fit_text(cells[idx], col_width - 6, font_size=7)
-            pdf.drawCentredString(running_x + (col_width / 2), y, text)
-            if idx < len(columns) - 1:
-                pdf.setStrokeColorRGB(0.86, 0.9, 0.96)
-                pdf.line(running_x + col_width, y - 3, running_x + col_width, y + 9)
-            running_x += col_width
-        y -= 12
-        if y < 84:
-            pdf.showPage()
-            y = height - 62
-            pdf.setFillColorRGB(0.06, 0.24, 0.47)
-            pdf.roundRect(margin_x, y - 34, content_width, 60, 10, fill=1, stroke=0)
-            _draw_org_logo(pdf, org_for_logo, margin_x + 12, y + 10, size=24)
-            pdf.setFillColorRGB(1, 1, 1)
-            pdf.setFont("Helvetica-Bold", 16)
-            pdf.drawCentredString(width / 2, y + 10, "Owner Financial Service Report")
-            pdf.setFont("Helvetica", 9)
-            pdf.drawCentredString(width / 2, y - 4, f"Owner: {request.user.username}")
-            pdf.drawCentredString(width / 2, y - 16, "Professional DMV printable layout")
-            y -= 48
-            pdf.setFont("Helvetica", 7)
-            y = draw_header(y)
-
-    y -= 10
-    pdf.setFillColorRGB(0.93, 0.96, 1)
-    pdf.roundRect(margin_x, y - 62, content_width, 66, 8, fill=1, stroke=0)
-    y -= 12
-    pdf.setFillColorRGB(0.1, 0.18, 0.28)
-    pdf.setFont("Helvetica-Bold", 10)
-    pdf.drawCentredString(width / 2, y, f"Net Profit (Processing Fees): {_currency(totals['total_processing'])}")
-    y -= 16
-    pdf.drawCentredString(width / 2, y, f"Gross Collections: {_currency(totals['total_amount'])}")
-    y -= 16
-    pdf.drawCentredString(
-        width / 2,
-        y,
-        f"DMV Fees: {_currency(totals['total_dmv'])} | Sales Tax: {_currency(totals['total_tax'])} | Card Fees: {_currency(totals['total_card'])}",
-    )
-
-    pdf.save()
-    return response
-
-
-@login_required
 def monthly_report_pdf(request):
     owner_org_ids = set(
         OrganizationMembership.objects.filter(
@@ -4409,6 +4268,17 @@ def finance_hub(request):
     compare_a = request.GET.get("compare_a", "").strip()
     compare_b = request.GET.get("compare_b", "").strip()
     compare_mode = request.GET.get("compare_mode", "month").strip().lower()
+    hub_tab = request.GET.get("tab", "analytics").strip().lower()
+    if hub_tab not in {"analytics", "crm"}:
+        hub_tab = "analytics"
+    search_query = request.GET.get("q", "").strip()
+    payment_filter = request.GET.get("payment_method", "").strip()
+    min_amount = request.GET.get("min_amount", "").strip()
+    max_amount = request.GET.get("max_amount", "").strip()
+    crm_sort_by = request.GET.get("sort_by", "-created_at").strip() or "-created_at"
+    sort_by = crm_sort_by
+    referral_filter = request.GET.get("referral", "").strip()
+    source_filter = request.GET.get("source", "").strip()
 
     if org_filter.isdigit():
         records = records.filter(organization_id=int(org_filter))
@@ -4580,6 +4450,83 @@ def finance_hub(request):
     )
     goal_forecast = build_month_goal_forecast(metrics_records, today_date)
 
+    crm_page_obj = None
+    crm_query_string_no_page = ""
+    payment_choices = ServiceRecord.PAYMENT_METHODS
+    sources_for_filter = _build_source_choices_for_service_records(organizations)
+    referrals_for_filter = Referral.objects.filter(
+        organization__in=organizations,
+        deleted_at__isnull=True,
+    ).order_by("name")
+
+    if hub_tab == "crm":
+        crm_qs = ServiceRecord.objects.filter(organization__in=organizations).select_related(
+            "organization",
+            "handled_by",
+            "vehicle__client",
+            "referral",
+        )
+        if org_filter.isdigit():
+            crm_qs = crm_qs.filter(organization_id=int(org_filter))
+        if status_filter in dict(ServiceRecord.STATUS_CHOICES):
+            crm_qs = crm_qs.filter(status=status_filter)
+        if service_filter:
+            crm_qs = crm_qs.filter(service_type=service_filter)
+        if agent_filter.isdigit():
+            crm_qs = crm_qs.filter(handled_by_id=int(agent_filter))
+        if date_from:
+            crm_qs = crm_qs.filter(transaction_date__gte=date_from)
+        if date_to:
+            crm_qs = crm_qs.filter(transaction_date__lte=date_to)
+        if search_query:
+            crm_qs = crm_qs.filter(
+                Q(client_name__icontains=search_query)
+                | Q(client_identifier__icontains=search_query)
+                | Q(receipt_number__icontains=search_query)
+                | Q(vehicle__client__first_name__icontains=search_query)
+                | Q(vehicle__client__last_name__icontains=search_query)
+            )
+        payment_choice_keys = {key for key, _ in payment_choices}
+        if payment_filter in payment_choice_keys:
+            crm_qs = crm_qs.filter(payment_method=payment_filter)
+        referral_ids = set(referrals_for_filter.values_list("id", flat=True))
+        if referral_filter.isdigit() and int(referral_filter) in referral_ids:
+            crm_qs = crm_qs.filter(referral_id=int(referral_filter))
+        if source_filter:
+            crm_qs = crm_qs.filter(source_filter_q(source_filter))
+        try:
+            if min_amount:
+                crm_qs = crm_qs.filter(service_fee__gte=Decimal(min_amount))
+            if max_amount:
+                crm_qs = crm_qs.filter(service_fee__lte=Decimal(max_amount))
+        except Exception:
+            pass
+
+        sort_map = {
+            "-created_at": "-transaction_date",
+            "created_at": "transaction_date",
+            "-service_fee": "-service_fee",
+            "service_fee": "service_fee",
+            "client_name": "client_name",
+            "-status": "-status",
+        }
+        crm_sort_field = sort_map.get(sort_by, "-transaction_date")
+        crm_qs = crm_qs.order_by(crm_sort_field, "-created_at")
+
+        crm_paginator = Paginator(crm_qs, 15)
+        crm_page_obj = crm_paginator.get_page(request.GET.get("page"))
+        crm_query = request.GET.copy()
+        crm_query.pop("page", None)
+        crm_query["tab"] = "crm"
+        crm_query_string_no_page = crm_query.urlencode()
+
+    hub_query = request.GET.copy()
+    hub_query.pop("page", None)
+    hub_query_analytics = hub_query.copy()
+    hub_query_analytics["tab"] = "analytics"
+    hub_query_crm = hub_query.copy()
+    hub_query_crm["tab"] = "crm"
+
     context = {
         "total_revenue": total_revenue,
         "total_services": total_services,
@@ -4610,6 +4557,21 @@ def finance_hub(request):
         "compare_mode": compare_mode,
         "compare_data": compare_data,
         "strategy_note": strategy_note,
+        "hub_tab": hub_tab,
+        "search_query": search_query,
+        "payment_filter": payment_filter,
+        "payment_choices": payment_choices,
+        "min_amount": min_amount,
+        "max_amount": max_amount,
+        "sort_by": sort_by,
+        "referral_filter": referral_filter,
+        "source_filter": source_filter,
+        "referrals_for_filter": referrals_for_filter,
+        "sources_for_filter": sources_for_filter,
+        "crm_page_obj": crm_page_obj,
+        "crm_query_string_no_page": crm_query_string_no_page,
+        "hub_query_analytics": hub_query_analytics.urlencode(),
+        "hub_query_crm": hub_query_crm.urlencode(),
     }
     return render(request, "core/finance_hub.html", context)
 
