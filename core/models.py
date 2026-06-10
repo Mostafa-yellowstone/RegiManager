@@ -100,6 +100,10 @@ class OrganizationMembership(models.Model):
     can_delete_receipt = models.BooleanField(default=False, help_text="Can this agent delete/remove receipt records from the service list?")
     can_view_commission = models.BooleanField(default=False, help_text="Can this agent view commission rate, commission amount, and agency profit in the insurance space?")
     can_view_banking = models.BooleanField(default=False, help_text="Can this agent view the banking section in the insurance space?")
+    can_manage_insurance_pipeline = models.BooleanField(
+        default=False,
+        help_text="Can this agent configure the insurance distribution pipeline and assign agents to it?",
+    )
     can_manage_news = models.BooleanField(default=False, help_text="Can this agent add, edit, or delete news/announcements?")
     can_manage_knowledge_hub = models.BooleanField(default=False, help_text="Can this agent add or delete materials in the Knowledge Hub?")
     accessible_spaces = models.ManyToManyField(
@@ -1802,7 +1806,7 @@ class InsuranceDistributionConfig(models.Model):
     )
     allow_manual_override = models.BooleanField(
         default=True,
-        help_text="PSB owners can manually pick an agent when adding a policy.",
+        help_text="Users with pipeline permission can manually pick an agent when adding a policy.",
     )
     updated_at = models.DateTimeField(auto_now=True)
 

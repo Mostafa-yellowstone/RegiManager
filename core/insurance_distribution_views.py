@@ -53,8 +53,16 @@ def _is_org_owner(request, organization, membership=None):
     )
 
 
+def membership_can_manage_pipeline(membership):
+    if not membership:
+        return False
+    if membership.role == OrganizationMembership.Role.OWNER:
+        return True
+    return membership.can_manage_insurance_pipeline
+
+
 def can_manage_insurance_pipeline(request, organization, membership=None):
-    """PSB owners (and platform admins) manage pipeline rules and agent assignment."""
+    """Owners, delegated agents, and platform admins manage pipeline rules."""
     if request.user.is_superuser or request.user.is_staff:
         return True
     if membership is None:
@@ -64,7 +72,7 @@ def can_manage_insurance_pipeline(request, organization, membership=None):
             is_active=True,
             organization__is_active=True,
         ).first()
-    return _is_org_owner(request, organization, membership)
+    return membership_can_manage_pipeline(membership)
 
 
 def _redirect_insurance(organization, tab="agents"):
@@ -82,7 +90,7 @@ def save_insurance_distribution_config(request):
     organization = _resolve_insurance_org(request)
     membership = _user_membership(request, organization)
     if not can_manage_insurance_pipeline(request, organization, membership):
-        deny_access("Only PSB owners can configure the distribution pipeline.")
+        deny_access("You do not have permission to configure the distribution pipeline.")
 
     config, _ = InsuranceDistributionConfig.objects.get_or_create(organization=organization)
     config.is_enabled = request.POST.get("is_enabled") == "on"
@@ -192,7 +200,7 @@ def save_pipeline_agents(request):
     organization = _resolve_insurance_org(request)
     membership = _user_membership(request, organization)
     if not can_manage_insurance_pipeline(request, organization, membership):
-        deny_access("Only PSB owners can assign pipeline agents.")
+        deny_access("You do not have permission to assign pipeline agents.")
 
     selected_ids = {str(mid) for mid in request.POST.getlist("pipeline_membership_ids")}
     agent_memberships = OrganizationMembership.objects.filter(

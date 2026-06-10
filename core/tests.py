@@ -1265,6 +1265,37 @@ class InsuranceDistributionTests(TestCase):
         rotation2 = get_or_create_rotation(self.m2)
         self.assertFalse(rotation2.in_pipeline)
 
+    def test_delegated_agent_with_pipeline_permission_can_assign_agents(self):
+        from core.insurance_assignment import get_or_create_rotation
+
+        self.m2.can_manage_insurance_pipeline = True
+        self.m2.save(update_fields=["can_manage_insurance_pipeline"])
+
+        self.client.login(username="agenttwo", password="password123")
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+
+        response = self.client.post(
+            reverse("save-pipeline-agents"),
+            {"pipeline_membership_ids": [str(self.m2.id)]},
+        )
+        self.assertEqual(response.status_code, 302)
+        rotation = get_or_create_rotation(self.m2)
+        self.assertTrue(rotation.in_pipeline)
+
+    def test_agent_without_pipeline_permission_cannot_assign_agents(self):
+        self.client.login(username="agentone", password="password123")
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+
+        response = self.client.post(
+            reverse("save-pipeline-agents"),
+            {"pipeline_membership_ids": [str(self.m1.id)]},
+        )
+        self.assertEqual(response.status_code, 403)
+
     def test_non_insurance_agent_excluded_when_only_insurance_agents_enabled(self):
         from core.insurance_assignment import get_eligible_pipeline_memberships
         from core.models import OrganizationMembership

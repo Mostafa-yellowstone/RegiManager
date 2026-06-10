@@ -661,7 +661,7 @@
             Pipeline is on, but no agents are currently available. Check present/absent status and holidays below.
           </div>
           {% endif %}
-          {% if is_owner %}
+          {% if can_manage_distribution %}
           <form method="post" action="{% url 'save-insurance-distribution-config' %}" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:1rem 1.1rem;margin-bottom:1.25rem;">
             {% csrf_token %}
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.85rem;">
@@ -702,7 +702,8 @@
           </form>
           {% else %}
           <p style="font-size:0.82rem;color:#64748b;margin:0 0 1rem;">
-            Pipeline settings and agent assignment are managed by the PSB owner.
+            Pipeline settings and agent assignment require the
+            <strong>Handle Insurance Pipeline</strong> permission (assigned by the PSB owner in Team Management).
             You can update your own present/absent status and holidays on your profile page.
           </p>
           {% endif %}

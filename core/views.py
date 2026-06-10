@@ -3295,6 +3295,8 @@ def update_agent_permissions(request):
             membership.can_manage_knowledge_hub = value
         elif field == "can_deal_with_motorclub":
             membership.can_deal_with_motorclub = value
+        elif field == "can_manage_insurance_pipeline":
+            membership.can_manage_insurance_pipeline = value
             
         membership.save()
         
@@ -5749,6 +5751,7 @@ def inventory_detail(request, inventory_id):
             get_distribution_config,
             get_pipeline_next_user,
         )
+        from .insurance_distribution_views import can_manage_insurance_pipeline
         active_org = card.organization
         ensure_pipeline_rotations(active_org)
         
@@ -6128,7 +6131,9 @@ def inventory_detail(request, inventory_id):
             "pipeline_roster": build_pipeline_roster(active_org),
             "pipeline_next_agent": get_pipeline_next_user(active_org),
             "distribution_agent_choices": insurance_memberships,
-            "can_manage_distribution": is_owner or request.user.is_superuser or request.user.is_staff,
+            "can_manage_distribution": can_manage_insurance_pipeline(
+                request, active_org, membership
+            ),
             "all_org_memberships": OrganizationMembership.objects.filter(
                 organization=active_org,
                 is_active=True,
@@ -6429,16 +6434,16 @@ def add_insurance_policy(request):
         inactive_date = timezone.now().date()
 
     from .insurance_assignment import resolve_policy_agent
+    from .insurance_distribution_views import can_manage_insurance_pipeline
 
     actor_membership = OrganizationMembership.objects.filter(
         user=request.user,
         organization=org,
         is_active=True,
     ).first()
-    is_owner = request.user.is_superuser or (
-        actor_membership and actor_membership.role == OrganizationMembership.Role.OWNER
+    can_manage_distribution = can_manage_insurance_pipeline(
+        request, org, actor_membership
     )
-    can_manage_distribution = is_owner or request.user.is_superuser or request.user.is_staff
     added_by, assign_method = resolve_policy_agent(
         org,
         request.user,
@@ -6555,16 +6560,16 @@ def edit_insurance_policy(request, policy_id):
             policy.inactive_date = None
 
         from .insurance_assignment import validate_manual_agent, get_distribution_config
+        from .insurance_distribution_views import can_manage_insurance_pipeline
 
         actor_membership = OrganizationMembership.objects.filter(
             user=request.user,
             organization=policy.organization,
             is_active=True,
         ).first()
-        is_owner = request.user.is_superuser or (
-            actor_membership and actor_membership.role == OrganizationMembership.Role.OWNER
+        can_manage_distribution = can_manage_insurance_pipeline(
+            request, policy.organization, actor_membership
         )
-        can_manage_distribution = is_owner or request.user.is_superuser or request.user.is_staff
         assigned_agent_id = request.POST.get("assigned_agent_id")
         if can_manage_distribution and assigned_agent_id:
             config = get_distribution_config(policy.organization)
@@ -7714,11 +7719,13 @@ def insurance_agent_detail(request, user_id):
             organization=active_org,
             is_active=True,
         ).first()
+    from .insurance_distribution_views import can_manage_insurance_pipeline
+
     is_viewing_self = request.user.id == agent.id
-    is_owner = request.user.is_superuser or (
-        viewer_membership and viewer_membership.role == OrganizationMembership.Role.OWNER
+    can_manage_rotation = (
+        is_viewing_self
+        or can_manage_insurance_pipeline(request, active_org, viewer_membership)
     )
-    can_manage_rotation = is_owner or is_viewing_self or request.user.is_staff
 
     return render(request, "core/insurance_agent_detail.html", {
         "agent": agent,
