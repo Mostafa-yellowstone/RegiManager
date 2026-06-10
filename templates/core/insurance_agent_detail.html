@@ -180,7 +180,7 @@ html.portal-theme-dark .agent-profile-page .bt-rewrite { background: rgba(217, 1
           {% csrf_token %}
           <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.88rem;cursor:pointer;">
             <input type="checkbox" name="in_pipeline" {% if agent_rotation.in_pipeline %}checked{% endif %}>
-            Include me in the distribution pipeline
+            {% if is_viewing_self %}Include me in the distribution pipeline{% else %}Include in the distribution pipeline{% endif %}
           </label>
           <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.88rem;cursor:pointer;">
             <input type="checkbox" name="is_present" {% if agent_rotation.is_present %}checked{% endif %}>

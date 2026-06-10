@@ -6541,11 +6541,9 @@ def edit_insurance_policy(request, policy_id):
             organization=policy.organization,
             is_active=True,
         ).first()
-        is_owner = request.user.is_superuser or (
-            actor_membership and actor_membership.role == OrganizationMembership.Role.OWNER
-        )
+        can_manage_distribution = request.user.is_superuser or request.user.is_staff
         assigned_agent_id = request.POST.get("assigned_agent_id")
-        if is_owner and assigned_agent_id:
+        if can_manage_distribution and assigned_agent_id:
             config = get_distribution_config(policy.organization)
             manual_user = validate_manual_agent(
                 policy.organization,
@@ -7693,10 +7691,11 @@ def insurance_agent_detail(request, user_id):
             organization=active_org,
             is_active=True,
         ).first()
+    is_viewing_self = request.user.id == agent.id
     can_manage_rotation = (
         request.user.is_superuser
-        or (viewer_membership and viewer_membership.role == OrganizationMembership.Role.OWNER)
-        or (viewer_membership and viewer_membership.user_id == agent.id)
+        or request.user.is_staff
+        or is_viewing_self
     )
 
     return render(request, "core/insurance_agent_detail.html", {
@@ -7707,6 +7706,7 @@ def insurance_agent_detail(request, user_id):
         "agent_rotation": agent_rotation,
         "agent_holidays": agent_holidays,
         "can_manage_rotation": can_manage_rotation,
+        "is_viewing_self": is_viewing_self,
         "policies_page": policies_page,
         "insurance_companies": insurance_companies,
         # Period auditing

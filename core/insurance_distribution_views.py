@@ -92,9 +92,9 @@ def update_insurance_agent_rotation(request, membership_id):
         is_active=True,
     )
 
-    is_owner = _is_org_owner(request, organization, membership)
     is_self = target.user_id == request.user.id
-    if not is_owner and not is_self:
+    is_platform_admin = request.user.is_superuser or request.user.is_staff
+    if not is_self and not is_platform_admin:
         deny_access("You can only update your own pipeline availability.")
 
     rotation = get_or_create_rotation(target)
@@ -121,9 +121,9 @@ def add_insurance_agent_holiday(request, membership_id):
         is_active=True,
     )
 
-    is_owner = _is_org_owner(request, organization, membership)
     is_self = target.user_id == request.user.id
-    if not is_owner and not is_self:
+    is_platform_admin = request.user.is_superuser or request.user.is_staff
+    if not is_self and not is_platform_admin:
         deny_access("You can only manage your own holidays.")
 
     start_raw = request.POST.get("start_date", "").strip()
@@ -164,9 +164,9 @@ def delete_insurance_agent_holiday(request, holiday_id):
     )
     target = holiday.rotation.membership
 
-    is_owner = _is_org_owner(request, organization, membership)
     is_self = target.user_id == request.user.id
-    if not is_owner and not is_self:
+    is_platform_admin = request.user.is_superuser or request.user.is_staff
+    if not is_self and not is_platform_admin:
         deny_access("You can only remove your own holidays.")
 
     holiday.delete()
