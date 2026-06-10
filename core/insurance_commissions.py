@@ -2,6 +2,8 @@
 
 from decimal import Decimal, ROUND_HALF_UP
 
+from .models import InsurancePolicy
+
 UNEARNED_REFUND_CATEGORIES = frozenset({
     "Commission Refund",
     "Unearned Commission Refund",
@@ -37,7 +39,7 @@ def received_commission_from_policies(policies):
 def gross_earned_from_policies(policies):
     return sum(
         p.commission_amount for p in policies
-        if p.stage == "bound" and p.status == "active"
+        if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "active"
     )
 
 
@@ -92,7 +94,7 @@ def calculate_unearned_commission(
 
 def policy_unearned_commission(policy):
     """Fresh unearned amount for display; does not rely on stored DB value."""
-    if getattr(policy, "stage", None) != "bound" or getattr(policy, "status", None) != "inactive":
+    if getattr(policy, "stage", None) not in InsurancePolicy.BOUND_STAGES or getattr(policy, "status", None) != "inactive":
         return Decimal("0.00")
     return calculate_unearned_commission(
         policy.commission_amount,
@@ -126,7 +128,7 @@ def company_commission_summary(company_policies, company_transactions):
 
     inactive = [
         p for p in company_policies
-        if p.stage == "bound" and p.status == "inactive"
+        if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "inactive"
     ]
     inactive.sort(key=lambda p: (p.inactive_date or p.start_date, p.id))
     refund_amt = refund_total(company_transactions)

@@ -208,6 +208,8 @@
                   <option value="">All Stages</option>
                   <option value="quote" {% if stage_filter == "quote" %}selected{% endif %}>Quote</option>
                   <option value="bound" {% if stage_filter == "bound" %}selected{% endif %}>Bound</option>
+                  <option value="endorsement_quote" {% if stage_filter == "endorsement_quote" %}selected{% endif %}>Endorsement — Quote</option>
+                  <option value="endorsement_bound" {% if stage_filter == "endorsement_bound" %}selected{% endif %}>Endorsement — Bound</option>
                 </select>
               </div>
               <div style="display: flex; flex-direction: column; gap: 0.3rem;">
@@ -349,10 +351,10 @@
               <td style="font-size: 0.82rem; color: #64748b; white-space: nowrap;">{{ policy.bound_date|default:"—" }}</td>
               <td>
                 <div style="display: flex; flex-direction: column; gap: 0.2rem;">
-                  {% if policy.stage == 'quote' %}
-                  <span class="chip-quote" style="background: #eff6ff; color: #1d4ed8; padding: 3px 6px; border-radius: 6px; font-weight: 700; font-size: 0.75rem; width: fit-content; text-align: center; white-space: nowrap;">● Quote</span>
+                  {% if policy.stage == 'quote' or policy.stage == 'endorsement_quote' %}
+                  <span class="chip-quote" style="background: #eff6ff; color: #1d4ed8; padding: 3px 6px; border-radius: 6px; font-weight: 700; font-size: 0.75rem; width: fit-content; text-align: center; white-space: nowrap;">● {{ policy.get_stage_display }}</span>
                   {% else %}
-                  <span class="chip-bound" style="background: #f0fdf4; color: #166534; padding: 3px 6px; border-radius: 6px; font-weight: 700; font-size: 0.75rem; width: fit-content; text-align: center; white-space: nowrap;">● Bound</span>
+                  <span class="chip-bound" style="background: #f0fdf4; color: #166534; padding: 3px 6px; border-radius: 6px; font-weight: 700; font-size: 0.75rem; width: fit-content; text-align: center; white-space: nowrap;">● {{ policy.get_stage_display }}</span>
                   {% endif %}
 
                   {% if policy.status == 'active' %}
@@ -826,10 +828,7 @@
       <div class="grid-3" style="margin-bottom: 1rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
         <div><label class="field-label">Period (Months)</label><input type="number" name="insurance_period_months" id="policyPeriod" value="6" required class="field-input"></div>
         <div><label class="field-label">Stage</label>
-          <select name="stage" id="policyStage" required class="field-input">
-            <option value="quote">Quote</option>
-            <option value="bound">Bound</option>
-          </select>
+          {% include "core/partials/insurance_stage_select.html" with select_id="policyStage" required=True class_name="field-input" %}
         </div>
         <div><label class="field-label">Status</label>
           <select name="status" id="policyStatus" class="field-input" onchange="toggleInactiveDate()">

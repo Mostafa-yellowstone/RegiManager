@@ -1,0 +1,8 @@
+<select name="stage" id="{{ select_id|default:'policyStage' }}" {% if required %}required{% endif %} class="{{ class_name|default:'field-input' }}">
+  <option value="quote" {% if selected == 'quote' %}selected{% endif %}>Quote</option>
+  <option value="bound" {% if selected == 'bound' %}selected{% endif %}>Bound</option>
+  <optgroup label="Endorsement">
+    <option value="endorsement_quote" {% if selected == 'endorsement_quote' %}selected{% endif %}>Quote</option>
+    <option value="endorsement_bound" {% if selected == 'endorsement_bound' %}selected{% endif %}>Bound</option>
+  </optgroup>
+</select>

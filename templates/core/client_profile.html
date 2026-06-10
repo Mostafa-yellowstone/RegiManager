@@ -248,7 +248,7 @@
                             <tbody>
                                 {% for record in records %}
                                 <tr>
-                                    <td>{{ record.created_at|date:"M d, Y H:i" }}</td>
+                                    <td>{{ record.transaction_date|date:"M d, Y" }}</td>
                                     <td>
                                         <strong class="cpp-tx-service">{{ record.service_type_label }}</strong>
                                     </td>

@@ -2160,6 +2160,198 @@ html.portal-theme-dark body.portal-body .drawer-body p {
     color: var(--portal-text-muted);
 }
 
+/* Document upload drawer — dark mode */
+html.portal-theme-dark body.portal-body #docUploadDrawer .doc-drawer-icon,
+html.portal-theme-dark body.portal-body #docUploadDrawer .drawer-header > div > div:first-child {
+    background: var(--portal-info-bg) !important;
+    color: #60a5fa !important;
+}
+
+html.portal-theme-dark body.portal-body #docUploadDrawer .doc-drawer-title,
+html.portal-theme-dark body.portal-body #docUploadDrawer .drawer-header h2,
+html.portal-theme-dark body.portal-body #customUploadModal .custom-upload-title,
+html.portal-theme-dark body.portal-body #customUploadModal .drawer-header h2 {
+    color: var(--portal-text) !important;
+}
+
+html.portal-theme-dark body.portal-body #docUploadDrawer .doc-drawer-subtitle,
+html.portal-theme-dark body.portal-body #docUploadDrawer #modalReceiptDisplay,
+html.portal-theme-dark body.portal-body #docUploadDrawer .doc-section-label,
+html.portal-theme-dark body.portal-body #docUploadDrawer h3 {
+    color: var(--portal-text-muted) !important;
+    border-bottom-color: var(--portal-border) !important;
+}
+
+html.portal-theme-dark body.portal-body #docUploadDrawer .drawer-body > p,
+html.portal-theme-dark body.portal-body #docUploadDrawer .drawer-body strong {
+    color: var(--portal-text-secondary);
+}
+
+html.portal-theme-dark body.portal-body #docUploadDrawer .drawer-header .btn-secondary,
+html.portal-theme-dark body.portal-body .drawer-panel .close-drawer {
+    color: var(--portal-text-muted);
+    border-color: var(--portal-border);
+    background: var(--portal-surface-muted);
+}
+
+html.portal-theme-dark body.portal-body #docUploadDrawer .drawer-header .btn-secondary:hover,
+html.portal-theme-dark body.portal-body .drawer-panel .close-drawer:hover {
+    color: var(--portal-text);
+    background: var(--portal-border);
+}
+
+html.portal-theme-dark body.portal-body .drawer-panel .dropzone {
+    background: var(--portal-surface-muted);
+    border-color: var(--portal-border-strong);
+}
+
+html.portal-theme-dark body.portal-body .drawer-panel .dropzone:hover,
+html.portal-theme-dark body.portal-body .drawer-panel .dropzone.dragover {
+    background: var(--portal-primary-soft);
+    border-color: var(--portal-primary);
+}
+
+html.portal-theme-dark body.portal-body .drawer-panel .dropzone.success {
+    background: var(--portal-success-bg);
+    border-color: var(--portal-success);
+}
+
+html.portal-theme-dark body.portal-body .drawer-panel .dropzone.error {
+    background: var(--portal-danger-bg);
+    border-color: var(--portal-danger);
+}
+
+html.portal-theme-dark body.portal-body .drawer-panel .dropzone-custom {
+    background: rgba(79, 70, 229, 0.14) !important;
+    border-color: #6366f1 !important;
+}
+
+html.portal-theme-dark body.portal-body .drawer-panel .dz-icon {
+    color: var(--portal-text-secondary);
+}
+
+html.portal-theme-dark body.portal-body .drawer-panel .dropzone-custom .dz-icon,
+html.portal-theme-dark body.portal-body .drawer-panel .dropzone-custom .dz-text,
+html.portal-theme-dark body.portal-body .drawer-panel .dropzone-custom .dz-hint {
+    color: #a5b4fc !important;
+}
+
+html.portal-theme-dark body.portal-body .drawer-panel .dz-text {
+    color: var(--portal-text);
+}
+
+html.portal-theme-dark body.portal-body .drawer-panel .dz-hint {
+    color: var(--portal-text-muted);
+}
+
+html.portal-theme-dark body.portal-body .drawer-panel .dz-status {
+    color: var(--portal-text-muted);
+}
+
+html.portal-theme-dark body.portal-body .drawer-panel .dropzone.success .dz-status {
+    color: var(--portal-success);
+}
+
+html.portal-theme-dark body.portal-body .drawer-panel .dropzone.error .dz-status {
+    color: var(--portal-danger);
+}
+
+html.portal-theme-dark body.portal-body .drawer-docs-list li,
+html.portal-theme-dark body.portal-body #existing-docs-list li {
+    background: var(--portal-surface-muted);
+    border-color: var(--portal-border);
+}
+
+html.portal-theme-dark body.portal-body .drawer-docs-list li:hover,
+html.portal-theme-dark body.portal-body #existing-docs-list li:hover {
+    background: rgba(45, 58, 77, 0.55);
+    border-color: var(--portal-border-strong);
+}
+
+html.portal-theme-dark body.portal-body .drawer-docs-list .doc-icon,
+html.portal-theme-dark body.portal-body #existing-docs-list .doc-icon {
+    background: var(--portal-surface);
+    border-color: var(--portal-border);
+    color: var(--portal-text-muted);
+}
+
+html.portal-theme-dark body.portal-body .drawer-docs-list .doc-name,
+html.portal-theme-dark body.portal-body #existing-docs-list .doc-name {
+    color: var(--portal-text);
+}
+
+html.portal-theme-dark body.portal-body .doc-pdf-badge {
+    color: #fca5a5 !important;
+    background: var(--portal-danger-bg) !important;
+}
+
+html.portal-theme-dark body.portal-body .doc-delete-btn {
+    background: var(--portal-danger-bg) !important;
+    color: #fca5a5 !important;
+    border-color: rgba(220, 38, 38, 0.35) !important;
+}
+
+html.portal-theme-dark body.portal-body .doc-delete-btn:hover {
+    background: rgba(220, 38, 38, 0.28) !important;
+    color: #fecaca !important;
+}
+
+html.portal-theme-dark body.portal-body .drawer-panel .dz-remove {
+    color: #fca5a5;
+}
+
+html.portal-theme-dark body.portal-body .drawer-docs-list .doc-icon-pdf,
+html.portal-theme-dark body.portal-body #existing-docs-list .doc-icon-pdf {
+    color: #fca5a5;
+}
+
+html.portal-theme-dark body.portal-body .drawer-docs-list .doc-icon-image,
+html.portal-theme-dark body.portal-body #existing-docs-list .doc-icon-image {
+    color: #60a5fa;
+}
+
+html.portal-theme-dark body.portal-body #customUploadModal.drawer-overlay {
+    background: rgba(2, 6, 23, 0.72) !important;
+}
+
+html.portal-theme-dark body.portal-body #customUploadModal .close-drawer {
+    color: var(--portal-text-muted);
+}
+
+html.portal-theme-dark body.portal-body .drawer-docs-list .doc-view-btn,
+html.portal-theme-dark body.portal-body #existing-docs-list .doc-view-btn {
+    color: var(--portal-text-secondary);
+    background: var(--portal-surface);
+    border-color: var(--portal-border);
+}
+
+html.portal-theme-dark body.portal-body .drawer-docs-list .doc-view-btn:hover,
+html.portal-theme-dark body.portal-body #existing-docs-list .doc-view-btn:hover {
+    color: var(--portal-text);
+    background: var(--portal-surface-muted);
+    border-color: var(--portal-border-strong);
+}
+
+html.portal-theme-dark body.portal-body #customUploadModal .custom-upload-modal-panel {
+    background: var(--portal-surface);
+    box-shadow: var(--portal-shadow-lg);
+}
+
+html.portal-theme-dark body.portal-body #customUploadModal .custom-upload-modal-header {
+    border-bottom-color: var(--portal-border) !important;
+    background: transparent !important;
+}
+
+html.portal-theme-dark body.portal-body #customUploadModal .custom-upload-label {
+    color: var(--portal-text-secondary) !important;
+}
+
+html.portal-theme-dark body.portal-body #customUploadModal .form-control {
+    background: var(--portal-surface-muted) !important;
+    color: var(--portal-text) !important;
+    border-color: var(--portal-border) !important;
+}
+
 html.portal-theme-dark body.portal-body .dashboard-shell div[style*="background: #f8fafc"],
 html.portal-theme-dark body.portal-body .dashboard-shell div[style*="background: #f5f3ff"],
 html.portal-theme-dark body.portal-body .dashboard-shell div[style*="background: white"],

@@ -10,7 +10,7 @@ from .insurance_commissions import (
     policy_unearned_commission,
     refund_total,
 )
-from .models import BankTransaction, InsuranceCompany
+from .models import BankTransaction, InsuranceCompany, InsurancePolicy
 
 
 def get_user_colors(username):
@@ -20,11 +20,11 @@ def get_user_colors(username):
 
 def period_stats(policy_qs, start, end):
     period_qs = policy_qs.filter(created_at__date__gte=start, created_at__date__lte=end)
-    quotes = period_qs.filter(stage="quote").count()
-    bound = period_qs.filter(stage="bound").count()
+    quotes = period_qs.filter(stage__in=InsurancePolicy.QUOTE_STAGES).count()
+    bound = period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES).count()
     total = quotes + bound
     conversion = (bound / total * 100) if total > 0 else 0
-    bound_stats = period_qs.filter(stage="bound", status="active").aggregate(
+    bound_stats = period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="active").aggregate(
         premium=Sum("premium"),
         broker_fee=Sum("broker_fee"),
     )
@@ -55,7 +55,7 @@ def build_adjusted_unearned_for_org(insurance_companies, inactive_policies_qs):
 
 def decorate_policies(policies, adjusted_unearned_map):
     for policy in policies:
-        if policy.stage == "bound" and policy.status == "inactive":
+        if policy.stage in InsurancePolicy.BOUND_STAGES and policy.status == "inactive":
             policy.unearned_commission = adjusted_unearned_map.get(
                 policy.id, policy_unearned_commission(policy)
             )
@@ -68,7 +68,7 @@ def decorate_policies(policies, adjusted_unearned_map):
 def build_company_summaries(insurance_companies, all_policies):
     summaries = []
     policies_by_company = {}
-    for policy in all_policies.filter(stage="bound").iterator():
+    for policy in all_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES).iterator():
         policies_by_company.setdefault(policy.insurance_company_id, []).append(policy)
 
     for company in insurance_companies:
@@ -76,7 +76,7 @@ def build_company_summaries(insurance_companies, all_policies):
         company_transactions = list(company.transactions.all())
         summary = company_commission_summary(comp_policies, company_transactions)
         comp_active_count = sum(
-            1 for p in comp_policies if p.stage == "bound" and p.status == "active"
+            1 for p in comp_policies if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "active"
         )
         summaries.append({
             "id": company.id,
@@ -96,11 +96,11 @@ def build_agent_stats(all_policies, insurance_memberships):
         for row in all_policies.filter(added_by__isnull=False)
         .values("added_by_id")
         .annotate(
-            quotes_count=Count("id", filter=Q(stage="quote")),
-            policies_bound=Count("id", filter=Q(stage="bound")),
-            total_premium=Sum("premium", filter=Q(stage="bound")),
-            total_commission=Sum("commission_amount", filter=Q(stage="bound")),
-            total_broker_fee=Sum("broker_fee", filter=Q(stage="bound")),
+            quotes_count=Count("id", filter=Q(stage__in=InsurancePolicy.QUOTE_STAGES)),
+            policies_bound=Count("id", filter=Q(stage__in=InsurancePolicy.BOUND_STAGES)),
+            total_premium=Sum("premium", filter=Q(stage__in=InsurancePolicy.BOUND_STAGES)),
+            total_commission=Sum("commission_amount", filter=Q(stage__in=InsurancePolicy.BOUND_STAGES)),
+            total_broker_fee=Sum("broker_fee", filter=Q(stage__in=InsurancePolicy.BOUND_STAGES)),
         )
     }
 

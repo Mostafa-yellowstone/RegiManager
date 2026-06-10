@@ -57,7 +57,7 @@ from .insurance_commissions import (
     refund_total,
 )
 from .finance_hub_metrics import build_daily_payment_cards, build_month_goal_forecast
-from .dashboard_metrics import build_service_cards
+from .dashboard_metrics import build_service_cards, daily_record_q, monthly_record_q, yearly_record_q
 from .insurance_space_metrics import (
     build_adjusted_unearned_for_org,
     build_agent_stats,
@@ -762,7 +762,7 @@ def client_detail(request, client_id):
     records_qs = (
         ServiceRecord.objects.filter(vehicle__client=client)
         .select_related("handled_by", "vehicle", "vehicle__client", "organization", "referral")
-        .order_by("-created_at")
+        .order_by("-transaction_date", "-created_at")
     )
     try:
         notes_qs = client.notes.select_related("created_by", "assigned_to").all()
@@ -778,7 +778,7 @@ def client_detail(request, client_id):
     record_totals = records_qs.aggregate(total_spend=Sum("service_fee"), total_services=Count("id"))
     total_spend = record_totals["total_spend"] or Decimal("0")
     total_services = record_totals["total_services"] or 0
-    last_service_date = records_qs.values_list("created_at", flat=True).first()
+    last_service_date = records_qs.values_list("transaction_date", flat=True).first()
 
     notes_paginator = Paginator(notes_qs, 3)
     notes_page = request.GET.get("notes_page")
@@ -1435,9 +1435,9 @@ def dashboard(request):
     overall_amount = overall_totals["total_amount"] or Decimal("0")
     overall_net_profit = overall_totals["total_processing"] or Decimal("0")
 
-    yearly_qs = scope_qs.filter(created_at__date__gte=year_start, created_at__date__lte=today)
-    monthly_qs = scope_qs.filter(created_at__date__gte=month_start, created_at__date__lte=today)
-    daily_qs = scope_qs.filter(created_at__date=today)
+    yearly_qs = scope_qs.filter(yearly_record_q(year_start, today))
+    monthly_qs = scope_qs.filter(monthly_record_q(month_start, today))
+    daily_qs = scope_qs.filter(daily_record_q(today))
     
     yearly_report = yearly_qs.aggregate(
         total_records=Count("id"),
@@ -1546,8 +1546,8 @@ def dashboard(request):
             for row in ServiceRecord.objects.filter(organization__in=organizations)
             .values("organization_id")
             .annotate(
-                daily_profit=Sum("processing_fee", filter=Q(created_at__date=today)),
-                monthly_profit=Sum("processing_fee", filter=Q(created_at__date__gte=month_start)),
+                daily_profit=Sum("processing_fee", filter=daily_record_q(today)),
+                monthly_profit=Sum("processing_fee", filter=monthly_record_q(month_start)),
                 total_records=Count("id"),
             )
         }
@@ -1768,9 +1768,7 @@ def monthly_report_pdf(request):
     month_start = today.replace(day=1)
     monthly_qs = ServiceRecord.objects.filter(
         organization_id__in=owner_org_ids,
-        created_at__date__gte=month_start,
-        created_at__date__lte=today,
-    )
+    ).filter(monthly_record_q(month_start, today))
     totals = monthly_qs.aggregate(
         total_amount=Sum("service_fee"),
         total_processing=Sum("processing_fee"),
@@ -1959,8 +1957,7 @@ def daily_report_pdf(request):
     today = timezone.localdate()
     daily_qs = ServiceRecord.objects.filter(
         organization_id__in=owner_org_ids,
-        created_at__date=today,
-    )
+    ).filter(daily_record_q(today))
     totals = daily_qs.aggregate(
         total_amount=Sum("service_fee"),
         total_processing=Sum("processing_fee"),
@@ -2891,9 +2888,9 @@ def service_list(request, service_type):
         scope_qs = scope_qs.filter(referral_id=int(referral_filter))
         
     if date_from:
-        scope_qs = scope_qs.filter(created_at__date__gte=date_from)
+        scope_qs = scope_qs.filter(transaction_date__gte=date_from)
     if date_to:
-        scope_qs = scope_qs.filter(created_at__date__lte=date_to)
+        scope_qs = scope_qs.filter(transaction_date__lte=date_to)
 
     try:
         if min_amount:
@@ -2904,8 +2901,8 @@ def service_list(request, service_type):
         pass
 
     sort_map = {
-        "-created_at": "-created_at",
-        "created_at": "created_at",
+        "-created_at": "-transaction_date",
+        "created_at": "transaction_date",
         "-service_fee": "-service_fee",
         "service_fee": "service_fee",
         "client_name": "client_name",
@@ -3100,11 +3097,11 @@ def service_search_ajax(request):
         scope_qs = scope_qs.filter(status=status_filter)
         
     if date_from:
-        scope_qs = scope_qs.filter(created_at__date__gte=date_from)
+        scope_qs = scope_qs.filter(transaction_date__gte=date_from)
     if date_to:
-        scope_qs = scope_qs.filter(created_at__date__lte=date_to)
+        scope_qs = scope_qs.filter(transaction_date__lte=date_to)
 
-    records = scope_qs.select_related("handled_by", "vehicle__client").order_by("-created_at")[:50]
+    records = scope_qs.select_related("handled_by", "vehicle__client").order_by("-transaction_date", "-created_at")[:50]
 
     from django.template.loader import render_to_string
     html = render_to_string("core/partials/service_table_rows.html", {
@@ -4420,25 +4417,25 @@ def finance_hub(request):
     if agent_filter.isdigit():
         records = records.filter(handled_by_id=int(agent_filter))
     if date_from:
-        records = records.filter(created_at__date__gte=date_from)
+        records = records.filter(transaction_date__gte=date_from)
     if date_to:
-        records = records.filter(created_at__date__lte=date_to)
+        records = records.filter(transaction_date__lte=date_to)
     
     # KPIs
     totals = records.aggregate(total_revenue=Sum("service_fee"), total_services=Count("id"))
     total_revenue = totals["total_revenue"] or Decimal("0")
     total_services = totals["total_services"] or 0
     
-    now = timezone.now()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0)
-    month_revenue = records.filter(created_at__gte=month_start).aggregate(Sum("service_fee"))["service_fee__sum"] or Decimal("0")
+    today_date = timezone.localdate()
+    month_start_date = today_date.replace(day=1)
+    month_revenue = records.filter(transaction_date__gte=month_start_date).aggregate(Sum("service_fee"))["service_fee__sum"] or Decimal("0")
     
     # Last 12 Months Chart Data - single grouped query
-    chart_end = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    chart_end = month_start_date
     chart_start = (chart_end - timedelta(days=365)).replace(day=1)
     monthly_rows = (
-        records.filter(created_at__gte=chart_start)
-        .annotate(month=TruncMonth("created_at"))
+        records.filter(transaction_date__gte=chart_start)
+        .annotate(month=TruncMonth("transaction_date"))
         .values("month")
         .annotate(revenue=Sum("service_fee"))
         .order_by("month")
@@ -4499,8 +4496,8 @@ def finance_hub(request):
                 a_end = _add_months(a_start, 3)
                 b_end = _add_months(b_start, 3)
 
-            a_qs = records.filter(created_at__date__gte=a_start, created_at__date__lt=a_end)
-            b_qs = records.filter(created_at__date__gte=b_start, created_at__date__lt=b_end)
+            a_qs = records.filter(transaction_date__gte=a_start, transaction_date__lt=a_end)
+            b_qs = records.filter(transaction_date__gte=b_start, transaction_date__lt=b_end)
             a_stats = a_qs.aggregate(revenue=Sum("service_fee"), records=Count("id"), profit=Sum("processing_fee"))
             b_stats = b_qs.aggregate(revenue=Sum("service_fee"), records=Count("id"), profit=Sum("processing_fee"))
 
@@ -4547,7 +4544,6 @@ def finance_hub(request):
         # DB migrations not applied yet (table missing). Keep page functional.
         strategy_note = ""
 
-    today_date = timezone.localdate()
     daily_date_str = request.GET.get("daily_date", "").strip()
     try:
         from datetime import datetime as dt_parse
@@ -5846,8 +5842,8 @@ def inventory_detail(request, inventory_id):
                 pass
 
         # Global metrics calculations (unfiltered total stats)
-        active_policies = all_policies.filter(stage="bound", status="active")
-        inactive_policies = all_policies.filter(stage="bound", status="inactive")
+        active_policies = all_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="active")
+        inactive_policies = all_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="inactive")
 
         active_totals = active_policies.aggregate(
             total_premium=Sum("premium"),
@@ -5925,7 +5921,7 @@ def inventory_detail(request, inventory_id):
 
         inactive_for_unearned = InsurancePolicy.objects.filter(
             organization=active_org,
-            stage="bound",
+            stage__in=InsurancePolicy.BOUND_STAGES,
             status="inactive",
         ).only(
             "id",
@@ -7039,7 +7035,7 @@ def export_insurance_report_pdf(request):
     insurance_companies = InsuranceCompany.objects.filter(organization=org)
     all_inactive_policies = InsurancePolicy.objects.filter(
         organization=org,
-        stage="bound",
+        stage__in=InsurancePolicy.BOUND_STAGES,
         status="inactive"
     ).order_by('inactive_date', 'id')
     
@@ -7069,13 +7065,13 @@ def export_insurance_report_pdf(request):
     from .insurance_commissions import policy_unearned_commission
 
     for p in policies_list:
-        if p.stage == "bound" and p.status == "inactive":
+        if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "inactive":
             p.unearned_commission = adjusted_unearned_map.get(
                 p.id, policy_unearned_commission(p)
             )
             
-    active_policies_list = [p for p in policies_list if p.stage == "bound" and p.status == "active"]
-    inactive_policies_list = [p for p in policies_list if p.stage == "bound" and p.status == "inactive"]
+    active_policies_list = [p for p in policies_list if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "active"]
+    inactive_policies_list = [p for p in policies_list if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "inactive"]
     
     tot_premium = sum(p.premium for p in active_policies_list)
     tot_commission = sum(p.commission_amount for p in active_policies_list)
@@ -7153,7 +7149,7 @@ def export_insurance_report_pdf(request):
         current_x += 70
         
         status_label = f"{p.stage.upper()} / {p.status.upper()}"
-        if p.stage == "bound" and p.status == "inactive":
+        if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "inactive":
             status_label += f" (${p.unearned_commission:,.2f} unearned)"
         pdf.drawString(current_x, y, status_label)
         
@@ -7268,14 +7264,14 @@ def insurance_company_detail(request, company_id):
 
     # Metrics
     all_policies = InsurancePolicy.objects.filter(organization=active_org, insurance_company=company)
-    active_count = all_policies.filter(stage="bound", status="active").count()
-    quote_count = all_policies.filter(stage="quote").count()
-    bound_count = all_policies.filter(stage="bound").count()
-    inactive_count = all_policies.filter(stage="bound", status="inactive").count()
+    active_count = all_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="active").count()
+    quote_count = all_policies.filter(stage__in=InsurancePolicy.QUOTE_STAGES).count()
+    bound_count = all_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES).count()
+    inactive_count = all_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="inactive").count()
     pending_count = all_policies.filter(status="pending").count()
     rejected_count = all_policies.filter(status="rejected").count()
     all_policies_list = list(all_policies)
-    total_premium = sum(p.premium for p in all_policies_list if p.stage == "bound" and p.status == "active")
+    total_premium = sum(p.premium for p in all_policies_list if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "active")
 
     # Documents
     documents = InsuranceCompanyDocument.objects.filter(insurance_company=company)
@@ -7578,13 +7574,13 @@ def insurance_agent_detail(request, user_id):
         policies_page = paginator.page(1)
 
     # ── Period Metrics ────────────────────────────────────────────────────────
-    bound_policies_period = period_policies.filter(stage="bound")
-    active_policies_period = period_policies.filter(stage="bound", status="active")
-    inactive_policies_period = period_policies.filter(stage="bound", status="inactive")
+    bound_policies_period = period_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES)
+    active_policies_period = period_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="active")
+    inactive_policies_period = period_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="inactive")
     pending_policies_period = period_policies.filter(status="pending")
     rejected_policies_period = period_policies.filter(status="rejected")
 
-    quote_count = period_policies.filter(stage="quote").count()
+    quote_count = period_policies.filter(stage__in=InsurancePolicy.QUOTE_STAGES).count()
     bound_count = bound_policies_period.count()
     active_count = active_policies_period.count()
     inactive_count = inactive_policies_period.count()

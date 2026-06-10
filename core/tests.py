@@ -1,8 +1,11 @@
+from datetime import date
+
 from django.test import TestCase, Client as TestClient
 from django.urls import reverse
 from django.contrib.auth.models import User
 from decimal import Decimal
 from core.models import Organization, OrganizationMembership, Client, InsuranceCompany, InsurancePolicy, Space, Vehicle, ServiceRecord
+from core.dashboard_metrics import build_service_cards
 
 class InsuranceSpaceTests(TestCase):
     def setUp(self):
@@ -1399,5 +1402,51 @@ class UnearnedCommissionCalculationTests(TestCase):
             calculate_unearned_commission(commission, start, end, date(2026, 6, 8)),
             expected,
         )
+
+
+class TransactionDateMetricsTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="metricsuser", password="password123")
+        self.org = Organization.objects.create(name="Metrics Org", city="NYC")
+        OrganizationMembership.objects.create(
+            user=self.user,
+            organization=self.org,
+            is_active=True,
+            role="owner",
+        )
+        self.client_obj = Client.objects.create(
+            organization=self.org,
+            first_name="Jane",
+            last_name="Doe",
+        )
+        self.vehicle = Vehicle.objects.create(
+            client=self.client_obj,
+            vin="VINMETRICS1234567",
+            vehicle_number="VEH-M1",
+        )
+
+    def test_backdated_transaction_counts_on_transaction_date_not_today(self):
+        today = date(2026, 6, 8)
+        backdate = date(2026, 6, 4)
+        month_start = today.replace(day=1)
+        year_start = today.replace(month=1, day=1)
+
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_date=backdate,
+            processing_fee=Decimal("25.00"),
+        )
+
+        scope_qs = ServiceRecord.objects.filter(organization=self.org)
+        cards = build_service_cards(scope_qs, [self.org], today, month_start, year_start)
+        reg_card = next(c for c in cards if c["key"] == "vehicle_registration")
+
+        self.assertEqual(reg_card["daily_count"], 0)
+        self.assertEqual(reg_card["monthly_count"], 1)
+        self.assertEqual(reg_card["yearly_count"], 1)
+        self.assertEqual(reg_card["total_count"], 1)
 
 

@@ -35,7 +35,7 @@ def get_policy_card_style(policy):
     stage = getattr(policy, "stage", "")
     status = getattr(policy, "status", "")
 
-    if stage == "quote":
+    if stage in ("quote", "endorsement_quote"):
         return (
             "linear-gradient(135deg, #312e81 0%, #6366f1 50%, #c4b5fd 100%)",
             "#ede9fe",

@@ -820,6 +820,165 @@ h1 {
     margin-bottom: 0.25rem;
 }
 
+.dz-hint {
+    font-size: 0.68rem;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+.dropzone-custom {
+    border: 2px dashed #4f46e5;
+    background: #f5f3ff;
+    cursor: pointer;
+    position: relative;
+}
+
+.dropzone-custom .dz-icon,
+.dropzone-custom .dz-text {
+    color: #4f46e5;
+}
+
+.dropzone-custom .dz-hint {
+    color: #7c3aed;
+}
+
+.doc-drawer-title {
+    font-size: 1.1rem;
+    margin: 0;
+    color: #1e293b;
+}
+
+.doc-drawer-subtitle {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.doc-drawer-icon {
+    width: 40px;
+    height: 40px;
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.doc-section-label {
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    color: #64748b;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #e4e9f3;
+    padding-bottom: 0.5rem;
+}
+
+.dz-remove {
+    position: absolute;
+    top: 2px;
+    right: 8px;
+    cursor: pointer;
+    color: #e63946;
+    font-size: 1.5rem;
+    font-weight: bold;
+    line-height: 1;
+    z-index: 10;
+}
+
+.doc-icon-pdf {
+    color: #e63946;
+}
+
+.doc-icon-image {
+    color: #3b82f6;
+}
+
+.doc-actions {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+.doc-view-btn {
+    min-height: auto;
+    padding: 0.35rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    margin: 0;
+}
+
+.doc-pdf-badge {
+    font-size: 0.65rem;
+    color: #e63946;
+    font-weight: 700;
+    background: #fee2e2;
+    padding: 1px 5px;
+    border-radius: 4px;
+    vertical-align: middle;
+}
+
+.doc-delete-btn {
+    min-height: auto;
+    padding: 0.35rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    background: #fff5f5;
+    color: #dc2626;
+    border: 1px solid #fee2e2;
+    margin: 0;
+    cursor: pointer;
+}
+
+.doc-delete-btn:hover {
+    background: #fecaca;
+}
+
+.custom-upload-modal-panel {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    width: 90%;
+    max-width: 450px;
+    height: auto;
+    border-radius: 24px;
+    padding: 2rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    opacity: 0;
+    display: block;
+}
+
+.custom-upload-modal-header {
+    padding: 0 0 1rem 0;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #f1f5f9;
+    background: transparent;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 0;
+}
+
+.custom-upload-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0;
+}
+
+.custom-upload-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 0.5rem;
+}
+
 .dz-status {
     font-size: 0.8rem;
     color: var(--gray-700);

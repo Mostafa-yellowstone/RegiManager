@@ -382,6 +382,8 @@ html.portal-theme-dark .company-profile-page .policy-crm-row.is-received td { ba
                   <option value="">All Stages</option>
                   <option value="quote" {% if stage_filter == "quote" %}selected{% endif %}>Quote</option>
                   <option value="bound" {% if stage_filter == "bound" %}selected{% endif %}>Bound</option>
+                  <option value="endorsement_quote" {% if stage_filter == "endorsement_quote" %}selected{% endif %}>Endorsement — Quote</option>
+                  <option value="endorsement_bound" {% if stage_filter == "endorsement_bound" %}selected{% endif %}>Endorsement — Bound</option>
                 </select>
               </div>
               <div>
@@ -438,7 +440,8 @@ html.portal-theme-dark .company-profile-page .policy-crm-row.is-received td { ba
             {% for policy in policies_page %}
             <tr class="policy-crm-row{% if policy.commission_received %} is-received{% endif %}" data-policy-id="{{ policy.id }}">
               <td>
-                {% if policy.stage == 'bound' and can_manage_commission %}
+                {% if policy.stage == 'bound' or policy.stage == 'endorsement_bound' %}
+                  {% if can_manage_commission %}
                 <label class="policy-received-wrap" title="Mark commission as received">
                   <input type="checkbox" class="policy-received-check"
                     data-policy-id="{{ policy.id }}"
@@ -447,8 +450,11 @@ html.portal-theme-dark .company-profile-page .policy-crm-row.is-received td { ba
                     onchange="togglePolicyCommissionReceived(this)">
                   <span class="policy-received-label">✓</span>
                 </label>
-                {% elif policy.commission_received %}
+                  {% elif policy.commission_received %}
                 <span class="chip chip-bound" style="font-size: 0.62rem;">RCV</span>
+                  {% else %}
+                <span style="color: var(--muted); font-size: 0.75rem;">—</span>
+                  {% endif %}
                 {% else %}
                 <span style="color: var(--muted); font-size: 0.75rem;">—</span>
                 {% endif %}
@@ -461,7 +467,7 @@ html.portal-theme-dark .company-profile-page .policy-crm-row.is-received td { ba
               <td style="font-weight: 800;">${{ policy.premium|floatformat:2 }}</td>
               <td class="policy-commission-cell" style="color: var(--green); font-weight: 700;">${{ policy.commission_amount|floatformat:2 }}</td>
               <td>{% if policy.added_by %}<span style="font-size: 0.8rem; font-weight: 700; color: var(--muted);">{{ policy.added_by.get_full_name|default:policy.added_by.username }}</span>{% else %}<span style="color: var(--muted); font-style: italic; font-size: 0.8rem;">System</span>{% endif %}</td>
-              <td>{% if policy.stage == 'quote' %}<span class="chip chip-quote">Quote</span>{% else %}<span class="chip chip-bound">Bound</span>{% endif %}</td>
+              <td>{% if policy.stage == 'quote' or policy.stage == 'endorsement_quote' %}<span class="chip chip-quote">{{ policy.get_stage_display }}</span>{% else %}<span class="chip chip-bound">{{ policy.get_stage_display }}</span>{% endif %}</td>
               <td>
                 {% if policy.status == 'active' %}<span class="chip chip-active">Active</span>
                 {% elif policy.status == 'inactive' %}<span class="chip chip-inactive">Inactive</span>

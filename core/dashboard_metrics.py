@@ -5,6 +5,24 @@ from django.db.models import Count, Q
 from .models import CustomServiceType, ServiceRecord
 
 
+def daily_record_q(today):
+    return Q(transaction_date=today)
+
+
+def monthly_record_q(month_start, today=None):
+    q = Q(transaction_date__gte=month_start)
+    if today is not None:
+        q &= Q(transaction_date__lte=today)
+    return q
+
+
+def yearly_record_q(year_start, today=None):
+    q = Q(transaction_date__gte=year_start)
+    if today is not None:
+        q &= Q(transaction_date__lte=today)
+    return q
+
+
 def build_service_cards(scope_qs, organizations, today, month_start, year_start):
     """Single-query per-metric service card stats instead of N×4 count queries."""
     custom_types = CustomServiceType.objects.filter(organization__in=organizations)
@@ -16,9 +34,9 @@ def build_service_cards(scope_qs, organizations, today, month_start, year_start)
     service_stats_rows = {
         row["service_type"]: row
         for row in scope_qs.values("service_type").annotate(
-            daily_count=Count("id", filter=Q(created_at__date=today)),
-            monthly_count=Count("id", filter=Q(created_at__date__gte=month_start)),
-            yearly_count=Count("id", filter=Q(created_at__date__gte=year_start)),
+            daily_count=Count("id", filter=daily_record_q(today)),
+            monthly_count=Count("id", filter=monthly_record_q(month_start)),
+            yearly_count=Count("id", filter=yearly_record_q(year_start)),
             total_count=Count("id"),
         )
     }

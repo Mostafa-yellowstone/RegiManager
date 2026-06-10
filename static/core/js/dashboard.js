@@ -30,10 +30,10 @@ function formatFileSize(bytes) {
 }
 function getFileTypeIcon(file) {
     if (isPDF(file)) {
-        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e63946" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>`;
+        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>`;
     }
     if (isImage(file)) {
-        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`;
+        return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`;
     }
     return `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>`;
 }
@@ -70,7 +70,7 @@ function openDocUploadModal(id, label, type = 'service') {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
             </div>
             <div class="dz-text">${docType.label}</div>
-            <div class="dz-hint" style="font-size:0.68rem;color:#94a3b8;margin-top:2px;">Image or PDF &middot; Up to ${MAX_FILE_SIZE_MB}MB</div>
+            <div class="dz-hint">Image or PDF &middot; Up to ${MAX_FILE_SIZE_MB}MB</div>
             <div class="dz-status"></div>
             <input type="file" class="dz-input" data-doc-type="${docType.id}" accept="image/*,.pdf,application/pdf" style="display:none;">
         `;
@@ -88,7 +88,6 @@ function openDocUploadModal(id, label, type = 'service') {
                 delBtn.className = 'dz-remove';
                 delBtn.innerHTML = '&times;';
                 delBtn.title = 'Remove document';
-                delBtn.style.cssText = 'position:absolute; top:2px; right:8px; cursor:pointer; color:#e63946; font-size:1.5rem; font-weight:bold; line-height:1; z-index:10;';
                 delBtn.onclick = (e) => {
                     e.stopPropagation();
                     hiddenInput.value = ''; // clear file
@@ -134,20 +133,19 @@ function openDocUploadModal(id, label, type = 'service') {
 
     // ── Custom Upload card ──────────────────────────────────────────────
     const customCard = document.createElement('div');
-    customCard.className = 'dropzone';
+    customCard.className = 'dropzone dropzone-custom';
     customCard.id = 'dropzone-custom';
     customCard.title = 'Upload a file with a custom name';
-    customCard.style.cssText = 'border: 2px dashed #4f46e5; background: #f5f3ff; cursor: pointer; position: relative;';
     customCard.innerHTML = `
-        <div class="dz-icon" style="color: #4f46e5;">
+        <div class="dz-icon">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="3"/>
                 <line x1="12" y1="8" x2="12" y2="16"/>
                 <line x1="8" y1="12" x2="16" y2="12"/>
             </svg>
         </div>
-        <div class="dz-text" style="color: #4f46e5;">Custom Upload</div>
-        <div class="dz-hint" style="font-size:0.68rem;color:#7c3aed;margin-top:2px;">Name it yourself</div>
+        <div class="dz-text">Custom Upload</div>
+        <div class="dz-hint">Name it yourself</div>
     `;
     customCard.addEventListener('click', () => openCustomUploadModal());
     docGrid.appendChild(customCard);
@@ -252,7 +250,6 @@ function proceedWithUpload(file, docType, dropzoneElement) {
             const delBtn = document.createElement('span');
             delBtn.className = 'dz-remove';
             delBtn.innerHTML = '&times;';
-            delBtn.style.cssText = 'position:absolute; top:2px; right:8px; cursor:pointer; color:#e63946; font-size:1.5rem; font-weight:bold; line-height:1; z-index:10;';
             delBtn.onclick = (e) => {
                 e.stopPropagation();
                 hiddenInput.value = '';
@@ -358,22 +355,22 @@ function fetchDocuments(id, type = 'service') {
             data.documents.forEach(doc => {
                 const url = doc.url || '';
                 const isPdfDoc = url.toLowerCase().endsWith('.pdf');
-                const iconColor = isPdfDoc ? '#e63946' : '#3b82f6';
+                const iconClass = isPdfDoc ? 'doc-icon-pdf' : 'doc-icon-image';
                 const iconSvg = isPdfDoc
-                    ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>`
-                    : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`;
-                const pdfBadge = isPdfDoc ? ` <span style="font-size:0.65rem;color:#e63946;font-weight:700;background:#fee2e2;padding:1px 5px;border-radius:4px;vertical-align:middle;">PDF</span>` : '';
+                    ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>`
+                    : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`;
+                const pdfBadge = isPdfDoc ? ` <span class="doc-pdf-badge">PDF</span>` : '';
                 const viewLabel = isPdfDoc ? '📄 View PDF' : '🖼 View';
 
                 const li = document.createElement('li');
                 li.innerHTML = `
                     <div class="doc-info">
-                        <div class="doc-icon" style="color:${iconColor};">${iconSvg}</div>
+                        <div class="doc-icon ${iconClass}">${iconSvg}</div>
                         <span class="doc-name">${doc.type_label}${pdfBadge}</span>
                     </div>
-                    <div style="display:flex; gap:0.4rem; align-items:center;">
-                        <a href="${url}" target="_blank" class="btn btn-secondary btn-sm" style="min-height:auto; padding: 0.35rem 0.8rem; border-radius: 6px; font-size: 0.8rem; margin:0;">${viewLabel}</a>
-                        <button onclick="deleteDocFromModal(${doc.id}, ${id}, '${type}')" class="btn btn-sm" style="min-height:auto; padding: 0.35rem 0.8rem; border-radius: 6px; font-size: 0.8rem; background:#fff5f5; color:#dc2626; border:1px solid #fee2e2; margin:0; cursor:pointer;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fff5f5'">Delete</button>
+                    <div class="doc-actions">
+                        <a href="${url}" target="_blank" class="btn btn-secondary btn-sm doc-view-btn">${viewLabel}</a>
+                        <button type="button" onclick="deleteDocFromModal(${doc.id}, ${id}, '${type}')" class="btn btn-sm doc-delete-btn">Delete</button>
                     </div>
                 `;
                 list.appendChild(li);
