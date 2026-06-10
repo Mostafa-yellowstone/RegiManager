@@ -121,9 +121,16 @@
             </form>
         </div>
 
-        <div class="table-responsive">
-            <table class="data-table">
+        <div class="table-responsive finance-crm-table-wrap">
+            <table class="data-table finance-crm-table">
                 <thead>
+                    <tr class="finance-crm-fee-group">
+                        <th colspan="7"></th>
+                        <th colspan="3">DMV</th>
+                        <th colspan="3">PSB</th>
+                        <th colspan="1">Card</th>
+                        <th colspan="2"></th>
+                    </tr>
                     <tr>
                         <th>Transaction Date</th>
                         <th>Receipt No</th>
@@ -132,7 +139,14 @@
                         <th>Client</th>
                         <th>Status</th>
                         <th>Agent</th>
-                        <th>Amount</th>
+                        <th class="finance-crm-money">DMV Fee</th>
+                        <th class="finance-crm-money">Other DMV</th>
+                        <th class="finance-crm-money">DMV Tax</th>
+                        <th class="finance-crm-money">Processing</th>
+                        <th class="finance-crm-money">Other PSB</th>
+                        <th class="finance-crm-money">Sales Tax</th>
+                        <th class="finance-crm-money">CC Fee</th>
+                        <th class="finance-crm-money">Total</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -147,21 +161,28 @@
                         <td>{{ record.service_type_label }}</td>
                         <td>
                             {% if record.vehicle and record.vehicle.client %}
-                                <a href="{% url 'client-detail' record.vehicle.client.id %}" class="client-link">{{ record.vehicle.client.name }}</a>
+                                <a href="{% url 'client-detail' record.vehicle.client.id %}" class="finance-crm-client-link">{{ record.vehicle.client.name }}</a>
                             {% else %}
-                                {{ record.client_name|default:"-" }}
+                                <span class="finance-crm-client">{{ record.client_name|default:"-" }}</span>
                             {% endif %}
                         </td>
                         <td><span class="status-badge status-{{ record.status }}">{{ record.get_status_display }}</span></td>
                         <td>{{ record.handled_by.get_full_name|default:record.handled_by.username }}</td>
-                        <td>${{ record.service_fee|floatformat:2 }}</td>
+                        <td class="finance-crm-money">${{ record.dmv_fee|floatformat:2 }}</td>
+                        <td class="finance-crm-money">${{ record.other_dmv_fee|floatformat:2 }}</td>
+                        <td class="finance-crm-money">${{ record.dmv_sales_tax|floatformat:2 }}</td>
+                        <td class="finance-crm-money">${{ record.processing_fee|floatformat:2 }}</td>
+                        <td class="finance-crm-money">${{ record.other_fees|floatformat:2 }}</td>
+                        <td class="finance-crm-money">${{ record.sales_tax|floatformat:2 }}</td>
+                        <td class="finance-crm-money">${{ record.credit_card_fee|floatformat:2 }}</td>
+                        <td class="finance-crm-money finance-crm-money-total">${{ record.service_fee|floatformat:2 }}</td>
                         <td>
                             <a href="{% url 'service-receipt-pdf' record.id %}" target="_blank" class="btn btn-sm btn-secondary portal-receipt-btn">Receipt</a>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="9" class="empty-state">No transactions found matching your filters.</td>
+                        <td colspan="16" class="empty-state">No transactions found matching your filters.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

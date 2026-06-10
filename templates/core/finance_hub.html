@@ -650,9 +650,81 @@
         color: #f8fafc;
     }
 
+    .finance-hub-page--crm .dashboard-layout {
+        max-width: none;
+        width: 100%;
+    }
+
+    .finance-hub-page--crm.dashboard-shell {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .finance-crm-section {
+        width: 100%;
+    }
+
     .finance-crm-panel {
+        width: 100%;
+        max-width: 100%;
         border-radius: 26px;
         overflow: hidden;
+    }
+
+    .finance-crm-table-wrap {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .finance-crm-table {
+        width: 100%;
+        min-width: 1280px;
+    }
+
+    .finance-crm-table .finance-crm-money {
+        text-align: right;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+        font-size: 0.82rem;
+    }
+
+    .finance-crm-table .finance-crm-money-total {
+        font-weight: 800;
+        color: var(--portal-text);
+    }
+
+    .finance-crm-table thead .finance-crm-fee-group th {
+        text-align: center;
+        font-size: 0.7rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #64748b;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        padding-top: 0.55rem;
+        padding-bottom: 0.55rem;
+    }
+
+    .finance-crm-client,
+    .finance-crm-client-link {
+        color: #0f172a;
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+    .finance-crm-client-link:hover {
+        text-decoration: underline;
+    }
+
+    html.portal-theme-dark .finance-hub-page .finance-crm-client,
+    html.portal-theme-dark .finance-hub-page .finance-crm-client-link {
+        color: #f8fafc;
+    }
+
+    html.portal-theme-dark .finance-hub-page .finance-crm-table thead .finance-crm-fee-group th {
+        color: var(--portal-text-muted);
+        background: var(--portal-surface-muted);
+        border-bottom-color: var(--portal-border);
     }
 
     .finance-crm-head h3 {
@@ -716,7 +788,7 @@
 
 {% block portal_content %}
 
-<main class="dashboard-shell finance-hub-page">
+<main class="dashboard-shell finance-hub-page{% if hub_tab == 'crm' %} finance-hub-page--crm{% endif %}">
     <section class="dashboard-layout">
         <header class="finance-hero">
             <div class="finance-hero-top">
