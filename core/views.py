@@ -6134,14 +6134,6 @@ def inventory_detail(request, inventory_id):
             "can_manage_distribution": can_manage_insurance_pipeline(
                 request, active_org, membership
             ),
-            "all_org_memberships": OrganizationMembership.objects.filter(
-                organization=active_org,
-                is_active=True,
-                user__is_active=True,
-                role=OrganizationMembership.Role.MEMBER,
-            ).select_related("user").order_by(
-                "user__first_name", "user__last_name", "user__username"
-            ),
             "pipeline_member_ids": set(
                 InsuranceAgentRotation.objects.filter(
                     membership__organization=active_org,

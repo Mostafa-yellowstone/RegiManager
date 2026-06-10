@@ -685,17 +685,17 @@
             {% csrf_token %}
             <h4 style="margin:0 0 0.5rem;font-size:0.95rem;font-weight:800;color:#0f172a;">Assign agents to the pipeline</h4>
             <p style="margin:0 0 0.85rem;font-size:0.82rem;color:#64748b;">
-              Check the agents who should receive new policies in rotation. Selected agents are also enabled for insurance work.
+              Only agents with <strong>Can deal with insurance</strong> appear here. Check who should receive new policies in rotation.
             </p>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.5rem 1rem;">
-              {% for m in all_org_memberships %}
+              {% for m in insurance_agents %}
               <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:600;color:#0f172a;cursor:pointer;">
                 <input type="checkbox" name="pipeline_membership_ids" value="{{ m.id }}"
                   {% if m.id in pipeline_member_ids %}checked{% endif %}>
                 <span>{{ m.user.get_full_name|default:m.user.username }}</span>
               </label>
               {% empty %}
-              <p style="margin:0;color:#64748b;font-size:0.85rem;">No agents in this PSB yet.</p>
+              <p style="margin:0;color:#64748b;font-size:0.85rem;">No insurance agents yet. Enable “Can deal with insurance” in Team Management first.</p>
               {% endfor %}
             </div>
             <button type="submit" class="btn-submit" style="margin-top:0.85rem;max-width:260px;padding:0.65rem 1rem;font-size:0.88rem;">Save Pipeline Agents</button>

@@ -1257,8 +1257,6 @@ class InsuranceDistributionTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
 
-        self.m1.refresh_from_db()
-        self.assertTrue(self.m1.can_deal_with_insurance)
         rotation = get_or_create_rotation(self.m1)
         self.assertTrue(rotation.in_pipeline)
 
@@ -1283,6 +1281,39 @@ class InsuranceDistributionTests(TestCase):
         self.assertEqual(response.status_code, 302)
         rotation = get_or_create_rotation(self.m2)
         self.assertTrue(rotation.in_pipeline)
+
+    def test_non_insurance_agent_ignored_when_assigning_pipeline(self):
+        from core.insurance_assignment import get_or_create_rotation
+        from core.models import OrganizationMembership
+
+        outsider = User.objects.create_user(username="noins", password="password123")
+        outsider_m = OrganizationMembership.objects.create(
+            user=outsider,
+            organization=self.org,
+            is_active=True,
+            role="member",
+            can_deal_with_insurance=False,
+            can_view_spaces=True,
+        )
+        outsider_m.accessible_spaces.add(self.space)
+
+        self.client.login(username="distowner", password="password123")
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+
+        outsider_rotation = get_or_create_rotation(outsider_m)
+        outsider_rotation.in_pipeline = False
+        outsider_rotation.save(update_fields=["in_pipeline"])
+
+        response = self.client.post(
+            reverse("save-pipeline-agents"),
+            {"pipeline_membership_ids": [str(outsider_m.id), str(self.m1.id)]},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(get_or_create_rotation(self.m1).in_pipeline)
+        outsider_rotation.refresh_from_db()
+        self.assertFalse(outsider_rotation.in_pipeline)
 
     def test_agent_without_pipeline_permission_cannot_assign_agents(self):
         self.client.login(username="agentone", password="password123")

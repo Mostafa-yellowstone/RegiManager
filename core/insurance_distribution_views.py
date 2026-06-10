@@ -208,6 +208,7 @@ def save_pipeline_agents(request):
         is_active=True,
         user__is_active=True,
         role=OrganizationMembership.Role.MEMBER,
+        can_deal_with_insurance=True,
     )
 
     assigned_count = 0
@@ -218,9 +219,6 @@ def save_pipeline_agents(request):
         rotation.is_present = True
         rotation.save(update_fields=["in_pipeline", "is_present", "updated_at"])
         if in_pipeline:
-            if not agent_membership.can_deal_with_insurance:
-                agent_membership.can_deal_with_insurance = True
-                agent_membership.save(update_fields=["can_deal_with_insurance"])
             assigned_count += 1
 
     messages.success(
