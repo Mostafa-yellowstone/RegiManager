@@ -32,6 +32,7 @@
 .chip-inactive { background: #ffe4e6; color: #9f1239; }
 .chip-quote { background: #eff6ff; color: #1d4ed8; }
 .chip-bound { background: #f0fdf4; color: #15803d; }
+.chip-endorsement { background: #fff7ed; color: #c2410c; }
 .chip-pending { background: #fef9c3; color: #854d0e; }
 .chip-rejected { background: #fee2e2; color: #b91c1c; }
 .btn-primary { padding: 8px 18px; background: var(--blue); border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.88rem; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; transition: background 0.2s; }
@@ -55,6 +56,7 @@ html.portal-theme-dark .company-profile-page .chip-active { background: rgba(22,
 html.portal-theme-dark .company-profile-page .chip-inactive { background: rgba(220, 38, 38, 0.15); color: #f87171; }
 html.portal-theme-dark .company-profile-page .chip-quote { background: rgba(37, 99, 235, 0.18); color: #60a5fa; }
 html.portal-theme-dark .company-profile-page .chip-bound { background: rgba(22, 163, 74, 0.18); color: #4ade80; }
+html.portal-theme-dark .company-profile-page .chip-endorsement { background: rgba(234, 88, 12, 0.18); color: #fb923c; }
 html.portal-theme-dark .company-profile-page .chip-pending { background: rgba(217, 119, 6, 0.18); color: #fbbf24; }
 html.portal-theme-dark .company-profile-page .chip-rejected { background: rgba(220, 38, 38, 0.18); color: #f87171; }
 .field-label { display: block; font-size: 0.73rem; font-weight: 800; color: var(--muted); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -382,8 +384,7 @@ html.portal-theme-dark .company-profile-page .policy-crm-row.is-received td { ba
                   <option value="">All Stages</option>
                   <option value="quote" {% if stage_filter == "quote" %}selected{% endif %}>Quote</option>
                   <option value="bound" {% if stage_filter == "bound" %}selected{% endif %}>Bound</option>
-                  <option value="endorsement_quote" {% if stage_filter == "endorsement_quote" %}selected{% endif %}>Endorsement — Quote</option>
-                  <option value="endorsement_bound" {% if stage_filter == "endorsement_bound" %}selected{% endif %}>Endorsement — Bound</option>
+                  <option value="endorsement" {% if stage_filter == "endorsement" %}selected{% endif %}>Endorsement</option>
                 </select>
               </div>
               <div>
@@ -440,7 +441,7 @@ html.portal-theme-dark .company-profile-page .policy-crm-row.is-received td { ba
             {% for policy in policies_page %}
             <tr class="policy-crm-row{% if policy.commission_received %} is-received{% endif %}" data-policy-id="{{ policy.id }}">
               <td>
-                {% if policy.stage == 'bound' or policy.stage == 'endorsement_bound' %}
+                {% if policy.stage == 'bound' %}
                   {% if can_manage_commission %}
                 <label class="policy-received-wrap" title="Mark commission as received">
                   <input type="checkbox" class="policy-received-check"
@@ -467,7 +468,7 @@ html.portal-theme-dark .company-profile-page .policy-crm-row.is-received td { ba
               <td style="font-weight: 800;">${{ policy.premium|floatformat:2 }}</td>
               <td class="policy-commission-cell" style="color: var(--green); font-weight: 700;">${{ policy.commission_amount|floatformat:2 }}</td>
               <td>{% if policy.added_by %}<span style="font-size: 0.8rem; font-weight: 700; color: var(--muted);">{{ policy.added_by.get_full_name|default:policy.added_by.username }}</span>{% else %}<span style="color: var(--muted); font-style: italic; font-size: 0.8rem;">System</span>{% endif %}</td>
-              <td>{% if policy.stage == 'quote' or policy.stage == 'endorsement_quote' %}<span class="chip chip-quote">{{ policy.get_stage_display }}</span>{% else %}<span class="chip chip-bound">{{ policy.get_stage_display }}</span>{% endif %}</td>
+              <td>{% if policy.stage == 'quote' %}<span class="chip chip-quote">{{ policy.get_stage_display }}</span>{% elif policy.stage == 'endorsement' %}<span class="chip chip-endorsement">{{ policy.get_stage_display }}</span>{% else %}<span class="chip chip-bound">{{ policy.get_stage_display }}</span>{% endif %}</td>
               <td>
                 {% if policy.status == 'active' %}<span class="chip chip-active">Active</span>
                 {% elif policy.status == 'inactive' %}<span class="chip chip-inactive">Inactive</span>

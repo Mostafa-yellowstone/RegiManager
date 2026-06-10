@@ -44,6 +44,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.db.utils import OperationalError, ProgrammingError
 from datetime import timedelta
+from .client_search import build_client_name_search_q
 from .tasks import send_automation_email
 from .models import AutomationLog, FinanceStrategyNote, ClientNote, Notification
 from .source_choices import (
@@ -5293,12 +5294,10 @@ def client_search_ajax(request):
     db_ids = list(
         Client.objects.filter(organization__in=organizations)
         .filter(
-            Q(first_name__icontains=q)
-            | Q(last_name__icontains=q)
+            build_client_name_search_q(q)
             | Q(driver_license__icontains=q)
             | Q(phone_number__icontains=q)
             | Q(vehicles__plate_number__icontains=q)
-            | Q(business_name__icontains=q)
             | Q(business_ein__icontains=q)
         )
         .distinct()

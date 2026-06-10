@@ -80,11 +80,7 @@
 
     <div style="position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid rgba(255,255,255,0.25);">
         <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
-            {% if policy.stage == 'quote' or policy.stage == 'endorsement_quote' %}
             <span style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800;">● {{ policy.get_stage_display }}</span>
-            {% else %}
-            <span style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800;">● {{ policy.get_stage_display }}</span>
-            {% endif %}
             {% if policy.status == 'active' %}
             <span style="background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 800;">● Active</span>
             {% elif policy.status == 'inactive' %}

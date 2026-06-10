@@ -1450,3 +1450,40 @@ class TransactionDateMetricsTests(TestCase):
         self.assertEqual(reg_card["total_count"], 1)
 
 
+class ClientSearchAjaxTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="searchuser", password="password123")
+        self.org = Organization.objects.create(name="Search Org", city="NYC")
+        OrganizationMembership.objects.create(
+            user=self.user, organization=self.org, is_active=True, role="owner"
+        )
+        self.client_obj = Client.objects.create(
+            organization=self.org,
+            first_name="John",
+            last_name="Smith",
+            middle_name="Michael",
+            driver_license="DL123456",
+            source="walk-in",
+        )
+        self.http = TestClient()
+        self.http.login(username="searchuser", password="password123")
+
+    def test_dashboard_search_matches_full_name(self):
+        response = self.http.get(reverse("client-search-ajax"), {"q": "John Smith"})
+        self.assertEqual(response.status_code, 200)
+        names = [r["name"] for r in response.json()["results"]]
+        self.assertIn("John Smith", names)
+
+    def test_dashboard_search_matches_last_first_format(self):
+        response = self.http.get(reverse("client-search-ajax"), {"q": "Smith, John"})
+        self.assertEqual(response.status_code, 200)
+        names = [r["name"] for r in response.json()["results"]]
+        self.assertIn("John Smith", names)
+
+    def test_dashboard_search_matches_first_middle_last(self):
+        response = self.http.get(reverse("client-search-ajax"), {"q": "John Michael Smith"})
+        self.assertEqual(response.status_code, 200)
+        names = [r["name"] for r in response.json()["results"]]
+        self.assertIn("John Smith", names)
+
+

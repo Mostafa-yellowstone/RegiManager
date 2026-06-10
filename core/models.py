@@ -1328,17 +1328,10 @@ class InsurancePolicy(models.Model):
     class StageChoices(models.TextChoices):
         QUOTE = "quote", "Quote"
         BOUND = "bound", "Bound"
-        ENDORSEMENT_QUOTE = "endorsement_quote", "Endorsement — Quote"
-        ENDORSEMENT_BOUND = "endorsement_bound", "Endorsement — Bound"
+        ENDORSEMENT = "endorsement", "Endorsement"
 
-    QUOTE_STAGES = frozenset({
-        StageChoices.QUOTE,
-        StageChoices.ENDORSEMENT_QUOTE,
-    })
-    BOUND_STAGES = frozenset({
-        StageChoices.BOUND,
-        StageChoices.ENDORSEMENT_BOUND,
-    })
+    QUOTE_STAGES = frozenset({StageChoices.QUOTE})
+    BOUND_STAGES = frozenset({StageChoices.BOUND})
 
     class StatusChoices(models.TextChoices):
         ACTIVE = "active", "Active"

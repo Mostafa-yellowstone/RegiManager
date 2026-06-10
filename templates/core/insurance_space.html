@@ -208,8 +208,7 @@
                   <option value="">All Stages</option>
                   <option value="quote" {% if stage_filter == "quote" %}selected{% endif %}>Quote</option>
                   <option value="bound" {% if stage_filter == "bound" %}selected{% endif %}>Bound</option>
-                  <option value="endorsement_quote" {% if stage_filter == "endorsement_quote" %}selected{% endif %}>Endorsement — Quote</option>
-                  <option value="endorsement_bound" {% if stage_filter == "endorsement_bound" %}selected{% endif %}>Endorsement — Bound</option>
+                  <option value="endorsement" {% if stage_filter == "endorsement" %}selected{% endif %}>Endorsement</option>
                 </select>
               </div>
               <div style="display: flex; flex-direction: column; gap: 0.3rem;">
@@ -351,8 +350,10 @@
               <td style="font-size: 0.82rem; color: #64748b; white-space: nowrap;">{{ policy.bound_date|default:"—" }}</td>
               <td>
                 <div style="display: flex; flex-direction: column; gap: 0.2rem;">
-                  {% if policy.stage == 'quote' or policy.stage == 'endorsement_quote' %}
+                  {% if policy.stage == 'quote' %}
                   <span class="chip-quote" style="background: #eff6ff; color: #1d4ed8; padding: 3px 6px; border-radius: 6px; font-weight: 700; font-size: 0.75rem; width: fit-content; text-align: center; white-space: nowrap;">● {{ policy.get_stage_display }}</span>
+                  {% elif policy.stage == 'endorsement' %}
+                  <span class="chip-endorsement" style="background: #fff7ed; color: #c2410c; padding: 3px 6px; border-radius: 6px; font-weight: 700; font-size: 0.75rem; width: fit-content; text-align: center; white-space: nowrap;">● {{ policy.get_stage_display }}</span>
                   {% else %}
                   <span class="chip-bound" style="background: #f0fdf4; color: #166534; padding: 3px 6px; border-radius: 6px; font-weight: 700; font-size: 0.75rem; width: fit-content; text-align: center; white-space: nowrap;">● {{ policy.get_stage_display }}</span>
                   {% endif %}
