@@ -571,6 +571,57 @@ body.portal-body .dashboard-hero .brand-pill {
     border-left-color: var(--portal-primary);
 }
 
+.notif-enable-banner {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: min(320px, 92vw);
+    background: #eff6ff;
+    border: 1px solid #93c5fd;
+    border-radius: 12px;
+    padding: 0.75rem 0.85rem;
+    box-shadow: var(--portal-shadow-lg);
+    z-index: 1200;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.65rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #1e3a8a;
+}
+
+.notif-enable-banner.is-hidden {
+    display: none;
+}
+
+.notif-enable-btn {
+    border: none;
+    background: #2563eb;
+    color: #fff;
+    border-radius: 8px;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.notif-enable-dismiss {
+    margin-left: auto;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+html.portal-theme-dark .notif-enable-banner {
+    background: #1e293b;
+    border-color: #334155;
+    color: #bfdbfe;
+}
+
 .notif-wrap {
     position: relative;
 }

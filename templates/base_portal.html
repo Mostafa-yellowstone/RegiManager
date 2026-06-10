@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static i18n %}
 
-{% block body_attrs %}class="portal-body" data-portal-app data-notif-poll-url="{% url 'poll-notifications' %}"{% endblock %}
+{% block body_attrs %}class="portal-body" data-portal-app data-notif-poll-url="{% url 'poll-notifications' %}" data-notif-sound-url="{% static 'core/audio/policy-assigned.wav' %}"{% endblock %}
 
 {% block extra_head %}
 <script>
@@ -14,7 +14,7 @@
     } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="{% static 'core/css/portal.css' %}?v=portal-24">
+<link rel="stylesheet" href="{% static 'core/css/portal.css' %}?v=portal-25">
 {% block portal_head %}{% endblock %}
 {% endblock %}
 
@@ -25,7 +25,7 @@
 <div class="portal-main">
 {% block portal_content %}{% endblock %}
 </div>
-<script src="{% static 'core/js/portal.js' %}?v=portal-24" defer></script>
+<script src="{% static 'core/js/portal.js' %}?v=portal-25" defer></script>
 {% block portal_scripts %}{% endblock %}
 {% endblock %}
 

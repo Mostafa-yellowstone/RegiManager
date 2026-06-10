@@ -1245,6 +1245,7 @@ class InsuranceDistributionTests(TestCase):
 
         self.client.post(reverse("add-insurance-policy"), self._policy_post(self.agent2))
         policy = InsurancePolicy.objects.latest("id")
+        notif = Notification.objects.get(user=self.agent1, insurance_policy=policy)
 
         self.client.login(username="agentone", password="password123")
         response = self.client.get(reverse("poll-notifications"))
@@ -1252,10 +1253,13 @@ class InsuranceDistributionTests(TestCase):
         data = response.json()
         self.assertGreaterEqual(data["unread_count"], 1)
         self.assertTrue(any(n["is_policy"] for n in data["notifications"]))
-        self.assertEqual(
-            Notification.objects.filter(user=self.agent1, insurance_policy=policy).count(),
-            1,
+        self.assertEqual(data["latest_id"], notif.id)
+
+        response_after = self.client.get(
+            reverse("poll-notifications"),
+            {"after_id": notif.id},
         )
+        self.assertEqual(response_after.json()["new_policy_notifications"], [])
 
     def test_skip_distribution_keeps_creator_for_owner(self):
         post_data = self._policy_post(self.owner)

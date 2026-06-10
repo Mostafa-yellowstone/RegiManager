@@ -110,13 +110,20 @@
         initNotificationPoller() {
             const body = document.body;
             const pollUrl = body && body.getAttribute('data-notif-poll-url');
+            const soundUrl = body && body.getAttribute('data-notif-sound-url');
             if (!pollUrl) return;
 
-            const POLL_MS = 15000;
             const STORAGE_KEY = 'regimanager_last_notif_id';
+            const INIT_KEY = 'regimanager_notif_poller_ready';
+            const PENDING_KEY = 'regimanager_pending_policy_alert';
             const CHANNEL_NAME = 'regimanager-notifications';
+            const POLL_VISIBLE_MS = 5000;
+            const POLL_HIDDEN_MS = 8000;
+
             let lastKnownId = 0;
-            let audioCtx = null;
+            let pollTimer = null;
+            let alertAudio = null;
+            let audioReady = false;
 
             try {
                 lastKnownId = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10) || 0;
@@ -124,64 +131,138 @@
                 lastKnownId = 0;
             }
 
+            if (soundUrl) {
+                alertAudio = new Audio(soundUrl);
+                alertAudio.preload = 'auto';
+                alertAudio.volume = 0.9;
+            }
+
+            const unlockAudio = () => {
+                if (!alertAudio || audioReady) return;
+                alertAudio.play().then(() => {
+                    alertAudio.pause();
+                    alertAudio.currentTime = 0;
+                    audioReady = true;
+                }).catch(() => {});
+            };
+
+            const playAssignmentChime = () => {
+                if (!alertAudio) return;
+                try {
+                    alertAudio.currentTime = 0;
+                    const playPromise = alertAudio.play();
+                    if (playPromise && playPromise.catch) {
+                        playPromise.catch(() => {});
+                    }
+                } catch (e) {}
+            };
+
+            const showEnableBanner = () => {
+                const banner = document.getElementById('notifEnableBanner');
+                if (!banner || !('Notification' in window)) return;
+                if (Notification.permission === 'granted') {
+                    banner.classList.add('is-hidden');
+                    return;
+                }
+                banner.classList.remove('is-hidden');
+            };
+
+            const hideEnableBanner = () => {
+                const banner = document.getElementById('notifEnableBanner');
+                if (banner) banner.classList.add('is-hidden');
+            };
+
+            const showDesktopAlerts = (policyAlerts) => {
+                if (!policyAlerts || !policyAlerts.length || !('Notification' in window)) return;
+                if (Notification.permission !== 'granted') return;
+                policyAlerts.forEach((notif) => {
+                    try {
+                        const desktop = new Notification(notif.title, {
+                            body: `${notif.client_name}${notif.message ? ' • ' + notif.message : ''}`,
+                            tag: `policy-notif-${notif.id}`,
+                            requireInteraction: true,
+                        });
+                        desktop.onclick = () => {
+                            window.focus();
+                            window.location.href = notif.url;
+                            desktop.close();
+                        };
+                    } catch (e) {}
+                });
+            };
+
+            const markPendingPolicyAlert = () => {
+                try {
+                    sessionStorage.setItem(PENDING_KEY, '1');
+                } catch (e) {}
+            };
+
+            const consumePendingPolicyAlert = () => {
+                try {
+                    if (sessionStorage.getItem(PENDING_KEY) === '1') {
+                        sessionStorage.removeItem(PENDING_KEY);
+                        return true;
+                    }
+                } catch (e) {}
+                return false;
+            };
+
+            const requestDesktopPermission = async () => {
+                if (!('Notification' in window)) return false;
+                try {
+                    const result = await Notification.requestPermission();
+                    if (result === 'granted') {
+                        hideEnableBanner();
+                        unlockAudio();
+                        return true;
+                    }
+                } catch (e) {}
+                return false;
+            };
+
+            document.addEventListener('click', unlockAudio, { once: false });
+            document.addEventListener('keydown', unlockAudio, { once: false });
+
+            const enableBtn = document.getElementById('notifEnableBtn');
+            const dismissBtn = document.getElementById('notifEnableDismiss');
+            if (enableBtn) {
+                enableBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    await requestDesktopPermission();
+                    unlockAudio();
+                });
+            }
+            if (dismissBtn) {
+                dismissBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    hideEnableBanner();
+                });
+            }
+            showEnableBanner();
+
             let channel = null;
             try {
                 if (typeof BroadcastChannel !== 'undefined') {
                     channel = new BroadcastChannel(CHANNEL_NAME);
                     channel.onmessage = (event) => {
-                        if (event.data && event.data.type === 'new-notifications') {
-                            this.renderNotifications(event.data.payload, { playSound: false, animate: true });
+                        if (!event.data) return;
+                        if (event.data.type === 'new-notifications') {
+                            this.renderNotifications(event.data.payload, {
+                                playSound: !!event.data.playSound,
+                                animate: true,
+                            });
                         }
                     };
                 }
             } catch (e) {}
 
-            const playAssignmentChime = () => {
-                try {
-                    const Ctx = window.AudioContext || window.webkitAudioContext;
-                    if (!Ctx) return;
-                    if (!audioCtx) audioCtx = new Ctx();
-                    if (audioCtx.state === 'suspended') audioCtx.resume();
-
-                    const now = audioCtx.currentTime;
-                    const notes = [523.25, 659.25, 783.99];
-                    notes.forEach((freq, i) => {
-                        const osc = audioCtx.createOscillator();
-                        const gain = audioCtx.createGain();
-                        osc.type = 'sine';
-                        osc.frequency.value = freq;
-                        gain.gain.setValueAtTime(0.0001, now + i * 0.12);
-                        gain.gain.exponentialRampToValueAtTime(0.18, now + i * 0.12 + 0.04);
-                        gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.12 + 0.35);
-                        osc.connect(gain);
-                        gain.connect(audioCtx.destination);
-                        osc.start(now + i * 0.12);
-                        osc.stop(now + i * 0.12 + 0.4);
-                    });
-                } catch (e) {}
+            this.escapeHtml = (value) => {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
             };
-
-            const maybeDesktopAlert = (payload) => {
-                if (!document.hidden || !payload || !payload.notifications) return;
-                const freshPolicy = payload.notifications.find((n) => n.is_policy);
-                if (!freshPolicy || !('Notification' in window)) return;
-                if (Notification.permission !== 'granted') return;
-                try {
-                    new Notification(freshPolicy.title, {
-                        body: `${freshPolicy.client_name}${freshPolicy.message ? ' • ' + freshPolicy.message : ''}`,
-                        tag: `policy-notif-${freshPolicy.id}`,
-                    });
-                } catch (e) {}
-            };
-
-            const requestDesktopPermission = () => {
-                if (!('Notification' in window) || Notification.permission !== 'default') return;
-                try {
-                    Notification.requestPermission();
-                } catch (e) {}
-            };
-
-            document.addEventListener('click', requestDesktopPermission, { once: true });
 
             this.renderNotifications = (payload, options = {}) => {
                 const { playSound = false, animate = false } = options;
@@ -226,32 +307,66 @@
                 if (playSound) playAssignmentChime();
             };
 
-            this.escapeHtml = (value) => {
-                return String(value || '')
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;');
+            const handleIncomingPolicyAlerts = (payload, policyAlerts) => {
+                if (!policyAlerts || !policyAlerts.length) return;
+
+                this.renderNotifications(payload, { playSound: !document.hidden, animate: true });
+
+                if (document.hidden) {
+                    showDesktopAlerts(policyAlerts);
+                    markPendingPolicyAlert();
+                    if (channel) {
+                        channel.postMessage({
+                            type: 'new-notifications',
+                            payload,
+                            playSound: false,
+                        });
+                    }
+                } else {
+                    if (channel) {
+                        channel.postMessage({
+                            type: 'new-notifications',
+                            payload,
+                            playSound: true,
+                        });
+                    }
+                }
             };
 
             const poll = async () => {
                 try {
-                    const res = await fetch(pollUrl, {
+                    const url = `${pollUrl}?after_id=${encodeURIComponent(lastKnownId)}`;
+                    const res = await fetch(url, {
                         headers: { 'X-Requested-With': 'XMLHttpRequest' },
                         credentials: 'same-origin',
+                        cache: 'no-store',
                     });
                     if (!res.ok) return;
                     const payload = await res.json();
                     const latestId = payload.latest_id || 0;
-                    const hasNew = latestId > lastKnownId;
+                    const policyAlerts = payload.new_policy_notifications || [];
+                    let pollerReady = false;
 
-                    if (hasNew && lastKnownId > 0) {
-                        const hasPolicyAlert = (payload.notifications || []).some((n) => n.is_policy);
-                        this.renderNotifications(payload, { playSound: hasPolicyAlert, animate: true });
-                        maybeDesktopAlert(payload);
-                        if (channel) {
-                            channel.postMessage({ type: 'new-notifications', payload });
+                    try {
+                        pollerReady = localStorage.getItem(INIT_KEY) === '1';
+                    } catch (e) {
+                        pollerReady = false;
+                    }
+
+                    if (!pollerReady) {
+                        this.renderNotifications(payload, { playSound: false, animate: false });
+                        if (latestId > lastKnownId) {
+                            lastKnownId = latestId;
+                            try {
+                                localStorage.setItem(STORAGE_KEY, String(lastKnownId));
+                                localStorage.setItem(INIT_KEY, '1');
+                            } catch (e) {}
                         }
+                        return;
+                    }
+
+                    if (policyAlerts.length > 0) {
+                        handleIncomingPolicyAlerts(payload, policyAlerts);
                     } else {
                         this.renderNotifications(payload, { playSound: false, animate: false });
                     }
@@ -265,10 +380,28 @@
                 } catch (e) {}
             };
 
+            const schedulePoll = () => {
+                if (pollTimer) clearInterval(pollTimer);
+                const interval = document.hidden ? POLL_HIDDEN_MS : POLL_VISIBLE_MS;
+                pollTimer = setInterval(poll, interval);
+            };
+
             poll();
-            setInterval(poll, POLL_MS);
+            schedulePoll();
+
             document.addEventListener('visibilitychange', () => {
-                if (!document.hidden) poll();
+                schedulePoll();
+                poll();
+                if (!document.hidden && consumePendingPolicyAlert()) {
+                    playAssignmentChime();
+                }
+            });
+
+            window.addEventListener('focus', () => {
+                poll();
+                if (consumePendingPolicyAlert()) {
+                    playAssignmentChime();
+                }
             });
         },
 

@@ -942,6 +942,19 @@ def _user_notification_queryset(user):
     )
 
 
+def _serialize_notification(notif):
+    return {
+        "id": notif.id,
+        "title": notif.title,
+        "message": notif.message,
+        "client_name": notif.client.name if notif.client else "",
+        "level": notif.level,
+        "created_at": notif.created_at.strftime("%b %d, %H:%M"),
+        "url": reverse("open-notification", args=[notif.id]),
+        "is_policy": bool(notif.insurance_policy_id),
+    }
+
+
 @login_required
 def poll_notifications(request):
     """JSON feed for live notification bell updates (polling + cross-tab)."""
@@ -949,26 +962,36 @@ def poll_notifications(request):
         notif_qs = _user_notification_queryset(request.user)
         unread_count = notif_qs.count()
         top_notifications = list(notif_qs.order_by("-created_at")[:8])
-        latest_id = top_notifications[0].id if top_notifications else 0
-        items = []
-        for notif in top_notifications:
-            items.append({
-                "id": notif.id,
-                "title": notif.title,
-                "message": notif.message,
-                "client_name": notif.client.name if notif.client else "",
-                "level": notif.level,
-                "created_at": notif.created_at.strftime("%b %d, %H:%M"),
-                "url": reverse("open-notification", args=[notif.id]),
-                "is_policy": bool(notif.insurance_policy_id),
-            })
+        max_id = notif_qs.order_by("-id").values_list("id", flat=True).first() or 0
+
+        after_id = 0
+        raw_after = request.GET.get("after_id", "").strip()
+        if raw_after.isdigit():
+            after_id = int(raw_after)
+
+        new_notifications = list(
+            notif_qs.filter(id__gt=after_id).order_by("-created_at")[:10]
+        )
+        new_policy_notifications = [
+            _serialize_notification(n) for n in new_notifications if n.insurance_policy_id
+        ]
+
+        items = [_serialize_notification(notif) for notif in top_notifications]
         return JsonResponse({
             "unread_count": unread_count,
-            "latest_id": latest_id,
+            "latest_id": max_id,
             "notifications": items,
+            "new_notifications": [_serialize_notification(n) for n in new_notifications],
+            "new_policy_notifications": new_policy_notifications,
         })
     except (OperationalError, ProgrammingError):
-        return JsonResponse({"unread_count": 0, "latest_id": 0, "notifications": []})
+        return JsonResponse({
+            "unread_count": 0,
+            "latest_id": 0,
+            "notifications": [],
+            "new_notifications": [],
+            "new_policy_notifications": [],
+        })
 
 
 @login_required
