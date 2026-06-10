@@ -421,6 +421,9 @@
     }
 
     .finance-goal-engine {
+        --goal-text: #ffffff;
+        --goal-text-soft: #f8fafc;
+        --goal-text-dim: #e8edf5;
         position: relative;
         z-index: 2;
         background: rgba(255, 255, 255, 0.04);
@@ -432,6 +435,7 @@
         grid-template-columns: 1.4fr 1fr 1fr;
         gap: 2rem;
         align-items: center;
+        color: var(--goal-text-soft);
     }
 
     .finance-goal-head {
@@ -471,16 +475,16 @@
         border-color: rgba(239, 68, 68, 0.35);
     }
 
-    .finance-goal-title {
+    body.portal-body .finance-hub-page .finance-goal-engine .finance-goal-title {
         margin: 0 0 0.35rem;
         font-size: 1.35rem;
         font-weight: 800;
-        color: #f8fafc;
+        color: var(--goal-text);
     }
 
     .finance-goal-detail {
         margin: 0 0 1.25rem;
-        color: #94a3b8;
+        color: var(--goal-text-soft);
         font-size: 0.9rem;
         line-height: 1.5;
     }
@@ -494,7 +498,7 @@
         justify-content: space-between;
         font-size: 0.78rem;
         font-weight: 700;
-        color: #cbd5e1;
+        color: var(--goal-text-dim);
         margin-bottom: 0.45rem;
     }
 
@@ -525,7 +529,13 @@
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        color: #94a3b8;
+        color: var(--goal-text-soft);
+    }
+
+    .finance-goal-hint {
+        font-size: 0.75rem;
+        color: var(--goal-text-dim);
+        font-weight: 600;
     }
 
     .finance-goal-input-row input {
@@ -547,7 +557,7 @@
         font-size: 0.72rem;
         text-transform: uppercase;
         letter-spacing: 0.1em;
-        color: #94a3b8;
+        color: var(--goal-text-soft);
         font-weight: 800;
         margin-bottom: 0.35rem;
     }
@@ -555,15 +565,20 @@
     .finance-goal-stat-value {
         font-size: 1.75rem;
         font-weight: 900;
-        color: #f8fafc;
+        color: var(--goal-text);
         letter-spacing: -0.5px;
     }
 
     .finance-goal-stat-sub {
         margin-top: 0.35rem;
         font-size: 0.78rem;
-        color: #64748b;
+        color: var(--goal-text-dim);
         font-weight: 600;
+    }
+
+    .finance-goal-stat-sub strong {
+        color: var(--goal-text);
+        font-weight: 800;
     }
 
     @media (max-width: 1100px) {
@@ -684,7 +699,7 @@
                     <div class="finance-goal-input-row">
                         <label for="monthlyGoalInput">Monthly profit target ($)</label>
                         <input type="number" id="monthlyGoalInput" min="0" step="100" value="{{ goal_forecast.suggested_goal|floatformat:0 }}" aria-label="Monthly profit target">
-                        <span style="font-size: 0.75rem; color: #64748b; font-weight: 600;">Suggested: +5% vs last month profit (${{ goal_forecast.prev_month_revenue|floatformat:0 }})</span>
+                        <span class="finance-goal-hint">Suggested: +5% vs last month profit (${{ goal_forecast.prev_month_revenue|floatformat:0 }})</span>
                     </div>
                 </div>
                 <div class="finance-goal-stat">
