@@ -5736,7 +5736,13 @@ def inventory_detail(request, inventory_id):
 
     # Special handling for the "Insurance" Space card
     if card.key == "insurance":
-        from .models import InsuranceCompany, InsurancePolicy, BankAccount, BankTransaction
+        from .models import (
+            BankAccount,
+            BankTransaction,
+            InsuranceAgentRotation,
+            InsuranceCompany,
+            InsurancePolicy,
+        )
         from .insurance_assignment import (
             build_pipeline_roster,
             ensure_pipeline_rotations,
@@ -6122,7 +6128,21 @@ def inventory_detail(request, inventory_id):
             "pipeline_roster": build_pipeline_roster(active_org),
             "pipeline_next_agent": get_pipeline_next_user(active_org),
             "distribution_agent_choices": insurance_memberships,
-            "can_manage_distribution": request.user.is_superuser or request.user.is_staff,
+            "can_manage_distribution": is_owner or request.user.is_superuser or request.user.is_staff,
+            "all_org_memberships": OrganizationMembership.objects.filter(
+                organization=active_org,
+                is_active=True,
+                user__is_active=True,
+                role=OrganizationMembership.Role.MEMBER,
+            ).select_related("user").order_by(
+                "user__first_name", "user__last_name", "user__username"
+            ),
+            "pipeline_member_ids": set(
+                InsuranceAgentRotation.objects.filter(
+                    membership__organization=active_org,
+                    in_pipeline=True,
+                ).values_list("membership_id", flat=True)
+            ),
         }
         return render(request, "core/insurance_space.html", context)
 
@@ -6418,7 +6438,7 @@ def add_insurance_policy(request):
     is_owner = request.user.is_superuser or (
         actor_membership and actor_membership.role == OrganizationMembership.Role.OWNER
     )
-    can_manage_distribution = request.user.is_superuser or request.user.is_staff
+    can_manage_distribution = is_owner or request.user.is_superuser or request.user.is_staff
     added_by, assign_method = resolve_policy_agent(
         org,
         request.user,
@@ -6541,7 +6561,10 @@ def edit_insurance_policy(request, policy_id):
             organization=policy.organization,
             is_active=True,
         ).first()
-        can_manage_distribution = request.user.is_superuser or request.user.is_staff
+        is_owner = request.user.is_superuser or (
+            actor_membership and actor_membership.role == OrganizationMembership.Role.OWNER
+        )
+        can_manage_distribution = is_owner or request.user.is_superuser or request.user.is_staff
         assigned_agent_id = request.POST.get("assigned_agent_id")
         if can_manage_distribution and assigned_agent_id:
             config = get_distribution_config(policy.organization)
@@ -7692,11 +7715,10 @@ def insurance_agent_detail(request, user_id):
             is_active=True,
         ).first()
     is_viewing_self = request.user.id == agent.id
-    can_manage_rotation = (
-        request.user.is_superuser
-        or request.user.is_staff
-        or is_viewing_self
+    is_owner = request.user.is_superuser or (
+        viewer_membership and viewer_membership.role == OrganizationMembership.Role.OWNER
     )
+    can_manage_rotation = is_owner or is_viewing_self or request.user.is_staff
 
     return render(request, "core/insurance_agent_detail.html", {
         "agent": agent,

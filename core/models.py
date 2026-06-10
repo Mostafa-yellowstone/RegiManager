@@ -1802,7 +1802,7 @@ class InsuranceDistributionConfig(models.Model):
     )
     allow_manual_override = models.BooleanField(
         default=True,
-        help_text="Staff can manually pick an agent when adding a policy (Django Admin).",
+        help_text="PSB owners can manually pick an agent when adding a policy.",
     )
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -1231,31 +1231,39 @@ class InsuranceDistributionTests(TestCase):
         self.assertEqual(policy.added_by, self.agent1)
         self.assertNotEqual(policy.added_by, self.agent2)
 
-    def test_skip_distribution_keeps_creator_for_staff(self):
-        staff = User.objects.create_user(
-            username="staffuser",
-            password="password123",
-            is_staff=True,
-        )
-        OrganizationMembership.objects.create(
-            user=staff,
-            organization=self.org,
-            is_active=True,
-            role="member",
-            can_deal_with_insurance=True,
-            can_view_spaces=True,
-        ).accessible_spaces.add(self.space)
-
-        post_data = self._policy_post(staff)
+    def test_skip_distribution_keeps_creator_for_owner(self):
+        post_data = self._policy_post(self.owner)
         post_data["skip_distribution"] = "on"
-        self.client.login(username="staffuser", password="password123")
+        self.client.login(username="distowner", password="password123")
         session = self.client.session
         session["active_org_id"] = self.org.id
         session.save()
 
         response = self.client.post(reverse("add-insurance-policy"), post_data)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(InsurancePolicy.objects.latest("id").added_by, staff)
+        self.assertEqual(InsurancePolicy.objects.latest("id").added_by, self.owner)
+
+    def test_owner_can_assign_pipeline_agents(self):
+        from core.insurance_assignment import get_or_create_rotation
+
+        self.client.login(username="distowner", password="password123")
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+
+        response = self.client.post(
+            reverse("save-pipeline-agents"),
+            {"pipeline_membership_ids": [str(self.m1.id)]},
+        )
+        self.assertEqual(response.status_code, 302)
+
+        self.m1.refresh_from_db()
+        self.assertTrue(self.m1.can_deal_with_insurance)
+        rotation = get_or_create_rotation(self.m1)
+        self.assertTrue(rotation.in_pipeline)
+
+        rotation2 = get_or_create_rotation(self.m2)
+        self.assertFalse(rotation2.in_pipeline)
 
     def test_non_insurance_agent_excluded_when_only_insurance_agents_enabled(self):
         from core.insurance_assignment import get_eligible_pipeline_memberships

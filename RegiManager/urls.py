@@ -141,10 +141,11 @@ from core.motorclub_views import (
     delete_motorclub_b2b_partner,
 )
 from core.insurance_distribution_views import (
-    save_insurance_distribution_config,
-    update_insurance_agent_rotation,
     add_insurance_agent_holiday,
     delete_insurance_agent_holiday,
+    save_insurance_distribution_config,
+    save_pipeline_agents,
+    update_insurance_agent_rotation,
 )
 from core.inventory_views import (
     add_inventory_category,
@@ -300,6 +301,11 @@ urlpatterns = [
         "dashboard/spaces/insurance/distribution/config/",
         save_insurance_distribution_config,
         name="save-insurance-distribution-config",
+    ),
+    path(
+        "dashboard/spaces/insurance/distribution/agents/",
+        save_pipeline_agents,
+        name="save-pipeline-agents",
     ),
     path(
         "dashboard/spaces/insurance/distribution/agent/<int:membership_id>/rotation/",

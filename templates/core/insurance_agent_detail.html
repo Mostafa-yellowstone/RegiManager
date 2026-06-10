@@ -184,7 +184,7 @@ html.portal-theme-dark .agent-profile-page .bt-rewrite { background: rgba(217, 1
           </label>
           <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.88rem;cursor:pointer;">
             <input type="checkbox" name="is_present" {% if agent_rotation.is_present %}checked{% endif %}>
-            I am present / available today
+            {% if is_viewing_self %}I am present / available today{% else %}Present / available today{% endif %}
           </label>
           <button type="submit" style="padding:8px 16px;background:var(--blue);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;justify-self:start;">Save Availability</button>
         </form>
