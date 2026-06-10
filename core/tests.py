@@ -367,6 +367,30 @@ class ReceiptAddressTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/pdf")
 
+    def test_pdf_receipt_uses_psbc_license_and_keeps_receipt_number_box(self):
+        from io import BytesIO
+        from pypdf import PdfReader
+
+        self.org.psbc_license = "PSB-LIC-98765"
+        self.org.save()
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+        )
+        receipt_parts = str(record.receipt_number).split("-")
+        receipt_short = receipt_parts[1][-6:] if len(receipt_parts) > 1 else str(record.receipt_number)[:6]
+
+        response = self.client.get(reverse("service-receipt-pdf", args=[record.id]))
+        self.assertEqual(response.status_code, 200)
+
+        pdf_text = "".join(
+            page.extract_text() or "" for page in PdfReader(BytesIO(response.content)).pages
+        )
+        self.assertIn("PSB-LIC-98765", pdf_text)
+        self.assertIn(receipt_short, pdf_text)
+
 
 class AgentAuditingTests(TestCase):
     def setUp(self):

@@ -39,6 +39,12 @@ class Organization(models.Model):
     city = models.CharField(max_length=80, blank=True, default="")
     state = models.CharField(max_length=80, blank=True, default="")
     phone_number = models.CharField(max_length=20, blank=True, default="", help_text="PSB contact number for clients.")
+    psbc_license = models.CharField(
+        max_length=60,
+        blank=True,
+        default="",
+        help_text="PSB license number printed on service receipts under PSBC No.",
+    )
     invite_code = models.CharField(max_length=20, unique=True, default=generate_invite_code)
     portal_token = models.CharField(max_length=64, unique=True, blank=True, null=True)
     max_agents = models.IntegerField(default=5, help_text="Maximum number of agents allowed for this PSB.")

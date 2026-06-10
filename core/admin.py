@@ -46,9 +46,9 @@ class MembershipInline(admin.TabularInline):
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
-    list_display = ("name", "city", "state", "invite_code", "intake_link_display", "is_automation_enabled")
+    list_display = ("name", "city", "state", "psbc_license", "invite_code", "intake_link_display", "is_automation_enabled")
     list_filter = ("state", "city", "is_automation_enabled")
-    search_fields = ("name", "address_line", "city", "state", "phone_number")
+    search_fields = ("name", "address_line", "city", "state", "phone_number", "psbc_license")
     readonly_fields = ("intake_link_display",)
     inlines = [MembershipInline]
 

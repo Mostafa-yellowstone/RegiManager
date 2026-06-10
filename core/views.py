@@ -2147,10 +2147,11 @@ def service_receipt_pdf(request, service_id):
     y -= 25
     pdf.setFont("Helvetica-Bold", 10)
     address = f"{service_record.organization.address_line} {service_record.organization.city}, {service_record.organization.state}"
+    psbc_license = (service_record.organization.psbc_license or "").strip()
     pdf.drawString(margin_x, y, "PSBC")
     pdf.drawString(margin_x + 50, y, address.upper()[:50])
     y -= 12
-    pdf.drawString(margin_x, y, f"No. {receipt_short}")
+    pdf.drawString(margin_x, y, f"No. {psbc_license}")
     pdf.drawString(margin_x + 50, y, address.upper()[50:])
 
     y -= 25
