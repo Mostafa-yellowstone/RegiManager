@@ -1,13 +1,51 @@
 <style>
   .dpt-hero { background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%); border-radius: 22px; padding: 1.5rem 1.75rem; margin-bottom: 1.5rem; color: white; box-shadow: 0 12px 40px rgba(15,23,42,0.18); }
-  .dpt-method-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
-  .dpt-method-card { border-radius: 18px; padding: 1.15rem 1.25rem; color: white; position: relative; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.12); min-height: 108px; display: flex; flex-direction: column; justify-content: space-between; }
-  .dpt-method-card::after { content: ''; position: absolute; top: -30%; right: -20%; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,0.12); }
-  .dpt-method-label { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.9; }
-  .dpt-method-amount { font-size: 1.65rem; font-weight: 900; line-height: 1.1; }
-  .dpt-total-card { background: linear-gradient(135deg, #111827 0%, #312e81 50%, #6366f1 100%); border-radius: 18px; padding: 1.15rem 1.25rem; color: white; box-shadow: 0 10px 30px rgba(49,46,129,0.25); min-height: 108px; display: flex; flex-direction: column; justify-content: center; }
-  .dpt-payable-card { background: linear-gradient(135deg, #7c2d12 0%, #c2410c 45%, #fb923c 100%); border-radius: 18px; padding: 1.15rem 1.25rem; color: white; box-shadow: 0 10px 30px rgba(194,65,12,0.28); min-height: 108px; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; }
-  .dpt-payable-card::after { content: ''; position: absolute; top: -30%; right: -20%; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,0.12); }
+  .dpt-method-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  @media (max-width: 1200px) {
+    .dpt-method-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (max-width: 640px) {
+    .dpt-method-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .dpt-metric-card {
+    border-radius: 18px;
+    padding: 1.15rem 1.25rem;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    height: 120px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .dpt-metric-card::after {
+    content: '';
+    position: absolute;
+    top: -30%;
+    right: -20%;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    pointer-events: none;
+  }
+  .dpt-metric-card--total {
+    background: linear-gradient(135deg, #111827 0%, #312e81 50%, #6366f1 100%);
+    box-shadow: 0 10px 30px rgba(49,46,129,0.25);
+  }
+  .dpt-metric-card--payable {
+    background: linear-gradient(135deg, #134e4a 0%, #0f766e 45%, #2dd4bf 100%);
+    box-shadow: 0 10px 30px rgba(15,118,110,0.28);
+  }
+  .dpt-method-label { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.9; position: relative; z-index: 1; }
+  .dpt-method-amount { font-size: 1.65rem; font-weight: 900; line-height: 1.1; position: relative; z-index: 1; }
   .dpt-drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 3000; backdrop-filter: blur(3px); }
   .dpt-drawer-overlay.active { display: flex; justify-content: flex-end; }
   .dpt-drawer-panel { width: min(360px, 92vw); height: 100%; background: var(--portal-surface, white); box-shadow: -8px 0 40px rgba(0,0,0,0.12); padding: 1.5rem; overflow-y: auto; animation: dptSlideIn 0.25s ease; }
@@ -59,19 +97,18 @@
 
 <div class="dpt-method-grid">
   {% for card in daily_method_cards %}
-  <div class="dpt-method-card" style="background: {{ card.gradient }};">
+  <div class="dpt-metric-card" style="background: {{ card.gradient }};">
     <div class="dpt-method-label">{{ card.icon }} {{ card.label }}</div>
     <div class="dpt-method-amount">${{ card.total|floatformat:2 }}</div>
   </div>
   {% endfor %}
-  <div class="dpt-total-card">
+  <div class="dpt-metric-card dpt-metric-card--total">
     <div class="dpt-method-label" style="color: #c7d2fe;">✨ Grand Total</div>
     <div class="dpt-method-amount">${{ daily_grand_total|floatformat:2 }}</div>
   </div>
-  <div class="dpt-payable-card">
-    <div class="dpt-method-label" style="color: #ffedd5;">🏦 Payable</div>
+  <div class="dpt-metric-card dpt-metric-card--payable">
+    <div class="dpt-method-label" style="color: #ccfbf1;">🏦 Payable</div>
     <div class="dpt-method-amount" id="dptPayableAmount">${{ daily_payable_total|floatformat:2 }}</div>
-    <div style="font-size: 0.68rem; font-weight: 700; color: #ffedd5; opacity: 0.9; margin-top: 0.35rem;">Uncleared · all days</div>
   </div>
 </div>
 
