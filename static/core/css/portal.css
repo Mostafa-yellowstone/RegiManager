@@ -664,6 +664,24 @@ body.portal-body .dashboard-hero .brand-pill {
 
 .notif-dot.warning { background: #f59e0b; }
 .notif-dot.info { background: #3b82f6; }
+.notif-dot.success { background: #10b981; }
+
+.notif-badge.is-hidden {
+    display: none;
+}
+
+.notif-btn.has-new-alert {
+    animation: notif-bell-ring 0.8s ease-in-out 2;
+}
+
+@keyframes notif-bell-ring {
+    0%, 100% { transform: rotate(0deg); }
+    15% { transform: rotate(14deg); }
+    30% { transform: rotate(-12deg); }
+    45% { transform: rotate(8deg); }
+    60% { transform: rotate(-6deg); }
+    75% { transform: rotate(3deg); }
+}
 
 .notif-item-title {
     font-weight: 800;

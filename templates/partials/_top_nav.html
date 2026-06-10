@@ -94,21 +94,19 @@
                     <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
                     <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                 </svg>
-                {% if notif_unread_count and notif_unread_count > 0 %}
-                <span class="notif-badge">{{ notif_unread_count }}</span>
-                {% endif %}
+                <span class="notif-badge{% if not notif_unread_count %} is-hidden{% endif %}" id="notifBadge">{% if notif_unread_count %}{{ notif_unread_count }}{% endif %}</span>
             </button>
 
             <div id="notifDropdown" class="portal-dropdown notif-dropdown" role="menu">
                 <div class="notif-dropdown-header">
                     <strong>Notifications</strong>
-                    <span class="brand-pill notif-count-pill">{{ notif_unread_count|default:0 }} unread</span>
+                    <span class="brand-pill notif-count-pill" id="notifCountPill">{{ notif_unread_count|default:0 }} unread</span>
                 </div>
-                <div class="notif-dropdown-body">
+                <div class="notif-dropdown-body" id="notifDropdownBody">
                     {% for n in top_notifications %}
                     <a href="{% url 'open-notification' n.id %}" class="notif-item">
                         <div class="notif-item-inner">
-                            <div class="notif-dot {% if n.level == 'warning' %}warning{% else %}info{% endif %}"></div>
+                            <div class="notif-dot {% if n.level == 'warning' %}warning{% elif n.level == 'success' %}success{% else %}info{% endif %}"></div>
                             <div class="notif-item-body">
                                 <div class="notif-item-title">{{ n.title }}</div>
                                 <div class="notif-item-msg">{{ n.client.name }}{% if n.message %} • {{ n.message }}{% endif %}</div>

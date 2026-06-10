@@ -1222,6 +1222,7 @@ class InsuranceDistributionTests(TestCase):
     def test_agent_add_policy_assigns_to_pipeline_turn_not_creator(self):
         """When agent2 enters a policy, it goes to whoever is up next — not agent2."""
         from core.insurance_assignment import pick_next_membership
+        from core.models import Notification
 
         self.assertEqual(pick_next_membership(self.org).user, self.agent1)
 
@@ -1230,6 +1231,31 @@ class InsuranceDistributionTests(TestCase):
         policy = InsurancePolicy.objects.latest("id")
         self.assertEqual(policy.added_by, self.agent1)
         self.assertNotEqual(policy.added_by, self.agent2)
+
+        notif = Notification.objects.filter(
+            user=self.agent1,
+            insurance_policy=policy,
+            is_read=False,
+        ).first()
+        self.assertIsNotNone(notif)
+        self.assertIn("pipeline", notif.title.lower())
+
+    def test_poll_notifications_returns_policy_alert_for_assignee(self):
+        from core.models import Notification
+
+        self.client.post(reverse("add-insurance-policy"), self._policy_post(self.agent2))
+        policy = InsurancePolicy.objects.latest("id")
+
+        self.client.login(username="agentone", password="password123")
+        response = self.client.get(reverse("poll-notifications"))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertGreaterEqual(data["unread_count"], 1)
+        self.assertTrue(any(n["is_policy"] for n in data["notifications"]))
+        self.assertEqual(
+            Notification.objects.filter(user=self.agent1, insurance_policy=policy).count(),
+            1,
+        )
 
     def test_skip_distribution_keeps_creator_for_owner(self):
         post_data = self._policy_post(self.owner)

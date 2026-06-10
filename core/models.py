@@ -816,10 +816,18 @@ class Notification(models.Model):
     class Level(models.TextChoices):
         INFO = "info", "Info"
         WARNING = "warning", "Warning"
+        SUCCESS = "success", "Success"
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications", db_index=True)
     client = models.ForeignKey("Client", on_delete=models.CASCADE, related_name="notifications", db_index=True)
     note = models.ForeignKey("ClientNote", on_delete=models.CASCADE, related_name="notifications", null=True, blank=True)
+    insurance_policy = models.ForeignKey(
+        "InsurancePolicy",
+        on_delete=models.SET_NULL,
+        related_name="assignment_notifications",
+        null=True,
+        blank=True,
+    )
     title = models.CharField(max_length=140)
     message = models.TextField(blank=True, default="")
     level = models.CharField(max_length=20, choices=Level.choices, default=Level.WARNING, db_index=True)

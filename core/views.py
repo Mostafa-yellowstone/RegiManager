@@ -18,6 +18,7 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect, csrf_exempt
 from django.utils.crypto import get_random_string
@@ -929,11 +930,52 @@ def mark_client_note_done(request, note_id):
     return redirect("client-detail", client_id=note.client_id)
 
 
+def _user_notification_queryset(user):
+    return (
+        Notification.objects.filter(user=user)
+        .filter(client__deleted_at__isnull=True)
+        .filter(
+            Q(note__isnull=False, note__is_done=False)
+            | Q(note__isnull=True, is_read=False)
+        )
+        .select_related("client", "note", "insurance_policy")
+    )
+
+
+@login_required
+def poll_notifications(request):
+    """JSON feed for live notification bell updates (polling + cross-tab)."""
+    try:
+        notif_qs = _user_notification_queryset(request.user)
+        unread_count = notif_qs.count()
+        top_notifications = list(notif_qs.order_by("-created_at")[:8])
+        latest_id = top_notifications[0].id if top_notifications else 0
+        items = []
+        for notif in top_notifications:
+            items.append({
+                "id": notif.id,
+                "title": notif.title,
+                "message": notif.message,
+                "client_name": notif.client.name if notif.client else "",
+                "level": notif.level,
+                "created_at": notif.created_at.strftime("%b %d, %H:%M"),
+                "url": reverse("open-notification", args=[notif.id]),
+                "is_policy": bool(notif.insurance_policy_id),
+            })
+        return JsonResponse({
+            "unread_count": unread_count,
+            "latest_id": latest_id,
+            "notifications": items,
+        })
+    except (OperationalError, ProgrammingError):
+        return JsonResponse({"unread_count": 0, "latest_id": 0, "notifications": []})
+
+
 @login_required
 def open_notification(request, notification_id):
     try:
         notif = get_object_or_404(
-            Notification.objects.select_related("client", "note"),
+            Notification.objects.select_related("client", "note", "insurance_policy"),
             id=notification_id,
             user=request.user,
         )
@@ -945,6 +987,10 @@ def open_notification(request, notification_id):
     if not notif.note_id and not notif.is_read:
         notif.is_read = True
         notif.save(update_fields=["is_read"])
+
+    if notif.insurance_policy_id:
+        messages.info(request, "Opening your insurance profile with the new policy.")
+        return redirect("insurance-agent-detail", user_id=request.user.id)
 
     anchor = ""
     if notif.note_id:
@@ -6452,7 +6498,7 @@ def add_insurance_policy(request):
     )
 
     try:
-        InsurancePolicy.objects.create(
+        policy = InsurancePolicy.objects.create(
             organization=org,
             client=client,
             policy_number=policy_number,
@@ -6471,6 +6517,13 @@ def add_insurance_policy(request):
             insurance_period_months=int(insurance_period_months or 6),
             inactive_date=inactive_date or None,
             added_by=added_by,
+        )
+        from .insurance_notifications import notify_insurance_policy_assignment
+
+        notify_insurance_policy_assignment(
+            policy,
+            entered_by=request.user,
+            assign_method=assign_method,
         )
         if assign_method == "pipeline":
             label = added_by.get_full_name() or added_by.username

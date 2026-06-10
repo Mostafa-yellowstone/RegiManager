@@ -11,6 +11,7 @@
         init() {
             this.initTheme();
             this.initTopNav();
+            this.initNotificationPoller();
             this.initTabs();
             this.initFilterPanels();
             this.initModals();
@@ -103,6 +104,171 @@
             document.addEventListener('click', closeAll);
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') closeAll();
+            });
+        },
+
+        initNotificationPoller() {
+            const body = document.body;
+            const pollUrl = body && body.getAttribute('data-notif-poll-url');
+            if (!pollUrl) return;
+
+            const POLL_MS = 15000;
+            const STORAGE_KEY = 'regimanager_last_notif_id';
+            const CHANNEL_NAME = 'regimanager-notifications';
+            let lastKnownId = 0;
+            let audioCtx = null;
+
+            try {
+                lastKnownId = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10) || 0;
+            } catch (e) {
+                lastKnownId = 0;
+            }
+
+            let channel = null;
+            try {
+                if (typeof BroadcastChannel !== 'undefined') {
+                    channel = new BroadcastChannel(CHANNEL_NAME);
+                    channel.onmessage = (event) => {
+                        if (event.data && event.data.type === 'new-notifications') {
+                            this.renderNotifications(event.data.payload, { playSound: false, animate: true });
+                        }
+                    };
+                }
+            } catch (e) {}
+
+            const playAssignmentChime = () => {
+                try {
+                    const Ctx = window.AudioContext || window.webkitAudioContext;
+                    if (!Ctx) return;
+                    if (!audioCtx) audioCtx = new Ctx();
+                    if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                    const now = audioCtx.currentTime;
+                    const notes = [523.25, 659.25, 783.99];
+                    notes.forEach((freq, i) => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.value = freq;
+                        gain.gain.setValueAtTime(0.0001, now + i * 0.12);
+                        gain.gain.exponentialRampToValueAtTime(0.18, now + i * 0.12 + 0.04);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.12 + 0.35);
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.start(now + i * 0.12);
+                        osc.stop(now + i * 0.12 + 0.4);
+                    });
+                } catch (e) {}
+            };
+
+            const maybeDesktopAlert = (payload) => {
+                if (!document.hidden || !payload || !payload.notifications) return;
+                const freshPolicy = payload.notifications.find((n) => n.is_policy);
+                if (!freshPolicy || !('Notification' in window)) return;
+                if (Notification.permission !== 'granted') return;
+                try {
+                    new Notification(freshPolicy.title, {
+                        body: `${freshPolicy.client_name}${freshPolicy.message ? ' • ' + freshPolicy.message : ''}`,
+                        tag: `policy-notif-${freshPolicy.id}`,
+                    });
+                } catch (e) {}
+            };
+
+            const requestDesktopPermission = () => {
+                if (!('Notification' in window) || Notification.permission !== 'default') return;
+                try {
+                    Notification.requestPermission();
+                } catch (e) {}
+            };
+
+            document.addEventListener('click', requestDesktopPermission, { once: true });
+
+            this.renderNotifications = (payload, options = {}) => {
+                const { playSound = false, animate = false } = options;
+                const badge = document.getElementById('notifBadge');
+                const countPill = document.getElementById('notifCountPill');
+                const dropdownBody = document.getElementById('notifDropdownBody');
+                const notifBtn = document.getElementById('notifBtn');
+                const count = payload.unread_count || 0;
+
+                if (badge) {
+                    badge.textContent = count > 0 ? String(count) : '';
+                    badge.classList.toggle('is-hidden', count <= 0);
+                }
+                if (countPill) {
+                    countPill.textContent = `${count} unread`;
+                }
+                if (dropdownBody) {
+                    if (!payload.notifications || !payload.notifications.length) {
+                        dropdownBody.innerHTML = '<div class="notif-empty">No notifications.</div>';
+                    } else {
+                        dropdownBody.innerHTML = payload.notifications.map((n) => {
+                            const levelClass = n.level === 'warning' ? 'warning' : (n.level === 'success' ? 'success' : 'info');
+                            const msg = [n.client_name, n.message].filter(Boolean).join(' • ');
+                            return `<a href="${n.url}" class="notif-item">
+                                <div class="notif-item-inner">
+                                    <div class="notif-dot ${levelClass}"></div>
+                                    <div class="notif-item-body">
+                                        <div class="notif-item-title">${this.escapeHtml(n.title)}</div>
+                                        <div class="notif-item-msg">${this.escapeHtml(msg)}</div>
+                                        <div class="notif-item-time">${this.escapeHtml(n.created_at)}</div>
+                                    </div>
+                                </div>
+                            </a>`;
+                        }).join('');
+                    }
+                }
+                if (animate && notifBtn) {
+                    notifBtn.classList.remove('has-new-alert');
+                    void notifBtn.offsetWidth;
+                    notifBtn.classList.add('has-new-alert');
+                }
+                if (playSound) playAssignmentChime();
+            };
+
+            this.escapeHtml = (value) => {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            };
+
+            const poll = async () => {
+                try {
+                    const res = await fetch(pollUrl, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        credentials: 'same-origin',
+                    });
+                    if (!res.ok) return;
+                    const payload = await res.json();
+                    const latestId = payload.latest_id || 0;
+                    const hasNew = latestId > lastKnownId;
+
+                    if (hasNew && lastKnownId > 0) {
+                        const hasPolicyAlert = (payload.notifications || []).some((n) => n.is_policy);
+                        this.renderNotifications(payload, { playSound: hasPolicyAlert, animate: true });
+                        maybeDesktopAlert(payload);
+                        if (channel) {
+                            channel.postMessage({ type: 'new-notifications', payload });
+                        }
+                    } else {
+                        this.renderNotifications(payload, { playSound: false, animate: false });
+                    }
+
+                    if (latestId > lastKnownId) {
+                        lastKnownId = latestId;
+                        try {
+                            localStorage.setItem(STORAGE_KEY, String(lastKnownId));
+                        } catch (e) {}
+                    }
+                } catch (e) {}
+            };
+
+            poll();
+            setInterval(poll, POLL_MS);
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) poll();
             });
         },
 
