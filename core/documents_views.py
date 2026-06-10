@@ -1,7 +1,5 @@
 """Views for the Documents space — folder-based document records."""
 
-from decimal import Decimal, InvalidOperation
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -64,10 +62,10 @@ def _can_manage_documents(is_owner, membership):
     return is_owner or (membership and membership.can_manage_documents)
 
 
-def _parse_decimal(value, default=Decimal("0")):
+def _parse_quantity(value, default=0):
     try:
-        return Decimal(str(value).strip())
-    except (InvalidOperation, TypeError, ValueError):
+        return max(0, int(str(value).strip()))
+    except (TypeError, ValueError):
         return default
 
 
@@ -123,7 +121,7 @@ def build_documents_space_context(request, card, is_owner, membership):
     if type_filter.isdigit():
         records_qs = records_qs.filter(document_type_id=int(type_filter))
 
-    folder_totals = records_qs.aggregate(total=Sum("total_amount"))
+    folder_totals = records_qs.aggregate(total=Sum("quantity"))
     paginator = Paginator(records_qs, 25)
     page_obj = paginator.get_page(request.GET.get("page"))
 
@@ -135,7 +133,7 @@ def build_documents_space_context(request, card, is_owner, membership):
         "record_count": SpaceDocumentRecord.objects.filter(space=card).count(),
         "type_count": document_types.count(),
         "folder_record_count": records_qs.count(),
-        "folder_total_amount": folder_totals.get("total") or Decimal("0"),
+        "folder_total_quantity": folder_totals.get("total") or 0,
     }
 
     return {
@@ -189,25 +187,36 @@ def add_document_folder(request, space_id):
 
 @login_required
 @require_POST
-def delete_document_folder(request, folder_id):
+def edit_document_folder(request, folder_id):
     folder = get_object_or_404(DocumentFolder, id=folder_id)
     card, is_owner, membership = _resolve_documents_access(request, card=folder.space)
     if not _can_manage_documents(is_owner, membership):
         deny_access("You do not have permission to manage documents.")
 
-    if folder.children.exists():
-        messages.error(request, "Remove or move subfolders before deleting this folder.")
-        return _redirect_documents(card, folder.parent_id)
+    name = request.POST.get("name", "").strip()
+    redirect_folder_id = request.POST.get("redirect_folder_id", "").strip()
+    if redirect_folder_id.isdigit():
+        redirect_to = int(redirect_folder_id)
+    else:
+        redirect_to = folder.id
 
-    if folder.documents.exists():
-        messages.error(request, "Remove documents from this folder before deleting it.")
-        return _redirect_documents(card, folder.id)
+    if not name:
+        messages.error(request, "Folder name cannot be empty.")
+        return _redirect_documents(card, redirect_to)
 
-    parent_id = folder.parent_id
-    name = folder.name
-    folder.delete()
-    messages.success(request, f"Folder “{name}” deleted.")
-    return _redirect_documents(card, parent_id)
+    if (
+        DocumentFolder.objects.filter(space=card, parent=folder.parent, name__iexact=name)
+        .exclude(pk=folder.pk)
+        .exists()
+    ):
+        messages.error(request, f"A folder named “{name}” already exists here.")
+        return _redirect_documents(card, redirect_to)
+
+    old_name = folder.name
+    folder.name = name
+    folder.save(update_fields=["name"])
+    messages.success(request, f"Folder renamed from “{old_name}” to “{name}”.")
+    return _redirect_documents(card, redirect_to)
 
 
 @login_required
@@ -238,6 +247,35 @@ def add_document_type(request, space_id):
 
 @login_required
 @require_POST
+def edit_document_type(request, type_id):
+    doc_type = get_object_or_404(SpaceDocumentType, id=type_id)
+    card, is_owner, membership = _resolve_documents_access(request, card=doc_type.space)
+    if not _can_manage_documents(is_owner, membership):
+        deny_access("You do not have permission to manage documents.")
+
+    name = request.POST.get("name", "").strip()
+    folder_id = request.POST.get("folder_id", "").strip()
+    if not name:
+        messages.error(request, "Document type name cannot be empty.")
+        return _redirect_documents(card, folder_id if folder_id.isdigit() else None)
+
+    if (
+        SpaceDocumentType.objects.filter(space=card, name__iexact=name)
+        .exclude(pk=doc_type.pk)
+        .exists()
+    ):
+        messages.error(request, f"Document type “{name}” already exists.")
+        return _redirect_documents(card, folder_id if folder_id.isdigit() else None)
+
+    old_name = doc_type.name
+    doc_type.name = name
+    doc_type.save(update_fields=["name"])
+    messages.success(request, f"Document type renamed from “{old_name}” to “{name}”.")
+    return _redirect_documents(card, folder_id if folder_id.isdigit() else None)
+
+
+@login_required
+@require_POST
 def add_document_record(request, space_id):
     card, is_owner, membership = _resolve_documents_access(request, space_id=space_id)
     if not _can_manage_documents(is_owner, membership):
@@ -248,7 +286,7 @@ def add_document_record(request, space_id):
     order_number = request.POST.get("order_number", "").strip()
     range_start = request.POST.get("range_start", "").strip()
     range_end = request.POST.get("range_end", "").strip()
-    total_amount = _parse_decimal(request.POST.get("total_amount"))
+    quantity = _parse_quantity(request.POST.get("quantity"))
     notes = request.POST.get("notes", "").strip()
     uploaded_file = request.FILES.get("file")
 
@@ -270,7 +308,7 @@ def add_document_record(request, space_id):
         order_number=order_number,
         range_start=range_start,
         range_end=range_end,
-        total_amount=total_amount,
+        quantity=quantity,
         notes=notes,
         file=uploaded_file,
         added_by=request.user,

@@ -1097,7 +1097,7 @@ class SpaceDocumentRecord(models.Model):
     order_number = models.CharField(max_length=80, blank=True, default="")
     range_start = models.CharField(max_length=80, blank=True, default="")
     range_end = models.CharField(max_length=80, blank=True, default="")
-    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    quantity = models.PositiveIntegerField(default=0)
     file = models.FileField(upload_to="space_documents/%Y/%m/", blank=True, null=True)
     notes = models.TextField(blank=True, default="")
     added_by = models.ForeignKey(

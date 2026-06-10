@@ -200,7 +200,7 @@ class SpaceDocumentTypeAdmin(admin.ModelAdmin):
 
 @admin.register(SpaceDocumentRecord)
 class SpaceDocumentRecordAdmin(admin.ModelAdmin):
-    list_display = ("record_number", "document_type", "order_number", "total_amount", "space", "added_by", "created_at")
+    list_display = ("record_number", "document_type", "order_number", "quantity", "space", "added_by", "created_at")
     list_filter = ("organization", "document_type")
     search_fields = ("record_number", "order_number", "range_start", "range_end")
 

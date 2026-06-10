@@ -1241,7 +1241,7 @@ class DocumentsSpaceTests(TestCase):
                 "order_number": "ORD-100",
                 "range_start": "5001",
                 "range_end": "5100",
-                "total_amount": "250.00",
+                "quantity": "250",
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -1250,8 +1250,39 @@ class DocumentsSpaceTests(TestCase):
         self.assertEqual(record.order_number, "ORD-100")
         self.assertEqual(record.range_start, "5001")
         self.assertEqual(record.range_end, "5100")
-        self.assertEqual(record.total_amount, Decimal("250.00"))
+        self.assertEqual(record.quantity, 250)
         self.assertEqual(record.added_by, self.owner)
+
+    def test_rename_folder_and_document_type(self):
+        from core.models import DocumentFolder, SpaceDocumentType
+
+        folder = DocumentFolder.objects.create(
+            space=self.space,
+            organization=self.org,
+            name="Old Folder",
+            created_by=self.owner,
+        )
+        doc_type = SpaceDocumentType.objects.create(
+            space=self.space,
+            organization=self.org,
+            name="Old Type",
+        )
+
+        response = self.client.post(
+            reverse("edit-document-folder", args=[folder.id]),
+            {"name": "New Folder", "redirect_folder_id": folder.id},
+        )
+        self.assertEqual(response.status_code, 302)
+        folder.refresh_from_db()
+        self.assertEqual(folder.name, "New Folder")
+
+        response = self.client.post(
+            reverse("edit-document-type", args=[doc_type.id]),
+            {"name": "New Type", "folder_id": folder.id},
+        )
+        self.assertEqual(response.status_code, 302)
+        doc_type.refresh_from_db()
+        self.assertEqual(doc_type.name, "New Type")
 
 
 class MotorclubTests(TestCase):
