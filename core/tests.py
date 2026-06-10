@@ -1098,6 +1098,156 @@ class ClientIntakeTests(TestCase):
         self.assertEqual(client.source, "meta_platform")
 
 
+class InsuranceDistributionTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Dist Org", city="NYC")
+        self.owner = User.objects.create_user(username="distowner", password="password123")
+        self.agent1 = User.objects.create_user(username="agentone", password="password123")
+        self.agent2 = User.objects.create_user(username="agenttwo", password="password123")
+        self.owner_membership = OrganizationMembership.objects.create(
+            user=self.owner,
+            organization=self.org,
+            is_active=True,
+            role="owner",
+            can_deal_with_insurance=False,
+            can_view_spaces=True,
+        )
+        self.m1 = OrganizationMembership.objects.create(
+            user=self.agent1,
+            organization=self.org,
+            is_active=True,
+            role="member",
+            can_deal_with_insurance=True,
+            can_view_spaces=True,
+        )
+        self.m2 = OrganizationMembership.objects.create(
+            user=self.agent2,
+            organization=self.org,
+            is_active=True,
+            role="member",
+            can_deal_with_insurance=True,
+            can_view_spaces=True,
+        )
+        self.space = Space.objects.create(
+            organization=self.org,
+            key="insurance",
+            label="Insurance",
+            description="Insurance CRM",
+        )
+        self.owner_membership.accessible_spaces.add(self.space)
+        self.m1.accessible_spaces.add(self.space)
+        self.m2.accessible_spaces.add(self.space)
+        self.company = InsuranceCompany.objects.create(organization=self.org, name="Geico")
+        self.client = TestClient()
+
+        from core.models import InsuranceDistributionConfig
+        config = InsuranceDistributionConfig.objects.create(
+            organization=self.org,
+            is_enabled=True,
+            only_insurance_agents=True,
+            allow_manual_override=True,
+        )
+        self.config = config
+
+    def _policy_post(self, user):
+        self.client.login(username=user.username, password="password123")
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+        return {
+            "organization": self.org.id,
+            "client_name": "Pipeline Client",
+            "insurance_company": self.company.id,
+            "policy_number": f"POL-{user.id}-{InsurancePolicy.objects.count()}",
+            "premium": "1000.00",
+            "broker_fee": "0.00",
+            "commission_rate": "10.00",
+            "stage": "quote",
+            "status": "active",
+            "start_date": "2026-06-01",
+            "end_date": "2026-12-01",
+            "insurance_period_months": "6",
+        }
+
+    def test_round_robin_assigns_between_insurance_agents(self):
+        from core.insurance_assignment import pick_next_membership
+
+        first = pick_next_membership(self.org)
+        self.assertEqual(first.user, self.agent1)
+
+        response = self.client.post(reverse("add-insurance-policy"), self._policy_post(self.owner))
+        self.assertEqual(response.status_code, 302)
+        policy1 = InsurancePolicy.objects.latest("id")
+        self.assertEqual(policy1.added_by, self.agent1)
+
+        second = pick_next_membership(self.org)
+        self.assertEqual(second.user, self.agent2)
+
+        response = self.client.post(reverse("add-insurance-policy"), self._policy_post(self.agent1))
+        self.assertEqual(response.status_code, 302)
+        policy2 = InsurancePolicy.objects.latest("id")
+        self.assertEqual(policy2.added_by, self.agent2)
+
+    def test_absent_agent_skipped_in_pipeline(self):
+        from core.insurance_assignment import get_or_create_rotation, pick_next_membership
+
+        rotation = get_or_create_rotation(self.m1)
+        rotation.is_present = False
+        rotation.save()
+
+        self.assertEqual(pick_next_membership(self.org).user, self.agent2)
+
+        self.client.login(username="owner", password="password123")
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+        response = self.client.post(reverse("add-insurance-policy"), self._policy_post(self.owner))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(InsurancePolicy.objects.latest("id").added_by, self.agent2)
+
+    def test_holiday_excludes_agent_from_pipeline(self):
+        from datetime import date
+        from core.insurance_assignment import get_or_create_rotation, pick_next_membership
+        from core.models import InsuranceAgentHoliday
+
+        rotation = get_or_create_rotation(self.m1)
+        InsuranceAgentHoliday.objects.create(
+            rotation=rotation,
+            start_date=date.today(),
+            end_date=date.today(),
+            reason="PTO",
+        )
+        self.assertEqual(pick_next_membership(self.org).user, self.agent2)
+
+    def test_skip_distribution_keeps_creator(self):
+        post_data = self._policy_post(self.owner)
+        post_data["skip_distribution"] = "on"
+        self.client.login(username="distowner", password="password123")
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+
+        response = self.client.post(reverse("add-insurance-policy"), post_data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(InsurancePolicy.objects.latest("id").added_by, self.owner)
+
+    def test_non_insurance_agent_excluded_when_only_insurance_agents_enabled(self):
+        from core.insurance_assignment import get_eligible_pipeline_memberships
+        from core.models import OrganizationMembership
+
+        outsider = User.objects.create_user(username="outsider", password="password123")
+        OrganizationMembership.objects.create(
+            user=outsider,
+            organization=self.org,
+            is_active=True,
+            role="member",
+            can_deal_with_insurance=False,
+        )
+        eligible_ids = {m.user_id for m in get_eligible_pipeline_memberships(self.org)}
+        self.assertNotIn(outsider.id, eligible_ids)
+        self.assertIn(self.agent1.id, eligible_ids)
+
+
 class MotorclubTests(TestCase):
     def setUp(self):
         self.org = Organization.objects.create(name="Motor Org", city="NYC")

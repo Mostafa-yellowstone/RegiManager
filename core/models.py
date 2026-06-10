@@ -1782,3 +1782,94 @@ class MotorclubMembership(models.Model):
             number = f"MC-{self.organization_id}-{self.id:05d}"
             MotorclubMembership.objects.filter(pk=self.pk).update(membership_number=number)
             self.membership_number = number
+
+
+class InsuranceDistributionConfig(models.Model):
+    """Per-PSB settings for round-robin policy assignment."""
+
+    organization = models.OneToOneField(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="insurance_distribution_config",
+    )
+    is_enabled = models.BooleanField(
+        default=False,
+        help_text="Automatically assign new policies to the next agent in the pipeline.",
+    )
+    only_insurance_agents = models.BooleanField(
+        default=True,
+        help_text="Limit the pipeline to members with 'Can deal with insurance'.",
+    )
+    allow_manual_override = models.BooleanField(
+        default=True,
+        help_text="Owners can manually pick an agent when adding a policy.",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Insurance distribution configuration"
+
+    def __str__(self):
+        status = "enabled" if self.is_enabled else "disabled"
+        return f"Insurance distribution — {self.organization.name} ({status})"
+
+
+class InsuranceDistributionState(models.Model):
+    """Tracks the last agent served in the round-robin pipeline."""
+
+    organization = models.OneToOneField(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="insurance_distribution_state",
+    )
+    last_membership = models.ForeignKey(
+        OrganizationMembership,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class InsuranceAgentRotation(models.Model):
+    """Per-agent pipeline availability for insurance lead distribution."""
+
+    membership = models.OneToOneField(
+        OrganizationMembership,
+        on_delete=models.CASCADE,
+        related_name="insurance_rotation",
+    )
+    in_pipeline = models.BooleanField(
+        default=True,
+        help_text="Include this agent in the round-robin pipeline.",
+    )
+    is_present = models.BooleanField(
+        default=True,
+        help_text="When off, agent is treated as absent until turned back on.",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        name = self.membership.user.get_full_name() or self.membership.user.username
+        return f"{name} pipeline ({'in' if self.in_pipeline else 'out'})"
+
+
+class InsuranceAgentHoliday(models.Model):
+    """Date range when an agent is excluded from the distribution pipeline."""
+
+    rotation = models.ForeignKey(
+        InsuranceAgentRotation,
+        on_delete=models.CASCADE,
+        related_name="holidays",
+    )
+    start_date = models.DateField()
+    end_date = models.DateField()
+    reason = models.CharField(max_length=200, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"{self.rotation.membership.user.username}: {self.start_date} → {self.end_date}"

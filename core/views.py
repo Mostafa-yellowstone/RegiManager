@@ -5737,6 +5737,7 @@ def inventory_detail(request, inventory_id):
     # Special handling for the "Insurance" Space card
     if card.key == "insurance":
         from .models import InsuranceCompany, InsurancePolicy, BankAccount, BankTransaction
+        from .insurance_assignment import build_pipeline_roster, get_distribution_config
         active_org = card.organization
         
         is_locked = active_org.insurance_space_locked and active_org.insurance_space_password
@@ -6109,6 +6110,11 @@ def inventory_detail(request, inventory_id):
             "daily_grand_total": daily_grand_total,
             "daily_available_dates": daily_available_dates,
             "insurance_type_options": _insurance_type_options_for_org(active_org),
+
+            # Policy distribution pipeline
+            "distribution_config": get_distribution_config(active_org),
+            "pipeline_roster": build_pipeline_roster(active_org),
+            "distribution_agent_choices": insurance_memberships,
         }
         return render(request, "core/insurance_space.html", context)
 
@@ -6394,7 +6400,25 @@ def add_insurance_policy(request):
     if status == "inactive" and not inactive_date:
         inactive_date = timezone.now().date()
 
-    added_by = request.user
+    from .insurance_assignment import resolve_policy_agent
+
+    actor_membership = OrganizationMembership.objects.filter(
+        user=request.user,
+        organization=org,
+        is_active=True,
+    ).first()
+    is_owner = request.user.is_superuser or (
+        actor_membership and actor_membership.role == OrganizationMembership.Role.OWNER
+    )
+    added_by, assign_method = resolve_policy_agent(
+        org,
+        request.user,
+        manual_agent_id=request.POST.get("assigned_agent_id") if is_owner else None,
+        allow_manual=is_owner,
+        skip_distribution=(
+            is_owner and request.POST.get("skip_distribution") == "on"
+        ),
+    )
 
     try:
         InsurancePolicy.objects.create(
@@ -6417,7 +6441,11 @@ def add_insurance_policy(request):
             inactive_date=inactive_date or None,
             added_by=added_by,
         )
-        messages.success(request, "Insurance policy created.")
+        if assign_method == "pipeline":
+            label = added_by.get_full_name() or added_by.username
+            messages.success(request, f"Insurance policy created and assigned to {label} (pipeline).")
+        else:
+            messages.success(request, "Insurance policy created.")
     except Exception as e:
         messages.error(request, f"Error saving policy: {e}")
 
@@ -6483,7 +6511,27 @@ def edit_insurance_policy(request, policy_id):
         else:
             policy.inactive_date = None
 
-        if not policy.added_by:
+        from .insurance_assignment import validate_manual_agent, get_distribution_config
+
+        actor_membership = OrganizationMembership.objects.filter(
+            user=request.user,
+            organization=policy.organization,
+            is_active=True,
+        ).first()
+        is_owner = request.user.is_superuser or (
+            actor_membership and actor_membership.role == OrganizationMembership.Role.OWNER
+        )
+        assigned_agent_id = request.POST.get("assigned_agent_id")
+        if is_owner and assigned_agent_id:
+            config = get_distribution_config(policy.organization)
+            manual_user = validate_manual_agent(
+                policy.organization,
+                assigned_agent_id,
+                only_insurance_agents=config.only_insurance_agents,
+            )
+            if manual_user:
+                policy.added_by = manual_user
+        elif not policy.added_by:
             policy.added_by = request.user
 
         try:
@@ -7600,10 +7648,42 @@ def insurance_agent_detail(request, user_id):
     insurance_companies = InsuranceCompany.objects.filter(organization=active_org)
     insurance_space_id = _get_insurance_space_id(active_org)
 
+    from .insurance_assignment import get_or_create_rotation
+
+    agent_membership = OrganizationMembership.objects.filter(
+        user=agent,
+        organization=active_org,
+        is_active=True,
+    ).first()
+    agent_rotation = (
+        get_or_create_rotation(agent_membership) if agent_membership else None
+    )
+    agent_holidays = (
+        list(agent_rotation.holidays.order_by("-start_date"))
+        if agent_rotation
+        else []
+    )
+    viewer_membership = None
+    if not request.user.is_superuser:
+        viewer_membership = OrganizationMembership.objects.filter(
+            user=request.user,
+            organization=active_org,
+            is_active=True,
+        ).first()
+    can_manage_rotation = (
+        request.user.is_superuser
+        or (viewer_membership and viewer_membership.role == OrganizationMembership.Role.OWNER)
+        or (viewer_membership and viewer_membership.user_id == agent.id)
+    )
+
     return render(request, "core/insurance_agent_detail.html", {
         "agent": agent,
         "active_org": active_org,
         "insurance_space_id": insurance_space_id,
+        "agent_membership": agent_membership,
+        "agent_rotation": agent_rotation,
+        "agent_holidays": agent_holidays,
+        "can_manage_rotation": can_manage_rotation,
         "policies_page": policies_page,
         "insurance_companies": insurance_companies,
         # Period auditing

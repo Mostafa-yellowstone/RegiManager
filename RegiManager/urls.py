@@ -140,6 +140,12 @@ from core.motorclub_views import (
     add_motorclub_b2b_partner,
     delete_motorclub_b2b_partner,
 )
+from core.insurance_distribution_views import (
+    save_insurance_distribution_config,
+    update_insurance_agent_rotation,
+    add_insurance_agent_holiday,
+    delete_insurance_agent_holiday,
+)
 from core.inventory_views import (
     add_inventory_category,
     delete_inventory_category,
@@ -290,6 +296,26 @@ urlpatterns = [
     path("dashboard/spaces/insurance/company/<int:company_id>/upload/", insurance_company_upload_document, name="insurance-company-upload-doc"),
     path("dashboard/spaces/insurance/company/doc/<int:doc_id>/delete/", insurance_company_delete_document, name="insurance-company-delete-doc"),
     path("dashboard/spaces/insurance/agent/<int:user_id>/", insurance_agent_detail, name="insurance-agent-detail"),
+    path(
+        "dashboard/spaces/insurance/distribution/config/",
+        save_insurance_distribution_config,
+        name="save-insurance-distribution-config",
+    ),
+    path(
+        "dashboard/spaces/insurance/distribution/agent/<int:membership_id>/rotation/",
+        update_insurance_agent_rotation,
+        name="update-insurance-agent-rotation",
+    ),
+    path(
+        "dashboard/spaces/insurance/distribution/agent/<int:membership_id>/holiday/add/",
+        add_insurance_agent_holiday,
+        name="add-insurance-agent-holiday",
+    ),
+    path(
+        "dashboard/spaces/insurance/distribution/holiday/<int:holiday_id>/delete/",
+        delete_insurance_agent_holiday,
+        name="delete-insurance-agent-holiday",
+    ),
     path("dashboard/spaces/knowledge-hub/<int:space_id>/add/", add_knowledge_material, name="add-knowledge-material"),
     path("dashboard/spaces/knowledge-hub/material/<int:material_id>/delete/", delete_knowledge_material, name="delete-knowledge-material"),
     path("dashboard/spaces/inventory/<int:space_id>/category/add/", add_inventory_category, name="add-inventory-category"),
