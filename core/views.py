@@ -4429,7 +4429,7 @@ def finance_hub(request):
     
     today_date = timezone.localdate()
     month_start_date = today_date.replace(day=1)
-    month_revenue = records.filter(transaction_date__gte=month_start_date).aggregate(Sum("service_fee"))["service_fee__sum"] or Decimal("0")
+    month_revenue = records.filter(monthly_record_q(month_start_date, today_date)).aggregate(Sum("service_fee"))["service_fee__sum"] or Decimal("0")
     
     # Last 12 Months Chart Data - single grouped query
     chart_end = month_start_date
@@ -4633,7 +4633,10 @@ def yearly_report_pdf(request):
     if not owner_org_ids: deny_access("Owner access required.")
     
     today = timezone.localdate()
-    qs = ServiceRecord.objects.filter(organization_id__in=owner_org_ids, created_at__year=today.year)
+    year_start = today.replace(month=1, day=1)
+    qs = ServiceRecord.objects.filter(
+        organization_id__in=owner_org_ids,
+    ).filter(yearly_record_q(year_start, today))
     return _generate_report_v2(request, qs, "Annual Audit", f"Fiscal Year Summary | {today.year}", f"yearly-audit-{today.year}.pdf")
 
 
@@ -4647,7 +4650,11 @@ def custom_range_report_pdf(request):
     organizations = _get_user_organizations(request).filter(memberships__role=OrganizationMembership.Role.OWNER)
     owner_org_ids = list(organizations.values_list("id", flat=True))
     
-    qs = ServiceRecord.objects.filter(organization_id__in=owner_org_ids, created_at__date__range=(start, end))
+    qs = ServiceRecord.objects.filter(
+        organization_id__in=owner_org_ids,
+        transaction_date__gte=start,
+        transaction_date__lte=end,
+    )
     return _generate_report_v2(request, qs, "Custom Audit", f"Range: {start} to {end}", f"custom-audit-{start}-to-{end}.pdf")
 
 def _generate_report_v2(request, qs, title, subtitle, filename):
@@ -4797,7 +4804,7 @@ def toggle_agent_active(request):
 
 @login_required
 def branch_analytics(request, org_id):
-    from django.db.models.functions import TruncDate, ExtractHour
+    from django.db.models.functions import ExtractHour
     from .models import CustomServiceType
     import calendar
     
@@ -4816,29 +4823,30 @@ def branch_analytics(request, org_id):
     records = ServiceRecord.objects.filter(organization=org)
     
     # --- TRENDS ---
-    trend = records.filter(created_at__date__gte=today - timedelta(days=30))\
-                  .annotate(date=TruncDate('created_at'))\
-                  .values('date')\
+    trend = records.filter(transaction_date__gte=today - timedelta(days=30))\
+                  .values('transaction_date')\
                   .annotate(count=Count('id'), revenue=Sum('service_fee'))\
-                  .order_by('date')
+                  .order_by('transaction_date')
     
     # --- SMART FORECAST ---
     # Calc average daily revenue from last 7 days for more recency
-    last_7_days_rev = records.filter(created_at__date__gte=today - timedelta(days=7))\
+    last_7_days_rev = records.filter(transaction_date__gte=today - timedelta(days=7))\
                              .aggregate(total=Sum('service_fee'))['total'] or Decimal('0')
     avg_daily_recent = last_7_days_rev / 7
     
     # How many days left in the month?
     _, num_days = calendar.monthrange(today.year, today.month)
     remaining_days = num_days - today.day
-    current_month_rev = records.filter(created_at__date__gte=month_start).aggregate(total=Sum('service_fee'))['total'] or Decimal('0')
+    current_month_rev = records.filter(monthly_record_q(month_start, today)).aggregate(total=Sum('service_fee'))['total'] or Decimal('0')
     
     # Forecast = What we have + (Current Rate * Remaining Days)
     projected_month = current_month_rev + (avg_daily_recent * Decimal(str(remaining_days)))
     
     # Growth indicator: Compare last 7 days vs previous 7 days
-    prev_7_days_rev = records.filter(created_at__date__gte=today - timedelta(days=14), created_at__date__lt=today - timedelta(days=7))\
-                             .aggregate(total=Sum('service_fee'))['total'] or Decimal('0')
+    prev_7_days_rev = records.filter(
+        transaction_date__gte=today - timedelta(days=14),
+        transaction_date__lt=today - timedelta(days=7),
+    ).aggregate(total=Sum('service_fee'))['total'] or Decimal('0')
     growth_rate = 0
     if prev_7_days_rev > 0:
         growth_rate = ((last_7_days_rev - prev_7_days_rev) / prev_7_days_rev) * 100
@@ -4848,11 +4856,11 @@ def branch_analytics(request, org_id):
     agent_count = OrganizationMembership.objects.filter(organization=org, role='member', is_active=True).count() or 1
     # Assume 1 agent can comfortably handle 15 records a day
     monthly_capacity = agent_count * 15 * 22 # 22 working days
-    current_monthly_count = records.filter(created_at__date__gte=month_start).count()
+    current_monthly_count = records.filter(monthly_record_q(month_start, today)).count()
     capacity_usage = (current_monthly_count / monthly_capacity) * 100 if monthly_capacity > 0 else 0
     
-    # 2. Peak Hour
-    peak_hour_data = records.filter(created_at__date__gte=today - timedelta(days=30))\
+    # 2. Peak Hour (entry time; scoped to recent transaction dates)
+    peak_hour_data = records.filter(transaction_date__gte=today - timedelta(days=30))\
                             .annotate(hour=ExtractHour('created_at'))\
                             .values('hour')\
                             .annotate(count=Count('id'))\
@@ -4880,7 +4888,7 @@ def branch_analytics(request, org_id):
 
     return render(request, 'core/branch_analytics.html', {
         'organization': org,
-        'trend_json': json.dumps([{'date': str(i['date']), 'revenue': float(i['revenue'])} for i in trend]),
+        'trend_json': json.dumps([{'date': str(i['transaction_date']), 'revenue': float(i['revenue'])} for i in trend]),
         'dist_json': json.dumps(dist_data),
         'avg_daily': avg_daily_recent,
         'projected_month': projected_month,
@@ -4891,7 +4899,7 @@ def branch_analytics(request, org_id):
         'total_revenue': records.aggregate(Sum('service_fee'))['service_fee__sum'] or 0,
         'total_count': total_recs,
         'monthly_revenue': current_month_rev,
-        'yearly_revenue': records.filter(created_at__date__gte=year_start).aggregate(Sum('service_fee'))['service_fee__sum'] or 0,
+        'yearly_revenue': records.filter(yearly_record_q(year_start, today)).aggregate(Sum('service_fee'))['service_fee__sum'] or 0,
     })
 
 @login_required

@@ -1450,6 +1450,72 @@ class TransactionDateMetricsTests(TestCase):
         self.assertEqual(reg_card["total_count"], 1)
 
 
+class FinanceBiTransactionDateTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="financeuser", password="password123")
+        self.org = Organization.objects.create(name="Finance Org", city="NYC")
+        OrganizationMembership.objects.create(
+            user=self.user,
+            organization=self.org,
+            is_active=True,
+            role="owner",
+            can_view_reports=True,
+        )
+        self.client_obj = Client.objects.create(
+            organization=self.org,
+            first_name="Pat",
+            last_name="Lee",
+        )
+        self.vehicle = Vehicle.objects.create(
+            client=self.client_obj,
+            vin="VINFINANCE1234567",
+            vehicle_number="VEH-F1",
+        )
+        self.http = TestClient()
+        self.http.login(username="financeuser", password="password123")
+
+    def test_yearly_report_pdf_uses_transaction_date(self):
+        today = date(2026, 6, 8)
+        backdate = date(2026, 6, 4)
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_date=backdate,
+            service_fee=Decimal("100.00"),
+            processing_fee=Decimal("25.00"),
+        )
+
+        with self.settings(CELERY_TASK_ALWAYS_EAGER=True):
+            from unittest.mock import patch
+
+            with patch("core.views.timezone.localdate", return_value=today):
+                response = self.http.get(reverse("yearly-report-pdf"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+
+    def test_custom_range_report_pdf_uses_transaction_date(self):
+        backdate = date(2026, 6, 4)
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_date=backdate,
+            service_fee=Decimal("80.00"),
+            processing_fee=Decimal("20.00"),
+        )
+
+        response = self.http.get(
+            reverse("custom-pdf"),
+            {"from": "2026-06-04", "to": "2026-06-04"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+
+
 class ClientSearchAjaxTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="searchuser", password="password123")
