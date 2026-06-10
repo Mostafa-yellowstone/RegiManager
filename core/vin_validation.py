@@ -4,8 +4,17 @@ import re
 
 LEGACY_VIN_MIN = 5
 LEGACY_VIN_MAX = 16
+MANUAL_VIN_MIN = 5
+MANUAL_VIN_MAX = 17
 MODERN_VIN_LENGTH = 17
 FORBIDDEN_MODERN = frozenset("IOQ")
+
+# Types that use NHTSA decode + strict 17-char validation (standard motor vehicles).
+VIN_DECODE_VEHICLE_TYPES = frozenset({"passenger", "truck", "motorcycle", "bus"})
+
+
+def vehicle_type_skips_vin_decode(vehicle_type):
+    return (vehicle_type or "passenger") not in VIN_DECODE_VEHICLE_TYPES
 
 
 def normalize_vin(vin):
@@ -59,7 +68,24 @@ def validate_legacy_vin(vin):
     return True, ""
 
 
-def validate_vin(vin, *, legacy=False):
+def validate_manual_type_vin(vin):
+    """Non-standard vehicle types (boat, trailer, etc.) — no NHTSA decode."""
+    normalized = normalize_vin(vin)
+    if not normalized:
+        return False, "VIN is required."
+    if not (MANUAL_VIN_MIN <= len(normalized) <= MANUAL_VIN_MAX):
+        return (
+            False,
+            f"ID must be between {MANUAL_VIN_MIN} and {MANUAL_VIN_MAX} characters for this vehicle type.",
+        )
+    if not re.fullmatch(r"[A-Z0-9]+", normalized):
+        return False, "ID must contain only letters and numbers."
+    return True, ""
+
+
+def validate_vin(vin, *, legacy=False, manual_type=False):
     if legacy:
         return validate_legacy_vin(vin)
+    if manual_type:
+        return validate_manual_type_vin(vin)
     return validate_modern_vin(vin)

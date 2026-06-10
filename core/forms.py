@@ -409,15 +409,17 @@ class VehicleForm(forms.ModelForm):
             self.fields["vin"].widget.attrs["maxlength"] = "16"
 
     def clean_vin(self):
-        from .vin_validation import normalize_vin, validate_vin
+        from .vin_validation import normalize_vin, validate_vin, vehicle_type_skips_vin_decode
 
         raw_vin = self.cleaned_data.get("vin", "")
         legacy = self.cleaned_data.get("is_legacy_vin", False)
+        vehicle_type = self.cleaned_data.get("vehicle_type", "passenger")
+        manual_type = vehicle_type_skips_vin_decode(vehicle_type) and not legacy
         vin = normalize_vin(raw_vin)
         if not vin:
             raise forms.ValidationError("VIN is required.")
 
-        is_valid, message = validate_vin(vin, legacy=legacy)
+        is_valid, message = validate_vin(vin, legacy=legacy, manual_type=manual_type)
         if not is_valid:
             raise forms.ValidationError(message)
 
@@ -432,9 +434,13 @@ class VehicleForm(forms.ModelForm):
         return vin
 
     def clean(self):
+        from .vin_validation import vehicle_type_skips_vin_decode
+
         cleaned_data = super().clean()
         legacy = cleaned_data.get("is_legacy_vin", False)
-        if legacy:
+        vehicle_type = cleaned_data.get("vehicle_type", "passenger")
+        manual_type = vehicle_type_skips_vin_decode(vehicle_type) and not legacy
+        if legacy or manual_type:
             missing = []
             if not cleaned_data.get("year"):
                 missing.append("year")
@@ -442,11 +448,13 @@ class VehicleForm(forms.ModelForm):
                 missing.append("make")
             if not (cleaned_data.get("model") or "").strip():
                 missing.append("model")
+            message = (
+                "Required when using a legacy VIN (decoder cannot auto-fill)."
+                if legacy
+                else "Required for this vehicle type (decoder is not used)."
+            )
             for field_name in missing:
-                self.add_error(
-                    field_name,
-                    "Required when using a legacy VIN (decoder cannot auto-fill).",
-                )
+                self.add_error(field_name, message)
         return cleaned_data
 
 

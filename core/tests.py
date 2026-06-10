@@ -219,6 +219,60 @@ class AddVehicleViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Save Vehicle")
         self.assertContains(response, "clientSideVinLooksValid")
+        self.assertContains(response, "isManualVehicleType")
+
+    def test_add_vehicle_post_boat_skips_strict_vin(self):
+        response = self.client.post(
+            reverse("add-vehicle", args=[self.client_obj.id]),
+            {
+                "vehicle_type": "boat",
+                "plate_type": "personal",
+                "vin": "ABC12345",
+                "vehicle_number": "VEH-BOAT01",
+                "year": "2015",
+                "make": "Sea Ray",
+                "model": "210",
+                "fuel_type": "gas",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            Vehicle.objects.filter(client=self.client_obj, vin="ABC12345", vehicle_type="boat").exists()
+        )
+
+    def test_check_vin_ajax_skips_decode_for_boat(self):
+        response = self.client.get(
+            reverse("check-vin"),
+            {
+                "vin": "ABC12345",
+                "org_id": self.org.id,
+                "client_id": self.client_obj.id,
+                "vehicle_type": "boat",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["is_valid"])
+        self.assertTrue(data["is_manual_type"])
+        self.assertNotIn("decoded", data)
+
+    def test_check_vin_ajax_decodes_passenger(self):
+        with self.settings(
+            CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+        ):
+            response = self.client.get(
+                reverse("check-vin"),
+                {
+                    "vin": "1HGCM82633A123456",
+                    "org_id": self.org.id,
+                    "client_id": self.client_obj.id,
+                    "vehicle_type": "passenger",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["is_valid"])
+        self.assertFalse(data.get("is_manual_type", False))
 
 
 class VehicleSoftDeleteTests(TestCase):

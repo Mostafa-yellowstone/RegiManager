@@ -1067,18 +1067,31 @@ def add_vehicle(request, client_id):
         auto_vnum = f"VEH-{get_random_string(6, allowed_chars='0123456789')}"
         form = VehicleForm(initial={'vehicle_number': auto_vnum}, client=client)
     
-    return render(request, "core/add_vehicle.html", {"client": client, "form": form})
+    from .vin_validation import VIN_DECODE_VEHICLE_TYPES
+    import json
+
+    return render(
+        request,
+        "core/add_vehicle.html",
+        {
+            "client": client,
+            "form": form,
+            "vin_decode_vehicle_types_json": json.dumps(sorted(VIN_DECODE_VEHICLE_TYPES)),
+        },
+    )
 
 
 @login_required
 def check_vin_ajax(request):
-    from .vin_validation import normalize_vin, validate_vin
+    from .vin_validation import normalize_vin, validate_vin, vehicle_type_skips_vin_decode
 
     vin = normalize_vin(request.GET.get("vin", ""))
     org_id = request.GET.get("org_id", "").strip()
     client_id = request.GET.get("client_id", "").strip()
     vehicle_id = request.GET.get("vehicle_id", "").strip()
     legacy_mode = request.GET.get("legacy", "").strip().lower() in {"1", "true", "yes"}
+    vehicle_type = request.GET.get("vehicle_type", "passenger").strip()
+    manual_mode = vehicle_type_skips_vin_decode(vehicle_type) and not legacy_mode
 
     if not vin:
         return JsonResponse({"exists": False, "is_valid": False})
@@ -1086,7 +1099,9 @@ def check_vin_ajax(request):
     if not org_id.isdigit() or not _has_active_org_access(request.user, int(org_id)):
         return JsonResponse({"exists": False, "is_valid": False})
 
-    is_valid_format, validation_message = validate_vin(vin, legacy=legacy_mode)
+    is_valid_format, validation_message = validate_vin(
+        vin, legacy=legacy_mode, manual_type=manual_mode
+    )
     
     # Base filter for active vehicles with this VIN in the organization
     org_vehicles = Vehicle.objects.filter(vin=vin, client__organization_id=int(org_id))
@@ -1134,6 +1149,7 @@ def check_vin_ajax(request):
         "exists_other_client": len(other_owners) > 0,
         "is_valid": is_valid_format,
         "is_legacy": legacy_mode and is_valid_format,
+        "is_manual_type": manual_mode and is_valid_format,
         "validation_message": validation_message,
         "other_owners": other_owners,
     }
@@ -1144,9 +1160,9 @@ def check_vin_ajax(request):
     if exists_this_client or len(other_owners) > 0:
         return JsonResponse(response_data)
         
-    # 2. If it's a new VIN and valid, try to decode it via NHTSA API (modern only)
+    # 2. If it's a new VIN and valid, try to decode it via NHTSA API (standard types only)
     decoded_data = {}
-    if is_valid_format and not legacy_mode:
+    if is_valid_format and not legacy_mode and not manual_mode:
         try:
             import requests
             url = f"https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/{vin}?format=json"
@@ -5042,12 +5058,16 @@ def edit_vehicle(request, vehicle_id):
     else:
         form = VehicleForm(instance=vehicle, client=vehicle.client)
     
+        from .vin_validation import VIN_DECODE_VEHICLE_TYPES
+        import json
+
         return render(request, 'core/add_vehicle.html', {
         'form': form,
         'edit_mode': True,
         'vehicle': vehicle,
         'client': vehicle.client,
-        'title': 'Edit Vehicle Profile'
+        'title': 'Edit Vehicle Profile',
+        'vin_decode_vehicle_types_json': json.dumps(sorted(VIN_DECODE_VEHICLE_TYPES)),
     })
 
 

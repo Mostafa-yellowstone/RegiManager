@@ -225,16 +225,21 @@
 document.addEventListener('DOMContentLoaded', function() {
     const vinInput = document.getElementById('id_vin');
     const legacyVinCheckbox = document.getElementById('id_is_legacy_vin');
+    const vehicleTypeSelect = document.getElementById('id_vehicle_type');
+    const legacyVinToggle = document.getElementById('legacy-vin-toggle');
     const warning = document.getElementById('vin-warning');
-    // More robust button selector
     const submitBtn = document.querySelector('button[type="submit"]');
     const badge = document.getElementById('vin-status-badge');
     const LEGACY_MIN = 5;
     const LEGACY_MAX = 16;
+    const MANUAL_MIN = 5;
+    const MANUAL_MAX = 17;
+    const VIN_DECODE_VEHICLE_TYPES = new Set(JSON.parse('{{ vin_decode_vehicle_types_json|default:"[\"passenger\",\"truck\",\"motorcycle\",\"bus\"]"|escapejs }}'));
     const titleScanTrigger = document.getElementById('title-scan-trigger');
     const vehicleScannerModal = document.getElementById('vehicleScannerModal');
     const vehicleScanInput = document.getElementById('vehicle-scan-input');
     let checkTimer = null;
+    let vinCheckAbortController = null;
 
     function updateBadge(state, text) {
         if (!badge) return;
@@ -264,14 +269,40 @@ document.addEventListener('DOMContentLoaded', function() {
         return !!(legacyVinCheckbox && legacyVinCheckbox.checked);
     }
 
-    function clientSideVinLooksValid(vin, legacy) {
+    function getVehicleType() {
+        return vehicleTypeSelect ? vehicleTypeSelect.value : 'passenger';
+    }
+
+    function isManualVehicleType() {
+        if (isLegacyMode()) return false;
+        return !VIN_DECODE_VEHICLE_TYPES.has(getVehicleType());
+    }
+
+    function skipsVinDecode() {
+        return isLegacyMode() || isManualVehicleType();
+    }
+
+    function clientSideVinLooksValid(vin, legacy, manual) {
         if (!vin) return false;
         if (legacy) {
             if (vin.length === 17) return false;
             return vin.length >= LEGACY_MIN && vin.length <= LEGACY_MAX && /^[A-Z0-9]+$/.test(vin);
         }
+        if (manual) {
+            return vin.length >= MANUAL_MIN && vin.length <= MANUAL_MAX && /^[A-Z0-9]+$/.test(vin);
+        }
         if (vin.length !== 17) return false;
         return /^[A-HJ-NPR-Z0-9]{17}$/.test(vin);
+    }
+
+    function updateLegacyToggleVisibility() {
+        if (!legacyVinToggle) return;
+        if (isManualVehicleType()) {
+            legacyVinToggle.style.display = 'none';
+            if (legacyVinCheckbox) legacyVinCheckbox.checked = false;
+        } else {
+            legacyVinToggle.style.display = '';
+        }
     }
 
     function setSubmitEnabled(enabled, opacity) {
@@ -285,17 +316,30 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isLegacyMode()) {
             vinInput.setAttribute('maxlength', String(LEGACY_MAX));
             vinInput.setAttribute('placeholder', 'Legacy VIN (5-16 chars)');
+        } else if (isManualVehicleType()) {
+            vinInput.setAttribute('maxlength', String(MANUAL_MAX));
+            vinInput.setAttribute('placeholder', 'VIN / Hull ID (5-17 chars)');
         } else {
             vinInput.setAttribute('maxlength', '17');
             vinInput.setAttribute('placeholder', '17-digit VIN');
         }
     }
 
+    function cancelVinCheck() {
+        clearTimeout(checkTimer);
+        checkTimer = null;
+        if (vinCheckAbortController) {
+            vinCheckAbortController.abort();
+            vinCheckAbortController = null;
+        }
+    }
+
     function runVinValidation() {
         if (!vinInput) return;
-        clearTimeout(checkTimer);
+        cancelVinCheck();
         const vin = vinInput.value.trim().toUpperCase();
         const legacy = isLegacyMode();
+        const manual = isManualVehicleType();
 
         if (vin.length === 0) {
             if (badge) badge.style.display = 'none';
@@ -326,6 +370,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 vinInput.style.border = '2px solid #ef4444';
                 return;
             }
+        } else if (manual) {
+            if (vin.length < MANUAL_MIN) {
+                updateBadge('warning', `${vin.length}/${MANUAL_MIN}+`);
+                setSubmitEnabled(false, '0.7');
+                if (warning) {
+                    warning.style.background = '#fff7ed';
+                    warning.style.color = '#c2410c';
+                    warning.style.borderColor = '#fed7aa';
+                    warning.innerHTML = 'Enter the full VIN or hull ID for this vehicle type — decoder is not used.';
+                    warning.style.display = 'block';
+                }
+                vinInput.style.border = '2px solid #f59e0b';
+                return;
+            }
         } else if (vin.length < 17) {
             updateBadge('warning', `${vin.length}/17`);
             if (warning) {
@@ -340,7 +398,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        if (clientSideVinLooksValid(vin, legacy)) {
+        if (clientSideVinLooksValid(vin, legacy, manual)) {
             setSubmitEnabled(true);
         }
 
@@ -354,18 +412,33 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (legacyVinCheckbox) {
         legacyVinCheckbox.addEventListener('change', function() {
+            updateLegacyToggleVisibility();
             applyVinInputMode();
             runVinValidation();
         });
-        applyVinInputMode();
     }
+
+    if (vehicleTypeSelect) {
+        vehicleTypeSelect.addEventListener('change', function() {
+            cancelVinCheck();
+            if (badge) badge.style.display = 'none';
+            updateLegacyToggleVisibility();
+            applyVinInputMode();
+            runVinValidation();
+        });
+    }
+
+    updateLegacyToggleVisibility();
+    applyVinInputMode();
 
     if (vinInput && vinInput.value.trim()) {
         runVinValidation();
     }
 
     function offlineVinFallback(vin) {
-        if (!clientSideVinLooksValid(vin, isLegacyMode())) {
+        const legacy = isLegacyMode();
+        const manual = isManualVehicleType();
+        if (!clientSideVinLooksValid(vin, legacy, manual)) {
             updateBadge('error', 'INVALID');
             setSubmitEnabled(false);
             return;
@@ -374,7 +447,8 @@ document.addEventListener('DOMContentLoaded', function() {
             exists_this_client: false,
             exists_other_client: false,
             is_valid: true,
-            is_legacy: isLegacyMode(),
+            is_legacy: legacy,
+            is_manual_type: manual,
             offline_check: true,
             other_owners: [],
         });
@@ -388,22 +462,42 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isLegacyMode()) {
             url += "&legacy=1";
         }
+        if (isManualVehicleType()) {
+            url += "&vehicle_type=" + encodeURIComponent(getVehicleType());
+        }
         if (vehicleId) {
             url += "&vehicle_id=" + encodeURIComponent(vehicleId);
         }
-        
-        fetch(url)
+
+        if (vinCheckAbortController) {
+            vinCheckAbortController.abort();
+        }
+        vinCheckAbortController = new AbortController();
+        const requestType = getVehicleType();
+        const requestLegacy = isLegacyMode();
+        const requestManual = isManualVehicleType();
+
+        fetch(url, { signal: vinCheckAbortController.signal })
         .then(r => r.json())
-        .then(data => handleVinResponse(data))
-        .catch(() => {
-            if (isLegacyMode()) {
+        .then(data => {
+            if (requestType !== getVehicleType() || requestLegacy !== isLegacyMode() || requestManual !== isManualVehicleType()) {
+                return;
+            }
+            handleVinResponse(data);
+        })
+        .catch((err) => {
+            if (err && err.name === 'AbortError') return;
+            if (requestType !== getVehicleType() || requestLegacy !== isLegacyMode() || requestManual !== isManualVehicleType()) {
+                return;
+            }
+            if (skipsVinDecode()) {
                 offlineVinFallback(vin);
                 return;
             }
-            // CLIENT-SIDE FALLBACK: If server-side decoding fails, try direct NHTSA call
             fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/${vin}?format=json`)
             .then(r => r.json())
             .then(res => {
+                if (requestType !== getVehicleType() || requestLegacy !== isLegacyMode()) return;
                 if (res.Results && res.Results[0]) {
                     const d = res.Results[0];
                     handleVinResponse({
@@ -434,7 +528,8 @@ document.addEventListener('DOMContentLoaded', function() {
         vehicleForm.addEventListener('submit', function(e) {
             const vin = (vinInput && vinInput.value.trim().toUpperCase()) || '';
             const legacy = isLegacyMode();
-            if (!clientSideVinLooksValid(vin, legacy)) {
+            const manual = isManualVehicleType();
+            if (!clientSideVinLooksValid(vin, legacy, manual)) {
                 e.preventDefault();
                 runVinValidation();
                 if (warning) {
@@ -486,6 +581,17 @@ document.addEventListener('DOMContentLoaded', function() {
             updateBadge('warning', 'LEGACY VIN');
             setSubmitEnabled(true);
             vinInput.style.border = '2px solid #f59e0b';
+        } else if (data.is_manual_type) {
+            if (warning) {
+                warning.style.background = '#fff7ed';
+                warning.style.color = '#c2410c';
+                warning.style.borderColor = '#fed7aa';
+                warning.innerHTML = 'ID accepted for this vehicle type. Enter <strong>year, make, and model</strong> manually — decoder is skipped.';
+                warning.style.display = 'block';
+            }
+            updateBadge('warning', 'MANUAL TYPE');
+            setSubmitEnabled(true);
+            vinInput.style.border = '2px solid #f59e0b';
         } else {
             if (data.offline_check) {
                 if (warning) {
@@ -515,8 +621,8 @@ document.addEventListener('DOMContentLoaded', function() {
             setSubmitEnabled(true);
             vinInput.style.border = data.offline_check ? '2px solid #f59e0b' : '2px solid #10b981';
 
-            // AUTO-FILL LOGIC
-            if (data.decoded) {
+            // AUTO-FILL LOGIC (skipped for legacy / manual vehicle types)
+            if (data.decoded && !data.is_legacy && !data.is_manual_type && !skipsVinDecode()) {
                 const d = data.decoded;
                 const fieldMap = {
                     'id_year': d.year,
