@@ -650,28 +650,22 @@
             {% endif %}
           </div>
 
-          {% if is_owner %}
-          <form method="post" action="{% url 'save-insurance-distribution-config' %}" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:1rem 1.1rem;margin-bottom:1.25rem;">
-            {% csrf_token %}
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.85rem;">
-              <label style="display:flex;align-items:flex-start;gap:8px;font-size:0.85rem;font-weight:700;color:#0f172a;cursor:pointer;">
-                <input type="checkbox" name="is_enabled" {% if distribution_config.is_enabled %}checked{% endif %} style="margin-top:3px;">
-                <span>Enable round-robin pipeline</span>
-              </label>
-              <label style="display:flex;align-items:flex-start;gap:8px;font-size:0.85rem;font-weight:700;color:#0f172a;cursor:pointer;">
-                <input type="checkbox" name="only_insurance_agents" {% if distribution_config.only_insurance_agents %}checked{% endif %} style="margin-top:3px;">
-                <span>Only agents with “Can deal with insurance”</span>
-              </label>
-              <label style="display:flex;align-items:flex-start;gap:8px;font-size:0.85rem;font-weight:700;color:#0f172a;cursor:pointer;">
-                <input type="checkbox" name="allow_manual_override" {% if distribution_config.allow_manual_override %}checked{% endif %} style="margin-top:3px;">
-                <span>Allow manual agent override on add</span>
-              </label>
-            </div>
-            <button type="submit" class="btn-submit" style="margin-top:0.85rem;max-width:260px;padding:0.65rem 1rem;font-size:0.88rem;">Save Pipeline Settings</button>
-          </form>
-          {% else %}
-          <p style="font-size:0.82rem;color:#64748b;margin:0 0 1rem;">Pipeline settings are managed by the PSB owner.</p>
+          {% if distribution_config.is_enabled and pipeline_next_agent %}
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:0.9rem 1.1rem;margin-bottom:1rem;font-size:0.88rem;color:#1e3a8a;font-weight:600;">
+            Next policy will be assigned to:
+            <strong>{{ pipeline_next_agent.get_full_name|default:pipeline_next_agent.username }}</strong>
+            {% if pipeline_next_agent.id == user.id %}(you){% endif %}
+          </div>
+          {% elif distribution_config.is_enabled %}
+          <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:0.9rem 1.1rem;margin-bottom:1rem;font-size:0.88rem;color:#9a3412;">
+            Pipeline is on, but no agents are currently available. Check present/absent status and holidays below.
+          </div>
           {% endif %}
+          <p style="font-size:0.82rem;color:#64748b;margin:0 0 1rem;">
+            Pipeline rules (enable/disable, insurance-only pool, manual override) are configured in
+            <strong>Django Admin → Insurance distribution configurations</strong>.
+            Agents manage their own availability on their profile page.
+          </p>
 
           <div style="overflow-x:auto;">
             <table class="spaces-table">
@@ -959,11 +953,18 @@
         <label class="field-label">Cancellation Date</label>
         <input type="date" name="inactive_date" id="policyInactiveDate" class="field-input">
       </div>
-      {% if is_owner and distribution_config.allow_manual_override %}
+      {% if distribution_config.is_enabled and pipeline_next_agent %}
+      <div style="margin-bottom: 1rem; padding: 0.9rem 1rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; font-size: 0.86rem; color: #1e3a8a; font-weight: 600;">
+        Pipeline assignment:
+        <strong>{{ pipeline_next_agent.get_full_name|default:pipeline_next_agent.username }}</strong>
+        will receive this policy{% if pipeline_next_agent.id != user.id %} (not the person entering it){% endif %}.
+      </div>
+      {% endif %}
+      {% if can_manage_distribution and distribution_config.allow_manual_override %}
       <div style="margin-bottom: 1rem; padding: 0.9rem 1rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
-        <label class="field-label">Assign To Agent (optional override)</label>
+        <label class="field-label">Admin override — Assign To Agent</label>
         <select name="assigned_agent_id" class="field-input">
-          <option value="">— Use pipeline / creator —</option>
+          <option value="">— Use pipeline —</option>
           {% for m in distribution_agent_choices %}
           <option value="{{ m.user.id }}">{{ m.user.get_full_name|default:m.user.username }}</option>
           {% endfor %}
@@ -971,7 +972,7 @@
         {% if distribution_config.is_enabled %}
         <label style="display:flex;align-items:center;gap:8px;margin-top:0.65rem;font-size:0.82rem;font-weight:700;color:#475569;cursor:pointer;">
           <input type="checkbox" name="skip_distribution" value="on">
-          Skip pipeline — keep with me (creator only)
+          Skip pipeline — assign to creator instead
         </label>
         {% endif %}
       </div>

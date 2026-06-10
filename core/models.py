@@ -1793,7 +1793,7 @@ class InsuranceDistributionConfig(models.Model):
         related_name="insurance_distribution_config",
     )
     is_enabled = models.BooleanField(
-        default=False,
+        default=True,
         help_text="Automatically assign new policies to the next agent in the pipeline.",
     )
     only_insurance_agents = models.BooleanField(
@@ -1802,7 +1802,7 @@ class InsuranceDistributionConfig(models.Model):
     )
     allow_manual_override = models.BooleanField(
         default=True,
-        help_text="Owners can manually pick an agent when adding a policy.",
+        help_text="Staff can manually pick an agent when adding a policy (Django Admin).",
     )
     updated_at = models.DateTimeField(auto_now=True)
 

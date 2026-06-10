@@ -1219,17 +1219,43 @@ class InsuranceDistributionTests(TestCase):
         )
         self.assertEqual(pick_next_membership(self.org).user, self.agent2)
 
-    def test_skip_distribution_keeps_creator(self):
-        post_data = self._policy_post(self.owner)
+    def test_agent_add_policy_assigns_to_pipeline_turn_not_creator(self):
+        """When agent2 enters a policy, it goes to whoever is up next — not agent2."""
+        from core.insurance_assignment import pick_next_membership
+
+        self.assertEqual(pick_next_membership(self.org).user, self.agent1)
+
+        response = self.client.post(reverse("add-insurance-policy"), self._policy_post(self.agent2))
+        self.assertEqual(response.status_code, 302)
+        policy = InsurancePolicy.objects.latest("id")
+        self.assertEqual(policy.added_by, self.agent1)
+        self.assertNotEqual(policy.added_by, self.agent2)
+
+    def test_skip_distribution_keeps_creator_for_staff(self):
+        staff = User.objects.create_user(
+            username="staffuser",
+            password="password123",
+            is_staff=True,
+        )
+        OrganizationMembership.objects.create(
+            user=staff,
+            organization=self.org,
+            is_active=True,
+            role="member",
+            can_deal_with_insurance=True,
+            can_view_spaces=True,
+        ).accessible_spaces.add(self.space)
+
+        post_data = self._policy_post(staff)
         post_data["skip_distribution"] = "on"
-        self.client.login(username="distowner", password="password123")
+        self.client.login(username="staffuser", password="password123")
         session = self.client.session
         session["active_org_id"] = self.org.id
         session.save()
 
         response = self.client.post(reverse("add-insurance-policy"), post_data)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(InsurancePolicy.objects.latest("id").added_by, self.owner)
+        self.assertEqual(InsurancePolicy.objects.latest("id").added_by, staff)
 
     def test_non_insurance_agent_excluded_when_only_insurance_agents_enabled(self):
         from core.insurance_assignment import get_eligible_pipeline_memberships

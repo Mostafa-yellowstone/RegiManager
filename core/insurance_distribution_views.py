@@ -66,9 +66,9 @@ def _redirect_insurance(organization, tab="agents"):
 @require_POST
 def save_insurance_distribution_config(request):
     organization = _resolve_insurance_org(request)
-    membership = _user_membership(request, organization)
-    if not _is_org_owner(request, organization, membership):
-        deny_access("Only PSB owners can configure the distribution pipeline.")
+    if not (request.user.is_superuser or request.user.is_staff):
+        deny_access("Distribution pipeline settings are managed in Django Admin.")
+    _user_membership(request, organization)
 
     config, _ = InsuranceDistributionConfig.objects.get_or_create(organization=organization)
     config.is_enabled = request.POST.get("is_enabled") == "on"

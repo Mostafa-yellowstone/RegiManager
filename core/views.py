@@ -5737,8 +5737,14 @@ def inventory_detail(request, inventory_id):
     # Special handling for the "Insurance" Space card
     if card.key == "insurance":
         from .models import InsuranceCompany, InsurancePolicy, BankAccount, BankTransaction
-        from .insurance_assignment import build_pipeline_roster, get_distribution_config
+        from .insurance_assignment import (
+            build_pipeline_roster,
+            ensure_pipeline_rotations,
+            get_distribution_config,
+            get_pipeline_next_user,
+        )
         active_org = card.organization
+        ensure_pipeline_rotations(active_org)
         
         is_locked = active_org.insurance_space_locked and active_org.insurance_space_password
         unlocked_session_key = f"insurance_unlocked_{active_org.id}"
@@ -6114,7 +6120,9 @@ def inventory_detail(request, inventory_id):
             # Policy distribution pipeline
             "distribution_config": get_distribution_config(active_org),
             "pipeline_roster": build_pipeline_roster(active_org),
+            "pipeline_next_agent": get_pipeline_next_user(active_org),
             "distribution_agent_choices": insurance_memberships,
+            "can_manage_distribution": request.user.is_superuser or request.user.is_staff,
         }
         return render(request, "core/insurance_space.html", context)
 
@@ -6410,13 +6418,19 @@ def add_insurance_policy(request):
     is_owner = request.user.is_superuser or (
         actor_membership and actor_membership.role == OrganizationMembership.Role.OWNER
     )
+    can_manage_distribution = request.user.is_superuser or request.user.is_staff
     added_by, assign_method = resolve_policy_agent(
         org,
         request.user,
-        manual_agent_id=request.POST.get("assigned_agent_id") if is_owner else None,
-        allow_manual=is_owner,
+        manual_agent_id=(
+            request.POST.get("assigned_agent_id")
+            if can_manage_distribution
+            else None
+        ),
+        allow_manual=can_manage_distribution,
         skip_distribution=(
-            is_owner and request.POST.get("skip_distribution") == "on"
+            can_manage_distribution
+            and request.POST.get("skip_distribution") == "on"
         ),
     )
 
@@ -6443,7 +6457,16 @@ def add_insurance_policy(request):
         )
         if assign_method == "pipeline":
             label = added_by.get_full_name() or added_by.username
-            messages.success(request, f"Insurance policy created and assigned to {label} (pipeline).")
+            if added_by.id == request.user.id:
+                messages.success(
+                    request,
+                    f"Insurance policy created and assigned to you ({label}) — your pipeline turn.",
+                )
+            else:
+                messages.success(
+                    request,
+                    f"Insurance policy created and assigned to {label} (pipeline turn).",
+                )
         else:
             messages.success(request, "Insurance policy created.")
     except Exception as e:

@@ -17,8 +17,20 @@ from .models import (
 def get_distribution_config(organization):
     config, _ = InsuranceDistributionConfig.objects.get_or_create(
         organization=organization,
+        defaults={"is_enabled": True},
     )
     return config
+
+
+def ensure_pipeline_rotations(organization):
+    """Create rotation profiles for all insurance agents in this PSB."""
+    memberships = OrganizationMembership.objects.filter(
+        organization=organization,
+        is_active=True,
+        can_deal_with_insurance=True,
+    )
+    for membership in memberships:
+        get_or_create_rotation(membership)
 
 
 def get_or_create_rotation(membership):
@@ -139,7 +151,7 @@ def resolve_policy_agent(
     """
     Decide who should be set as InsurancePolicy.added_by.
 
-    Manual override (owner) wins when allowed. Otherwise round-robin when enabled.
+    Manual override (admin) wins when allowed. Otherwise round-robin when enabled.
     Falls back to the user who submitted the form.
     """
     config = get_distribution_config(organization)
@@ -154,12 +166,23 @@ def resolve_policy_agent(
             return manual_user, "manual"
 
     if not skip_distribution and config.is_enabled:
+        ensure_pipeline_rotations(organization)
         membership = pick_next_membership(organization, on_date)
         if membership:
             advance_pipeline(organization, membership)
             return membership.user, "pipeline"
 
     return request_user, "creator"
+
+
+def get_pipeline_next_user(organization, on_date=None):
+    """Return the User who will receive the next auto-assigned policy."""
+    config = get_distribution_config(organization)
+    if not config.is_enabled:
+        return None
+    ensure_pipeline_rotations(organization)
+    membership = pick_next_membership(organization, on_date)
+    return membership.user if membership else None
 
 
 def build_pipeline_roster(organization, on_date=None):

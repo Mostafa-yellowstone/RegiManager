@@ -12,8 +12,19 @@ from .models import (
     InventoryProduct, InventoryPurchase, InventoryPurchaseLine,
     InventoryStockMovement, InventorySupplier,
     MotorclubConfig, MotorclubB2BPartner, MotorclubMembership,
+    InsuranceDistributionConfig, InsuranceDistributionState,
+    InsuranceAgentRotation, InsuranceAgentHoliday,
 )
 
+
+
+class InsuranceDistributionConfigInline(admin.StackedInline):
+    model = InsuranceDistributionConfig
+    extra = 0
+    max_num = 1
+    can_delete = False
+    verbose_name = "Insurance policy distribution pipeline"
+    verbose_name_plural = "Insurance policy distribution pipeline"
 
 
 class MembershipInline(admin.TabularInline):
@@ -50,7 +61,7 @@ class OrganizationAdmin(admin.ModelAdmin):
     list_filter = ("state", "city", "is_automation_enabled")
     search_fields = ("name", "address_line", "city", "state", "phone_number")
     readonly_fields = ("intake_link_display",)
-    inlines = [MembershipInline]
+    inlines = [InsuranceDistributionConfigInline, MembershipInline]
 
     def intake_link_display(self, obj):
         url = f"/intake/{obj.portal_token}/"
@@ -393,6 +404,33 @@ class UserSessionAdmin(admin.ModelAdmin):
 # Patch get_urls on default AdminSite to register crm-import
 from django.urls import path
 from .admin_views import crm_import_view
+
+@admin.register(InsuranceDistributionConfig)
+class InsuranceDistributionConfigAdmin(admin.ModelAdmin):
+    list_display = ("organization", "is_enabled", "only_insurance_agents", "allow_manual_override", "updated_at")
+    list_filter = ("is_enabled", "only_insurance_agents", "allow_manual_override")
+    search_fields = ("organization__name",)
+
+
+@admin.register(InsuranceDistributionState)
+class InsuranceDistributionStateAdmin(admin.ModelAdmin):
+    list_display = ("organization", "last_membership", "updated_at")
+    search_fields = ("organization__name",)
+
+
+@admin.register(InsuranceAgentRotation)
+class InsuranceAgentRotationAdmin(admin.ModelAdmin):
+    list_display = ("membership", "in_pipeline", "is_present", "updated_at")
+    list_filter = ("in_pipeline", "is_present")
+    search_fields = ("membership__user__username", "membership__user__first_name", "membership__user__last_name")
+
+
+@admin.register(InsuranceAgentHoliday)
+class InsuranceAgentHolidayAdmin(admin.ModelAdmin):
+    list_display = ("rotation", "start_date", "end_date", "reason", "created_at")
+    list_filter = ("start_date", "end_date")
+    search_fields = ("rotation__membership__user__username", "reason")
+
 
 @admin.register(MotorclubConfig)
 class MotorclubConfigAdmin(admin.ModelAdmin):
