@@ -6,6 +6,8 @@
   .dpt-method-label { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.9; }
   .dpt-method-amount { font-size: 1.65rem; font-weight: 900; line-height: 1.1; }
   .dpt-total-card { background: linear-gradient(135deg, #111827 0%, #312e81 50%, #6366f1 100%); border-radius: 18px; padding: 1.15rem 1.25rem; color: white; box-shadow: 0 10px 30px rgba(49,46,129,0.25); min-height: 108px; display: flex; flex-direction: column; justify-content: center; }
+  .dpt-payable-card { background: linear-gradient(135deg, #7c2d12 0%, #c2410c 45%, #fb923c 100%); border-radius: 18px; padding: 1.15rem 1.25rem; color: white; box-shadow: 0 10px 30px rgba(194,65,12,0.28); min-height: 108px; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; }
+  .dpt-payable-card::after { content: ''; position: absolute; top: -30%; right: -20%; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,0.12); }
   .dpt-drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.45); z-index: 3000; backdrop-filter: blur(3px); }
   .dpt-drawer-overlay.active { display: flex; justify-content: flex-end; }
   .dpt-drawer-panel { width: min(360px, 92vw); height: 100%; background: var(--portal-surface, white); box-shadow: -8px 0 40px rgba(0,0,0,0.12); padding: 1.5rem; overflow-y: auto; animation: dptSlideIn 0.25s ease; }
@@ -66,6 +68,11 @@
     <div class="dpt-method-label" style="color: #c7d2fe;">✨ Grand Total</div>
     <div class="dpt-method-amount">${{ daily_grand_total|floatformat:2 }}</div>
   </div>
+  <div class="dpt-payable-card">
+    <div class="dpt-method-label" style="color: #ffedd5;">🏦 Payable</div>
+    <div class="dpt-method-amount" id="dptPayableAmount">${{ daily_payable_total|floatformat:2 }}</div>
+    <div style="font-size: 0.68rem; font-weight: 700; color: #ffedd5; opacity: 0.9; margin-top: 0.35rem;">Uncleared · all days</div>
+  </div>
 </div>
 
 <div class="dpt-table-wrap">
@@ -90,7 +97,7 @@
       </thead>
       <tbody>
         {% for tx in daily_transactions %}
-        <tr class="dpt-data-row{% if tx.is_cleared %} dpt-row-cleared{% endif %}" data-tx-id="{{ tx.id }}">
+        <tr class="dpt-data-row{% if tx.is_cleared %} dpt-row-cleared{% endif %}" data-tx-id="{{ tx.id }}" data-amount="{{ tx.amount }}">
           <td style="font-size: 0.82rem; color: #64748b; white-space: nowrap;">{{ tx.transaction_date|date:"M j, Y" }}</td>
           <td>
             <a href="{% url 'client-detail' tx.client.id %}" style="color: #093de6; font-weight: 800; text-decoration: none;">{{ tx.client.name }}</a>
@@ -246,6 +253,26 @@ function playClearSweep(row) {
   line.addEventListener('animationend', () => line.remove());
 }
 
+function formatPayableAmount(value) {
+  const n = Math.max(0, Number(value) || 0);
+  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function getPayableAmount() {
+  const el = document.getElementById('dptPayableAmount');
+  if (!el) return 0;
+  return parseFloat((el.textContent || '').replace(/[$,]/g, '')) || 0;
+}
+
+function setPayableAmount(value) {
+  const el = document.getElementById('dptPayableAmount');
+  if (el) el.textContent = '$' + formatPayableAmount(value);
+}
+
+function adjustPayableAmount(delta) {
+  setPayableAmount(getPayableAmount() + delta);
+}
+
 function updateRowClearUI(row, isCleared, clearedDate) {
   const dateInput = row.querySelector('.dpt-clear-date');
   const statusSpan = row.querySelector('label span');
@@ -286,22 +313,29 @@ function toggleDailyClear(txId, checkbox) {
   const dateInput = row.querySelector('.dpt-clear-date');
   const wasCleared = row.classList.contains('dpt-row-cleared');
   const isCleared = checkbox.checked;
+  const txAmount = parseFloat(row.dataset.amount || '0') || 0;
   let clearedDate = '';
 
   if (isCleared) {
     clearedDate = dateInput.value || new Date().toISOString().slice(0, 10);
     dateInput.value = clearedDate;
     updateRowClearUI(row, true, clearedDate);
-    if (!wasCleared) playClearSweep(row);
+    if (!wasCleared) {
+      playClearSweep(row);
+      adjustPayableAmount(-txAmount);
+    }
   } else {
     updateRowClearUI(row, false, '');
     dateInput.value = '';
+    if (wasCleared) adjustPayableAmount(txAmount);
   }
 
   postDailyClear(txId, isCleared, clearedDate).then(data => {
     if (!data.ok) {
       checkbox.checked = wasCleared;
       updateRowClearUI(row, wasCleared, wasCleared ? dateInput.value : '');
+      if (isCleared && !wasCleared) adjustPayableAmount(txAmount);
+      if (!isCleared && wasCleared) adjustPayableAmount(-txAmount);
       alert('Could not update clear status.');
     } else if (data.cleared_date) {
       dateInput.value = data.cleared_date;
@@ -309,6 +343,8 @@ function toggleDailyClear(txId, checkbox) {
   }).catch(() => {
     checkbox.checked = wasCleared;
     updateRowClearUI(row, wasCleared, wasCleared ? dateInput.value : '');
+    if (isCleared && !wasCleared) adjustPayableAmount(txAmount);
+    if (!isCleared && wasCleared) adjustPayableAmount(-txAmount);
     alert('Could not update clear status.');
   });
 }

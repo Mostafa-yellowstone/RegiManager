@@ -167,63 +167,6 @@ html.portal-theme-dark .agent-profile-page .bt-rewrite { background: rgba(217, 1
       </div>
     </div>
 
-    {% if can_manage_rotation and agent_membership and agent_rotation %}
-    <section class="section-card" style="margin-bottom: 2rem;">
-      <div class="section-header">
-        <h2 class="section-title">🔁 Pipeline Availability</h2>
-        <span class="chip {% if agent_rotation.is_present and agent_rotation.in_pipeline %}chip-active{% else %}chip-pending{% endif %}">
-          {% if agent_rotation.is_present and agent_rotation.in_pipeline %}In rotation{% elif not agent_rotation.is_present %}Marked absent{% else %}Out of pipeline{% endif %}
-        </span>
-      </div>
-      <div style="padding: 1.25rem 1.5rem;">
-        <form method="post" action="{% url 'update-insurance-agent-rotation' agent_membership.id %}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;align-items:end;margin-bottom:1.25rem;">
-          {% csrf_token %}
-          <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.88rem;cursor:pointer;">
-            <input type="checkbox" name="in_pipeline" {% if agent_rotation.in_pipeline %}checked{% endif %}>
-            {% if is_viewing_self %}Include me in the distribution pipeline{% else %}Include in the distribution pipeline{% endif %}
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.88rem;cursor:pointer;">
-            <input type="checkbox" name="is_present" {% if agent_rotation.is_present %}checked{% endif %}>
-            {% if is_viewing_self %}I am present / available today{% else %}Present / available today{% endif %}
-          </label>
-          <button type="submit" style="padding:8px 16px;background:var(--blue);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;justify-self:start;">Save Availability</button>
-        </form>
-
-        <div style="border-top:1px solid var(--border);padding-top:1.1rem;">
-          <h3 style="margin:0 0 0.75rem;font-size:0.95rem;font-weight:800;color:var(--dark);">Holidays & time off</h3>
-          <form method="post" action="{% url 'add-insurance-agent-holiday' agent_membership.id %}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.75rem;align-items:end;margin-bottom:1rem;">
-            {% csrf_token %}
-            <div><label class="field-label">Start</label><input type="date" name="start_date" required class="field-input"></div>
-            <div><label class="field-label">End</label><input type="date" name="end_date" required class="field-input"></div>
-            <div><label class="field-label">Reason (optional)</label><input type="text" name="reason" class="field-input" placeholder="Vacation, sick leave…"></div>
-            <button type="submit" style="padding:8px 16px;background:#0f172a;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;">Add Holiday</button>
-          </form>
-          {% if agent_holidays %}
-          <table class="tbl">
-            <thead><tr><th>Dates</th><th>Reason</th><th></th></tr></thead>
-            <tbody>
-              {% for holiday in agent_holidays %}
-              <tr>
-                <td>{{ holiday.start_date|date:"M j, Y" }} → {{ holiday.end_date|date:"M j, Y" }}</td>
-                <td>{{ holiday.reason|default:"—" }}</td>
-                <td>
-                  <form method="post" action="{% url 'delete-insurance-agent-holiday' holiday.id %}" style="display:inline;" onsubmit="return confirm('Remove this holiday?');">
-                    {% csrf_token %}
-                    <button type="submit" style="border:none;background:none;color:#b91c1c;font-weight:700;cursor:pointer;font-size:0.8rem;">Remove</button>
-                  </form>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-          {% else %}
-          <p style="margin:0;color:var(--muted);font-size:0.85rem;">No holidays scheduled — you stay in the pipeline based on your present/absent toggle.</p>
-          {% endif %}
-        </div>
-      </div>
-    </section>
-    {% endif %}
-
     <!-- Conversion Rate Banner -->
     <div style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); border-radius: 16px; padding: 1.5rem 2rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
       <div>

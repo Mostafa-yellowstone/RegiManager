@@ -669,7 +669,6 @@
                                 {% endif %}
                                 <th>Commission</th>
                                 <th>Banking</th>
-                                <th title="Configure insurance policy distribution pipeline">Pipeline</th>
                                 <th>News</th>
                                 <th title="Manage Knowledge Hub">Hub</th>
                                 <th>Audit</th>
@@ -737,12 +736,6 @@
                                     <td>
                                         <label class="switch">
                                             <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_view_banking" {% if agent_mem.can_view_banking %}checked{% endif %}>
-                                            <span class="slider round"></span>
-                                        </label>
-                                    </td>
-                                    <td>
-                                        <label class="switch" title="Handle insurance distribution pipeline">
-                                            <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_manage_insurance_pipeline" {% if agent_mem.can_manage_insurance_pipeline %}checked{% endif %}>
                                             <span class="slider round"></span>
                                         </label>
                                     </td>

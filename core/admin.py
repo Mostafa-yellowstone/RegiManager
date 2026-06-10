@@ -31,7 +31,6 @@ class MembershipInline(admin.TabularInline):
         'can_delete_receipt',
         'can_view_commission',
         'can_view_banking',
-        'can_manage_insurance_pipeline',
         'can_manage_news',
         'can_manage_knowledge_hub',
         'accessible_spaces',
@@ -71,8 +70,8 @@ class OrganizationAdmin(admin.ModelAdmin):
 
 @admin.register(OrganizationMembership)
 class OrganizationMembershipAdmin(admin.ModelAdmin):
-    list_display = ("organization", "user", "role", "can_view_spaces", "can_deal_with_insurance", "can_delete_receipt", "can_trigger_automation", "can_view_commission", "can_view_banking", "can_manage_insurance_pipeline", "can_manage_news", "can_manage_knowledge_hub", "created_at")
-    list_filter = ("role", "organization", "can_view_spaces", "can_deal_with_insurance", "can_view_commission", "can_view_banking", "can_manage_insurance_pipeline", "can_manage_news", "can_manage_knowledge_hub")
+    list_display = ("organization", "user", "role", "can_view_spaces", "can_deal_with_insurance", "can_delete_receipt", "can_trigger_automation", "can_view_commission", "can_view_banking", "can_manage_news", "can_manage_knowledge_hub", "created_at")
+    list_filter = ("role", "organization", "can_view_spaces", "can_deal_with_insurance", "can_view_commission", "can_view_banking", "can_manage_news", "can_manage_knowledge_hub")
     search_fields = ("organization__name", "user__username", "user__email")
     fieldsets = (
         (None, {
@@ -89,7 +88,6 @@ class OrganizationMembershipAdmin(admin.ModelAdmin):
                 "can_delete_receipt",
                 "can_view_commission",
                 "can_view_banking",
-                "can_manage_insurance_pipeline",
                 "can_manage_news",
                 "can_manage_knowledge_hub",
             ),

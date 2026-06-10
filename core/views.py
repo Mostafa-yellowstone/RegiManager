@@ -18,7 +18,6 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect, csrf_exempt
 from django.utils.crypto import get_random_string
@@ -930,75 +929,11 @@ def mark_client_note_done(request, note_id):
     return redirect("client-detail", client_id=note.client_id)
 
 
-def _user_notification_queryset(user):
-    return (
-        Notification.objects.filter(user=user)
-        .filter(client__deleted_at__isnull=True)
-        .filter(
-            Q(note__isnull=False, note__is_done=False)
-            | Q(note__isnull=True, is_read=False)
-        )
-        .select_related("client", "note", "insurance_policy")
-    )
-
-
-def _serialize_notification(notif):
-    return {
-        "id": notif.id,
-        "title": notif.title,
-        "message": notif.message,
-        "client_name": notif.client.name if notif.client else "",
-        "level": notif.level,
-        "created_at": notif.created_at.strftime("%b %d, %H:%M"),
-        "url": reverse("open-notification", args=[notif.id]),
-        "is_policy": bool(notif.insurance_policy_id),
-    }
-
-
-@login_required
-def poll_notifications(request):
-    """JSON feed for live notification bell updates (polling + cross-tab)."""
-    try:
-        notif_qs = _user_notification_queryset(request.user)
-        unread_count = notif_qs.count()
-        top_notifications = list(notif_qs.order_by("-created_at")[:8])
-        max_id = notif_qs.order_by("-id").values_list("id", flat=True).first() or 0
-
-        after_id = 0
-        raw_after = request.GET.get("after_id", "").strip()
-        if raw_after.isdigit():
-            after_id = int(raw_after)
-
-        new_notifications = list(
-            notif_qs.filter(id__gt=after_id).order_by("-created_at")[:10]
-        )
-        new_policy_notifications = [
-            _serialize_notification(n) for n in new_notifications if n.insurance_policy_id
-        ]
-
-        items = [_serialize_notification(notif) for notif in top_notifications]
-        return JsonResponse({
-            "unread_count": unread_count,
-            "latest_id": max_id,
-            "notifications": items,
-            "new_notifications": [_serialize_notification(n) for n in new_notifications],
-            "new_policy_notifications": new_policy_notifications,
-        })
-    except (OperationalError, ProgrammingError):
-        return JsonResponse({
-            "unread_count": 0,
-            "latest_id": 0,
-            "notifications": [],
-            "new_notifications": [],
-            "new_policy_notifications": [],
-        })
-
-
 @login_required
 def open_notification(request, notification_id):
     try:
         notif = get_object_or_404(
-            Notification.objects.select_related("client", "note", "insurance_policy"),
+            Notification.objects.select_related("client", "note"),
             id=notification_id,
             user=request.user,
         )
@@ -1010,10 +945,6 @@ def open_notification(request, notification_id):
     if not notif.note_id and not notif.is_read:
         notif.is_read = True
         notif.save(update_fields=["is_read"])
-
-    if notif.insurance_policy_id:
-        messages.info(request, "Opening your insurance profile with the new policy.")
-        return redirect("insurance-agent-detail", user_id=request.user.id)
 
     anchor = ""
     if notif.note_id:
@@ -3364,9 +3295,6 @@ def update_agent_permissions(request):
             membership.can_manage_knowledge_hub = value
         elif field == "can_deal_with_motorclub":
             membership.can_deal_with_motorclub = value
-        elif field == "can_manage_insurance_pipeline":
-            membership.can_manage_insurance_pipeline = value
-            
         membership.save()
         
         return JsonResponse({"status": "success"})
@@ -5807,22 +5735,8 @@ def inventory_detail(request, inventory_id):
 
     # Special handling for the "Insurance" Space card
     if card.key == "insurance":
-        from .models import (
-            BankAccount,
-            BankTransaction,
-            InsuranceAgentRotation,
-            InsuranceCompany,
-            InsurancePolicy,
-        )
-        from .insurance_assignment import (
-            build_pipeline_roster,
-            ensure_pipeline_rotations,
-            get_distribution_config,
-            get_pipeline_next_user,
-        )
-        from .insurance_distribution_views import can_manage_insurance_pipeline
+        from .models import InsuranceCompany, InsurancePolicy, BankAccount, BankTransaction
         active_org = card.organization
-        ensure_pipeline_rotations(active_org)
         
         is_locked = active_org.insurance_space_locked and active_org.insurance_space_password
         unlocked_session_key = f"insurance_unlocked_{active_org.id}"
@@ -6094,7 +6008,7 @@ def inventory_detail(request, inventory_id):
         # Daily Payment Transactions
         from datetime import datetime as dt_parse
         from .models import DailyPaymentTransaction
-        from .daily_payments import summarize_daily_payments, enrich_daily_transactions
+        from .daily_payments import summarize_daily_payments, enrich_daily_transactions, compute_payable_total
 
         daily_date_str = request.GET.get("daily_date", "").strip()
         try:
@@ -6108,6 +6022,7 @@ def inventory_detail(request, inventory_id):
         ).select_related("client", "recorded_by", "insurance_policy")
         daily_transactions = enrich_daily_transactions(list(daily_tx_qs))
         daily_method_cards, daily_grand_total = summarize_daily_payments(daily_transactions)
+        daily_payable_total = compute_payable_total(active_org)
 
         daily_available_dates = list(
             DailyPaymentTransaction.objects.filter(organization=active_org)
@@ -6192,23 +6107,9 @@ def inventory_detail(request, inventory_id):
             "daily_transactions": daily_transactions,
             "daily_method_cards": daily_method_cards,
             "daily_grand_total": daily_grand_total,
+            "daily_payable_total": daily_payable_total,
             "daily_available_dates": daily_available_dates,
             "insurance_type_options": _insurance_type_options_for_org(active_org),
-
-            # Policy distribution pipeline
-            "distribution_config": get_distribution_config(active_org),
-            "pipeline_roster": build_pipeline_roster(active_org),
-            "pipeline_next_agent": get_pipeline_next_user(active_org),
-            "distribution_agent_choices": insurance_memberships,
-            "can_manage_distribution": can_manage_insurance_pipeline(
-                request, active_org, membership
-            ),
-            "pipeline_member_ids": set(
-                InsuranceAgentRotation.objects.filter(
-                    membership__organization=active_org,
-                    in_pipeline=True,
-                ).values_list("membership_id", flat=True)
-            ),
         }
         return render(request, "core/insurance_space.html", context)
 
@@ -6494,34 +6395,8 @@ def add_insurance_policy(request):
     if status == "inactive" and not inactive_date:
         inactive_date = timezone.now().date()
 
-    from .insurance_assignment import resolve_policy_agent
-    from .insurance_distribution_views import can_manage_insurance_pipeline
-
-    actor_membership = OrganizationMembership.objects.filter(
-        user=request.user,
-        organization=org,
-        is_active=True,
-    ).first()
-    can_manage_distribution = can_manage_insurance_pipeline(
-        request, org, actor_membership
-    )
-    added_by, assign_method = resolve_policy_agent(
-        org,
-        request.user,
-        manual_agent_id=(
-            request.POST.get("assigned_agent_id")
-            if can_manage_distribution
-            else None
-        ),
-        allow_manual=can_manage_distribution,
-        skip_distribution=(
-            can_manage_distribution
-            and request.POST.get("skip_distribution") == "on"
-        ),
-    )
-
     try:
-        policy = InsurancePolicy.objects.create(
+        InsurancePolicy.objects.create(
             organization=org,
             client=client,
             policy_number=policy_number,
@@ -6539,29 +6414,9 @@ def add_insurance_policy(request):
             end_date=end_date,
             insurance_period_months=int(insurance_period_months or 6),
             inactive_date=inactive_date or None,
-            added_by=added_by,
+            added_by=request.user,
         )
-        from .insurance_notifications import notify_insurance_policy_assignment
-
-        notify_insurance_policy_assignment(
-            policy,
-            entered_by=request.user,
-            assign_method=assign_method,
-        )
-        if assign_method == "pipeline":
-            label = added_by.get_full_name() or added_by.username
-            if added_by.id == request.user.id:
-                messages.success(
-                    request,
-                    f"Insurance policy created and assigned to you ({label}) — your pipeline turn.",
-                )
-            else:
-                messages.success(
-                    request,
-                    f"Insurance policy created and assigned to {label} (pipeline turn).",
-                )
-        else:
-            messages.success(request, "Insurance policy created.")
+        messages.success(request, "Insurance policy created.")
     except Exception as e:
         messages.error(request, f"Error saving policy: {e}")
 
@@ -6627,28 +6482,7 @@ def edit_insurance_policy(request, policy_id):
         else:
             policy.inactive_date = None
 
-        from .insurance_assignment import validate_manual_agent, get_distribution_config
-        from .insurance_distribution_views import can_manage_insurance_pipeline
-
-        actor_membership = OrganizationMembership.objects.filter(
-            user=request.user,
-            organization=policy.organization,
-            is_active=True,
-        ).first()
-        can_manage_distribution = can_manage_insurance_pipeline(
-            request, policy.organization, actor_membership
-        )
-        assigned_agent_id = request.POST.get("assigned_agent_id")
-        if can_manage_distribution and assigned_agent_id:
-            config = get_distribution_config(policy.organization)
-            manual_user = validate_manual_agent(
-                policy.organization,
-                assigned_agent_id,
-                only_insurance_agents=config.only_insurance_agents,
-            )
-            if manual_user:
-                policy.added_by = manual_user
-        elif not policy.added_by:
+        if not policy.added_by:
             policy.added_by = request.user
 
         try:
@@ -7021,6 +6855,7 @@ def toggle_daily_payment_clear(request, transaction_id):
         "ok": True,
         "is_cleared": tx.is_cleared,
         "cleared_date": tx.cleared_date.isoformat() if tx.cleared_date else "",
+        "amount": str(tx.amount),
     })
 
 
@@ -7765,45 +7600,10 @@ def insurance_agent_detail(request, user_id):
     insurance_companies = InsuranceCompany.objects.filter(organization=active_org)
     insurance_space_id = _get_insurance_space_id(active_org)
 
-    from .insurance_assignment import get_or_create_rotation
-
-    agent_membership = OrganizationMembership.objects.filter(
-        user=agent,
-        organization=active_org,
-        is_active=True,
-    ).first()
-    agent_rotation = (
-        get_or_create_rotation(agent_membership) if agent_membership else None
-    )
-    agent_holidays = (
-        list(agent_rotation.holidays.order_by("-start_date"))
-        if agent_rotation
-        else []
-    )
-    viewer_membership = None
-    if not request.user.is_superuser:
-        viewer_membership = OrganizationMembership.objects.filter(
-            user=request.user,
-            organization=active_org,
-            is_active=True,
-        ).first()
-    from .insurance_distribution_views import can_manage_insurance_pipeline
-
-    is_viewing_self = request.user.id == agent.id
-    can_manage_rotation = (
-        is_viewing_self
-        or can_manage_insurance_pipeline(request, active_org, viewer_membership)
-    )
-
     return render(request, "core/insurance_agent_detail.html", {
         "agent": agent,
         "active_org": active_org,
         "insurance_space_id": insurance_space_id,
-        "agent_membership": agent_membership,
-        "agent_rotation": agent_rotation,
-        "agent_holidays": agent_holidays,
-        "can_manage_rotation": can_manage_rotation,
-        "is_viewing_self": is_viewing_self,
         "policies_page": policies_page,
         "insurance_companies": insurance_companies,
         # Period auditing

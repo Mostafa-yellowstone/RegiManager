@@ -59,7 +59,7 @@ def automation_status(request):
                 Q(note__isnull=False, note__is_done=False)
                 | Q(note__isnull=True, is_read=False)
             )
-            .select_related("client", "note", "insurance_policy")
+            .select_related("client", "note")
         )
         
         # If active_organization is set, we might want to filter notifications too?

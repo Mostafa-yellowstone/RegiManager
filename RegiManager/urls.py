@@ -72,7 +72,6 @@ from core.views import (
     add_client_note,
     mark_client_note_done,
     open_notification,
-    poll_notifications,
     yearly_report_pdf,
     custom_range_report_pdf,
     send_manual_reminder,
@@ -140,13 +139,6 @@ from core.motorclub_views import (
     delete_motorclub_membership,
     add_motorclub_b2b_partner,
     delete_motorclub_b2b_partner,
-)
-from core.insurance_distribution_views import (
-    add_insurance_agent_holiday,
-    delete_insurance_agent_holiday,
-    save_insurance_distribution_config,
-    save_pipeline_agents,
-    update_insurance_agent_rotation,
 )
 from core.inventory_views import (
     add_inventory_category,
@@ -245,7 +237,6 @@ urlpatterns = [
     path("dashboard/finance/strategy-note/save/", save_finance_strategy_note, name="save-finance-strategy-note"),
     path("dashboard/clients/<int:client_id>/notes/add/", add_client_note, name="add-client-note"),
     path("dashboard/notes/<int:note_id>/done/", mark_client_note_done, name="mark-client-note-done"),
-    path("dashboard/notifications/poll/", poll_notifications, name="poll-notifications"),
     path("dashboard/notifications/<int:notification_id>/open/", open_notification, name="open-notification"),
     path("dashboard/reports/yearly-pdf/", yearly_report_pdf, name="yearly-report-pdf"),
     path("dashboard/reports/custom-pdf/", custom_range_report_pdf, name="custom-pdf"),
@@ -299,31 +290,6 @@ urlpatterns = [
     path("dashboard/spaces/insurance/company/<int:company_id>/upload/", insurance_company_upload_document, name="insurance-company-upload-doc"),
     path("dashboard/spaces/insurance/company/doc/<int:doc_id>/delete/", insurance_company_delete_document, name="insurance-company-delete-doc"),
     path("dashboard/spaces/insurance/agent/<int:user_id>/", insurance_agent_detail, name="insurance-agent-detail"),
-    path(
-        "dashboard/spaces/insurance/distribution/config/",
-        save_insurance_distribution_config,
-        name="save-insurance-distribution-config",
-    ),
-    path(
-        "dashboard/spaces/insurance/distribution/agents/",
-        save_pipeline_agents,
-        name="save-pipeline-agents",
-    ),
-    path(
-        "dashboard/spaces/insurance/distribution/agent/<int:membership_id>/rotation/",
-        update_insurance_agent_rotation,
-        name="update-insurance-agent-rotation",
-    ),
-    path(
-        "dashboard/spaces/insurance/distribution/agent/<int:membership_id>/holiday/add/",
-        add_insurance_agent_holiday,
-        name="add-insurance-agent-holiday",
-    ),
-    path(
-        "dashboard/spaces/insurance/distribution/holiday/<int:holiday_id>/delete/",
-        delete_insurance_agent_holiday,
-        name="delete-insurance-agent-holiday",
-    ),
     path("dashboard/spaces/knowledge-hub/<int:space_id>/add/", add_knowledge_material, name="add-knowledge-material"),
     path("dashboard/spaces/knowledge-hub/material/<int:material_id>/delete/", delete_knowledge_material, name="delete-knowledge-material"),
     path("dashboard/spaces/inventory/<int:space_id>/category/add/", add_inventory_category, name="add-inventory-category"),

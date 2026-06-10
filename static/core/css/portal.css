@@ -571,57 +571,6 @@ body.portal-body .dashboard-hero .brand-pill {
     border-left-color: var(--portal-primary);
 }
 
-.notif-enable-banner {
-    position: absolute;
-    top: calc(100% + 10px);
-    right: 0;
-    width: min(320px, 92vw);
-    background: #eff6ff;
-    border: 1px solid #93c5fd;
-    border-radius: 12px;
-    padding: 0.75rem 0.85rem;
-    box-shadow: var(--portal-shadow-lg);
-    z-index: 1200;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem 0.65rem;
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: #1e3a8a;
-}
-
-.notif-enable-banner.is-hidden {
-    display: none;
-}
-
-.notif-enable-btn {
-    border: none;
-    background: #2563eb;
-    color: #fff;
-    border-radius: 8px;
-    padding: 0.35rem 0.65rem;
-    font-size: 0.75rem;
-    font-weight: 800;
-    cursor: pointer;
-}
-
-.notif-enable-dismiss {
-    margin-left: auto;
-    border: none;
-    background: transparent;
-    color: #64748b;
-    font-size: 1.1rem;
-    line-height: 1;
-    cursor: pointer;
-}
-
-html.portal-theme-dark .notif-enable-banner {
-    background: #1e293b;
-    border-color: #334155;
-    color: #bfdbfe;
-}
-
 .notif-wrap {
     position: relative;
 }
@@ -715,24 +664,6 @@ html.portal-theme-dark .notif-enable-banner {
 
 .notif-dot.warning { background: #f59e0b; }
 .notif-dot.info { background: #3b82f6; }
-.notif-dot.success { background: #10b981; }
-
-.notif-badge.is-hidden {
-    display: none;
-}
-
-.notif-btn.has-new-alert {
-    animation: notif-bell-ring 0.8s ease-in-out 2;
-}
-
-@keyframes notif-bell-ring {
-    0%, 100% { transform: rotate(0deg); }
-    15% { transform: rotate(14deg); }
-    30% { transform: rotate(-12deg); }
-    45% { transform: rotate(8deg); }
-    60% { transform: rotate(-6deg); }
-    75% { transform: rotate(3deg); }
-}
 
 .notif-item-title {
     font-weight: 800;

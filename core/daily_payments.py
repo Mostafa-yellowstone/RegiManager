@@ -2,6 +2,8 @@
 
 from decimal import Decimal
 
+from django.db.models import Sum
+
 from .models import DailyPaymentTransaction
 
 PAYMENT_METHOD_META = {
@@ -59,6 +61,17 @@ def summarize_daily_payments(transactions):
 
     grand_total = sum(totals.values(), Decimal("0.00"))
     return method_cards, grand_total
+
+
+def compute_payable_total(organization):
+    """Sum of all uncleared daily payments owed to the bank (all days)."""
+    total = (
+        DailyPaymentTransaction.objects.filter(
+            organization=organization,
+            is_cleared=False,
+        ).aggregate(total=Sum("amount"))["total"]
+    )
+    return total or Decimal("0.00")
 
 
 def enrich_daily_transactions(transactions):
