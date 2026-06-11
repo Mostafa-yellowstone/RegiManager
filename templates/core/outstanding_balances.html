@@ -437,6 +437,7 @@
                                 id="btn-{{ rec.id }}"
                                 data-id="{{ rec.id }}"
                                 data-receipt="{{ rec.receipt_number }}"
+                                data-transaction-date="{{ rec.transaction_date|date:'Y-m-d' }}"
                                 data-url="{% url 'mark-balance-paid' rec.id %}"
                                 onclick="markPaid(this)">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -488,6 +489,10 @@
         <p id="modalDesc">You are about to apply a payment to this record.</p>
         <div class="ob-modal-amount" id="modalAmount">$0.00</div>
         <div style="margin: 1rem 0 0.25rem; text-align: left;">
+            <label for="modalPaymentDate" style="display: block; font-size: 0.82rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Transaction date</label>
+            <input type="date" id="modalPaymentDate" class="form-control" style="width: 100%; padding: 0.55rem 0.75rem; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.95rem; box-sizing: border-box;">
+        </div>
+        <div style="margin: 0.75rem 0 0.25rem; text-align: left;">
             <label for="modalPaymentMethod" style="display: block; font-size: 0.82rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Payment method</label>
             <select id="modalPaymentMethod" class="form-control" style="width: 100%; padding: 0.55rem 0.75rem; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.95rem;">
                 <option value="cash">Cash</option>
@@ -548,11 +553,21 @@ const STATUS_MESSAGES = {
     503: 'The server is temporarily unavailable. Please try again shortly.',
 };
 
+let _pendingTransactionDate = null;
+
+function todayIsoDate() {
+    const d = new Date();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${m}-${day}`;
+}
+
 function markPaid(btn) {
     if (_inFlight) return;
     const recordId = btn.dataset.id;
     const receipt  = btn.dataset.receipt;
     const url      = btn.dataset.url;
+    _pendingTransactionDate = btn.dataset.transactionDate || null;
 
     const input   = document.getElementById('partial-' + recordId);
     const partial = parseFloat(input.value) || 0;
@@ -570,6 +585,9 @@ function markPaid(btn) {
         ? `Apply $${partial.toFixed(2)} to receipt ${receipt}. Remaining balance will stay open.`
         : `Mark receipt ${receipt} as fully paid and clear it from this list.`;
     document.getElementById('modalAmount').textContent = '$' + applying.toFixed(2);
+
+    const dateEl = document.getElementById('modalPaymentDate');
+    if (dateEl) dateEl.value = todayIsoDate();
 
     openModal('payConfirmOverlay');
 }
@@ -627,6 +645,8 @@ function submitPayment() {
     if (partial > 0) body.append('payment_amount', partial.toFixed(2));
     const methodEl = document.getElementById('modalPaymentMethod');
     if (methodEl) body.append('payment_method', methodEl.value);
+    const dateEl = document.getElementById('modalPaymentDate');
+    if (dateEl && dateEl.value) body.append('payment_date', dateEl.value);
 
     fetch(url, { method: 'POST', body, credentials: 'same-origin' })
     .then(response => {

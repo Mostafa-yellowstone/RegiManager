@@ -2074,6 +2074,8 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
         )
 
     def test_receipt_shows_payment_history_section(self):
+        from core.service_payments import record_opening_ledger_entry
+
         record = ServiceRecord.objects.create(
             organization=self.org,
             handled_by=self.user,
@@ -2083,12 +2085,13 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
             processing_fee=Decimal("100.00"),
             paid_amount=Decimal("0.00"),
         )
+        record_opening_ledger_entry(record, recorded_by=self.user)
         pdf_text = self._pdf_text(record)
         self.assertIn("PAYMENT HISTORY", pdf_text)
-        self.assertIn("No payment recorded yet", pdf_text)
+        self.assertIn("Transmittal", pdf_text)
 
     def test_initial_payment_logged_and_shown_on_receipt(self):
-        from core.service_payments import record_initial_service_payments
+        from core.service_payments import record_opening_ledger_entry
 
         record = ServiceRecord.objects.create(
             organization=self.org,
@@ -2100,14 +2103,14 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
             paid_amount=Decimal("40.00"),
             payment_method="cash",
         )
-        record_initial_service_payments(record, recorded_by=self.user)
+        record_opening_ledger_entry(record, recorded_by=self.user)
         pdf_text = self._pdf_text(record)
-        self.assertIn("Initial payment", pdf_text)
-        self.assertIn("Cash", pdf_text)
+        self.assertIn("Transmittal", pdf_text)
+        self.assertIn("$40.00", pdf_text)
 
     def test_partial_payment_adds_row_to_receipt(self):
         from core.models import ServiceRecordPayment
-        from core.service_payments import log_balance_payment, record_initial_service_payments
+        from core.service_payments import log_balance_payment, record_opening_ledger_entry
 
         record = ServiceRecord.objects.create(
             organization=self.org,
@@ -2118,24 +2121,29 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
             processing_fee=Decimal("100.00"),
             paid_amount=Decimal("25.00"),
             payment_method="cash",
+            transaction_date=date(2026, 6, 2),
         )
-        record_initial_service_payments(record, recorded_by=self.user)
+        record_opening_ledger_entry(record, recorded_by=self.user)
         record.paid_amount = Decimal("75.00")
         record.save()
         log_balance_payment(
             record,
             Decimal("50.00"),
             "zelle",
+            payment_date="2026-06-15",
             recorded_by=self.user,
             notes="Balance payment",
         )
         self.assertEqual(ServiceRecordPayment.objects.filter(service_record=record).count(), 2)
         pdf_text = self._pdf_text(record)
+        self.assertIn("Jun 02, 2026", pdf_text)
+        self.assertIn("Jun 15, 2026", pdf_text)
         self.assertIn("Zelle", pdf_text)
         self.assertIn("Total Paid", pdf_text)
 
     def test_mark_balance_paid_creates_payment_entry(self):
         from core.models import ServiceRecordPayment
+        from core.service_payments import record_opening_ledger_entry
 
         record = ServiceRecord.objects.create(
             organization=self.org,
@@ -2146,18 +2154,27 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
             processing_fee=Decimal("80.00"),
             paid_amount=Decimal("0.00"),
         )
+        record_opening_ledger_entry(record, recorded_by=self.user)
         response = self.http.post(
             reverse("mark-balance-paid", args=[record.id]),
-            {"payment_amount": "30.00", "payment_method": "checks"},
+            {
+                "payment_amount": "30.00",
+                "payment_method": "checks",
+                "payment_date": "2026-06-20",
+            },
         )
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(data["success"])
         record.refresh_from_db()
         self.assertEqual(record.paid_amount, Decimal("30.00"))
-        entry = ServiceRecordPayment.objects.filter(service_record=record).first()
+        entry = ServiceRecordPayment.objects.filter(
+            service_record=record,
+            entry_type=ServiceRecordPayment.ENTRY_PAYMENT,
+        ).first()
         self.assertIsNotNone(entry)
         self.assertEqual(entry.payment_method, "checks")
         self.assertEqual(entry.amount, Decimal("30.00"))
+        self.assertEqual(str(entry.payment_date), "2026-06-20")
 
 

@@ -240,6 +240,11 @@
             </div>
 
             <div class="form-group" style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 0.5rem;">Transaction Date</label>
+                <input type="date" name="payment_date" id="paymentDateInput" class="form-control" style="width: 100%; box-sizing: border-box;" required>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1rem;">
                 <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 0.5rem;">Payment Method</label>
                 <select name="payment_method" class="form-control" style="width: 100%; box-sizing: border-box;">
                     <option value="cash">Cash</option>
@@ -281,6 +286,11 @@
                     <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #64748b; font-weight: bold;">$</span>
                     <input type="number" step="0.01" min="0.01" name="bulk_payment_amount" id="bulkPaymentAmountInput" class="form-control" style="padding-left: 28px; width: 100%; box-sizing: border-box; font-size: 1.1rem;" required>
                 </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 0.5rem;">Transaction Date</label>
+                <input type="date" name="payment_date" id="bulkPaymentDateInput" class="form-control" style="width: 100%; box-sizing: border-box;" required>
             </div>
 
             <div class="form-group" style="margin-bottom: 1rem;">
@@ -350,12 +360,21 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+function todayIsoDate() {
+    const d = new Date();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${m}-${day}`;
+}
+
 function openPaymentModal(recordId, amountOwed, clientName) {
     document.getElementById('paymentRecordId').value = recordId;
     document.getElementById('paymentAmountOwed').textContent = amountOwed.toFixed(2);
     document.getElementById('paymentAmountInput').value = amountOwed.toFixed(2);
     document.getElementById('paymentAmountInput').max = amountOwed;
     document.getElementById('paymentClientName').textContent = clientName;
+    const dateInput = document.getElementById('paymentDateInput');
+    if (dateInput) dateInput.value = todayIsoDate();
     
     const modal = document.getElementById('paymentModal');
     const modalContent = document.getElementById('paymentModalContent');
@@ -389,6 +408,8 @@ function openBulkPaymentModal() {
     let outstanding = parseFloat('{{ outstanding_balance }}');
     if (isNaN(outstanding) || outstanding < 0) outstanding = 0;
     input.value = outstanding > 0 ? outstanding.toFixed(2) : "0.01";
+    const bulkDate = document.getElementById('bulkPaymentDateInput');
+    if (bulkDate) bulkDate.value = todayIsoDate();
     
     modal.style.display = 'flex';
     void modal.offsetWidth; // trigger reflow

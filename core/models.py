@@ -653,12 +653,45 @@ class ServiceRecord(SoftDeleteModel):
 class ServiceRecordPayment(models.Model):
     """Individual payment applied toward a service receipt (initial or follow-up)."""
 
+    ENTRY_OPENING = "opening"
+    ENTRY_PAYMENT = "payment"
+    ENTRY_TYPE_CHOICES = [
+        (ENTRY_OPENING, "Opening transaction"),
+        (ENTRY_PAYMENT, "Payment"),
+    ]
+
     service_record = models.ForeignKey(
         ServiceRecord,
         on_delete=models.CASCADE,
         related_name="payment_entries",
     )
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    entry_type = models.CharField(
+        max_length=20,
+        choices=ENTRY_TYPE_CHOICES,
+        default=ENTRY_PAYMENT,
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    line_total = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Grand total at opening (opening rows only).",
+    )
+    line_paid = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Amount paid on this line (down payment or payment).",
+    )
+    balance_after = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Outstanding balance remaining after this line.",
+    )
     payment_method = models.CharField(
         max_length=50,
         choices=ServiceRecord.PAYMENT_METHODS,
@@ -684,7 +717,19 @@ class ServiceRecordPayment(models.Model):
             self.payment_method, self.payment_method
         )
 
+    @property
+    def is_opening(self):
+        return self.entry_type == self.ENTRY_OPENING
+
+    @property
+    def display_paid(self):
+        if self.is_opening:
+            return self.line_paid or Decimal("0")
+        return self.amount or Decimal("0")
+
     def __str__(self):
+        if self.is_opening:
+            return f"Opening ${self.line_total} — {self.service_record.receipt_number}"
         return f"${self.amount} — {self.service_record.receipt_number}"
 
 
