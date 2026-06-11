@@ -487,6 +487,19 @@
         <h2 id="modalTitle">Confirm Payment</h2>
         <p id="modalDesc">You are about to apply a payment to this record.</p>
         <div class="ob-modal-amount" id="modalAmount">$0.00</div>
+        <div style="margin: 1rem 0 0.25rem; text-align: left;">
+            <label for="modalPaymentMethod" style="display: block; font-size: 0.82rem; font-weight: 700; color: #475569; margin-bottom: 0.35rem;">Payment method</label>
+            <select id="modalPaymentMethod" class="form-control" style="width: 100%; padding: 0.55rem 0.75rem; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.95rem;">
+                <option value="cash">Cash</option>
+                <option value="zelle">Zelle</option>
+                <option value="checks">Checks</option>
+                <option value="visa">Visa</option>
+                <option value="mastercard">Mastercard</option>
+                <option value="discover">Discover</option>
+                <option value="diners_club">Diners Club</option>
+                <option value="american_express">American Express</option>
+            </select>
+        </div>
         <div class="ob-modal-actions">
             <button class="ob-modal-cancel" id="modalCancelBtn" onclick="closePayModal()">Cancel</button>
             <button class="ob-modal-confirm" id="modalConfirmBtn" onclick="submitPayment()">Confirm & Apply</button>
@@ -612,6 +625,8 @@ function submitPayment() {
     const body = new FormData();
     body.append('csrfmiddlewaretoken', CSRF);
     if (partial > 0) body.append('payment_amount', partial.toFixed(2));
+    const methodEl = document.getElementById('modalPaymentMethod');
+    if (methodEl) body.append('payment_method', methodEl.value);
 
     fetch(url, { method: 'POST', body, credentials: 'same-origin' })
     .then(response => {

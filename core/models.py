@@ -650,6 +650,44 @@ class ServiceRecord(SoftDeleteModel):
         return self.processing_fee or Decimal("0")
 
 
+class ServiceRecordPayment(models.Model):
+    """Individual payment applied toward a service receipt (initial or follow-up)."""
+
+    service_record = models.ForeignKey(
+        ServiceRecord,
+        on_delete=models.CASCADE,
+        related_name="payment_entries",
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    payment_method = models.CharField(
+        max_length=50,
+        choices=ServiceRecord.PAYMENT_METHODS,
+        default="cash",
+    )
+    payment_date = models.DateField(default=timezone.now)
+    cc_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    notes = models.CharField(max_length=255, blank=True, default="")
+    recorded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="recorded_service_payments",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["payment_date", "created_at", "id"]
+
+    def get_payment_method_display(self):
+        return dict(ServiceRecord.PAYMENT_METHODS).get(
+            self.payment_method, self.payment_method
+        )
+
+    def __str__(self):
+        return f"${self.amount} — {self.service_record.receipt_number}"
+
+
 class ServiceAuditLog(models.Model):
     ACTION_CHOICES = [
         ("created", "Created"),

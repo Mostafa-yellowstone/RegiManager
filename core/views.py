@@ -1269,6 +1269,9 @@ def start_process(request, vehicle_id):
                     record.referral_balance = 0
             
             record.save()
+
+            from .service_payments import record_initial_service_payments
+            record_initial_service_payments(record, recorded_by=request.user)
             
             # If referral and there is a balance, create a ReferralPayment ledger record
             if record.referral and record.referral_balance > 0:
@@ -1965,9 +1968,102 @@ def daily_report_pdf(request):
     return response
 
 
+def _draw_receipt_payment_history(pdf, service_record, margin_x):
+    """Draw sequential payment rows on the receipt (initial + follow-up payments)."""
+    from .service_payments import get_receipt_payment_entries
+
+    entries = get_receipt_payment_entries(service_record)
+    row_h = 14
+    header_h = 28
+    table_w = 530
+    n_rows = max(len(entries), 1)
+    table_h = header_h + (n_rows * row_h)
+
+    totals_h = 20
+    py = 52 + totals_h + table_h
+
+    pdf.setLineWidth(0.5)
+    pdf.setStrokeColorRGB(0.7, 0.7, 0.7)
+    pdf.line(margin_x, py + 4, margin_x + table_w, py + 4)
+    pdf.setLineWidth(1)
+    pdf.setStrokeColorRGB(0, 0, 0)
+
+    pdf.rect(margin_x, py - table_h, table_w, table_h)
+    col1 = margin_x + 110
+    col2 = margin_x + 280
+    col3 = margin_x + 350
+    col4 = margin_x + 420
+    header_y = py - header_h
+    for x in (col1, col2, col3, col4):
+        pdf.line(x, py - table_h, x, py)
+    pdf.line(margin_x, header_y, margin_x + table_w, header_y)
+
+    pdf.setFont("Helvetica-Bold", 8)
+    pdf.drawString(margin_x + 4, py - 12, "PAYMENT HISTORY")
+    pdf.setFont("Helvetica", 7)
+    pdf.drawString(margin_x + 4, header_y + 6, "Date & time")
+    pdf.drawString(col1 + 4, header_y + 6, "Method / description")
+    pdf.drawString(col2 + 4, header_y + 6, "Amount")
+    pdf.drawString(col3 + 4, header_y + 6, "CC Fees")
+    pdf.drawString(col4 + 4, header_y + 6, "Paid")
+
+    pdf.setFont("Helvetica", 7)
+    if entries:
+        for idx, entry in enumerate(entries):
+            row_y = header_y - (idx + 1) * row_h
+            pdf.line(margin_x, row_y, margin_x + table_w, row_y)
+            when = getattr(entry, "created_at", None)
+            if when is None:
+                when = timezone.make_aware(
+                    datetime.combine(entry.payment_date, datetime.min.time())
+                )
+            elif timezone.is_naive(when):
+                when = timezone.make_aware(when, timezone.get_current_timezone())
+            else:
+                when = timezone.localtime(when)
+            when_label = when.strftime("%b %d, %Y %I:%M %p")
+            method_label = entry.get_payment_method_display()
+            desc = (entry.notes or f"{method_label} Payment").strip()
+            if method_label.lower() not in desc.lower():
+                desc = f"{method_label} — {desc}"
+            pdf.drawString(margin_x + 4, row_y + 4, when_label[:22])
+            pdf.drawString(col1 + 4, row_y + 4, desc[:34])
+            base_amt = (entry.amount or Decimal("0")) - (entry.cc_fee or Decimal("0"))
+            pdf.drawRightString(col2 + 66, row_y + 4, _currency(base_amt))
+            pdf.drawRightString(col3 + 66, row_y + 4, _currency(entry.cc_fee or Decimal("0")))
+            pdf.drawRightString(margin_x + table_w - 4, row_y + 4, _currency(entry.amount))
+    else:
+        row_y = header_y - row_h
+        pdf.line(margin_x, row_y, margin_x + table_w, row_y)
+        pdf.drawString(margin_x + 4, row_y + 4, "—")
+        pdf.drawString(col1 + 4, row_y + 4, "No payment recorded yet")
+        pdf.drawRightString(col2 + 66, row_y + 4, _currency(Decimal("0")))
+        pdf.drawRightString(col3 + 66, row_y + 4, _currency(Decimal("0")))
+        pdf.drawRightString(margin_x + table_w - 4, row_y + 4, _currency(Decimal("0")))
+
+    total_cc = sum((e.cc_fee or Decimal("0")) for e in entries) if entries else (service_record.credit_card_fee or Decimal("0"))
+    py_totals = 48
+    pdf.setFont("Helvetica-Bold", 8)
+    pdf.drawString(margin_x, py_totals + 4, "Total CC Fees")
+    pdf.rect(margin_x + 60, py_totals, 60, 16)
+    pdf.drawRightString(margin_x + 116, py_totals + 4, _currency(total_cc))
+
+    pdf.drawString(margin_x + 130, py_totals + 4, "Total Paid")
+    pdf.rect(margin_x + 180, py_totals, 70, 16)
+    pdf.drawRightString(margin_x + 246, py_totals + 4, _currency(service_record.paid_amount))
+
+    pdf.drawString(margin_x + 260, py_totals + 4, "Outstanding Balance")
+    pdf.rect(margin_x + 355, py_totals, 60, 16)
+    outstanding = service_record.referral_balance if service_record.referral_balance and service_record.referral_balance > 0 else Decimal("0")
+    pdf.drawRightString(margin_x + 411, py_totals + 4, _currency(outstanding))
+
+
 @login_required
 def service_receipt_pdf(request, service_id):
-    service_record = get_object_or_404(ServiceRecord, pk=service_id)
+    service_record = get_object_or_404(
+        ServiceRecord.objects.prefetch_related("payment_entries"),
+        pk=service_id,
+    )
     can_access = OrganizationMembership.objects.filter(
         user=request.user,
         organization=service_record.organization,
@@ -2183,57 +2279,7 @@ def service_receipt_pdf(request, service_id):
     pdf.setFont("Helvetica-Bold", 8)
     pdf.drawCentredString(margin_x + 495, sig_y - 12, "AGENT SIGNATURE")
 
-    # Payment details table  — extra vertical gap below grand total
-    py = 115
-    # thin separator line above the payment table
-    pdf.setLineWidth(0.5)
-    pdf.setStrokeColorRGB(0.7, 0.7, 0.7)
-    pdf.line(margin_x, py + 42, margin_x + 530, py + 42)
-    pdf.setLineWidth(1)
-    pdf.setStrokeColorRGB(0, 0, 0)
-
-    pdf.rect(margin_x, py, 530, 32)
-    # vertical lines
-    pdf.line(margin_x + 110, py, margin_x + 110, py + 32)
-    pdf.line(margin_x + 280, py, margin_x + 280, py + 32)
-    pdf.line(margin_x + 350, py, margin_x + 350, py + 32)
-    pdf.line(margin_x + 420, py, margin_x + 420, py + 32)
-    # horizontal line
-    pdf.line(margin_x, py + 16, margin_x + 530, py + 16)
-
-    # headers
-    pdf.setFont("Helvetica", 8)
-    pdf.drawString(margin_x + 4, py + 20, "Date and time")
-    pdf.drawString(margin_x + 114, py + 20, "Payment description")
-    pdf.drawString(margin_x + 284, py + 20, "Amount")
-    pdf.drawString(margin_x + 354, py + 20, "CC Fees")
-    pdf.drawString(margin_x + 424, py + 20, "Paid Amount")
-
-    # values
-    pdf.setFont("Helvetica", 8)
-    pdf.drawString(margin_x + 4, py + 5, dt.strftime("%b %d, %Y %I:%M %p"))
-    pdf.drawString(margin_x + 114, py + 5, service_record.get_payment_method_display() + " Payment")
-    
-    amt_no_fee = service_record.service_fee - service_record.credit_card_fee
-    pdf.drawRightString(margin_x + 346, py + 5, _currency(amt_no_fee))
-    pdf.drawRightString(margin_x + 416, py + 5, _currency(service_record.credit_card_fee))
-    pdf.drawRightString(margin_x + 526, py + 5, _currency(service_record.paid_amount))
-
-    # bottom totals
-    py -= 35
-    pdf.setFont("Helvetica-Bold", 8)
-    pdf.drawString(margin_x, py + 4, "Total CC Fees")
-    pdf.rect(margin_x + 60, py, 60, 16)
-    pdf.drawRightString(margin_x + 116, py + 4, _currency(service_record.credit_card_fee))
-
-    pdf.drawString(margin_x + 130, py + 4, "Total Paid")
-    pdf.rect(margin_x + 180, py, 70, 16)
-    pdf.drawRightString(margin_x + 246, py + 4, _currency(service_record.paid_amount))
-
-    pdf.drawString(margin_x + 260, py + 4, "Outstanding Balance")
-    pdf.rect(margin_x + 355, py, 60, 16)
-    outstanding_str = _currency(service_record.referral_balance) if service_record.referral_balance and service_record.referral_balance > 0 else "$ 0.00"
-    pdf.drawRightString(margin_x + 411, py + 4, outstanding_str)
+    _draw_receipt_payment_history(pdf, service_record, margin_x)
 
     # Footer
     pdf.setFont("Helvetica-Bold", 8)
@@ -3629,21 +3675,41 @@ def referral_profile(request, referral_id):
         if "mark_paid" in request.POST:
             record_id = request.POST.get("record_id")
             payment_amount_str = request.POST.get("payment_amount", "0")
+            from .service_payments import log_balance_payment, normalize_payment_method
+            payment_method = normalize_payment_method(request.POST.get("payment_method"))
             record = get_object_or_404(ServiceRecord, id=record_id, referral=referral)
             
             try:
                 payment_amount = Decimal(payment_amount_str)
-            except:
+            except Exception:
                 payment_amount = Decimal("0")
+
+            if payment_amount <= Decimal("0"):
+                messages.error(request, "Payment amount must be greater than zero.")
+                return redirect("referral-profile", referral_id=referral.id)
+            if payment_amount > record.referral_balance:
+                messages.error(
+                    request,
+                    f"Payment amount (${payment_amount:.2f}) exceeds the outstanding balance "
+                    f"(${record.referral_balance:.2f}).",
+                )
+                return redirect("referral-profile", referral_id=referral.id)
                 
             record.paid_amount = (record.paid_amount or Decimal("0")) + payment_amount
             record.save()
+            log_balance_payment(
+                record,
+                payment_amount,
+                payment_method,
+                recorded_by=request.user,
+                notes="Payment via referral profile",
+            )
             
             # Create payment log
             ReferralPayment.objects.create(
                 referral=referral,
                 amount=payment_amount,
-                notes=f"Payment for specific invoice: {record.client_name}"
+                notes=f"Payment for specific invoice: {record.client_name} ({record.receipt_number})",
             )
             
             messages.success(request, f"Payment of ${payment_amount:.2f} applied to invoice for {record.client_name}.")
@@ -3652,9 +3718,11 @@ def referral_profile(request, referral_id):
         elif "log_bulk_payment" in request.POST:
             payment_amount_str = request.POST.get("bulk_payment_amount", "0")
             notes = request.POST.get("payment_notes", "")
+            from .service_payments import log_balance_payment, normalize_payment_method
+            payment_method = normalize_payment_method(request.POST.get("payment_method"))
             try:
                 payment_amount = Decimal(payment_amount_str)
-            except:
+            except Exception:
                 payment_amount = Decimal("0")
                 
             if payment_amount > 0:
@@ -3681,6 +3749,13 @@ def referral_profile(request, referral_id):
                     
                     rec.paid_amount = (rec.paid_amount or Decimal("0")) + payment_applied
                     rec.save()
+                    log_balance_payment(
+                        rec,
+                        payment_applied,
+                        payment_method,
+                        recorded_by=request.user,
+                        notes=notes or "Bulk referral payment",
+                    )
                 
                 # If still remaining, apply to initial_balance
                 if remaining > 0:
@@ -5390,6 +5465,9 @@ def mark_balance_paid(request, record_id):
     else:
         payment = None  # will be resolved to full balance inside the transaction
 
+    from .service_payments import log_balance_payment, normalize_payment_method
+    payment_method = normalize_payment_method(request.POST.get("payment_method"))
+
     # ── 3. Atomic DB operation with row-level lock ────────────────────────
     try:
         with transaction.atomic():
@@ -5439,6 +5517,13 @@ def mark_balance_paid(request, record_id):
             # Apply
             record.paid_amount = (record.paid_amount or Decimal("0")) + payment
             record.save(update_fields=["paid_amount", "referral_balance", "is_referral_paid", "updated_at"])
+            log_balance_payment(
+                record,
+                payment,
+                payment_method,
+                recorded_by=request.user,
+                notes="Payment via Outstanding Balances",
+            )
 
             # Log against the referral entity if one is linked
             if record.referral_id:

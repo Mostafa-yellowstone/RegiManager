@@ -2038,3 +2038,126 @@ class ClientSearchQueryTests(TestCase):
         self.assertEqual(qs.count(), 1)
 
 
+class ServiceReceiptPaymentHistoryTests(TestCase):
+    def setUp(self):
+        from io import BytesIO
+        from pypdf import PdfReader
+
+        self.PdfReader = PdfReader
+        self.BytesIO = BytesIO
+        self.user = User.objects.create_user(username="payuser", password="password123")
+        self.org = Organization.objects.create(name="Pay Org", city="NYC")
+        OrganizationMembership.objects.create(
+            user=self.user, organization=self.org, is_active=True, role="owner"
+        )
+        self.client_obj = Client.objects.create(
+            organization=self.org,
+            first_name="Pay",
+            last_name="Client",
+            gender="male",
+            phone_number="5551112222",
+        )
+        self.vehicle = Vehicle.objects.create(
+            client=self.client_obj,
+            vin="1HGBH41JXMN109186",
+            vehicle_number="VEH-PAY-001",
+        )
+        self.http = TestClient()
+        self.http.login(username="payuser", password="password123")
+
+    def _pdf_text(self, record):
+        response = self.http.get(reverse("service-receipt-pdf", args=[record.id]))
+        self.assertEqual(response.status_code, 200)
+        return "".join(
+            page.extract_text() or ""
+            for page in self.PdfReader(self.BytesIO(response.content)).pages
+        )
+
+    def test_receipt_shows_payment_history_section(self):
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_type="transmittal",
+            processing_fee=Decimal("100.00"),
+            paid_amount=Decimal("0.00"),
+        )
+        pdf_text = self._pdf_text(record)
+        self.assertIn("PAYMENT HISTORY", pdf_text)
+        self.assertIn("No payment recorded yet", pdf_text)
+
+    def test_initial_payment_logged_and_shown_on_receipt(self):
+        from core.service_payments import record_initial_service_payments
+
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_type="transmittal",
+            processing_fee=Decimal("100.00"),
+            paid_amount=Decimal("40.00"),
+            payment_method="cash",
+        )
+        record_initial_service_payments(record, recorded_by=self.user)
+        pdf_text = self._pdf_text(record)
+        self.assertIn("Initial payment", pdf_text)
+        self.assertIn("Cash", pdf_text)
+
+    def test_partial_payment_adds_row_to_receipt(self):
+        from core.models import ServiceRecordPayment
+        from core.service_payments import log_balance_payment, record_initial_service_payments
+
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_type="transmittal",
+            processing_fee=Decimal("100.00"),
+            paid_amount=Decimal("25.00"),
+            payment_method="cash",
+        )
+        record_initial_service_payments(record, recorded_by=self.user)
+        record.paid_amount = Decimal("75.00")
+        record.save()
+        log_balance_payment(
+            record,
+            Decimal("50.00"),
+            "zelle",
+            recorded_by=self.user,
+            notes="Balance payment",
+        )
+        self.assertEqual(ServiceRecordPayment.objects.filter(service_record=record).count(), 2)
+        pdf_text = self._pdf_text(record)
+        self.assertIn("Zelle", pdf_text)
+        self.assertIn("Total Paid", pdf_text)
+
+    def test_mark_balance_paid_creates_payment_entry(self):
+        from core.models import ServiceRecordPayment
+
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_type="transmittal",
+            processing_fee=Decimal("80.00"),
+            paid_amount=Decimal("0.00"),
+        )
+        response = self.http.post(
+            reverse("mark-balance-paid", args=[record.id]),
+            {"payment_amount": "30.00", "payment_method": "checks"},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["success"])
+        record.refresh_from_db()
+        self.assertEqual(record.paid_amount, Decimal("30.00"))
+        entry = ServiceRecordPayment.objects.filter(service_record=record).first()
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry.payment_method, "checks")
+        self.assertEqual(entry.amount, Decimal("30.00"))
+
+

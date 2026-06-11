@@ -239,6 +239,20 @@
                 </div>
             </div>
 
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 0.5rem;">Payment Method</label>
+                <select name="payment_method" class="form-control" style="width: 100%; box-sizing: border-box;">
+                    <option value="cash">Cash</option>
+                    <option value="zelle">Zelle</option>
+                    <option value="checks">Checks</option>
+                    <option value="visa">Visa</option>
+                    <option value="mastercard">Mastercard</option>
+                    <option value="discover">Discover</option>
+                    <option value="diners_club">Diners Club</option>
+                    <option value="american_express">American Express</option>
+                </select>
+            </div>
+
             <div style="display: flex; gap: 1rem;">
                 <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="closePaymentModal()">Cancel</button>
                 <button type="submit" name="mark_paid" class="btn btn-primary" style="flex: 1;">Submit Payment</button>
@@ -267,6 +281,20 @@
                     <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #64748b; font-weight: bold;">$</span>
                     <input type="number" step="0.01" min="0.01" name="bulk_payment_amount" id="bulkPaymentAmountInput" class="form-control" style="padding-left: 28px; width: 100%; box-sizing: border-box; font-size: 1.1rem;" required>
                 </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 0.5rem;">Payment Method</label>
+                <select name="payment_method" class="form-control" style="width: 100%; box-sizing: border-box;">
+                    <option value="cash">Cash</option>
+                    <option value="zelle">Zelle</option>
+                    <option value="checks">Checks</option>
+                    <option value="visa">Visa</option>
+                    <option value="mastercard">Mastercard</option>
+                    <option value="discover">Discover</option>
+                    <option value="diners_club">Diners Club</option>
+                    <option value="american_express">American Express</option>
+                </select>
             </div>
             
             <div class="form-group" style="margin-bottom: 1.5rem;">
