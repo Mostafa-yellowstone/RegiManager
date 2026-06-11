@@ -267,17 +267,20 @@ class ClientForm(forms.ModelForm):
             [
                 ("walk-in", "Walk-in"),
                 ("website", "Website"),
+                ("dealer", "Dealer"),
                 ("referral", "Referral"),
                 ("other", "Other"),
             ],
         )
 
-        referral_choices = [("", "--- Select Referral ---"), ("new", "+ Create New Referral")]
+        referral_choices = [("", "--- Select Partner ---"), ("new", "+ Create New Partner")]
         if organizations.exists():
             referrals = Referral.objects.filter(organization__in=organizations).order_by('name')
             for d in referrals:
                 referral_choices.insert(1, (str(d.id), d.name))
         self.fields["referral_select"].choices = referral_choices
+        if self.instance.pk and self.instance.referral_id:
+            self.fields["referral_select"].initial = str(self.instance.referral_id)
         self.fields["referral_phone_no"].widget.attrs.update({"class": "phone-mask", "placeholder": "(000) 000 - 0000"})
         # self.fields["referral_balance"].widget.attrs["readonly"] = True
         for field_name, field in self.fields.items():
@@ -311,6 +314,21 @@ class ClientForm(forms.ModelForm):
             # state is required by the model — default to NY if not provided
             if not cleaned_data.get("state"):
                 cleaned_data["state"] = "NY"
+
+            organization = cleaned_data.get("organization")
+            if business_name and organization:
+                biz_query = Client.objects.filter(
+                    organization=organization,
+                    is_commercial=True,
+                    business_name__iexact=business_name,
+                )
+                if self.instance and self.instance.pk:
+                    biz_query = biz_query.exclude(pk=self.instance.pk)
+                if biz_query.exists():
+                    raise forms.ValidationError(
+                        "A business with this name already exists in this PSB "
+                        "(matched case-insensitively)."
+                    )
         else:
             first_name = cleaned_data.get("first_name")
             last_name = cleaned_data.get("last_name")
@@ -322,21 +340,47 @@ class ClientForm(forms.ModelForm):
             if not gender:
                 self.add_error("gender", "Gender is required.")
             
-            # Perform duplicate check for non-commercial clients
             organization = cleaned_data.get("organization")
             if first_name and last_name and organization:
+                existing_query = Client.objects.filter(
+                    organization=organization,
+                    is_commercial=False,
+                    first_name__iexact=first_name.strip(),
+                    last_name__iexact=last_name.strip(),
+                )
+                if self.instance and self.instance.pk:
+                    existing_query = existing_query.exclude(pk=self.instance.pk)
+                if existing_query.exists():
+                    raise forms.ValidationError(
+                        "A client with this first and last name already exists in this PSB "
+                        "(names are matched case-insensitively)."
+                    )
+
                 dl = cleaned_data.get("driver_license", "").strip().upper()
                 if dl:
-                    existing_query = Client.objects.filter(
-                        first_name__iexact=first_name, 
-                        last_name__iexact=last_name,
+                    dl_query = Client.objects.filter(
+                        organization=organization,
                         driver_license__iexact=dl,
-                        organization=organization
                     )
                     if self.instance and self.instance.pk:
-                        existing_query = existing_query.exclude(pk=self.instance.pk)
-                    if existing_query.exists():
-                        raise forms.ValidationError("A client with this name and DL already exists in this PSB.")
+                        dl_query = dl_query.exclude(pk=self.instance.pk)
+                    if dl_query.exists():
+                        raise forms.ValidationError(
+                            "A client with this driver license already exists in this PSB."
+                        )
+
+        referral_select = cleaned_data.get("referral_select")
+        referral_name = (cleaned_data.get("referral_name") or "").strip()
+        organization = cleaned_data.get("organization")
+        if referral_select == "new" and referral_name and organization:
+            if Referral.objects.filter(
+                organization=organization,
+                name__iexact=referral_name,
+            ).exists():
+                self.add_error(
+                    "referral_name",
+                    "A partner with this name already exists — select it from the list instead.",
+                )
         return cleaned_data
 
     def clean_mv82_file(self):

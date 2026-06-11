@@ -657,16 +657,24 @@ def add_client(request):
             if existing:
                 messages.info(request, f"Business {existing.name} already exists (EIN match). Redirecting to profile.")
                 return redirect("client-detail", client_id=existing.id)
-        elif first_name and last_name and dl and org_id:
+        elif first_name and last_name and org_id and not is_commercial:
             existing = Client.objects.filter(
                 first_name__iexact=first_name,
                 last_name__iexact=last_name,
-                driver_license__iexact=dl,
-                organization_id=org_id
+                organization_id=org_id,
+                is_commercial=False,
             ).first()
             if existing:
                 messages.info(request, f"Client {existing.name} already exists. Redirecting to profile.")
                 return redirect("client-detail", client_id=existing.id)
+            if dl:
+                existing_dl = Client.objects.filter(
+                    driver_license__iexact=dl,
+                    organization_id=org_id,
+                ).first()
+                if existing_dl:
+                    messages.info(request, f"Client with DL {dl} already exists. Redirecting to profile.")
+                    return redirect("client-detail", client_id=existing_dl.id)
 
         form = ClientForm(request.POST, request.FILES, organizations=organizations)
         if form.is_valid():
@@ -678,39 +686,8 @@ def add_client(request):
                     if not client.organization_id and organizations.count() == 1:
                         client.organization = organizations.first()
                     
-                    # Referral logic
-                    source = form.cleaned_data.get('source')
-                    if source == 'referral':
-                        referral_select = form.cleaned_data.get('referral_select')
-                        if referral_select and referral_select != 'new':
-                            try:
-                                referral = Referral.objects.get(id=referral_select, organization=client.organization)
-                                client.referral = referral
-                            except Referral.DoesNotExist:
-                                pass
-                        else:
-                            referral_name = form.cleaned_data.get('referral_name')
-                            if referral_name:
-                                # First, check if a referral with this name already exists in this organization
-                                referral = Referral.objects.filter(
-                                    organization=client.organization,
-                                    name__iexact=referral_name
-                                ).first()
-                                
-                                if not referral:
-                                    # Create new referral if not found
-                                    referral = Referral.objects.create(
-                                        organization=client.organization,
-                                        name=referral_name,
-                                        category=form.cleaned_data.get('referral_category', 'dealer'),
-                                        address=form.cleaned_data.get('referral_address', ''),
-                                        phone_no=form.cleaned_data.get('referral_phone_no', ''),
-                                        email=form.cleaned_data.get('referral_email', ''),
-                                        website=form.cleaned_data.get('referral_website', ''),
-                                        initial_balance=form.cleaned_data.get('referral_balance') or 0,
-                                    )
-                                client.referral = referral
-                    
+                    from .client_referral import apply_client_referral_from_form
+                    apply_client_referral_from_form(client, form, is_edit=False)
                     client.save()
                 messages.success(request, f"Client {client.name} profile created.")
                 return redirect("add-vehicle", client_id=client.id)
@@ -755,7 +732,7 @@ def add_client(request):
 
 @login_required
 def client_detail(request, client_id):
-    client = get_object_or_404(Client, id=client_id)
+    client = get_object_or_404(Client.objects.select_related("referral"), id=client_id)
     if not _has_active_org_access(request.user, client.organization_id):
         deny_access("Access denied.")
     
@@ -984,7 +961,11 @@ def get_client_details(request, client_id):
 @login_required
 def all_clients(request):
     organizations = _get_user_organizations(request)
-    clients = Client.objects.filter(organization__in=organizations).order_by("-created_at")
+    clients = (
+        Client.objects.filter(organization__in=organizations)
+        .select_related("referral")
+        .order_by("-created_at")
+    )
     
     # Advanced filter params
     query = request.GET.get('q', '').strip()
@@ -993,15 +974,8 @@ def all_clients(request):
     selected_referral = request.GET.get('referral', '').strip()
 
     if query:
-        clients = clients.filter(
-            Q(first_name__icontains=query) |
-            Q(last_name__icontains=query) |
-            Q(email__icontains=query) |
-            Q(phone_number__icontains=query) |
-            Q(city__icontains=query) |
-            Q(business_name__icontains=query) |
-            Q(business_ein__icontains=query)
-        )
+        from .client_search import build_full_client_search_q
+        clients = clients.filter(build_full_client_search_q(query))
     
     if selected_source:
         clients = clients.filter(source_filter_q(selected_source))
@@ -4910,41 +4884,8 @@ def edit_client(request, client_id):
                 with transaction.atomic():
                     client = form.save(commit=False)
                     
-                    # Referral logic
-                    source = form.cleaned_data.get('source')
-                    if source == 'referral':
-                        referral_select = form.cleaned_data.get('referral_select')
-                        if referral_select and referral_select != 'new':
-                            try:
-                                referral = Referral.objects.get(id=referral_select, organization=client.organization)
-                                client.referral = referral
-                            except Referral.DoesNotExist:
-                                pass
-                        else:
-                            referral_name = form.cleaned_data.get('referral_name')
-                            if referral_name:
-                                # First, check if a referral with this name already exists in this organization
-                                referral = Referral.objects.filter(
-                                    organization=client.organization,
-                                    name__iexact=referral_name
-                                ).first()
-                                
-                                if not referral:
-                                    # Create new referral if not found
-                                    referral = Referral.objects.create(
-                                        organization=client.organization,
-                                        name=referral_name,
-                                        category=form.cleaned_data.get('referral_category', 'dealer'),
-                                        address=form.cleaned_data.get('referral_address', ''),
-                                        phone_no=form.cleaned_data.get('referral_phone_no', ''),
-                                        email=form.cleaned_data.get('referral_email', ''),
-                                        website=form.cleaned_data.get('referral_website', ''),
-                                        initial_balance=form.cleaned_data.get('referral_balance') or 0,
-                                    )
-                                client.referral = referral
-                    else:
-                        client.referral = None
-                    
+                    from .client_referral import apply_client_referral_from_form
+                    apply_client_referral_from_form(client, form, is_edit=True)
                     client.save()
                     from .models import ServiceDocument
                     for doc in ServiceDocument.objects.filter(vehicle__client=client, document_type="mv82"):
@@ -4960,10 +4901,11 @@ def edit_client(request, client_id):
         form = ClientForm(instance=client, organizations=orgs)
     
     return render(request, 'core/add_client.html', {
-        'form': form, 
-        'edit_mode': True, 
+        'form': form,
+        'edit_mode': True,
         'client': client,
-        'title': 'Edit Client Profile'
+        'title': 'Edit Client Profile',
+        'organizations': orgs,
     })
 
 @login_required
@@ -5344,13 +5286,10 @@ def client_search_ajax(request):
         if not c:
             continue
         plate = c.vehicles.values_list("plate_number", flat=True).first() or ""
-        display_name = (
-            c.business_name
-            if c.is_commercial and c.business_name
-            else f"{c.first_name} {c.last_name}".strip()
-        )
+        display_name = c.full_display_name or c.name
         results.append({
             "name":          display_name,
+            "full_name":     display_name,
             "first_name":    c.first_name,
             "last_name":     c.last_name,
             "identifier":    c.driver_license or c.business_ein or "",

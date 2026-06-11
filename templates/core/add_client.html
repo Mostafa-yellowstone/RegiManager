@@ -8,7 +8,94 @@
     .alert-msg { padding: 0.8rem 1.2rem; border-radius: 10px; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem; }
     .alert-msg.error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
     .alert-msg.success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-    #name-warning { padding: 0.8rem 1.2rem; border-radius: 10px; margin-bottom: 1.5rem; background: #fff7ed; color: #9a3412; border: 1px solid #ffedd5; font-weight: 600; font-size: 0.9rem; border-left: 4px solid #f97316; }
+    #name-warning { padding: 0.8rem 1.2rem; border-radius: 10px; margin-bottom: 1.5rem; background: var(--portal-warning-bg, #fff7ed); color: #9a3412; border: 1px solid #ffedd5; font-weight: 600; font-size: 0.9rem; border-left: 4px solid #f97316; }
+
+    .referral-connection-panel {
+        display: none;
+        background: linear-gradient(135deg, var(--portal-surface-muted, #f8fafc) 0%, var(--portal-bg, #f1f5f9) 100%);
+        padding: 2rem;
+        border-radius: var(--portal-radius-xl, 20px);
+        margin-bottom: 2.5rem;
+        border: 1px solid var(--portal-border, #e2e8f0);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+        position: relative;
+        overflow: hidden;
+    }
+    .referral-connection-panel::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: var(--portal-accent, #4f46e5);
+    }
+    .referral-connection-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+    .referral-connection-icon {
+        background: var(--portal-primary-soft, #e0e7ff);
+        color: var(--portal-accent, #4f46e5);
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .referral-connection-title {
+        margin: 0;
+        color: var(--portal-text, #1e293b);
+        font-size: 1.1rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }
+    .referral-connection-subtitle {
+        margin: 0.15rem 0 0;
+        color: var(--portal-text-muted, #64748b);
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+    .referral-saved-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin-top: 0.75rem;
+        padding: 0.45rem 0.75rem;
+        border-radius: 999px;
+        background: var(--portal-success-bg, #dcfce7);
+        color: var(--portal-success, #166534);
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+    .referral-saved-badge a {
+        color: inherit;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+    .referral-field-label {
+        color: var(--portal-text-muted, #64748b);
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+    .referral-details-card {
+        display: none;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 1.5rem;
+        align-items: end;
+        background: var(--portal-surface, #fff);
+        padding: 1.5rem;
+        border-radius: var(--portal-radius-md, 12px);
+        border: 1px solid var(--portal-border, #edf2f7);
+    }
 
     @media (max-width: 768px) {
         .form-row {
@@ -103,47 +190,61 @@
                     </div>
                 </div>
 
-                <!-- Referral Logic Expansion -->
-                <div id="referral-logic-section" style="display: none; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 2rem; border-radius: 20px; margin-bottom: 2.5rem; border: 1px solid #e2e8f0; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02); position: relative; overflow: hidden;">
-                    <div style="position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #4f46e5;"></div>
-                    
-                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
-                        <div style="background: #e0e7ff; color: #4f46e5; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                <!-- Referral / Dealer Connection -->
+                <div id="referral-logic-section"
+                     class="referral-connection-panel"
+                     data-edit-mode="{% if edit_mode %}true{% else %}false{% endif %}"
+                     data-has-referral="{% if edit_mode and client.referral %}true{% else %}false{% endif %}"
+                     {% if edit_mode and client.referral %}data-referral-id="{{ client.referral.id }}" data-referral-name="{{ client.referral.name }}"{% endif %}>
+                    <div class="referral-connection-header">
+                        <div class="referral-connection-icon">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                         </div>
-                        <h4 style="margin: 0; color: #1e293b; font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em;">Referral Connection</h4>
+                        <div>
+                            <h4 id="referral-section-title" class="referral-connection-title">Partner Connection</h4>
+                            <p id="referral-section-subtitle" class="referral-connection-subtitle">Link this client to an existing dealer or referral partner, or create a new one.</p>
+                        </div>
                     </div>
+
+                    {% if edit_mode and client.referral %}
+                    <div id="referral-saved-indicator" class="referral-saved-badge">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                        Linked to <a href="{% url 'referral-profile' client.referral.id %}">{{ client.referral.name }}</a>
+                    </div>
+                    {% else %}
+                    <div id="referral-saved-indicator" class="referral-saved-badge" style="display: none;"></div>
+                    {% endif %}
                     
-                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1.5rem; margin: 1.5rem 0;">
                         <div class="field-wrap">
-                            <label style="color: #64748b; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: block;">Select Existing Referral</label>
+                            <label class="referral-field-label">Select Partner</label>
                             {{ form.referral_select }}
                         </div>
                         <div class="field-wrap new-referral-only" style="display: none;">
-                            <label style="color: #64748b; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: block;">Category</label>
+                            <label class="referral-field-label">Category</label>
                             {{ form.referral_category }}
                         </div>
                         <div class="field-wrap new-referral-only" style="display: none;">
-                            <label style="color: #64748b; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: block;">Name</label>
+                            <label class="referral-field-label">Partner Name</label>
                             {{ form.referral_name }}
                         </div>
                     </div>
 
-                    <div id="referral-details-row-2" class="new-referral-only" style="display: none; grid-template-columns: repeat(5, 1fr); gap: 1.5rem; align-items: end; background: white; padding: 1.5rem; border-radius: 12px; border: 1px solid #edf2f7;">
+                    <div id="referral-details-row-2" class="new-referral-only referral-details-card">
                         <div class="field-wrap">
-                            <label style="color: #64748b; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: block;">Email</label>
+                            <label class="referral-field-label">Email</label>
                             {{ form.referral_email }}
                         </div>
                         <div class="field-wrap">
-                            <label style="color: #64748b; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: block;">Phone</label>
+                            <label class="referral-field-label">Phone</label>
                             {{ form.referral_phone_no }}
                         </div>
                         <div class="field-wrap">
-                            <label style="color: #64748b; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: block;">Outstanding Balance</label>
+                            <label class="referral-field-label">Outstanding Balance</label>
                             {{ form.referral_balance }}
                         </div>
                         <div class="field-wrap" style="grid-column: span 2;">
-                            <label style="color: #64748b; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: block;">Address</label>
+                            <label class="referral-field-label">Address</label>
                             {{ form.referral_address }}
                         </div>
                     </div>
@@ -305,32 +406,80 @@ document.addEventListener('DOMContentLoaded', function() {
     const sourceSelect = document.querySelector('select[name="source"]');
     const referralSection = document.getElementById('referral-logic-section');
     const referralSelect = document.querySelector('select[name="referral_select"]');
+    const referralCategorySelect = document.querySelector('select[name="referral_category"]');
+    const referralSectionTitle = document.getElementById('referral-section-title');
+    const referralSectionSubtitle = document.getElementById('referral-section-subtitle');
+    const referralSavedIndicator = document.getElementById('referral-saved-indicator');
     const newReferralElements = document.querySelectorAll('.new-referral-only');
+    const isEditMode = referralSection && referralSection.dataset.editMode === 'true';
+    const hasSavedReferral = referralSection && referralSection.dataset.hasReferral === 'true';
 
-    function toggleReferralSection() {
-        if (sourceSelect.value === 'referral') {
-            referralSection.style.display = 'block';
+    function usesReferralPartner(source) {
+        return source === 'referral' || source === 'dealer';
+    }
+
+    function updateReferralSectionCopy() {
+        if (!referralSectionTitle) return;
+        if (sourceSelect.value === 'dealer') {
+            referralSectionTitle.textContent = 'Dealer Connection';
+            if (referralSectionSubtitle) {
+                referralSectionSubtitle.textContent = 'Select the dealer who referred this client, or register a new dealer partner.';
+            }
+            if (referralSelect && referralSelect.value === 'new' && referralCategorySelect) {
+                referralCategorySelect.value = 'dealer';
+            }
         } else {
-            referralSection.style.display = 'none';
+            referralSectionTitle.textContent = 'Referral Connection';
+            if (referralSectionSubtitle) {
+                referralSectionSubtitle.textContent = 'Link this client to an existing referral partner, or create a new one.';
+            }
         }
     }
 
+    function updateSavedReferralBadge() {
+        if (!referralSavedIndicator || !referralSelect) return;
+        const selected = referralSelect.value;
+        if (!selected || selected === 'new') {
+            if (!hasSavedReferral) referralSavedIndicator.style.display = 'none';
+            return;
+        }
+        const option = referralSelect.options[referralSelect.selectedIndex];
+        const partnerName = option ? option.textContent.trim() : '';
+        if (!partnerName) return;
+        const profileUrl = "{% url 'referral-profile' 999999 %}".replace('999999', selected);
+        referralSavedIndicator.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> Linked to <a href="' + profileUrl + '">' + partnerName + '</a>';
+        referralSavedIndicator.style.display = 'inline-flex';
+    }
+
+    function toggleReferralSection() {
+        if (!referralSection || !sourceSelect) return;
+        const show = usesReferralPartner(sourceSelect.value) || (isEditMode && hasSavedReferral);
+        referralSection.style.display = show ? 'block' : 'none';
+        if (show) updateReferralSectionCopy();
+    }
+
     function toggleNewReferralFields() {
+        if (!referralSelect) return;
         const isNew = referralSelect.value === 'new';
         newReferralElements.forEach(el => {
             if (isNew) {
-                if (el.id === 'referral-details-row-2') {
-                    el.style.display = 'grid';
-                } else {
-                    el.style.display = 'block';
-                }
+                el.style.display = el.id === 'referral-details-row-2' ? 'grid' : 'block';
             } else {
                 el.style.display = 'none';
             }
         });
+        if (isNew && sourceSelect && sourceSelect.value === 'dealer' && referralCategorySelect) {
+            referralCategorySelect.value = 'dealer';
+        }
+        updateSavedReferralBadge();
     }
 
-    if (sourceSelect) sourceSelect.addEventListener('change', toggleReferralSection);
+    if (sourceSelect) {
+        sourceSelect.addEventListener('change', function() {
+            toggleReferralSection();
+            toggleNewReferralFields();
+        });
+    }
     if (referralSelect) referralSelect.addEventListener('change', toggleNewReferralFields);
 
     toggleReferralSection();

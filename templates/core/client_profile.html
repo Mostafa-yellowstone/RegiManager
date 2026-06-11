@@ -1,7 +1,7 @@
 {% extends "base_portal.html" %}
 {% load static portal_extras %}
 
-{% block title %}{{ client.name }} | Client Profile{% endblock %}
+{% block title %}{{ client.full_display_name }} | Client Profile{% endblock %}
 
 {% block portal_content %}
 <style>
@@ -50,7 +50,7 @@
                     </div>
                     <div>
                         <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-                            <h1 style="margin: 0; color: white;">{{ client.name }}</h1>
+                            <h1 style="margin: 0; color: white;">{{ client.full_display_name }}</h1>
                             {% if client.is_commercial %}
                                 <span style="background: #10b981; color: white; padding: 4px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;">🏢 Commercial</span>
                             {% endif %}
@@ -88,6 +88,16 @@
                         <p class="subtitle" style="color: #cbd5e1; margin-top: 0.4rem; margin-bottom: 0;">
                             {{ client.email|default:"No email" }} • {{ client.phone_number|default:"No phone" }} • {{ client.full_address|default:"No address" }}
                         </p>
+                        {% if client.referral %}
+                        <p style="color: #c7d2fe; margin: 0.35rem 0 0; font-size: 0.92rem; font-weight: 600;">
+                            via <a href="{% url 'referral-profile' client.referral.id %}" style="color: #a5b4fc; text-decoration: none; font-weight: 800; border-bottom: 1px solid rgba(165,180,252,0.45);">{{ client.referral.name }}</a>
+                        </p>
+                        {% endif %}
+                        {% if not client.is_commercial and client.driver_license %}
+                        <p style="color: #94a3b8; margin: 0.25rem 0 0; font-size: 0.85rem;">
+                            <strong style="color:#cbd5e1;">DL:</strong> {{ client.driver_license }}
+                        </p>
+                        {% endif %}
                         {% if client.is_commercial and client.business_ein %}
                             <p style="color: #cbd5e1; margin: 0.2rem 0 0; font-size: 0.9rem;">
                                 <strong>EIN:</strong> {{ client.business_ein }}

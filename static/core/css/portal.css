@@ -1270,6 +1270,19 @@ html.portal-theme-dark .portal-filter-form .portal-btn-primary {
     color: var(--portal-text-muted);
 }
 
+.client-referral-link {
+    color: var(--portal-accent, #4f46e5);
+    font-weight: 700;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.client-referral-link:hover {
+    color: var(--portal-primary-hover, #0730b8);
+    border-bottom-color: currentColor;
+}
+
 /* Data tables (portal + dashboard) */
 body.portal-body .data-table th {
     background: var(--portal-surface-muted);

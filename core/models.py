@@ -275,7 +275,21 @@ class Client(SoftDeleteModel):
     def name(self):
         if self.is_commercial and self.business_name:
             return self.business_name
-        return f"{self.first_name} {self.last_name}"
+        return f"{self.first_name} {self.last_name}".strip()
+
+    @property
+    def full_display_name(self):
+        if self.is_commercial and self.business_name:
+            return self.business_name
+        parts = [self.first_name, self.middle_name, self.last_name]
+        return " ".join(p.strip() for p in parts if p and p.strip())
+
+    @property
+    def via_partner_label(self):
+        """Dealer/referral partner name for profile display."""
+        if self.referral_id and self.referral:
+            return self.referral.name
+        return ""
 
     @property
     def full_address(self):

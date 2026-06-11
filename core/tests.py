@@ -4,7 +4,10 @@ from django.test import TestCase, Client as TestClient
 from django.urls import reverse
 from django.contrib.auth.models import User
 from decimal import Decimal
-from core.models import Organization, OrganizationMembership, Client, InsuranceCompany, InsurancePolicy, Space, Vehicle, ServiceRecord
+from core.models import Organization, OrganizationMembership, Client, InsuranceCompany, InsurancePolicy, Space, Vehicle, ServiceRecord, Referral
+from core.forms import ClientForm
+from core.client_referral import apply_client_referral_from_form
+from core.client_search import build_full_client_search_q, build_client_name_search_q
 from core.dashboard_metrics import build_service_cards
 from core.finance_hub_metrics import build_daily_payment_cards, build_month_goal_forecast
 
@@ -1844,18 +1847,194 @@ class ClientSearchAjaxTests(TestCase):
         response = self.http.get(reverse("client-search-ajax"), {"q": "John Smith"})
         self.assertEqual(response.status_code, 200)
         names = [r["name"] for r in response.json()["results"]]
-        self.assertIn("John Smith", names)
+        self.assertIn("John Michael Smith", names)
 
     def test_dashboard_search_matches_last_first_format(self):
         response = self.http.get(reverse("client-search-ajax"), {"q": "Smith, John"})
         self.assertEqual(response.status_code, 200)
         names = [r["name"] for r in response.json()["results"]]
-        self.assertIn("John Smith", names)
+        self.assertIn("John Michael Smith", names)
 
     def test_dashboard_search_matches_first_middle_last(self):
         response = self.http.get(reverse("client-search-ajax"), {"q": "John Michael Smith"})
         self.assertEqual(response.status_code, 200)
         names = [r["name"] for r in response.json()["results"]]
-        self.assertIn("John Smith", names)
+        self.assertIn("John Michael Smith", names)
+
+    def test_dashboard_search_matches_driver_license(self):
+        response = self.http.get(reverse("client-search-ajax"), {"q": "DL123456"})
+        self.assertEqual(response.status_code, 200)
+        names = [r["name"] for r in response.json()["results"]]
+        self.assertIn("John Michael Smith", names)
+
+    def test_dashboard_search_matches_first_name_only(self):
+        response = self.http.get(reverse("client-search-ajax"), {"q": "John"})
+        self.assertEqual(response.status_code, 200)
+        names = [r["name"] for r in response.json()["results"]]
+        self.assertIn("John Michael Smith", names)
+
+    def test_dashboard_search_matches_last_name_only(self):
+        response = self.http.get(reverse("client-search-ajax"), {"q": "Smith"})
+        self.assertEqual(response.status_code, 200)
+        names = [r["name"] for r in response.json()["results"]]
+        self.assertIn("John Michael Smith", names)
+
+
+class ClientProfileReferralTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="profileuser", password="password123")
+        self.org = Organization.objects.create(name="Profile Org", city="NYC")
+        OrganizationMembership.objects.create(
+            user=self.user, organization=self.org, is_active=True, role="owner"
+        )
+        self.partner = Referral.objects.create(
+            organization=self.org, name="Metro Dealer", category="dealer"
+        )
+        self.client_obj = Client.objects.create(
+            organization=self.org,
+            first_name="Jane",
+            middle_name="Ann",
+            last_name="Doe",
+            driver_license="DL999",
+            source="dealer",
+            referral=self.partner,
+            gender="female",
+            phone_number="5551234567",
+        )
+        self.http = TestClient()
+        self.http.login(username="profileuser", password="password123")
+
+    def test_client_profile_shows_full_name_and_clickable_referral(self):
+        response = self.http.get(reverse("client-detail", args=[self.client_obj.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Jane Ann Doe")
+        self.assertContains(response, reverse("referral-profile", args=[self.partner.id]))
+        self.assertContains(response, "Metro Dealer")
+
+    def test_all_clients_search_by_driver_license(self):
+        response = self.http.get(reverse("all-clients"), {"q": "DL999"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Jane Ann Doe")
+
+    def test_all_clients_search_by_partial_name(self):
+        response = self.http.get(reverse("all-clients"), {"q": "Ann"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Jane Ann Doe")
+
+    def test_case_insensitive_duplicate_name_blocked(self):
+        Client.objects.create(
+            organization=self.org,
+            first_name="bob",
+            last_name="builder",
+            gender="male",
+            phone_number="5550000001",
+        )
+        form = ClientForm(
+            {
+                "organization": self.org.id,
+                "source": "walk-in",
+                "first_name": "Bob",
+                "last_name": "Builder",
+                "gender": "male",
+                "phone_number": "5550000002",
+                "state": "NY",
+            },
+            organizations=Organization.objects.filter(id=self.org.id),
+        )
+        self.assertFalse(form.is_valid())
+
+    def test_case_insensitive_duplicate_referral_name_blocked(self):
+        form = ClientForm(
+            {
+                "organization": self.org.id,
+                "source": "dealer",
+                "first_name": "New",
+                "last_name": "Person",
+                "gender": "male",
+                "phone_number": "5550000003",
+                "state": "NY",
+                "referral_select": "new",
+                "referral_name": "metro dealer",
+                "referral_category": "dealer",
+            },
+            organizations=Organization.objects.filter(id=self.org.id),
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("referral_name", form.errors)
+
+    def test_edit_client_preserves_referral_when_source_unchanged(self):
+        form = ClientForm(
+            {
+                "organization": self.org.id,
+                "source": "walk-in",
+                "first_name": "Jane",
+                "middle_name": "Ann",
+                "last_name": "Doe",
+                "gender": "female",
+                "phone_number": "5551234567",
+                "state": "NY",
+                "referral_select": "",
+            },
+            instance=self.client_obj,
+            organizations=Organization.objects.filter(id=self.org.id),
+        )
+        self.assertTrue(form.is_valid())
+        client = form.save(commit=False)
+        apply_client_referral_from_form(client, form, is_edit=True)
+        self.assertEqual(client.referral_id, self.partner.id)
+
+    def test_edit_client_updates_referral_when_selected(self):
+        other = Referral.objects.create(
+            organization=self.org, name="Other Partner", category="broker"
+        )
+        form = ClientForm(
+            {
+                "organization": self.org.id,
+                "source": "referral",
+                "first_name": "Jane",
+                "middle_name": "Ann",
+                "last_name": "Doe",
+                "gender": "female",
+                "phone_number": "5551234567",
+                "state": "NY",
+                "referral_select": str(other.id),
+            },
+            instance=self.client_obj,
+            organizations=Organization.objects.filter(id=self.org.id),
+        )
+        self.assertTrue(form.is_valid())
+        client = form.save(commit=False)
+        apply_client_referral_from_form(client, form, is_edit=True)
+        self.assertEqual(client.referral_id, other.id)
+
+    def test_full_display_name_property(self):
+        self.assertEqual(self.client_obj.full_display_name, "Jane Ann Doe")
+
+    def test_edit_client_page_shows_saved_referral(self):
+        response = self.http.get(reverse("edit-client", args=[self.client_obj.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Metro Dealer")
+        self.assertContains(response, 'data-has-referral="true"')
+        self.assertContains(response, str(self.partner.id))
+
+
+class ClientSearchQueryTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Query Org", city="NYC")
+        self.client_obj = Client.objects.create(
+            organization=self.org,
+            first_name="Alpha",
+            last_name="Beta",
+            middle_name="Gamma",
+            driver_license="XYZ789",
+        )
+
+    def test_build_full_client_search_q_matches_dl(self):
+        qs = Client.objects.filter(build_full_client_search_q("XYZ789"))
+        self.assertEqual(qs.count(), 1)
+
+    def test_build_client_name_search_q_matches_single_token(self):
+        qs = Client.objects.filter(build_client_name_search_q("Gamma"))
+        self.assertEqual(qs.count(), 1)
 
 

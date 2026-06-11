@@ -1,6 +1,23 @@
 from django.db.models import Q
 
 
+def build_full_client_search_q(query: str) -> Q:
+    """Name, driver license, phone, plate, and business identifiers."""
+    q = (query or "").strip()
+    if not q:
+        return Q()
+
+    combined = build_client_name_search_q(q)
+    combined |= Q(driver_license__icontains=q)
+    combined |= Q(phone_number__icontains=q)
+    combined |= Q(email__icontains=q)
+    combined |= Q(city__icontains=q)
+    combined |= Q(business_name__icontains=q)
+    combined |= Q(business_ein__icontains=q)
+    combined |= Q(vehicles__plate_number__icontains=q)
+    return combined
+
+
 def build_client_name_search_q(query: str) -> Q:
     """Match clients by individual name parts or combined full-name queries."""
     q = (query or "").strip()
