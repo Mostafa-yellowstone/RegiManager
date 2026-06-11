@@ -2177,4 +2177,69 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
         self.assertEqual(entry.amount, Decimal("30.00"))
         self.assertEqual(str(entry.payment_date), "2026-06-20")
 
+    def test_total_paid_not_double_counted_with_opening_and_duplicate_payment(self):
+        from core.models import ServiceRecordPayment
+        from core.service_payments import (
+            compute_ledger_rows,
+            record_opening_ledger_entry,
+            total_paid_for_receipt,
+        )
+
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_type="transmittal",
+            processing_fee=Decimal("430.75"),
+            paid_amount=Decimal("430.75"),
+            payment_method="cash",
+        )
+        record_opening_ledger_entry(record, recorded_by=self.user)
+        ServiceRecordPayment.objects.create(
+            service_record=record,
+            entry_type=ServiceRecordPayment.ENTRY_PAYMENT,
+            amount=Decimal("430.75"),
+            payment_date=record.transaction_date,
+            notes="Initial payment",
+        )
+        self.assertEqual(total_paid_for_receipt(record), Decimal("430.75"))
+        rows = compute_ledger_rows(record)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].line_total, Decimal("430.75"))
+        self.assertEqual(rows[0].line_paid, Decimal("430.75"))
+        self.assertEqual(rows[0].balance_after, Decimal("0.00"))
+
+    def test_running_outstanding_decreases_with_each_payment(self):
+        from core.service_payments import (
+            compute_ledger_rows,
+            log_balance_payment,
+            record_opening_ledger_entry,
+        )
+
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_type="transmittal",
+            processing_fee=Decimal("100.00"),
+            paid_amount=Decimal("25.00"),
+            transaction_date=date(2026, 6, 2),
+        )
+        record_opening_ledger_entry(record, recorded_by=self.user)
+        record.paid_amount = Decimal("75.00")
+        record.save()
+        log_balance_payment(
+            record,
+            Decimal("50.00"),
+            "zelle",
+            payment_date="2026-06-15",
+            recorded_by=self.user,
+        )
+        rows = compute_ledger_rows(record)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0].balance_after, Decimal("75.00"))
+        self.assertEqual(rows[1].balance_after, Decimal("25.00"))
+
 

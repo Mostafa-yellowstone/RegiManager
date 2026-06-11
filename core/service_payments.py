@@ -1,5 +1,6 @@
 """Payment ledger helpers for service receipts (transmittal / outstanding balances)."""
 
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
@@ -8,6 +9,18 @@ from django.utils import timezone
 from .models import ServiceRecord, ServiceRecordPayment
 
 PAYMENT_METHOD_KEYS = frozenset(dict(ServiceRecord.PAYMENT_METHODS).keys())
+
+
+@dataclass
+class LedgerDisplayRow:
+    entry: object
+    is_opening: bool
+    payment_date: date
+    description: str
+    line_total: Decimal | None
+    line_paid: Decimal
+    balance_after: Decimal
+    payment_method_label: str
 
 
 def normalize_payment_method(value):
@@ -37,15 +50,143 @@ def _transaction_label(record):
     return "Transaction"
 
 
+def _total_due(record):
+    return record.service_fee or Decimal("0")
+
+
+def dedupe_ledger_entries(record):
+    """
+    Remove duplicate payment rows that repeat the opening down payment
+    (common after backfill migration + opening row).
+    """
+    opening = record.payment_entries.filter(
+        entry_type=ServiceRecordPayment.ENTRY_OPENING
+    ).first()
+    if not opening:
+        return
+
+    qs = record.payment_entries.filter(entry_type=ServiceRecordPayment.ENTRY_PAYMENT)
+    qs.filter(notes="Initial payment").delete()
+
+    opening_paid = opening.line_paid or Decimal("0")
+    if opening_paid > Decimal("0"):
+        qs.filter(
+            amount=opening_paid,
+            payment_date=opening.payment_date,
+        ).delete()
+
+
+def reconcile_ledger_balances(record):
+    """Recalculate balance_after on every ledger line from running payments."""
+    dedupe_ledger_entries(record)
+    entries = list(
+        record.payment_entries.order_by("payment_date", "created_at", "id")
+    )
+    total_due = _total_due(record)
+    cumulative_paid = Decimal("0")
+
+    for entry in entries:
+        if entry.entry_type == ServiceRecordPayment.ENTRY_OPENING:
+            cumulative_paid = entry.line_paid or Decimal("0")
+            if cumulative_paid > total_due:
+                cumulative_paid = total_due
+            balance = total_due - cumulative_paid
+            if balance < Decimal("0"):
+                balance = Decimal("0")
+            updates = {}
+            if entry.line_total != total_due:
+                updates["line_total"] = total_due
+            if entry.balance_after != balance:
+                updates["balance_after"] = balance
+            if updates:
+                ServiceRecordPayment.objects.filter(pk=entry.pk).update(**updates)
+        else:
+            amt = entry.amount or Decimal("0")
+            cumulative_paid += amt
+            if cumulative_paid > total_due:
+                cumulative_paid = total_due
+            balance = total_due - cumulative_paid
+            if balance < Decimal("0"):
+                balance = Decimal("0")
+            if entry.balance_after != balance:
+                ServiceRecordPayment.objects.filter(pk=entry.pk).update(
+                    balance_after=balance
+                )
+
+
+def compute_ledger_rows(record) -> list[LedgerDisplayRow]:
+    """Build display rows with correct running outstanding balance."""
+    reconcile_ledger_balances(record)
+    entries = list(
+        record.payment_entries.order_by("payment_date", "created_at", "id")
+    )
+    if not entries:
+        return []
+
+    total_due = _total_due(record)
+    cumulative_paid = Decimal("0")
+    rows: list[LedgerDisplayRow] = []
+
+    for entry in entries:
+        method_label = entry.get_payment_method_display()
+        if entry.entry_type == ServiceRecordPayment.ENTRY_OPENING:
+            opening_paid = entry.line_paid or Decimal("0")
+            cumulative_paid = min(opening_paid, total_due)
+            balance = total_due - cumulative_paid
+            txn = _transaction_label(record)
+            rows.append(
+                LedgerDisplayRow(
+                    entry=entry,
+                    is_opening=True,
+                    payment_date=entry.payment_date,
+                    description=f"{txn} transaction",
+                    line_total=entry.line_total or total_due,
+                    line_paid=opening_paid,
+                    balance_after=balance,
+                    payment_method_label=method_label,
+                )
+            )
+        else:
+            amt = entry.amount or Decimal("0")
+            cumulative_paid = min(cumulative_paid + amt, total_due)
+            balance = total_due - cumulative_paid
+            desc = (entry.notes or "Payment").strip()
+            if method_label.lower() not in desc.lower():
+                desc = f"{method_label} — {desc}"
+            rows.append(
+                LedgerDisplayRow(
+                    entry=entry,
+                    is_opening=False,
+                    payment_date=entry.payment_date,
+                    description=desc,
+                    line_total=None,
+                    line_paid=amt,
+                    balance_after=balance,
+                    payment_method_label=method_label,
+                )
+            )
+    return rows
+
+
+def total_paid_for_receipt(record) -> Decimal:
+    """Canonical total paid — matches service record, never double-counts ledger rows."""
+    paid = record.paid_amount or Decimal("0")
+    total_due = _total_due(record)
+    if paid > total_due:
+        return total_due
+    if paid < Decimal("0"):
+        return Decimal("0")
+    return paid
+
+
 def record_opening_ledger_entry(record, *, recorded_by=None):
     """
-    First row in payment history: original transaction date, total due,
-    amount paid at creation, and outstanding balance.
+    First row: transaction date, total due, paid at creation, outstanding balance.
     """
     if record.payment_entries.filter(entry_type=ServiceRecordPayment.ENTRY_OPENING).exists():
         return
 
-    total = record.service_fee or Decimal("0")
+    total = _total_due(record)
     paid = record.paid_amount or Decimal("0")
     balance = total - paid
     if balance < Decimal("0"):
@@ -59,7 +200,6 @@ def record_opening_ledger_entry(record, *, recorded_by=None):
     if not needs_opening:
         return
 
-    txn_label = _transaction_label(record)
     ServiceRecordPayment.objects.create(
         service_record=record,
         entry_type=ServiceRecordPayment.ENTRY_OPENING,
@@ -70,13 +210,13 @@ def record_opening_ledger_entry(record, *, recorded_by=None):
         payment_method=normalize_payment_method(record.payment_method),
         payment_date=record.transaction_date or timezone.localdate(),
         cc_fee=Decimal("0"),
-        notes=f"{txn_label} — outstanding balance",
+        notes=f"{_transaction_label(record)} transaction",
         recorded_by=recorded_by,
     )
 
 
 def record_initial_service_payments(record, *, recorded_by=None):
-    """Log amount paid when the service is first created (idempotent)."""
+    """Log initial payment only when no opening row captures it."""
     if record.payment_entries.filter(entry_type=ServiceRecordPayment.ENTRY_PAYMENT).exists():
         return
     if record.payment_entries.filter(entry_type=ServiceRecordPayment.ENTRY_OPENING).exists():
@@ -87,7 +227,8 @@ def record_initial_service_payments(record, *, recorded_by=None):
 
     payment_date = record.transaction_date or timezone.localdate()
     cc_total = record.credit_card_fee or Decimal("0")
-    balance = record.service_fee - paid
+    total = _total_due(record)
+    balance = total - paid
     if balance < Decimal("0"):
         balance = Decimal("0")
 
@@ -121,6 +262,7 @@ def record_initial_service_payments(record, *, recorded_by=None):
             notes="Initial payment",
             recorded_by=recorded_by,
         )
+        reconcile_ledger_balances(record)
         return
 
     ServiceRecordPayment.objects.create(
@@ -135,6 +277,7 @@ def record_initial_service_payments(record, *, recorded_by=None):
         notes="Initial payment",
         recorded_by=recorded_by,
     )
+    reconcile_ledger_balances(record)
 
 
 def log_balance_payment(
@@ -146,78 +289,39 @@ def log_balance_payment(
     recorded_by=None,
     notes="Balance payment",
 ):
-    """Append a follow-up payment row (caller updates paid_amount on the record)."""
+    """Append a follow-up payment row (caller updates paid_amount on the record first)."""
     if amount <= Decimal("0"):
         return None
     when = parse_payment_date(payment_date)
-    balance = record.referral_balance or Decimal("0")
-    if balance < Decimal("0"):
-        balance = Decimal("0")
-    return ServiceRecordPayment.objects.create(
+    entry = ServiceRecordPayment.objects.create(
         service_record=record,
         entry_type=ServiceRecordPayment.ENTRY_PAYMENT,
         amount=amount,
         line_paid=amount,
-        balance_after=balance,
+        balance_after=Decimal("0"),
         payment_method=normalize_payment_method(payment_method),
         payment_date=when,
         cc_fee=Decimal("0"),
         notes=notes,
         recorded_by=recorded_by,
     )
+    reconcile_ledger_balances(record)
+    return entry
 
 
 def get_receipt_payment_entries(service_record):
-    """Ordered ledger lines for receipt rendering."""
-    entries = list(
+    """Legacy helper — returns raw ORM entries."""
+    return list(
         service_record.payment_entries.order_by("payment_date", "created_at", "id")
     )
-    if entries:
-        return entries
-
-    paid = service_record.paid_amount or Decimal("0")
-    total = service_record.service_fee or Decimal("0")
-    balance = total - paid
-    if balance < Decimal("0"):
-        balance = Decimal("0")
-
-    if paid <= Decimal("0") and balance <= Decimal("0"):
-        return []
-
-    dt = service_record.transaction_date or service_record.created_at.date()
-
-    class _LegacyEntry:
-        def __init__(self):
-            self.entry_type = ServiceRecordPayment.ENTRY_PAYMENT
-            self.amount = paid
-            self.line_total = None
-            self.line_paid = paid
-            self.balance_after = balance
-            self.cc_fee = service_record.credit_card_fee or Decimal("0")
-            self.payment_method = service_record.payment_method
-            self.notes = "Payment"
-            self.payment_date = dt
-
-        def get_payment_method_display(self):
-            return payment_method_label(self.payment_method)
-
-        @property
-        def is_opening(self):
-            return False
-
-        @property
-        def display_paid(self):
-            return self.amount
-
-    return [_LegacyEntry()]
 
 
+# Backward-compatible alias
 def total_paid_from_entries(entries):
-    """Sum all money paid (opening down payment + follow-up payment rows)."""
+    """Deprecated: use total_paid_for_receipt(record) instead."""
     total = Decimal("0")
     for entry in entries:
-        if getattr(entry, "is_opening", False) or getattr(entry, "entry_type", "") == ServiceRecordPayment.ENTRY_OPENING:
-            total += entry.line_paid or Decimal("0")
-        else:
-            total += entry.display_paid if hasattr(entry, "display_paid") else (entry.amount or Decimal("0"))
+        if getattr(entry, "entry_type", "") == ServiceRecordPayment.ENTRY_OPENING:
+            continue
+        total += entry.amount or Decimal("0")
     return total

@@ -1270,9 +1270,10 @@ def start_process(request, vehicle_id):
             
             record.save()
 
-            from .service_payments import record_initial_service_payments, record_opening_ledger_entry
+            from .service_payments import record_initial_service_payments, record_opening_ledger_entry, reconcile_ledger_balances
             record_opening_ledger_entry(record, recorded_by=request.user)
             record_initial_service_payments(record, recorded_by=request.user)
+            reconcile_ledger_balances(record)
             
             # If referral and there is a balance, create a ReferralPayment ledger record
             if record.referral and record.referral_balance > 0:
@@ -1971,13 +1972,13 @@ def daily_report_pdf(request):
 
 def _draw_receipt_payment_history(pdf, service_record, margin_x):
     """Draw sequential payment rows on the receipt (opening + follow-up payments)."""
-    from .service_payments import get_receipt_payment_entries, total_paid_from_entries
+    from .service_payments import compute_ledger_rows, total_paid_for_receipt
 
-    entries = get_receipt_payment_entries(service_record)
+    rows = compute_ledger_rows(service_record)
     row_h = 14
     header_h = 28
     table_w = 530
-    n_rows = max(len(entries), 1)
+    n_rows = max(len(rows), 1)
     table_h = header_h + (n_rows * row_h)
 
     totals_h = 20
@@ -1990,77 +1991,62 @@ def _draw_receipt_payment_history(pdf, service_record, margin_x):
     pdf.setStrokeColorRGB(0, 0, 0)
 
     pdf.rect(margin_x, py - table_h, table_w, table_h)
-    col1 = margin_x + 88
-    col2 = margin_x + 248
-    col3 = margin_x + 318
-    col4 = margin_x + 388
-    col5 = margin_x + 458
+    col1 = margin_x + 78
+    col2 = margin_x + 228
+    col3 = margin_x + 308
+    col4 = margin_x + 378
     header_y = py - header_h
-    for x in (col1, col2, col3, col4, col5):
+    for x in (col1, col2, col3, col4):
         pdf.line(x, py - table_h, x, py)
     pdf.line(margin_x, header_y, margin_x + table_w, header_y)
 
     pdf.setFont("Helvetica-Bold", 8)
     pdf.drawString(margin_x + 4, py - 12, "PAYMENT HISTORY")
-    pdf.setFont("Helvetica", 7)
+    pdf.setFont("Helvetica", 6.5)
     pdf.drawString(margin_x + 4, header_y + 6, "Date")
     pdf.drawString(col1 + 4, header_y + 6, "Description")
     pdf.drawString(col2 + 4, header_y + 6, "Total")
     pdf.drawString(col3 + 4, header_y + 6, "Paid")
-    pdf.drawString(col4 + 4, header_y + 6, "Balance")
+    pdf.drawString(col4 + 4, header_y + 6, "Outstanding Balance")
 
     pdf.setFont("Helvetica", 7)
-    if entries:
-        for idx, entry in enumerate(entries):
+    if rows:
+        for idx, row in enumerate(rows):
             row_y = header_y - (idx + 1) * row_h
             pdf.line(margin_x, row_y, margin_x + table_w, row_y)
-            when_label = entry.payment_date.strftime("%b %d, %Y")
-            method_label = entry.get_payment_method_display()
-            is_opening = getattr(entry, "is_opening", False) or getattr(entry, "entry_type", "") == "opening"
-
-            if is_opening:
-                desc = entry.notes or f"{method_label} — outstanding balance"
-                line_total = entry.line_total or service_record.service_fee or Decimal("0")
-                line_paid = entry.line_paid or Decimal("0")
-                balance = entry.balance_after
-                if balance is None:
-                    balance = line_total - line_paid
-                pdf.drawString(margin_x + 4, row_y + 4, when_label[:14])
-                pdf.drawString(col1 + 4, row_y + 4, desc[:28])
-                pdf.drawRightString(col2 + 66, row_y + 4, _currency(line_total))
-                pdf.drawRightString(col3 + 66, row_y + 4, _currency(line_paid))
-                pdf.drawRightString(col4 + 66, row_y + 4, _currency(balance))
+            when_label = row.payment_date.strftime("%b %d, %Y")
+            pdf.drawString(margin_x + 4, row_y + 4, when_label[:14])
+            pdf.drawString(col1 + 4, row_y + 4, row.description[:30])
+            if row.is_opening:
+                pdf.drawRightString(col2 + 76, row_y + 4, _currency(row.line_total or Decimal("0")))
             else:
-                desc = (entry.notes or f"{method_label} payment").strip()
-                if method_label.lower() not in desc.lower():
-                    desc = f"{method_label} — {desc}"
-                paid = entry.display_paid if hasattr(entry, "display_paid") else (entry.amount or Decimal("0"))
-                balance = entry.balance_after
-                if balance is None:
-                    balance = service_record.referral_balance or Decimal("0")
-                pdf.drawString(margin_x + 4, row_y + 4, when_label[:14])
-                pdf.drawString(col1 + 4, row_y + 4, desc[:28])
-                pdf.drawRightString(col2 + 66, row_y + 4, "—")
-                pdf.drawRightString(col3 + 66, row_y + 4, _currency(paid))
-                pdf.drawRightString(col4 + 66, row_y + 4, _currency(balance))
+                pdf.drawRightString(col2 + 76, row_y + 4, "—")
+            pdf.drawRightString(col3 + 66, row_y + 4, _currency(row.line_paid))
+            pdf.drawRightString(margin_x + table_w - 4, row_y + 4, _currency(row.balance_after))
     else:
         row_y = header_y - row_h
         pdf.line(margin_x, row_y, margin_x + table_w, row_y)
         pdf.drawString(margin_x + 4, row_y + 4, "—")
         pdf.drawString(col1 + 4, row_y + 4, "No payment recorded yet")
-        pdf.drawRightString(col2 + 66, row_y + 4, _currency(Decimal("0")))
+        pdf.drawRightString(col2 + 76, row_y + 4, _currency(Decimal("0")))
         pdf.drawRightString(col3 + 66, row_y + 4, _currency(Decimal("0")))
-        pdf.drawRightString(col4 + 66, row_y + 4, _currency(Decimal("0")))
+        pdf.drawRightString(margin_x + table_w - 4, row_y + 4, _currency(Decimal("0")))
 
+    entries = list(service_record.payment_entries.all())
+    from .models import ServiceRecordPayment
     total_cc = Decimal("0")
-    if entries:
-        for e in entries:
-            if not getattr(e, "is_opening", False) and getattr(e, "entry_type", "payment") != "opening":
-                total_cc += e.cc_fee or Decimal("0")
-    else:
+    for e in entries:
+        if e.entry_type != ServiceRecordPayment.ENTRY_OPENING:
+            total_cc += e.cc_fee or Decimal("0")
+    if not entries:
         total_cc = service_record.credit_card_fee or Decimal("0")
 
-    ledger_paid = total_paid_from_entries(entries) if entries else (service_record.paid_amount or Decimal("0"))
+    ledger_paid = total_paid_for_receipt(service_record)
+    final_outstanding = rows[-1].balance_after if rows else (
+        service_record.referral_balance or Decimal("0")
+    )
+    if final_outstanding < Decimal("0"):
+        final_outstanding = Decimal("0")
 
     py_totals = 48
     pdf.setFont("Helvetica-Bold", 8)
@@ -2074,8 +2060,7 @@ def _draw_receipt_payment_history(pdf, service_record, margin_x):
 
     pdf.drawString(margin_x + 260, py_totals + 4, "Outstanding Balance")
     pdf.rect(margin_x + 355, py_totals, 60, 16)
-    outstanding = service_record.referral_balance if service_record.referral_balance and service_record.referral_balance > 0 else Decimal("0")
-    pdf.drawRightString(margin_x + 411, py_totals + 4, _currency(outstanding))
+    pdf.drawRightString(margin_x + 411, py_totals + 4, _currency(final_outstanding))
 
 
 @login_required
