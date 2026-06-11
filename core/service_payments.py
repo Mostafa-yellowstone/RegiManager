@@ -54,6 +54,93 @@ def _total_due(record):
     return record.service_fee or Decimal("0")
 
 
+def _needs_opening_row(record):
+    total = _total_due(record)
+    paid = record.paid_amount or Decimal("0")
+    balance = total - paid
+    if balance < Decimal("0"):
+        balance = Decimal("0")
+    return (
+        record.transaction_type == "transmittal"
+        or balance > Decimal("0")
+        or paid < total
+    )
+
+
+def _initial_paid_at_creation(record):
+    """Down payment captured on the transaction date — not follow-up balance payments."""
+    initial = (
+        record.payment_entries.filter(
+            entry_type=ServiceRecordPayment.ENTRY_PAYMENT,
+            notes="Initial payment",
+        )
+        .order_by("payment_date", "created_at", "id")
+        .first()
+    )
+    if initial:
+        return initial.amount or Decimal("0")
+
+    follow_up_total = Decimal("0")
+    for entry in record.payment_entries.filter(
+        entry_type=ServiceRecordPayment.ENTRY_PAYMENT
+    ).exclude(notes="Initial payment"):
+        follow_up_total += entry.amount or Decimal("0")
+
+    paid = record.paid_amount or Decimal("0")
+    initial_paid = paid - follow_up_total
+    if initial_paid < Decimal("0"):
+        initial_paid = Decimal("0")
+    return initial_paid
+
+
+def ensure_opening_ledger_entry(record, *, recorded_by=None):
+    """
+    Create or refresh the opening row (transaction date, total due, down payment,
+    outstanding after down payment). Idempotent — safe to call before every receipt render.
+    """
+    if not _needs_opening_row(record):
+        return None
+
+    total = _total_due(record)
+    initial_paid = _initial_paid_at_creation(record)
+    balance = total - initial_paid
+    if balance < Decimal("0"):
+        balance = Decimal("0")
+    payment_date = record.transaction_date or timezone.localdate()
+
+    opening = record.payment_entries.filter(
+        entry_type=ServiceRecordPayment.ENTRY_OPENING
+    ).first()
+    if opening:
+        updates = {}
+        if opening.line_total != total:
+            updates["line_total"] = total
+        if opening.payment_date != payment_date:
+            updates["payment_date"] = payment_date
+        has_follow_up = record.payment_entries.filter(
+            entry_type=ServiceRecordPayment.ENTRY_PAYMENT
+        ).exclude(notes="Initial payment").exists()
+        if not has_follow_up and opening.line_paid != initial_paid:
+            updates["line_paid"] = initial_paid
+        if updates:
+            ServiceRecordPayment.objects.filter(pk=opening.pk).update(**updates)
+        return opening
+
+    return ServiceRecordPayment.objects.create(
+        service_record=record,
+        entry_type=ServiceRecordPayment.ENTRY_OPENING,
+        amount=Decimal("0"),
+        line_total=total,
+        line_paid=initial_paid,
+        balance_after=balance,
+        payment_method=normalize_payment_method(record.payment_method),
+        payment_date=payment_date,
+        cc_fee=Decimal("0"),
+        notes=f"{_transaction_label(record)} transaction",
+        recorded_by=recorded_by,
+    )
+
+
 def dedupe_ledger_entries(record):
     """
     Remove duplicate payment rows that repeat the opening down payment
@@ -116,6 +203,7 @@ def reconcile_ledger_balances(record):
 
 def compute_ledger_rows(record) -> list[LedgerDisplayRow]:
     """Build display rows with correct running outstanding balance."""
+    ensure_opening_ledger_entry(record)
     reconcile_ledger_balances(record)
     entries = list(
         record.payment_entries.order_by("payment_date", "created_at", "id")
@@ -180,39 +268,8 @@ def total_paid_for_receipt(record) -> Decimal:
 
 
 def record_opening_ledger_entry(record, *, recorded_by=None):
-    """
-    First row: transaction date, total due, paid at creation, outstanding balance.
-    """
-    if record.payment_entries.filter(entry_type=ServiceRecordPayment.ENTRY_OPENING).exists():
-        return
-
-    total = _total_due(record)
-    paid = record.paid_amount or Decimal("0")
-    balance = total - paid
-    if balance < Decimal("0"):
-        balance = Decimal("0")
-
-    needs_opening = (
-        record.transaction_type == "transmittal"
-        or balance > Decimal("0")
-        or paid < total
-    )
-    if not needs_opening:
-        return
-
-    ServiceRecordPayment.objects.create(
-        service_record=record,
-        entry_type=ServiceRecordPayment.ENTRY_OPENING,
-        amount=Decimal("0"),
-        line_total=total,
-        line_paid=paid,
-        balance_after=balance,
-        payment_method=normalize_payment_method(record.payment_method),
-        payment_date=record.transaction_date or timezone.localdate(),
-        cc_fee=Decimal("0"),
-        notes=f"{_transaction_label(record)} transaction",
-        recorded_by=recorded_by,
-    )
+    """Create the opening row when a service is first saved (idempotent)."""
+    return ensure_opening_ledger_entry(record, recorded_by=recorded_by)
 
 
 def record_initial_service_payments(record, *, recorded_by=None):

@@ -5010,6 +5010,9 @@ def edit_service(request, service_id):
 
             record.save()
             from .models import ServiceDocument
+            from .service_payments import ensure_opening_ledger_entry, reconcile_ledger_balances
+            ensure_opening_ledger_entry(record)
+            reconcile_ledger_balances(record)
             for doc in ServiceDocument.objects.filter(service_record=record, document_type="mv82"):
                 try:
                     regenerate_mv82_document(doc)

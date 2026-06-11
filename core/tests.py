@@ -2242,4 +2242,38 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
         self.assertEqual(rows[0].balance_after, Decimal("75.00"))
         self.assertEqual(rows[1].balance_after, Decimal("25.00"))
 
+    def test_legacy_initial_payment_row_becomes_opening_with_outstanding(self):
+        """Records that only have a backfilled Initial payment row get a proper opening row."""
+        from core.models import ServiceRecordPayment
+        from core.service_payments import compute_ledger_rows
+
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_type="transmittal",
+            processing_fee=Decimal("861.50"),
+            paid_amount=Decimal("420.50"),
+            payment_method="cash",
+            transaction_date=date(2026, 6, 2),
+        )
+        ServiceRecordPayment.objects.create(
+            service_record=record,
+            entry_type=ServiceRecordPayment.ENTRY_PAYMENT,
+            amount=Decimal("420.50"),
+            payment_method="cash",
+            payment_date=date(2026, 6, 2),
+            notes="Initial payment",
+        )
+        rows = compute_ledger_rows(record)
+        self.assertEqual(len(rows), 1)
+        self.assertIn("Transmittal", rows[0].description)
+        self.assertEqual(rows[0].line_total, Decimal("861.50"))
+        self.assertEqual(rows[0].line_paid, Decimal("420.50"))
+        self.assertEqual(rows[0].balance_after, Decimal("441.00"))
+        self.assertFalse(
+            record.payment_entries.filter(notes="Initial payment").exists()
+        )
+
 
