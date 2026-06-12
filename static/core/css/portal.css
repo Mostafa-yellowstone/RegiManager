@@ -904,6 +904,117 @@ body.portal-body .dashboard-hero .brand-pill {
     border: 2px solid white;
 }
 
+.nav-link-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.nav-news-badge {
+    position: absolute;
+    top: -4px;
+    right: -10px;
+    min-width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--portal-danger);
+    color: #fff;
+    border-radius: var(--portal-radius-pill);
+    font-size: 0.62rem;
+    font-weight: 900;
+    padding: 0 5px;
+    border: 2px solid var(--portal-surface);
+    pointer-events: none;
+    line-height: 1;
+}
+
+.site-news-alert-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem 1.25rem 0;
+}
+
+.site-news-alert-kicker {
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--portal-primary);
+}
+
+.site-news-alert-close {
+    border: none;
+    background: transparent;
+    color: var(--portal-text-muted);
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0.15rem 0.35rem;
+}
+
+.site-news-alert-title {
+    margin: 0.5rem 1.25rem 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--portal-text);
+}
+
+.site-news-alert-body {
+    margin: 0.85rem 1.25rem 0;
+    color: var(--portal-text-soft);
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+.site-news-alert-meta {
+    margin: 0.85rem 1.25rem 0;
+    font-size: 0.82rem;
+    color: var(--portal-text-muted);
+}
+
+.site-news-alert-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1.25rem;
+    border-top: 1px solid var(--portal-border);
+    margin-top: 1rem;
+}
+
+.site-news-alert-link {
+    margin-right: auto;
+    font-weight: 700;
+    color: var(--portal-primary);
+    text-decoration: none;
+}
+
+.site-news-alert-link:hover {
+    text-decoration: underline;
+}
+
+.site-news-alert-btn {
+    border: none;
+    background: var(--portal-primary);
+    color: #fff;
+    font-weight: 700;
+    border-radius: var(--portal-radius-md);
+    padding: 0.55rem 1rem;
+    cursor: pointer;
+}
+
+.site-news-alert-btn:hover {
+    filter: brightness(0.95);
+}
+
+.site-news-alert-panel {
+    max-width: 520px;
+}
+
 .notif-dropdown {
     top: 52px;
     width: 360px;

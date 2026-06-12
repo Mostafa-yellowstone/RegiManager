@@ -945,6 +945,21 @@ class Notification(models.Model):
 
 
 class SiteNews(models.Model):
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="site_news",
+        null=True,
+        blank=True,
+        help_text="PSB this announcement belongs to. Leave blank for legacy global posts.",
+    )
+    published_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="published_site_news",
+    )
     title = models.CharField(max_length=200)
     content = models.TextField()
     is_active = models.BooleanField(default=True)
@@ -955,6 +970,24 @@ class SiteNews(models.Model):
         verbose_name = "Site News"
         verbose_name_plural = "Site News"
         ordering = ["-created_at"]
+
+
+class SiteNewsRead(models.Model):
+    """Tracks which announcements a user has opened."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="site_news_reads")
+    news = models.ForeignKey(SiteNews, on_delete=models.CASCADE, related_name="reads")
+    read_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "news")
+        indexes = [
+            models.Index(fields=["user", "news"]),
+        ]
+
+    def __str__(self):
+        return f"SiteNewsRead(user={self.user_id}, news={self.news_id})"
+
 
 class ClientIntake(models.Model):
     class Status(models.TextChoices):

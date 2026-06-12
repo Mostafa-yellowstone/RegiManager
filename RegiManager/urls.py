@@ -81,6 +81,7 @@ from core.views import (
     get_client_details,
     branch_analytics,
     get_latest_news,
+    mark_site_news_read,
     public_intake_portal,
     public_intake_success,
     approve_intake,
@@ -253,6 +254,7 @@ urlpatterns = [
     path("dashboard/get-client-details/<int:client_id>/", get_client_details, name="get-client-details"),
     path("dashboard/branch-analytics/<int:org_id>/", branch_analytics, name="branch-analytics"),
     path("api/get-latest-news/", get_latest_news, name="get-latest-news"),
+    path("api/mark-site-news-read/", mark_site_news_read, name="mark-site-news-read"),
     path("api/session-heartbeat/", session_heartbeat, name="session-heartbeat"),
     
     # Public Intake Routes

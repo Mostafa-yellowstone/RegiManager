@@ -147,9 +147,9 @@ class CustomServiceTypeAdmin(admin.ModelAdmin):
 
 @admin.register(SiteNews)
 class SiteNewsAdmin(admin.ModelAdmin):
-    list_display = ("title", "is_active", "created_at")
-    list_filter = ("is_active",)
-    search_fields = ("title", "content")
+    list_display = ("title", "organization", "is_active", "published_by", "created_at")
+    list_filter = ("is_active", "organization")
+    search_fields = ("title", "content", "organization__name")
 
 @admin.register(KnowledgeHubMaterial)
 class KnowledgeHubMaterialAdmin(admin.ModelAdmin):

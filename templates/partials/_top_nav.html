@@ -22,7 +22,12 @@
             {% if can_view_spaces %}
             <a href="{% url 'spaces-home' %}" class="nav-link {% if 'spaces' in request.path or 'inventory' in request.path or 'insurance' in request.path %}active{% endif %}" role="menuitem">Spaces</a>
             {% endif %}
-            <a href="{% url 'site-news-list' %}" class="nav-link {% if 'site-news' in request.path %}active{% endif %}" role="menuitem">News</a>
+            <span class="nav-link-wrap">
+                <a href="{% url 'site-news-list' %}" class="nav-link {% if 'site-news' in request.path %}active{% endif %}" role="menuitem">News</a>
+                {% if site_news_unread_count and site_news_unread_count > 0 %}
+                <span class="nav-news-badge" aria-label="{{ site_news_unread_count }} unread announcements">{{ site_news_unread_count }}</span>
+                {% endif %}
+            </span>
         </div>
     </div>
 
@@ -41,7 +46,12 @@
         {% if can_view_spaces %}
         <a href="{% url 'spaces-home' %}" class="nav-link {% if 'spaces' in request.path or 'inventory' in request.path or 'insurance' in request.path %}active{% endif %}">Spaces</a>
         {% endif %}
-        <a href="{% url 'site-news-list' %}" class="nav-link {% if 'site-news' in request.path %}active{% endif %}">News</a>
+        <span class="nav-link-wrap">
+            <a href="{% url 'site-news-list' %}" class="nav-link {% if 'site-news' in request.path %}active{% endif %}">News</a>
+            {% if site_news_unread_count and site_news_unread_count > 0 %}
+            <span class="nav-news-badge" aria-label="{{ site_news_unread_count }} unread announcements">{{ site_news_unread_count }}</span>
+            {% endif %}
+        </span>
     </div>
 
     <div class="nav-right">

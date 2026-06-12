@@ -1,0 +1,26 @@
+{% if site_news_latest_unread and 'site-news' not in request.path %}
+<div id="siteNewsAlertModal" class="portal-modal site-news-alert-modal" role="dialog" aria-modal="true" aria-labelledby="siteNewsAlertTitle"
+     data-news-id="{{ site_news_latest_unread.id }}"
+     data-unread-count="{{ site_news_unread_count|default:0 }}"
+     data-mark-url="{% url 'mark-site-news-read' %}">
+    <div class="portal-modal-backdrop" data-site-news-dismiss></div>
+    <div class="portal-modal-panel site-news-alert-panel">
+        <div class="site-news-alert-header">
+            <span class="site-news-alert-kicker">New announcement</span>
+            <button type="button" class="site-news-alert-close" data-site-news-dismiss aria-label="Dismiss">&times;</button>
+        </div>
+        <h2 id="siteNewsAlertTitle" class="site-news-alert-title">{{ site_news_latest_unread.title }}</h2>
+        <div class="site-news-alert-body">{{ site_news_latest_unread.content|linebreaksbr }}</div>
+        <p class="site-news-alert-meta">
+            Posted {{ site_news_latest_unread.created_at|date:"M j, Y g:i A" }}
+            {% if site_news_unread_count > 1 %}
+            &middot; {{ site_news_unread_count }} unread
+            {% endif %}
+        </p>
+        <div class="site-news-alert-actions">
+            <a href="{% url 'site-news-list' %}" class="site-news-alert-link">View all news</a>
+            <button type="button" class="site-news-alert-btn" data-site-news-got-it>Got it</button>
+        </div>
+    </div>
+</div>
+{% endif %}

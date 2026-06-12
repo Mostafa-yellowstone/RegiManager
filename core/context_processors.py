@@ -1,7 +1,7 @@
 from django.db.utils import OperationalError, ProgrammingError
 from django.db.models import Q
 
-from .models import OrganizationMembership, SiteNews
+from .models import OrganizationMembership
 
 def automation_status(request):
     if not request.user.is_authenticated:
@@ -14,6 +14,8 @@ def automation_status(request):
             "top_notifications": [],
             "user_organizations": [],
             "active_organization": None,
+            "site_news_unread_count": 0,
+            "site_news_latest_unread": None,
         }
     
     memberships = OrganizationMembership.objects.filter(
@@ -71,10 +73,24 @@ def automation_status(request):
         notif_unread_count = 0
         top_notifications = []
 
-    # Site News
+    # Site News alerts (scoped to active PSB / all user PSBs)
     try:
-        site_news = SiteNews.objects.filter(is_active=True).first()
+        from .site_news import (
+            news_scope_for_organizations,
+            organizations_for_request,
+            unread_news_count,
+            unread_news_for_user,
+        )
+
+        news_orgs = organizations_for_request(request)
+        site_news_unread_count = unread_news_count(request.user, news_orgs)
+        site_news_latest_unread = unread_news_for_user(request.user, news_orgs).first()
+        site_news = site_news_latest_unread or news_scope_for_organizations(news_orgs).filter(
+            is_active=True
+        ).first()
     except (OperationalError, ProgrammingError):
+        site_news_unread_count = 0
+        site_news_latest_unread = None
         site_news = None
 
     return {
@@ -88,4 +104,6 @@ def automation_status(request):
         "user_organizations": user_organizations,
         "active_organization": active_organization,
         "site_news": site_news,
+        "site_news_unread_count": site_news_unread_count,
+        "site_news_latest_unread": site_news_latest_unread,
     }

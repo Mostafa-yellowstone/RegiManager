@@ -1334,7 +1334,13 @@ def start_process(request, vehicle_id):
 
 def get_latest_news(request):
     from .models import SiteNews
-    news = SiteNews.objects.filter(is_active=True).order_by('-created_at').first()
+    from .site_news import organizations_for_request, unread_news_for_user
+
+    if request.user.is_authenticated:
+        organizations = organizations_for_request(request)
+        news = unread_news_for_user(request.user, organizations).first()
+    else:
+        news = SiteNews.objects.filter(is_active=True).order_by("-created_at").first()
     if news:
         return JsonResponse({
             "id": news.id,
@@ -5700,7 +5706,17 @@ def mark_balance_paid(request, record_id):
 def site_news_list(request):
     from .models import SiteNews, OrganizationMembership
     from django.db.models import Q
-    
+    from .site_news import (
+        clear_reads_for_news,
+        mark_all_news_read,
+        news_organization_for_post,
+        news_scope_for_organizations,
+        organizations_for_request,
+        user_can_access_news,
+    )
+
+    organizations = organizations_for_request(request)
+
     can_manage = request.user.is_superuser or request.user.is_staff or OrganizationMembership.objects.filter(
         user=request.user,
         is_active=True
@@ -5708,44 +5724,99 @@ def site_news_list(request):
         Q(can_manage_news=True) | Q(role=OrganizationMembership.Role.OWNER)
     ).exists()
 
+    def _can_manage_item(news):
+        if not can_manage:
+            return False
+        if request.user.is_superuser:
+            return True
+        if news.organization_id is None:
+            return True
+        return organizations.filter(id=news.organization_id).exists()
+
     if request.method == "POST" and can_manage:
         action = request.POST.get("action", "")
         if action == "delete":
             news_id = request.POST.get("news_id")
-            SiteNews.objects.filter(id=news_id).delete()
-            messages.success(request, "News item deleted.")
+            news = SiteNews.objects.filter(id=news_id).first()
+            if news and _can_manage_item(news):
+                news.delete()
+                messages.success(request, "News item deleted.")
+            else:
+                messages.error(request, "News item not found or access denied.")
         elif action == "edit":
             news_id = request.POST.get("news_id", "").strip()
             title = request.POST.get("title", "").strip()
             content = request.POST.get("content", "").strip()
             is_active = request.POST.get("is_active") == "on"
-            if news_id and title and content:
-                updated = SiteNews.objects.filter(id=news_id).update(
-                    title=title,
-                    content=content,
-                    is_active=is_active,
-                )
-                if updated:
-                    messages.success(request, "News item updated successfully.")
-                else:
-                    messages.error(request, "News item not found.")
+            news = SiteNews.objects.filter(id=news_id).first()
+            if news and _can_manage_item(news) and title and content:
+                changed = news.title != title or news.content != content
+                news.title = title
+                news.content = content
+                news.is_active = is_active
+                news.save()
+                if changed:
+                    clear_reads_for_news(news)
+                messages.success(request, "News item updated successfully.")
+            elif not news or not _can_manage_item(news):
+                messages.error(request, "News item not found or access denied.")
             else:
                 messages.error(request, "Title and content are required.")
         else:
-            title   = request.POST.get("title", "").strip()
+            title = request.POST.get("title", "").strip()
             content = request.POST.get("content", "").strip()
             is_active = request.POST.get("is_active") == "on"
             if title and content:
-                SiteNews.objects.create(title=title, content=content, is_active=is_active)
+                org = news_organization_for_post(request, organizations)
+                SiteNews.objects.create(
+                    title=title,
+                    content=content,
+                    is_active=is_active,
+                    organization=org,
+                    published_by=request.user,
+                )
                 messages.success(request, "News item published successfully.")
             else:
                 messages.error(request, "Title and content are required.")
         return redirect("site-news-list")
 
-    news_items = SiteNews.objects.all().order_by("-created_at")
+    mark_all_news_read(request.user, organizations)
+    news_items = news_scope_for_organizations(organizations).order_by("-created_at")
     return render(request, "core/site_news_list.html", {
-        "news_items":   news_items,
-        "can_manage":   can_manage,
+        "news_items": news_items,
+        "can_manage": can_manage,
+    })
+
+
+@login_required
+@require_POST
+def mark_site_news_read(request):
+    from .models import SiteNews
+    from .site_news import (
+        mark_all_news_read,
+        mark_news_read,
+        organizations_for_request,
+        unread_news_count,
+        user_can_access_news,
+    )
+
+    organizations = organizations_for_request(request)
+    mark_all = request.POST.get("mark_all") == "1"
+    if mark_all:
+        mark_all_news_read(request.user, organizations)
+    else:
+        news_id = request.POST.get("news_id")
+        try:
+            news_id = int(news_id)
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Invalid news id."}, status=400)
+        news = SiteNews.objects.filter(id=news_id, is_active=True).first()
+        if not news or not user_can_access_news(request.user, news, organizations):
+            return JsonResponse({"error": "News not found."}, status=404)
+        mark_news_read(request.user, news)
+
+    return JsonResponse({
+        "unread_count": unread_news_count(request.user, organizations),
     })
 
 

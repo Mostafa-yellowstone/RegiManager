@@ -923,6 +923,131 @@ class NewsPermissionTests(TestCase):
         self.assertFalse(news.is_active)
 
 
+class SiteNewsAlertTests(TestCase):
+    def setUp(self):
+        self.org_a = Organization.objects.create(name="Org A", city="NYC")
+        self.org_b = Organization.objects.create(name="Org B", city="LA")
+        self.owner = User.objects.create_user(username="newsowner", password="password123")
+        self.agent = User.objects.create_user(username="newsagent", password="password123")
+        self.other_agent = User.objects.create_user(username="otheragent", password="password123")
+
+        OrganizationMembership.objects.create(
+            user=self.owner, organization=self.org_a, is_active=True, role="owner"
+        )
+        OrganizationMembership.objects.create(
+            user=self.agent, organization=self.org_a, is_active=True, role="member"
+        )
+        OrganizationMembership.objects.create(
+            user=self.other_agent, organization=self.org_b, is_active=True, role="member"
+        )
+        self.client = TestClient()
+
+    def test_unread_badge_for_psb_members(self):
+        from core.models import SiteNews
+
+        SiteNews.objects.create(
+            title="PSB Update",
+            content="Important update for Org A.",
+            is_active=True,
+            organization=self.org_a,
+            published_by=self.owner,
+        )
+        self.client.login(username="newsagent", password="password123")
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["site_news_unread_count"], 1)
+        self.assertContains(response, "nav-news-badge")
+
+    def test_other_psb_does_not_see_unread(self):
+        from core.models import SiteNews
+
+        SiteNews.objects.create(
+            title="Org A only",
+            content="Private to Org A.",
+            is_active=True,
+            organization=self.org_a,
+            published_by=self.owner,
+        )
+        self.client.login(username="otheragent", password="password123")
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["site_news_unread_count"], 0)
+
+    def test_opening_news_page_marks_all_read(self):
+        from core.models import SiteNews, SiteNewsRead
+
+        SiteNews.objects.create(
+            title="One",
+            content="First",
+            is_active=True,
+            organization=self.org_a,
+        )
+        SiteNews.objects.create(
+            title="Two",
+            content="Second",
+            is_active=True,
+            organization=self.org_a,
+        )
+        self.client.login(username="newsagent", password="password123")
+        response = self.client.get(reverse("site-news-list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(SiteNewsRead.objects.filter(user=self.agent).count(), 2)
+
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.context["site_news_unread_count"], 0)
+
+    def test_mark_single_news_read_api(self):
+        from core.models import SiteNews
+
+        news = SiteNews.objects.create(
+            title="API test",
+            content="Mark me read.",
+            is_active=True,
+            organization=self.org_a,
+        )
+        self.client.login(username="newsagent", password="password123")
+        response = self.client.post(
+            reverse("mark-site-news-read"),
+            {"news_id": news.id},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["unread_count"], 0)
+
+    def test_editing_news_resets_read_state(self):
+        from core.models import SiteNews, SiteNewsRead
+
+        news = SiteNews.objects.create(
+            title="Original",
+            content="Body",
+            is_active=True,
+            organization=self.org_a,
+        )
+        SiteNewsRead.objects.create(user=self.agent, news=news)
+
+        self.client.login(username="newsowner", password="password123")
+        self.client.post(reverse("site-news-list"), {
+            "action": "edit",
+            "news_id": news.id,
+            "title": "Updated title",
+            "content": "Body",
+            "is_active": "on",
+        })
+        self.assertFalse(SiteNewsRead.objects.filter(user=self.agent, news=news).exists())
+
+    def test_new_post_sets_organization(self):
+        self.client.login(username="newsowner", password="password123")
+        self.client.post(reverse("site-news-list"), {
+            "title": "Scoped post",
+            "content": "For Org A only.",
+            "is_active": "on",
+        })
+        from core.models import SiteNews
+
+        news = SiteNews.objects.get(title="Scoped post")
+        self.assertEqual(news.organization_id, self.org_a.id)
+        self.assertEqual(news.published_by_id, self.owner.id)
+
+
 class KnowledgeHubTests(TestCase):
     def setUp(self):
         self.org = Organization.objects.create(name="Test Org", city="NYC")

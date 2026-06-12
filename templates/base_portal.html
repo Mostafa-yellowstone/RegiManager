@@ -14,7 +14,7 @@
     } catch (e) {}
 })();
 </script>
-<link rel="stylesheet" href="{% static 'core/css/portal.css' %}?v=portal-26">
+<link rel="stylesheet" href="{% static 'core/css/portal.css' %}?v=portal-27">
 {% block portal_head %}{% endblock %}
 {% endblock %}
 
@@ -25,7 +25,8 @@
 <div class="portal-main">
 {% block portal_content %}{% endblock %}
 </div>
-<script src="{% static 'core/js/portal.js' %}?v=portal-23" defer></script>
+{% include "partials/_site_news_alert.html" %}
+<script src="{% static 'core/js/portal.js' %}?v=portal-24" defer></script>
 {% block portal_scripts %}{% endblock %}
 {% endblock %}
 
