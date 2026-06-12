@@ -292,21 +292,92 @@ body.portal-body .dashboard-hero .brand-pill {
     text-shadow: none;
 }
 
-.metric-card-intake-btn {
-    margin-top: 0.75rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.75rem;
-    padding: 0.35rem 0.65rem;
-    background: rgba(59, 130, 246, 0.15);
-    border: 1px solid rgba(59, 130, 246, 0.35);
-    color: #bfdbfe;
+.hero-stat-cluster {
+    display: flex;
+    align-items: stretch;
+    gap: 0.75rem;
+    min-width: 0;
 }
 
-.metric-card-intake-btn:hover {
-    background: rgba(59, 130, 246, 0.25);
+.hero-stat-cluster .metric-card--profit {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.hero-intake-action {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 1.1rem 1.15rem;
+    border-radius: var(--portal-radius-xl);
+    background: linear-gradient(160deg, rgba(59, 130, 246, 0.28) 0%, rgba(79, 70, 229, 0.16) 100%);
+    border: 1px solid rgba(147, 197, 253, 0.4);
+    color: #e0f2fe;
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    position: relative;
+    min-width: 120px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+}
+
+.hero-intake-action:hover {
+    transform: translateY(-3px);
+    border-color: rgba(191, 219, 254, 0.75);
+    background: linear-gradient(160deg, rgba(59, 130, 246, 0.38) 0%, rgba(79, 70, 229, 0.24) 100%);
+    box-shadow: 0 10px 28px rgba(59, 130, 246, 0.28);
     color: #fff;
+}
+
+.hero-intake-action__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+}
+
+.hero-intake-action__label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-align: center;
+    line-height: 1.25;
+    color: #f8fafc;
+}
+
+.hero-intake-action__meta {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.55);
+    text-align: center;
+    line-height: 1.2;
+}
+
+.hero-intake-action__badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 99px;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #1e293b;
+    font-size: 0.7rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.45);
 }
 
 .hero-actions {
