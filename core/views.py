@@ -5164,161 +5164,112 @@ def public_intake_portal(request, portal_token=None):
 def approve_intake(request, intake_id):
     from django.db import transaction
     from django.core.files.base import ContentFile
-    
+    from .intake_approval import (
+        find_existing_client_for_intake,
+        intake_vehicle_for_client,
+        vehicle_defaults_from_intake,
+    )
+    from .intake_referral import apply_intake_referral_to_client
+
     with transaction.atomic():
-        # Select for update locks the row
         intake = get_object_or_404(
-            ClientIntake.objects.select_for_update(), 
-            id=intake_id, 
-            organization__in=_get_user_organizations(request)
+            ClientIntake.objects.select_for_update(),
+            id=intake_id,
+            organization__in=_get_user_organizations(request),
         )
-        
+
         if intake.status != ClientIntake.Status.PENDING:
             messages.error(request, "This intake is already being processed or has been completed.")
             return redirect("dashboard")
 
-        # 1. Check for Duplicate Client (EIN for commercial, Name+DOB or DL for individuals)
-        if intake.is_commercial and intake.business_ein:
-            client = Client.objects.filter(
-                organization=intake.organization,
-                is_commercial=True,
-                business_ein__iexact=intake.business_ein
-            ).first()
-        else:
-            client = Client.objects.filter(
-                organization=intake.organization
-            ).filter(
-                Q(first_name=intake.first_name, last_name=intake.last_name, dob=intake.dob) |
-                Q(driver_license=intake.driver_license)
-            ).first()
-        
-        # 2. Check for Duplicate Vehicle
-        existing_vehicle = Vehicle.objects.filter(vin=intake.vin).first()
-        
-        if existing_vehicle and client and existing_vehicle.client == client:
-            # Check if this is an exact duplicate of existing info
-            # If VIN and Client match, it's likely a duplicate submission
+        client = find_existing_client_for_intake(intake)
+        existing_vehicle = intake_vehicle_for_client(intake, client) if client else None
+
+        if existing_vehicle and client:
             intake.status = ClientIntake.Status.REJECTED
             intake.processed_by = request.user
             intake.processed_at = timezone.now()
-            if not intake.additional_data: intake.additional_data = {}
+            if not intake.additional_data:
+                intake.additional_data = {}
             intake.additional_data["rejection_reason"] = "Exact duplicate of existing vehicle in client profile."
             intake.save()
             messages.warning(request, f"Intake rejected: VIN {intake.vin} already exists for {client.name}.")
             return redirect("dashboard")
 
-        # Set to processing immediately to hide from others
         intake.status = ClientIntake.Status.APPROVED
         intake.processed_by = request.user
         intake.processed_at = timezone.now()
         intake.save()
 
-    # 3. Create or get Client
-    if not client:
-        client = Client.objects.create(
-            organization=intake.organization,
-            first_name=intake.first_name,
-            last_name=intake.last_name,
-            dob=intake.dob,
-            middle_name=intake.middle_name,
-            email=intake.email,
-            phone_number=intake.phone_number,
-            gender=intake.gender,
-            driver_license=intake.driver_license,
-            building_no=intake.building_no,
-            street_address=intake.street_address,
-            apartment=intake.apartment,
-            city=intake.city,
-            state=intake.state,
-            zip_code=intake.zip_code,
-            county=intake.county,
-            residence_building_no=intake.residence_building_no if not intake.residence_address_same else "",
-            residence_street_address=intake.residence_street_address if not intake.residence_address_same else "",
-            residence_apartment=intake.residence_apartment if not intake.residence_address_same else "",
-            residence_city=intake.residence_city if not intake.residence_address_same else "",
-            residence_zip_code=intake.residence_zip_code if not intake.residence_address_same else "",
-            residence_county=intake.residence_county if not intake.residence_address_same else "",
-            is_commercial=intake.is_commercial,
-            business_name=intake.business_name,
-            business_ein=intake.business_ein,
-            source=intake.source,
-        )
-    else:
-        client.source = intake.source
-        client.save(update_fields=["source"])
+        if not client:
+            client = Client.objects.create(
+                organization=intake.organization,
+                first_name=intake.first_name,
+                last_name=intake.last_name,
+                dob=intake.dob,
+                middle_name=intake.middle_name,
+                email=intake.email,
+                phone_number=intake.phone_number,
+                gender=intake.gender,
+                driver_license=intake.driver_license,
+                building_no=intake.building_no,
+                street_address=intake.street_address,
+                apartment=intake.apartment,
+                city=intake.city,
+                state=intake.state,
+                zip_code=intake.zip_code,
+                county=intake.county,
+                residence_building_no=intake.residence_building_no if not intake.residence_address_same else "",
+                residence_street_address=intake.residence_street_address if not intake.residence_address_same else "",
+                residence_apartment=intake.residence_apartment if not intake.residence_address_same else "",
+                residence_city=intake.residence_city if not intake.residence_address_same else "",
+                residence_zip_code=intake.residence_zip_code if not intake.residence_address_same else "",
+                residence_county=intake.residence_county if not intake.residence_address_same else "",
+                is_commercial=intake.is_commercial,
+                business_name=intake.business_name,
+                business_ein=intake.business_ein,
+                source=intake.source,
+            )
+        else:
+            client.source = intake.source
+            client.save(update_fields=["source"])
 
-    from .intake_referral import apply_intake_referral_to_client
-    apply_intake_referral_to_client(intake, client)
+        apply_intake_referral_to_client(intake, client)
 
-    note_text = (intake.intake_note or "").strip()
-    if note_text:
-        ClientNote.objects.create(
+        note_text = (intake.intake_note or "").strip()
+        if note_text:
+            ClientNote.objects.create(
+                client=client,
+                content=f"[Intake portal] {note_text}",
+                created_by=request.user,
+            )
+
+        vehicle, _v_created = Vehicle.objects.update_or_create(
             client=client,
-            content=f"[Intake portal] {note_text}",
-            created_by=request.user,
+            vin=intake.vin,
+            defaults=vehicle_defaults_from_intake(intake),
         )
 
-    # 4. Update or Create Vehicle
-    vehicle, v_created = Vehicle.objects.update_or_create(
-        vin=intake.vin,
-        defaults={
-            "client": client,
-            "year": intake.year,
-            "make": intake.make,
-            "model": intake.model,
-            "vehicle_type": intake.vehicle_type,
-            "body_type": intake.body_type,
-            "fuel_type": intake.fuel_type,
-            "color": intake.color,
-            "weight": intake.weight,
-            "cylinders": intake.cylinders,
-            "odometer_reading": intake.odometer_reading,
-            "odometer_status": intake.odometer_status,
-            "max_gross_weight": intake.max_gross_weight,
-            "num_axles": intake.num_axles,
-            "owner_name": intake.owner_name,
-            "owner_nys_id": intake.owner_nys_id,
-            "owner_dob": intake.owner_dob,
-            "co_registrant_name": intake.co_registrant_name,
-            "co_registrant_nys_id": intake.co_registrant_nys_id,
-            "co_registrant_dob": intake.co_registrant_dob,
-            "has_lien": intake.has_lien,
-            "lienholder_name": intake.lienholder_name,
-            "lienholder_address": intake.lienholder_address,
-            "lien_filing_code": intake.lien_filing_code,
-            "is_leased": intake.is_leased,
-            "lessor_name": intake.lessor_name,
-            "lessor_address": intake.lessor_address,
-            "insurance_company": intake.insurance_company,
-            "insurance_policy_number": intake.insurance_policy_number,
-            "insurance_effective_date": intake.insurance_effective_date,
-            "insurance_expiration_date": intake.insurance_expiration_date,
-        }
-    )
+        if intake.insurance_id_card:
+            from .models import ServiceDocument
+            import os
 
-    # 5. Copy intake documents to the client profile (All Documents)
-    if intake.insurance_id_card:
-        from .models import ServiceDocument
-        import os
-        intake.insurance_id_card.open("rb")
-        try:
-            file_bytes = intake.insurance_id_card.read()
-        finally:
-            intake.insurance_id_card.close()
-        filename = os.path.basename(intake.insurance_id_card.name)
-        doc = ServiceDocument(
-            vehicle=vehicle,
-            document_type="insurance_id",
-        )
-        doc.file.save(filename, ContentFile(file_bytes), save=True)
-
-    # 6. (Service record is NOT auto-created here — the agent will start the
-    #    transaction manually from the client or vehicle profile.)
+            intake.insurance_id_card.open("rb")
+            try:
+                file_bytes = intake.insurance_id_card.read()
+            finally:
+                intake.insurance_id_card.close()
+            filename = os.path.basename(intake.insurance_id_card.name)
+            doc = ServiceDocument(
+                vehicle=vehicle,
+                document_type="insurance_id",
+            )
+            doc.file.save(filename, ContentFile(file_bytes), save=True)
 
     messages.success(
         request,
         f"Intake approved! Client and vehicle profile created for {client.name}. "
-        f"Start a transaction from the profile whenever ready."
+        f"Start a transaction from the profile whenever ready.",
     )
     return redirect("client-detail", client_id=client.id)
 

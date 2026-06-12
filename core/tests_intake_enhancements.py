@@ -180,3 +180,90 @@ class IntakePortalEnhancementTests(TestCase):
         self.assertEqual(response.status_code, 302)
         intake = ClientIntake.objects.get(organization=self.org, first_name="Jane")
         self.assertTrue(bool(intake.insurance_id_card))
+
+    def test_approve_creates_new_client_when_dl_blank_not_random_match(self):
+        """Blank driver license must not match an unrelated existing client."""
+        wrong_client = Client.objects.create(
+            organization=self.org,
+            first_name="Existing",
+            last_name="Person",
+            gender="male",
+            phone_number="7185550000",
+            driver_license="",
+        )
+        Vehicle.objects.create(
+            client=wrong_client,
+            vin="OLDVIN00000000001",
+            vehicle_type="passenger",
+        )
+        intake = ClientIntake.objects.create(
+            organization=self.org,
+            first_name="Brand",
+            last_name="NewClient",
+            gender="female",
+            phone_number="7185558888",
+            vin="NEWVIN0000000001",
+            source="dealer",
+            selected_referral=self.dealer,
+            driver_license="",
+            intake_note="This note belongs to Brand NewClient.",
+            body_type="motorcycle",
+            vehicle_type="motorcycle",
+        )
+        self.http.login(username="intakeowner", password="password123")
+        response = self.http.get(reverse("approve-intake", args=[intake.id]))
+        self.assertEqual(response.status_code, 302)
+
+        new_client = Client.objects.get(organization=self.org, first_name="Brand", last_name="NewClient")
+        self.assertNotEqual(new_client.id, wrong_client.id)
+        self.assertEqual(new_client.referral_id, self.dealer.id)
+
+        note = ClientNote.objects.filter(client=new_client).first()
+        self.assertIsNotNone(note)
+        self.assertIn("Brand NewClient", note.content)
+
+        vehicle = Vehicle.objects.get(client=new_client, vin=intake.vin)
+        self.assertEqual(vehicle.body_type, "motorcycle")
+        self.assertEqual(Vehicle.objects.filter(client=wrong_client).count(), 1)
+        self.assertFalse(ClientNote.objects.filter(client=wrong_client).exists())
+
+    def test_approve_does_not_reassign_vehicle_from_other_client(self):
+        other = Client.objects.create(
+            organization=self.org,
+            first_name="Other",
+            last_name="Owner",
+            gender="male",
+            phone_number="7185551111",
+            driver_license="DL-OTHER-123",
+        )
+        shared_vin = "SHAREDVIN00000001"
+        other_vehicle = Vehicle.objects.create(
+            client=other,
+            vin=shared_vin,
+            make="Toyota",
+            vehicle_type="passenger",
+        )
+        intake = ClientIntake.objects.create(
+            organization=self.org,
+            first_name="Separate",
+            last_name="Buyer",
+            gender="female",
+            phone_number="7185552222",
+            vin=shared_vin,
+            source="walk_in",
+            make="Honda",
+            vehicle_type="motorcycle",
+            body_type="motorcycle",
+        )
+        self.http.login(username="intakeowner", password="password123")
+        response = self.http.get(reverse("approve-intake", args=[intake.id]))
+        self.assertEqual(response.status_code, 302)
+
+        new_client = Client.objects.get(organization=self.org, first_name="Separate")
+        new_vehicle = Vehicle.objects.get(client=new_client, vin=shared_vin)
+        self.assertEqual(new_vehicle.make, "Honda")
+        self.assertNotEqual(new_vehicle.id, other_vehicle.id)
+
+        other_vehicle.refresh_from_db()
+        self.assertEqual(other_vehicle.client_id, other.id)
+        self.assertEqual(other_vehicle.make, "Toyota")
