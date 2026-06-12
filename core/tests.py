@@ -1133,7 +1133,13 @@ class KnowledgeHubTests(TestCase):
 class ClientIntakeTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="owner", password="password123")
-        self.org = Organization.objects.create(name="Test Org", city="NYC", portal_token="test-portal-token", is_active=True)
+        self.org = Organization.objects.create(
+            name="Test Org",
+            city="NYC",
+            portal_token="test-portal-token",
+            is_active=True,
+            is_public_intake_enabled=True,
+        )
         OrganizationMembership.objects.create(user=self.user, organization=self.org, is_active=True, role="owner")
         self.client = TestClient()
 
@@ -1239,6 +1245,111 @@ class ClientIntakeTests(TestCase):
         ).first()
         self.assertIsNotNone(doc)
         self.assertEqual(doc.display_name, "Insurance ID Card")
+
+
+class PortalIntakeListTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(username="intakeowner", password="password123")
+        self.agent = User.objects.create_user(username="intakeagent", password="password123")
+        self.org = Organization.objects.create(
+            name="Portal Org",
+            city="NYC",
+            portal_token="portal-crm-token",
+            is_active=True,
+            is_public_intake_enabled=True,
+        )
+        OrganizationMembership.objects.create(
+            user=self.owner,
+            organization=self.org,
+            is_active=True,
+            role="owner",
+        )
+        OrganizationMembership.objects.create(
+            user=self.agent,
+            organization=self.org,
+            is_active=True,
+            role="member",
+        )
+        self.http = TestClient()
+
+    def test_owner_can_access_portal_intake_crm(self):
+        from core.models import ClientIntake
+
+        ClientIntake.objects.create(
+            organization=self.org,
+            first_name="Portal",
+            last_name="Client",
+            gender="male",
+            phone_number="5551234567",
+            vin="1HGBH41JXMN109186",
+            source="walk_in",
+            status=ClientIntake.Status.APPROVED,
+            processed_by=self.owner,
+        )
+        self.http.login(username="intakeowner", password="password123")
+        response = self.http.get(reverse("portal-intake-list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Portal Client")
+        self.assertContains(response, "intakeowner")
+
+    def test_agent_cannot_access_portal_intake_crm(self):
+        self.http.login(username="intakeagent", password="password123")
+        response = self.http.get(reverse("portal-intake-list"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_portal_disabled_when_feature_flag_off(self):
+        self.org.is_public_intake_enabled = False
+        self.org.save()
+        response = self.http.get(reverse("public-intake-direct", args=[self.org.portal_token]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Intake Portal Unavailable")
+        self.http.login(username="intakeowner", password="password123")
+        response = self.http.get(reverse("portal-intake-list"))
+        self.assertEqual(response.status_code, 403)
+
+    def test_dashboard_shows_portal_intake_button_for_owner(self):
+        self.http.login(username="intakeowner", password="password123")
+        response = self.http.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Portal Intakes")
+
+    def test_dashboard_hides_portal_intake_button_when_disabled(self):
+        self.org.is_public_intake_enabled = False
+        self.org.save()
+        self.http.login(username="intakeowner", password="password123")
+        response = self.http.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Portal Intakes")
+
+    def test_portal_intake_crm_filters_by_status(self):
+        from core.models import ClientIntake
+
+        ClientIntake.objects.create(
+            organization=self.org,
+            first_name="Pending",
+            last_name="One",
+            gender="male",
+            phone_number="5551111111",
+            vin="VIN11111111111111",
+            source="walk_in",
+            status=ClientIntake.Status.PENDING,
+        )
+        ClientIntake.objects.create(
+            organization=self.org,
+            first_name="Done",
+            last_name="Two",
+            gender="male",
+            phone_number="5552222222",
+            vin="VIN22222222222222",
+            source="walk_in",
+            status=ClientIntake.Status.APPROVED,
+            processed_by=self.owner,
+        )
+        self.http.login(username="intakeowner", password="password123")
+        response = self.http.get(reverse("portal-intake-list"), {"status": "pending"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Pending One")
+        self.assertNotContains(response, "Done Two")
 
 
 class DocumentsSpaceTests(TestCase):

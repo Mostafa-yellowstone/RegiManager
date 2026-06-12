@@ -49,6 +49,10 @@ class Organization(models.Model):
     portal_token = models.CharField(max_length=64, unique=True, blank=True, null=True)
     max_agents = models.IntegerField(default=5, help_text="Maximum number of agents allowed for this PSB.")
     is_automation_enabled = models.BooleanField(default=False, help_text="Enable Automation Hub features for this PSB.")
+    is_public_intake_enabled = models.BooleanField(
+        default=False,
+        help_text="Enable the public client intake portal and owner intake CRM for this PSB.",
+    )
     is_active = models.BooleanField(default=True, help_text="Enable or disable this PSB account.")
     show_review_button = models.BooleanField(default=False, verbose_name="Show Review Button on Success Page", help_text="Add a custom review button to the intake completion page.")
     review_link = models.URLField(max_length=500, blank=True, null=True, verbose_name="Review/Custom Link", help_text="The URL that the review button will link to.")

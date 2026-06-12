@@ -292,6 +292,23 @@ body.portal-body .dashboard-hero .brand-pill {
     text-shadow: none;
 }
 
+.metric-card-intake-btn {
+    margin-top: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    padding: 0.35rem 0.65rem;
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    color: #bfdbfe;
+}
+
+.metric-card-intake-btn:hover {
+    background: rgba(59, 130, 246, 0.25);
+    color: #fff;
+}
+
 .hero-actions {
     margin-top: 1rem;
     display: flex;

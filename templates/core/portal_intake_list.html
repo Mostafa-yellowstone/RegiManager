@@ -1,0 +1,213 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}Portal Intake CRM | RegiManager{% endblock %}
+
+{% block portal_content %}
+<main class="dashboard-shell">
+    <section class="dashboard-layout">
+        <header class="dashboard-hero service-list-hero">
+            <div>
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary back-btn">&larr; Back to Dashboard</a>
+                <h1>Portal Intake CRM</h1>
+                <p class="subtitle">Review and process clients submitted through your public intake portal.</p>
+                {% if pending_count %}
+                <p class="subtitle" style="margin-top: 0.5rem;">
+                    <span class="badge" style="background: #dbeafe; color: #1d4ed8; font-weight: 700;">{{ pending_count }} pending review</span>
+                </p>
+                {% endif %}
+            </div>
+        </header>
+
+        {% if messages %}
+        <div class="portal-messages">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <article class="dashboard-panel full-width-panel">
+            <div class="list-controls">
+                <form method="get" id="filter-form" class="portal-filter-form">
+                    <div class="portal-filter-row">
+                        <div class="form-group search-group">
+                            <label for="search-input">Search Intakes</label>
+                            <input type="text" id="search-input" name="q" value="{{ search_query }}" placeholder="Name, VIN, phone, email, driver license…">
+                        </div>
+                        <div class="portal-filter-actions">
+                            <button type="button" id="toggle-filters-btn" class="portal-btn portal-btn-secondary" data-portal-filter-toggle aria-controls="advanced-filters-panel" aria-expanded="{% if selected_status or selected_source or selected_referral or selected_processor or selected_org or date_from or date_to %}true{% else %}false{% endif %}">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                                Advanced Filters
+                                {% if selected_status or selected_source or selected_referral or selected_processor or selected_org or date_from or date_to %}
+                                    <span class="filter-active-dot">!</span>
+                                {% endif %}
+                            </button>
+                            <button type="submit" class="portal-btn portal-btn-primary">Search</button>
+                            {% if search_query or selected_status or selected_source or selected_referral or selected_processor or selected_org or date_from or date_to %}
+                                <a href="{% url 'portal-intake-list' %}" class="portal-btn portal-btn-secondary">Clear</a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div id="advanced-filters-panel" class="portal-filter-panel{% if selected_status or selected_source or selected_referral or selected_processor or selected_org or date_from or date_to %} is-open{% endif %}">
+                        <div class="form-group">
+                            <label for="filter-status">Status</label>
+                            <select id="filter-status" name="status">
+                                <option value="">All Statuses</option>
+                                {% for value, label in status_choices %}
+                                    <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-source">Acquisition Source</label>
+                            <select id="filter-source" name="source">
+                                <option value="">All Sources</option>
+                                {% for sc in source_choices %}
+                                    <option value="{{ sc.key }}" {% if selected_source == sc.key %}selected{% endif %}>{{ sc.label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-referral">Referral / Dealer</label>
+                            <select id="filter-referral" name="referral">
+                                <option value="">All Referral Entities</option>
+                                {% for ref in referrals %}
+                                    <option value="{{ ref.id }}" {% if selected_referral == ref.id|stringformat:"s" %}selected{% endif %}>{{ ref.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-processor">Processed By</label>
+                            <select id="filter-processor" name="processed_by">
+                                <option value="">Anyone</option>
+                                {% for user in processors %}
+                                    <option value="{{ user.id }}" {% if selected_processor == user.id|stringformat:"s" %}selected{% endif %}>{{ user.get_full_name|default:user.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% if intake_orgs.count > 1 %}
+                        <div class="form-group">
+                            <label for="filter-org">Branch</label>
+                            <select id="filter-org" name="organization">
+                                <option value="">All Branches</option>
+                                {% for org in intake_orgs %}
+                                    <option value="{{ org.id }}" {% if selected_org == org.id|stringformat:"s" %}selected{% endif %}>{{ org.name }} ({{ org.city }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+                        <div class="form-group">
+                            <label for="filter-date-from">Submitted From</label>
+                            <input type="date" id="filter-date-from" name="date_from" value="{{ date_from }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-date-to">Submitted To</label>
+                            <input type="date" id="filter-date-to" name="date_to" value="{{ date_to }}">
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Client</th>
+                            <th>Vehicle</th>
+                            <th>Status</th>
+                            <th>Source</th>
+                            <th>Submitted</th>
+                            <th>Processed By</th>
+                            <th>Processed At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for intake in page_obj %}
+                        <tr>
+                            <td>
+                                <strong>{{ intake.name }}</strong>
+                                {% if intake.is_commercial %}
+                                    <span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Business</span>
+                                {% endif %}
+                                <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">{{ intake.phone_number|default:"—" }}</div>
+                                {% if intake_orgs.count > 1 %}
+                                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 2px;">{{ intake.organization.name }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div>{{ intake.year }} {{ intake.make }} {{ intake.model }}</div>
+                                <code style="font-size: 0.75rem;">{{ intake.vin }}</code>
+                            </td>
+                            <td>
+                                {% if intake.status == "pending" %}
+                                    <span class="badge" style="background: #fef3c7; color: #92400e;">Pending</span>
+                                {% elif intake.status == "approved" %}
+                                    <span class="badge" style="background: #dcfce7; color: #166534;">Approved</span>
+                                {% elif intake.status == "rejected" %}
+                                    <span class="badge" style="background: #fee2e2; color: #991b1b;">Rejected</span>
+                                {% else %}
+                                    <span class="badge">{{ intake.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ intake.get_source_display }}
+                                {% if intake.selected_referral %}
+                                    <div style="font-size: 0.75rem; color: #64748b;">{{ intake.selected_referral.name }}</div>
+                                {% endif %}
+                            </td>
+                            <td>{{ intake.created_at|date:"M d, Y g:i A" }}</td>
+                            <td>
+                                {% if intake.processed_by %}
+                                    {{ intake.processed_by.get_full_name|default:intake.processed_by.username }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if intake.processed_at %}
+                                    {{ intake.processed_at|date:"M d, Y g:i A" }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if intake.status == "pending" %}
+                                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                    <a href="{% url 'approve-intake' intake.id %}" class="portal-btn portal-btn-primary portal-btn-sm">Approve</a>
+                                    <a href="{% url 'reject-intake' intake.id %}" class="portal-btn portal-btn-secondary portal-btn-sm">Reject</a>
+                                    <a href="{% url 'intake-mv82-pdf' intake.id %}" target="_blank" class="portal-btn portal-btn-secondary portal-btn-sm">MV-82</a>
+                                </div>
+                                {% else %}
+                                    <span style="color: #94a3b8; font-size: 0.85rem;">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" style="text-align: center; padding: 2rem; color: #64748b;">
+                                No portal intake submissions match your filters.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page_obj.has_other_pages %}
+            <div class="pagination-controls" style="margin-top: 1.5rem; display: flex; justify-content: center; gap: 0.5rem;">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}&q={{ search_query|urlencode }}&status={{ selected_status|urlencode }}&source={{ selected_source|urlencode }}&referral={{ selected_referral|urlencode }}&processed_by={{ selected_processor|urlencode }}&organization={{ selected_org|urlencode }}&date_from={{ date_from|urlencode }}&date_to={{ date_to|urlencode }}" class="portal-btn portal-btn-secondary">Previous</a>
+                {% endif %}
+                <span style="align-self: center; color: #64748b;">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}&q={{ search_query|urlencode }}&status={{ selected_status|urlencode }}&source={{ selected_source|urlencode }}&referral={{ selected_referral|urlencode }}&processed_by={{ selected_processor|urlencode }}&organization={{ selected_org|urlencode }}&date_from={{ date_from|urlencode }}&date_to={{ date_to|urlencode }}" class="portal-btn portal-btn-secondary">Next</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </article>
+    </section>
+</main>
+{% endblock %}

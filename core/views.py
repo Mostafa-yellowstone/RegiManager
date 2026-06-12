@@ -1501,6 +1501,10 @@ def dashboard(request):
     
     # Also check if automation is enabled for any of the user's organizations
     automation_enabled = organizations.filter(is_automation_enabled=True).exists()
+    public_intake_enabled = (
+        is_owner
+        and owner_orgs.filter(is_public_intake_enabled=True).exists()
+    )
 
     total_outstanding_referral_balance = Decimal("0")
     if is_owner or user_can_manage_referrals:
@@ -1562,18 +1566,20 @@ def dashboard(request):
             })
         location_stats = sorted(location_stats, key=lambda x: x['monthly_profit'], reverse=True)
 
-    pending_intakes = list(
-        ClientIntake.objects.filter(
-            organization__in=organizations,
-            status=ClientIntake.Status.PENDING,
-        ).order_by("-created_at")
-    )
-    intake_vins = [intake.vin for intake in pending_intakes if intake.vin]
-    existing_intake_vins = set(
-        Vehicle.objects.filter(vin__in=intake_vins).values_list("vin", flat=True)
-    ) if intake_vins else set()
-    for intake in pending_intakes:
-        intake.vin_exists = intake.vin in existing_intake_vins
+    pending_intakes = []
+    if public_intake_enabled:
+        pending_intakes = list(
+            ClientIntake.objects.filter(
+                organization__in=owner_orgs.filter(is_public_intake_enabled=True),
+                status=ClientIntake.Status.PENDING,
+            ).order_by("-created_at")
+        )
+        intake_vins = [intake.vin for intake in pending_intakes if intake.vin]
+        existing_intake_vins = set(
+            Vehicle.objects.filter(vin__in=intake_vins).values_list("vin", flat=True)
+        ) if intake_vins else set()
+        for intake in pending_intakes:
+            intake.vin_exists = intake.vin in existing_intake_vins
 
     return render(
         request,
@@ -1605,6 +1611,7 @@ def dashboard(request):
             "upcoming_expirations": upcoming_expirations,
             "user_can_manage_referrals": user_can_manage_referrals,
             "automation_enabled": automation_enabled,
+            "public_intake_enabled": public_intake_enabled,
             "user_can_trigger_automation": user_can_trigger_automation,
             "user_can_view_commission": user_can_view_commission,
             "user_can_view_banking": user_can_view_banking,
@@ -5111,6 +5118,121 @@ def edit_vehicle(request, vehicle_id):
     })
 
 
+@login_required
+def portal_intake_list(request):
+    """Owner-only CRM for portal intake submissions with advanced filtering."""
+    owner_org_ids = list(
+        OrganizationMembership.objects.filter(
+            user=request.user,
+            role=OrganizationMembership.Role.OWNER,
+            is_active=True,
+            organization__is_active=True,
+            organization__is_public_intake_enabled=True,
+        ).values_list("organization_id", flat=True)
+    )
+    if not owner_org_ids:
+        deny_access("Owner access required.")
+
+    intake_orgs = Organization.objects.filter(id__in=owner_org_ids)
+    intakes = (
+        ClientIntake.objects.filter(organization__in=intake_orgs)
+        .select_related("organization", "processed_by", "selected_referral")
+        .order_by("-created_at")
+    )
+
+    query = request.GET.get("q", "").strip()
+    selected_status = request.GET.get("status", "").strip()
+    selected_source = request.GET.get("source", "").strip()
+    selected_referral = request.GET.get("referral", "").strip()
+    selected_processor = request.GET.get("processed_by", "").strip()
+    selected_org = request.GET.get("organization", "").strip()
+    date_from = request.GET.get("date_from", "").strip()
+    date_to = request.GET.get("date_to", "").strip()
+
+    if query:
+        intakes = intakes.filter(
+            Q(first_name__icontains=query)
+            | Q(last_name__icontains=query)
+            | Q(business_name__icontains=query)
+            | Q(vin__icontains=query)
+            | Q(phone_number__icontains=query)
+            | Q(email__icontains=query)
+            | Q(driver_license__icontains=query)
+        )
+
+    valid_statuses = {key for key, _ in ClientIntake.Status.choices}
+    if selected_status in valid_statuses:
+        intakes = intakes.filter(status=selected_status)
+
+    if selected_source:
+        intakes = intakes.filter(source_filter_q(selected_source))
+
+    if selected_referral and selected_referral.isdigit():
+        intakes = intakes.filter(selected_referral_id=int(selected_referral))
+
+    processor_ids = set(
+        User.objects.filter(
+            organization_memberships__organization__in=intake_orgs,
+            organization_memberships__is_active=True,
+        ).values_list("id", flat=True)
+    )
+    if selected_processor and selected_processor.isdigit():
+        pid = int(selected_processor)
+        if pid in processor_ids:
+            intakes = intakes.filter(processed_by_id=pid)
+
+    if selected_org and selected_org.isdigit():
+        oid = int(selected_org)
+        if oid in owner_org_ids:
+            intakes = intakes.filter(organization_id=oid)
+
+    if date_from:
+        intakes = intakes.filter(created_at__date__gte=date_from)
+    if date_to:
+        intakes = intakes.filter(created_at__date__lte=date_to)
+
+    db_sources = ClientIntake.objects.filter(
+        organization__in=intake_orgs,
+    ).values_list("source", flat=True).distinct()
+    source_choices = build_source_choices(db_sources, organizations=intake_orgs)
+    referrals = Referral.objects.filter(organization__in=intake_orgs).order_by("name")
+    processors = (
+        User.objects.filter(id__in=processor_ids)
+        .order_by("first_name", "last_name", "username")
+        .distinct()
+    )
+
+    pending_count = ClientIntake.objects.filter(
+        organization__in=intake_orgs,
+        status=ClientIntake.Status.PENDING,
+    ).count()
+
+    paginator = Paginator(intakes, 20)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "core/portal_intake_list.html",
+        {
+            "page_obj": page_obj,
+            "search_query": query,
+            "selected_status": selected_status,
+            "selected_source": selected_source,
+            "selected_referral": selected_referral,
+            "selected_processor": selected_processor,
+            "selected_org": selected_org,
+            "date_from": date_from,
+            "date_to": date_to,
+            "source_choices": source_choices,
+            "referrals": referrals,
+            "processors": processors,
+            "intake_orgs": intake_orgs,
+            "status_choices": ClientIntake.Status.choices,
+            "pending_count": pending_count,
+        },
+    )
+
+
 @ensure_csrf_cookie
 @csrf_exempt
 def public_intake_portal(request, portal_token=None):
@@ -5122,6 +5244,12 @@ def public_intake_portal(request, portal_token=None):
         return render(request, "core/public_intake_start.html")
     
     organization = get_object_or_404(Organization, portal_token=token, is_active=True)
+    if not organization.is_public_intake_enabled:
+        return render(
+            request,
+            "core/public_intake_disabled.html",
+            {"organization": organization},
+        )
     
     # 2. Define services for the form
     standard_services = [

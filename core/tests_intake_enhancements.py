@@ -16,6 +16,7 @@ class IntakePortalEnhancementTests(TestCase):
             city="NYC",
             portal_token="intake-enhance-token",
             is_active=True,
+            is_public_intake_enabled=True,
         )
         OrganizationMembership.objects.create(
             user=self.user,

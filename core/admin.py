@@ -47,13 +47,15 @@ class MembershipInline(admin.TabularInline):
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
-    list_display = ("name", "city", "state", "psbc_license", "invite_code", "intake_link_display", "is_automation_enabled")
-    list_filter = ("state", "city", "is_automation_enabled")
+    list_display = ("name", "city", "state", "psbc_license", "invite_code", "intake_link_display", "is_public_intake_enabled", "is_automation_enabled")
+    list_filter = ("state", "city", "is_public_intake_enabled", "is_automation_enabled")
     search_fields = ("name", "address_line", "city", "state", "phone_number", "psbc_license")
     readonly_fields = ("intake_link_display",)
     inlines = [MembershipInline]
 
     def intake_link_display(self, obj):
+        if not obj.is_public_intake_enabled:
+            return "Disabled (enable Public Intake Portal)"
         url = f"/intake/{obj.portal_token}/"
         return format_html('<a href="{}" target="_blank">Open Intake Portal</a>', url)
     
