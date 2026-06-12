@@ -58,8 +58,18 @@ def has_follow_up_balance_payments(record) -> bool:
 
 
 def receipt_should_show_ledger(record) -> bool:
-    """Payment history table appears only after hub/referral balance payments."""
+    """Detailed ledger rows (opening + follow-ups) appear after hub/referral balance payments."""
     return has_follow_up_balance_payments(record)
+
+
+def receipt_outstanding_balance(record) -> Decimal:
+    """Outstanding balance for receipt totals when ledger rows are not shown yet."""
+    total = _total_due(record)
+    paid = total_paid_for_receipt(record)
+    balance = total - paid
+    if balance < Decimal("0"):
+        balance = Decimal("0")
+    return balance
 
 
 def reset_ledger_after_edit(record) -> bool:

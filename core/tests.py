@@ -2131,7 +2131,7 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
             for page in self.PdfReader(self.BytesIO(response.content)).pages
         )
 
-    def test_receipt_hides_payment_history_until_hub_payment(self):
+    def test_receipt_shows_table_before_hub_payment_without_ledger_rows(self):
         from core.service_payments import log_balance_payment
 
         record = ServiceRecord.objects.create(
@@ -2145,7 +2145,10 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
             payment_method="cash",
         )
         pdf_text = self._pdf_text(record)
-        self.assertNotIn("PAYMENT HISTORY", pdf_text)
+        self.assertIn("PAYMENT HISTORY", pdf_text)
+        self.assertIn("Total Paid", pdf_text)
+        self.assertIn("Outstanding Balance", pdf_text)
+        self.assertNotIn("Initial payment", pdf_text)
 
         log_balance_payment(
             record,
