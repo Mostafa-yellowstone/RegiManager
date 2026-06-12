@@ -3346,6 +3346,14 @@ html.portal-theme-dark .dpt-table-wrap tbody td[style*="color: #64748b"] {
     color: var(--portal-text-secondary) !important;
 }
 
+html.portal-theme-dark .dpt-notes-cell {
+    color: var(--portal-text-secondary) !important;
+}
+
+html.portal-theme-dark .dpt-notes-cell span[style*="color: #94a3b8"] {
+    color: var(--portal-text-muted) !important;
+}
+
 html.portal-theme-dark .dpt-clear-date {
     background: var(--portal-surface-muted);
     color: var(--portal-text);

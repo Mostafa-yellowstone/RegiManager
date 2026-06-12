@@ -72,6 +72,14 @@
   @keyframes dptClearSweep { to { width: 100%; } }
   .dpt-cleared-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 800; color: #15803d; background: #dcfce7; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
   .dpt-add-clear-box { display: flex; align-items: center; gap: 0.65rem; padding: 0.85rem 1rem; background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 12px; margin-bottom: 1rem; }
+  .dpt-notes-cell {
+    max-width: 220px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #475569;
+    line-height: 1.35;
+    word-break: break-word;
+  }
 </style>
 
 <div class="dpt-hero">
@@ -126,6 +134,7 @@
           <th>Payment Type</th>
           <th>Method</th>
           <th style="text-align: right;">Amount</th>
+          <th>Notes</th>
           <th>Agent</th>
           <th>Bank Cleared</th>
           <th>Clear Date</th>
@@ -142,6 +151,13 @@
           <td><span style="font-size: 0.78rem; font-weight: 700; color: #334155;">{{ tx.get_payment_type_display }}</span></td>
           <td><span style="font-size: 0.78rem; font-weight: 700; color: #475569;">{{ tx.get_payment_method_display }}</span></td>
           <td style="text-align: right; font-weight: 800; color: #0f172a;">${{ tx.amount|floatformat:2 }}</td>
+          <td class="dpt-notes-cell" title="{{ tx.notes|default:'' }}">
+            {% if tx.notes %}
+              {{ tx.notes|truncatechars:80 }}
+            {% else %}
+              <span style="color: #94a3b8;">—</span>
+            {% endif %}
+          </td>
           <td>
             <span style="background: {{ tx.agent_bg_color }}; color: {{ tx.agent_text_color }}; padding: 4px 10px; border-radius: 8px; font-weight: 700; font-size: 0.78rem; white-space: nowrap;">{{ tx.agent_name }}</span>
           </td>
@@ -160,7 +176,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="9" style="text-align: center; padding: 3rem; color: #94a3b8; font-weight: 600;">
+          <td colspan="10" style="text-align: center; padding: 3rem; color: #94a3b8; font-weight: 600;">
             No payments recorded for this day yet.
           </td>
         </tr>
@@ -252,7 +268,7 @@
       </div>
       <div style="margin-bottom: 1.5rem;">
         <label class="field-label">Notes (optional)</label>
-        <input type="text" name="notes" class="field-input" placeholder="Additional details...">
+        <textarea name="notes" class="field-input" rows="2" placeholder="Payment details, check number, policy reference…"></textarea>
       </div>
       <button type="submit" class="btn-submit">Record Payment</button>
     </form>
