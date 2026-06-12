@@ -1144,23 +1144,26 @@ class ClientIntakeTests(TestCase):
         self.assertContains(response, 'value="google_search" selected')
 
     def test_public_intake_submission_saves_source(self):
-        from core.models import ClientIntake
-        # Submit the form
+        from core.models import ClientIntake, Referral
+        dealer = Referral.objects.create(organization=self.org, name="Portal Dealer", category="dealer")
         response = self.client.post(reverse("public-intake-direct", args=[self.org.portal_token]), {
             "first_name": "Intake",
             "last_name": "Test",
             "gender": "male",
             "phone_number": "1234567890",
             "vin": "12345678901234567",
-            "source": "referral",
+            "source": "dealer",
+            "referral_select": str(dealer.id),
             "services": ["registration_title"],
+            "vehicle_type": "passenger",
+            "fuel_type": "gas",
         })
         # Check redirect to success page
         self.assertEqual(response.status_code, 302)
         # Verify intake object is created and has correct source
         intake = ClientIntake.objects.filter(organization=self.org).first()
         self.assertIsNotNone(intake)
-        self.assertEqual(intake.source, "referral")
+        self.assertEqual(intake.source, "dealer")
 
     def test_approve_intake_propagates_source_to_client(self):
         from core.models import ClientIntake
@@ -1193,8 +1196,10 @@ class ClientIntakeTests(TestCase):
             "gender": "male",
             "phone_number": "1234567890",
             "vin": "12345678901234567",
-            "source": "referral",
+            "source": "walk_in",
             "services": ["registration_title"],
+            "vehicle_type": "passenger",
+            "fuel_type": "gas",
         }
         ok = self.client.post(
             reverse("public-intake-direct", args=[self.org.portal_token]),

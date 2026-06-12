@@ -1005,12 +1005,27 @@ class ClientIntake(models.Model):
         ("meta_platform", "Meta Platform"),
         ("google_campaigns", "Google Campaigns"),
         ("existing_client", "Existing Client"),
-        ("dealer", "Dealer"),
-        ("referral", "Referral"),
+        ("dealer", "Dealer / Referral"),
         ("cold_calling", "Cold Calling"),
         ("other", "Other"),
     ]
     source = models.CharField(max_length=50, choices=SOURCE_CHOICES, default="google_search")
+
+    # Dealer / referral partner (when source is dealer)
+    selected_referral = models.ForeignKey(
+        Referral,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="intakes",
+    )
+    partner_name = models.CharField(max_length=150, blank=True, default="")
+    partner_phone = models.CharField(max_length=20, blank=True, default="")
+    partner_email = models.EmailField(blank=True, null=True)
+    partner_address = models.TextField(blank=True, default="")
+
+    # Client note to create on profile approval
+    intake_note = models.TextField(blank=True, default="")
 
     # Transaction Details
     transaction_type = models.CharField(max_length=100, default="Registration and Title")

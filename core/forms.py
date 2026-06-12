@@ -587,18 +587,58 @@ class ClientIntakeForm(forms.ModelForm):
         ("meta_platform", "Meta Platform"),
         ("google_campaigns", "Google Campaigns"),
         ("existing_client", "Existing Client"),
-        ("dealer", "Dealer"),
-        ("referral", "Referral"),
+        ("dealer", "Dealer / Referral"),
         ("cold_calling", "Cold Calling"),
         ("other", "Other"),
     ]
 
-    source = forms.ChoiceField(
-        choices=SOURCE_CHOICES,
+    source = forms.CharField(
         initial="google_search",
-        widget=forms.Select(attrs={"class": "form-control"}),
+        widget=forms.Select(
+            choices=SOURCE_CHOICES,
+            attrs={"class": "form-control", "id": "id_source"},
+        ),
         label="How did you hear about us?",
         required=True,
+    )
+    vehicle_type = forms.CharField(
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control", "id": "id_vehicle_type"}),
+    )
+    body_type = forms.CharField(
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control", "id": "id_body_type"}),
+    )
+    fuel_type = forms.CharField(
+        required=False,
+        widget=forms.Select(attrs={"class": "form-control", "id": "id_fuel_type"}),
+    )
+    partner_name = forms.CharField(
+        required=False,
+        max_length=150,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Dealer / partner name"}),
+    )
+    partner_phone = forms.CharField(
+        required=False,
+        max_length=20,
+        widget=forms.TextInput(attrs={"class": "form-control phone-mask", "placeholder": "(000) 000-0000"}),
+    )
+    partner_email = forms.EmailField(
+        required=False,
+        widget=forms.EmailInput(attrs={"class": "form-control", "placeholder": "Email"}),
+    )
+    partner_address = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 2, "placeholder": "Street address, city, state, ZIP"}),
+    )
+    intake_note = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            "class": "form-control",
+            "rows": 4,
+            "placeholder": "Anything else we should know about your registration request?",
+            "maxlength": "5000",
+        }),
     )
 
     class Meta:
@@ -608,6 +648,10 @@ class ClientIntakeForm(forms.ModelForm):
             "additional_data", "requested_services",
             "mv82_file", "dtf802_file", "dtf803_file", "other_docs",
             "is_commercial", "business_name", "business_ein",
+            "selected_referral",
+            "partner_name", "partner_phone", "partner_email", "partner_address",
+            "intake_note",
+            "vehicle_type", "body_type", "fuel_type", "source",
         ]
         widgets = {
             "dob": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
@@ -660,11 +704,103 @@ class ClientIntakeForm(forms.ModelForm):
             "lessor_address": forms.TextInput(attrs={"class": "form-control", "placeholder": "Lessor Address"}),
             "insurance_id_card": forms.ClearableFileInput(
                 attrs={
-                    "class": "form-control",
+                    "class": "intake-pdf-input",
                     "accept": "application/pdf,.pdf",
+                    "id": "id_insurance_id_card",
                 }
             ),
         }
+
+    def __init__(self, *args, organization=None, **kwargs):
+        from .models import Vehicle
+
+        self.organization = organization
+        super().__init__(*args, **kwargs)
+        self.fields["vehicle_type"].widget.choices = [("", "Select type...")] + list(Vehicle.VEHICLE_TYPES)
+        self.fields["body_type"].widget.choices = [("", "Select body style...")] + list(Vehicle.BODY_TYPES)
+        self.fields["fuel_type"].widget.choices = list(Vehicle.FUEL_TYPES)
+        required_fields = ["first_name", "last_name", "vin", "phone_number", "gender", "source"]
+        for field_name, field in self.fields.items():
+            if field_name not in required_fields:
+                field.required = False
+            else:
+                field.required = True
+        if not self.data and not self.instance.pk:
+            self.fields["source"].initial = "google_search"
+            self.fields["vehicle_type"].initial = "passenger"
+            self.fields["fuel_type"].initial = "gas"
+
+    def clean_source(self):
+        from .source_choices import norm_source
+
+        raw = (self.data.get("source") if hasattr(self, "data") else None) or self.cleaned_data.get("source") or ""
+        source = norm_source(raw)
+        if source == "referral":
+            return "dealer"
+        valid = {key for key, _ in self.SOURCE_CHOICES}
+        if source in valid:
+            return source
+        raise forms.ValidationError("Please select how you heard about us.")
+
+    def clean_body_type(self):
+        from .models import Vehicle
+
+        body = (self.cleaned_data.get("body_type") or "").strip()
+        if not body:
+            return body or None
+        valid = {key for key, _ in Vehicle.BODY_TYPES}
+        return body if body in valid else "other"
+
+    def clean_vehicle_type(self):
+        from .models import Vehicle
+
+        vtype = (self.cleaned_data.get("vehicle_type") or "").strip()
+        if not vtype:
+            return "passenger"
+        valid = {key for key, _ in Vehicle.VEHICLE_TYPES}
+        return vtype if vtype in valid else "passenger"
+
+    def clean_intake_note(self):
+        note = (self.cleaned_data.get("intake_note") or "").strip()
+        return note[:5000]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        source = cleaned_data.get("source")
+        if source != "dealer":
+            cleaned_data["partner_name"] = ""
+            cleaned_data["partner_phone"] = ""
+            cleaned_data["partner_email"] = None
+            cleaned_data["partner_address"] = ""
+            return cleaned_data
+
+        ref_select = (self.data.get("referral_select") or "").strip()
+        partner_name = (cleaned_data.get("partner_name") or "").strip()
+        has_existing = ref_select and ref_select != "new"
+        has_new = (ref_select == "new" or not ref_select) and partner_name
+        if not has_existing and not has_new:
+            raise forms.ValidationError(
+                "Please select a dealer / referral partner or add a new one."
+            )
+        if ref_select == "new" and not partner_name:
+            self.add_error("partner_name", "Partner name is required for a new dealer.")
+        if has_existing:
+            cleaned_data["partner_name"] = ""
+            cleaned_data["partner_phone"] = ""
+            cleaned_data["partner_email"] = None
+            cleaned_data["partner_address"] = ""
+        elif has_new:
+            cleaned_data["partner_name"] = partner_name
+        if ref_select and ref_select not in ("", "new") and self.organization:
+            try:
+                ref_id = int(ref_select)
+            except (TypeError, ValueError):
+                raise forms.ValidationError("Invalid dealer selection.")
+            from .models import Referral
+
+            if not Referral.objects.filter(id=ref_id, organization=self.organization).exists():
+                raise forms.ValidationError("Selected dealer is not valid for this organization.")
+        return cleaned_data
 
     def clean_insurance_id_card(self):
         upload = self.cleaned_data.get("insurance_id_card")
@@ -681,16 +817,25 @@ class ClientIntakeForm(forms.ModelForm):
             raise forms.ValidationError("Insurance ID card must be 50 MB or smaller.")
         return upload
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Only require the bare essentials
-        required_fields = ["first_name", "last_name", "vin", "phone_number", "gender", "source"]
-        for field_name, field in self.fields.items():
-            if field_name not in required_fields:
-                field.required = False
-            else:
-                field.required = True
-        # Default source to google_search for new (unbound) forms
-        if not self.data and not self.instance.pk:
-            self.fields["source"].initial = "google_search"
+    def apply_partner_and_note_to_instance(self, intake, post_data):
+        """Copy non-model-bound partner fields onto the intake record."""
+        intake.source = self.cleaned_data.get("source") or intake.source
+        intake.vehicle_type = self.cleaned_data.get("vehicle_type") or "passenger"
+        intake.body_type = self.cleaned_data.get("body_type")
+        intake.fuel_type = self.cleaned_data.get("fuel_type") or "gas"
+        intake.intake_note = self.cleaned_data.get("intake_note") or ""
+        intake.partner_name = (self.cleaned_data.get("partner_name") or "").strip()
+        intake.partner_phone = (self.cleaned_data.get("partner_phone") or "").strip()
+        intake.partner_email = self.cleaned_data.get("partner_email") or None
+        intake.partner_address = (self.cleaned_data.get("partner_address") or "").strip()
+
+        ref_select = (post_data.get("referral_select") or "").strip()
+        if ref_select and ref_select != "new":
+            try:
+                intake.selected_referral_id = int(ref_select)
+            except (TypeError, ValueError):
+                intake.selected_referral = None
+        else:
+            intake.selected_referral = None
+        return intake
 

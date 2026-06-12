@@ -174,6 +174,120 @@
             padding: 1rem !important;
         }
     }
+
+    .dealer-panel {
+        margin-top: 1rem;
+        padding: 1.25rem;
+        border-radius: 14px;
+        border: 1.5px solid #dbeafe;
+        background: linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+        display: none;
+    }
+
+    .dealer-panel.is-visible {
+        display: block;
+    }
+
+    .dealer-new-block {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px dashed #cbd5e1;
+        display: none;
+    }
+
+    .dealer-new-block.is-visible {
+        display: block;
+    }
+
+    .btn-secondary-outline {
+        margin-top: 0.75rem;
+        padding: 0.55rem 1rem;
+        border-radius: 10px;
+        border: 1.5px solid #93c5fd;
+        background: #fff;
+        color: #1d4ed8;
+        font-size: 0.82rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .btn-secondary-outline:hover {
+        background: #eff6ff;
+    }
+
+    .pdf-upload-zone {
+        position: relative;
+        border: 2px dashed #93c5fd;
+        border-radius: 16px;
+        background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+        padding: 1.5rem 1.25rem;
+        text-align: center;
+        cursor: pointer;
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+    }
+
+    .pdf-upload-zone:hover,
+    .pdf-upload-zone.is-dragover {
+        border-color: #3b82f6;
+        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.12);
+        transform: translateY(-1px);
+    }
+
+    .pdf-upload-zone.has-file {
+        border-color: #10b981;
+        background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+    }
+
+    .pdf-upload-zone .intake-pdf-input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+        width: 100%;
+        height: 100%;
+    }
+
+    .pdf-upload-icon {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 0.75rem;
+        border-radius: 12px;
+        background: #dbeafe;
+        color: #1d4ed8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        font-weight: 800;
+    }
+
+    .pdf-upload-title {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: #1e293b;
+        margin: 0 0 0.35rem;
+    }
+
+    .pdf-upload-hint {
+        font-size: 0.78rem;
+        color: #64748b;
+        margin: 0;
+    }
+
+    .pdf-file-name {
+        margin-top: 0.75rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #047857;
+        word-break: break-word;
+    }
+
+    .intake-note-box {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 14px;
+        padding: 1.25rem;
+    }
 </style>
 
 <div class="form-shell">
@@ -223,17 +337,44 @@
                     <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px;">
                         🔍 How did you hear about us? <span style="color: #ef4444;">*</span>
                     </label>
-                    <select name="source" id="id_source" class="form-control" required style="max-width: 360px; padding: 0.65rem 0.9rem; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 0.92rem; background: #f8fafc; font-weight: 600; color: #1e293b;">
-                        <option value="google_search" selected>Google Search</option>
-                        <option value="walk_in">Walk-In</option>
-                        <option value="meta_platform">Meta Platform</option>
-                        <option value="google_campaigns">Google Campaigns</option>
-                        <option value="existing_client">Existing Client</option>
-                        <option value="dealer">Dealer</option>
-                        <option value="referral">Referral</option>
-                        <option value="cold_calling">Cold Calling</option>
-                        <option value="other">Other</option>
-                    </select>
+                    {{ form.source }}
+                    {% if form.non_field_errors %}
+                    <p style="color: #dc2626; font-size: 0.8rem; margin-top: 0.5rem;">{{ form.non_field_errors.0 }}</p>
+                    {% endif %}
+
+                    <div id="dealerPanel" class="dealer-panel">
+                        <label style="text-transform: none; letter-spacing: 0;">Dealer / Referral Partner</label>
+                        <select id="dealerSelect" class="form-control" style="max-width: 420px; margin-top: 0.35rem;">
+                            <option value="">Select a dealer / partner...</option>
+                            {% for partner in dealer_partners %}
+                            <option value="{{ partner.id }}">{{ partner.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <input type="hidden" name="referral_select" id="id_referral_select" value="">
+                        <button type="button" id="toggleNewDealerBtn" class="btn-secondary-outline">+ Add New Dealer / Partner</button>
+
+                        <div id="newDealerBlock" class="dealer-new-block">
+                            <div class="form-grid" style="margin-top: 0.75rem;">
+                                <div class="col-span-2">
+                                    <label>Partner Name</label>
+                                    {{ form.partner_name }}
+                                    {% if form.partner_name.errors %}<p style="color:#dc2626;font-size:0.8rem;">{{ form.partner_name.errors.0 }}</p>{% endif %}
+                                </div>
+                                <div class="col-span-2">
+                                    <label>Phone</label>
+                                    {{ form.partner_phone }}
+                                </div>
+                                <div class="col-span-2">
+                                    <label>Email</label>
+                                    {{ form.partner_email }}
+                                </div>
+                                <div class="col-span-4">
+                                    <label>Address</label>
+                                    {{ form.partner_address }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -461,29 +602,15 @@
                     </div>
                     <div>
                         <label>Type</label>
-                        <select name="vehicle_type" class="form-control">
-                            <option value="passenger">Passenger Car</option>
-                            <option value="truck">Truck</option>
-                            <option value="motorcycle">Motorcycle</option>
-                            <option value="trailer">Trailer</option>
-                        </select>
+                        {{ form.vehicle_type }}
                     </div>
                     <div>
                         <label>Body</label>
-                        <select name="body_type" class="form-control">
-                            <option value="4door">4-Doors</option>
-                            <option value="2door">2-Doors</option>
-                            <option value="suv">SUV</option>
-                            <option value="van">Van</option>
-                        </select>
+                        {{ form.body_type }}
                     </div>
                     <div>
                         <label>Fuel</label>
-                        <select name="fuel_type" class="form-control">
-                            <option value="gas">Gasoline</option>
-                            <option value="electric">Electric</option>
-                            <option value="hybrid">Hybrid</option>
-                        </select>
+                        {{ form.fuel_type }}
                     </div>
                     <div>
                         <label>Cylinders</label>
@@ -518,9 +645,15 @@
                 <div class="form-grid" style="margin-top: 1.5rem; border-top: 1px solid #f1f5f9; padding-top: 1.5rem;">
                     <div class="col-span-4">
                         <label>Insurance ID Card (PDF only)</label>
-                        {{ form.insurance_id_card }}
-                        <p style="margin: 0.35rem 0 0; font-size: 0.78rem; color: #64748b;">
-                            Upload a PDF copy of your insurance ID card. This will be saved to your profile documents after approval.
+                        <div class="pdf-upload-zone" id="pdfUploadZone">
+                            <div class="pdf-upload-icon">PDF</div>
+                            <p class="pdf-upload-title">Drop your insurance ID card here</p>
+                            <p class="pdf-upload-hint">or click to browse — PDF only, up to 50 MB</p>
+                            {{ form.insurance_id_card }}
+                            <p class="pdf-file-name" id="pdfFileName" hidden></p>
+                        </div>
+                        <p style="margin: 0.5rem 0 0; font-size: 0.78rem; color: #64748b;">
+                            Saved to your profile documents as <strong>Insurance ID Card</strong> after approval.
                         </p>
                         {% if form.insurance_id_card.errors %}
                         <p style="color: #dc2626; font-size: 0.8rem; margin-top: 0.35rem;">{{ form.insurance_id_card.errors.0 }}</p>
@@ -552,6 +685,16 @@
                 </div>
             </section>
 
+            <!-- Step 5: Additional Notes -->
+            <section class="step-section">
+                <div class="step-title"><span class="step-number">5</span> Additional Notes (Optional)</div>
+                <div class="intake-note-box">
+                    <label style="text-transform: none; letter-spacing: 0; color: #92400e;">Tell us anything else we should know</label>
+                    {{ form.intake_note }}
+                    <p style="margin: 0.5rem 0 0; font-size: 0.78rem; color: #78716c;">This note will appear on your client profile after your intake is approved.</p>
+                </div>
+            </section>
+
             <div class="footer-actions">
                 <div style="font-size: 0.8rem; color: #94a3b8; max-width: 400px;">
                     By submitting, you agree that all information provided is true and accurate.
@@ -566,6 +709,125 @@
 </div>
 
 <script>
+    (function () {
+        const sourceSelect = document.getElementById('id_source');
+        const dealerPanel = document.getElementById('dealerPanel');
+        const dealerSelect = document.getElementById('dealerSelect');
+        const referralHidden = document.getElementById('id_referral_select');
+        const newDealerBlock = document.getElementById('newDealerBlock');
+        const toggleNewDealerBtn = document.getElementById('toggleNewDealerBtn');
+        const intakeForm = document.getElementById('intakeForm');
+
+        function usesDealerSource() {
+            const val = sourceSelect ? sourceSelect.value : '';
+            return val === 'dealer' || val === 'referral';
+        }
+
+        function syncReferralHidden() {
+            if (!referralHidden) return;
+            if (!usesDealerSource()) {
+                referralHidden.value = '';
+                return;
+            }
+            if (newDealerBlock && newDealerBlock.classList.contains('is-visible')) {
+                referralHidden.value = 'new';
+                return;
+            }
+            referralHidden.value = dealerSelect ? (dealerSelect.value || '') : '';
+        }
+
+        function syncDealerPanel() {
+            if (!dealerPanel) return;
+            const show = usesDealerSource();
+            dealerPanel.classList.toggle('is-visible', show);
+            if (!show && newDealerBlock) {
+                newDealerBlock.classList.remove('is-visible');
+                if (toggleNewDealerBtn) toggleNewDealerBtn.textContent = '+ Add New Dealer / Partner';
+            }
+            syncReferralHidden();
+        }
+
+        if (sourceSelect) {
+            sourceSelect.addEventListener('change', syncDealerPanel);
+            syncDealerPanel();
+        }
+        if (dealerSelect) {
+            dealerSelect.addEventListener('change', function () {
+                if (this.value && newDealerBlock) {
+                    newDealerBlock.classList.remove('is-visible');
+                    if (toggleNewDealerBtn) toggleNewDealerBtn.textContent = '+ Add New Dealer / Partner';
+                }
+                syncReferralHidden();
+            });
+        }
+        if (toggleNewDealerBtn && newDealerBlock) {
+            toggleNewDealerBtn.addEventListener('click', function () {
+                const opening = !newDealerBlock.classList.contains('is-visible');
+                newDealerBlock.classList.toggle('is-visible', opening);
+                this.textContent = opening ? 'Cancel New Partner' : '+ Add New Dealer / Partner';
+                if (opening && dealerSelect) dealerSelect.value = '';
+                syncReferralHidden();
+            });
+        }
+        if (intakeForm) {
+            intakeForm.addEventListener('submit', syncReferralHidden);
+        }
+
+        const pdfZone = document.getElementById('pdfUploadZone');
+        const pdfInput = document.getElementById('id_insurance_id_card');
+        const pdfFileName = document.getElementById('pdfFileName');
+        function showPdfName(file) {
+            if (!pdfZone || !pdfFileName) return;
+            if (file && file.name && file.name.toLowerCase().endsWith('.pdf')) {
+                pdfZone.classList.add('has-file');
+                pdfFileName.hidden = false;
+                pdfFileName.textContent = 'Selected: ' + file.name;
+            } else {
+                pdfZone.classList.remove('has-file');
+                pdfFileName.hidden = true;
+                pdfFileName.textContent = '';
+            }
+        }
+        if (pdfInput) {
+            pdfInput.addEventListener('change', function () {
+                const file = this.files && this.files[0];
+                if (file && !file.name.toLowerCase().endsWith('.pdf')) {
+                    alert('Insurance ID card must be a PDF file.');
+                    this.value = '';
+                    showPdfName(null);
+                    return;
+                }
+                showPdfName(file);
+            });
+        }
+        if (pdfZone && pdfInput) {
+            ['dragenter', 'dragover'].forEach(function (evt) {
+                pdfZone.addEventListener(evt, function (e) {
+                    e.preventDefault();
+                    pdfZone.classList.add('is-dragover');
+                });
+            });
+            ['dragleave', 'drop'].forEach(function (evt) {
+                pdfZone.addEventListener(evt, function (e) {
+                    e.preventDefault();
+                    pdfZone.classList.remove('is-dragover');
+                });
+            });
+            pdfZone.addEventListener('drop', function (e) {
+                const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+                if (!file) return;
+                if (!file.name.toLowerCase().endsWith('.pdf')) {
+                    alert('Insurance ID card must be a PDF file.');
+                    return;
+                }
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                pdfInput.files = dt.files;
+                showPdfName(file);
+            });
+        }
+    })();
+
     document.getElementById('id_is_registrant_owner').addEventListener('change', function () {
         document.getElementById('ownerSection').style.display = this.checked ? 'none' : 'block';
     });

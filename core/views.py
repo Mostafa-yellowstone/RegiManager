@@ -5128,7 +5128,7 @@ def public_intake_portal(request, portal_token=None):
 
     # 3. Handle Submission
     if request.method == "POST":
-        form = ClientIntakeForm(request.POST, request.FILES)
+        form = ClientIntakeForm(request.POST, request.FILES, organization=organization)
         if form.is_valid():
             try:
                 from django.db import transaction
@@ -5136,20 +5136,28 @@ def public_intake_portal(request, portal_token=None):
                     intake = form.save(commit=False)
                     intake.organization = organization
                     intake.requested_services = request.POST.getlist("services")
+                    form.apply_partner_and_note_to_instance(intake, request.POST)
                     intake.save()
                 return redirect(f"/intake/success/?portal_token={token}")
-            except Exception as e:
-                messages.error(request, f"An error occurred while saving your application. Please try again.")
+            except Exception:
+                messages.error(request, "An error occurred while saving your application. Please try again.")
     else:
-        form = ClientIntakeForm()
+        form = ClientIntakeForm(organization=organization)
+
+    dealer_partners = Referral.objects.filter(organization=organization).order_by("name")
     
     # 4. Render the form immediately
+    from .models import Vehicle
     return render(request, "core/public_intake_form.html", {
         "form": form,
         "organization": organization,
         "standard_services": standard_services,
         "custom_services": custom_services,
         "portal_token": token,
+        "dealer_partners": dealer_partners,
+        "vehicle_types": Vehicle.VEHICLE_TYPES,
+        "body_types": Vehicle.BODY_TYPES,
+        "fuel_types": Vehicle.FUEL_TYPES,
     })
 
 @login_required
@@ -5234,6 +5242,20 @@ def approve_intake(request, intake_id):
             business_name=intake.business_name,
             business_ein=intake.business_ein,
             source=intake.source,
+        )
+    else:
+        client.source = intake.source
+        client.save(update_fields=["source"])
+
+    from .intake_referral import apply_intake_referral_to_client
+    apply_intake_referral_to_client(intake, client)
+
+    note_text = (intake.intake_note or "").strip()
+    if note_text:
+        ClientNote.objects.create(
+            client=client,
+            content=f"[Intake portal] {note_text}",
+            created_by=request.user,
         )
 
     # 4. Update or Create Vehicle
