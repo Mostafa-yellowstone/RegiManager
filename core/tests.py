@@ -1182,6 +1182,59 @@ class ClientIntakeTests(TestCase):
         self.assertIsNotNone(client)
         self.assertEqual(client.source, "meta_platform")
 
+    def test_intake_rejects_non_pdf_insurance_id_card(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        pdf = SimpleUploadedFile("id.pdf", b"%PDF-1.4 test", content_type="application/pdf")
+        jpg = SimpleUploadedFile("id.jpg", b"fakejpg", content_type="image/jpeg")
+        base = {
+            "first_name": "Intake",
+            "last_name": "Test",
+            "gender": "male",
+            "phone_number": "1234567890",
+            "vin": "12345678901234567",
+            "source": "referral",
+            "services": ["registration_title"],
+        }
+        ok = self.client.post(
+            reverse("public-intake-direct", args=[self.org.portal_token]),
+            {**base, "insurance_id_card": pdf},
+        )
+        self.assertEqual(ok.status_code, 302)
+        bad = self.client.post(
+            reverse("public-intake-direct", args=[self.org.portal_token]),
+            {**base, "insurance_id_card": jpg},
+        )
+        self.assertEqual(bad.status_code, 200)
+        self.assertContains(bad, "Insurance ID card must be a PDF file.")
+
+    def test_approve_intake_copies_insurance_id_to_client_documents(self):
+        from core.models import ClientIntake, ServiceDocument
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        pdf = SimpleUploadedFile("insurance-card.pdf", b"%PDF-1.4 insurance", content_type="application/pdf")
+        intake = ClientIntake.objects.create(
+            organization=self.org,
+            first_name="Doc",
+            last_name="Upload",
+            gender="male",
+            phone_number="1234567890",
+            vin="VIN12345678901234",
+            source="referral",
+        )
+        intake.insurance_id_card.save("insurance-card.pdf", pdf, save=True)
+        self.client.login(username="owner", password="password123")
+        response = self.client.get(reverse("approve-intake", args=[intake.id]))
+        self.assertEqual(response.status_code, 302)
+        client = Client.objects.filter(organization=self.org, first_name="Doc").first()
+        self.assertIsNotNone(client)
+        doc = ServiceDocument.objects.filter(
+            vehicle__client=client,
+            document_type="insurance_id",
+        ).first()
+        self.assertIsNotNone(doc)
+        self.assertEqual(doc.display_name, "Insurance ID Card")
+
 
 class DocumentsSpaceTests(TestCase):
     def setUp(self):
@@ -2073,25 +2126,8 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
             for page in self.PdfReader(self.BytesIO(response.content)).pages
         )
 
-    def test_receipt_shows_payment_history_section(self):
-        from core.service_payments import record_opening_ledger_entry
-
-        record = ServiceRecord.objects.create(
-            organization=self.org,
-            handled_by=self.user,
-            vehicle=self.vehicle,
-            service_type="vehicle_registration",
-            transaction_type="transmittal",
-            processing_fee=Decimal("100.00"),
-            paid_amount=Decimal("0.00"),
-        )
-        record_opening_ledger_entry(record, recorded_by=self.user)
-        pdf_text = self._pdf_text(record)
-        self.assertIn("PAYMENT HISTORY", pdf_text)
-        self.assertIn("Transmittal", pdf_text)
-
-    def test_initial_payment_logged_and_shown_on_receipt(self):
-        from core.service_payments import record_opening_ledger_entry
+    def test_receipt_hides_payment_history_until_hub_payment(self):
+        from core.service_payments import log_balance_payment
 
         record = ServiceRecord.objects.create(
             organization=self.org,
@@ -2103,14 +2139,26 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
             paid_amount=Decimal("40.00"),
             payment_method="cash",
         )
-        record_opening_ledger_entry(record, recorded_by=self.user)
         pdf_text = self._pdf_text(record)
-        self.assertIn("Transmittal", pdf_text)
-        self.assertIn("$40.00", pdf_text)
+        self.assertNotIn("PAYMENT HISTORY", pdf_text)
+
+        log_balance_payment(
+            record,
+            Decimal("10.00"),
+            "cash",
+            payment_date="2026-06-15",
+            recorded_by=self.user,
+            notes="Payment via Outstanding Balances",
+        )
+        record.paid_amount = Decimal("50.00")
+        record.save()
+        pdf_text = self._pdf_text(record)
+        self.assertIn("PAYMENT HISTORY", pdf_text)
+        self.assertIn("Initial payment", pdf_text)
 
     def test_partial_payment_adds_row_to_receipt(self):
         from core.models import ServiceRecordPayment
-        from core.service_payments import log_balance_payment, record_opening_ledger_entry
+        from core.service_payments import log_balance_payment
 
         record = ServiceRecord.objects.create(
             organization=self.org,
@@ -2123,27 +2171,26 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
             payment_method="cash",
             transaction_date=date(2026, 6, 2),
         )
-        record_opening_ledger_entry(record, recorded_by=self.user)
-        record.paid_amount = Decimal("75.00")
-        record.save()
         log_balance_payment(
             record,
             Decimal("50.00"),
             "zelle",
             payment_date="2026-06-15",
             recorded_by=self.user,
-            notes="Balance payment",
+            notes="Payment via Outstanding Balances",
         )
+        record.paid_amount = Decimal("75.00")
+        record.save()
         self.assertEqual(ServiceRecordPayment.objects.filter(service_record=record).count(), 2)
         pdf_text = self._pdf_text(record)
         self.assertIn("Jun 02, 2026", pdf_text)
         self.assertIn("Jun 15, 2026", pdf_text)
+        self.assertIn("Initial payment", pdf_text)
         self.assertIn("Zelle", pdf_text)
         self.assertIn("Total Paid", pdf_text)
 
     def test_mark_balance_paid_creates_payment_entry(self):
         from core.models import ServiceRecordPayment
-        from core.service_payments import record_opening_ledger_entry
 
         record = ServiceRecord.objects.create(
             organization=self.org,
@@ -2154,7 +2201,6 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
             processing_fee=Decimal("80.00"),
             paid_amount=Decimal("0.00"),
         )
-        record_opening_ledger_entry(record, recorded_by=self.user)
         response = self.http.post(
             reverse("mark-balance-paid", args=[record.id]),
             {
@@ -2181,7 +2227,7 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
         from core.models import ServiceRecordPayment
         from core.service_payments import (
             compute_ledger_rows,
-            record_opening_ledger_entry,
+            log_balance_payment,
             total_paid_for_receipt,
         )
 
@@ -2192,30 +2238,44 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
             service_type="vehicle_registration",
             transaction_type="transmittal",
             processing_fee=Decimal("430.75"),
-            paid_amount=Decimal("430.75"),
+            paid_amount=Decimal("200.00"),
             payment_method="cash",
         )
-        record_opening_ledger_entry(record, recorded_by=self.user)
         ServiceRecordPayment.objects.create(
             service_record=record,
             entry_type=ServiceRecordPayment.ENTRY_PAYMENT,
-            amount=Decimal("430.75"),
+            amount=Decimal("200.00"),
+            payment_date=record.transaction_date,
+            notes="Initial payment",
+        )
+        log_balance_payment(
+            record,
+            Decimal("230.75"),
+            "cash",
+            recorded_by=self.user,
+            notes="Payment via Outstanding Balances",
+        )
+        record.paid_amount = Decimal("430.75")
+        record.save()
+        ServiceRecordPayment.objects.create(
+            service_record=record,
+            entry_type=ServiceRecordPayment.ENTRY_PAYMENT,
+            amount=Decimal("200.00"),
             payment_date=record.transaction_date,
             notes="Initial payment",
         )
         self.assertEqual(total_paid_for_receipt(record), Decimal("430.75"))
         rows = compute_ledger_rows(record)
-        self.assertEqual(len(rows), 1)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0].description, "Initial payment")
         self.assertEqual(rows[0].line_total, Decimal("430.75"))
-        self.assertEqual(rows[0].line_paid, Decimal("430.75"))
-        self.assertEqual(rows[0].balance_after, Decimal("0.00"))
+        self.assertEqual(rows[0].line_paid, Decimal("200.00"))
+        self.assertEqual(rows[0].balance_after, Decimal("230.75"))
+        self.assertEqual(rows[1].line_paid, Decimal("230.75"))
+        self.assertEqual(rows[1].balance_after, Decimal("0.00"))
 
     def test_running_outstanding_decreases_with_each_payment(self):
-        from core.service_payments import (
-            compute_ledger_rows,
-            log_balance_payment,
-            record_opening_ledger_entry,
-        )
+        from core.service_payments import compute_ledger_rows, log_balance_payment
 
         record = ServiceRecord.objects.create(
             organization=self.org,
@@ -2227,25 +2287,67 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
             paid_amount=Decimal("25.00"),
             transaction_date=date(2026, 6, 2),
         )
-        record_opening_ledger_entry(record, recorded_by=self.user)
-        record.paid_amount = Decimal("75.00")
-        record.save()
         log_balance_payment(
             record,
             Decimal("50.00"),
             "zelle",
             payment_date="2026-06-15",
             recorded_by=self.user,
+            notes="Payment via Outstanding Balances",
         )
+        record.paid_amount = Decimal("75.00")
+        record.save()
         rows = compute_ledger_rows(record)
         self.assertEqual(len(rows), 2)
         self.assertEqual(rows[0].balance_after, Decimal("75.00"))
         self.assertEqual(rows[1].balance_after, Decimal("25.00"))
 
+    def test_edit_clears_ledger_without_hub_payments(self):
+        from core.service_payments import record_opening_ledger_entry, reset_ledger_after_edit
+
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_type="transmittal",
+            processing_fee=Decimal("100.00"),
+            paid_amount=Decimal("25.00"),
+        )
+        record_opening_ledger_entry(record, recorded_by=self.user)
+        self.assertEqual(record.payment_entries.count(), 1)
+        reset_ledger_after_edit(record)
+        self.assertEqual(record.payment_entries.count(), 0)
+
+    def test_edit_preserves_ledger_after_hub_payment(self):
+        from core.service_payments import log_balance_payment, reset_ledger_after_edit
+
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_type="transmittal",
+            processing_fee=Decimal("100.00"),
+            paid_amount=Decimal("25.00"),
+        )
+        log_balance_payment(
+            record,
+            Decimal("10.00"),
+            "cash",
+            notes="Payment via Outstanding Balances",
+            recorded_by=self.user,
+        )
+        record.paid_amount = Decimal("35.00")
+        record.save()
+        count_before = record.payment_entries.count()
+        reset_ledger_after_edit(record)
+        self.assertEqual(record.payment_entries.count(), count_before)
+
     def test_legacy_initial_payment_row_becomes_opening_with_outstanding(self):
-        """Records that only have a backfilled Initial payment row get a proper opening row."""
+        """Legacy Initial payment rows are converted when the first hub payment is logged."""
         from core.models import ServiceRecordPayment
-        from core.service_payments import compute_ledger_rows
+        from core.service_payments import compute_ledger_rows, log_balance_payment
 
         record = ServiceRecord.objects.create(
             organization=self.org,
@@ -2266,14 +2368,27 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
             payment_date=date(2026, 6, 2),
             notes="Initial payment",
         )
+        log_balance_payment(
+            record,
+            Decimal("50.00"),
+            "cash",
+            payment_date="2026-06-15",
+            recorded_by=self.user,
+            notes="Payment via Outstanding Balances",
+        )
+        record.paid_amount = Decimal("470.50")
+        record.save()
         rows = compute_ledger_rows(record)
-        self.assertEqual(len(rows), 1)
-        self.assertIn("Transmittal", rows[0].description)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0].description, "Initial payment")
         self.assertEqual(rows[0].line_total, Decimal("861.50"))
         self.assertEqual(rows[0].line_paid, Decimal("420.50"))
         self.assertEqual(rows[0].balance_after, Decimal("441.00"))
         self.assertFalse(
-            record.payment_entries.filter(notes="Initial payment").exists()
+            record.payment_entries.filter(
+                entry_type=ServiceRecordPayment.ENTRY_PAYMENT,
+                notes="Initial payment",
+            ).exists()
         )
 
 

@@ -516,6 +516,19 @@
                 </div>
 
                 <div class="form-grid" style="margin-top: 1.5rem; border-top: 1px solid #f1f5f9; padding-top: 1.5rem;">
+                    <div class="col-span-4">
+                        <label>Insurance ID Card (PDF only)</label>
+                        {{ form.insurance_id_card }}
+                        <p style="margin: 0.35rem 0 0; font-size: 0.78rem; color: #64748b;">
+                            Upload a PDF copy of your insurance ID card. This will be saved to your profile documents after approval.
+                        </p>
+                        {% if form.insurance_id_card.errors %}
+                        <p style="color: #dc2626; font-size: 0.8rem; margin-top: 0.35rem;">{{ form.insurance_id_card.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="form-grid" style="margin-top: 1.5rem; border-top: 1px solid #f1f5f9; padding-top: 1.5rem;">
                     <div class="col-span-4" style="margin-bottom: 0.5rem;">
                         <label
                             style="display: flex; align-items: center; gap: 10px; cursor: pointer; text-transform: none;">

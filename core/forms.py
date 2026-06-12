@@ -607,7 +607,7 @@ class ClientIntakeForm(forms.ModelForm):
             "organization", "status", "processed_at", "processed_by",
             "additional_data", "requested_services",
             "mv82_file", "dtf802_file", "dtf803_file", "other_docs",
-            "is_commercial", "business_name", "business_ein"
+            "is_commercial", "business_name", "business_ein",
         ]
         widgets = {
             "dob": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
@@ -658,7 +658,28 @@ class ClientIntakeForm(forms.ModelForm):
             "lien_filing_code": forms.TextInput(attrs={"class": "form-control", "placeholder": "5-digit Code"}),
             "lessor_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Lessor Name"}),
             "lessor_address": forms.TextInput(attrs={"class": "form-control", "placeholder": "Lessor Address"}),
+            "insurance_id_card": forms.ClearableFileInput(
+                attrs={
+                    "class": "form-control",
+                    "accept": "application/pdf,.pdf",
+                }
+            ),
         }
+
+    def clean_insurance_id_card(self):
+        upload = self.cleaned_data.get("insurance_id_card")
+        if not upload:
+            return upload
+        name = (upload.name or "").lower()
+        if not name.endswith(".pdf"):
+            raise forms.ValidationError("Insurance ID card must be a PDF file.")
+        content_type = (getattr(upload, "content_type", "") or "").lower()
+        if content_type and content_type not in ("application/pdf", "application/x-pdf"):
+            raise forms.ValidationError("Insurance ID card must be a PDF file.")
+        max_bytes = 50 * 1024 * 1024
+        if upload.size > max_bytes:
+            raise forms.ValidationError("Insurance ID card must be 50 MB or smaller.")
+        return upload
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -1024,6 +1024,12 @@ class ClientIntake(models.Model):
     dtf802_file = models.FileField(upload_to="intake_docs/dtf802/", blank=True, null=True)
     dtf803_file = models.FileField(upload_to="intake_docs/dtf803/", blank=True, null=True)
     other_docs = models.FileField(upload_to="intake_docs/other/", blank=True, null=True)
+    insurance_id_card = models.FileField(
+        upload_to="intake_docs/insurance_id/",
+        blank=True,
+        null=True,
+        help_text="Insurance ID card (PDF only).",
+    )
 
     requested_services = models.JSONField(default=list, blank=True)
 

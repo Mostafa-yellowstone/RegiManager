@@ -1270,10 +1270,7 @@ def start_process(request, vehicle_id):
             
             record.save()
 
-            from .service_payments import record_initial_service_payments, record_opening_ledger_entry, reconcile_ledger_balances
-            record_opening_ledger_entry(record, recorded_by=request.user)
-            record_initial_service_payments(record, recorded_by=request.user)
-            reconcile_ledger_balances(record)
+            # Payment ledger is created only when balance payments are logged from the hub.
             
             # If referral and there is a balance, create a ReferralPayment ledger record
             if record.referral and record.referral_balance > 0:
@@ -1972,7 +1969,14 @@ def daily_report_pdf(request):
 
 def _draw_receipt_payment_history(pdf, service_record, margin_x):
     """Draw sequential payment rows on the receipt (opening + follow-up payments)."""
-    from .service_payments import compute_ledger_rows, total_paid_for_receipt
+    from .service_payments import (
+        compute_ledger_rows,
+        receipt_should_show_ledger,
+        total_paid_for_receipt,
+    )
+
+    if not receipt_should_show_ledger(service_record):
+        return
 
     rows = compute_ledger_rows(service_record)
     row_h = 14
@@ -2000,9 +2004,9 @@ def _draw_receipt_payment_history(pdf, service_record, margin_x):
         pdf.line(x, py - table_h, x, py)
     pdf.line(margin_x, header_y, margin_x + table_w, header_y)
 
-    pdf.setFont("Helvetica-Bold", 8)
+    pdf.setFont("Helvetica-Bold", 6)
     pdf.drawString(margin_x + 4, py - 12, "PAYMENT HISTORY")
-    pdf.setFont("Helvetica", 6.5)
+    pdf.setFont("Helvetica", 6)
     pdf.drawString(margin_x + 4, header_y + 6, "Date")
     pdf.drawString(col1 + 4, header_y + 6, "Description")
     pdf.drawString(col2 + 4, header_y + 6, "Total")
@@ -3700,8 +3704,6 @@ def referral_profile(request, referral_id):
                 )
                 return redirect("referral-profile", referral_id=referral.id)
                 
-            record.paid_amount = (record.paid_amount or Decimal("0")) + payment_amount
-            record.save()
             log_balance_payment(
                 record,
                 payment_amount,
@@ -3710,6 +3712,8 @@ def referral_profile(request, referral_id):
                 recorded_by=request.user,
                 notes="Payment via referral profile",
             )
+            record.paid_amount = (record.paid_amount or Decimal("0")) + payment_amount
+            record.save()
             
             # Create payment log
             ReferralPayment.objects.create(
@@ -3753,8 +3757,6 @@ def referral_profile(request, referral_id):
                         payment_applied = remaining
                         remaining = Decimal("0")
                     
-                    rec.paid_amount = (rec.paid_amount or Decimal("0")) + payment_applied
-                    rec.save()
                     log_balance_payment(
                         rec,
                         payment_applied,
@@ -3763,6 +3765,8 @@ def referral_profile(request, referral_id):
                         recorded_by=request.user,
                         notes=notes or "Bulk referral payment",
                     )
+                    rec.paid_amount = (rec.paid_amount or Decimal("0")) + payment_applied
+                    rec.save()
                 
                 # If still remaining, apply to initial_balance
                 if remaining > 0:
@@ -5010,9 +5014,8 @@ def edit_service(request, service_id):
 
             record.save()
             from .models import ServiceDocument
-            from .service_payments import ensure_opening_ledger_entry, reconcile_ledger_balances
-            ensure_opening_ledger_entry(record)
-            reconcile_ledger_balances(record)
+            from .service_payments import reset_ledger_after_edit
+            reset_ledger_after_edit(record)
             for doc in ServiceDocument.objects.filter(service_record=record, document_type="mv82"):
                 try:
                     regenerate_mv82_document(doc)
@@ -5271,7 +5274,23 @@ def approve_intake(request, intake_id):
         }
     )
 
-    # 5. (Service record is NOT auto-created here — the agent will start the
+    # 5. Copy intake documents to the client profile (All Documents)
+    if intake.insurance_id_card:
+        from .models import ServiceDocument
+        import os
+        intake.insurance_id_card.open("rb")
+        try:
+            file_bytes = intake.insurance_id_card.read()
+        finally:
+            intake.insurance_id_card.close()
+        filename = os.path.basename(intake.insurance_id_card.name)
+        doc = ServiceDocument(
+            vehicle=vehicle,
+            document_type="insurance_id",
+        )
+        doc.file.save(filename, ContentFile(file_bytes), save=True)
+
+    # 6. (Service record is NOT auto-created here — the agent will start the
     #    transaction manually from the client or vehicle profile.)
 
     messages.success(
@@ -5524,9 +5543,7 @@ def mark_balance_paid(request, record_id):
                     status=422,
                 )
 
-            # Apply
-            record.paid_amount = (record.paid_amount or Decimal("0")) + payment
-            record.save(update_fields=["paid_amount", "referral_balance", "is_referral_paid", "updated_at"])
+            # Log payment row before updating paid_amount so opening snapshot stays correct.
             log_balance_payment(
                 record,
                 payment,
@@ -5535,6 +5552,8 @@ def mark_balance_paid(request, record_id):
                 recorded_by=request.user,
                 notes="Payment via Outstanding Balances",
             )
+            record.paid_amount = (record.paid_amount or Decimal("0")) + payment
+            record.save(update_fields=["paid_amount", "referral_balance", "is_referral_paid", "updated_at"])
 
             # Log against the referral entity if one is linked
             if record.referral_id:
