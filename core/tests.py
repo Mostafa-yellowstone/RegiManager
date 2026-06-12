@@ -1286,10 +1286,25 @@ class PortalIntakeListTests(TestCase):
             status=ClientIntake.Status.APPROVED,
             processed_by=self.owner,
         )
+        client = Client.objects.create(
+            organization=self.org,
+            first_name="Portal",
+            last_name="Client",
+            gender="male",
+            phone_number="5551234567",
+        )
+        Vehicle.objects.create(
+            client=client,
+            vin="1HGBH41JXMN109186",
+            vehicle_type="passenger",
+            fuel_type="gas",
+        )
         self.http.login(username="intakeowner", password="password123")
         response = self.http.get(reverse("portal-intake-list"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Portal Client")
+        self.assertContains(response, "client-name-link")
+        self.assertContains(response, reverse("client-detail", args=[client.id]))
         self.assertContains(response, "intakeowner")
 
     def test_agent_cannot_access_portal_intake_crm(self):

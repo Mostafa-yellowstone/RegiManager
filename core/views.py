@@ -5210,6 +5210,9 @@ def portal_intake_list(request):
     paginator = Paginator(intakes, 20)
     page_obj = paginator.get_page(request.GET.get("page"))
 
+    from .intake_approval import attach_client_profiles_to_intakes
+    attach_client_profiles_to_intakes(page_obj.object_list)
+
     return render(
         request,
         "core/portal_intake_list.html",

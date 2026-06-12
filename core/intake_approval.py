@@ -43,6 +43,58 @@ def intake_vehicle_for_client(intake, client):
     return Vehicle.objects.filter(client=client, vin=vin).first()
 
 
+def client_profile_for_intake(intake):
+    """Return the client profile created from an approved intake, when resolvable."""
+    from .models import ClientIntake
+
+    if intake.status != ClientIntake.Status.APPROVED:
+        return None
+    vin = (intake.vin or "").strip()
+    if not vin:
+        return None
+    vehicle = (
+        Vehicle.objects.filter(
+            vin__iexact=vin,
+            client__organization_id=intake.organization_id,
+        )
+        .select_related("client")
+        .first()
+    )
+    return vehicle.client if vehicle else None
+
+
+def attach_client_profiles_to_intakes(intakes):
+    """Set linked_client on each approved intake (batch lookup, no N+1)."""
+    from .models import ClientIntake
+
+    intake_list = list(intakes)
+    approved = [
+        intake for intake in intake_list
+        if intake.status == ClientIntake.Status.APPROVED and (intake.vin or "").strip()
+    ]
+    for intake in intake_list:
+        intake.linked_client = None
+
+    if not approved:
+        return intake_list
+
+    org_ids = {intake.organization_id for intake in approved}
+    vins = {(intake.vin or "").strip().upper() for intake in approved}
+    client_map = {}
+    for vehicle in Vehicle.objects.filter(
+        client__organization_id__in=org_ids,
+    ).select_related("client"):
+        key = (vehicle.client.organization_id, (vehicle.vin or "").strip().upper())
+        if key[1] in vins:
+            client_map[key] = vehicle.client
+
+    for intake in approved:
+        key = (intake.organization_id, (intake.vin or "").strip().upper())
+        intake.linked_client = client_map.get(key)
+
+    return intake_list
+
+
 def vehicle_defaults_from_intake(intake):
     """Field map used when creating or updating a vehicle from intake."""
     return {
