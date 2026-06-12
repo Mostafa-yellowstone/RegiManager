@@ -1307,10 +1307,23 @@ class PortalIntakeListTests(TestCase):
         self.assertContains(response, reverse("client-detail", args=[client.id]))
         self.assertContains(response, "intakeowner")
 
-    def test_agent_cannot_access_portal_intake_crm(self):
+    def test_agent_can_access_portal_intake_crm(self):
+        from core.models import ClientIntake
+
+        ClientIntake.objects.create(
+            organization=self.org,
+            first_name="Agent",
+            last_name="View",
+            gender="male",
+            phone_number="5559998888",
+            vin="VINAGENT123456789",
+            source="walk_in",
+            status=ClientIntake.Status.PENDING,
+        )
         self.http.login(username="intakeagent", password="password123")
         response = self.http.get(reverse("portal-intake-list"))
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Agent View")
 
     def test_portal_disabled_when_feature_flag_off(self):
         self.org.is_public_intake_enabled = False
@@ -1321,9 +1334,18 @@ class PortalIntakeListTests(TestCase):
         self.http.login(username="intakeowner", password="password123")
         response = self.http.get(reverse("portal-intake-list"))
         self.assertEqual(response.status_code, 403)
+        self.http.login(username="intakeagent", password="password123")
+        response = self.http.get(reverse("portal-intake-list"))
+        self.assertEqual(response.status_code, 403)
 
     def test_dashboard_shows_portal_intake_button_for_owner(self):
         self.http.login(username="intakeowner", password="password123")
+        response = self.http.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Portal Intakes")
+
+    def test_dashboard_shows_portal_intake_chip_for_agent(self):
+        self.http.login(username="intakeagent", password="password123")
         response = self.http.get(reverse("dashboard"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Portal Intakes")

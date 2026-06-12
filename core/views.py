@@ -1501,10 +1501,8 @@ def dashboard(request):
     
     # Also check if automation is enabled for any of the user's organizations
     automation_enabled = organizations.filter(is_automation_enabled=True).exists()
-    public_intake_enabled = (
-        is_owner
-        and owner_orgs.filter(is_public_intake_enabled=True).exists()
-    )
+    intake_orgs = organizations.filter(is_public_intake_enabled=True)
+    public_intake_enabled = intake_orgs.exists()
 
     total_outstanding_referral_balance = Decimal("0")
     if is_owner or user_can_manage_referrals:
@@ -1570,7 +1568,7 @@ def dashboard(request):
     if public_intake_enabled:
         pending_intakes = list(
             ClientIntake.objects.filter(
-                organization__in=owner_orgs.filter(is_public_intake_enabled=True),
+                organization__in=intake_orgs,
                 status=ClientIntake.Status.PENDING,
             ).order_by("-created_at")
         )
@@ -5120,20 +5118,13 @@ def edit_vehicle(request, vehicle_id):
 
 @login_required
 def portal_intake_list(request):
-    """Owner-only CRM for portal intake submissions with advanced filtering."""
-    owner_org_ids = list(
-        OrganizationMembership.objects.filter(
-            user=request.user,
-            role=OrganizationMembership.Role.OWNER,
-            is_active=True,
-            organization__is_active=True,
-            organization__is_public_intake_enabled=True,
-        ).values_list("organization_id", flat=True)
-    )
-    if not owner_org_ids:
-        deny_access("Owner access required.")
+    """CRM for portal intake submissions — all PSB members when intake is enabled."""
+    organizations = _get_user_organizations(request)
+    intake_orgs = organizations.filter(is_public_intake_enabled=True)
+    if not intake_orgs.exists():
+        deny_access("Public intake portal is not enabled for your PSB.")
 
-    intake_orgs = Organization.objects.filter(id__in=owner_org_ids)
+    intake_org_ids = list(intake_orgs.values_list("id", flat=True))
     intakes = (
         ClientIntake.objects.filter(organization__in=intake_orgs)
         .select_related("organization", "processed_by", "selected_referral")
@@ -5183,7 +5174,7 @@ def portal_intake_list(request):
 
     if selected_org and selected_org.isdigit():
         oid = int(selected_org)
-        if oid in owner_org_ids:
+        if oid in intake_org_ids:
             intakes = intakes.filter(organization_id=oid)
 
     if date_from:
