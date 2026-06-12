@@ -2148,7 +2148,8 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
         self.assertIn("PAYMENT HISTORY", pdf_text)
         self.assertIn("Total Paid", pdf_text)
         self.assertIn("Outstanding Balance", pdf_text)
-        self.assertNotIn("Initial payment", pdf_text)
+        self.assertIn("Cash", pdf_text)
+        self.assertIn("Initial payment", pdf_text)
 
         log_balance_payment(
             record,
@@ -2163,6 +2164,7 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
         pdf_text = self._pdf_text(record)
         self.assertIn("PAYMENT HISTORY", pdf_text)
         self.assertIn("Initial payment", pdf_text)
+        self.assertIn("Cash", pdf_text)
 
     def test_partial_payment_adds_row_to_receipt(self):
         from core.models import ServiceRecordPayment
@@ -2194,6 +2196,7 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
         self.assertIn("Jun 02, 2026", pdf_text)
         self.assertIn("Jun 15, 2026", pdf_text)
         self.assertIn("Initial payment", pdf_text)
+        self.assertIn("Cash", pdf_text)
         self.assertIn("Zelle", pdf_text)
         self.assertIn("Total Paid", pdf_text)
 
@@ -2275,7 +2278,7 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
         self.assertEqual(total_paid_for_receipt(record), Decimal("430.75"))
         rows = compute_ledger_rows(record)
         self.assertEqual(len(rows), 2)
-        self.assertEqual(rows[0].description, "Initial payment")
+        self.assertEqual(rows[0].description, "Cash — Initial payment")
         self.assertEqual(rows[0].line_total, Decimal("430.75"))
         self.assertEqual(rows[0].line_paid, Decimal("200.00"))
         self.assertEqual(rows[0].balance_after, Decimal("230.75"))
@@ -2388,7 +2391,7 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
         record.save()
         rows = compute_ledger_rows(record)
         self.assertEqual(len(rows), 2)
-        self.assertEqual(rows[0].description, "Initial payment")
+        self.assertEqual(rows[0].description, "Cash — Initial payment")
         self.assertEqual(rows[0].line_total, Decimal("861.50"))
         self.assertEqual(rows[0].line_paid, Decimal("420.50"))
         self.assertEqual(rows[0].balance_after, Decimal("441.00"))

@@ -34,6 +34,36 @@ def payment_method_label(method):
     return dict(ServiceRecord.PAYMENT_METHODS).get(method, method or "Cash")
 
 
+def record_payment_method_labels(record) -> str:
+    """Human-readable method label(s) for receipt rows (no dollar amounts)."""
+    m1 = payment_method_label(record.payment_method)
+    if record.payment_method_2 and (record.paid_amount_2 or Decimal("0")) > Decimal("0"):
+        m2 = payment_method_label(record.payment_method_2)
+        return f"{m1} / {m2}"
+    return m1
+
+
+def format_receipt_row_description(method_label, base_description: str) -> str:
+    """Prefix payment method when it is not already in the description text."""
+    base = (base_description or "Payment").strip()
+    label = (method_label or "").strip()
+    if not label:
+        return base
+    if label.lower() in base.lower():
+        return base
+    return f"{label} — {base}"
+
+
+def receipt_summary_description(record) -> str:
+    """Description for the pre-hub summary row on the receipt PDF."""
+    paid = total_paid_for_receipt(record)
+    if paid <= Decimal("0"):
+        return "—"
+    total = _total_due(record)
+    base = OPENING_DESCRIPTION if paid < total else "Payment"
+    return format_receipt_row_description(record_payment_method_labels(record), base)
+
+
 def parse_payment_date(value, default=None):
     """Parse YYYY-MM-DD from form input; fall back to default (usually today)."""
     default = default or timezone.localdate()
@@ -244,7 +274,9 @@ def compute_ledger_rows(record) -> list[LedgerDisplayRow]:
                     entry=entry,
                     is_opening=True,
                     payment_date=entry.payment_date,
-                    description=OPENING_DESCRIPTION,
+                    description=format_receipt_row_description(
+                        method_label, OPENING_DESCRIPTION
+                    ),
                     line_total=entry.line_total or total_due,
                     line_paid=opening_paid,
                     balance_after=balance,
@@ -255,9 +287,10 @@ def compute_ledger_rows(record) -> list[LedgerDisplayRow]:
             amt = entry.amount or Decimal("0")
             cumulative_paid += amt
             balance = total_due - cumulative_paid
-            desc = (entry.notes or "Payment").strip()
-            if method_label.lower() not in desc.lower():
-                desc = f"{method_label} — {desc}"
+            desc = format_receipt_row_description(
+                method_label,
+                (entry.notes or "Payment").strip(),
+            )
             rows.append(
                 LedgerDisplayRow(
                     entry=entry,

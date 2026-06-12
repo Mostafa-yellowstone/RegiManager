@@ -1978,6 +1978,7 @@ def _draw_receipt_payment_history(pdf, service_record, margin_x):
     from .service_payments import (
         compute_ledger_rows,
         receipt_outstanding_balance,
+        receipt_summary_description,
         total_paid_for_receipt,
     )
 
@@ -2038,7 +2039,11 @@ def _draw_receipt_payment_history(pdf, service_record, margin_x):
         summary_paid = total_paid_for_receipt(service_record)
         summary_outstanding = receipt_outstanding_balance(service_record)
         pdf.drawString(margin_x + 4, row_y + 4, summary_date.strftime("%b %d, %Y")[:14])
-        pdf.drawString(col1 + 4, row_y + 4, "—")
+        pdf.drawString(
+            col1 + 4,
+            row_y + 4,
+            receipt_summary_description(service_record)[:30],
+        )
         pdf.drawRightString(col2 + 76, row_y + 4, _currency(summary_total))
         pdf.drawRightString(col3 + 66, row_y + 4, _currency(summary_paid))
         pdf.drawRightString(margin_x + table_w - 4, row_y + 4, _currency(summary_outstanding))
