@@ -75,21 +75,26 @@
                     <span class="metric-meta">{{ yearly_report.total_records|default:0 }} records</span>
                 </div>
                 {% if is_owner or user_can_view_net_profit %}
-                <div class="hero-stat-cluster">
+                <div class="hero-stat-cluster{% if is_owner and public_intake_enabled %} hero-stat-cluster--with-intake{% endif %}">
                     <div class="metric-card metric-card--lg metric-card--profit">
                         <span class="metric-label">Total Net Profit</span>
                         <strong class="metric-value profit-animated">${{ overall_net_profit|floatformat:2 }}</strong>
                     </div>
                     {% if is_owner and public_intake_enabled %}
                     <a href="{% url 'portal-intake-list' %}" class="hero-intake-action" title="Open Portal Intake CRM">
-                        {% if pending_intakes %}
-                        <span class="hero-intake-action__badge">{{ pending_intakes|length }}</span>
-                        {% endif %}
-                        <span class="hero-intake-action__icon">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                        <span class="hero-intake-action__icon" aria-hidden="true">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
                         </span>
-                        <span class="hero-intake-action__label">Portal Intakes</span>
-                        <span class="hero-intake-action__meta">Review &amp; process</span>
+                        <span class="hero-intake-action__body">
+                            <span class="hero-intake-action__label">Portal Intakes</span>
+                            <span class="hero-intake-action__meta">Review &amp; process clients</span>
+                        </span>
+                        {% if pending_intakes %}
+                        <span class="hero-intake-action__badge">{{ pending_intakes|length }} new</span>
+                        {% endif %}
+                        <span class="hero-intake-action__arrow" aria-hidden="true">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                        </span>
                     </a>
                     {% endif %}
                 </div>
