@@ -231,6 +231,18 @@ def _fit_text(text, max_width, font_name="Helvetica", font_size=7):
     return (allowed + suffix) if allowed else suffix
 
 
+def _map_nhtsa_body_class(raw_value):
+    """Map NHTSA BodyClass text to internal body_type keys when possible."""
+    if not raw_value:
+        return ""
+    val = str(raw_value).lower()
+    if "suburban" in val:
+        return "suburban"
+    if "pickup" in val or "pick-up" in val or "pick up" in val:
+        return "pickup_truck"
+    return str(raw_value).strip()
+
+
 def _normalize_weight_from_gvwr(raw_value):
     """
     Normalize noisy decoder GVWR strings into a clean numeric weight hint.
@@ -1148,11 +1160,9 @@ def check_vin_ajax(request):
                     "year": data.get("ModelYear"),
                     "make": data.get("Make"),
                     "model": data.get("Model"),
-                    "body_type": data.get("BodyClass"),
+                    "body_type": _map_nhtsa_body_class(data.get("BodyClass")),
                     "fuel_type": data.get("FuelTypePrimary"),
                     "cylinders": data.get("EngineCylinders"),
-                    "weight_raw": data.get("GVWR"),
-                    "weight": _normalize_weight_from_gvwr(data.get("GVWR")),
                     "seats": data.get("Seats"),
                     "color": data.get("ExteriorColor"),
                 }
@@ -1262,11 +1272,7 @@ def start_process(request, vehicle_id):
             # Auto-link to referral if this client came from a referralship
             if vehicle.client.referral:
                 record.referral = vehicle.client.referral
-                # Automatically calculate the balance if referral is selected
-                if total_paid < total_fees:
-                    record.referral_balance = total_fees - total_paid
-                else:
-                    record.referral_balance = 0
+                record.referral_balance = total_fees - total_paid
             
             record.save()
 

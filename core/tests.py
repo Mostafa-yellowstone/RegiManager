@@ -2399,4 +2399,23 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
             ).exists()
         )
 
+    def test_overpayment_shows_negative_outstanding_on_receipt(self):
+        from core.service_payments import receipt_outstanding_balance
 
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_type="transmittal",
+            processing_fee=Decimal("100.00"),
+            paid_amount=Decimal("120.00"),
+            payment_method="cash",
+        )
+        record.refresh_from_db()
+        self.assertEqual(record.referral_balance, Decimal("-20.00"))
+        self.assertEqual(receipt_outstanding_balance(record), Decimal("-20.00"))
+
+        pdf_text = self._pdf_text(record)
+        self.assertIn("PAYMENT HISTORY", pdf_text)
+        self.assertIn("$-20.00", pdf_text.replace(" ", ""))

@@ -66,10 +66,7 @@ def receipt_outstanding_balance(record) -> Decimal:
     """Outstanding balance for receipt totals when ledger rows are not shown yet."""
     total = _total_due(record)
     paid = total_paid_for_receipt(record)
-    balance = total - paid
-    if balance < Decimal("0"):
-        balance = Decimal("0")
-    return balance
+    return total - paid
 
 
 def reset_ledger_after_edit(record) -> bool:
@@ -86,13 +83,9 @@ def reset_ledger_after_edit(record) -> bool:
 def _needs_opening_row(record):
     total = _total_due(record)
     paid = record.paid_amount or Decimal("0")
-    balance = total - paid
-    if balance < Decimal("0"):
-        balance = Decimal("0")
     return (
         record.transaction_type == "transmittal"
-        or balance > Decimal("0")
-        or paid < total
+        or paid != total
     )
 
 
@@ -139,8 +132,6 @@ def ensure_opening_ledger_entry(record, *, recorded_by=None):
     total = _total_due(record)
     initial_paid = _initial_paid_at_creation(record)
     balance = total - initial_paid
-    if balance < Decimal("0"):
-        balance = Decimal("0")
     payment_date = record.transaction_date or timezone.localdate()
 
     opening = record.payment_entries.filter(
@@ -208,11 +199,7 @@ def reconcile_ledger_balances(record):
     for entry in entries:
         if entry.entry_type == ServiceRecordPayment.ENTRY_OPENING:
             cumulative_paid = entry.line_paid or Decimal("0")
-            if cumulative_paid > total_due:
-                cumulative_paid = total_due
             balance = total_due - cumulative_paid
-            if balance < Decimal("0"):
-                balance = Decimal("0")
             updates = {}
             if entry.line_total != total_due:
                 updates["line_total"] = total_due
@@ -223,11 +210,7 @@ def reconcile_ledger_balances(record):
         else:
             amt = entry.amount or Decimal("0")
             cumulative_paid += amt
-            if cumulative_paid > total_due:
-                cumulative_paid = total_due
             balance = total_due - cumulative_paid
-            if balance < Decimal("0"):
-                balance = Decimal("0")
             if entry.balance_after != balance:
                 ServiceRecordPayment.objects.filter(pk=entry.pk).update(
                     balance_after=balance
@@ -254,7 +237,7 @@ def compute_ledger_rows(record) -> list[LedgerDisplayRow]:
         method_label = entry.get_payment_method_display()
         if entry.entry_type == ServiceRecordPayment.ENTRY_OPENING:
             opening_paid = entry.line_paid or Decimal("0")
-            cumulative_paid = min(opening_paid, total_due)
+            cumulative_paid = opening_paid
             balance = total_due - cumulative_paid
             rows.append(
                 LedgerDisplayRow(
@@ -270,7 +253,7 @@ def compute_ledger_rows(record) -> list[LedgerDisplayRow]:
             )
         else:
             amt = entry.amount or Decimal("0")
-            cumulative_paid = min(cumulative_paid + amt, total_due)
+            cumulative_paid += amt
             balance = total_due - cumulative_paid
             desc = (entry.notes or "Payment").strip()
             if method_label.lower() not in desc.lower():
@@ -291,11 +274,8 @@ def compute_ledger_rows(record) -> list[LedgerDisplayRow]:
 
 
 def total_paid_for_receipt(record) -> Decimal:
-    """Canonical total paid — matches service record, never double-counts ledger rows."""
+    """Canonical total paid shown on the receipt."""
     paid = record.paid_amount or Decimal("0")
-    total_due = _total_due(record)
-    if paid > total_due:
-        return total_due
     if paid < Decimal("0"):
         return Decimal("0")
     return paid
@@ -320,8 +300,6 @@ def record_initial_service_payments(record, *, recorded_by=None):
     cc_total = record.credit_card_fee or Decimal("0")
     total = _total_due(record)
     balance = total - paid
-    if balance < Decimal("0"):
-        balance = Decimal("0")
 
     if record.payment_method_2 and (record.paid_amount_2 or Decimal("0")) > Decimal("0"):
         amt2 = record.paid_amount_2 or Decimal("0")

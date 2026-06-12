@@ -511,7 +511,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             body_type: d.BodyClass,
                             fuel_type: d.FuelTypePrimary,
                             cylinders: d.EngineCylinders,
-                            weight: d.GVWR,
                             seats: d.Seats
                         }
                     });
@@ -631,7 +630,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     'id_body_type': d.body_type,
                     'id_fuel_type': d.fuel_type,
                     'id_cylinders': d.cylinders,
-                    'id_weight': d.weight,
                     'id_seats': d.seats,
                     'id_color': d.color
                 };
@@ -641,15 +639,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!el || !value) continue;
                     
                     let cleanValue = String(value).trim();
-                    if (id === 'id_weight') {
-                        const lbMatch = cleanValue.match(/([\d,]+)\s*lb/i);
-                        if (lbMatch) cleanValue = lbMatch[1].replace(/,/g, '');
-                    }
 
                     if (el.tagName === 'SELECT') {
                         const options = Array.from(el.options);
                         const valLower = cleanValue.toLowerCase();
                         let found = options.find(opt => opt.value.toLowerCase() === valLower || opt.text.toLowerCase() === valLower);
+                        if (!found && id === 'id_body_type') {
+                            if (valLower.includes('suburban')) found = options.find(opt => opt.value === 'suburban');
+                            else if (valLower.includes('pickup') || valLower.includes('pick-up') || valLower.includes('pick up')) {
+                                found = options.find(opt => opt.value === 'pickup_truck');
+                            }
+                        }
                         if (!found) found = options.find(opt => valLower.includes(opt.text.toLowerCase()) || opt.text.toLowerCase().includes(valLower));
                         if (found && !el.value) {
                             el.value = found.value;

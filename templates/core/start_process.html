@@ -567,7 +567,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const paid = parseFloat((totalPaid && totalPaid.value) || 0);
             const bal  = grand - paid;
-            if (outstandingBalance) outstandingBalance.value = bal > 0 ? bal.toFixed(2) : '0.00';
+            if (outstandingBalance) outstandingBalance.value = bal.toFixed(2);
 
             // Reset paid_amount_2 in single mode
             if (paidAmount2Real) paidAmount2Real.value = '0.00';
@@ -599,7 +599,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const grand = baseTotal + totalFee;
             const bal   = grand - paidVal;
-            if (outstandingBalance) outstandingBalance.value = bal > 0 ? bal.toFixed(2) : '0.00';
+            if (outstandingBalance) outstandingBalance.value = bal.toFixed(2);
         }
     }
 
@@ -655,7 +655,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const grand = baseTotal + cc;
         const paid  = parseFloat((totalPaid && totalPaid.value) || 0);
         const bal   = grand - paid;
-        if (outstandingBalance) outstandingBalance.value = bal > 0 ? bal.toFixed(2) : '0.00';
+        if (outstandingBalance) outstandingBalance.value = bal.toFixed(2);
     }
 });
 </script>

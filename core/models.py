@@ -349,6 +349,8 @@ class Vehicle(SoftDeleteModel):
         ("coupe", "Coupe"),
         ("convertible", "Convertible"),
         ("suv", "SUV"),
+        ("suburban", "Suburban"),
+        ("pickup_truck", "Pick Up Truck"),
         ("motorcycle", "Motorcycle"),
         ("van_truck", "Van Truck"),
         ("flat_bed_truck", "Flat bed truck"),
@@ -628,12 +630,11 @@ class ServiceRecord(SoftDeleteModel):
             + (self.other_dmv_fee or Decimal("0"))
         )
 
-        # Auto-derive outstanding balance: total due minus what was paid
+        # Auto-derive outstanding balance: total due minus what was paid (may be negative if overpaid)
         paid = self.paid_amount or Decimal("0")
-        balance = self.service_fee - paid
-        self.referral_balance = balance if balance > Decimal("0") else Decimal("0")
+        self.referral_balance = self.service_fee - paid
 
-        # Automatically mark as paid if balance is zero
+        # Automatically mark as paid if balance is zero or overpaid
         if self.referral_balance <= 0:
             self.is_referral_paid = True
         else:
