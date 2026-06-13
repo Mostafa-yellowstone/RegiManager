@@ -327,6 +327,18 @@
                     </div>
                     {% endfor %}
 
+                    {% if page_obj.has_other_pages %}
+                    <div style="display:flex;justify-content:center;align-items:center;gap:1rem;padding:1.5rem 0;grid-column:1/-1;">
+                        {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-secondary btn-sm">Previous</a>
+                        {% endif %}
+                        <span style="font-size:0.85rem;color:#64748b;font-weight:600;">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                        {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}" class="btn btn-secondary btn-sm">Next</a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
                     <div id="ref-no-results">
                         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5" style="margin-bottom:0.75rem;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                         <p style="font-weight:600;margin:0;">No referrals match your search.</p>

@@ -119,7 +119,7 @@ class IntakePortalEnhancementTests(TestCase):
             intake_note="Needs temp plates.",
         )
         self.http.login(username="intakeowner", password="password123")
-        response = self.http.get(reverse("approve-intake", args=[intake.id]))
+        response = self.http.post(reverse("approve-intake", args=[intake.id]))
         self.assertEqual(response.status_code, 302)
         client = Client.objects.get(organization=self.org, first_name="Note")
         self.assertEqual(client.referral_id, self.dealer.id)
@@ -146,7 +146,7 @@ class IntakePortalEnhancementTests(TestCase):
             intake_note="",
         )
         self.http.login(username="intakeowner", password="password123")
-        response = self.http.get(reverse("approve-intake", args=[intake.id]))
+        response = self.http.post(reverse("approve-intake", args=[intake.id]))
         self.assertEqual(response.status_code, 302)
         client = Client.objects.get(organization=self.org, first_name="New")
         self.assertIsNotNone(client.referral_id)
@@ -212,7 +212,7 @@ class IntakePortalEnhancementTests(TestCase):
             vehicle_type="motorcycle",
         )
         self.http.login(username="intakeowner", password="password123")
-        response = self.http.get(reverse("approve-intake", args=[intake.id]))
+        response = self.http.post(reverse("approve-intake", args=[intake.id]))
         self.assertEqual(response.status_code, 302)
 
         new_client = Client.objects.get(organization=self.org, first_name="Brand", last_name="NewClient")
@@ -257,7 +257,7 @@ class IntakePortalEnhancementTests(TestCase):
             body_type="motorcycle",
         )
         self.http.login(username="intakeowner", password="password123")
-        response = self.http.get(reverse("approve-intake", args=[intake.id]))
+        response = self.http.post(reverse("approve-intake", args=[intake.id]))
         self.assertEqual(response.status_code, 302)
 
         new_client = Client.objects.get(organization=self.org, first_name="Separate")

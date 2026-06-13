@@ -196,8 +196,10 @@
                                 <td>
                                     {% if intake.status == "pending" %}
                                     <div class="portal-intake-actions">
-                                        <a href="{% url 'approve-intake' intake.id %}" class="btn btn-primary btn-sm">Approve</a>
-                                        <a href="{% url 'reject-intake' intake.id %}" class="btn btn-secondary btn-sm">Reject</a>
+                                        {% url 'approve-intake' intake.id as approve_url %}
+                                        {% include "partials/_post_action_button.html" with url=approve_url label="Approve" btn_class="btn btn-primary btn-sm" %}
+                                        {% url 'reject-intake' intake.id as reject_url %}
+                                        {% include "partials/_post_action_button.html" with url=reject_url label="Reject" btn_class="btn btn-secondary btn-sm" %}
                                         <a href="{% url 'intake-mv82-pdf' intake.id %}" target="_blank" class="btn btn-secondary btn-sm">MV-82</a>
                                     </div>
                                     {% elif intake.status == "approved" and intake.linked_client %}

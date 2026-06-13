@@ -311,17 +311,36 @@ class Client(SoftDeleteModel):
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
-        super().save(*args, **kwargs)
+        sync_fields = (
+            "first_name",
+            "last_name",
+            "middle_name",
+            "is_commercial",
+            "business_name",
+            "building_no",
+            "street_address",
+            "apartment",
+            "city",
+            "state",
+            "zip_code",
+        )
+        previous = None
         if not is_new:
-            try:
-                from django.apps import apps
-                ServiceRecordModel = apps.get_model('core', 'ServiceRecord')
-                ServiceRecordModel.objects.filter(vehicle__client=self).update(
-                    client_name=self.name,
-                    client_address=self.full_address
-                )
-            except Exception:
-                pass
+            previous = Client.objects.filter(pk=self.pk).values(*sync_fields).first()
+        super().save(*args, **kwargs)
+        if not is_new and previous:
+            changed = any(getattr(self, field) != previous[field] for field in sync_fields)
+            if changed:
+                try:
+                    from django.apps import apps
+
+                    ServiceRecordModel = apps.get_model("core", "ServiceRecord")
+                    ServiceRecordModel.objects.filter(vehicle__client=self).update(
+                        client_name=self.name,
+                        client_address=self.full_address,
+                    )
+                except Exception:
+                    pass
 
     def delete(self, using=None, keep_parents=False):
         self.notifications.all().delete()

@@ -24,7 +24,7 @@ load_dotenv(BASE_DIR / ".env")
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG", "True").strip().lower() in ("1", "true", "yes")
+DEBUG = os.getenv("DEBUG", "False").strip().lower() in ("1", "true", "yes")
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -35,7 +35,7 @@ if not SECRET_KEY:
     # W009 triggers if length < 50, unique chars < 5, or prefix is 'django-insecure-'.
     SECRET_KEY = "django-dev-safe-fallback-key-that-is-very-long-and-secure-and-has-enough-unique-chars-12345"
 
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
+ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
 # CSRF settings
 CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000").split(",")
 # Ensure they all start with http:// or https://
@@ -88,6 +88,14 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": os.getenv("DRF_ANON_RATE", "60/minute"),
+        "user": os.getenv("DRF_USER_RATE", "600/minute"),
+    },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
@@ -230,13 +238,32 @@ LOGOUT_REDIRECT_URL = "login"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
 
-# Cache Configuration (Required for Single Session Security)
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "unique-snowflake",
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = os.getenv("SECURE_REFERRER_POLICY", "same-origin")
+
+# Cache — Redis in production when available, LocMem for local dev
+_REDIS_CACHE_URL = os.getenv("REDIS_CACHE_URL", os.getenv("CELERY_BROKER_URL", "redis://127.0.0.1:6379/1"))
+_USE_REDIS_CACHE = os.getenv("USE_REDIS_CACHE", "True" if not DEBUG else "False").strip().lower() in ("1", "true", "yes")
+
+if _USE_REDIS_CACHE:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": _REDIS_CACHE_URL,
+            "KEY_PREFIX": "regimanager",
+        }
     }
-}
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "regimanager-local",
+        }
+    }
 
 # Celery Configuration
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
@@ -245,8 +272,19 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
-CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_ALWAYS_EAGER = os.getenv(
+    "CELERY_TASK_ALWAYS_EAGER",
+    "True" if DEBUG else "False",
+).strip().lower() in ("1", "true", "yes")
 CELERY_TASK_EAGER_PROPAGATES = True
+
+# Beat schedule for registration reminders (requires celery worker + beat)
+CELERY_BEAT_SCHEDULE = {
+    "check-registration-reminders-daily": {
+        "task": "core.tasks.check_registration_reminders",
+        "schedule": 60 * 60 * 24,
+    },
+}
 
 # Email Settings (Gmail SMTP)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

@@ -15,6 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.contrib.admin.views.decorators import staff_member_required
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
@@ -180,9 +181,9 @@ urlpatterns = [
     
     # API Routes
     path('api/', include(router.urls)),
-    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('api/docs/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('api/docs/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    path('api/schema/', staff_member_required(SpectacularAPIView.as_view()), name='schema'),
+    path('api/docs/swagger/', staff_member_required(SpectacularSwaggerView.as_view(url_name='schema')), name='swagger-ui'),
+    path('api/docs/redoc/', staff_member_required(SpectacularRedocView.as_view(url_name='schema')), name='redoc'),
 
     path("", home, name="home"),
 

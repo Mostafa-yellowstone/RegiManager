@@ -7,7 +7,28 @@ on:
   workflow_dispatch:
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run tests
+        env:
+          DJANGO_SETTINGS_MODULE: RegiManager.settings
+          SECRET_KEY: ci-test-secret
+          DEBUG: "True"
+          CELERY_TASK_ALWAYS_EAGER: "True"
+          USE_REDIS_CACHE: "False"
+        run: python manage.py test core --verbosity=1
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
 
     steps:

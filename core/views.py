@@ -19,7 +19,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect, csrf_exempt
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 from django.utils.crypto import get_random_string
 from reportlab.lib.pagesizes import A4, letter
 from reportlab.lib import colors
@@ -27,6 +27,22 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 
+from .access import (
+    has_active_org_access as _has_active_org_access,
+    has_active_owner_access as _has_active_owner_access,
+    organizations_for_user as _get_user_organizations,
+)
+from .constants import (
+    ALL_REFERRALS_PAGE_SIZE,
+    MAX_SERVICE_EXPORT_ROWS,
+    REFERRAL_PROFILE_PAGE_SIZE,
+)
+from .ocr_service import check_ocr_auth as _check_ocr_auth, perform_ocr as _perform_ocr
+from .policies import safe_redirect_target
+from .ratelimit import rate_limit
+from .referral_metrics import attach_referral_list_metrics
+from .upload_validation import validate_ocr_upload
+from django.core.exceptions import ValidationError
 from .forms import (
     DMVAuthenticationForm,
     AgentSignupForm,
@@ -451,57 +467,6 @@ def _build_dtf_token_prefill_fields(pdf_reader, prefill):
     return mapped
 
 
-def _has_active_org_access(user, organization_id):
-    if not getattr(user, "is_authenticated", False):
-        return False
-    return OrganizationMembership.objects.filter(
-        user=user,
-        organization_id=organization_id,
-        is_active=True,
-        organization__is_active=True,
-    ).exists()
-
-
-def _has_active_owner_access(user, organization_id):
-    if not getattr(user, "is_authenticated", False):
-        return False
-    return OrganizationMembership.objects.filter(
-        user=user,
-        organization_id=organization_id,
-        role=OrganizationMembership.Role.OWNER,
-        is_active=True,
-        organization__is_active=True,
-    ).exists()
-
-
-def _get_user_organizations(request):
-    """
-    Helper to get all organizations the user belongs to,
-    optionally filtered by the active organization in the session.
-    """
-    if request.user.is_superuser:
-        all_orgs = Organization.objects.filter(is_active=True)
-        active_org_id = request.session.get('active_org_id')
-        if active_org_id:
-            return all_orgs.filter(id=active_org_id)
-        return all_orgs
-
-    memberships = OrganizationMembership.objects.filter(
-        user=request.user,
-        is_active=True,
-        organization__is_active=True,
-    )
-    all_orgs = Organization.objects.filter(id__in=memberships.values("organization_id")).distinct()
-
-    active_org_id = request.session.get('active_org_id')
-    if active_org_id:
-        # Verify the user actually belongs to this org
-        if memberships.filter(organization_id=active_org_id).exists():
-            return all_orgs.filter(id=active_org_id)
-
-    return all_orgs
-
-
 @login_required
 def switch_organization(request, org_id):
     """
@@ -527,7 +492,7 @@ def switch_organization(request, org_id):
         else:
             messages.error(request, "You do not have access to that location.")
 
-    return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
+    return redirect(safe_redirect_target(request, fallback="dashboard"))
 
 
 def _can_access_finance_hub(user):
@@ -614,6 +579,7 @@ def member_signup(request):
     )
 
 
+@rate_limit(key_prefix="login", limit=15, window_seconds=60)
 def login_view(request):
     if request.user.is_authenticated:
         if request.user.is_superuser:
@@ -1332,15 +1298,12 @@ def start_process(request, vehicle_id):
     return render(request, "core/start_process.html", {"vehicle": vehicle, "form": form})
 
 
+@login_required
 def get_latest_news(request):
-    from .models import SiteNews
-    from .site_news import organizations_for_request, unread_news_for_user
+    from .site_news import unread_news_for_user
 
-    if request.user.is_authenticated:
-        organizations = organizations_for_request(request)
-        news = unread_news_for_user(request.user, organizations).first()
-    else:
-        news = SiteNews.objects.filter(is_active=True).order_by("-created_at").first()
+    organizations = organizations_for_user(request)
+    news = unread_news_for_user(request.user, organizations).first()
     if news:
         return JsonResponse({
             "id": news.id,
@@ -2854,7 +2817,7 @@ def service_list(request, service_type):
                 service_label = service_type.replace('_', ' ').title()
 
     if export_type in {"csv", "xlsx"}:
-        export_rows = records
+        export_rows = list(records[:MAX_SERVICE_EXPORT_ROWS])
         if export_type == "csv":
             response = HttpResponse(content_type="text/csv")
             response["Content-Disposition"] = f'attachment; filename="{service_type}_records.csv"'
@@ -3583,7 +3546,6 @@ def audit_log_list(request):
     )
 
 @login_required
-@login_required
 def all_referrals(request):
     organizations = _get_user_organizations(request)
     memberships = OrganizationMembership.objects.filter(
@@ -3631,19 +3593,16 @@ def all_referrals(request):
             return redirect("all-referrals")
 
     primary_org = organizations[0]
-    referrals = Referral.objects.filter(organization__in=organizations).annotate(
+    referrals_qs = Referral.objects.filter(organization__in=organizations).annotate(
         record_count=Count('service_records')
     ).order_by('name')
 
     category_options = _referral_category_options_for_org(primary_org)
 
-    # Calculate outstanding balance per referral
+    paginator = Paginator(referrals_qs, ALL_REFERRALS_PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    referrals = attach_referral_list_metrics(page_obj.object_list)
     for ref in referrals:
-        service_outstanding = ServiceRecord.objects.filter(
-            Q(referral=ref) | Q(vehicle__client__referral=ref),
-            is_referral_paid=False
-        ).distinct().aggregate(total=Sum('referral_balance'))['total'] or Decimal('0')
-        ref.outstanding = service_outstanding + ref.initial_balance
         ref.display_category = _referral_category_label(ref.organization, ref.category)
 
     return render(
@@ -3651,6 +3610,7 @@ def all_referrals(request):
         "core/all_referrals.html",
         {
             "referrals": referrals,
+            "page_obj": page_obj,
             "is_owner": is_owner,
             "category_options": category_options,
             "primary_org": primary_org,
@@ -3826,7 +3786,6 @@ def referral_profile(request, referral_id):
                 messages.success(request, f"Bulk payment of ${payment_amount:.2f} applied to outstanding invoices.")
             return redirect("referral-profile", referral_id=referral.id)
 
-    # Show all records where referral is directly set OR client is linked to this referral
     records = ServiceRecord.objects.filter(
         Q(referral=referral) | Q(vehicle__client__referral=referral)
     ).select_related("vehicle__client").distinct().order_by("-created_at")
@@ -3841,8 +3800,10 @@ def referral_profile(request, referral_id):
     from .referral_profit import effective_commission_for_record, profit_totals_for_records
 
     profit_totals = profit_totals_for_records(records)
+
+    records_page = Paginator(records, REFERRAL_PROFILE_PAGE_SIZE).get_page(request.GET.get("page"))
     record_rows = []
-    for record in records:
+    for record in records_page:
         commission = effective_commission_for_record(record)
         proc = record.processing_fee or Decimal("0")
         record_rows.append({
@@ -3873,6 +3834,7 @@ def referral_profile(request, referral_id):
         {
             "referral": referral,
             "records": records,
+            "records_page": records_page,
             "record_rows": record_rows,
             "outstanding_balance": outstanding_balance,
             "total_revenue": total_revenue,
@@ -3979,6 +3941,7 @@ def bulk_send_reminders(request):
 
 
 @login_required
+@require_POST
 def send_manual_reminder(request, vehicle_id):
     from .tasks import process_vehicle_reminder
     vehicle = get_object_or_404(Vehicle.all_objects, id=vehicle_id)
@@ -4007,79 +3970,9 @@ def send_manual_reminder(request, vehicle_id):
     except Exception as e:
         messages.error(request, f"Failed to send email: {str(e)}")
     
-    # Redirect back to where they came from
-    referer = request.META.get('HTTP_REFERER')
-    if referer:
-        return redirect(referer)
-    return redirect('upcoming-expirations')
+    return redirect(safe_redirect_target(request, fallback="upcoming-expirations"))
 
-def _check_ocr_auth(request):
-    if request.user.is_authenticated:
-        return True
-    portal_token = request.POST.get("portal_token")
-    if portal_token:
-        from .models import Organization
-        return Organization.objects.filter(portal_token=portal_token).exists()
-    return False
-
-def _perform_ocr(file_obj):
-    """
-    Robust OCR wrapper for OCR.space with Engine 2 -> Engine 1 fallback
-    and auto-orientation detection.
-    """
-    import os, requests
-    api_key = os.environ.get('OCR_API_KEY', 'helloworld')
-    
-    # Try Engine 2 first (Better for table-like data)
-    try:
-        payload = {
-            'isOverlayRequired': False,
-            'apikey': api_key,
-            'language': 'eng',
-            'OCREngine': 2,
-            'scale': True,
-        }
-        r = requests.post('https://api.ocr.space/parse/image',
-                        files={'file': file_obj},
-                        data=payload,
-                        timeout=20)
-        result = r.json()
-        
-        if result.get('OCRExitCode') == 1:
-            parsed = result.get('ParsedResults')
-            if parsed and parsed[0].get('ParsedText'):
-                return True, parsed[0].get('ParsedText')
-    except:
-        pass
-
-    # Fallback to Engine 1 with auto-orientation
-    try:
-        file_obj.seek(0)
-        payload = {
-            'isOverlayRequired': False,
-            'apikey': api_key,
-            'language': 'eng',
-            'OCREngine': 1,
-            'detectOrientation': True,
-            'scale': True,
-        }
-        r = requests.post('https://api.ocr.space/parse/image',
-                        files={'file': file_obj},
-                        data=payload,
-                        timeout=20)
-        result = r.json()
-        
-        if result.get('OCRExitCode') == 1:
-            parsed = result.get('ParsedResults')
-            if parsed and parsed[0].get('ParsedText'):
-                return True, parsed[0].get('ParsedText')
-        
-        err = result.get('ErrorMessage') or "OCR Failed"
-        if isinstance(err, list): err = ", ".join(err)
-        return False, err
-    except Exception as e:
-        return False, str(e)
-
+@rate_limit(key_prefix="ocr", limit=20, window_seconds=60, json_response=True)
 @require_POST
 def ocr_dl_ajax(request):
     if not _check_ocr_auth(request):
@@ -4137,7 +4030,10 @@ def ocr_dl_ajax(request):
                         data[field] = val
                         
     elif 'file' in request.FILES:
-        # Real OCR using OCR.space Free API
+        try:
+            validate_ocr_upload(request.FILES['file'])
+        except ValidationError as exc:
+            return JsonResponse({"status": "error", "message": str(exc)}, status=400)
         success, text = _perform_ocr(request.FILES['file'])
         if not success:
             return JsonResponse({"status": "error", "message": f"OCR failed: {text}"})
@@ -4238,6 +4134,7 @@ def ocr_dl_ajax(request):
     return JsonResponse({"status": "success", "data": data})
 
 
+@rate_limit(key_prefix="ocr", limit=20, window_seconds=60, json_response=True)
 @require_POST
 def ocr_vehicle_title_ajax(request):
     """
@@ -4253,6 +4150,10 @@ def ocr_vehicle_title_ajax(request):
     raw = (request.POST.get("scan_data") or "").strip().upper()
 
     if 'file' in request.FILES:
+        try:
+            validate_ocr_upload(request.FILES['file'])
+        except ValidationError as exc:
+            return JsonResponse({"status": "error", "message": str(exc)}, status=400)
         success, text = _perform_ocr(request.FILES['file'])
         if not success:
             return JsonResponse({"status": "error", "message": f"OCR failed: {text}"})
@@ -5277,202 +5178,12 @@ def portal_intake_list(request):
     )
 
 
-@ensure_csrf_cookie
-@csrf_exempt
-def public_intake_portal(request, portal_token=None):
-    """The unified intake portal. Shows the form immediately if a valid token is provided."""
-    # 1. Identify the organization
-    token = portal_token or request.GET.get("portal_token")
-    if not token:
-        # No token provided, show the "Private" landing page
-        return render(request, "core/public_intake_start.html")
-    
-    organization = get_object_or_404(Organization, portal_token=token, is_active=True)
-    if not organization.is_public_intake_enabled:
-        return render(
-            request,
-            "core/public_intake_disabled.html",
-            {"organization": organization},
-        )
-    
-    # 2. Define services for the form
-    standard_services = [
-        {"key": "registration_title", "label": "New Registration & Title"},
-        {"key": "title_only", "label": "Title Only (No Plates)"},
-        {"key": "transfer", "label": "Transfer Plates"},
-        {"key": "renewal", "label": "Registration Renewal"},
-        {"key": "duplicate_title", "label": "Duplicate Title"},
-        {"key": "plate_surrender", "label": "Plate Surrender"},
-    ]
-    custom_services = CustomServiceType.objects.filter(organization=organization)
-
-    # 3. Handle Submission
-    if request.method == "POST":
-        form = ClientIntakeForm(request.POST, request.FILES, organization=organization)
-        if form.is_valid():
-            try:
-                from django.db import transaction
-                with transaction.atomic():
-                    intake = form.save(commit=False)
-                    intake.organization = organization
-                    intake.requested_services = request.POST.getlist("services")
-                    form.apply_partner_and_note_to_instance(intake, request.POST)
-                    intake.save()
-                return redirect(f"/intake/success/?portal_token={token}")
-            except Exception:
-                messages.error(request, "An error occurred while saving your application. Please try again.")
-    else:
-        form = ClientIntakeForm(organization=organization)
-
-    dealer_partners = Referral.objects.filter(organization=organization).order_by("name")
-    
-    # 4. Render the form immediately
-    from .models import Vehicle
-    return render(request, "core/public_intake_form.html", {
-        "form": form,
-        "organization": organization,
-        "standard_services": standard_services,
-        "custom_services": custom_services,
-        "portal_token": token,
-        "dealer_partners": dealer_partners,
-        "vehicle_types": Vehicle.VEHICLE_TYPES,
-        "body_types": Vehicle.BODY_TYPES,
-        "fuel_types": Vehicle.FUEL_TYPES,
-    })
-
-@login_required
-def approve_intake(request, intake_id):
-    from django.db import transaction
-    from django.core.files.base import ContentFile
-    from .intake_approval import (
-        find_existing_client_for_intake,
-        intake_vehicle_for_client,
-        vehicle_defaults_from_intake,
-    )
-    from .intake_referral import apply_intake_referral_to_client
-
-    with transaction.atomic():
-        intake = get_object_or_404(
-            ClientIntake.objects.select_for_update(),
-            id=intake_id,
-            organization__in=_get_user_organizations(request),
-        )
-
-        if intake.status != ClientIntake.Status.PENDING:
-            messages.error(request, "This intake is already being processed or has been completed.")
-            return redirect("dashboard")
-
-        client = find_existing_client_for_intake(intake)
-        existing_vehicle = intake_vehicle_for_client(intake, client) if client else None
-
-        if existing_vehicle and client:
-            intake.status = ClientIntake.Status.REJECTED
-            intake.processed_by = request.user
-            intake.processed_at = timezone.now()
-            if not intake.additional_data:
-                intake.additional_data = {}
-            intake.additional_data["rejection_reason"] = "Exact duplicate of existing vehicle in client profile."
-            intake.save()
-            messages.warning(request, f"Intake rejected: VIN {intake.vin} already exists for {client.name}.")
-            return redirect("dashboard")
-
-        intake.status = ClientIntake.Status.APPROVED
-        intake.processed_by = request.user
-        intake.processed_at = timezone.now()
-        intake.save()
-
-        if not client:
-            client = Client.objects.create(
-                organization=intake.organization,
-                first_name=intake.first_name,
-                last_name=intake.last_name,
-                dob=intake.dob,
-                middle_name=intake.middle_name,
-                email=intake.email,
-                phone_number=intake.phone_number,
-                gender=intake.gender,
-                driver_license=intake.driver_license,
-                building_no=intake.building_no,
-                street_address=intake.street_address,
-                apartment=intake.apartment,
-                city=intake.city,
-                state=intake.state,
-                zip_code=intake.zip_code,
-                county=intake.county,
-                residence_building_no=intake.residence_building_no if not intake.residence_address_same else "",
-                residence_street_address=intake.residence_street_address if not intake.residence_address_same else "",
-                residence_apartment=intake.residence_apartment if not intake.residence_address_same else "",
-                residence_city=intake.residence_city if not intake.residence_address_same else "",
-                residence_zip_code=intake.residence_zip_code if not intake.residence_address_same else "",
-                residence_county=intake.residence_county if not intake.residence_address_same else "",
-                is_commercial=intake.is_commercial,
-                business_name=intake.business_name,
-                business_ein=intake.business_ein,
-                source=intake.source,
-            )
-        else:
-            client.source = intake.source
-            client.save(update_fields=["source"])
-
-        apply_intake_referral_to_client(intake, client)
-
-        note_text = (intake.intake_note or "").strip()
-        if note_text:
-            ClientNote.objects.create(
-                client=client,
-                content=f"[Intake portal] {note_text}",
-                created_by=request.user,
-            )
-
-        vehicle, _v_created = Vehicle.objects.update_or_create(
-            client=client,
-            vin=intake.vin,
-            defaults=vehicle_defaults_from_intake(intake),
-        )
-
-        if intake.insurance_id_card:
-            from .models import ServiceDocument
-            import os
-
-            intake.insurance_id_card.open("rb")
-            try:
-                file_bytes = intake.insurance_id_card.read()
-            finally:
-                intake.insurance_id_card.close()
-            filename = os.path.basename(intake.insurance_id_card.name)
-            doc = ServiceDocument(
-                vehicle=vehicle,
-                document_type="insurance_id",
-            )
-            doc.file.save(filename, ContentFile(file_bytes), save=True)
-
-    messages.success(
-        request,
-        f"Intake approved! Client and vehicle profile created for {client.name}. "
-        f"Start a transaction from the profile whenever ready.",
-    )
-    return redirect("client-detail", client_id=client.id)
-
-
-@login_required
-def reject_intake(request, intake_id):
-    intake = get_object_or_404(ClientIntake, id=intake_id, organization__in=_get_user_organizations(request))
-    intake.status = ClientIntake.Status.REJECTED
-    intake.processed_at = timezone.now()
-    intake.processed_by = request.user
-    intake.save()
-    messages.warning(request, "Intake submission has been rejected.")
-    return redirect("dashboard")
-
-
-def public_intake_success(request):
-    """Confirmation page after successful submission."""
-    token = request.GET.get("portal_token")
-    organization = None
-    if token:
-        organization = Organization.objects.filter(portal_token=token).first()
-    return render(request, "core/public_intake_success.html", {"organization": organization})
-
+from .intake_views import (  # noqa: E402, F401
+    approve_intake,
+    public_intake_portal,
+    public_intake_success,
+    reject_intake,
+)
 
 @login_required
 def client_search_ajax(request):
@@ -6402,7 +6113,11 @@ def inventory_detail(request, inventory_id):
     if card.key == "knowledge_hub":
         from collections import defaultdict
         # Only top-level materials (no parent)
-        top_level_qs = card.materials.filter(parent__isnull=True).order_by("roadmap_name", "step_number", "created_at")
+        top_level_qs = (
+            card.materials.filter(parent__isnull=True)
+            .prefetch_related("sub_materials")
+            .order_by("roadmap_name", "step_number", "created_at")
+        )
 
         # Group by roadmap name, building plain dicts so template can access sub_steps freely
         roadmaps_dict = defaultdict(list)

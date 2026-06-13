@@ -1,0 +1,4 @@
+<form method="post" action="{{ url }}" class="inline-post-form" style="display:{% if display == 'block' %}block{% else %}inline{% endif %};{% if full_width %}width:100%;{% endif %}">
+    {% csrf_token %}
+    <button type="submit" class="{{ btn_class|default:'btn btn-primary btn-sm' }}"{% if aria_label %} aria-label="{{ aria_label }}"{% endif %} style="{{ btn_style|default:'' }}">{{ label }}</button>
+</form>

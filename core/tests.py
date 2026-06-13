@@ -1308,7 +1308,7 @@ class ClientIntakeTests(TestCase):
             source="meta_platform",
         )
         self.client.login(username="owner", password="password123")
-        response = self.client.get(reverse("approve-intake", args=[intake.id]))
+        response = self.client.post(reverse("approve-intake", args=[intake.id]))
         self.assertEqual(response.status_code, 302) # Redirects to dashboard
         
         # Verify client was created with the correct source
@@ -1360,7 +1360,7 @@ class ClientIntakeTests(TestCase):
         )
         intake.insurance_id_card.save("insurance-card.pdf", pdf, save=True)
         self.client.login(username="owner", password="password123")
-        response = self.client.get(reverse("approve-intake", args=[intake.id]))
+        response = self.client.post(reverse("approve-intake", args=[intake.id]))
         self.assertEqual(response.status_code, 302)
         client = Client.objects.filter(organization=self.org, first_name="Doc").first()
         self.assertIsNotNone(client)

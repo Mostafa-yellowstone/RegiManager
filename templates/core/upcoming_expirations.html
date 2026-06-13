@@ -277,7 +277,28 @@
                         Swal.showLoading();
                     }
                 });
-                window.location.href = `/dashboard/vehicles/${vehicleId}/send-reminder/`;
+                const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+                fetch(`/dashboard/vehicles/${vehicleId}/send-reminder/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                    },
+                    credentials: 'same-origin',
+                })
+                .then(response => {
+                    if (response.redirected) {
+                        window.location.href = response.url;
+                        return;
+                    }
+                    if (response.ok) {
+                        window.location.reload();
+                        return;
+                    }
+                    throw new Error('Failed to send reminder');
+                })
+                .catch(() => {
+                    Swal.fire('Error', 'Failed to send reminder.', 'error');
+                });
             }
         });
     }

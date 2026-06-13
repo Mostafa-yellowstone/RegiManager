@@ -167,6 +167,19 @@
                         </tbody>
                     </table>
                 </div>
+                {% if records_page.has_other_pages %}
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 0;gap:1rem;flex-wrap:wrap;">
+                    <span style="font-size:0.85rem;color:#64748b;">Showing {{ records_page.start_index }}-{{ records_page.end_index }} of {{ records_page.paginator.count }} records</span>
+                    <div style="display:flex;gap:0.5rem;">
+                        {% if records_page.has_previous %}
+                        <a href="?page={{ records_page.previous_page_number }}" class="btn btn-secondary btn-sm">Previous</a>
+                        {% endif %}
+                        {% if records_page.has_next %}
+                        <a href="?page={{ records_page.next_page_number }}" class="btn btn-secondary btn-sm">Next</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
             </section>
 
             <section class="dashboard-panel" style="margin-top: 1.5rem;">
