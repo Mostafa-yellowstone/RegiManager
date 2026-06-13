@@ -3701,6 +3701,10 @@ def referral_profile(request, referral_id):
 
     if request.method == "POST":
         if "update_referral_fee" in request.POST:
+            if not is_owner:
+                messages.error(request, "Only PSB owners can set or change referral fees.")
+                return redirect("referral-profile", referral_id=referral.id)
+
             fee_str = request.POST.get("referral_fee", "0").strip()
             try:
                 new_fee = Decimal(fee_str)
@@ -3879,6 +3883,7 @@ def referral_profile(request, referral_id):
             "chart_labels": json.dumps(chart_labels),
             "chart_data": json.dumps(chart_data),
             "payments": payments,
+            "is_owner": is_owner,
         }
     )
 

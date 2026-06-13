@@ -226,6 +226,7 @@
                     <p style="font-size: 0.85rem; color: #64748b; margin: 0 0 1rem; line-height: 1.5;">
                         Per-service amount paid to this partner. It is deducted from processing fees on all linked client records for profit calculations.
                     </p>
+                    {% if is_owner %}
                     <form method="post" action="{% url 'referral-profile' referral.id %}">
                         {% csrf_token %}
                         <div class="form-group" style="margin-bottom: 1rem;">
@@ -237,6 +238,13 @@
                         </div>
                         <button type="submit" name="update_referral_fee" class="btn btn-primary" style="width: 100%;">Save referral fee</button>
                     </form>
+                    {% else %}
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem;">
+                        <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; margin-bottom: 0.35rem;">Fee per service</div>
+                        <div style="font-size: 1.35rem; font-weight: 800; color: #7c3aed;">${{ referral.referral_fee|floatformat:2 }}</div>
+                        <p style="font-size: 0.8rem; color: #94a3b8; margin: 0.75rem 0 0;">Only PSB owners can edit referral fees.</p>
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="dashboard-panel" style="position: sticky; top: 20px;">
                     <h3 style="border-bottom: none; margin-bottom: 1rem;">Service Distribution</h3>

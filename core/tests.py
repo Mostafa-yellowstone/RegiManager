@@ -2445,6 +2445,31 @@ class ReferralFeeProfitTests(TestCase):
         self.assertContains(response, "Referral Earnings")
         self.assertContains(response, "Net PSB Profit")
 
+    def test_agent_with_referral_access_cannot_update_referral_fee(self):
+        agent = User.objects.create_user(username="feeagent", password="password123")
+        OrganizationMembership.objects.create(
+            user=agent,
+            organization=self.org,
+            is_active=True,
+            role="member",
+            can_manage_referrals=True,
+        )
+        agent_client = TestClient()
+        agent_client.login(username="feeagent", password="password123")
+
+        response = agent_client.get(reverse("referral-profile", args=[self.partner.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'name="update_referral_fee"')
+        self.assertContains(response, "Only PSB owners can edit referral fees.")
+
+        response = agent_client.post(
+            reverse("referral-profile", args=[self.partner.id]),
+            {"update_referral_fee": "1", "referral_fee": "25.00"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.partner.refresh_from_db()
+        self.assertEqual(self.partner.referral_fee, Decimal("15.00"))
+
 
 class ClientSearchQueryTests(TestCase):
     def setUp(self):
