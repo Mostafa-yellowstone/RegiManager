@@ -351,7 +351,7 @@ class ReferralPaymentInline(admin.TabularInline):
 class ReferralAdmin(admin.ModelAdmin):
     list_display = (
         "name", "category", "organization", "phone_no", "email",
-        "initial_balance", "total_outstanding_display", "is_partner",
+        "referral_fee", "initial_balance", "total_outstanding_display", "is_partner",
     )
     list_filter = ("category", "organization", "is_partner")
     search_fields = ("name", "email", "phone_no", "address", "organization__name")

@@ -159,6 +159,12 @@ class Referral(SoftDeleteModel):
     website = models.URLField(blank=True, null=True)
     is_partner = models.BooleanField(default=False)
     initial_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    referral_fee = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        help_text="Per-service fee paid to this referral partner, deducted from processing fee profit.",
+    )
 
     def __str__(self):
         return f"{self.name} ({self.get_category_display()})"
@@ -532,6 +538,12 @@ class ServiceRecord(SoftDeleteModel):
     referral = models.ForeignKey(Referral, on_delete=models.SET_NULL, null=True, blank=True, related_name="service_records")
     
     processing_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    referral_commission = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        help_text="Referral partner share deducted from processing fee for this service.",
+    )
     dmv_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     sales_tax = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     dmv_sales_tax = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Sales tax portion for the DMV.")
@@ -644,6 +656,17 @@ class ServiceRecord(SoftDeleteModel):
         else:
             self.is_referral_paid = False
 
+        from .referral_profit import commission_amount, resolve_referral_for_record
+
+        linked_referral = resolve_referral_for_record(self)
+        if linked_referral and (linked_referral.referral_fee or Decimal("0")) > 0:
+            self.referral_commission = commission_amount(
+                self.processing_fee,
+                linked_referral.referral_fee,
+            )
+        elif not linked_referral:
+            self.referral_commission = Decimal("0")
+
         super().save(*args, **kwargs)
 
 
@@ -652,7 +675,9 @@ class ServiceRecord(SoftDeleteModel):
 
     @property
     def net_profit(self):
-        return self.processing_fee or Decimal("0")
+        from .referral_profit import net_processing_profit
+
+        return net_processing_profit(self.processing_fee, self.referral_commission)
 
 
 class ServiceRecordPayment(models.Model):

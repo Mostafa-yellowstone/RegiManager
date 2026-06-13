@@ -2349,6 +2349,103 @@ class ClientProfileReferralTests(TestCase):
         self.assertContains(response, str(self.partner.id))
 
 
+class ReferralFeeProfitTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Fee Org", city="NYC")
+        self.owner = User.objects.create_user(username="feeowner", password="password123")
+        OrganizationMembership.objects.create(
+            user=self.owner, organization=self.org, is_active=True, role="owner"
+        )
+        self.partner = Referral.objects.create(
+            organization=self.org,
+            name="Fee Partner",
+            category="dealer",
+            referral_fee=Decimal("15.00"),
+        )
+        self.client_obj = Client.objects.create(
+            organization=self.org,
+            first_name="Sam",
+            last_name="Client",
+            driver_license="DLFEE1",
+            source="dealer",
+            referral=self.partner,
+            gender="male",
+            phone_number="5550001111",
+        )
+        self.vehicle = Vehicle.objects.create(
+            client=self.client_obj,
+            vin="1HGBH41JXMN109186",
+            vehicle_number="V001",
+        )
+        self.http = TestClient()
+        self.http.login(username="feeowner", password="password123")
+
+    def test_service_record_snapshots_referral_commission_on_save(self):
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.owner,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            processing_fee=Decimal("50.00"),
+            status="completed",
+        )
+        self.assertEqual(record.referral_commission, Decimal("15.00"))
+        self.assertEqual(record.net_profit, Decimal("35.00"))
+
+    def test_commission_capped_at_processing_fee(self):
+        self.partner.referral_fee = Decimal("100.00")
+        self.partner.save()
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.owner,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            processing_fee=Decimal("40.00"),
+            status="completed",
+        )
+        self.assertEqual(record.referral_commission, Decimal("40.00"))
+        self.assertEqual(record.net_profit, Decimal("0.00"))
+
+    def test_update_referral_fee_recomputes_linked_records(self):
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.owner,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            processing_fee=Decimal("60.00"),
+            status="completed",
+        )
+        self.assertEqual(record.referral_commission, Decimal("15.00"))
+
+        response = self.http.post(
+            reverse("referral-profile", args=[self.partner.id]),
+            {"update_referral_fee": "1", "referral_fee": "20.00"},
+        )
+        self.assertEqual(response.status_code, 302)
+        record.refresh_from_db()
+        self.partner.refresh_from_db()
+        self.assertEqual(self.partner.referral_fee, Decimal("20.00"))
+        self.assertEqual(record.referral_commission, Decimal("20.00"))
+
+    def test_referral_profile_shows_profit_metrics(self):
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.owner,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            processing_fee=Decimal("60.00"),
+            dmv_fee=Decimal("10.00"),
+            status="completed",
+        )
+        response = self.http.get(reverse("referral-profile", args=[self.partner.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["gross_processing"], Decimal("60.00"))
+        self.assertEqual(response.context["referral_earnings"], Decimal("15.00"))
+        self.assertEqual(response.context["net_psb_profit"], Decimal("45.00"))
+        self.assertContains(response, "Referral Earnings")
+        self.assertContains(response, "Net PSB Profit")
+
+
 class ClientSearchQueryTests(TestCase):
     def setUp(self):
         self.org = Organization.objects.create(name="Query Org", city="NYC")

@@ -3700,6 +3700,28 @@ def referral_profile(request, referral_id):
     referral = get_object_or_404(Referral, id=referral_id, organization__in=organizations)
 
     if request.method == "POST":
+        if "update_referral_fee" in request.POST:
+            fee_str = request.POST.get("referral_fee", "0").strip()
+            try:
+                new_fee = Decimal(fee_str)
+            except Exception:
+                new_fee = Decimal("-1")
+            if new_fee < 0:
+                messages.error(request, "Referral fee cannot be negative.")
+                return redirect("referral-profile", referral_id=referral.id)
+
+            referral.referral_fee = new_fee
+            referral.save(update_fields=["referral_fee"])
+            from .referral_profit import apply_referral_fee_to_records
+
+            updated = apply_referral_fee_to_records(referral)
+            messages.success(
+                request,
+                f"Referral fee set to ${new_fee:.2f}. "
+                f"Updated profit split on {updated} service record(s).",
+            )
+            return redirect("referral-profile", referral_id=referral.id)
+
         if "mark_paid" in request.POST:
             record_id = request.POST.get("record_id")
             payment_amount_str = request.POST.get("payment_amount", "0")
@@ -3811,6 +3833,19 @@ def referral_profile(request, referral_id):
     outstanding_balance += referral.initial_balance
     
     total_revenue = records.aggregate(total=Sum('service_fee'))['total'] or Decimal('0')
+
+    from .referral_profit import effective_commission_for_record, profit_totals_for_records
+
+    profit_totals = profit_totals_for_records(records)
+    record_rows = []
+    for record in records:
+        commission = effective_commission_for_record(record)
+        proc = record.processing_fee or Decimal("0")
+        record_rows.append({
+            "record": record,
+            "referral_commission": commission,
+            "net_profit": proc - commission,
+        })
     
     # Analytics
     thirty_days_ago = timezone.now() - timezone.timedelta(days=30)
@@ -3834,8 +3869,12 @@ def referral_profile(request, referral_id):
         {
             "referral": referral,
             "records": records,
+            "record_rows": record_rows,
             "outstanding_balance": outstanding_balance,
             "total_revenue": total_revenue,
+            "gross_processing": profit_totals["gross_processing"],
+            "referral_earnings": profit_totals["referral_earnings"],
+            "net_psb_profit": profit_totals["net_psb_profit"],
             "monthly_volume": monthly_volume,
             "chart_labels": json.dumps(chart_labels),
             "chart_data": json.dumps(chart_data),

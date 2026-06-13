@@ -295,6 +295,9 @@
                                 <!-- Stats -->
                                 <div class="ref-card-stats">
                                     <span><strong>{{ referral.record_count }}</strong> Records</span>
+                                    {% if referral.referral_fee and referral.referral_fee > 0 %}
+                                    <span style="color:#7c3aed;font-weight:700;">${{ referral.referral_fee|floatformat:2 }}/svc</span>
+                                    {% endif %}
                                     <div style="display:flex;align-items:center;gap:0.5rem;" onclick="event.stopPropagation();">
                                         <label class="switch" style="transform:scale(0.65);transform-origin:right;margin:0;">
                                             <input type="checkbox" class="partner-toggle" data-referral-id="{{ referral.id }}" {% if referral.is_partner %}checked{% endif %}>
