@@ -31,6 +31,7 @@ from .access import (
     has_active_org_access as _has_active_org_access,
     has_active_owner_access as _has_active_owner_access,
     organizations_for_user as _get_user_organizations,
+    user_can_delete_receipt,
 )
 from .constants import (
     ALL_REFERRALS_PAGE_SIZE,
@@ -769,6 +770,8 @@ def client_detail(request, client_id):
     active_motorclub = pick_active_motorclub(motorclub_memberships)
     show_motorclub_card = bool(motorclub_memberships)
 
+    can_delete_receipt = user_can_delete_receipt(request.user, client.organization_id)
+
     return render(request, "core/client_profile.html", {
         "client": client,
         "vehicles": vehicles,
@@ -783,7 +786,8 @@ def client_detail(request, client_id):
         "assignable_agents": assignable_agents,
         "total_spend": total_spend,
         "total_services": total_services,
-        "last_service_date": last_service_date
+        "last_service_date": last_service_date,
+        "can_delete_receipt": can_delete_receipt,
     })
 
 
@@ -1188,12 +1192,15 @@ def vehicle_detail(request, vehicle_id):
     services_page_obj = svc_paginator.get_page(svc_page_number)
     # Keep latest_service from full queryset (not paginated)
     latest_service = service_records.first()
-    
+
+    can_delete_receipt = user_can_delete_receipt(request.user, vehicle.client.organization_id)
+
     return render(request, "core/vehicle_detail.html", {
         "vehicle": vehicle,
         "page_obj": page_obj,
         "services_page_obj": services_page_obj,
-        "latest_service": latest_service
+        "latest_service": latest_service,
+        "can_delete_receipt": can_delete_receipt,
     })
 
 
@@ -6586,10 +6593,7 @@ def delete_service_record(request, service_id):
     if not membership:
         return JsonResponse({"status": "error", "message": "Access denied."}, status=403)
 
-    is_owner = membership.role == OrganizationMembership.Role.OWNER
-    can_delete = is_owner or membership.can_delete_receipt
-
-    if not can_delete:
+    if not user_can_delete_receipt(request.user, record.organization_id):
         return JsonResponse({"status": "error", "message": "You do not have permission to delete receipts."}, status=403)
 
     receipt_number = record.receipt_number

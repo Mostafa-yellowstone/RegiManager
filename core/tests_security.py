@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 
-from core.models import Organization, OrganizationMembership, SiteNews
+from core.models import Organization, OrganizationMembership, SiteNews, ServiceRecord
 
 
 class APISecurityTests(TestCase):
@@ -110,3 +110,55 @@ class IntakePOSTSecurityTests(TestCase):
         self.client.login(username="owner", password="password123")
         response = self.client.get(reverse("send-manual-reminder", args=[vehicle.id]))
         self.assertEqual(response.status_code, 405)
+
+
+class DeleteReceiptPermissionTests(TestCase):
+    def setUp(self):
+        from core.models import Client, ServiceRecord, Vehicle
+
+        self.owner = User.objects.create_user(username="delowner", password="password123")
+        self.agent = User.objects.create_user(username="delagent", password="password123")
+        self.org = Organization.objects.create(name="Del Org", city="NYC", is_active=True)
+        OrganizationMembership.objects.create(
+            user=self.owner,
+            organization=self.org,
+            is_active=True,
+            role="owner",
+        )
+        OrganizationMembership.objects.create(
+            user=self.agent,
+            organization=self.org,
+            is_active=True,
+            role="member",
+            can_delete_receipt=False,
+        )
+        client = Client.objects.create(
+            organization=self.org,
+            first_name="Del",
+            last_name="Client",
+            gender="male",
+            phone_number="7185550000",
+        )
+        vehicle = Vehicle.objects.create(
+            client=client,
+            vin="DELVIN00000000001",
+            vehicle_type="passenger",
+        )
+        self.record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.owner,
+            vehicle=vehicle,
+            service_type="vehicle_registration",
+        )
+
+    def test_owner_can_delete_service_record(self):
+        self.client.login(username="delowner", password="password123")
+        response = self.client.post(reverse("delete-service-record", args=[self.record.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "ok")
+        self.assertFalse(ServiceRecord.objects.filter(id=self.record.id).exists())
+
+    def test_agent_without_permission_cannot_delete(self):
+        self.client.login(username="delagent", password="password123")
+        response = self.client.post(reverse("delete-service-record", args=[self.record.id]))
+        self.assertEqual(response.status_code, 403)

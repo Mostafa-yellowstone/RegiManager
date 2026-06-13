@@ -271,9 +271,13 @@
                                     </td>
                                     <td>{{ record.handled_by.get_full_name|default:record.handled_by.username }}</td>
                                     <td>
+                                        <div style="display: flex; gap: 0.5rem; align-items: center;">
                                             <a href="{% url 'service-receipt-pdf' record.id %}" target="_blank"
                                                 class="btn btn-sm btn-secondary portal-receipt-btn"
                                                 style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" title="View Receipt">Receipt</a>
+                                            {% if can_delete_receipt %}
+                                            {% include "partials/_delete_receipt_button.html" with record=record %}
+                                            {% endif %}
                                         </div>
                                     </td>
                                 </tr>
@@ -557,5 +561,8 @@
     }
 </script>
 
+{% if can_delete_receipt %}
+{% include "partials/_delete_receipt_modal.html" %}
+{% endif %}
 
 {% endblock %}

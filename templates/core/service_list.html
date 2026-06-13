@@ -186,28 +186,7 @@
                                             <button type="button" class="btn btn-sm btn-primary doc-upload-trigger" data-id="{{ record.id }}" data-receipt="{{ record.receipt_number }}">Docs</button>
                                             <a href="{% url 'service-receipt-pdf' record.id %}" target="_blank" class="btn btn-sm btn-secondary portal-receipt-btn">Receipt</a>
                                             {% if can_delete_receipt %}
-                                            <button type="button"
-                                                class="btn-delete-receipt"
-                                                data-id="{{ record.id }}"
-                                                data-receipt="{{ record.receipt_number }}"
-                                                title="Delete this receipt"
-                                                style="
-                                                    display:inline-flex; align-items:center; justify-content:center;
-                                                    width:30px; height:30px; border-radius:7px;
-                                                    background:#fef2f2; border:1px solid #fca5a5;
-                                                    color:#dc2626; cursor:pointer; flex-shrink:0;
-                                                    transition: background 0.15s, transform 0.15s;
-                                                "
-                                                onmouseover="this.style.background='#fee2e2'; this.style.transform='scale(1.1)';"
-                                                onmouseout="this.style.background='#fef2f2'; this.style.transform='scale(1)';"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                                    <polyline points="3 6 5 6 21 6"/>
-                                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                                                    <path d="M10 11v6"/><path d="M14 11v6"/>
-                                                    <path d="M9 6V4h6v2"/>
-                                                </svg>
-                                            </button>
+                                            {% include "partials/_delete_receipt_button.html" with record=record %}
                                             {% endif %}
                                         </div>
                                     </td>
@@ -254,47 +233,9 @@
 </main>
 
 <!-- ── Delete Receipt Confirmation Modal ───────────────────────────── -->
-<div id="deleteReceiptModal" style="
-    display:none; position:fixed; inset:0; z-index:9999;
-    background:rgba(15,23,42,0.55); backdrop-filter:blur(4px);
-    align-items:center; justify-content:center;
-">
-    <div style="
-        background:#fff; border-radius:18px; padding:2rem 2.2rem;
-        max-width:420px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,0.25);
-        animation: fadeInUp 0.22s ease;
-    ">
-        <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1.2rem;">
-            <span style="
-                display:flex; align-items:center; justify-content:center;
-                width:44px; height:44px; border-radius:50%;
-                background:#fef2f2; flex-shrink:0;
-            ">
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
-                    fill="none" stroke="#dc2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                    <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
-                </svg>
-            </span>
-            <div>
-                <h3 style="margin:0; font-size:1.1rem; color:#0f172a; font-weight:700;">Delete Receipt</h3>
-                <p style="margin:0.2rem 0 0; font-size:0.85rem; color:#64748b;">This action cannot be undone.</p>
-            </div>
-        </div>
-        <p style="color:#334155; font-size:0.93rem; margin-bottom:1.5rem;">
-            Are you sure you want to permanently delete receipt
-            <code id="deleteReceiptCode" style="background:#f1f5f9; padding:2px 7px; border-radius:5px; color:#6366f1; font-weight:700;"></code>?
-        </p>
-        <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
-            <button id="deleteReceiptCancelBtn" class="btn btn-secondary" style="min-width:90px;">Cancel</button>
-            <button id="deleteReceiptConfirmBtn" class="btn" style="
-                min-width:110px; background:#dc2626; color:#fff; border:none;
-                font-weight:700; border-radius:9px;
-            ">Delete</button>
-        </div>
-    </div>
-</div>
+{% if can_delete_receipt %}
+{% include "partials/_delete_receipt_modal.html" %}
+{% endif %}
 
 <div id="docUploadDrawer" class="drawer-overlay" style="display: none;">
     <div class="drawer-panel">
@@ -356,70 +297,4 @@
 </div>
 
 <script src="{% static 'core/js/dashboard.js' %}?v=3"></script>
-
-<script>
-(function(){
-    const modal     = document.getElementById('deleteReceiptModal');
-    const codeEl    = document.getElementById('deleteReceiptCode');
-    const cancelBtn = document.getElementById('deleteReceiptCancelBtn');
-    const confirmBtn= document.getElementById('deleteReceiptConfirmBtn');
-    const csrfToken = '{{ csrf_token }}';
-
-    let pendingServiceId  = null;
-    let pendingRow        = null;
-
-    function openDeleteModal(btn) {
-        pendingServiceId = btn.dataset.id;
-        pendingRow       = btn.closest('tr');
-        codeEl.textContent = btn.dataset.receipt;
-        modal.style.display = 'flex';
-    }
-
-    function closeDeleteModal() {
-        modal.style.display = 'none';
-        pendingServiceId = null;
-        pendingRow = null;
-    }
-
-    cancelBtn.addEventListener('click', closeDeleteModal);
-    modal.addEventListener('click', function(e){ if(e.target === modal) closeDeleteModal(); });
-
-    document.addEventListener('click', function(e){
-        const btn = e.target.closest('.btn-delete-receipt');
-        if (btn) openDeleteModal(btn);
-    });
-
-    confirmBtn.addEventListener('click', function(){
-        if (!pendingServiceId) return;
-        confirmBtn.disabled = true;
-        confirmBtn.textContent = 'Deleting…';
-
-        fetch(`/dashboard/service/${pendingServiceId}/delete/`, {
-            method : 'POST',
-            headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.status === 'ok') {
-                if (pendingRow) {
-                    pendingRow.style.transition = 'opacity 0.4s, transform 0.4s';
-                    pendingRow.style.opacity    = '0';
-                    pendingRow.style.transform  = 'translateX(20px)';
-                    setTimeout(() => pendingRow.remove(), 420);
-                }
-                closeDeleteModal();
-            } else {
-                alert(data.message || 'Delete failed.');
-                confirmBtn.disabled = false;
-                confirmBtn.textContent = 'Delete';
-            }
-        })
-        .catch(() => {
-            alert('Network error. Please try again.');
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = 'Delete';
-        });
-    });
-})();
-</script>
 {% endblock %}
