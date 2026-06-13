@@ -39,6 +39,11 @@ class Organization(models.Model):
     city = models.CharField(max_length=80, blank=True, default="")
     state = models.CharField(max_length=80, blank=True, default="")
     phone_number = models.CharField(max_length=20, blank=True, default="", help_text="PSB contact number for clients.")
+    email = models.EmailField(
+        blank=True,
+        default="",
+        help_text="PSB contact email printed on service receipts below the license number.",
+    )
     psbc_license = models.CharField(
         max_length=60,
         blank=True,

@@ -39,17 +39,18 @@ class OrganizationAdmin(admin.ModelAdmin):
         "city",
         "state",
         "psbc_license",
+        "email",
         "invite_code",
         "intake_link_display",
         "is_public_intake_enabled",
         "is_automation_enabled",
     )
     list_filter = ("state", "city", "is_public_intake_enabled", "is_automation_enabled")
-    search_fields = ("name", "address_line", "city", "state", "phone_number", "psbc_license")
+    search_fields = ("name", "address_line", "city", "state", "phone_number", "email", "psbc_license")
     readonly_fields = ("intake_link_display",)
     inlines = [MembershipInline]
     fieldsets = (
-        ("PSB Profile", {"fields": ("name", "logo", "address_line", "city", "state", "phone_number", "psbc_license")}),
+        ("PSB Profile", {"fields": ("name", "logo", "address_line", "city", "state", "phone_number", "email", "psbc_license")}),
         ("Access & Limits", {"fields": ("invite_code", "portal_token", "max_agents", "is_active")}),
         ("Features", {"fields": ("is_automation_enabled", "is_public_intake_enabled", "intake_link_display")}),
         ("Insurance Space", {"fields": ("insurance_space_locked", "insurance_space_password")}),

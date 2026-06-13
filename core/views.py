@@ -2089,23 +2089,35 @@ def service_receipt_pdf(request, service_id):
     
     y -= 25
     pdf.setFont("Helvetica-Bold", 10)
-    address = f"{service_record.organization.address_line} {service_record.organization.city}, {service_record.organization.state}"
-    psbc_license = (service_record.organization.psbc_license or "").strip()
+    org = service_record.organization
+    address_parts = [
+        (org.address_line or "").strip(),
+        ", ".join(p for p in [(org.city or "").strip(), (org.state or "").strip()] if p),
+    ]
+    address = " ".join(p for p in address_parts if p).strip()
+    psbc_license = (org.psbc_license or "").strip()
+    psb_email = (org.email or "").strip()
+    psb_phone = (org.phone_number or "").strip()
+
     pdf.drawString(margin_x, y, "PSBC")
-    pdf.drawString(margin_x + 50, y, address.upper()[:50])
+    if address:
+        pdf.drawString(margin_x + 50, y, address.upper()[:50])
     y -= 12
     pdf.drawString(margin_x, y, f"No. {psbc_license}")
-    pdf.drawString(margin_x + 50, y, address.upper()[50:])
-
-    y -= 25
+    if len(address.upper()) > 50:
+        pdf.drawString(margin_x + 50, y, address.upper()[50:])
+    y -= 12
     pdf.setFont("Helvetica", 9)
-    # the image shows specific email/phone formatting
-    email = service_record.organization.email if hasattr(service_record.organization, 'email') else "info@xpressplates.com"
-    pdf.drawString(margin_x, y, f"Email: {email}")
-    pdf.drawString(margin_x + 180, y, "Phone: 914 961-6666")
-    pdf.drawString(margin_x + 300, y, "Fax: 914 961-6633")
+    if psb_email:
+        pdf.drawString(margin_x, y, f"Email: {psb_email}")
+        y -= 12
+    if psb_phone:
+        pdf.drawString(margin_x, y, f"Phone: {psb_phone}")
+        y -= 12
+    elif not psb_email:
+        y -= 6
 
-    y -= 30
+    y -= 12
     
     def draw_box(x, y_pos, w, h, label, val):
         pdf.setFont("Helvetica", 8)
@@ -4787,6 +4799,48 @@ def toggle_psb_automation(request):
         "psb_id": psb.id,
         "is_automation_enabled": psb.is_automation_enabled
     })
+
+
+def _dashboard_ops_redirect():
+    from django.urls import reverse
+
+    return reverse("dashboard") + "#ops"
+
+
+@login_required
+@require_POST
+def update_psb_profile(request):
+    """Owner updates PSB state, email, and license shown on service receipts."""
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_email
+
+    org_id = request.POST.get("organization_id", "").strip()
+    if not org_id.isdigit():
+        messages.error(request, "Invalid PSB selection.")
+        return redirect("dashboard")
+
+    org_id = int(org_id)
+    if not _has_active_owner_access(request.user, org_id):
+        deny_access("Only PSB owners can update PSB profile settings.")
+
+    org = get_object_or_404(Organization, id=org_id, is_active=True)
+    state = request.POST.get("state", "").strip()[:80]
+    email = request.POST.get("email", "").strip()
+    psbc_license = request.POST.get("psbc_license", "").strip()[:60]
+
+    if email:
+        try:
+            validate_email(email)
+        except ValidationError:
+            messages.error(request, "Please enter a valid email address.")
+            return redirect(_dashboard_ops_redirect())
+
+    org.state = state
+    org.email = email
+    org.psbc_license = psbc_license
+    org.save(update_fields=["state", "email", "psbc_license"])
+    messages.success(request, f"Receipt profile updated for {org.name}.")
+    return redirect(_dashboard_ops_redirect())
 
 
 @require_POST
