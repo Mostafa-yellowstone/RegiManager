@@ -449,24 +449,7 @@ class ReceiptAddressTests(TestCase):
         )
         self.assertIn("PSB-LIC-98765", pdf_text)
         self.assertIn("receipts@testpsb.com", pdf_text)
-        self.assertIn("receipts@testpsb.com", pdf_text)
         self.assertIn(receipt_short, pdf_text)
-
-    def test_owner_can_update_psb_receipt_profile(self):
-        response = self.client.post(
-            reverse("update-psb-profile"),
-            {
-                "organization_id": self.org.id,
-                "state": "NJ",
-                "email": "office@psb.test",
-                "psbc_license": "LIC-001",
-            },
-        )
-        self.assertEqual(response.status_code, 302)
-        self.org.refresh_from_db()
-        self.assertEqual(self.org.state, "NJ")
-        self.assertEqual(self.org.email, "office@psb.test")
-        self.assertEqual(self.org.psbc_license, "LIC-001")
 
 
 class AgentAuditingTests(TestCase):

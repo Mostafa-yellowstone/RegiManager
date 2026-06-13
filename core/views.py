@@ -4801,48 +4801,6 @@ def toggle_psb_automation(request):
     })
 
 
-def _dashboard_ops_redirect():
-    from django.urls import reverse
-
-    return reverse("dashboard") + "#ops"
-
-
-@login_required
-@require_POST
-def update_psb_profile(request):
-    """Owner updates PSB state, email, and license shown on service receipts."""
-    from django.core.exceptions import ValidationError
-    from django.core.validators import validate_email
-
-    org_id = request.POST.get("organization_id", "").strip()
-    if not org_id.isdigit():
-        messages.error(request, "Invalid PSB selection.")
-        return redirect("dashboard")
-
-    org_id = int(org_id)
-    if not _has_active_owner_access(request.user, org_id):
-        deny_access("Only PSB owners can update PSB profile settings.")
-
-    org = get_object_or_404(Organization, id=org_id, is_active=True)
-    state = request.POST.get("state", "").strip()[:80]
-    email = request.POST.get("email", "").strip()
-    psbc_license = request.POST.get("psbc_license", "").strip()[:60]
-
-    if email:
-        try:
-            validate_email(email)
-        except ValidationError:
-            messages.error(request, "Please enter a valid email address.")
-            return redirect(_dashboard_ops_redirect())
-
-    org.state = state
-    org.email = email
-    org.psbc_license = psbc_license
-    org.save(update_fields=["state", "email", "psbc_license"])
-    messages.success(request, f"Receipt profile updated for {org.name}.")
-    return redirect(_dashboard_ops_redirect())
-
-
 @require_POST
 @login_required
 def toggle_agent_active(request):
