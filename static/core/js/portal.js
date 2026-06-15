@@ -60,48 +60,133 @@
             const notifDropdown = document.getElementById('notifDropdown');
             const locBtn = document.getElementById('locBtn');
             const locDropdown = document.getElementById('locDropdown');
+            const locBtnDrawer = document.getElementById('locBtnDrawer');
+            const locDropdownDrawer = document.getElementById('locDropdownDrawer');
             const mobileBtn = document.getElementById('portalMobileNavBtn');
+            const mobileCloseBtn = document.getElementById('portalMobileNavClose');
             const mobileMenu = document.getElementById('portalMobileNav');
+            const backdrop = document.getElementById('portalNavBackdrop');
+            const themeBtnDrawer = document.getElementById('portalThemeToggleDrawer');
 
-            const closeAll = () => {
-                if (notifDropdown) notifDropdown.classList.remove('is-open');
-                if (locDropdown) locDropdown.classList.remove('is-open');
-                if (mobileMenu) mobileMenu.classList.remove('is-open');
+            const closeMobileMenu = () => {
+                if (!mobileMenu) return;
+                mobileMenu.classList.remove('is-open');
+                mobileMenu.setAttribute('aria-hidden', 'true');
                 if (mobileBtn) mobileBtn.setAttribute('aria-expanded', 'false');
+                if (backdrop) {
+                    backdrop.classList.remove('is-visible');
+                    backdrop.hidden = true;
+                }
+                document.body.classList.remove('portal-nav-open');
             };
 
-            const toggle = (btn, panel) => {
+            const openMobileMenu = () => {
+                if (!mobileMenu) return;
+                if (notifDropdown) notifDropdown.classList.remove('is-open');
+                if (locDropdown) locDropdown.classList.remove('is-open');
+                if (locDropdownDrawer) locDropdownDrawer.classList.remove('is-open');
+                mobileMenu.classList.add('is-open');
+                mobileMenu.setAttribute('aria-hidden', 'false');
+                if (mobileBtn) mobileBtn.setAttribute('aria-expanded', 'true');
+                if (backdrop) {
+                    backdrop.classList.add('is-visible');
+                    backdrop.hidden = false;
+                }
+                document.body.classList.add('portal-nav-open');
+            };
+
+            const closeDropdowns = () => {
+                if (notifDropdown) notifDropdown.classList.remove('is-open');
+                if (locDropdown) locDropdown.classList.remove('is-open');
+                if (locDropdownDrawer) locDropdownDrawer.classList.remove('is-open');
+            };
+
+            const closeAll = () => {
+                closeDropdowns();
+                closeMobileMenu();
+            };
+
+            const togglePanel = (btn, panel, { closesMobile = true } = {}) => {
                 if (!btn || !panel) return;
                 const open = !panel.classList.contains('is-open');
-                closeAll();
-                if (open) {
-                    panel.classList.add('is-open');
-                    if (btn === mobileBtn) btn.setAttribute('aria-expanded', 'true');
+                closeDropdowns();
+                if (closesMobile) closeMobileMenu();
+                if (open) panel.classList.add('is-open');
+            };
+
+            const toggleMobileMenu = () => {
+                if (!mobileMenu) return;
+                if (mobileMenu.classList.contains('is-open')) {
+                    closeMobileMenu();
+                } else {
+                    openMobileMenu();
                 }
             };
 
             if (notifBtn && notifDropdown) {
                 notifBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    toggle(notifBtn, notifDropdown);
+                    togglePanel(notifBtn, notifDropdown);
                 });
             }
 
             if (locBtn && locDropdown) {
                 locBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    toggle(locBtn, locDropdown);
+                    togglePanel(locBtn, locDropdown);
+                });
+            }
+
+            if (locBtnDrawer && locDropdownDrawer) {
+                locBtnDrawer.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const open = !locDropdownDrawer.classList.contains('is-open');
+                    closeDropdowns();
+                    if (open) locDropdownDrawer.classList.add('is-open');
                 });
             }
 
             if (mobileBtn && mobileMenu) {
                 mobileBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    toggle(mobileBtn, mobileMenu);
+                    toggleMobileMenu();
                 });
             }
 
-            document.addEventListener('click', closeAll);
+            if (mobileCloseBtn) {
+                mobileCloseBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    closeMobileMenu();
+                });
+            }
+
+            if (backdrop) {
+                backdrop.addEventListener('click', closeMobileMenu);
+            }
+
+            if (themeBtnDrawer) {
+                themeBtnDrawer.addEventListener('click', () => {
+                    const mainThemeBtn = document.getElementById('portalThemeToggle');
+                    if (mainThemeBtn) {
+                        mainThemeBtn.click();
+                    }
+                });
+            }
+
+            mobileMenu?.querySelectorAll('a.nav-link').forEach((link) => {
+                link.addEventListener('click', closeMobileMenu);
+            });
+
+            window.addEventListener('resize', () => {
+                if (window.innerWidth > 1200) closeMobileMenu();
+            });
+
+            document.addEventListener('click', (e) => {
+                if (e.target.closest('#notifBtn, #notifDropdown, #locBtn, #locDropdown, #locBtnDrawer, #locDropdownDrawer, #portalMobileNavBtn, .portal-mobile-drawer, #portalNavBackdrop')) {
+                    return;
+                }
+                closeAll();
+            });
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') closeAll();
             });

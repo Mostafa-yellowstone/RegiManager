@@ -1,0 +1,29 @@
+<a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" role="menuitem">
+    <span class="nav-label nav-label--full">Dashboard</span>
+    <span class="nav-label nav-label--short" aria-hidden="true">Home</span>
+</a>
+<a href="{% url 'all-clients' %}" class="nav-link {% if 'client' in request.path %}active{% endif %}" role="menuitem">Clients</a>
+{% if automation_enabled %}
+<a href="{% url 'upcoming-expirations' %}" class="nav-link {% if 'automation' in request.path or 'expirations' in request.path %}active{% endif %}" role="menuitem">
+    <span class="nav-label nav-label--full">Automation Hub</span>
+    <span class="nav-label nav-label--short" aria-hidden="true">Automation</span>
+</a>
+{% endif %}
+{% if can_view_finance_bi %}
+<a href="{% url 'finance-hub' %}" class="nav-link {% if 'finance' in request.path %}active{% endif %}" role="menuitem">
+    <span class="nav-label nav-label--full">Finance &amp; BI</span>
+    <span class="nav-label nav-label--short" aria-hidden="true">Finance</span>
+</a>
+{% endif %}
+{% if can_view_partners %}
+<a href="{% url 'all-referrals' %}" class="nav-link {% if 'referral' in request.path %}active{% endif %}" role="menuitem">Partners</a>
+{% endif %}
+{% if can_view_spaces %}
+<a href="{% url 'spaces-home' %}" class="nav-link {% if 'spaces' in request.path or 'inventory' in request.path or 'insurance' in request.path %}active{% endif %}" role="menuitem">Spaces</a>
+{% endif %}
+<span class="nav-link-wrap">
+    <a href="{% url 'site-news-list' %}" class="nav-link {% if 'site-news' in request.path %}active{% endif %}" role="menuitem">News</a>
+    {% if site_news_unread_count and site_news_unread_count > 0 %}
+    <span class="nav-news-badge" aria-label="{{ site_news_unread_count }} unread announcements">{{ site_news_unread_count }}</span>
+    {% endif %}
+</span>

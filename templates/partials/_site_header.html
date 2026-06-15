@@ -1,0 +1,40 @@
+{% load static %}
+<header class="site-header site-header--marketing">
+    <div class="site-header-bar">
+        <div class="site-header-start">
+            <a href="{% url 'home' %}" class="site-brand">
+                <img src="{% static 'core/img/regimanager-logo.svg' %}" alt="RegiManager" class="site-logo">
+            </a>
+            <button type="button" class="site-mobile-nav-btn" id="siteMobileNavBtn" aria-label="Open menu" aria-expanded="false" aria-controls="siteMobileNav">
+                <svg class="site-mobile-nav-icon site-mobile-nav-icon--open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                <svg class="site-mobile-nav-icon site-mobile-nav-icon--close" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+
+        <nav class="site-nav site-nav--desktop" aria-label="Primary">
+            {% include "partials/_site_nav_links.html" %}
+        </nav>
+
+        <div class="header-actions header-actions--bar">
+            {% include "partials/_site_header_actions.html" %}
+        </div>
+    </div>
+
+    <div class="site-nav-backdrop" id="siteNavBackdrop" hidden></div>
+
+    <aside id="siteMobileNav" class="site-mobile-drawer" aria-label="Mobile navigation" aria-hidden="true">
+        <div class="site-mobile-drawer__header">
+            <span class="site-mobile-drawer__title">Menu</span>
+            <button type="button" class="site-mobile-drawer__close" id="siteMobileNavClose" aria-label="Close menu">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <nav class="site-mobile-drawer__nav" aria-label="Mobile primary">
+            {% include "partials/_site_nav_links.html" %}
+        </nav>
+        <div class="header-actions header-actions--drawer">
+            {% include "partials/_site_header_actions.html" %}
+        </div>
+    </aside>
+</header>
+<script src="{% static 'core/js/site-nav.js' %}?v=site-nav-1" defer></script>

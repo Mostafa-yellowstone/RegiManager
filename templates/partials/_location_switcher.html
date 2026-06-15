@@ -1,0 +1,37 @@
+{% if user_organizations|length > 0 %}
+<div class="location-switcher {{ switcher_class|default:'' }}">
+    {% if user_organizations|length > 1 %}
+    <button type="button" id="{% if switcher_id %}{{ switcher_id }}{% else %}locBtn{% endif %}" class="nav-btn" aria-haspopup="true" aria-expanded="false">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+        <span class="location-switcher__label">
+            {% if active_organization %}
+                <span class="location-switcher__name">{{ active_organization.name }}</span>
+                <small class="nav-meta location-switcher__city">({{ active_organization.city }})</small>
+            {% else %}
+                All Locations
+            {% endif %}
+        </span>
+        <svg class="location-switcher__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
+    <div id="{% if dropdown_id %}{{ dropdown_id }}{% else %}locDropdown{% endif %}" class="portal-dropdown loc-dropdown" role="menu">
+        <div class="loc-dropdown-header">Switch Location</div>
+        <a href="{% url 'switch-organization' 0 %}" class="loc-dropdown-link {% if not active_organization %}active{% endif %}">All Locations</a>
+        {% for org in user_organizations %}
+        <a href="{% url 'switch-organization' org.id %}" class="loc-dropdown-link {% if active_organization.id == org.id %}active{% endif %}">
+            {{ org.name }} <span class="nav-meta">({{ org.city }})</span>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    {% with single_org=user_organizations.0 %}
+    <div class="nav-btn nav-btn-static">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+        <span class="location-switcher__label">
+            <span class="location-switcher__name">{{ single_org.name }}</span>
+            <small class="nav-meta location-switcher__city">({{ single_org.city }})</small>
+        </span>
+    </div>
+    {% endwith %}
+    {% endif %}
+</div>
+{% endif %}

@@ -33,6 +33,7 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
 PyYAML==6.0.3
 redis==7.4.0
+requests==2.34.2
 referencing==0.37.0
 reportlab==4.5.1
 rpds-py==0.30.0

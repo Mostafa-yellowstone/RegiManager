@@ -1,0 +1,4 @@
+<a href="{% if on_home_page %}#home{% else %}{% url 'home' %}#home{% endif %}" class="site-nav-link">Platform</a>
+<a href="{% if on_home_page %}#solutions{% else %}{% url 'home' %}#solutions{% endif %}" class="site-nav-link">Solutions</a>
+<a href="{% if on_home_page %}#pricing{% else %}{% url 'home' %}#pricing{% endif %}" class="site-nav-link">Pricing</a>
+<a href="{% url 'contact' %}" class="site-nav-link {% if active_page == 'contact' %}active{% endif %}">Contact</a>

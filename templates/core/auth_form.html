@@ -2,31 +2,13 @@
 {% load static %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}">
+<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-2">
 {% endblock %}
 
 {% block content %}
 <main class="site-shell">
     <div class="auth-hero-wrapper">
-        <header class="site-header">
-            <div class="site-header-inner">
-                <a href="{% url 'home' %}" class="site-brand">
-                    <img src="{% static 'core/img/regimanager-logo.svg' %}" alt="RegiManager" class="site-logo" style="height: 52px; width: auto;">
-                    
-                </a>
-
-                <nav class="site-nav">
-                    <a href="{% url 'home' %}#home">Platform</a>
-                    <a href="{% url 'home' %}#solutions">Solutions</a>
-                    <a href="{% url 'home' %}#pricing">Pricing</a>
-                    <a href="{% url 'contact' %}">Support</a>
-                </nav>
-
-                <div class="header-actions">
-                    <a href="{% url 'home' %}" class="btn btn-secondary btn-sm">Back to Home</a>
-                </div>
-            </div>
-        </header>
+        {% include "partials/_site_header.html" with header_variant='auth' %}
 
         <section class="site-hero auth-hero">
             <div class="site-hero-content reveal active">
