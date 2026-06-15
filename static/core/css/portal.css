@@ -2532,6 +2532,20 @@ body.portal-body input:checked + .slider:before {
         flex-wrap: wrap;
         gap: 0.75rem 1rem;
     }
+
+    .vd-dmv-hub__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .vd-dmv-hub__filters {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 0.25rem;
+    }
+
+    .vd-dmv-hub__filter {
+        flex-shrink: 0;
+    }
 }
 
 @media (max-width: 640px) {
@@ -3751,6 +3765,277 @@ html.portal-theme-dark .agent-profile-page .chip[style*="background:#f1f5f9"] {
 }
 
 /* Vehicle detail — official docs panel */
+.vehicle-detail-page .vd-dmv-hub {
+    grid-column: 1 / -1;
+    border: 2px solid var(--portal-primary);
+    background: linear-gradient(180deg, var(--portal-surface) 0%, var(--portal-surface-muted) 100%);
+}
+
+.vd-dmv-hub__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.vd-dmv-hub__title {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin: 0;
+    color: var(--portal-primary);
+    font-size: 1.15rem;
+    font-weight: 800;
+}
+
+.vd-dmv-hub__subtitle {
+    margin: 0.45rem 0 0;
+    color: var(--portal-text-muted);
+    font-size: 0.9rem;
+    max-width: 52rem;
+    line-height: 1.5;
+}
+
+.vd-dmv-hub__stats {
+    display: flex;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+}
+
+.vd-dmv-hub__stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: var(--portal-radius-pill);
+    background: var(--portal-surface-muted);
+    border: 1px solid var(--portal-border);
+    color: var(--portal-text-secondary);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.vd-dmv-hub__stat--success {
+    background: var(--portal-success-bg);
+    border-color: rgba(22, 163, 74, 0.25);
+    color: #166534;
+}
+
+.vd-dmv-hub__toolbar {
+    display: grid;
+    gap: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.vd-dmv-hub__search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.55rem 0.85rem;
+    border: 1px solid var(--portal-border);
+    border-radius: var(--portal-radius-md);
+    background: var(--portal-surface);
+    color: var(--portal-text-muted);
+}
+
+.vd-dmv-hub__search {
+    border: none;
+    outline: none;
+    width: 100%;
+    font: inherit;
+    background: transparent;
+    color: var(--portal-text);
+}
+
+.vd-dmv-hub__filters {
+    display: flex;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+
+.vd-dmv-hub__filter {
+    border: 1px solid var(--portal-border);
+    background: var(--portal-surface);
+    color: var(--portal-text-muted);
+    border-radius: var(--portal-radius-pill);
+    padding: 0.35rem 0.8rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--portal-transition);
+    font-family: var(--portal-font);
+}
+
+.vd-dmv-hub__filter:hover,
+.vd-dmv-hub__filter.is-active {
+    border-color: var(--portal-primary);
+    color: var(--portal-primary);
+    background: var(--portal-primary-soft);
+}
+
+.vd-dmv-hub__category {
+    border: 1px solid var(--portal-border);
+    border-radius: var(--portal-radius-lg);
+    background: var(--portal-surface);
+    overflow: hidden;
+    margin-bottom: 0.85rem;
+}
+
+.vd-dmv-hub__category-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.85rem 1rem;
+    border: none;
+    background: var(--portal-surface-muted);
+    cursor: pointer;
+    font-family: var(--portal-font);
+    text-align: left;
+}
+
+.vd-dmv-hub__category-label {
+    font-weight: 800;
+    color: var(--portal-text);
+    flex: 1;
+}
+
+.vd-dmv-hub__category-meta {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--portal-text-muted);
+}
+
+.vd-dmv-hub__chevron {
+    transition: transform var(--portal-transition);
+    flex-shrink: 0;
+}
+
+.vd-dmv-hub__category.is-collapsed .vd-dmv-hub__chevron {
+    transform: rotate(-90deg);
+}
+
+.vd-dmv-hub__category.is-collapsed .vd-dmv-hub__grid {
+    display: none;
+}
+
+.vd-dmv-hub__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 0.85rem;
+    padding: 0.85rem;
+}
+
+.vd-dmv-card {
+    border: 1px solid var(--portal-border);
+    border-radius: var(--portal-radius-md);
+    padding: 0.9rem;
+    background: var(--portal-surface);
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    min-height: 100%;
+    transition: border-color var(--portal-transition), box-shadow var(--portal-transition);
+}
+
+.vd-dmv-card:hover {
+    border-color: var(--portal-border-strong);
+    box-shadow: var(--portal-shadow-sm);
+}
+
+.vd-dmv-card.is-attached {
+    border-color: rgba(22, 163, 74, 0.35);
+    background: linear-gradient(180deg, var(--portal-surface) 0%, var(--portal-success-bg) 140%);
+}
+
+.vd-dmv-card.is-prefill {
+    border-left: 3px solid var(--portal-primary);
+}
+
+.vd-dmv-card__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.vd-dmv-card__code {
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    color: var(--portal-primary);
+    background: var(--portal-primary-soft);
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+}
+
+.vd-dmv-card__badge {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--portal-text-muted);
+}
+
+.vd-dmv-card__badge--primary {
+    color: var(--portal-primary);
+}
+
+.vd-dmv-card__badge--success {
+    color: #166534;
+}
+
+.vd-dmv-card__name {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--portal-text);
+    line-height: 1.35;
+}
+
+.vd-dmv-card__desc {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--portal-text-muted);
+    line-height: 1.45;
+    flex: 1;
+}
+
+.vd-dmv-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-top: 0.15rem;
+}
+
+.vd-dmv-card__btn {
+    min-height: auto;
+    padding: 0.4rem 0.65rem;
+    font-size: 0.76rem;
+}
+
+.vd-dmv-hub__empty {
+    text-align: center;
+    color: var(--portal-text-muted);
+    font-weight: 700;
+    padding: 1.5rem 1rem;
+}
+
+.vd-dmv-hub__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--portal-border);
+    color: var(--portal-text-muted);
+    font-size: 0.88rem;
+}
+
 .vehicle-detail-page .vd-official-docs {
     border: 2px solid var(--portal-primary);
     background: var(--portal-surface-muted);
@@ -3780,6 +4065,20 @@ html.portal-theme-dark .agent-profile-page .chip[style*="background:#f1f5f9"] {
     margin-top: 1.25rem;
     padding-top: 1rem;
     border-top: 1px solid var(--portal-border);
+}
+
+html.portal-theme-dark .vehicle-detail-page .vd-dmv-hub {
+    background: linear-gradient(180deg, var(--portal-surface) 0%, rgba(9, 61, 230, 0.08) 100%);
+    border-color: #3b82f6;
+}
+
+html.portal-theme-dark .vd-dmv-hub__stat--success {
+    color: #4ade80;
+}
+
+html.portal-theme-dark .vd-dmv-card.is-attached {
+    border-color: rgba(74, 222, 128, 0.35);
+    background: linear-gradient(180deg, var(--portal-surface) 0%, rgba(22, 163, 74, 0.12) 140%);
 }
 
 html.portal-theme-dark .vehicle-detail-page .vd-official-docs {

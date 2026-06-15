@@ -1,0 +1,103 @@
+{% load static %}
+<section class="vd-dmv-hub dashboard-panel" aria-label="NYS DMV official documents">
+    <div class="vd-dmv-hub__header">
+        <div>
+            <h3 class="vd-dmv-hub__title">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                NYS DMV Official Document Center
+            </h3>
+            <p class="vd-dmv-hub__subtitle">
+                {% if latest_service %}
+                    Pre-fill, download blanks, and track uploads for receipt <strong>#{{ latest_service.receipt_number }}</strong>.
+                {% else %}
+                    Pre-fill from the client &amp; vehicle profile, open official DMV blanks, and attach supporting records.
+                {% endif %}
+            </p>
+        </div>
+        <div class="vd-dmv-hub__stats">
+            <span class="vd-dmv-hub__stat">
+                <strong>{{ dmv_hub_total }}</strong> forms
+            </span>
+            <span class="vd-dmv-hub__stat vd-dmv-hub__stat--success">
+                <strong>{{ dmv_hub_attached }}</strong> on file
+            </span>
+        </div>
+    </div>
+
+    <div class="vd-dmv-hub__toolbar">
+        <label class="vd-dmv-hub__search-wrap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="search" id="vdDmvDocSearch" class="vd-dmv-hub__search" placeholder="Search MV, DTF, title, insurance…" autocomplete="off">
+        </label>
+        <div class="vd-dmv-hub__filters" role="tablist" aria-label="Document categories">
+            <button type="button" class="vd-dmv-hub__filter is-active" data-vd-dmv-filter="all" role="tab" aria-selected="true">All</button>
+            {% for category in dmv_doc_categories %}
+            <button type="button" class="vd-dmv-hub__filter" data-vd-dmv-filter="{{ category.id }}" role="tab" aria-selected="false">{{ category.label }}</button>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="vd-dmv-hub__categories" id="vdDmvDocCategories">
+        {% for category in dmv_doc_categories %}
+        <div class="vd-dmv-hub__category" data-vd-dmv-category="{{ category.id }}">
+            <button type="button" class="vd-dmv-hub__category-toggle" aria-expanded="true">
+                <span class="vd-dmv-hub__category-label">{{ category.label }}</span>
+                <span class="vd-dmv-hub__category-meta">{{ category.attached_count }}/{{ category.count }} on file</span>
+                <svg class="vd-dmv-hub__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="vd-dmv-hub__grid">
+                {% for doc in category.items %}
+                <article class="vd-dmv-card{% if doc.is_attached %} is-attached{% endif %}{% if doc.prefill %} is-prefill{% endif %}"
+                    data-vd-dmv-category="{{ category.id }}"
+                    data-vd-dmv-search="{{ doc.search_text }}">
+                    <div class="vd-dmv-card__top">
+                        <span class="vd-dmv-card__code">{{ doc.code }}</span>
+                        {% if doc.is_attached %}
+                        <span class="vd-dmv-card__badge vd-dmv-card__badge--success">On file</span>
+                        {% elif doc.prefill %}
+                        <span class="vd-dmv-card__badge vd-dmv-card__badge--primary">Auto-fill</span>
+                        {% else %}
+                        <span class="vd-dmv-card__badge">Reference</span>
+                        {% endif %}
+                    </div>
+                    <h4 class="vd-dmv-card__name">{{ doc.name }}</h4>
+                    <p class="vd-dmv-card__desc">{{ doc.description }}</p>
+                    <div class="vd-dmv-card__actions">
+                        {% if doc.prefill %}
+                            {% if latest_service %}
+                            <a href="{% url 'generate-dmv-form' doc.slug latest_service.id %}" target="_blank" rel="noopener" class="btn btn-primary btn-sm vd-dmv-card__btn">Generate PDF</a>
+                            {% else %}
+                            <a href="{% url 'generate-dmv-form-vehicle' doc.slug vehicle.id %}" target="_blank" rel="noopener" class="btn btn-primary btn-sm vd-dmv-card__btn">Generate PDF</a>
+                            {% endif %}
+                        {% endif %}
+                        {% if doc.dmv_url %}
+                        <a href="{{ doc.dmv_url }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm vd-dmv-card__btn">DMV Blank</a>
+                        {% endif %}
+                        {% if doc.is_attached %}
+                        <a href="{{ doc.attached_url }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm vd-dmv-card__btn">View Upload</a>
+                        {% else %}
+                        <button type="button" class="btn btn-secondary btn-sm vd-dmv-card__btn vd-dmv-upload-btn"
+                            data-vehicle-id="{{ vehicle.id }}"
+                            data-vehicle-label="{{ vehicle.vin }}"
+                            data-upload-type="{{ doc.upload_type|default:'' }}"
+                            data-doc-label="{{ doc.code }}">
+                            Attach
+                        </button>
+                        {% endif %}
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <p class="vd-dmv-hub__empty" id="vdDmvDocEmpty" hidden>No documents match your search.</p>
+
+    {% if not latest_service %}
+    <div class="vd-dmv-hub__footer">
+        <p>Start a transaction to tie generated forms to a service receipt.</p>
+        <a href="{% url 'start-process' vehicle.id %}" class="btn btn-primary btn-sm">Start Transaction</a>
+    </div>
+    {% endif %}
+</section>

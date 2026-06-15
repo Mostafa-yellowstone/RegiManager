@@ -58,56 +58,7 @@
         </header>
 
         <div class="dashboard-panels" style="margin-top: -2rem;">
-            <!-- Official Document Hub -->
-            <article class="dashboard-panel vd-official-docs">
-                <h3 class="vd-official-docs-title">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                    Official Document Automation
-                </h3>
-                <div style="padding: 0.5rem 0;">
-                    {% if latest_service %}
-                        <p class="vd-official-docs-desc">
-                            Generate pre-filled documents for the latest transaction (<strong>#{{ latest_service.receipt_number }}</strong>)
-                        </p>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                            <a href="{% url 'generate-dmv-form' 'mv82' latest_service.id %}" target="_blank" class="btn btn-primary" style="justify-content: center; background: #0f172a;">
-                                MV-82 Registration
-                            </a>
-                            <a href="{% url 'generate-dmv-form' 'dtf802' latest_service.id %}" target="_blank" class="btn btn-secondary" style="justify-content: center; font-weight: 700;">
-                                DTF-802 Sales Tax
-                            </a>
-                            <a href="{% url 'generate-dmv-form' 'dtf803' latest_service.id %}" target="_blank" class="btn btn-secondary" style="justify-content: center; font-weight: 700;">
-                                DTF-803 Tax Exemption
-                            </a>
-                            <a href="{% url 'generate-dmv-form' 'mv82b' latest_service.id %}" target="_blank" class="btn btn-secondary" style="justify-content: center; font-weight: 700;">
-                                MV-82B Boat Registration
-                            </a>
-                        </div>
-                    {% else %}
-                        <p class="vd-official-docs-desc">
-                            Generate pre-filled documents directly from the client & vehicle profile.
-                        </p>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                            <a href="{% url 'generate-dmv-form-vehicle' 'mv82' vehicle.id %}" target="_blank" class="btn btn-primary" style="justify-content: center; background: #0f172a;">
-                                MV-82 Registration
-                            </a>
-                            <a href="{% url 'generate-dmv-form-vehicle' 'dtf802' vehicle.id %}" target="_blank" class="btn btn-secondary" style="justify-content: center; font-weight: 700;">
-                                DTF-802 Sales Tax
-                            </a>
-                            <a href="{% url 'generate-dmv-form-vehicle' 'dtf803' vehicle.id %}" target="_blank" class="btn btn-secondary" style="justify-content: center; font-weight: 700;">
-                                DTF-803 Tax Exemption
-                            </a>
-                            <a href="{% url 'generate-dmv-form-vehicle' 'mv82b' vehicle.id %}" target="_blank" class="btn btn-secondary" style="justify-content: center; font-weight: 700;">
-                                MV-82B Boat Registration
-                            </a>
-                        </div>
-                        <div class="vd-official-docs-footer">
-                            <p class="vd-official-docs-desc" style="margin-bottom: 0.5rem;">Need to process a new transaction?</p>
-                            <a href="{% url 'start-process' vehicle.id %}" class="btn btn-primary btn-sm" style="min-height: auto; padding: 0.5rem 1rem;">Start Transaction</a>
-                        </div>
-                    {% endif %}
-                </div>
-            </article>
+            {% include "partials/_vehicle_dmv_docs_hub.html" %}
 
             <!-- Vehicle Stats Panel -->
             <article class="dashboard-panel">
@@ -357,7 +308,78 @@
     // This uses the _onUploadSuccess hook that the global XHR-based proceedWithUpload calls.
     window._onUploadSuccess = function(data, docType, dropzoneElement) {
         refreshDocsTable();
+        window.setTimeout(function() { window.location.reload(); }, 600);
     };
+
+    (function initVehicleDmvHub() {
+        const searchInput = document.getElementById('vdDmvDocSearch');
+        const emptyState = document.getElementById('vdDmvDocEmpty');
+        const cards = Array.from(document.querySelectorAll('.vd-dmv-card'));
+        const categories = Array.from(document.querySelectorAll('.vd-dmv-hub__category'));
+        let activeFilter = 'all';
+
+        function applyDmvHubFilters() {
+            const query = (searchInput?.value || '').trim().toLowerCase();
+            let visibleCount = 0;
+
+            cards.forEach((card) => {
+                const matchesSearch = !query || (card.dataset.vdDmvSearch || '').includes(query);
+                const matchesCategory = activeFilter === 'all' || card.dataset.vdDmvCategory === activeFilter;
+                const visible = matchesSearch && matchesCategory;
+                card.style.display = visible ? '' : 'none';
+                if (visible) visibleCount += 1;
+            });
+
+            categories.forEach((section) => {
+                const sectionCards = section.querySelectorAll('.vd-dmv-card');
+                const sectionVisible = Array.from(sectionCards).some((card) => card.style.display !== 'none');
+                section.style.display = sectionVisible ? '' : 'none';
+            });
+
+            if (emptyState) emptyState.hidden = visibleCount > 0;
+        }
+
+        document.querySelectorAll('[data-vd-dmv-filter]').forEach((button) => {
+            button.addEventListener('click', () => {
+                activeFilter = button.dataset.vdDmvFilter || 'all';
+                document.querySelectorAll('[data-vd-dmv-filter]').forEach((btn) => {
+                    const isActive = btn === button;
+                    btn.classList.toggle('is-active', isActive);
+                    btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                });
+                applyDmvHubFilters();
+            });
+        });
+
+        searchInput?.addEventListener('input', applyDmvHubFilters);
+
+        categories.forEach((section) => {
+            const toggle = section.querySelector('.vd-dmv-hub__category-toggle');
+            toggle?.addEventListener('click', () => {
+                const collapsed = section.classList.toggle('is-collapsed');
+                toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            });
+        });
+
+        document.querySelectorAll('.vd-dmv-upload-btn').forEach((button) => {
+            button.addEventListener('click', () => {
+                const vehicleId = button.dataset.vehicleId;
+                const vehicleLabel = button.dataset.vehicleLabel;
+                const uploadType = button.dataset.uploadType;
+                if (typeof openDocUploadModal === 'function') {
+                    openDocUploadModal(vehicleId, vehicleLabel, 'vehicle');
+                    if (uploadType) {
+                        window.setTimeout(() => {
+                            const dropzone = document.getElementById(`dropzone-${uploadType}`);
+                            dropzone?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            dropzone?.classList.add('dragover');
+                            window.setTimeout(() => dropzone?.classList.remove('dragover'), 1200);
+                        }, 350);
+                    }
+                }
+            });
+        });
+    })();
 
     function refreshDocsTable() {
         fetch(`/dashboard/vehicle/{{ vehicle.id }}/docs/`)

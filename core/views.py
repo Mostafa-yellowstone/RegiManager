@@ -84,6 +84,7 @@ from .insurance_space_metrics import (
     period_stats,
     prefetch_insurance_companies,
 )
+from .dmv_documents import DMV_PREFILL_FORM_MAP, DMV_PREFILL_SLUGS, build_vehicle_document_hub
 from .http import deny_access
 import io
 from django.utils.text import slugify
@@ -1195,12 +1196,19 @@ def vehicle_detail(request, vehicle_id):
 
     can_delete_receipt = user_can_delete_receipt(request.user, vehicle.client.organization_id)
 
+    dmv_doc_categories = build_vehicle_document_hub(documents=documents)
+    dmv_hub_total = sum(cat["count"] for cat in dmv_doc_categories)
+    dmv_hub_attached = sum(cat["attached_count"] for cat in dmv_doc_categories)
+
     return render(request, "core/vehicle_detail.html", {
         "vehicle": vehicle,
         "page_obj": page_obj,
         "services_page_obj": services_page_obj,
         "latest_service": latest_service,
         "can_delete_receipt": can_delete_receipt,
+        "dmv_doc_categories": dmv_doc_categories,
+        "dmv_hub_total": dmv_hub_total,
+        "dmv_hub_attached": dmv_hub_attached,
     })
 
 
@@ -2319,20 +2327,17 @@ def generate_dmv_form(request, form_type, service_id):
     if not _has_active_org_access(request.user, service.organization_id):
         deny_access("Access denied.")
 
+    if form_type not in DMV_PREFILL_SLUGS:
+        deny_access("Unsupported DMV form.")
+
     vehicle = service.vehicle
     if not vehicle and service.vin:
         vehicle = Vehicle.objects.filter(vin=service.vin).first()
     client = vehicle.client if vehicle else None
     prefill = _build_form_prefill_payload(service, client, vehicle)
     
-    # Path mapping - using local paths within core app
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    form_map = {
-        "mv82": "static/core/pdf/mv82_template.pdf",
-        "dtf802": "static/core/pdf/dtf802_template.pdf",
-        "dtf803": "static/core/pdf/dtf803_template.pdf",
-        "mv82b": "static/core/pdf/mv82b_template.pdf",
-    }
+    form_map = DMV_PREFILL_FORM_MAP
     
     template_path = os.path.join(current_dir, form_map.get(form_type, form_map["mv82"]))
     if not os.path.exists(template_path):
@@ -2398,17 +2403,14 @@ def generate_dmv_form_vehicle(request, form_type, vehicle_id):
     if not _has_active_org_access(request.user, vehicle.client.organization_id):
         deny_access("Access denied.")
 
+    if form_type not in DMV_PREFILL_SLUGS:
+        deny_access("Unsupported DMV form.")
+
     client = vehicle.client
     prefill = _build_form_prefill_payload(None, client, vehicle)
     
-    # Path mapping - using local paths within core app
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    form_map = {
-        "mv82": "static/core/pdf/mv82_template.pdf",
-        "dtf802": "static/core/pdf/dtf802_template.pdf",
-        "dtf803": "static/core/pdf/dtf803_template.pdf",
-        "mv82b": "static/core/pdf/mv82b_template.pdf",
-    }
+    form_map = DMV_PREFILL_FORM_MAP
     
     template_path = os.path.join(current_dir, form_map.get(form_type, form_map["mv82"]))
     if not os.path.exists(template_path):
