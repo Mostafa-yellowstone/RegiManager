@@ -1,38 +1,7 @@
 """Client and vehicle resolution when approving intake submissions."""
 
-from .models import Client, Vehicle
-
-
-def find_existing_client_for_intake(intake):
-    """
-    Match intake to an existing client only on strong identifiers.
-
-    Blank driver license or missing DOB must not match arbitrary profiles.
-    """
-    qs = Client.objects.filter(organization=intake.organization)
-
-    if intake.is_commercial:
-        ein = (intake.business_ein or "").strip()
-        if ein:
-            return qs.filter(is_commercial=True, business_ein__iexact=ein).first()
-        return None
-
-    dl = (intake.driver_license or "").strip()
-    if dl:
-        match = qs.filter(driver_license__iexact=dl).first()
-        if match:
-            return match
-
-    first_name = (intake.first_name or "").strip()
-    last_name = (intake.last_name or "").strip()
-    if first_name and last_name and intake.dob:
-        return qs.filter(
-            first_name__iexact=first_name,
-            last_name__iexact=last_name,
-            dob=intake.dob,
-        ).first()
-
-    return None
+from .intake_duplicates import find_existing_client_for_intake
+from .models import Vehicle
 
 
 def intake_vehicle_for_client(intake, client):

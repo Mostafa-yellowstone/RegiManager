@@ -268,3 +268,80 @@ class IntakePortalEnhancementTests(TestCase):
         other_vehicle.refresh_from_db()
         self.assertEqual(other_vehicle.client_id, other.id)
         self.assertEqual(other_vehicle.make, "Toyota")
+
+    def test_intake_blocks_duplicate_pending_submission(self):
+        self.http.post(
+            reverse("public-intake-direct", args=[self.org.portal_token]),
+            self._base_post(),
+        )
+        response = self.http.post(
+            reverse("public-intake-direct", args=[self.org.portal_token]),
+            self._base_post(),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "already being reviewed")
+        self.assertEqual(ClientIntake.objects.filter(organization=self.org).count(), 1)
+
+    def test_intake_blocks_existing_client_with_same_vin(self):
+        client = Client.objects.create(
+            organization=self.org,
+            first_name="Jane",
+            last_name="Driver",
+            gender="female",
+            phone_number="7185559999",
+        )
+        Vehicle.objects.create(
+            client=client,
+            vin="1HGBH41JXMN109186",
+            vehicle_type="passenger",
+        )
+        response = self.http.post(
+            reverse("public-intake-direct", args=[self.org.portal_token]),
+            self._base_post(),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "already on file")
+        self.assertEqual(ClientIntake.objects.filter(organization=self.org).count(), 0)
+
+    def test_intake_blocks_existing_client_profile_resubmission(self):
+        Client.objects.create(
+            organization=self.org,
+            first_name="Jane",
+            last_name="Driver",
+            gender="female",
+            phone_number="7185559999",
+            driver_license="DL-JANE-123",
+        )
+        response = self.http.post(
+            reverse("public-intake-direct", args=[self.org.portal_token]),
+            self._base_post(vin="NEWVIN0000000002"),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "already in our system")
+        self.assertEqual(ClientIntake.objects.filter(organization=self.org).count(), 0)
+
+    def test_approve_links_existing_client_by_name_without_duplicate(self):
+        existing = Client.objects.create(
+            organization=self.org,
+            first_name="Jane",
+            last_name="Driver",
+            gender="female",
+            phone_number="7185559999",
+            driver_license="DL-JANE-123",
+        )
+        intake = ClientIntake.objects.create(
+            organization=self.org,
+            first_name="Jane",
+            last_name="Driver",
+            gender="female",
+            phone_number="7185559999",
+            driver_license="DL-JANE-123",
+            vin="NEWVIN0000000003",
+            source="walk_in",
+        )
+        self.http.login(username="intakeowner", password="password123")
+        response = self.http.post(reverse("approve-intake", args=[intake.id]))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Client.objects.filter(organization=self.org).count(), 1)
+        vehicle = Vehicle.objects.get(vin="NEWVIN0000000003")
+        self.assertEqual(vehicle.client_id, existing.id)

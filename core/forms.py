@@ -764,6 +764,15 @@ class ClientIntakeForm(forms.ModelForm):
         note = (self.cleaned_data.get("intake_note") or "").strip()
         return note[:5000]
 
+    def _validate_intake_duplicates(self, cleaned_data):
+        if not self.organization:
+            return
+        from .intake_duplicates import validate_intake_submission_from_form
+
+        duplicate_error = validate_intake_submission_from_form(self.organization, cleaned_data)
+        if duplicate_error:
+            raise forms.ValidationError(duplicate_error)
+
     def clean(self):
         cleaned_data = super().clean()
         source = cleaned_data.get("source")
@@ -772,6 +781,7 @@ class ClientIntakeForm(forms.ModelForm):
             cleaned_data["partner_phone"] = ""
             cleaned_data["partner_email"] = None
             cleaned_data["partner_address"] = ""
+            self._validate_intake_duplicates(cleaned_data)
             return cleaned_data
 
         ref_select = (self.data.get("referral_select") or "").strip()
@@ -800,6 +810,8 @@ class ClientIntakeForm(forms.ModelForm):
 
             if not Referral.objects.filter(id=ref_id, organization=self.organization).exists():
                 raise forms.ValidationError("Selected dealer is not valid for this organization.")
+
+        self._validate_intake_duplicates(cleaned_data)
         return cleaned_data
 
     def clean_insurance_id_card(self):
