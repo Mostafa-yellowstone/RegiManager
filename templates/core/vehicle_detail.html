@@ -312,54 +312,54 @@
     };
 
     (function initVehicleDmvHub() {
+        const hub = document.getElementById('vdDmvHub');
+        const hubToggle = document.getElementById('vdDmvHubToggle');
+        const hubPanel = document.getElementById('vdDmvHubPanel');
         const searchInput = document.getElementById('vdDmvDocSearch');
+        const categorySelect = document.getElementById('vdDmvCategorySelect');
         const emptyState = document.getElementById('vdDmvDocEmpty');
-        const cards = Array.from(document.querySelectorAll('.vd-dmv-card'));
+        const rows = Array.from(document.querySelectorAll('.vd-dmv-row'));
         const categories = Array.from(document.querySelectorAll('.vd-dmv-hub__category'));
-        let activeFilter = 'all';
+
+        function setHubExpanded(expanded) {
+            if (!hub || !hubPanel || !hubToggle) return;
+            hub.classList.toggle('vd-dmv-hub--collapsed', !expanded);
+            hubPanel.hidden = !expanded;
+            hubToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        }
+
+        hubToggle?.addEventListener('click', () => {
+            const expanded = hub?.classList.contains('vd-dmv-hub--collapsed');
+            setHubExpanded(expanded);
+        });
 
         function applyDmvHubFilters() {
             const query = (searchInput?.value || '').trim().toLowerCase();
+            const activeFilter = categorySelect?.value || 'all';
             let visibleCount = 0;
 
-            cards.forEach((card) => {
-                const matchesSearch = !query || (card.dataset.vdDmvSearch || '').includes(query);
-                const matchesCategory = activeFilter === 'all' || card.dataset.vdDmvCategory === activeFilter;
+            rows.forEach((row) => {
+                const matchesSearch = !query || (row.dataset.vdDmvSearch || '').includes(query);
+                const matchesCategory = activeFilter === 'all' || row.dataset.vdDmvCategory === activeFilter;
                 const visible = matchesSearch && matchesCategory;
-                card.style.display = visible ? '' : 'none';
+                row.style.display = visible ? '' : 'none';
                 if (visible) visibleCount += 1;
             });
 
             categories.forEach((section) => {
-                const sectionCards = section.querySelectorAll('.vd-dmv-card');
-                const sectionVisible = Array.from(sectionCards).some((card) => card.style.display !== 'none');
+                const sectionRows = section.querySelectorAll('.vd-dmv-row');
+                const sectionVisible = Array.from(sectionRows).some((row) => row.style.display !== 'none');
                 section.style.display = sectionVisible ? '' : 'none';
+                if (sectionVisible && activeFilter !== 'all' && section.dataset.vdDmvCategory === activeFilter) {
+                    section.open = true;
+                }
             });
 
             if (emptyState) emptyState.hidden = visibleCount > 0;
         }
 
-        document.querySelectorAll('[data-vd-dmv-filter]').forEach((button) => {
-            button.addEventListener('click', () => {
-                activeFilter = button.dataset.vdDmvFilter || 'all';
-                document.querySelectorAll('[data-vd-dmv-filter]').forEach((btn) => {
-                    const isActive = btn === button;
-                    btn.classList.toggle('is-active', isActive);
-                    btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
-                });
-                applyDmvHubFilters();
-            });
-        });
-
+        categorySelect?.addEventListener('change', applyDmvHubFilters);
         searchInput?.addEventListener('input', applyDmvHubFilters);
-
-        categories.forEach((section) => {
-            const toggle = section.querySelector('.vd-dmv-hub__category-toggle');
-            toggle?.addEventListener('click', () => {
-                const collapsed = section.classList.toggle('is-collapsed');
-                toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-            });
-        });
 
         document.querySelectorAll('.vd-dmv-upload-btn').forEach((button) => {
             button.addEventListener('click', () => {
