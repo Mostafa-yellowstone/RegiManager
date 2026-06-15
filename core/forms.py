@@ -640,6 +640,10 @@ class ClientIntakeForm(forms.ModelForm):
             "maxlength": "5000",
         }),
     )
+    is_commercial = forms.BooleanField(
+        required=False,
+        label="This registration is for a business / corporation",
+    )
 
     class Meta:
         model = ClientIntake
@@ -647,7 +651,6 @@ class ClientIntakeForm(forms.ModelForm):
             "organization", "status", "processed_at", "processed_by",
             "additional_data", "requested_services",
             "mv82_file", "dtf802_file", "dtf803_file", "other_docs",
-            "is_commercial", "business_name", "business_ein",
             "selected_referral",
             "partner_name", "partner_phone", "partner_email", "partner_address",
             "intake_note",
@@ -662,6 +665,8 @@ class ClientIntakeForm(forms.ModelForm):
             "first_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "First Name"}),
             "last_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Last Name"}),
             "middle_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Middle Name/Initial"}),
+            "business_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Legal business name"}),
+            "business_ein": forms.TextInput(attrs={"class": "form-control", "placeholder": "EIN (optional)"}),
             "email": forms.EmailInput(attrs={"class": "form-control", "placeholder": "Email Address"}),
             "phone_number": forms.TextInput(attrs={"class": "form-control phone-mask", "placeholder": "(000) 000-0000"}),
             "driver_license": forms.TextInput(attrs={"class": "form-control", "placeholder": "ID Number"}),
@@ -719,12 +724,25 @@ class ClientIntakeForm(forms.ModelForm):
         self.fields["vehicle_type"].widget.choices = [("", "Select type...")] + list(Vehicle.VEHICLE_TYPES)
         self.fields["body_type"].widget.choices = [("", "Select body style...")] + list(Vehicle.BODY_TYPES)
         self.fields["fuel_type"].widget.choices = list(Vehicle.FUEL_TYPES)
-        required_fields = ["first_name", "last_name", "vin", "phone_number", "gender", "source"]
+
+        is_commercial = False
+        if self.data:
+            is_commercial = self.data.get("is_commercial") in ("on", "true", "True", "1", True)
+        elif self.instance and self.instance.pk:
+            is_commercial = self.instance.is_commercial
+
+        personal_required = ["first_name", "last_name", "gender"]
+        always_required = ["vin", "phone_number", "source"]
         for field_name, field in self.fields.items():
-            if field_name not in required_fields:
-                field.required = False
-            else:
-                field.required = True
+            field.required = False
+        for field_name in always_required:
+            if field_name in self.fields:
+                self.fields[field_name].required = True
+        if not is_commercial:
+            for field_name in personal_required:
+                if field_name in self.fields:
+                    self.fields[field_name].required = True
+
         if not self.data and not self.instance.pk:
             self.fields["source"].initial = "google_search"
             self.fields["vehicle_type"].initial = "passenger"
@@ -775,6 +793,46 @@ class ClientIntakeForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        is_commercial = bool(cleaned_data.get("is_commercial"))
+        if self.data.get("is_commercial") in ("on", "true", "True", "1"):
+            is_commercial = True
+        cleaned_data["is_commercial"] = is_commercial
+
+        if is_commercial:
+            for field_name in (
+                "first_name",
+                "last_name",
+                "middle_name",
+                "gender",
+                "driver_license",
+                "ssn_last_4",
+                "dob",
+            ):
+                self._errors.pop(field_name, None)
+                cleaned_data.pop(field_name, None)
+
+            business_name = (cleaned_data.get("business_name") or "").strip()
+            business_ein = (cleaned_data.get("business_ein") or "").strip()
+            if not business_name:
+                self.add_error("business_name", "Business name is required for commercial registrations.")
+            if not (cleaned_data.get("phone_number") or "").strip():
+                self.add_error("phone_number", "Business contact phone is required.")
+
+            cleaned_data["business_name"] = business_name
+            cleaned_data["business_ein"] = business_ein
+            cleaned_data["first_name"] = "Commercial"
+            cleaned_data["last_name"] = business_name or "Business"
+            cleaned_data["gender"] = None
+        else:
+            if not (cleaned_data.get("first_name") or "").strip():
+                self.add_error("first_name", "First name is required.")
+            if not (cleaned_data.get("last_name") or "").strip():
+                self.add_error("last_name", "Last name is required.")
+            if not cleaned_data.get("gender"):
+                self.add_error("gender", "Gender is required.")
+            cleaned_data["business_name"] = ""
+            cleaned_data["business_ein"] = ""
+
         source = cleaned_data.get("source")
         if source != "dealer":
             cleaned_data["partner_name"] = ""

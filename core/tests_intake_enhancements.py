@@ -345,3 +345,72 @@ class IntakePortalEnhancementTests(TestCase):
         self.assertEqual(Client.objects.filter(organization=self.org).count(), 1)
         vehicle = Vehicle.objects.get(vin="NEWVIN0000000003")
         self.assertEqual(vehicle.client_id, existing.id)
+
+    def test_commercial_intake_submission_saves_business_profile(self):
+        response = self.http.post(
+            reverse("public-intake-direct", args=[self.org.portal_token]),
+            {
+                **self._base_post(),
+                "is_commercial": "on",
+                "business_name": "Acme Fleet LLC",
+                "business_ein": "12-3456789",
+                "first_name": "",
+                "last_name": "",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        intake = ClientIntake.objects.get(organization=self.org, business_name="Acme Fleet LLC")
+        self.assertTrue(intake.is_commercial)
+        self.assertEqual(intake.first_name, "Commercial")
+        self.assertEqual(intake.last_name, "Acme Fleet LLC")
+        self.assertIsNone(intake.gender)
+
+    def test_commercial_intake_requires_business_name(self):
+        response = self.http.post(
+            reverse("public-intake-direct", args=[self.org.portal_token]),
+            {**self._base_post(), "is_commercial": "on", "business_name": ""},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Business name is required for commercial")
+
+    def test_approve_commercial_intake_creates_business_client(self):
+        intake = ClientIntake.objects.create(
+            organization=self.org,
+            first_name="Commercial",
+            last_name="Acme Fleet LLC",
+            gender=None,
+            phone_number="7185559999",
+            vin="BIZVIN0000000001",
+            source="walk_in",
+            is_commercial=True,
+            business_name="Acme Fleet LLC",
+            business_ein="12-3456789",
+        )
+        self.http.login(username="intakeowner", password="password123")
+        response = self.http.post(reverse("approve-intake", args=[intake.id]))
+        self.assertEqual(response.status_code, 302)
+        client = Client.objects.get(organization=self.org, business_name="Acme Fleet LLC")
+        self.assertTrue(client.is_commercial)
+        self.assertEqual(client.business_ein, "12-3456789")
+
+    def test_commercial_intake_blocks_duplicate_business(self):
+        Client.objects.create(
+            organization=self.org,
+            first_name="Commercial",
+            last_name="Acme Fleet LLC",
+            is_commercial=True,
+            business_name="Acme Fleet LLC",
+            business_ein="12-3456789",
+            phone_number="7185550000",
+        )
+        response = self.http.post(
+            reverse("public-intake-direct", args=[self.org.portal_token]),
+            {
+                **self._base_post(vin="BIZVIN0000000002"),
+                "is_commercial": "on",
+                "business_name": "Acme Fleet LLC",
+                "business_ein": "12-3456789",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "business profile")

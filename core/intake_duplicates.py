@@ -44,7 +44,14 @@ def find_existing_client_for_intake(intake) -> Client | None:
     if intake.is_commercial:
         ein = (intake.business_ein or "").strip()
         if ein:
-            return qs.filter(is_commercial=True, business_ein__iexact=ein).first()
+            match = qs.filter(is_commercial=True, business_ein__iexact=ein).first()
+            if match:
+                return match
+        business_name = (intake.business_name or "").strip()
+        if not business_name and (intake.first_name or "").strip().lower() == "commercial":
+            business_name = (intake.last_name or "").strip()
+        if business_name:
+            return qs.filter(is_commercial=True, business_name__iexact=business_name).first()
         return None
 
     dl = (intake.driver_license or "").strip()
@@ -110,7 +117,12 @@ def find_pending_intake_duplicate(
     if _is_commercial(data):
         ein = (_intake_field(data, "business_ein") or "").strip()
         if ein:
-            return qs.filter(is_commercial=True, business_ein__iexact=ein).first()
+            match = qs.filter(is_commercial=True, business_ein__iexact=ein).first()
+            if match:
+                return match
+        business_name = (_intake_field(data, "business_name") or "").strip()
+        if business_name:
+            return qs.filter(is_commercial=True, business_name__iexact=business_name).first()
         return None
 
     dl = (_intake_field(data, "driver_license") or "").strip()
@@ -162,6 +174,7 @@ class _IntakeIdentity:
             data.organization if hasattr(data, "organization") else None
         )
         self.is_commercial = _is_commercial(data)
+        self.business_name = _intake_field(data, "business_name")
         self.business_ein = _intake_field(data, "business_ein")
         self.driver_license = _intake_field(data, "driver_license")
         self.email = _intake_field(data, "email")
@@ -195,6 +208,22 @@ def validate_intake_submission(organization, data) -> str | None:
     if not existing_client:
         return None
 
+    if existing_client.is_commercial:
+        if vin:
+            has_vehicle = Vehicle.objects.filter(
+                client=existing_client,
+                vin__iexact=vin,
+            ).exists()
+            if has_vehicle:
+                return (
+                    "This vehicle is already on file for this business. "
+                    "Please contact the office if you need help with your registration."
+                )
+        return (
+            "A business profile matching this information is already in our system. "
+            "Please contact the office instead of submitting a new application."
+        )
+
     if vin:
         has_vehicle = Vehicle.objects.filter(
             client=existing_client,
@@ -217,7 +246,8 @@ def validate_intake_submission_from_form(organization, cleaned_data) -> str | No
 
     payload = SimpleNamespace(
         organization=organization,
-        is_commercial=False,
+        is_commercial=bool(cleaned_data.get("is_commercial")),
+        business_name=cleaned_data.get("business_name", ""),
         business_ein=cleaned_data.get("business_ein", ""),
         driver_license=cleaned_data.get("driver_license", ""),
         email=cleaned_data.get("email"),

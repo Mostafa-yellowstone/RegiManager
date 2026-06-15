@@ -306,6 +306,11 @@
 
         <form method="post" id="intakeForm" enctype="multipart/form-data">
             {% csrf_token %}
+            {% if form.non_field_errors %}
+            <div style="margin-bottom: 1rem; padding: 0.85rem 1rem; border-radius: 10px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; font-size: 0.9rem; font-weight: 600;">
+                {{ form.non_field_errors.0 }}
+            </div>
+            {% endif %}
 
             <!-- Step 0: Service Selection -->
             <section class="step-section">
@@ -378,20 +383,41 @@
                 </div>
             </section>
 
-            <!-- Step 1: Personal -->
+            <!-- Step 1: Personal / Business -->
             <section class="step-section">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 10px;">
-                    <div class="step-title" style="margin-bottom: 0;"><span class="step-number">1</span> Personal Details (Registrant)</div>
-                    <div style="position: relative;">
+                    <div class="step-title" style="margin-bottom: 0;"><span class="step-number">1</span> <span id="intakeRegistrantTitle">Personal Details (Registrant)</span></div>
+                    <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; color: #475569; cursor: pointer; user-select: none; margin: 0;">
+                            {{ form.is_commercial }}
+                            <span>Business / Corporation</span>
+                        </label>
+                        <div id="intakeDlUploadWrap" style="position: relative;">
                         <input type="file" id="public-dl-image-upload" accept="image/*" style="display: none;">
                         <button type="button" onclick="document.getElementById('public-dl-image-upload').click()" style="padding: 0.5rem 1rem; font-size: 0.85rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 0.5rem; border: 1.5px solid #e2e8f0; color: #4f46e5; background: #e0e7ff; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.1); cursor: pointer; font-weight: 700;">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                             Auto-Fill from DL Image
                         </button>
+                        </div>
                     </div>
                 </div>
 
-                <div class="form-grid">
+                <div id="intakeBusinessFields" class="form-grid" style="display: none; margin-bottom: 1rem;">
+                    <div class="col-span-3">
+                        <label>Legal Business Name</label>
+                        {{ form.business_name }}
+                        {% if form.business_name.errors %}<p style="color:#dc2626;font-size:0.8rem;margin-top:0.35rem;">{{ form.business_name.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div>
+                        <label>Business EIN <small style="font-weight:600;color:#64748b;">(optional)</small></label>
+                        {{ form.business_ein }}
+                    </div>
+                    <div class="col-span-4" style="font-size:0.85rem;color:#64748b;">
+                        Use the business mailing address below. A contact phone number is required for follow-up.
+                    </div>
+                </div>
+
+                <div id="intakePersonalFields" class="form-grid">
                     <div class="col-span-2">
                         <label>First Name</label>
                         {{ form.first_name }}
@@ -410,21 +436,13 @@
                     </div>
                     <div>
                         <label>Gender</label>
-                        <select name="gender" class="form-control" required>
+                        <select name="gender" id="id_gender" class="form-control" required>
                         <option value="" disabled selected>Select Gender...</option>
                         <option value="male">Male</option>
                         <option value="female">Female</option>
                         <option value="other">Other</option>
                         <option value="prefer_not_to_say">Prefer not to say</option>
                     </select>
-                    </div>
-                    <div class="col-span-2">
-                        <label>Email Address</label>
-                        {{ form.email }}
-                    </div>
-                    <div class="col-span-2">
-                        <label>Phone Number</label>
-                        {{ form.phone_number }}
                     </div>
                     <div>
                         <label>Driver License #</label>
@@ -445,9 +463,18 @@
                         </label>
                     </div>
                 </div>
-            </section>
 
-            <!-- Step 1.1: Owner Details (Hidden if same) -->
+                <div class="form-grid" style="margin-top: 1rem;">
+                    <div class="col-span-2">
+                        <label>Email Address</label>
+                        {{ form.email }}
+                    </div>
+                    <div class="col-span-2">
+                        <label>Phone Number</label>
+                        {{ form.phone_number }}
+                    </div>
+                </div>
+            </section>
             <section class="step-section" id="ownerSection"
                 style="display: none; background: #fffcf0; border-bottom: 1px solid #fef3c7;">
                 <div class="step-title"><span class="step-number">1.1</span> Owner Information</div>
@@ -1030,6 +1057,33 @@
                 alert('Failed to process image file.');
             });
         });
+    }
+
+    const intakeCommercialToggle = document.getElementById('id_is_commercial');
+    const intakePersonalFields = document.getElementById('intakePersonalFields');
+    const intakeBusinessFields = document.getElementById('intakeBusinessFields');
+    const intakeDlUploadWrap = document.getElementById('intakeDlUploadWrap');
+    const intakeRegistrantTitle = document.getElementById('intakeRegistrantTitle');
+    const intakeGenderSelect = document.getElementById('id_gender');
+    const intakeOwnerSection = document.getElementById('ownerSection');
+
+    function toggleIntakeCommercialMode() {
+        const isBusiness = intakeCommercialToggle && intakeCommercialToggle.checked;
+        if (intakePersonalFields) intakePersonalFields.style.display = isBusiness ? 'none' : 'grid';
+        if (intakeBusinessFields) intakeBusinessFields.style.display = isBusiness ? 'grid' : 'none';
+        if (intakeDlUploadWrap) intakeDlUploadWrap.style.display = isBusiness ? 'none' : 'block';
+        if (intakeRegistrantTitle) {
+            intakeRegistrantTitle.textContent = isBusiness
+                ? 'Business Details (Registrant)'
+                : 'Personal Details (Registrant)';
+        }
+        if (intakeGenderSelect) intakeGenderSelect.required = !isBusiness;
+        if (isBusiness && intakeOwnerSection) intakeOwnerSection.style.display = 'none';
+    }
+
+    if (intakeCommercialToggle) {
+        intakeCommercialToggle.addEventListener('change', toggleIntakeCommercialMode);
+        toggleIntakeCommercialMode();
     }
 </script>
 <style>
