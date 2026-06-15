@@ -1202,7 +1202,8 @@ def vehicle_detail(request, vehicle_id):
 
     can_delete_receipt = user_can_delete_receipt(request.user, vehicle.client.organization_id)
 
-    dmv_state = normalize_state_code(vehicle.client.organization.state)
+    organization = Organization.objects.only("state", "name").get(pk=vehicle.client.organization_id)
+    dmv_state = normalize_state_code(organization.state)
     dmv_doc_categories = build_vehicle_document_hub(documents=documents, state_code=dmv_state)
     dmv_hub_total = sum(cat["count"] for cat in dmv_doc_categories)
     dmv_hub_attached = sum(cat["attached_count"] for cat in dmv_doc_categories)

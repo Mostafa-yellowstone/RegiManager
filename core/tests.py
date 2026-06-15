@@ -2823,14 +2823,29 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
 
 
 class DmvDocumentsStateTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="dmvstateuser", password="password123")
+        self.http_client = TestClient()
+        self.http_client.login(username="dmvstateuser", password="password123")
+
     def test_normalize_state_code(self):
-        from core.dmv_documents import normalize_state_code
+        from core.us_states import normalize_state_code
 
         self.assertEqual(normalize_state_code("NY"), "NY")
         self.assertEqual(normalize_state_code("new york"), "NY")
         self.assertEqual(normalize_state_code("CT"), "CT")
+        self.assertEqual(normalize_state_code("Connecticut"), "CT")
+        self.assertEqual(normalize_state_code("Penn"), "PA")
         self.assertEqual(normalize_state_code(""), "NY")
         self.assertEqual(normalize_state_code("invalid"), "NY")
+
+    def test_organization_save_normalizes_state(self):
+        from core.us_states import normalize_state_code
+
+        org = Organization.objects.create(name="State Test PSB", city="Hartford", state="Connecticut")
+        org.refresh_from_db()
+        self.assertEqual(org.state, "CT")
+        self.assertEqual(normalize_state_code(org.state), "CT")
 
     def test_state_catalog_sizes(self):
         from core.dmv_documents import get_dmv_documents_for_state
@@ -2865,7 +2880,24 @@ class DmvDocumentsStateTests(TestCase):
         self.assertNotIn("MV-82", ct_codes)
 
     def test_get_state_label(self):
-        from core.dmv_documents import get_state_label
+        from core.us_states import get_state_label
 
         self.assertEqual(get_state_label("NJ"), "New Jersey")
+
+    def test_vehicle_detail_uses_psb_state_for_dmv_hub(self):
+        org = Organization.objects.create(name="CT Motor PSB", city="Hartford", state="CT")
+        OrganizationMembership.objects.create(
+            user=self.user,
+            organization=org,
+            is_active=True,
+            role=OrganizationMembership.Role.OWNER,
+        )
+        client = Client.objects.create(organization=org, first_name="Jane", last_name="Doe")
+        vehicle = Vehicle.objects.create(client=client, vin="1HGBH41JXMN109186", year=2020, make="Honda", model="Civic")
+
+        response = self.http_client.get(reverse("vehicle-detail", args=[vehicle.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Connecticut DMV Documents")
+        self.assertContains(response, "H-13B")
+        self.assertNotContains(response, "MV-82")
 

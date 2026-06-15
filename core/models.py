@@ -6,7 +6,7 @@ from django.utils.crypto import get_random_string
 import uuid
 from decimal import Decimal
 
-from .us_states import US_STATES
+from .us_states import US_STATES, normalize_state_code
 
 def generate_invite_code():
     return get_random_string(8).upper()
@@ -82,6 +82,7 @@ class Organization(models.Model):
     def save(self, *args, **kwargs):
         if not self.portal_token:
             self.portal_token = get_random_string(32)
+        self.state = normalize_state_code(self.state)
         super().save(*args, **kwargs)
 
     def __str__(self):

@@ -1,7 +1,25 @@
+from django import forms
 from django.contrib import admin
 from django.utils.html import format_html
 
 from ..models import Organization, OrganizationMembership, UserSession
+from ..us_states import US_STATES, normalize_state_code
+
+
+class OrganizationAdminForm(forms.ModelForm):
+    state = forms.ChoiceField(
+        choices=US_STATES,
+        required=False,
+        help_text="Motor vehicle state for this PSB. Vehicle profiles show DMV forms for this state.",
+    )
+
+    class Meta:
+        model = Organization
+        fields = "__all__"
+
+    def clean_state(self):
+        value = self.cleaned_data.get("state") or ""
+        return normalize_state_code(value)
 
 
 class MembershipInline(admin.TabularInline):
@@ -34,6 +52,7 @@ class MembershipInline(admin.TabularInline):
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
+    form = OrganizationAdminForm
     list_display = (
         "name",
         "city",
@@ -52,7 +71,7 @@ class OrganizationAdmin(admin.ModelAdmin):
     fieldsets = (
         ("PSB Profile", {
             "fields": ("name", "logo", "address_line", "city", "state", "phone_number", "email", "psbc_license"),
-            "description": "Set State to the PSB's motor vehicle jurisdiction. Vehicle profiles show DMV forms for that state.",
+            "description": "Choose the PSB motor vehicle state from the dropdown (e.g. CT, PA, NJ). This controls which DMV forms appear on vehicle profiles.",
         }),
         ("Access & Limits", {"fields": ("invite_code", "portal_token", "max_agents", "is_active")}),
         ("Features", {"fields": ("is_automation_enabled", "is_public_intake_enabled", "intake_link_display")}),
@@ -72,6 +91,7 @@ class OrganizationAdmin(admin.ModelAdmin):
         js = ("core/js/admin_automation_toggle.js",)
 
     def save_model(self, request, obj, form, change):
+        obj.state = normalize_state_code(obj.state)
         super().save_model(request, obj, form, change)
         if not obj.is_automation_enabled:
             obj.memberships.filter(can_trigger_automation=True).update(can_trigger_automation=False)

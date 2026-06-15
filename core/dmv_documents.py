@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .us_states import STATE_LABEL_BY_CODE, US_STATE_CODES, US_STATES
+from .us_states import STATE_LABEL_BY_CODE, US_STATE_CODES, US_STATES, get_state_label, normalize_state_code
 
 
 @dataclass(frozen=True)
@@ -91,21 +91,6 @@ STATE_DMV_PORTALS: dict[str, str] = {
     "WI": "https://wisconsindot.gov/Pages/dmv/online/default.aspx",
     "WY": "https://www.dot.state.wy.us/home/driver_license_records.html",
 }
-
-
-def normalize_state_code(value: str) -> str:
-    raw = (value or "").strip().upper()
-    if raw in US_STATE_CODES:
-        return raw
-    for code, name in US_STATES:
-        if name.upper() == raw:
-            return code
-    return "NY"
-
-
-def get_state_label(state_code: str) -> str:
-    code = normalize_state_code(state_code)
-    return STATE_LABEL_BY_CODE.get(code, code)
 
 
 def _supporting_documents() -> tuple[DmvDocument, ...]:
