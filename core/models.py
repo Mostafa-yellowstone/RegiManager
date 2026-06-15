@@ -6,6 +6,8 @@ from django.utils.crypto import get_random_string
 import uuid
 from decimal import Decimal
 
+from .us_states import US_STATES
+
 def generate_invite_code():
     return get_random_string(8).upper()
 
@@ -37,7 +39,13 @@ class Organization(models.Model):
     logo = models.ImageField(upload_to="organization_logos/", blank=True, null=True)
     address_line = models.CharField(max_length=180, blank=True, default="")
     city = models.CharField(max_length=80, blank=True, default="")
-    state = models.CharField(max_length=80, blank=True, default="")
+    state = models.CharField(
+        max_length=2,
+        choices=US_STATES,
+        default="NY",
+        blank=True,
+        help_text="Motor vehicle state for this PSB. Vehicle profiles show DMV forms for this state.",
+    )
     phone_number = models.CharField(max_length=20, blank=True, default="", help_text="PSB contact number for clients.")
     email = models.EmailField(
         blank=True,
@@ -231,18 +239,7 @@ class Client(SoftDeleteModel):
         ("prefer_not_to_say", "Prefer not to say"),
     ]
     
-    US_STATES = [
-        ("AL", "Alabama"), ("AK", "Alaska"), ("AZ", "Arizona"), ("AR", "Arkansas"), ("CA", "California"),
-        ("CO", "Colorado"), ("CT", "Connecticut"), ("DE", "Delaware"), ("FL", "Florida"), ("GA", "Georgia"),
-        ("HI", "Hawaii"), ("ID", "Idaho"), ("IL", "Illinois"), ("IN", "Indiana"), ("IA", "Iowa"),
-        ("KS", "Kansas"), ("KY", "Kentucky"), ("LA", "Louisiana"), ("ME", "Maine"), ("MD", "Maryland"),
-        ("MA", "Massachusetts"), ("MI", "Michigan"), ("MN", "Minnesota"), ("MS", "Mississippi"), ("MO", "Missouri"),
-        ("MT", "Montana"), ("NE", "Nebraska"), ("NV", "Nevada"), ("NH", "New Hampshire"), ("NJ", "New Jersey"),
-        ("NM", "New Mexico"), ("NY", "New York"), ("NC", "North Carolina"), ("ND", "North Dakota"), ("OH", "Ohio"),
-        ("OK", "Oklahoma"), ("OR", "Oregon"), ("PA", "Pennsylvania"), ("RI", "Rhode Island"), ("SC", "South Carolina"),
-        ("SD", "South Dakota"), ("TN", "Tennessee"), ("TX", "Texas"), ("UT", "Utah"), ("VT", "Vermont"),
-        ("VA", "Virginia"), ("WA", "Washington"), ("WV", "West Virginia"), ("WI", "Wisconsin"), ("WY", "Wyoming"),
-    ]
+    US_STATES = US_STATES
 
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="clients")
     source = models.CharField(max_length=100, default="walk-in")

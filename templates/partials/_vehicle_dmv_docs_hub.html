@@ -1,11 +1,11 @@
 {% load static %}
-<section class="vd-dmv-hub dashboard-panel vd-dmv-hub--collapsed" aria-label="NYS DMV official documents" id="vdDmvHub">
+<section class="vd-dmv-hub dashboard-panel vd-dmv-hub--collapsed" aria-label="{{ dmv_state_label }} DMV official documents" id="vdDmvHub">
     <div class="vd-dmv-hub__compact-bar">
         <button type="button" class="vd-dmv-hub__expand-toggle" id="vdDmvHubToggle" aria-expanded="false" aria-controls="vdDmvHubPanel">
             <span class="vd-dmv-hub__compact-main">
                 <svg class="vd-dmv-hub__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 <span class="vd-dmv-hub__compact-text">
-                    <strong>DMV Official Documents</strong>
+                    <strong>{{ dmv_state_label }} DMV Documents</strong>
                     <small>{{ dmv_hub_total }} forms · {{ dmv_hub_attached }} on file{% if latest_service %} · Receipt #{{ latest_service.receipt_number }}{% endif %}</small>
                 </span>
             </span>

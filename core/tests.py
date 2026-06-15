@@ -2820,3 +2820,52 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
         pdf_text = self._pdf_text(record)
         self.assertIn("PAYMENT HISTORY", pdf_text)
         self.assertIn("$-20.00", pdf_text.replace(" ", ""))
+
+
+class DmvDocumentsStateTests(TestCase):
+    def test_normalize_state_code(self):
+        from core.dmv_documents import normalize_state_code
+
+        self.assertEqual(normalize_state_code("NY"), "NY")
+        self.assertEqual(normalize_state_code("new york"), "NY")
+        self.assertEqual(normalize_state_code("CT"), "CT")
+        self.assertEqual(normalize_state_code(""), "NY")
+        self.assertEqual(normalize_state_code("invalid"), "NY")
+
+    def test_state_catalog_sizes(self):
+        from core.dmv_documents import get_dmv_documents_for_state
+
+        self.assertGreater(len(get_dmv_documents_for_state("NY")), 20)
+        self.assertGreater(len(get_dmv_documents_for_state("CT")), 8)
+        self.assertGreater(len(get_dmv_documents_for_state("PA")), 8)
+        self.assertGreater(len(get_dmv_documents_for_state("NJ")), 8)
+        self.assertGreater(len(get_dmv_documents_for_state("TX")), 5)
+
+    def test_ct_catalog_includes_h13b(self):
+        from core.dmv_documents import get_dmv_documents_for_state
+
+        codes = {doc.code for doc in get_dmv_documents_for_state("CT")}
+        self.assertIn("H-13B", codes)
+
+    def test_prefill_only_for_ny(self):
+        from core.dmv_documents import get_prefill_slugs_for_state
+
+        self.assertIn("mv82", get_prefill_slugs_for_state("NY"))
+        self.assertEqual(get_prefill_slugs_for_state("CT"), frozenset())
+
+    def test_build_hub_uses_state_catalog(self):
+        from core.dmv_documents import build_vehicle_document_hub
+
+        ny_hub = build_vehicle_document_hub(documents=[], state_code="NY")
+        ct_hub = build_vehicle_document_hub(documents=[], state_code="CT")
+        ny_codes = {item["code"] for cat in ny_hub for item in cat["items"]}
+        ct_codes = {item["code"] for cat in ct_hub for item in cat["items"]}
+        self.assertIn("MV-82", ny_codes)
+        self.assertIn("H-13B", ct_codes)
+        self.assertNotIn("MV-82", ct_codes)
+
+    def test_get_state_label(self):
+        from core.dmv_documents import get_state_label
+
+        self.assertEqual(get_state_label("NJ"), "New Jersey")
+

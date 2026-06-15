@@ -84,7 +84,13 @@ from .insurance_space_metrics import (
     period_stats,
     prefetch_insurance_companies,
 )
-from .dmv_documents import DMV_PREFILL_FORM_MAP, DMV_PREFILL_SLUGS, build_vehicle_document_hub
+from .dmv_documents import (
+    build_vehicle_document_hub,
+    get_prefill_form_map_for_state,
+    get_prefill_slugs_for_state,
+    get_state_label,
+    normalize_state_code,
+)
 from .http import deny_access
 import io
 from django.utils.text import slugify
@@ -1196,7 +1202,8 @@ def vehicle_detail(request, vehicle_id):
 
     can_delete_receipt = user_can_delete_receipt(request.user, vehicle.client.organization_id)
 
-    dmv_doc_categories = build_vehicle_document_hub(documents=documents)
+    dmv_state = normalize_state_code(vehicle.client.organization.state)
+    dmv_doc_categories = build_vehicle_document_hub(documents=documents, state_code=dmv_state)
     dmv_hub_total = sum(cat["count"] for cat in dmv_doc_categories)
     dmv_hub_attached = sum(cat["attached_count"] for cat in dmv_doc_categories)
 
@@ -1209,6 +1216,8 @@ def vehicle_detail(request, vehicle_id):
         "dmv_doc_categories": dmv_doc_categories,
         "dmv_hub_total": dmv_hub_total,
         "dmv_hub_attached": dmv_hub_attached,
+        "dmv_state_code": dmv_state,
+        "dmv_state_label": get_state_label(dmv_state),
     })
 
 
@@ -2327,8 +2336,10 @@ def generate_dmv_form(request, form_type, service_id):
     if not _has_active_org_access(request.user, service.organization_id):
         deny_access("Access denied.")
 
-    if form_type not in DMV_PREFILL_SLUGS:
-        deny_access("Unsupported DMV form.")
+    org_state = normalize_state_code(service.organization.state)
+    prefill_slugs = get_prefill_slugs_for_state(org_state)
+    if form_type not in prefill_slugs:
+        deny_access("Unsupported DMV form for this PSB state.")
 
     vehicle = service.vehicle
     if not vehicle and service.vin:
@@ -2337,8 +2348,8 @@ def generate_dmv_form(request, form_type, service_id):
     prefill = _build_form_prefill_payload(service, client, vehicle)
     
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    form_map = DMV_PREFILL_FORM_MAP
-    
+    form_map = get_prefill_form_map_for_state(org_state)
+
     template_path = os.path.join(current_dir, form_map.get(form_type, form_map["mv82"]))
     if not os.path.exists(template_path):
         template_path = os.path.join(current_dir, form_map["mv82"])
@@ -2403,14 +2414,16 @@ def generate_dmv_form_vehicle(request, form_type, vehicle_id):
     if not _has_active_org_access(request.user, vehicle.client.organization_id):
         deny_access("Access denied.")
 
-    if form_type not in DMV_PREFILL_SLUGS:
-        deny_access("Unsupported DMV form.")
+    org_state = normalize_state_code(vehicle.client.organization.state)
+    prefill_slugs = get_prefill_slugs_for_state(org_state)
+    if form_type not in prefill_slugs:
+        deny_access("Unsupported DMV form for this PSB state.")
 
     client = vehicle.client
     prefill = _build_form_prefill_payload(None, client, vehicle)
     
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    form_map = DMV_PREFILL_FORM_MAP
+    form_map = get_prefill_form_map_for_state(org_state)
     
     template_path = os.path.join(current_dir, form_map.get(form_type, form_map["mv82"]))
     if not os.path.exists(template_path):

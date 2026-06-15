@@ -50,7 +50,10 @@ class OrganizationAdmin(admin.ModelAdmin):
     readonly_fields = ("intake_link_display",)
     inlines = [MembershipInline]
     fieldsets = (
-        ("PSB Profile", {"fields": ("name", "logo", "address_line", "city", "state", "phone_number", "email", "psbc_license")}),
+        ("PSB Profile", {
+            "fields": ("name", "logo", "address_line", "city", "state", "phone_number", "email", "psbc_license"),
+            "description": "Set State to the PSB's motor vehicle jurisdiction. Vehicle profiles show DMV forms for that state.",
+        }),
         ("Access & Limits", {"fields": ("invite_code", "portal_token", "max_agents", "is_active")}),
         ("Features", {"fields": ("is_automation_enabled", "is_public_intake_enabled", "intake_link_display")}),
         ("Insurance Space", {"fields": ("insurance_space_locked", "insurance_space_password")}),
