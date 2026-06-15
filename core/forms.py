@@ -419,14 +419,16 @@ class VehicleForm(forms.ModelForm):
             "body_type", "color", "weight", "fuel_type",
             "cylinders", "seats",
             "registration_effective_date", "registration_expiration_date", 
-            "insurance_company", "insurance_policy_number", 
-            "insurance_effective_date", "insurance_expiration_date"
+            "insurance_company", "insurance_policy_number",
+            "insurance_effective_date", "insurance_expiration_date",
+            "insurance_monthly_payment",
         ]
         widgets = {
             "registration_effective_date": forms.DateInput(attrs={"type": "date"}),
             "registration_expiration_date": forms.DateInput(attrs={"type": "date"}),
             "insurance_effective_date": forms.DateInput(attrs={"type": "date"}),
             "insurance_expiration_date": forms.DateInput(attrs={"type": "date"}),
+            "insurance_monthly_payment": forms.NumberInput(attrs={"step": "0.01", "min": "0", "placeholder": "0.00"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -440,6 +442,8 @@ class VehicleForm(forms.ModelForm):
         self.fields["is_legacy_vin"].label = "Legacy / pre-1981 VIN"
         self.fields["vehicle_number"].widget.attrs["readonly"] = True
         self.fields["vehicle_number"].widget.attrs["style"] = "background-color: #f8fafc; cursor: not-allowed; color: #64748b;"
+        self.fields["insurance_monthly_payment"].required = False
+        self.fields["insurance_monthly_payment"].label = "Monthly Payment"
         if self.instance.pk and self.instance.is_legacy_vin:
             self.initial.setdefault("is_legacy_vin", True)
             self.fields["vin"].widget.attrs["maxlength"] = "16"
@@ -686,6 +690,9 @@ class ClientIntakeForm(forms.ModelForm):
             "cylinders": forms.TextInput(attrs={"class": "form-control", "placeholder": "No. of Cylinders"}),
             "insurance_company": forms.TextInput(attrs={"class": "form-control", "placeholder": "Insurance Company"}),
             "insurance_policy_number": forms.TextInput(attrs={"class": "form-control", "placeholder": "Policy Number"}),
+            "insurance_monthly_payment": forms.NumberInput(
+                attrs={"class": "form-control", "step": "0.01", "min": "0", "placeholder": "0.00"}
+            ),
             "mv82_transaction_type": forms.TextInput(attrs={"class": "form-control", "placeholder": "e.g. New Registration, Transfer"}),
             "plate_to_transfer": forms.TextInput(attrs={"class": "form-control", "placeholder": "Plate Number"}),
             "owner_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Owner's Full Name"}),
@@ -747,6 +754,9 @@ class ClientIntakeForm(forms.ModelForm):
             self.fields["source"].initial = "google_search"
             self.fields["vehicle_type"].initial = "passenger"
             self.fields["fuel_type"].initial = "gas"
+        if "insurance_monthly_payment" in self.fields:
+            self.fields["insurance_monthly_payment"].required = False
+            self.fields["insurance_monthly_payment"].label = "Monthly Payment"
 
     def clean_source(self):
         from .source_choices import norm_source

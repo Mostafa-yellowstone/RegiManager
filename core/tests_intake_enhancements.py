@@ -1,5 +1,7 @@
 """Tests for intake portal dealer linking, notes, and vehicle options."""
 
+from decimal import Decimal
+
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client as TestClient, TestCase
@@ -414,3 +416,18 @@ class IntakePortalEnhancementTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "business profile")
+
+    def test_intake_monthly_payment_saved_and_copied_on_approval(self):
+        response = self.http.post(
+            reverse("public-intake-direct", args=[self.org.portal_token]),
+            {**self._base_post(), "insurance_monthly_payment": "149.50"},
+        )
+        self.assertEqual(response.status_code, 302)
+        intake = ClientIntake.objects.get(organization=self.org, first_name="Jane")
+        self.assertEqual(intake.insurance_monthly_payment, Decimal("149.50"))
+
+        self.http.login(username="intakeowner", password="password123")
+        response = self.http.post(reverse("approve-intake", args=[intake.id]))
+        self.assertEqual(response.status_code, 302)
+        vehicle = Vehicle.objects.get(vin=intake.vin)
+        self.assertEqual(vehicle.insurance_monthly_payment, Decimal("149.50"))

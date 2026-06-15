@@ -52,6 +52,7 @@ VEHICLE_FIELDS_MAP = {
     'insurance_policy_number': ['insurance_policy_number', 'policy_number', 'policy_no'],
     'insurance_effective_date': ['insurance_effective_date', 'ins_effective_date'],
     'insurance_expiration_date': ['insurance_expiration_date', 'ins_expiration_date'],
+    'insurance_monthly_payment': ['insurance_monthly_payment', 'monthly_payment', 'monthly_insurance_payment'],
     'is_priority': ['is_priority', 'priority'],
     'odometer_reading': ['odometer_reading', 'odometer'],
     'odometer_status': ['odometer_status'],

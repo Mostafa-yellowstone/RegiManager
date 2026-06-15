@@ -97,4 +97,5 @@ def vehicle_defaults_from_intake(intake):
         "insurance_policy_number": intake.insurance_policy_number,
         "insurance_effective_date": intake.insurance_effective_date,
         "insurance_expiration_date": intake.insurance_expiration_date,
+        "insurance_monthly_payment": intake.insurance_monthly_payment,
     }

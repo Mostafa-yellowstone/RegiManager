@@ -117,7 +117,7 @@
                 <!-- Row 2: Insurance Details (New Section) -->
                 <div class="compact-section" style="background: #f8fafc; padding: 1rem; border-radius: 12px; margin-bottom: 1rem; border: 1px solid #e2e8f0;">
                     <h3 style="font-size: 0.75rem; color: #64748b; text-transform: uppercase; margin-bottom: 0.75rem; letter-spacing: 0.5px; font-weight: 800;">Insurance Information</h3>
-                    <div class="form-row compact-row" style="display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 1rem;">
+                    <div class="form-row compact-row" style="display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr 0.9fr; gap: 1rem;">
                         <div class="field-wrap">
                             <label style="font-size: 0.85rem;">Insurance Company</label>
                             {{ form.insurance_company }}
@@ -133,6 +133,10 @@
                         <div class="field-wrap">
                             <label style="font-size: 0.85rem;">Expiration Date</label>
                             {{ form.insurance_expiration_date }}
+                        </div>
+                        <div class="field-wrap">
+                            <label style="font-size: 0.85rem;">Monthly Payment <small style="font-weight:600;color:#94a3b8;">(optional)</small></label>
+                            {{ form.insurance_monthly_payment }}
                         </div>
                     </div>
                 </div>

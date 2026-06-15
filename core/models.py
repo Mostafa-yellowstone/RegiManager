@@ -444,6 +444,13 @@ class Vehicle(SoftDeleteModel):
     insurance_policy_number = models.CharField(max_length=100, blank=True, default="")
     insurance_effective_date = models.DateField(blank=True, null=True)
     insurance_expiration_date = models.DateField(blank=True, null=True)
+    insurance_monthly_payment = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Optional monthly insurance payment",
+    )
     is_priority = models.BooleanField(default=False)
     
     # MV-82 Technical Fields
@@ -1118,6 +1125,13 @@ class ClientIntake(models.Model):
     insurance_policy_number = models.CharField(max_length=100, blank=True, default="")
     insurance_effective_date = models.DateField(blank=True, null=True)
     insurance_expiration_date = models.DateField(blank=True, null=True)
+    insurance_monthly_payment = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text="Optional monthly insurance payment",
+    )
     
     # Document Uploads
     mv82_file = models.FileField(upload_to="intake_docs/mv82/", blank=True, null=True)

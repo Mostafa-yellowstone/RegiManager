@@ -95,7 +95,8 @@
                         <p style="margin: 0.3rem 0 0 0;">
                             <strong>Effective:</strong> {{ vehicle.registration_effective_date|date:"M d, Y"|default:"---" }}<br>
                             <strong>Expiration:</strong> {{ vehicle.registration_expiration_date|date:"M d, Y"|default:"---" }}<br>
-                            <strong>Insurance:</strong> {{ vehicle.insurance_expiration_date|date:"M d, Y"|default:"---" }}
+                            <strong>Insurance:</strong> {{ vehicle.insurance_expiration_date|date:"M d, Y"|default:"---" }}<br>
+                            <strong>Monthly Payment:</strong> {% if vehicle.insurance_monthly_payment is not None %}${{ vehicle.insurance_monthly_payment|floatformat:2 }}{% else %}---{% endif %}
                         </p>
                     </div>
                 </div>
