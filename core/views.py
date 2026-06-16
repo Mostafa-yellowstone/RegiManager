@@ -61,7 +61,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.db.utils import OperationalError, ProgrammingError
 from datetime import timedelta
-from .client_search import build_client_name_search_q
+from .client_search import build_full_client_search_q
 from .tasks import send_automation_email
 from .models import AutomationLog, FinanceStrategyNote, ClientNote, Notification
 from .source_choices import (
@@ -963,9 +963,28 @@ def all_clients(request):
     selected_referral = request.GET.get('referral', '').strip()
 
     if query:
-        from .client_search import build_full_client_search_q
-        clients = clients.filter(build_full_client_search_q(query))
-    
+        from django.db.models import Case, IntegerField, When
+
+        from .client_search import build_full_client_search_q, search_clients_ranked
+
+        ranked = search_clients_ranked(organizations, query, limit=500)
+        ranked_ids = [client.id for client in ranked]
+        if ranked_ids:
+            preserved = Case(
+                *[When(pk=pk, then=pos) for pos, pk in enumerate(ranked_ids)],
+                default=len(ranked_ids),
+                output_field=IntegerField(),
+            )
+            clients = (
+                Client.objects.filter(organization__in=organizations, id__in=ranked_ids)
+                .select_related("referral")
+                .order_by(preserved)
+            )
+        else:
+            clients = clients.filter(build_full_client_search_q(query)).distinct()
+    else:
+        clients = clients.distinct()
+
     if selected_source:
         clients = clients.filter(source_filter_q(selected_source))
         
@@ -976,8 +995,6 @@ def all_clients(request):
         
     if selected_referral:
         clients = clients.filter(referral_id=selected_referral)
-
-    clients = clients.distinct()
 
     db_sources = Client.objects.filter(organization__in=organizations).values_list('source', flat=True).distinct()
     source_choices = build_source_choices(db_sources, organizations=organizations)
@@ -5224,85 +5241,19 @@ from .intake_views import (  # noqa: E402, F401
 def client_search_ajax(request):
     """
     Lightweight JSON endpoint for the dashboard command bar live search.
-    Searches by name, DL, phone (any US format), plate, business name, or EIN.
-    Phone normalisation: strips all non-digit chars from both the query and the
-    stored value so '7186756671', '(718) 675-6671', '718-675-6671' all match.
+    Searches by name, driver license, phone, plate, business name, or EIN.
     """
-    import re
-
-    q     = request.GET.get("q", "").strip()
+    q = request.GET.get("q", "").strip()
     limit = min(int(request.GET.get("limit", "8")), 20)
 
     if len(q) < 2:
         return JsonResponse({"results": []})
 
     organizations = _get_user_organizations(request)
-    q_digits = re.sub(r"\D", "", q)   # e.g. "7186756671"
+    from .client_search import search_clients_ranked, serialize_client_search_result
 
-    # ── Pass 1: collect IDs via DB-level text filter ─────────────────────────
-    db_ids = list(
-        Client.objects.filter(organization__in=organizations)
-        .filter(
-            build_client_name_search_q(q)
-            | Q(driver_license__icontains=q)
-            | Q(phone_number__icontains=q)
-            | Q(vehicles__plate_number__icontains=q)
-            | Q(business_ein__icontains=q)
-        )
-        .distinct()
-        .values_list("id", flat=True)[:limit]
-    )
-
-    # ── Pass 2: phone normalisation (Python) ──────────────────────────────────
-    # Only runs when query looks like a phone number (7+ digits).
-    # Fetches id+phone_number only (cheap), strips non-digits, compares.
-    if len(q_digits) >= 7:
-        phone_rows = (
-            Client.objects.filter(organization__in=organizations)
-            .exclude(phone_number="")
-            .values_list("id", "phone_number")
-        )
-        seen = set(db_ids)
-        for cid, phone in phone_rows:
-            if cid in seen:
-                continue
-            stored_digits = re.sub(r"\D", "", phone or "")
-            # Match if query digits appear in stored digits or vice-versa
-            if stored_digits and (q_digits in stored_digits or stored_digits in q_digits):
-                db_ids.append(cid)
-                seen.add(cid)
-                if len(db_ids) >= limit:
-                    break
-
-    # ── Pass 3: fetch full objects for matched IDs ────────────────────────────
-    if not db_ids:
-        return JsonResponse({"results": []})
-
-    clients_by_id = {
-        c.id: c
-        for c in Client.objects.filter(id__in=db_ids).select_related("organization")
-    }
-
-    results = []
-    for cid in db_ids:
-        c = clients_by_id.get(cid)
-        if not c:
-            continue
-        plate = c.vehicles.values_list("plate_number", flat=True).first() or ""
-        display_name = c.full_display_name or c.name
-        results.append({
-            "name":          display_name,
-            "full_name":     display_name,
-            "first_name":    c.first_name,
-            "last_name":     c.last_name,
-            "identifier":    c.driver_license or c.business_ein or "",
-            "plate":         plate,
-            "url":           f"/dashboard/clients/{c.id}/",
-            "is_commercial": c.is_commercial,
-            "business_name": c.business_name or "",
-        })
-
-    return JsonResponse({"results": results})
+    clients = search_clients_ranked(organizations, q, limit=limit)
+    return JsonResponse({"results": [serialize_client_search_result(c) for c in clients]})
 
 
 @login_required
