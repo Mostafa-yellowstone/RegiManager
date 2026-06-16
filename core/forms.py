@@ -578,11 +578,14 @@ class VehicleServiceForm(forms.ModelForm):
             return Decimal("0")
         return val
 
-    def clean_referral_balance(self):
-        # Ignore whatever the user POSTed — the model.save() will recompute this
-        if self.instance and self.instance.pk:
-            return self.instance.referral_balance
-        return Decimal("0")
+    def clean(self):
+        cleaned_data = super().clean()
+        from .transaction_amounts import amounts_from_cleaned_form
+
+        service_fee, balance, cc_fee = amounts_from_cleaned_form(cleaned_data)
+        cleaned_data["credit_card_fee"] = cc_fee
+        cleaned_data["referral_balance"] = balance
+        return cleaned_data
 
 class ClientIntakeForm(forms.ModelForm):
     SOURCE_CHOICES = [

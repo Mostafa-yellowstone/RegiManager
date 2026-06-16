@@ -94,9 +94,9 @@ def receipt_should_show_ledger(record) -> bool:
 
 def receipt_outstanding_balance(record) -> Decimal:
     """Outstanding balance for receipt totals when ledger rows are not shown yet."""
-    total = _total_due(record)
-    paid = total_paid_for_receipt(record)
-    return total - paid
+    from .transaction_amounts import compute_referral_balance
+
+    return compute_referral_balance(_total_due(record), total_paid_for_receipt(record))
 
 
 def reset_ledger_after_edit(record) -> bool:

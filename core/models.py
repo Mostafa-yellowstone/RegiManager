@@ -665,25 +665,10 @@ class ServiceRecord(SoftDeleteModel):
             # Generate a unique case ID
             unique_part = get_random_string(6, allowed_chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789')
             self.case_id = f"CASE-{unique_part}"
-        self.service_fee = (
-            (self.processing_fee or Decimal("0"))
-            + (self.dmv_fee or Decimal("0"))
-            + (self.sales_tax or Decimal("0"))
-            + (self.dmv_sales_tax or Decimal("0"))
-            + (self.credit_card_fee or Decimal("0"))
-            + (self.other_fees or Decimal("0"))
-            + (self.other_dmv_fee or Decimal("0"))
-        )
 
-        # Auto-derive outstanding balance: total due minus what was paid (may be negative if overpaid)
-        paid = self.paid_amount or Decimal("0")
-        self.referral_balance = self.service_fee - paid
+        from .transaction_amounts import apply_transaction_amounts
 
-        # Automatically mark as paid if balance is zero or overpaid
-        if self.referral_balance <= 0:
-            self.is_referral_paid = True
-        else:
-            self.is_referral_paid = False
+        apply_transaction_amounts(self)
 
         from .referral_profit import commission_amount, resolve_referral_for_record
 

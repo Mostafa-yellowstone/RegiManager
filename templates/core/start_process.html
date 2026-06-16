@@ -503,6 +503,11 @@ document.addEventListener('DOMContentLoaded', function () {
         return 0.0;
     }
 
+    function roundMoney(value) {
+        const n = parseFloat(value) || 0;
+        return Math.round((n + Number.EPSILON) * 100) / 100;
+    }
+
     function getGrandTotal() {
         // Grand total = all fees (including cc fee)
         const baseTotal = parseFloat(processingFee ? processingFee.value || 0 : 0)
@@ -561,12 +566,12 @@ document.addEventListener('DOMContentLoaded', function () {
                             + parseFloat(otherDmvFee   ? otherDmvFee.value    || 0 : 0);
 
             const method = paymentMethod ? paymentMethod.value : '';
-            const fee    = baseTotal * getCCFeeRate(method);
+            const fee    = roundMoney(baseTotal * getCCFeeRate(method));
             if (ccFee) ccFee.value = fee.toFixed(2);
-            const grand  = baseTotal + fee;
+            const grand  = roundMoney(baseTotal + fee);
 
-            const paid = parseFloat((totalPaid && totalPaid.value) || 0);
-            const bal  = grand - paid;
+            const paid = roundMoney((totalPaid && totalPaid.value) || 0);
+            const bal  = roundMoney(grand - paid);
             if (outstandingBalance) outstandingBalance.value = bal.toFixed(2);
 
             // Reset paid_amount_2 in single mode
@@ -582,23 +587,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (paymentMethod && paymentMethod1Clone) paymentMethod.value = paymentMethod1Clone.value;
 
-            const p1Base = parseFloat((paidAmount1 && paidAmount1.value) || 0);
-            // In split mode, paidAmount2Clone field holds the RAW base for method 2
-            const p2Raw  = parseFloat((paidAmount2Clone && paidAmount2Clone.value) || 0);
-            const fee1   = p1Base * getCCFeeRate(paymentMethod1Clone ? paymentMethod1Clone.value : '');
-            const fee2   = p2Raw  * getCCFeeRate(paymentMethod2 ? paymentMethod2.value : '');
-            const totalFee = fee1 + fee2;
+            const p1Base = roundMoney((paidAmount1 && paidAmount1.value) || 0);
+            const p2Raw  = roundMoney((paidAmount2Clone && paidAmount2Clone.value) || 0);
+            const fee1   = roundMoney(p1Base * getCCFeeRate(paymentMethod1Clone ? paymentMethod1Clone.value : ''));
+            const fee2   = roundMoney(p2Raw  * getCCFeeRate(paymentMethod2 ? paymentMethod2.value : ''));
+            const totalFee = roundMoney(fee1 + fee2);
             if (ccFee) ccFee.value = totalFee.toFixed(2);
 
-            // Total paid = p1 inclusive + p2 inclusive
-            const paidVal = (p1Base + fee1) + (p2Raw + fee2);
+            const paidVal = roundMoney((p1Base + fee1) + (p2Raw + fee2));
             if (totalPaid) totalPaid.value = paidVal.toFixed(2);
 
-            // Store paid_amount_2 as fee-inclusive so model display math (paid - paid_amount_2 = p1 total) works
-            if (paidAmount2Real) paidAmount2Real.value = (p2Raw + fee2).toFixed(2);
+            if (paidAmount2Real) paidAmount2Real.value = roundMoney(p2Raw + fee2).toFixed(2);
 
-            const grand = baseTotal + totalFee;
-            const bal   = grand - paidVal;
+            const grand = roundMoney(baseTotal + totalFee);
+            const bal   = roundMoney(grand - paidVal);
             if (outstandingBalance) outstandingBalance.value = bal.toFixed(2);
         }
     }
@@ -651,10 +653,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         + parseFloat(dmvSalesTax   ? dmvSalesTax.value    || 0 : 0)
                         + parseFloat(otherFees     ? otherFees.value      || 0 : 0)
                         + parseFloat(otherDmvFee   ? otherDmvFee.value    || 0 : 0);
-        const cc    = parseFloat((ccFee && ccFee.value) || 0);
-        const grand = baseTotal + cc;
-        const paid  = parseFloat((totalPaid && totalPaid.value) || 0);
-        const bal   = grand - paid;
+        const cc    = roundMoney((ccFee && ccFee.value) || 0);
+        const grand = roundMoney(baseTotal + cc);
+        const paid  = roundMoney((totalPaid && totalPaid.value) || 0);
+        const bal   = roundMoney(grand - paid);
         if (outstandingBalance) outstandingBalance.value = bal.toFixed(2);
     }
 });
