@@ -165,75 +165,6 @@
     display: block;
 }
 
-/* --- LEGACY PRICE CARDS (unused on home, kept for compatibility) --- */
-.pricing-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 2rem;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 2rem;
-}
-
-.price-card {
-    background: #ffffff;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    padding: 3.5rem 2.5rem;
-    border-radius: 32px;
-    display: flex;
-    flex-direction: column;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
-}
-
-.price-card:hover {
-    transform: translateY(-10px);
-    border-color: var(--primary);
-    box-shadow: 0 30px 60px rgba(15, 23, 42, 0.1);
-}
-
-.price-card.featured {
-    border: 2px solid var(--primary);
-    transform: scale(1.05);
-}
-
-.price-header h3 {
-    font-size: 1.5rem;
-    margin-bottom: 1.5rem;
-    color: var(--text-main-light);
-}
-
-.price {
-    font-size: 3.5rem;
-    font-weight: 800;
-    margin-bottom: 2rem;
-    color: var(--text-main-light);
-}
-
-.price span {
-    font-size: 1rem;
-    color: var(--text-muted-light);
-}
-
-.price-features {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 2.5rem 0;
-    flex-grow: 1;
-}
-
-.price-features li {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-    color: var(--text-muted-light);
-}
-
-.check {
-    color: var(--primary);
-}
-
 /* --- SECTION: PRICING TIERS (site theme) --- */
 .pricing-wrapper {
     background-color: var(--bg-soft);
@@ -967,7 +898,6 @@ body.site-nav-open {
 @media (max-width: 1024px) {
     .site-hero,
     .solution-grid,
-    .pricing-grid,
     .pricing-tier-grid {
         grid-template-columns: 1fr;
     }

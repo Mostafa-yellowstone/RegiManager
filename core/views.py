@@ -1627,6 +1627,7 @@ def dashboard(request):
 
     # Location Comparison (Owner Only)
     location_stats = []
+    location_head_to_head = None
     if is_owner and not request.session.get('active_org_id') and organizations.count() > 1:
         org_stats_map = {
             row["organization_id"]: row
@@ -1649,6 +1650,19 @@ def dashboard(request):
                 'total_records': stats.get('total_records') or 0,
             })
         location_stats = sorted(location_stats, key=lambda x: x['monthly_profit'], reverse=True)
+        max_records = max((s['total_records'] for s in location_stats), default=0)
+        for rank, stat in enumerate(location_stats, start=1):
+            stat['rank'] = rank
+            stat['volume_pct'] = round(100 * stat['total_records'] / max_records) if max_records else 0
+
+        if len(location_stats) >= 2:
+            leader, runner_up = location_stats[0], location_stats[1]
+            location_head_to_head = {
+                'a': leader,
+                'b': runner_up,
+                'profit_delta': leader['monthly_profit'] - runner_up['monthly_profit'],
+                'records_delta': leader['total_records'] - runner_up['total_records'],
+            }
 
     pending_intakes = []
     if public_intake_enabled:
@@ -1670,6 +1684,7 @@ def dashboard(request):
         "core/dashboard.html",
         {
             "location_stats": location_stats,
+            "location_head_to_head": location_head_to_head,
             "memberships": memberships,
             "owner_agents": owner_agents,
             "user_can_view_reports": user_can_view_reports,
@@ -3457,24 +3472,8 @@ def agent_audit_view(request, membership_id):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    location_stats = []
-    if is_owner and not request.session.get('active_org_id') and organizations.count() > 1:
-        for org in organizations:
-            org_records = ServiceRecord.objects.filter(organization=org)
-            location_stats.append({
-                'id': org.id,
-                'name': org.name,
-                'city': org.city,
-                'daily_rev': org_records.filter(created_at__date=today).aggregate(Sum('service_fee'))['service_fee__sum'] or 0,
-                'monthly_rev': org_records.filter(created_at__date__gte=month_start).aggregate(Sum('service_fee'))['service_fee__sum'] or 0,
-                'total_records': org_records.count(),
-            })
-        # Sort by monthly revenue descending
-        location_stats = sorted(location_stats, key=lambda x: x['monthly_rev'], reverse=True)
-
     context = {
         "is_owner": is_owner,
-        "location_stats": location_stats,
         "memberships": memberships,
         "agent_membership": membership,
         "start_date": start_date.strftime("%Y-%m-%d"),

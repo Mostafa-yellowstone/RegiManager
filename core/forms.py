@@ -246,16 +246,18 @@ class ClientForm(forms.ModelForm):
             is_commercial = self.data.get('is_commercial') in ['on', 'true', True]
         elif self.instance and self.instance.pk:
             is_commercial = self.instance.is_commercial
-            
+
+        # Personal vs business rules are enforced in clean(); avoid HTML5 required on
+        # fields that may be hidden when the user toggles account type client-side.
         if is_commercial:
             self.fields["first_name"].required = False
             self.fields["last_name"].required = False
             self.fields["gender"].required = False
             self.fields["state"].required = False
         else:
-            self.fields["first_name"].required = True
-            self.fields["last_name"].required = True
-            self.fields["gender"].required = True
+            self.fields["first_name"].required = False
+            self.fields["last_name"].required = False
+            self.fields["gender"].required = False
         
         if organizations.count() == 1:
             self.fields["organization"].initial = organizations.first()
@@ -735,23 +737,14 @@ class ClientIntakeForm(forms.ModelForm):
         self.fields["body_type"].widget.choices = [("", "Select body style...")] + list(Vehicle.BODY_TYPES)
         self.fields["fuel_type"].widget.choices = list(Vehicle.FUEL_TYPES)
 
-        is_commercial = False
-        if self.data:
-            is_commercial = self.data.get("is_commercial") in ("on", "true", "True", "1", True)
-        elif self.instance and self.instance.pk:
-            is_commercial = self.instance.is_commercial
-
-        personal_required = ["first_name", "last_name", "gender"]
         always_required = ["vin", "phone_number", "source"]
         for field_name, field in self.fields.items():
             field.required = False
         for field_name in always_required:
             if field_name in self.fields:
                 self.fields[field_name].required = True
-        if not is_commercial:
-            for field_name in personal_required:
-                if field_name in self.fields:
-                    self.fields[field_name].required = True
+        # Personal/business required fields are validated in clean() so hidden inputs
+        # never block submit with "not focusable" browser errors.
 
         if not self.data and not self.instance.pk:
             self.fields["source"].initial = "google_search"

@@ -436,7 +436,7 @@
                     </div>
                     <div>
                         <label>Gender</label>
-                        <select name="gender" id="id_gender" class="form-control" required>
+                        <select name="gender" id="id_gender" class="form-control">
                         <option value="" disabled selected>Select Gender...</option>
                         <option value="male">Male</option>
                         <option value="female">Female</option>
@@ -1070,6 +1070,21 @@
     const intakeRegistrantTitle = document.getElementById('intakeRegistrantTitle');
     const intakeGenderSelect = document.getElementById('id_gender');
     const intakeOwnerSection = document.getElementById('ownerSection');
+    const intakeBusinessNameInput = document.getElementById('id_business_name');
+    const intakePersonalFieldIds = [
+        'id_first_name',
+        'id_last_name',
+        'id_middle_name',
+        'id_dob',
+        'id_driver_license',
+        'id_ssn_last_4',
+        'id_gender',
+    ];
+
+    function setIntakeFieldRequired(fieldId, required) {
+        const el = document.getElementById(fieldId);
+        if (el) el.required = Boolean(required);
+    }
 
     function toggleIntakeCommercialMode() {
         const isBusiness = intakeCommercialToggle && intakeCommercialToggle.checked;
@@ -1081,8 +1096,16 @@
                 ? 'Business Details (Registrant)'
                 : 'Personal Details (Registrant)';
         }
-        if (intakeGenderSelect) intakeGenderSelect.required = !isBusiness;
-        if (isBusiness && intakeOwnerSection) intakeOwnerSection.style.display = 'none';
+        intakePersonalFieldIds.forEach((fieldId) => setIntakeFieldRequired(fieldId, !isBusiness));
+        setIntakeFieldRequired('id_business_name', isBusiness);
+        if (intakeOwnerSection) {
+            if (isBusiness) {
+                intakeOwnerSection.style.display = 'none';
+            } else {
+                const ownerChk = document.getElementById('id_is_registrant_owner');
+                intakeOwnerSection.style.display = (ownerChk && !ownerChk.checked) ? 'block' : 'none';
+            }
+        }
     }
 
     if (intakeCommercialToggle) {

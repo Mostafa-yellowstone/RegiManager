@@ -639,7 +639,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function toggleCommercialFields() {
-        if (isCommercialCheckbox && isCommercialCheckbox.checked) {
+        const isBusiness = isCommercialCheckbox && isCommercialCheckbox.checked;
+        if (isBusiness) {
             if (individualFieldsContainer) individualFieldsContainer.style.display = 'none';
             if (businessFieldsContainer) businessFieldsContainer.style.display = 'grid';
             if (dlImageUploadWrapper) dlImageUploadWrapper.style.display = 'none';
@@ -650,6 +651,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (dlImageUploadWrapper) dlImageUploadWrapper.style.display = 'block';
             if (personalInfoHeader) personalInfoHeader.textContent = 'Personal Information';
         }
+        ['id_first_name', 'id_last_name', 'id_gender'].forEach((fieldId) => {
+            const el = document.getElementById(fieldId);
+            if (el) el.required = !isBusiness;
+        });
+        if (businessNameInput) businessNameInput.required = isBusiness;
         checkClientName();
     }
 

@@ -1,0 +1,90 @@
+{% load static %}
+<section class="branch-compare" aria-labelledby="branch-compare-heading">
+    <div class="branch-compare__panel premium-panel">
+        <header class="branch-compare__header">
+            <div>
+                <p class="branch-compare__eyebrow">Multi-location overview</p>
+                <h2 id="branch-compare-heading" class="branch-compare__title">Branch Performance Leaderboard</h2>
+                <p class="branch-compare__subtitle">Real-time profit and volume across {{ location_stats|length }} PSB locations.</p>
+            </div>
+            <span class="branch-compare__badge">Live comparison</span>
+        </header>
+
+        {% if location_head_to_head %}
+        <div class="branch-compare__spotlight" aria-label="Top two locations compared">
+            <div class="branch-compare__spotlight-head">
+                <span class="branch-compare__spotlight-label">Head-to-head</span>
+                <span class="branch-compare__spotlight-meta">Ranked by month profit</span>
+            </div>
+            <div class="branch-compare__versus">
+                <article class="branch-compare__versus-card branch-compare__versus-card--a">
+                    <span class="branch-compare__rank branch-compare__rank--gold">#1</span>
+                    <h3 class="branch-compare__versus-name">{{ location_head_to_head.a.name }}</h3>
+                    <p class="branch-compare__versus-city">{{ location_head_to_head.a.city }}</p>
+                    <p class="branch-compare__versus-metric">${{ location_head_to_head.a.monthly_profit|floatformat:2 }} <span>month profit</span></p>
+                </article>
+                <div class="branch-compare__versus-divider" aria-hidden="true">
+                    <span>VS</span>
+                </div>
+                <article class="branch-compare__versus-card branch-compare__versus-card--b">
+                    <span class="branch-compare__rank branch-compare__rank--silver">#2</span>
+                    <h3 class="branch-compare__versus-name">{{ location_head_to_head.b.name }}</h3>
+                    <p class="branch-compare__versus-city">{{ location_head_to_head.b.city }}</p>
+                    <p class="branch-compare__versus-metric">${{ location_head_to_head.b.monthly_profit|floatformat:2 }} <span>month profit</span></p>
+                </article>
+            </div>
+            <div class="branch-compare__deltas">
+                <div class="branch-compare__delta {% if location_head_to_head.profit_delta >= 0 %}branch-compare__delta--up{% else %}branch-compare__delta--down{% endif %}">
+                    <span class="branch-compare__delta-label">Profit gap</span>
+                    <strong>{% if location_head_to_head.profit_delta >= 0 %}+{% endif %}${{ location_head_to_head.profit_delta|floatformat:2 }}</strong>
+                </div>
+                <div class="branch-compare__delta {% if location_head_to_head.records_delta >= 0 %}branch-compare__delta--up{% else %}branch-compare__delta--down{% endif %}">
+                    <span class="branch-compare__delta-label">Volume gap</span>
+                    <strong>{% if location_head_to_head.records_delta >= 0 %}+{% endif %}{{ location_head_to_head.records_delta }} records</strong>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="branch-compare__grid">
+            {% for stat in location_stats %}
+            <article class="branch-compare__card{% if stat.rank == 1 %} branch-compare__card--leader{% endif %}">
+                <div class="branch-compare__card-top">
+                    <div class="branch-compare__card-identity">
+                        <span class="branch-compare__rank branch-compare__rank--{% if stat.rank == 1 %}gold{% elif stat.rank == 2 %}silver{% elif stat.rank == 3 %}bronze{% else %}default{% endif %}">#{{ stat.rank }}</span>
+                        <div>
+                            <h3 class="branch-compare__card-name">{{ stat.name }}</h3>
+                            <p class="branch-compare__card-city">{{ stat.city }} branch</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'branch-analytics' stat.id %}" class="btn btn-secondary btn-sm branch-compare__analytics-btn" title="Open branch analytics">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                        <span>Analytics</span>
+                    </a>
+                </div>
+
+                <div class="branch-compare__metrics">
+                    <div class="branch-compare__metric">
+                        <span class="branch-compare__metric-label">Month profit</span>
+                        <strong class="branch-compare__metric-value">${{ stat.monthly_profit|floatformat:2 }}</strong>
+                    </div>
+                    <div class="branch-compare__metric branch-compare__metric--accent">
+                        <span class="branch-compare__metric-label">Today</span>
+                        <strong class="branch-compare__metric-value">${{ stat.daily_profit|floatformat:2 }}</strong>
+                    </div>
+                </div>
+
+                <div class="branch-compare__volume">
+                    <div class="branch-compare__volume-row">
+                        <span>Lifetime volume</span>
+                        <strong>{{ stat.total_records }} records</strong>
+                    </div>
+                    <div class="branch-compare__progress" role="progressbar" aria-valuenow="{{ stat.volume_pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ stat.name }} relative volume">
+                        <span class="branch-compare__progress-fill" style="width: {{ stat.volume_pct }}%;"></span>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </div>
+</section>
