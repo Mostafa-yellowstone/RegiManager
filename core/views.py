@@ -86,8 +86,9 @@ from .insurance_space_metrics import (
 )
 from .dmv_documents import (
     build_vehicle_document_hub,
-    get_prefill_form_map_for_state,
+    get_document_by_slug,
     get_prefill_slugs_for_state,
+    get_prefill_template_path,
     get_state_label,
     normalize_state_code,
 )
@@ -473,6 +474,80 @@ def _build_dtf_token_prefill_fields(pdf_reader, prefill):
             mapped[best] = value
             used_fields.add(best)
     return mapped
+
+
+def _render_prefilled_dmv_pdf(form_type, org_state, *, service=None, vehicle=None):
+    """Build a prefilled DMV PDF for the requested form slug (never falls back to another form)."""
+    from pypdf import PdfReader, PdfWriter
+    from pypdf.generic import NameObject
+
+    template_path = get_prefill_template_path(form_type, org_state)
+    if not template_path:
+        doc = get_document_by_slug(org_state, form_type)
+        if doc and doc.dmv_url:
+            return redirect(doc.dmv_url)
+        from django.http import Http404
+        raise Http404("Prefill template not available for this form.")
+
+    if service:
+        vehicle = vehicle or service.vehicle
+        if not vehicle and service.vin:
+            vehicle = Vehicle.objects.filter(vin=service.vin).first()
+        client = vehicle.client if vehicle else None
+        prefill = _build_form_prefill_payload(service, client, vehicle)
+        vin_or_id = service.vin or service.id
+    else:
+        client = vehicle.client
+        prefill = _build_form_prefill_payload(None, client, vehicle)
+        vin_or_id = vehicle.vin or vehicle.id
+
+    packet = io.BytesIO()
+    can = canvas.Canvas(packet, pagesize=letter)
+    can.setFont("Helvetica-Bold", 10)
+
+    if form_type == "mv82":
+        _fill_mv82_overlay(can, service, client, vehicle)
+    elif form_type == "dtf802":
+        _fill_dtf802_overlay(can, service, client, vehicle)
+    elif form_type == "dtf803":
+        _fill_dtf803_overlay(can, service, client, vehicle)
+    elif form_type == "mv82b":
+        _fill_mv82b_overlay(can, service, client, vehicle)
+
+    can.save()
+    packet.seek(0)
+    new_pdf = PdfReader(packet)
+    template_pdf = PdfReader(template_path)
+    output = PdfWriter()
+
+    page1 = template_pdf.pages[0]
+    page1.merge_page(new_pdf.pages[0])
+    output.add_page(page1)
+    if len(template_pdf.pages) > 1:
+        output.add_page(template_pdf.pages[1])
+
+    if "/AcroForm" in template_pdf.trailer["/Root"]:
+        output._root_object.update({
+            NameObject("/AcroForm"): template_pdf.trailer["/Root"]["/AcroForm"]
+        })
+
+        fields = _build_acroform_prefill_fields(form_type, prefill)
+        if not fields and form_type in ("dtf802", "dtf803"):
+            fields = _build_dtf_token_prefill_fields(template_pdf, prefill)
+        if fields:
+            for page in output.pages:
+                output.update_page_form_field_values(page, fields)
+
+    final_output = io.BytesIO()
+    output.write(final_output)
+    final_output.seek(0)
+
+    doc = get_document_by_slug(org_state, form_type)
+    form_label = (doc.code if doc else form_type).upper().replace(" ", "")
+    response = HttpResponse(final_output.read(), content_type="application/pdf")
+    filename = f"PREFILLED-{form_label}-{vin_or_id}.pdf"
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    return response
 
 
 @login_required
@@ -2345,153 +2420,34 @@ from django.views.decorators.clickjacking import xframe_options_exempt
 @login_required
 @xframe_options_exempt
 def generate_dmv_form(request, form_type, service_id):
-    """
-    Brilliant central hub for generating all official NYS DMV forms.
-    """
-    from pypdf import PdfReader, PdfWriter
-
+    """Generate a prefilled official DMV form for a service transaction."""
     service = get_object_or_404(ServiceRecord, id=service_id)
     if not _has_active_org_access(request.user, service.organization_id):
         deny_access("Access denied.")
 
     org_state = normalize_state_code(service.organization.state)
-    prefill_slugs = get_prefill_slugs_for_state(org_state)
-    if form_type not in prefill_slugs:
+    if form_type not in get_prefill_slugs_for_state(org_state):
         deny_access("Unsupported DMV form for this PSB state.")
 
     vehicle = service.vehicle
     if not vehicle and service.vin:
         vehicle = Vehicle.objects.filter(vin=service.vin).first()
-    client = vehicle.client if vehicle else None
-    prefill = _build_form_prefill_payload(service, client, vehicle)
-    
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    form_map = get_prefill_form_map_for_state(org_state)
-
-    template_path = os.path.join(current_dir, form_map.get(form_type, form_map["mv82"]))
-    if not os.path.exists(template_path):
-        template_path = os.path.join(current_dir, form_map["mv82"])
-
-    packet = io.BytesIO()
-    can = canvas.Canvas(packet, pagesize=letter)
-    can.setFont("Helvetica-Bold", 10)
-    
-    if form_type == "mv82":
-        _fill_mv82_overlay(can, service, client, vehicle)
-    elif form_type == "dtf802":
-        _fill_dtf802_overlay(can, service, client, vehicle)
-    elif form_type == "dtf803":
-        _fill_dtf803_overlay(can, service, client, vehicle)
-    elif form_type == "mv82b":
-        _fill_mv82b_overlay(can, service, client, vehicle)
-    
-    can.save()
-    packet.seek(0)
-    new_pdf = PdfReader(packet)
-    template_pdf = PdfReader(template_path)
-    output = PdfWriter()
-    from pypdf.generic import NameObject
-
-    page1 = template_pdf.pages[0]
-    page1.merge_page(new_pdf.pages[0])
-    output.add_page(page1)
-    if len(template_pdf.pages) > 1:
-        output.add_page(template_pdf.pages[1])
-
-    if "/AcroForm" in template_pdf.trailer["/Root"]:
-        output._root_object.update({
-            NameObject("/AcroForm"): template_pdf.trailer["/Root"]["/AcroForm"]
-        })
-
-        fields = _build_acroform_prefill_fields(form_type, prefill)
-        if not fields and form_type in ("dtf802", "dtf803"):
-            # Conservative token-based DTF mapping (safe fallback).
-            fields = _build_dtf_token_prefill_fields(template_pdf, prefill)
-        if fields:
-            for page in output.pages:
-                output.update_page_form_field_values(page, fields)
-
-    final_output = io.BytesIO()
-    output.write(final_output)
-    final_output.seek(0)
-    response = HttpResponse(final_output.read(), content_type="application/pdf")
-    filename = f"PREFILLED-{form_type.upper()}-{service.vin or service.id}.pdf"
-    response["Content-Disposition"] = f'inline; filename="{filename}"'
-    return response
+    return _render_prefilled_dmv_pdf(form_type, org_state, service=service, vehicle=vehicle)
 
 
 @xframe_options_exempt
 @login_required
 def generate_dmv_form_vehicle(request, form_type, vehicle_id):
-    """
-    Generates all official NYS DMV forms directly from a Vehicle (no ServiceRecord needed).
-    """
-    from pypdf import PdfReader, PdfWriter
-
+    """Generate a prefilled official DMV form directly from a vehicle record."""
     vehicle = get_object_or_404(Vehicle, id=vehicle_id)
     if not _has_active_org_access(request.user, vehicle.client.organization_id):
         deny_access("Access denied.")
 
     org_state = normalize_state_code(vehicle.client.organization.state)
-    prefill_slugs = get_prefill_slugs_for_state(org_state)
-    if form_type not in prefill_slugs:
+    if form_type not in get_prefill_slugs_for_state(org_state):
         deny_access("Unsupported DMV form for this PSB state.")
 
-    client = vehicle.client
-    prefill = _build_form_prefill_payload(None, client, vehicle)
-    
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    form_map = get_prefill_form_map_for_state(org_state)
-    
-    template_path = os.path.join(current_dir, form_map.get(form_type, form_map["mv82"]))
-    if not os.path.exists(template_path):
-        template_path = os.path.join(current_dir, form_map["mv82"])
-
-    packet = io.BytesIO()
-    can = canvas.Canvas(packet, pagesize=letter)
-    can.setFont("Helvetica-Bold", 10)
-    
-    if form_type == "mv82":
-        _fill_mv82_overlay(can, None, client, vehicle)
-    elif form_type == "dtf802":
-        _fill_dtf802_overlay(can, None, client, vehicle)
-    elif form_type == "dtf803":
-        _fill_dtf803_overlay(can, None, client, vehicle)
-    elif form_type == "mv82b":
-        _fill_mv82b_overlay(can, None, client, vehicle)
-    
-    can.save()
-    packet.seek(0)
-    new_pdf = PdfReader(packet)
-    template_pdf = PdfReader(template_path)
-    output = PdfWriter()
-    from pypdf.generic import NameObject
-
-    page1 = template_pdf.pages[0]
-    page1.merge_page(new_pdf.pages[0])
-    output.add_page(page1)
-    if len(template_pdf.pages) > 1:
-        output.add_page(template_pdf.pages[1])
-
-    if "/AcroForm" in template_pdf.trailer["/Root"]:
-        output._root_object.update({
-            NameObject("/AcroForm"): template_pdf.trailer["/Root"]["/AcroForm"]
-        })
-
-        fields = _build_acroform_prefill_fields(form_type, prefill)
-        if not fields and form_type in ("dtf802", "dtf803"):
-            fields = _build_dtf_token_prefill_fields(template_pdf, prefill)
-        if fields:
-            for page in output.pages:
-                output.update_page_form_field_values(page, fields)
-
-    final_output = io.BytesIO()
-    output.write(final_output)
-    final_output.seek(0)
-    response = HttpResponse(final_output.read(), content_type="application/pdf")
-    filename = f"PREFILLED-{form_type.upper()}-{vehicle.vin or vehicle.id}.pdf"
-    response["Content-Disposition"] = f'inline; filename="{filename}"'
-    return response
+    return _render_prefilled_dmv_pdf(form_type, org_state, vehicle=vehicle)
 
 
 def _fill_mv82_overlay(can, service, client, vehicle):

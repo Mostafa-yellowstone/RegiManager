@@ -2901,3 +2901,86 @@ class DmvDocumentsStateTests(TestCase):
         self.assertContains(response, "H-13B")
         self.assertNotContains(response, "MV-82")
 
+    def test_ny_dtf_blank_urls_use_tax_department_path(self):
+        from core.dmv_documents import get_dmv_documents_for_state
+
+        dtf_docs = {
+            doc.code: doc.dmv_url
+            for doc in get_dmv_documents_for_state("NY")
+            if doc.code.startswith("DTF-")
+        }
+        self.assertIn("DTF-802", dtf_docs)
+        self.assertIn("/pdf/current_forms/st/dtf802.pdf", dtf_docs["DTF-802"])
+        self.assertIn("/pdf/current_forms/st/dtf803.pdf", dtf_docs["DTF-803"])
+
+    def test_prefill_template_paths_resolve_for_ny_forms(self):
+        from core.dmv_documents import get_prefill_slugs_for_state, slug_has_prefill_template
+
+        for slug in get_prefill_slugs_for_state("NY"):
+            self.assertTrue(slug_has_prefill_template(slug, "NY"), slug)
+
+    def test_hub_prefill_flag_requires_local_template(self):
+        from core.dmv_documents import build_vehicle_document_hub
+
+        hub = build_vehicle_document_hub(documents=[], state_code="NY")
+        mv82 = next(
+            item for cat in hub for item in cat["items"] if item["code"] == "MV-82"
+        )
+        self.assertTrue(mv82["prefill"])
+
+    def test_generate_dmv_form_vehicle_returns_matching_form_filename(self):
+        org = Organization.objects.create(name="NY DMV PSB", city="Albany", state="NY")
+        OrganizationMembership.objects.create(
+            user=self.user,
+            organization=org,
+            is_active=True,
+            role=OrganizationMembership.Role.OWNER,
+        )
+        client = Client.objects.create(
+            organization=org,
+            first_name="John",
+            last_name="Smith",
+            driver_license="123456789",
+        )
+        vehicle = Vehicle.objects.create(
+            client=client,
+            vin="1HGBH41JXMN109186",
+            year=2020,
+            make="Honda",
+            model="Civic",
+        )
+
+        for slug, label in (("dtf802", "DTF-802"), ("mv82", "MV-82")):
+            response = self.http_client.get(
+                reverse("generate-dmv-form-vehicle", args=[slug, vehicle.id])
+            )
+            self.assertEqual(response.status_code, 200, slug)
+            self.assertEqual(response["Content-Type"], "application/pdf")
+            disposition = response["Content-Disposition"]
+            self.assertIn(label, disposition, slug)
+            if slug == "dtf802":
+                self.assertNotIn("MV-82", disposition)
+
+    def test_missing_prefill_template_redirects_to_official_blank(self):
+        from unittest.mock import patch
+
+        from core.dmv_documents import get_document_by_slug
+
+        org = Organization.objects.create(name="NY Redirect PSB", city="Albany", state="NY")
+        OrganizationMembership.objects.create(
+            user=self.user,
+            organization=org,
+            is_active=True,
+            role=OrganizationMembership.Role.OWNER,
+        )
+        client = Client.objects.create(organization=org, first_name="A", last_name="B")
+        vehicle = Vehicle.objects.create(client=client, vin="2HGFG12877H541002", year=2019, make="Acura", model="TL")
+
+        doc = get_document_by_slug("NY", "dtf802")
+        with patch("core.views.get_prefill_template_path", return_value=None):
+            response = self.http_client.get(
+                reverse("generate-dmv-form-vehicle", args=["dtf802", vehicle.id])
+            )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, doc.dmv_url)
+

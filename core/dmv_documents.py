@@ -5,6 +5,7 @@ Forms with ``prefill=True`` have PDF templates wired in ``generate_dmv_form`` (N
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -34,7 +35,7 @@ DMV_DOCUMENT_CATEGORIES: tuple[tuple[str, str], ...] = (
 )
 
 DMV_NYS_FORMS_BASE = "https://dmv.ny.gov/forms"
-DMV_TAX_FORMS_BASE = "https://www.tax.ny.gov/pdf/current_dtf"
+DMV_TAX_FORMS_BASE = "https://www.tax.ny.gov/pdf/current_forms/st"
 CT_FORMS_BASE = "https://portal.ct.gov/-/media/DMV"
 PA_FORMS_BASE = "https://www.pa.gov/content/dam/copapwp-pagov/en/penndot/documents/public/dvspubsforms/b-pa-forms"
 NJ_FORMS_BASE = "https://www.nj.gov/mvc/pdf"
@@ -639,6 +640,30 @@ def get_prefill_form_map_for_state(state_code: str) -> dict[str, str]:
     return {}
 
 
+def _core_module_dir() -> str:
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def get_prefill_template_path(form_slug: str, state_code: str = "NY") -> str | None:
+    """Absolute path to a local prefill PDF template, or None if unavailable."""
+    rel_path = get_prefill_form_map_for_state(state_code).get(form_slug)
+    if not rel_path:
+        return None
+    abs_path = os.path.join(_core_module_dir(), rel_path)
+    return abs_path if os.path.isfile(abs_path) else None
+
+
+def slug_has_prefill_template(form_slug: str, state_code: str = "NY") -> bool:
+    return get_prefill_template_path(form_slug, state_code) is not None
+
+
+def get_document_by_slug(state_code: str, slug: str) -> DmvDocument | None:
+    for doc in get_dmv_documents_for_state(state_code):
+        if doc.slug == slug:
+            return doc
+    return None
+
+
 def _normalize_label(value: str) -> str:
     return "".join(ch for ch in (value or "").lower() if ch.isalnum())
 
@@ -646,13 +671,12 @@ def _normalize_label(value: str) -> str:
 def _document_matches_upload(doc: DmvDocument, upload) -> bool:
     if doc.upload_type and upload.document_type == doc.upload_type:
         return bool(upload.file)
-    if upload.document_type == "other" and upload.custom_name:
+    if upload.document_type == "other" and upload.custom_name and doc.code:
         token = _normalize_label(doc.code)
         custom = _normalize_label(upload.custom_name)
-        if token and token in custom:
+        if token and token == custom:
             return bool(upload.file)
-        name_token = _normalize_label(doc.name.split()[0])
-        if name_token and name_token in custom:
+        if token and len(token) >= 4 and token in custom:
             return bool(upload.file)
     return False
 
@@ -673,13 +697,14 @@ def build_vehicle_document_hub(
             if entry.category != cat_id:
                 continue
             attached = next((u for u in uploads if _document_matches_upload(entry, u)), None)
+            can_prefill = entry.prefill and slug_has_prefill_template(entry.slug, state_code)
             items.append(
                 {
                     "slug": entry.slug,
                     "code": entry.code,
                     "name": entry.name,
                     "description": entry.description,
-                    "prefill": entry.prefill,
+                    "prefill": can_prefill,
                     "upload_type": entry.upload_type,
                     "dmv_url": entry.dmv_url,
                     "tags": entry.tags,

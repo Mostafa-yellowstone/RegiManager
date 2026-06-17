@@ -81,7 +81,7 @@
                                         {% endif %}
                                     {% endif %}
                                     {% if doc.dmv_url %}
-                                    <a href="{{ doc.dmv_url }}" target="_blank" rel="noopener" class="vd-dmv-row__action" title="Open DMV blank">Blank</a>
+                                    <a href="{{ doc.dmv_url }}" target="_blank" rel="noopener" class="vd-dmv-row__action" title="Open official blank {{ doc.code }} ({{ doc.name }})">Blank</a>
                                     {% endif %}
                                     {% if doc.is_attached %}
                                     <a href="{{ doc.attached_url }}" target="_blank" rel="noopener" class="vd-dmv-row__action" title="View upload">View</a>
