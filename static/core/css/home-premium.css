@@ -396,12 +396,52 @@
 }
 
 .pricing-footnote {
-    margin: clamp(2.5rem, 5vw, 3.5rem) auto 0;
+    margin: clamp(1.5rem, 3vw, 2rem) auto 0;
     text-align: center;
     font-size: 0.88rem;
     color: var(--text-muted-light);
     max-width: 720px;
     line-height: 1.6;
+}
+
+.pricing-setup-note {
+    margin: clamp(2rem, 4vw, 2.75rem) auto 0;
+    max-width: 820px;
+    padding: 1.25rem 1.5rem;
+    background: #ffffff;
+    border: 1px solid rgba(31, 122, 224, 0.18);
+    border-left: 4px solid var(--primary);
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.pricing-setup-note__title {
+    margin: 0 0 0.45rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-main-light);
+}
+
+.pricing-setup-note__title strong {
+    color: var(--primary);
+}
+
+.pricing-setup-note__text {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--text-muted-light);
+}
+
+.pricing-setup-note__text a {
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.pricing-setup-note__text a:hover {
+    color: var(--primary-dark);
 }
 
 .pricing-footnote a {
