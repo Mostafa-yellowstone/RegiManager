@@ -2,7 +2,7 @@
 {% load static i18n %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-2">
+<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-3">
 <style>
     /* Custom overrides for the hero image path */
     .site-hero-visual {
@@ -92,74 +92,111 @@
         </section>
     </div>
 
-    <div class="pricing-wrapper">
-        <section class="site-section pricing-section reveal" id="pricing">
-            <div class="section-heading">
-                <span class="brand-pill">Plans</span>
-                <h2>Flexible for Every PSB.</h2>
-                <p>Transparent pricing that scales with your growth.</p>
+    <div class="pricing-wrapper pricing-wrapper--premium">
+        <section class="site-section pricing-section pricing-section--premium reveal" id="pricing">
+            <div class="section-heading section-heading--premium">
+                <span class="brand-pill brand-pill--gold">Premium Pricing</span>
+                <h2>Feature &amp; Volume Optimized.</h2>
+                <p>Transparent tiers that scale with your PSB — every capability mapped to the plan that fits.</p>
             </div>
-            <div class="pricing-grid">
-                <article class="price-card reveal">
-                    <div class="price-header">
-                        <h3>Agile PSB</h3>
-                        <p class="price">$99<span>/mo</span></p>
-                        <p style="color: #64748b; font-size: 0.85rem; margin-top: 0.5rem;">Basic essentials for solo operators.</p>
+
+            <div class="pricing-tier-grid">
+                <article class="pricing-tier pricing-tier--starter reveal">
+                    <div class="pricing-tier__accent" aria-hidden="true"></div>
+                    <div class="pricing-tier__body">
+                        <header class="pricing-tier__head">
+                            <h3>Starter <span class="pricing-tier__dash">—</span> <span class="pricing-tier__price">$149<span class="pricing-tier__period">/mo</span></span></h3>
+                            <p class="pricing-tier__tagline">Essentials for solo operators and new PSBs.</p>
+                        </header>
+                        <ul class="pricing-tier__features">
+                            <li>Up to 3 agents</li>
+                            <li>Core service dashboard</li>
+                            <li>Client &amp; vehicle profiles</li>
+                            <li>Basic client search</li>
+                            <li>Transaction processing &amp; receipts</li>
+                            <li>Payment &amp; ledger tracking</li>
+                            <li>Standard audit logs</li>
+                            <li>VIN validation</li>
+                            <li>Document upload &amp; storage</li>
+                            <li>Single-location workspace</li>
+                        </ul>
+                        <a href="{% url 'member-signup' %}" class="btn btn-tier">Get Started</a>
                     </div>
-                    <ul class="price-features">
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Up to 2 Agents</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Core Dashboard</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Basic VIN Validation</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Standard Audit Logs</li>
-                        <li class="disabled"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Referral Tools</li>
-                        <li class="disabled"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Advanced Reports</li>
-                    </ul>
-                    <a href="{% url 'member-signup' %}" class="btn btn-secondary">Get Started</a>
                 </article>
 
-                <article class="price-card featured reveal">
-                    <span class="plan-badge">Most Popular</span>
-                    <div class="price-header">
-                        <h3>Elite PSB</h3>
-                        <p class="price">$199<span>/mo</span></p>
-                        <p style="color: #64748b; font-size: 0.85rem; margin-top: 0.5rem;">Complete management for growing teams.</p>
+                <article class="pricing-tier pricing-tier--professional pricing-tier--featured reveal">
+                    <span class="pricing-tier__badge">Most Popular</span>
+                    <div class="pricing-tier__accent" aria-hidden="true"></div>
+                    <div class="pricing-tier__body">
+                        <header class="pricing-tier__head">
+                            <h3>Professional <span class="pricing-tier__dash">—</span> <span class="pricing-tier__price">$299<span class="pricing-tier__period">/mo</span></span></h3>
+                            <p class="pricing-tier__tagline">Complete workflows for growing registration teams.</p>
+                        </header>
+                        <ul class="pricing-tier__features">
+                            <li>Everything in Starter</li>
+                            <li>Up to 7 agents</li>
+                            <li>Public intake portals</li>
+                            <li>NHTSA real-time VIN decoding</li>
+                            <li>DMV document hub &amp; auto-fill forms</li>
+                            <li>Document folder spaces</li>
+                            <li>Referral ledger &amp; partner tools</li>
+                            <li>Financial reports &amp; PDF exports</li>
+                            <li>Automated renewal alerts</li>
+                            <li>Role-based team permissions</li>
+                            <li>OCR document scanning</li>
+                        </ul>
+                        <a href="{% url 'member-signup' %}" class="btn btn-tier btn-tier--primary">Start Pro Trial</a>
                     </div>
-                    <ul class="price-features">
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Up to 5 Agents</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Advanced Reports</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Referral Ledger & Partner Tools</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Automated Renewal Alerts</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Smart VIN Decoding</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Document OCR Scanning</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Automated Ledger Tracking</strong></li>
-                    </ul>
-                    <a href="{% url 'member-signup' %}" class="btn btn-primary">Start Pro Trial</a>
                 </article>
 
-                <article class="price-card reveal">
-                    <div class="price-header">
-                        <h3>Enterprise PSB</h3>
-                        <p class="price">Custom</p>
-                        <p style="color: #64748b; font-size: 0.85rem; margin-top: 0.5rem;">Solutions for multi-location networks.</p>
+                <article class="pricing-tier pricing-tier--business reveal">
+                    <div class="pricing-tier__accent" aria-hidden="true"></div>
+                    <div class="pricing-tier__body">
+                        <header class="pricing-tier__head">
+                            <h3>Business <span class="pricing-tier__dash">—</span> <span class="pricing-tier__price">$599<span class="pricing-tier__period">/mo</span></span></h3>
+                            <p class="pricing-tier__tagline">Full operations suite for high-volume PSBs.</p>
+                        </header>
+                        <ul class="pricing-tier__features">
+                            <li>Everything in Professional</li>
+                            <li>Up to 15 agents</li>
+                            <li>Insurance Space (policies &amp; commissions)</li>
+                            <li>Motor Club Space</li>
+                            <li>Inventory Space &amp; invoicing</li>
+                            <li>Bulk automation workflows</li>
+                            <li>Multi-location organization switching</li>
+                            <li>Advanced performance reports</li>
+                            <li>Knowledge Hub &amp; team announcements</li>
+                            <li>Commercial &amp; business intake</li>
+                        </ul>
+                        <a href="{% url 'member-signup' %}" class="btn btn-tier">Start Business Trial</a>
                     </div>
-                    <ul class="price-features">
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Up to 10 Agents</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Full Automation Hub Access</strong></li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> <strong>Automated Multi-location Reports</strong></li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Referral Ledger & Partner Hub</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Automated Renewal Alerts</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Smart VIN Decoding</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Document OCR Scanning</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Automated Ledger Tracking</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Advanced Performance Reports</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Custom Configuration</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Dedicated PSB Success Manager</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> White-label Portal Branding</li>
-                        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Full API Access</li>
-                    </ul>
-                    <a href="{% url 'contact' %}" class="btn btn-secondary">Contact Sales</a>
+                </article>
+
+                <article class="pricing-tier pricing-tier--enterprise reveal">
+                    <div class="pricing-tier__accent" aria-hidden="true"></div>
+                    <div class="pricing-tier__body">
+                        <header class="pricing-tier__head">
+                            <h3>Enterprise <span class="pricing-tier__dash">—</span> <span class="pricing-tier__price">$1,199<span class="pricing-tier__period">/mo</span></span></h3>
+                            <p class="pricing-tier__tagline">White-label power for multi-location networks.</p>
+                        </header>
+                        <ul class="pricing-tier__features">
+                            <li>Everything in Business</li>
+                            <li>Unlimited agents &amp; users</li>
+                            <li>Custom SMTP &amp; branded emails</li>
+                            <li>Custom PDF headers &amp; receipts</li>
+                            <li>White-label portal branding</li>
+                            <li>Full API access</li>
+                            <li>Custom workflow configuration</li>
+                            <li>Dedicated success manager</li>
+                            <li>Priority 24/7 support</li>
+                            <li>Onboarding &amp; migration assistance</li>
+                        </ul>
+                        <a href="{% url 'contact' %}" class="btn btn-tier">Contact Sales</a>
+                    </div>
                 </article>
             </div>
+
+            <p class="pricing-footnote reveal">All plans include secure cloud hosting, SSL encryption, and regular platform updates. Annual billing available — <a href="{% url 'contact' %}">contact us</a> for volume discounts.</p>
         </section>
     </div>
 

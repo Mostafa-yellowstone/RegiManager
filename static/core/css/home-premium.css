@@ -239,6 +239,243 @@
     color: var(--primary);
 }
 
+/* --- SECTION: PREMIUM DARK PRICING --- */
+.pricing-wrapper--premium {
+    background: #000000;
+    padding: clamp(5rem, 10vw, 9rem) 0;
+}
+
+.pricing-section--premium {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 clamp(1.25rem, 3vw, 2.5rem);
+}
+
+.section-heading--premium {
+    text-align: center;
+    margin-bottom: clamp(3rem, 6vw, 4.5rem);
+}
+
+.section-heading--premium h2 {
+    color: #c9a84c;
+    font-size: clamp(2rem, 4.5vw, 3rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 1rem 0 0.75rem;
+}
+
+.section-heading--premium p {
+    color: rgba(201, 168, 76, 0.62);
+    font-size: 1.05rem;
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+}
+
+.brand-pill--gold {
+    background: rgba(201, 168, 76, 0.12);
+    color: #c9a84c;
+    border: 1px solid rgba(201, 168, 76, 0.28);
+}
+
+.pricing-tier-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(1.25rem, 2.5vw, 2rem);
+}
+
+.pricing-tier {
+    position: relative;
+    display: flex;
+    background: linear-gradient(135deg, rgba(12, 12, 12, 0.98) 0%, rgba(6, 6, 6, 0.98) 100%);
+    border: 1px solid rgba(201, 168, 76, 0.14);
+    border-radius: 4px;
+    overflow: hidden;
+    transition: border-color 0.35s ease, box-shadow 0.35s ease, transform 0.35s ease;
+}
+
+.pricing-tier:hover {
+    border-color: rgba(201, 168, 76, 0.32);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+    transform: translateY(-4px);
+}
+
+.pricing-tier--featured {
+    border-color: rgba(201, 168, 76, 0.38);
+    box-shadow: 0 0 0 1px rgba(201, 168, 76, 0.12), 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+.pricing-tier__badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 2;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #0a0a0a;
+    background: linear-gradient(135deg, #e8c96a 0%, #c9a84c 100%);
+    padding: 0.35rem 0.65rem;
+    border-radius: 3px;
+}
+
+.pricing-tier__accent {
+    width: 5px;
+    flex-shrink: 0;
+}
+
+.pricing-tier--starter .pricing-tier__accent {
+    background: linear-gradient(180deg, #8fbc5a 0%, #6b9e3a 100%);
+}
+
+.pricing-tier--professional .pricing-tier__accent {
+    background: linear-gradient(180deg, #a8d86a 0%, #7cb342 100%);
+}
+
+.pricing-tier--business .pricing-tier__accent {
+    background: linear-gradient(180deg, #e8a04a 0%, #d4782a 100%);
+}
+
+.pricing-tier--enterprise .pricing-tier__accent {
+    background: linear-gradient(180deg, #f0b878 0%, #e09050 100%);
+}
+
+.pricing-tier__body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(1.5rem, 3vw, 2.25rem) clamp(1.35rem, 2.5vw, 2rem);
+    min-width: 0;
+}
+
+.pricing-tier__head {
+    margin-bottom: 1.35rem;
+    padding-bottom: 1.15rem;
+    border-bottom: 1px solid rgba(201, 168, 76, 0.12);
+}
+
+.pricing-tier__head h3 {
+    font-size: clamp(1.15rem, 2.2vw, 1.45rem);
+    font-weight: 600;
+    color: #c9a84c;
+    line-height: 1.35;
+    margin: 0 0 0.55rem;
+    letter-spacing: 0.01em;
+}
+
+.pricing-tier__dash {
+    color: rgba(201, 168, 76, 0.45);
+    font-weight: 400;
+    margin: 0 0.15rem;
+}
+
+.pricing-tier__price {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.pricing-tier__period {
+    font-size: 0.82em;
+    font-weight: 500;
+    color: rgba(201, 168, 76, 0.55);
+}
+
+.pricing-tier__tagline {
+    margin: 0;
+    font-size: 0.88rem;
+    color: rgba(201, 168, 76, 0.48);
+    line-height: 1.5;
+}
+
+.pricing-tier__features {
+    list-style: none;
+    margin: 0 0 1.75rem;
+    padding: 0;
+    flex-grow: 1;
+}
+
+.pricing-tier__features li {
+    position: relative;
+    padding-left: 1.15rem;
+    margin-bottom: 0.62rem;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: rgba(201, 168, 76, 0.78);
+}
+
+.pricing-tier__features li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.55;
+}
+
+.pricing-tier__features li:first-child {
+    color: #e0c878;
+    font-weight: 600;
+}
+
+.pricing-tier__features li:first-child::before {
+    opacity: 0.85;
+}
+
+.btn-tier {
+    width: 100%;
+    padding: 0.85rem 1.25rem;
+    border-radius: 4px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-align: center;
+    text-decoration: none;
+    border: 1px solid rgba(201, 168, 76, 0.35);
+    color: #c9a84c;
+    background: transparent;
+    transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+.btn-tier:hover {
+    background: rgba(201, 168, 76, 0.1);
+    border-color: rgba(201, 168, 76, 0.55);
+    color: #e0c878;
+}
+
+.btn-tier--primary {
+    background: linear-gradient(135deg, #e8c96a 0%, #c9a84c 100%);
+    border-color: transparent;
+    color: #0a0a0a;
+}
+
+.btn-tier--primary:hover {
+    background: linear-gradient(135deg, #f0d47a 0%, #d4b45c 100%);
+    color: #0a0a0a;
+}
+
+.pricing-footnote {
+    margin: clamp(2.5rem, 5vw, 3.5rem) auto 0;
+    text-align: center;
+    font-size: 0.88rem;
+    color: rgba(201, 168, 76, 0.42);
+    max-width: 720px;
+    line-height: 1.6;
+}
+
+.pricing-footnote a {
+    color: #c9a84c;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.pricing-footnote a:hover {
+    color: #e0c878;
+}
+
 /* Common Components */
 .btn {
     padding: 0.875rem 2rem;
@@ -752,7 +989,8 @@ body.site-nav-open {
 @media (max-width: 1024px) {
     .site-hero,
     .solution-grid,
-    .pricing-grid {
+    .pricing-grid,
+    .pricing-tier-grid {
         grid-template-columns: 1fr;
     }
 
