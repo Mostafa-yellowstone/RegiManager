@@ -389,17 +389,17 @@
         <span style="font-size: 0.82rem; color: #64748b; font-weight: 600;">Showing {{ crm_policies_page.start_index }}–{{ crm_policies_page.end_index }} of {{ crm_policies_page.paginator.count }} policies</span>
         <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
           {% if crm_policies_page.has_previous %}
-          <a href="?page={{ crm_policies_page.previous_page_number }}&tab=insurance{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">← Prev</a>
+          <a href="?page={{ crm_policies_page.previous_page_number }}&{{ insurance_policies_query_string }}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">← Prev</a>
           {% endif %}
           {% for i in crm_policies_page.paginator.page_range %}
             {% if crm_policies_page.number == i %}
               <span style="padding: 5px 11px; border-radius: 6px; background: #093de6; color: white; font-weight: 700; font-size: 0.8rem;">{{ i }}</span>
             {% elif i > crm_policies_page.number|add:"-3" and i < crm_policies_page.number|add:"3" %}
-              <a href="?page={{ i }}&tab=insurance{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">{{ i }}</a>
+              <a href="?page={{ i }}&{{ insurance_policies_query_string }}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">{{ i }}</a>
             {% endif %}
           {% endfor %}
           {% if crm_policies_page.has_next %}
-          <a href="?page={{ crm_policies_page.next_page_number }}&tab=insurance{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">Next →</a>
+          <a href="?page={{ crm_policies_page.next_page_number }}&{{ insurance_policies_query_string }}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">Next →</a>
           {% endif %}
         </div>
       </div>
@@ -570,17 +570,17 @@
         <span style="font-size: 0.82rem; color: #64748b; font-weight: 600;">Showing {{ bank_transactions_page.start_index }}–{{ bank_transactions_page.end_index }} of {{ bank_transactions_page.paginator.count }} transactions</span>
         <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
           {% if bank_transactions_page.has_previous %}
-          <a href="?bank_page={{ bank_transactions_page.previous_page_number }}&tab=banking{% if bank_search %}&bq={{ bank_search }}{% endif %}{% if bank_account_filter %}&bank_account={{ bank_account_filter }}{% endif %}{% if bank_type_filter %}&bank_type={{ bank_type_filter }}{% endif %}{% if bank_date_from %}&bank_date_from={{ bank_date_from }}{% endif %}{% if bank_date_to %}&bank_date_to={{ bank_date_to }}{% endif %}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">← Prev</a>
+          <a href="?bank_page={{ bank_transactions_page.previous_page_number }}&{{ bank_transactions_query_string }}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">← Prev</a>
           {% endif %}
           {% for i in bank_transactions_page.paginator.page_range %}
             {% if bank_transactions_page.number == i %}
               <span style="padding: 5px 11px; border-radius: 6px; background: #093de6; color: white; font-weight: 700; font-size: 0.8rem;">{{ i }}</span>
             {% elif i > bank_transactions_page.number|add:"-3" and i < bank_transactions_page.number|add:"3" %}
-              <a href="?bank_page={{ i }}&tab=banking{% if bank_search %}&bq={{ bank_search }}{% endif %}{% if bank_account_filter %}&bank_account={{ bank_account_filter }}{% endif %}{% if bank_type_filter %}&bank_type={{ bank_type_filter }}{% endif %}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">{{ i }}</a>
+              <a href="?bank_page={{ i }}&{{ bank_transactions_query_string }}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">{{ i }}</a>
             {% endif %}
           {% endfor %}
           {% if bank_transactions_page.has_next %}
-          <a href="?bank_page={{ bank_transactions_page.next_page_number }}&tab=banking{% if bank_search %}&bq={{ bank_search }}{% endif %}{% if bank_account_filter %}&bank_account={{ bank_account_filter }}{% endif %}{% if bank_type_filter %}&bank_type={{ bank_type_filter }}{% endif %}{% if bank_date_from %}&bank_date_from={{ bank_date_from }}{% endif %}{% if bank_date_to %}&bank_date_to={{ bank_date_to }}{% endif %}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">Next →</a>
+          <a href="?bank_page={{ bank_transactions_page.next_page_number }}&{{ bank_transactions_query_string }}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">Next →</a>
           {% endif %}
         </div>
       </div>

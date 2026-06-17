@@ -589,6 +589,63 @@ class AgentAuditingTests(TestCase):
         self.assertEqual(len(response.context["policies"]), 1)
         self.assertEqual(response.context["policies"][0].policy_number, "POL-FILTER-B")
 
+    def test_pagination_preserves_advanced_filters(self):
+        for idx in range(13):
+            InsurancePolicy.objects.create(
+                organization=self.org,
+                client=self.client_obj1,
+                policy_number=f"POL-PAGE-{idx}",
+                insurance_company=self.company,
+                premium=Decimal("3000.00"),
+                broker_fee=Decimal("50.00"),
+                commission_rate=Decimal("10.00"),
+                stage="bound",
+                status="active",
+                added_by=self.user1,
+                business_type="renewal",
+                source="referral",
+                start_date="2026-06-01",
+                end_date="2026-12-01",
+                insurance_period_months=6,
+            )
+
+        InsurancePolicy.objects.create(
+            organization=self.org,
+            client=self.client_obj2,
+            policy_number="POL-PAGE-OTHER",
+            insurance_company=self.company,
+            premium=Decimal("500.00"),
+            broker_fee=Decimal("10.00"),
+            commission_rate=Decimal("10.00"),
+            stage="quote",
+            status="active",
+            added_by=self.user2,
+            business_type="new_business",
+            source="walk_in",
+            start_date="2026-06-01",
+            end_date="2026-12-01",
+            insurance_period_months=6,
+        )
+
+        query = (
+            "?tab=insurance&stage=bound&business_type=renewal&source=referral"
+            "&min_premium=2500&agent=" + str(self.user1.id) + "&page=2"
+        )
+        response = self.client.get(reverse("inventory-detail", args=[self.space.id]) + query)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["stage_filter"], "bound")
+        self.assertEqual(response.context["business_type_filter"], "renewal")
+        self.assertEqual(response.context["source_filter"], "referral")
+        self.assertEqual(response.context["min_premium"], "2500")
+        self.assertEqual(response.context["agent_filter"], str(self.user1.id))
+        self.assertEqual(response.context["crm_policies_page"].number, 2)
+        self.assertIn("stage=bound", response.context["insurance_policies_query_string"])
+        self.assertIn("business_type=renewal", response.context["insurance_policies_query_string"])
+        self.assertIn("source=referral", response.context["insurance_policies_query_string"])
+        self.assertIn("min_premium=2500", response.context["insurance_policies_query_string"])
+        self.assertIn(f"agent={self.user1.id}", response.context["insurance_policies_query_string"])
+        self.assertNotIn("page=", response.context["insurance_policies_query_string"])
+
     def test_unearned_commission_deducted_by_transactions(self):
         # Set active_org_id in session for PDF report endpoint compatibility
         session = self.client.session

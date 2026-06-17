@@ -5877,10 +5877,20 @@ def inventory_detail(request, inventory_id):
         crm_policies_page = Paginator(policies.order_by("-created_at"), 12).get_page(crm_page_num)
         decorate_policies(crm_policies_page, adjusted_unearned_map)
 
+        insurance_policies_query = request.GET.copy()
+        insurance_policies_query.pop("page", None)
+        insurance_policies_query["tab"] = "insurance"
+        insurance_policies_query_string = insurance_policies_query.urlencode()
+
         bank_page_num = request.GET.get("bank_page", 1)
         bank_transactions_page = Paginator(
             bank_transactions.order_by("-date", "-created_at"), 20
         ).get_page(bank_page_num)
+
+        bank_transactions_query = request.GET.copy()
+        bank_transactions_query.pop("bank_page", None)
+        bank_transactions_query["tab"] = "banking"
+        bank_transactions_query_string = bank_transactions_query.urlencode()
 
         insurance_memberships = OrganizationMembership.objects.filter(
             organization=active_org,
@@ -6021,6 +6031,8 @@ def inventory_detail(request, inventory_id):
             "agent_filter": agent_filter,
             "min_premium": min_premium,
             "max_premium": max_premium,
+            "insurance_policies_query_string": insurance_policies_query_string,
+            "bank_transactions_query_string": bank_transactions_query_string,
             "insurance_source_choices": INSURANCE_SOURCE_CHOICES,
             "user_can_view_commission": user_can_view_commission,
             "user_can_view_banking": user_can_view_banking,
