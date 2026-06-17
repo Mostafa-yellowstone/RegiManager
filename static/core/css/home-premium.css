@@ -165,12 +165,7 @@
     display: block;
 }
 
-/* --- SECTION: LIGHT PRICING --- */
-.pricing-wrapper {
-    background-color: var(--bg-soft);
-    padding: 8rem 0;
-}
-
+/* --- LEGACY PRICE CARDS (unused on home, kept for compatibility) --- */
 .pricing-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -239,43 +234,16 @@
     color: var(--primary);
 }
 
-/* --- SECTION: PREMIUM DARK PRICING --- */
-.pricing-wrapper--premium {
-    background: #000000;
-    padding: clamp(5rem, 10vw, 9rem) 0;
+/* --- SECTION: PRICING TIERS (site theme) --- */
+.pricing-wrapper {
+    background-color: var(--bg-soft);
+    padding: clamp(5rem, 10vw, 8rem) 0;
 }
 
-.pricing-section--premium {
+.pricing-section {
     max-width: 1180px;
     margin: 0 auto;
     padding: 0 clamp(1.25rem, 3vw, 2.5rem);
-}
-
-.section-heading--premium {
-    text-align: center;
-    margin-bottom: clamp(3rem, 6vw, 4.5rem);
-}
-
-.section-heading--premium h2 {
-    color: #c9a84c;
-    font-size: clamp(2rem, 4.5vw, 3rem);
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    margin: 1rem 0 0.75rem;
-}
-
-.section-heading--premium p {
-    color: rgba(201, 168, 76, 0.62);
-    font-size: 1.05rem;
-    max-width: 640px;
-    margin: 0 auto;
-    line-height: 1.6;
-}
-
-.brand-pill--gold {
-    background: rgba(201, 168, 76, 0.12);
-    color: #c9a84c;
-    border: 1px solid rgba(201, 168, 76, 0.28);
 }
 
 .pricing-tier-grid {
@@ -287,37 +255,38 @@
 .pricing-tier {
     position: relative;
     display: flex;
-    background: linear-gradient(135deg, rgba(12, 12, 12, 0.98) 0%, rgba(6, 6, 6, 0.98) 100%);
-    border: 1px solid rgba(201, 168, 76, 0.14);
-    border-radius: 4px;
+    background: var(--bg-light);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 24px;
     overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
     transition: border-color 0.35s ease, box-shadow 0.35s ease, transform 0.35s ease;
 }
 
 .pricing-tier:hover {
-    border-color: rgba(201, 168, 76, 0.32);
-    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
-    transform: translateY(-4px);
+    border-color: var(--primary);
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.1);
+    transform: translateY(-6px);
 }
 
 .pricing-tier--featured {
-    border-color: rgba(201, 168, 76, 0.38);
-    box-shadow: 0 0 0 1px rgba(201, 168, 76, 0.12), 0 20px 40px rgba(0, 0, 0, 0.5);
+    border: 2px solid var(--primary);
+    box-shadow: 0 16px 40px rgba(31, 122, 224, 0.12);
 }
 
 .pricing-tier__badge {
     position: absolute;
-    top: 1rem;
-    right: 1rem;
+    top: 1.15rem;
+    right: 1.15rem;
     z-index: 2;
     font-size: 0.68rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #0a0a0a;
-    background: linear-gradient(135deg, #e8c96a 0%, #c9a84c 100%);
+    color: #ffffff;
+    background: var(--primary);
     padding: 0.35rem 0.65rem;
-    border-radius: 3px;
+    border-radius: 100px;
 }
 
 .pricing-tier__accent {
@@ -326,19 +295,19 @@
 }
 
 .pricing-tier--starter .pricing-tier__accent {
-    background: linear-gradient(180deg, #8fbc5a 0%, #6b9e3a 100%);
+    background: linear-gradient(180deg, #93c5fd 0%, #60a5fa 100%);
 }
 
 .pricing-tier--professional .pricing-tier__accent {
-    background: linear-gradient(180deg, #a8d86a 0%, #7cb342 100%);
+    background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
 }
 
 .pricing-tier--business .pricing-tier__accent {
-    background: linear-gradient(180deg, #e8a04a 0%, #d4782a 100%);
+    background: linear-gradient(180deg, #3b82f6 0%, var(--primary-dark) 100%);
 }
 
 .pricing-tier--enterprise .pricing-tier__accent {
-    background: linear-gradient(180deg, #f0b878 0%, #e09050 100%);
+    background: linear-gradient(180deg, var(--accent) 0%, #4f46e5 100%);
 }
 
 .pricing-tier__body {
@@ -352,39 +321,40 @@
 .pricing-tier__head {
     margin-bottom: 1.35rem;
     padding-bottom: 1.15rem;
-    border-bottom: 1px solid rgba(201, 168, 76, 0.12);
+    border-bottom: 1px solid var(--glass-border);
 }
 
 .pricing-tier__head h3 {
     font-size: clamp(1.15rem, 2.2vw, 1.45rem);
-    font-weight: 600;
-    color: #c9a84c;
+    font-weight: 700;
+    color: var(--text-main-light);
     line-height: 1.35;
     margin: 0 0 0.55rem;
-    letter-spacing: 0.01em;
+    letter-spacing: -0.01em;
 }
 
 .pricing-tier__dash {
-    color: rgba(201, 168, 76, 0.45);
+    color: var(--text-muted-light);
     font-weight: 400;
     margin: 0 0.15rem;
 }
 
 .pricing-tier__price {
-    font-weight: 700;
+    font-weight: 800;
+    color: var(--primary);
     white-space: nowrap;
 }
 
 .pricing-tier__period {
     font-size: 0.82em;
     font-weight: 500;
-    color: rgba(201, 168, 76, 0.55);
+    color: var(--text-muted-light);
 }
 
 .pricing-tier__tagline {
     margin: 0;
     font-size: 0.88rem;
-    color: rgba(201, 168, 76, 0.48);
+    color: var(--text-muted-light);
     line-height: 1.5;
 }
 
@@ -397,83 +367,51 @@
 
 .pricing-tier__features li {
     position: relative;
-    padding-left: 1.15rem;
+    padding-left: 1.35rem;
     margin-bottom: 0.62rem;
     font-size: 0.9rem;
     line-height: 1.45;
-    color: rgba(201, 168, 76, 0.78);
+    color: var(--text-muted-light);
 }
 
 .pricing-tier__features li::before {
     content: "";
     position: absolute;
     left: 0;
-    top: 0.55em;
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: currentColor;
-    opacity: 0.55;
+    top: 0.5em;
+    width: 14px;
+    height: 14px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+    background-size: contain;
+    background-repeat: no-repeat;
 }
 
 .pricing-tier__features li:first-child {
-    color: #e0c878;
+    color: var(--text-main-light);
     font-weight: 600;
-}
-
-.pricing-tier__features li:first-child::before {
-    opacity: 0.85;
 }
 
 .btn-tier {
     width: 100%;
-    padding: 0.85rem 1.25rem;
-    border-radius: 4px;
-    font-size: 0.92rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    text-align: center;
-    text-decoration: none;
-    border: 1px solid rgba(201, 168, 76, 0.35);
-    color: #c9a84c;
-    background: transparent;
-    transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
-}
-
-.btn-tier:hover {
-    background: rgba(201, 168, 76, 0.1);
-    border-color: rgba(201, 168, 76, 0.55);
-    color: #e0c878;
-}
-
-.btn-tier--primary {
-    background: linear-gradient(135deg, #e8c96a 0%, #c9a84c 100%);
-    border-color: transparent;
-    color: #0a0a0a;
-}
-
-.btn-tier--primary:hover {
-    background: linear-gradient(135deg, #f0d47a 0%, #d4b45c 100%);
-    color: #0a0a0a;
 }
 
 .pricing-footnote {
     margin: clamp(2.5rem, 5vw, 3.5rem) auto 0;
     text-align: center;
     font-size: 0.88rem;
-    color: rgba(201, 168, 76, 0.42);
+    color: var(--text-muted-light);
     max-width: 720px;
     line-height: 1.6;
 }
 
 .pricing-footnote a {
-    color: #c9a84c;
+    color: var(--primary);
     text-decoration: underline;
     text-underline-offset: 3px;
 }
 
 .pricing-footnote a:hover {
-    color: #e0c878;
+    color: var(--primary-dark);
 }
 
 /* Common Components */

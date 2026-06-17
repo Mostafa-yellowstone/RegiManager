@@ -2,7 +2,7 @@
 {% load static i18n %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-3">
+<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-4">
 <style>
     /* Custom overrides for the hero image path */
     .site-hero-visual {
@@ -92,10 +92,10 @@
         </section>
     </div>
 
-    <div class="pricing-wrapper pricing-wrapper--premium">
-        <section class="site-section pricing-section pricing-section--premium reveal" id="pricing">
-            <div class="section-heading section-heading--premium">
-                <span class="brand-pill brand-pill--gold">Premium Pricing</span>
+    <div class="pricing-wrapper">
+        <section class="site-section pricing-section reveal" id="pricing">
+            <div class="section-heading">
+                <span class="brand-pill">Plans</span>
                 <h2>Feature &amp; Volume Optimized.</h2>
                 <p>Transparent tiers that scale with your PSB — every capability mapped to the plan that fits.</p>
             </div>
@@ -120,7 +120,7 @@
                             <li>Document upload &amp; storage</li>
                             <li>Single-location workspace</li>
                         </ul>
-                        <a href="{% url 'member-signup' %}" class="btn btn-tier">Get Started</a>
+                        <a href="{% url 'member-signup' %}" class="btn btn-secondary btn-tier">Get Started</a>
                     </div>
                 </article>
 
@@ -145,7 +145,7 @@
                             <li>Role-based team permissions</li>
                             <li>OCR document scanning</li>
                         </ul>
-                        <a href="{% url 'member-signup' %}" class="btn btn-tier btn-tier--primary">Start Pro Trial</a>
+                        <a href="{% url 'member-signup' %}" class="btn btn-primary btn-tier">Start Pro Trial</a>
                     </div>
                 </article>
 
@@ -168,7 +168,7 @@
                             <li>Knowledge Hub &amp; team announcements</li>
                             <li>Commercial &amp; business intake</li>
                         </ul>
-                        <a href="{% url 'member-signup' %}" class="btn btn-tier">Start Business Trial</a>
+                        <a href="{% url 'member-signup' %}" class="btn btn-secondary btn-tier">Start Business Trial</a>
                     </div>
                 </article>
 
@@ -191,7 +191,7 @@
                             <li>Priority 24/7 support</li>
                             <li>Onboarding &amp; migration assistance</li>
                         </ul>
-                        <a href="{% url 'contact' %}" class="btn btn-tier">Contact Sales</a>
+                        <a href="{% url 'contact' %}" class="btn btn-secondary btn-tier">Contact Sales</a>
                     </div>
                 </article>
             </div>
