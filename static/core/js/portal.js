@@ -58,6 +58,11 @@
         initTopNav() {
             const notifBtn = document.getElementById('notifBtn');
             const notifDropdown = document.getElementById('notifDropdown');
+            const profileBtn = document.getElementById('portalProfileBtn');
+            const profileDropdown = document.getElementById('portalProfileDropdown');
+            const profilePhotoForm = document.getElementById('portalProfilePhotoForm');
+            const profilePhotoInput = document.getElementById('portalProfilePhotoInput');
+            const profilePhotoStatus = document.getElementById('portalProfilePhotoStatus');
             const locBtn = document.getElementById('locBtn');
             const locDropdown = document.getElementById('locDropdown');
             const locBtnDrawer = document.getElementById('locBtnDrawer');
@@ -97,6 +102,8 @@
 
             const closeDropdowns = () => {
                 if (notifDropdown) notifDropdown.classList.remove('is-open');
+                if (profileDropdown) profileDropdown.classList.remove('is-open');
+                if (profileBtn) profileBtn.setAttribute('aria-expanded', 'false');
                 if (locDropdown) locDropdown.classList.remove('is-open');
                 if (locDropdownDrawer) locDropdownDrawer.classList.remove('is-open');
             };
@@ -127,6 +134,45 @@
                 notifBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     togglePanel(notifBtn, notifDropdown);
+                });
+            }
+
+            if (profileBtn && profileDropdown) {
+                profileBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const open = !profileDropdown.classList.contains('is-open');
+                    closeDropdowns();
+                    closeMobileMenu();
+                    if (open) {
+                        profileDropdown.classList.add('is-open');
+                        profileBtn.setAttribute('aria-expanded', 'true');
+                    }
+                });
+            }
+
+            if (profilePhotoForm && profilePhotoInput) {
+                profilePhotoForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    if (!profilePhotoInput.files || !profilePhotoInput.files.length) {
+                        if (profilePhotoStatus) profilePhotoStatus.textContent = 'Choose a photo first.';
+                        return;
+                    }
+                    if (profilePhotoStatus) profilePhotoStatus.textContent = 'Uploading…';
+                    try {
+                        const response = await fetch(profilePhotoForm.action || '/dashboard/profile/photo/', {
+                            method: 'POST',
+                            body: new FormData(profilePhotoForm),
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        });
+                        const data = await response.json();
+                        if (!response.ok || data.status !== 'success') {
+                            throw new Error(data.message || 'Upload failed.');
+                        }
+                        if (profilePhotoStatus) profilePhotoStatus.textContent = 'Photo updated.';
+                        window.setTimeout(() => window.location.reload(), 500);
+                    } catch (err) {
+                        if (profilePhotoStatus) profilePhotoStatus.textContent = err.message || 'Upload failed.';
+                    }
                 });
             }
 
@@ -182,7 +228,7 @@
             });
 
             document.addEventListener('click', (e) => {
-                if (e.target.closest('#notifBtn, #notifDropdown, #locBtn, #locDropdown, #locBtnDrawer, #locDropdownDrawer, #portalMobileNavBtn, .portal-mobile-drawer, #portalNavBackdrop')) {
+                if (e.target.closest('#notifBtn, #notifDropdown, #portalProfileBtn, #portalProfileDropdown, #locBtn, #locDropdown, #locBtnDrawer, #locDropdownDrawer, #portalMobileNavBtn, .portal-mobile-drawer, #portalNavBackdrop')) {
                     return;
                 }
                 closeAll();

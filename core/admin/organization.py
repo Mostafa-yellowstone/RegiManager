@@ -35,7 +35,6 @@ class MembershipInline(admin.TabularInline):
         "can_view_spaces",
         "can_deal_with_insurance",
         "can_delete_receipt",
-        "can_view_commission",
         "can_view_banking",
         "can_manage_news",
         "can_manage_knowledge_hub",
@@ -132,7 +131,6 @@ class OrganizationMembershipAdmin(admin.ModelAdmin):
                     "can_deal_with_insurance",
                     "can_deal_with_motorclub",
                     "can_delete_receipt",
-                    "can_view_commission",
                     "can_view_banking",
                     "can_manage_news",
                     "can_manage_knowledge_hub",
@@ -147,7 +145,7 @@ class OrganizationMembershipAdmin(admin.ModelAdmin):
                 "fields": ("can_view_spaces", "accessible_spaces"),
             },
         ),
-        ("Other", {"fields": ("signature",)}),
+        ("Other", {"fields": ("signature", "profile_photo")}),
     )
 
 

@@ -112,7 +112,11 @@ def build_agent_stats(all_policies, insurance_memberships):
         agent_stats.append({
             "agent": agent,
             "user_id": agent.id,
+            "membership_id": membership.id,
             "fullname": agent.get_full_name() or agent.username,
+            "profile_photo_url": (
+                membership.profile_photo.url if membership.profile_photo else None
+            ),
             "quotes_count": stats.get("quotes_count", 0),
             "policies_bound": stats.get("policies_bound", 0),
             "total_premium": stats.get("total_premium") or Decimal("0"),

@@ -726,9 +726,9 @@ class CompanyProfileCommissionTests(TestCase):
             user=self.owner,
             organization=self.org,
             is_active=True,
-            role="owner",
+            role="agent",
             can_deal_with_insurance=True,
-            can_view_commission=True,
+            can_view_banking=True,
         )
         self.company = InsuranceCompany.objects.create(organization=self.org, name="Geico")
         self.client_obj = Client.objects.create(
@@ -796,12 +796,12 @@ class CompanyProfileCommissionTests(TestCase):
         self.assertEqual(response.context["total_received_commission"], Decimal("100.00"))
         self.assertEqual(response.context["total_commission"], Decimal("0.00"))
 
-    def test_toggle_denied_without_view_commission_permission(self):
-        self.owner_membership.can_view_commission = False
-        self.owner_membership.save(update_fields=["can_view_commission"])
+    def test_toggle_denied_without_finance_permission(self):
+        self.owner_membership.can_view_banking = False
+        self.owner_membership.save(update_fields=["can_view_banking"])
 
         response = self.client.get(reverse("insurance-company-detail", args=[self.company.id]))
-        self.assertFalse(response.context["can_manage_commission"])
+        self.assertEqual(response.status_code, 403)
 
         response = self.client.post(
             reverse("toggle-policy-commission-received", args=[self.policy.id]),

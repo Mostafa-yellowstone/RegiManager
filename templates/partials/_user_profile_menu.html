@@ -1,0 +1,32 @@
+<div class="portal-profile-menu nav-right--desktop">
+    <button type="button" class="portal-profile-menu__trigger" id="portalProfileBtn" aria-haspopup="true" aria-expanded="false" aria-controls="portalProfileDropdown">
+        {% include "partials/_agent_avatar.html" with photo_url=nav_profile_photo_url initial=user.first_name|default:user.username size="36px" extra_class="agent-avatar--nav" %}
+        <span class="portal-profile-menu__meta">
+            <span class="user-name">{{ user.get_full_name|default:user.username }}</span>
+            <span class="user-role">{{ user_nav_role }}</span>
+        </span>
+        <svg class="portal-profile-menu__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div id="portalProfileDropdown" class="portal-dropdown portal-profile-dropdown" role="menu">
+        <div class="portal-profile-dropdown__header">
+            {% include "partials/_agent_avatar.html" with photo_url=nav_profile_photo_url initial=user.first_name|default:user.username size="52px" extra_class="agent-avatar--dropdown" %}
+            <div>
+                <strong>{{ user.get_full_name|default:user.username }}</strong>
+                <span>{{ user_nav_role }}</span>
+                {% if active_organization %}<span class="portal-profile-dropdown__org">{{ active_organization.name }}</span>{% endif %}
+            </div>
+        </div>
+        <form id="portalProfilePhotoForm" class="portal-profile-dropdown__upload" action="{% url 'update-profile-photo' %}" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {% if active_organization %}<input type="hidden" name="organization_id" value="{{ active_organization.id }}">{% endif %}
+            <label class="portal-profile-dropdown__upload-label" for="portalProfilePhotoInput">Update profile photo</label>
+            <input type="file" id="portalProfilePhotoInput" name="profile_photo" accept="image/jpeg,image/png,image/webp" class="portal-profile-dropdown__file">
+            <button type="submit" class="btn btn-secondary btn-sm portal-profile-dropdown__save">Save photo</button>
+            <p id="portalProfilePhotoStatus" class="portal-profile-dropdown__status" role="status"></p>
+        </form>
+        <a href="{% url 'logout' %}" class="portal-profile-dropdown__logout" role="menuitem">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Sign out
+        </a>
+    </div>
+</div>

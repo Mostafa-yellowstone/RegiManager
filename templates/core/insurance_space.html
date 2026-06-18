@@ -101,7 +101,7 @@
     <!-- Tabs -->
     <div style="display: flex; gap: 0; border-bottom: 2px solid #e2e8f0; margin-bottom: 2rem; flex-wrap: wrap;">
       <button class="tab-btn active" id="tab-insurance-btn" onclick="switchTab('insurance')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid #093de6; color: #093de6; margin-bottom: -2px;">🛡️ Insurance CRM</button>
-      <button class="tab-btn" id="tab-companies-btn" onclick="switchTab('companies')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🏢 Companies</button>
+      {% if user_can_view_banking %}<button class="tab-btn" id="tab-companies-btn" onclick="switchTab('companies')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🏢 Companies</button>{% endif %}
       {% if user_can_view_banking %}<button class="tab-btn" id="tab-banking-btn" onclick="switchTab('banking')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🏦 Banking</button>{% endif %}
       <button class="tab-btn" id="tab-reporting-btn" onclick="switchTab('reporting')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">📊 Reports</button>
       <button class="tab-btn" id="tab-daily-payments-btn" onclick="switchTab('daily-payments')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">💳 Daily Payments</button>
@@ -176,6 +176,7 @@
           <div style="color: #64748b; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.3rem;">Total Premiums</div>
           <div style="font-size: 2rem; font-weight: 800; color: #093de6;">${{ total_premium|floatformat:2 }}</div>
         </div>
+        {% if user_can_view_banking %}
         <div class="spaces-metric">
           <div style="color: #64748b; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.3rem;">Earned Commissions</div>
           <div style="font-size: 2rem; font-weight: 800; color: #16a34a;">${{ total_commission|floatformat:2 }}</div>
@@ -184,6 +185,7 @@
           <div style="color: #64748b; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.3rem;">Unearned (to Return)</div>
           <div style="font-size: 2rem; font-weight: 800; color: #dc2626;">${{ total_unearned_commission|floatformat:2 }}</div>
         </div>
+        {% endif %}
       </div>
       <!-- Search & Filters -->
       <div style="background: #f8fafc; border-radius: 16px; padding: 1.25rem; border: 1px solid #e2e8f0; margin-bottom: 1.5rem;">
@@ -292,7 +294,7 @@
       <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
         <table class="spaces-table">
           <thead>
-            <tr><th>Client</th><th>Policy #</th><th>Type</th><th>Source</th><th>B. Type</th><th>Company</th><th>Premium</th>{% if user_can_view_commission %}<th>Broker Fee</th><th>Comm %</th><th>Commission</th>{% endif %}<th>Agent</th><th>Quote Date</th><th>Status</th><th>Actions</th></tr>
+            <tr><th>Client</th><th>Policy #</th><th>Type</th><th>Source</th><th>B. Type</th><th>Company</th><th>Premium</th>{% if user_can_view_banking %}<th>Broker Fee</th><th>Comm %</th><th>Commission</th>{% endif %}<th>Agent</th><th>Quote Date</th><th>Status</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {% for policy in policies %}
@@ -333,7 +335,7 @@
               </td>
               <td>{{ policy.insurance_company.name }}</td>
               <td style="font-weight: 800;">${{ policy.premium }}</td>
-              {% if user_can_view_commission %}
+              {% if user_can_view_banking %}
               <td style="font-weight: 700; color: #475569;">${{ policy.broker_fee }}</td>
               <td>{{ policy.commission_rate }}%</td>
               <td style="color: #16a34a; font-weight: 800;">${{ policy.commission_amount }}</td>
@@ -406,6 +408,7 @@
       {% endif %}
     </div><!-- end tab-insurance -->
 
+    {% if user_can_view_banking %}
     <!-- COMPANIES TAB -->
     <div id="tab-companies" class="tab-panel" style="display: none;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -447,6 +450,7 @@
         {% endfor %}
       </div>
     </div>
+    {% endif %}
 
     {% if user_can_view_banking %}
     <!-- BANKING TAB -->
@@ -618,7 +622,7 @@
 
     <!-- DAILY PAYMENTS TAB -->
     <div id="tab-daily-payments" class="tab-panel" style="display: none;">
-      {% include "core/partials/daily_payments_tab.html" %}
+      {% include "core/partials/daily_payments_tab.html" with user_can_clear_daily_payments=user_can_clear_daily_payments %}
     </div>
 
     <!-- AGENTS AUDITING TAB -->
@@ -680,7 +684,7 @@
                   <th style="text-align: center;">Quotes</th>
                   <th style="text-align: center;">Bound</th>
                   <th>Premium</th>
-                  <th>Commission</th>
+                  {% if user_can_view_banking %}<th>Commission</th>{% endif %}
                   <th>Broker Fees</th>
                   <th>Total Profit</th>
                 </tr>
@@ -689,19 +693,22 @@
                 {% for stat in agent_stats %}
                 <tr>
                   <td>
-                    <a href="{% url 'insurance-agent-detail' stat.user_id %}" style="background-color: {{ stat.bg_color }}; color: {{ stat.text_color }}; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; white-space: nowrap; text-decoration: none; display: inline-block;">
-                      {{ stat.fullname }}
-                    </a>
-                    {% if stat.is_best %}
-                      <span class="agent-rank-badge" title="Best Performer — #1 in premium volume">👑</span>
-                    {% elif stat.is_second %}
-                      <span class="agent-rank-badge" title="2nd in Performance — premium volume">⭐</span>
-                    {% endif %}
+                    <div style="display: inline-flex; align-items: center; gap: 0.55rem;">
+                      {% include "partials/_agent_avatar.html" with photo_url=stat.profile_photo_url initial=stat.fullname size="30px" %}
+                      <a href="{% url 'insurance-agent-detail' stat.user_id %}" style="background-color: {{ stat.bg_color }}; color: {{ stat.text_color }}; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; white-space: nowrap; text-decoration: none; display: inline-block;">
+                        {{ stat.fullname }}
+                      </a>
+                      {% if stat.is_best %}
+                        <span class="agent-rank-badge" title="Best Performer — #1 in premium volume">👑</span>
+                      {% elif stat.is_second %}
+                        <span class="agent-rank-badge" title="2nd in Performance — premium volume">⭐</span>
+                      {% endif %}
+                    </div>
                   </td>
                   <td style="text-align: center; font-weight: 700; color: #1d4ed8;">{{ stat.quotes_count }}</td>
                   <td style="text-align: center; font-weight: 700; color: #16a34a;">{{ stat.policies_bound }}</td>
                   <td style="font-weight: 700;">${{ stat.total_premium|floatformat:2 }}</td>
-                  <td style="color: #16a34a; font-weight: 700;">${{ stat.total_commission|floatformat:2 }}</td>
+                  {% if user_can_view_banking %}<td style="color: #16a34a; font-weight: 700;">${{ stat.total_commission|floatformat:2 }}</td>{% endif %}
                   <td style="color: #475569; font-weight: 700;">${{ stat.total_broker_fee|floatformat:2 }}</td>
                   <td style="color: #093de6; font-weight: 800; font-size: 0.95rem;">${{ stat.total_profit|floatformat:2 }}</td>
                 </tr>
@@ -817,10 +824,10 @@
         </div>
       </div>
       <div style="margin-bottom: 1rem;"><label class="field-label">Policy Number</label><input type="text" name="policy_number" id="policyNumber" required class="field-input" placeholder="POL-1234567"></div>
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem;">
+      <div style="display: grid; grid-template-columns: repeat({% if user_can_view_banking %}3{% else %}2{% endif %}, 1fr); gap: 1rem; margin-bottom: 1rem;">
         <div><label class="field-label">Premium ($)</label><input type="number" step="0.01" name="premium" id="policyPremium" required class="field-input" placeholder="0.00"></div>
         <div><label class="field-label">Broker Fee ($)</label><input type="number" step="0.01" name="broker_fee" id="policyBrokerFee" required class="field-input" placeholder="0.00" value="0.00"></div>
-        <div><label class="field-label">Commission Rate (%)</label><input type="number" step="0.01" name="commission_rate" id="policyRate" required class="field-input" placeholder="15.00"></div>
+        {% if user_can_view_banking %}<div><label class="field-label">Commission Rate (%)</label><input type="number" step="0.01" name="commission_rate" id="policyRate" required class="field-input" placeholder="15.00"></div>{% endif %}
       </div>
       <div class="grid-2" style="margin-bottom: 1rem;">
         <div><label class="field-label">Effective Date</label><input type="date" name="start_date" id="policyStart" required class="field-input"></div>
@@ -1017,7 +1024,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const tabs = ['insurance','companies','banking','reporting','daily-payments','agents'];
+const tabs = ['insurance'{% if user_can_view_banking %}, 'companies', 'banking'{% endif %}, 'reporting', 'daily-payments', 'agents'];
 let premiumChart = null;
 let profitChart = null;
 
@@ -1126,6 +1133,9 @@ window.addEventListener('DOMContentLoaded', () => {
   let activeTab = urlParams.get('tab');
   if (!activeTab) {
     activeTab = localStorage.getItem('active_insurance_tab') || 'insurance';
+  }
+  if (!tabs.includes(activeTab)) {
+    activeTab = 'insurance';
   }
   switchTab(activeTab);
 

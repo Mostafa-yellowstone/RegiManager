@@ -136,8 +136,7 @@
           <th style="text-align: right;">Amount</th>
           <th>Notes</th>
           <th>Agent</th>
-          <th>Bank Cleared</th>
-          <th>Clear Date</th>
+          {% if user_can_clear_daily_payments %}<th>Bank Cleared</th><th>Clear Date</th>{% endif %}
           <th></th>
         </tr>
       </thead>
@@ -161,6 +160,7 @@
           <td>
             <span style="background: {{ tx.agent_bg_color }}; color: {{ tx.agent_text_color }}; padding: 4px 10px; border-radius: 8px; font-weight: 700; font-size: 0.78rem; white-space: nowrap;">{{ tx.agent_name }}</span>
           </td>
+          {% if user_can_clear_daily_payments %}
           <td>
             <label style="display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.78rem; font-weight: 700; color: #334155;">
               <input type="checkbox" class="dpt-clear-check" {% if tx.is_cleared %}checked{% endif %} onchange="toggleDailyClear({{ tx.id }}, this)">
@@ -170,13 +170,14 @@
           <td>
             <input type="date" class="dpt-clear-date" value="{% if tx.cleared_date %}{{ tx.cleared_date|date:'Y-m-d' }}{% endif %}" {% if not tx.is_cleared %}disabled{% endif %} onchange="updateDailyClearDate({{ tx.id }}, this)">
           </td>
+          {% endif %}
           <td style="text-align: right;">
             <a href="{% url 'delete-daily-payment' tx.id %}" onclick="return confirm('Remove this payment record?')" style="color: #dc2626; font-size: 0.75rem; font-weight: 700; text-decoration: none;">Remove</a>
           </td>
         </tr>
         {% empty %}
         <tr>
-          <td colspan="10" style="text-align: center; padding: 3rem; color: #94a3b8; font-weight: 600;">
+          <td colspan="{% if user_can_clear_daily_payments %}10{% else %}8{% endif %}" style="text-align: center; padding: 3rem; color: #94a3b8; font-weight: 600;">
             No payments recorded for this day yet.
           </td>
         </tr>
@@ -261,11 +262,13 @@
         <label class="field-label">Amount ($)</label>
         <input type="number" step="0.01" name="amount" required class="field-input" placeholder="0.00">
       </div>
+      {% if user_can_clear_daily_payments %}
       <div class="dpt-add-clear-box">
         <input type="checkbox" name="is_cleared" id="addDailyPaymentCleared" class="dpt-clear-check" onchange="toggleAddClearDate(this)">
         <label for="addDailyPaymentCleared" style="font-size: 0.85rem; font-weight: 800; color: #166534; cursor: pointer; margin: 0;">Bank Cleared</label>
         <input type="date" name="cleared_date" id="addDailyPaymentClearDate" class="dpt-clear-date" disabled style="margin-left: auto;">
       </div>
+      {% endif %}
       <div style="margin-bottom: 1.5rem;">
         <label class="field-label">Notes (optional)</label>
         <textarea name="notes" class="field-input" rows="2" placeholder="Payment details, check number, policy reference…"></textarea>

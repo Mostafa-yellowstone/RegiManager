@@ -112,6 +112,12 @@ class OrganizationMembership(models.Model):
     can_trigger_automation = models.BooleanField(default=False, help_text="Can this user manually trigger the automation scan?")
     is_active = models.BooleanField(default=True, help_text="Enable or disable this agent in this PSB.")
     signature = models.ImageField(upload_to="agent_signatures/", blank=True, null=True, help_text="Agent signature image to be displayed on receipts.")
+    profile_photo = models.ImageField(
+        upload_to="agent_profiles/",
+        blank=True,
+        null=True,
+        help_text="Profile photo shown in the portal menu, team management, and agent auditing.",
+    )
     can_view_spaces = models.BooleanField(
         default=False,
         help_text="Can this member (including PSB owners) view the main Spaces page?",
@@ -122,8 +128,17 @@ class OrganizationMembership(models.Model):
         help_text="Can this member sell and manage Motor Club roadside memberships?",
     )
     can_delete_receipt = models.BooleanField(default=False, help_text="Can this agent delete/remove receipt records from the service list?")
-    can_view_commission = models.BooleanField(default=False, help_text="Can this agent view commission rate, commission amount, and agency profit in the insurance space?")
-    can_view_banking = models.BooleanField(default=False, help_text="Can this agent view the banking section in the insurance space?")
+    can_view_commission = models.BooleanField(
+        default=False,
+        help_text="Deprecated: use can_view_banking for commission and finance access.",
+    )
+    can_view_banking = models.BooleanField(
+        default=False,
+        help_text=(
+            "Can this agent access Banking & Companies in the insurance space, "
+            "manage commission fields, and mark daily bank payments as cleared?"
+        ),
+    )
     can_manage_news = models.BooleanField(default=False, help_text="Can this agent add, edit, or delete news/announcements?")
     can_manage_knowledge_hub = models.BooleanField(default=False, help_text="Can this agent add or delete materials in the Knowledge Hub?")
     can_manage_documents = models.BooleanField(

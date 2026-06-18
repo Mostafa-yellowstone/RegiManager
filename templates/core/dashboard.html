@@ -652,8 +652,7 @@
                                 {% if user_can_trigger_automation %}
                                 <th class="auto-header{% if not automation_enabled %} d-none{% endif %}">Auto</th>
                                 {% endif %}
-                                <th>Commission</th>
-                                <th>Banking</th>
+                                <th title="Banking, Companies, Commission &amp; daily clear">Finance</th>
                                 <th>News</th>
                                 <th title="Manage Knowledge Hub">Hub</th>
                                 <th title="Manage Documents Space">Docs</th>
@@ -663,7 +662,16 @@
                         <tbody>
                             {% for agent_mem in owner_agents %}
                                 <tr class="agent-row {% if not agent_mem.is_active %}inactive-agent{% endif %}" data-psb-id="{{ agent_mem.organization.id }}">
-                                    <td><strong>{{ agent_mem.user.get_full_name|default:agent_mem.user.username }}</strong></td>
+                                    <td>
+                                        <div style="display: inline-flex; align-items: center; gap: 0.65rem;">
+                                            {% if agent_mem.profile_photo %}
+                                            {% include "partials/_agent_avatar.html" with photo_url=agent_mem.profile_photo.url initial=agent_mem.user.first_name|default:agent_mem.user.username size="34px" %}
+                                            {% else %}
+                                            {% include "partials/_agent_avatar.html" with initial=agent_mem.user.first_name|default:agent_mem.user.username size="34px" %}
+                                            {% endif %}
+                                            <strong>{{ agent_mem.user.get_full_name|default:agent_mem.user.username }}</strong>
+                                        </div>
+                                    </td>
                                     <td>
                                         <div class="agent-psb-meta">
                                             {{ agent_mem.organization.name }}
@@ -713,12 +721,6 @@
                                         </label>
                                     </td>
                                     {% endif %}
-                                    <td>
-                                        <label class="switch">
-                                            <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_view_commission" {% if agent_mem.can_view_commission %}checked{% endif %}>
-                                            <span class="slider round"></span>
-                                        </label>
-                                    </td>
                                     <td>
                                         <label class="switch">
                                             <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_view_banking" {% if agent_mem.can_view_banking %}checked{% endif %}>

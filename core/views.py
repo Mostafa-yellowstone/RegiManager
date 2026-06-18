@@ -93,8 +93,29 @@ from .dmv_documents import (
     normalize_state_code,
 )
 from .http import deny_access
+from .insurance_permissions import (
+    can_manage_insurance_finance,
+    is_org_owner,
+    membership_for_org,
+)
 import io
 from django.utils.text import slugify
+
+
+def _require_insurance_finance(request, organization, *, membership=None, is_owner=None):
+    if not can_manage_insurance_finance(
+        request.user, organization, membership=membership, is_owner=is_owner
+    ):
+        deny_access("You do not have permission to manage insurance finance data.")
+
+
+def _membership_profile_photo_url(membership):
+    if membership and membership.profile_photo:
+        try:
+            return membership.profile_photo.url
+        except (ValueError, OSError):
+            return None
+    return None
 
 
 def _referral_category_options_for_org(org):
@@ -1582,7 +1603,6 @@ def dashboard(request):
     user_can_view_net_profit = any(m.can_view_net_profit for m in memberships)
     user_can_manage_referrals = any(m.can_manage_referrals for m in memberships)
     user_can_trigger_automation = any(m.can_trigger_automation for m in memberships)
-    user_can_view_commission = any(m.can_view_commission for m in memberships)
     user_can_view_banking = any(m.can_view_banking for m in memberships)
     
     # Also check if automation is enabled for any of the user's organizations
@@ -1712,7 +1732,6 @@ def dashboard(request):
             "automation_enabled": automation_enabled,
             "public_intake_enabled": public_intake_enabled,
             "user_can_trigger_automation": user_can_trigger_automation,
-            "user_can_view_commission": user_can_view_commission,
             "user_can_view_banking": user_can_view_banking,
         },
     )
@@ -3193,8 +3212,6 @@ def update_agent_permissions(request):
             membership.can_manage_referrals = value
         elif field == "can_trigger_automation":
             membership.can_trigger_automation = value
-        elif field == "can_view_commission":
-            membership.can_view_commission = value
         elif field == "can_view_banking":
             membership.can_view_banking = value
         elif field == "can_manage_news":
@@ -3210,6 +3227,46 @@ def update_agent_permissions(request):
         return JsonResponse({"status": "success"})
     return JsonResponse({"status": "error"}, status=400)
 
+
+@login_required
+@require_POST
+def update_profile_photo(request):
+    from django.core.cache import cache
+
+    photo = request.FILES.get("profile_photo")
+    if not photo:
+        return JsonResponse({"status": "error", "message": "No photo uploaded."}, status=400)
+
+    content_type = (getattr(photo, "content_type", "") or "").lower()
+    allowed = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
+    if content_type and content_type not in allowed:
+        return JsonResponse({"status": "error", "message": "Use a JPG, PNG, or WebP image."}, status=400)
+    if photo.size > 5 * 1024 * 1024:
+        return JsonResponse({"status": "error", "message": "Image must be 5 MB or smaller."}, status=400)
+
+    org_id = request.POST.get("organization_id") or request.session.get("active_org_id")
+    memberships = OrganizationMembership.objects.filter(
+        user=request.user,
+        is_active=True,
+        organization__is_active=True,
+    )
+    if org_id:
+        membership = memberships.filter(organization_id=org_id).first()
+    else:
+        membership = memberships.first()
+
+    if not membership:
+        return JsonResponse({"status": "error", "message": "Membership not found."}, status=404)
+
+    membership.profile_photo = photo
+    membership.save(update_fields=["profile_photo"])
+    cache.delete(f"nav_ctx:{request.user.pk}:{request.session.get('active_org_id')}")
+    cache.delete(f"nav_ctx:{request.user.pk}:None")
+
+    return JsonResponse({
+        "status": "success",
+        "photo_url": membership.profile_photo.url,
+    })
 
 @login_required
 def get_documents(request, service_id):
@@ -5627,8 +5684,9 @@ def inventory_detail(request, inventory_id):
         from .space_access import require_space_access
         require_space_access(membership, card)
 
-    user_can_view_commission = is_owner or (membership and membership.can_view_commission)
-    user_can_view_banking = is_owner or (membership and membership.can_view_banking)
+    user_can_view_banking = can_manage_insurance_finance(
+        request.user, card.organization, membership=membership, is_owner=is_owner
+    )
 
     if request.method == "POST":
         if not is_owner:
@@ -6033,8 +6091,8 @@ def inventory_detail(request, inventory_id):
             "insurance_policies_query_string": insurance_policies_query_string,
             "bank_transactions_query_string": bank_transactions_query_string,
             "insurance_source_choices": INSURANCE_SOURCE_CHOICES,
-            "user_can_view_commission": user_can_view_commission,
             "user_can_view_banking": user_can_view_banking,
+            "user_can_clear_daily_payments": user_can_view_banking,
 
             # Daily payments tab
             "daily_payment_date": daily_payment_date,
@@ -6299,6 +6357,11 @@ def add_insurance_policy(request):
     org_id = request.POST.get("organization")
     organizations = _get_user_organizations(request)
     org = get_object_or_404(organizations, id=org_id)
+    membership = membership_for_org(request.user, org)
+    is_owner = is_org_owner(request.user, org, membership)
+    can_edit_commission = can_manage_insurance_finance(
+        request.user, org, membership=membership, is_owner=is_owner
+    )
     
     client_name = request.POST.get("client_name", "").strip()
     if not client_name:
@@ -6334,6 +6397,8 @@ def add_insurance_policy(request):
     premium = request.POST.get("premium", "0.00").strip()
     broker_fee = request.POST.get("broker_fee", "0.00").strip()
     commission_rate = request.POST.get("commission_rate", "0.00").strip()
+    if not can_edit_commission:
+        commission_rate = "0.00"
     stage = request.POST.get("stage", "quote")
     status = request.POST.get("status", "active")
     insurance_type = request.POST.get("insurance_type", "")
@@ -6380,6 +6445,11 @@ def edit_insurance_policy(request, policy_id):
     from .models import InsurancePolicy, Client, InsuranceCompany
     organizations = _get_user_organizations(request)
     policy = get_object_or_404(InsurancePolicy, id=policy_id, organization__in=organizations)
+    membership = membership_for_org(request.user, policy.organization)
+    is_owner = is_org_owner(request.user, policy.organization, membership)
+    can_edit_commission = can_manage_insurance_finance(
+        request.user, policy.organization, membership=membership, is_owner=is_owner
+    )
     
     if request.method == "POST":
         client_name = request.POST.get("client_name", "").strip()
@@ -6417,7 +6487,10 @@ def edit_insurance_policy(request, policy_id):
         policy.policy_number = request.POST.get("policy_number", "").strip()
         policy.premium = Decimal(request.POST.get("premium", "0.00").strip() or "0.00")
         policy.broker_fee = Decimal(request.POST.get("broker_fee", "0.00").strip() or "0.00")
-        policy.commission_rate = Decimal(request.POST.get("commission_rate", "0.00").strip() or "0.00")
+        if can_edit_commission:
+            policy.commission_rate = Decimal(
+                request.POST.get("commission_rate", "0.00").strip() or "0.00"
+            )
         policy.stage = request.POST.get("stage", "quote")
         policy.status = request.POST.get("status", "active")
         policy.insurance_type = request.POST.get("insurance_type", "")
@@ -6632,6 +6705,9 @@ def add_insurance_company(request):
     org_id = request.POST.get("organization")
     organizations = _get_user_organizations(request)
     org = get_object_or_404(organizations, id=org_id)
+    membership = membership_for_org(request.user, org)
+    is_owner = is_org_owner(request.user, org, membership)
+    _require_insurance_finance(request, org, membership=membership, is_owner=is_owner)
 
     name = request.POST.get("name", "").strip()
     if not name:
@@ -6650,6 +6726,9 @@ def delete_insurance_company(request, company_id):
     organizations = _get_user_organizations(request)
     company = get_object_or_404(InsuranceCompany, id=company_id, organization__in=organizations)
     org = company.organization
+    membership = membership_for_org(request.user, org)
+    is_owner = is_org_owner(request.user, org, membership)
+    _require_insurance_finance(request, org, membership=membership, is_owner=is_owner)
     company.delete()
     messages.success(request, "Company deleted.")
     return _redirect_to_insurance_detail(org)
@@ -6665,6 +6744,11 @@ def add_daily_payment(request):
     org_id = request.POST.get("organization")
     organizations = _get_user_organizations(request)
     org = get_object_or_404(organizations, id=org_id)
+    membership = membership_for_org(request.user, org)
+    is_owner = is_org_owner(request.user, org, membership)
+    can_clear_payments = can_manage_insurance_finance(
+        request.user, org, membership=membership, is_owner=is_owner
+    )
 
     client_name = request.POST.get("client_name", "").strip()
     amount = request.POST.get("amount", "0.00").strip()
@@ -6712,6 +6796,8 @@ def add_daily_payment(request):
         return _redirect_to_insurance_detail(org, tab="daily-payments", query_params=[f"daily_date={tx_date}"])
 
     is_cleared = request.POST.get("is_cleared") in ("1", "on", "true")
+    if is_cleared and not can_clear_payments:
+        is_cleared = False
     cleared_date_str = request.POST.get("cleared_date", "").strip()
     cleared_date = None
     if is_cleared:
@@ -6780,6 +6866,12 @@ def toggle_daily_payment_clear(request, transaction_id):
         id=transaction_id,
         organization__in=organizations,
     )
+    membership = membership_for_org(request.user, tx.organization)
+    is_owner = is_org_owner(request.user, tx.organization, membership)
+    if not can_manage_insurance_finance(
+        request.user, tx.organization, membership=membership, is_owner=is_owner
+    ):
+        return JsonResponse({"ok": False, "error": "Access denied."}, status=403)
 
     is_cleared = request.POST.get("is_cleared") in ("1", "on", "true")
     cleared_date_str = request.POST.get("cleared_date", "").strip()
@@ -6815,6 +6907,9 @@ def add_bank_account(request):
     org_id = request.POST.get("organization")
     organizations = _get_user_organizations(request)
     org = get_object_or_404(organizations, id=org_id)
+    membership = membership_for_org(request.user, org)
+    is_owner = is_org_owner(request.user, org, membership)
+    _require_insurance_finance(request, org, membership=membership, is_owner=is_owner)
     
     account_name = request.POST.get("account_name", "").strip()
     bank_name = request.POST.get("bank_name", "").strip()
@@ -6842,6 +6937,9 @@ def delete_bank_account(request, account_id):
     organizations = _get_user_organizations(request)
     account = get_object_or_404(BankAccount, id=account_id, organization__in=organizations)
     org = account.organization
+    membership = membership_for_org(request.user, org)
+    is_owner = is_org_owner(request.user, org, membership)
+    _require_insurance_finance(request, org, membership=membership, is_owner=is_owner)
     account.delete()
     messages.success(request, "Bank account deleted.")
     return _redirect_to_insurance_detail(org)
@@ -6854,6 +6952,9 @@ def edit_bank_account(request, account_id):
     organizations = _get_user_organizations(request)
     account = get_object_or_404(BankAccount, id=account_id, organization__in=organizations)
     org = account.organization
+    membership = membership_for_org(request.user, org)
+    is_owner = is_org_owner(request.user, org, membership)
+    _require_insurance_finance(request, org, membership=membership, is_owner=is_owner)
 
     account_name = request.POST.get("account_name", "").strip()
     bank_name = request.POST.get("bank_name", "").strip()
@@ -6885,6 +6986,9 @@ def add_bank_transaction(request):
     org_id = request.POST.get("organization")
     organizations = _get_user_organizations(request)
     org = get_object_or_404(organizations, id=org_id)
+    membership = membership_for_org(request.user, org)
+    is_owner = is_org_owner(request.user, org, membership)
+    _require_insurance_finance(request, org, membership=membership, is_owner=is_owner)
     
     account_id = request.POST.get("bank_account")
     account = get_object_or_404(BankAccount, id=account_id, organization=org)
@@ -6926,6 +7030,10 @@ def delete_bank_transaction(request, transaction_id):
         id=transaction_id, 
         bank_account__organization__in=organizations
     )
+    org = transaction.bank_account.organization
+    membership = membership_for_org(request.user, org)
+    is_owner = is_org_owner(request.user, org, membership)
+    _require_insurance_finance(request, org, membership=membership, is_owner=is_owner)
     org = transaction.bank_account.organization
     transaction.delete()
     messages.success(request, "Transaction deleted.")
@@ -7142,12 +7250,17 @@ def insurance_company_detail(request, company_id):
     active_org = company.organization
 
     # Permission check
+    membership = None
     if not request.user.is_superuser:
         membership = OrganizationMembership.objects.filter(
             user=request.user, organization=active_org, is_active=True
         ).first()
         if not membership:
             deny_access("Access denied.")
+    is_owner = request.user.is_superuser or bool(
+        membership and membership.role == OrganizationMembership.Role.OWNER
+    )
+    _require_insurance_finance(request, active_org, membership=membership, is_owner=is_owner)
 
     # Lock check
     is_locked = active_org.insurance_space_locked and active_org.insurance_space_password
@@ -7256,12 +7369,11 @@ def insurance_company_detail(request, company_id):
         user__is_active=True
     ).select_related("user")
 
-    can_manage_commission = request.user.is_superuser
-    if not can_manage_commission:
-        membership = OrganizationMembership.objects.filter(
-            user=request.user, organization=active_org, is_active=True
-        ).first()
-        can_manage_commission = bool(membership and membership.can_view_commission)
+    membership = membership_for_org(request.user, active_org)
+    is_owner = is_org_owner(request.user, active_org, membership)
+    can_manage_commission = can_manage_insurance_finance(
+        request.user, active_org, membership=membership, is_owner=is_owner
+    )
 
     return render(request, "core/insurance_company_detail.html", {
         "company": company,
@@ -7319,7 +7431,12 @@ def toggle_policy_commission_received(request, policy_id):
         membership = OrganizationMembership.objects.filter(
             user=request.user, organization=policy.organization, is_active=True
         ).first()
-        if not membership or not membership.can_view_commission:
+        is_owner = bool(
+            membership and membership.role == OrganizationMembership.Role.OWNER
+        )
+        if not can_manage_insurance_finance(
+            request.user, policy.organization, membership=membership, is_owner=is_owner
+        ):
             return JsonResponse({"ok": False, "error": "Access denied."}, status=403)
 
     received = request.POST.get("received") in ("1", "true", "on", "yes")
