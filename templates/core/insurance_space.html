@@ -1203,14 +1203,19 @@ function viewPolicy(id) {
 
 function editPolicy(id) {
   fetch('/dashboard/spaces/insurance/policy/'+id+'/edit/')
-    .then(r => r.json()).then(data => {
+    .then(r => {
+      if (!r.ok) throw new Error('Failed to load policy');
+      return r.json();
+    })
+    .then(data => {
       document.getElementById('policyForm').action = '/dashboard/spaces/insurance/policy/'+data.id+'/edit/';
       document.getElementById('policyClientName').value = data.client_name;
       document.getElementById('policyCompany').value = data.insurance_company_id;
       document.getElementById('policyNumber').value = data.policy_number;
       document.getElementById('policyPremium').value = data.premium;
       document.getElementById('policyBrokerFee').value = data.broker_fee || '0.00';
-      document.getElementById('policyRate').value = data.commission_rate;
+      const policyRate = document.getElementById('policyRate');
+      if (policyRate) policyRate.value = data.commission_rate;
       document.getElementById('policyStart').value = data.start_date;
       document.getElementById('policyEnd').value = data.end_date;
       document.getElementById('policyPeriod').value = data.insurance_period_months;
@@ -1224,6 +1229,9 @@ function editPolicy(id) {
       if (data.status === 'inactive') document.getElementById('policyInactiveDate').value = data.inactive_date || '';
       document.getElementById('policyModalTitle').textContent = '✏️ Edit Insurance Policy';
       document.getElementById('addPolicyModal').classList.add('active');
+    })
+    .catch(() => {
+      alert('Could not load this policy for editing. Please refresh and try again.');
     });
 }
 

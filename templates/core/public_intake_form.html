@@ -423,7 +423,7 @@
                         {{ form.first_name }}
                     </div>
                     <div>
-                        <label>M.I.</label>
+                        <label>M.I. <span style="font-weight: 500; color: #64748b; text-transform: none;">(optional)</span></label>
                         {{ form.middle_name }}
                     </div>
                     <div class="col-span-2">
@@ -1074,7 +1074,6 @@
     const intakePersonalFieldIds = [
         'id_first_name',
         'id_last_name',
-        'id_middle_name',
         'id_dob',
         'id_driver_license',
         'id_gender',
@@ -1113,6 +1112,7 @@
     }
 
     setIntakeFieldRequired('id_ssn_last_4', false);
+    setIntakeFieldRequired('id_middle_name', false);
 </script>
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }

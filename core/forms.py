@@ -673,7 +673,7 @@ class ClientIntakeForm(forms.ModelForm):
             "insurance_expiration_date": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
             "first_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "First Name"}),
             "last_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Last Name"}),
-            "middle_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Middle Name/Initial"}),
+            "middle_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Middle name/initial (optional)"}),
             "business_name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Legal business name"}),
             "business_ein": forms.TextInput(attrs={"class": "form-control", "placeholder": "EIN (optional)"}),
             "email": forms.EmailInput(attrs={"class": "form-control", "placeholder": "Email Address"}),
