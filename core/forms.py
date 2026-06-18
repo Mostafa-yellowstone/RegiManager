@@ -679,7 +679,7 @@ class ClientIntakeForm(forms.ModelForm):
             "email": forms.EmailInput(attrs={"class": "form-control", "placeholder": "Email Address"}),
             "phone_number": forms.TextInput(attrs={"class": "form-control phone-mask", "placeholder": "(000) 000-0000"}),
             "driver_license": forms.TextInput(attrs={"class": "form-control", "placeholder": "ID Number"}),
-            "ssn_last_4": forms.TextInput(attrs={"class": "form-control", "placeholder": "Last 4 digits", "maxlength": "4"}),
+            "ssn_last_4": forms.TextInput(attrs={"class": "form-control", "placeholder": "Last 4 digits (optional)", "maxlength": "4"}),
             "building_no": forms.TextInput(attrs={"class": "form-control", "placeholder": "No."}),
             "street_address": forms.TextInput(attrs={"class": "form-control", "placeholder": "Street Name"}),
             "apartment": forms.TextInput(attrs={"class": "form-control", "placeholder": "Apt/Suite"}),

@@ -449,7 +449,7 @@
                         {{ form.driver_license }}
                     </div>
                     <div>
-                        <label>SSN (Last 4)</label>
+                        <label>SSN (Last 4) <span style="font-weight: 500; color: #64748b; text-transform: none;">(optional)</span></label>
                         {{ form.ssn_last_4 }}
                     </div>
                     <div class="col-span-4"
@@ -1077,7 +1077,6 @@
         'id_middle_name',
         'id_dob',
         'id_driver_license',
-        'id_ssn_last_4',
         'id_gender',
     ];
 
@@ -1112,6 +1111,8 @@
         intakeCommercialToggle.addEventListener('change', toggleIntakeCommercialMode);
         toggleIntakeCommercialMode();
     }
+
+    setIntakeFieldRequired('id_ssn_last_4', false);
 </script>
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }
