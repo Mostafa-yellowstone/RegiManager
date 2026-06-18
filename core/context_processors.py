@@ -19,23 +19,12 @@ def _membership_context(request):
 
     user_organizations = [m.organization for m in memberships]
     active_org_id = request.session.get("active_org_id")
-    active_membership = None
     if active_org_id:
         active_memberships = memberships.filter(organization_id=active_org_id)
         active_organization = next((o for o in user_organizations if o.id == active_org_id), None)
-        active_membership = active_memberships.first()
     else:
         active_memberships = memberships
         active_organization = None
-        if memberships.count() == 1:
-            active_membership = memberships.first()
-
-    nav_profile_photo_url = None
-    if active_membership and active_membership.profile_photo:
-        try:
-            nav_profile_photo_url = active_membership.profile_photo.url
-        except (ValueError, OSError):
-            nav_profile_photo_url = None
 
     enabled = any(m.organization.is_automation_enabled for m in active_memberships)
     is_owner = any(m.role == OrganizationMembership.Role.OWNER for m in active_memberships)
@@ -54,8 +43,6 @@ def _membership_context(request):
         "can_view_spaces": can_view_spaces,
         "user_organizations": user_organizations,
         "active_organization": active_organization,
-        "nav_profile_photo_url": nav_profile_photo_url,
-        "nav_membership_id": active_membership.id if active_membership else None,
     }
     cache.set(cache_key, result, timeout=60)
     return result

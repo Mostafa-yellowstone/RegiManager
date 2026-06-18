@@ -1,19 +1,7 @@
 <div class="user-profile-mini nav-right--desktop">
-    <form id="portalProfilePhotoForm" class="avatar-upload-form" action="{% url 'update-profile-photo' %}" method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        {% if active_organization %}<input type="hidden" name="organization_id" value="{{ active_organization.id }}">{% endif %}
-        <input type="file" id="portalProfilePhotoInput" name="profile_photo" accept="image/jpeg,image/png,image/webp" class="avatar-upload-form__input" tabindex="-1" aria-hidden="true">
-        <button type="button" class="avatar-circle" id="portalAvatarBtn" title="Update profile photo" aria-label="Update profile photo">
-            {% if nav_profile_photo_url %}
-            <img src="{{ nav_profile_photo_url }}" alt="" class="avatar-circle__img">
-            {% else %}
-            {{ user.first_name|slice:":1"|upper }}
-            {% endif %}
-        </button>
-    </form>
+    <div class="avatar-circle">{{ user.first_name|slice:":1"|upper }}</div>
     <div class="user-info">
         <span class="user-name">{{ user.get_full_name|default:user.username }}</span>
         <span class="user-role">{{ user_nav_role }}</span>
     </div>
-    <span id="portalProfilePhotoStatus" class="portal-photo-status" role="status" aria-live="polite"></span>
 </div>

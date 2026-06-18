@@ -1,8 +1,0 @@
-{% load static %}
-<span class="agent-avatar{% if extra_class %} {{ extra_class }}{% endif %}"{% if size %} style="--agent-avatar-size: {{ size }};"{% endif %}>
-  {% if photo_url %}
-  <img src="{{ photo_url }}" alt="" class="agent-avatar__img">
-  {% else %}
-  <span class="agent-avatar__initial" aria-hidden="true">{{ initial|default:"?"|slice:":1"|upper }}</span>
-  {% endif %}
-</span>

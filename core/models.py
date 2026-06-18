@@ -112,12 +112,6 @@ class OrganizationMembership(models.Model):
     can_trigger_automation = models.BooleanField(default=False, help_text="Can this user manually trigger the automation scan?")
     is_active = models.BooleanField(default=True, help_text="Enable or disable this agent in this PSB.")
     signature = models.ImageField(upload_to="agent_signatures/", blank=True, null=True, help_text="Agent signature image to be displayed on receipts.")
-    profile_photo = models.ImageField(
-        upload_to="agent_profiles/",
-        blank=True,
-        null=True,
-        help_text="Profile photo shown in the portal menu, team management, and agent auditing.",
-    )
     can_view_spaces = models.BooleanField(
         default=False,
         help_text="Can this member (including PSB owners) view the main Spaces page?",

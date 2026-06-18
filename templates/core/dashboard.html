@@ -663,14 +663,7 @@
                             {% for agent_mem in owner_agents %}
                                 <tr class="agent-row {% if not agent_mem.is_active %}inactive-agent{% endif %}" data-psb-id="{{ agent_mem.organization.id }}">
                                     <td>
-                                        <div style="display: inline-flex; align-items: center; gap: 0.65rem;">
-                                            {% if agent_mem.profile_photo %}
-                                            {% include "partials/_agent_avatar.html" with photo_url=agent_mem.profile_photo.url initial=agent_mem.user.first_name|default:agent_mem.user.username size="34px" %}
-                                            {% else %}
-                                            {% include "partials/_agent_avatar.html" with initial=agent_mem.user.first_name|default:agent_mem.user.username size="34px" %}
-                                            {% endif %}
-                                            <strong>{{ agent_mem.user.get_full_name|default:agent_mem.user.username }}</strong>
-                                        </div>
+                                        <strong>{{ agent_mem.user.get_full_name|default:agent_mem.user.username }}</strong>
                                     </td>
                                     <td>
                                         <div class="agent-psb-meta">

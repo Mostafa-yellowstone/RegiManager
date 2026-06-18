@@ -145,7 +145,7 @@ class OrganizationMembershipAdmin(admin.ModelAdmin):
                 "fields": ("can_view_spaces", "accessible_spaces"),
             },
         ),
-        ("Other", {"fields": ("signature", "profile_photo")}),
+        ("Other", {"fields": ("signature",)}),
     )
 
 

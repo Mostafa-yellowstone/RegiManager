@@ -1596,56 +1596,6 @@ html.portal-theme-dark .branch-compare__analytics-btn:hover {
     font-weight: 800;
     font-size: 0.85rem;
     flex-shrink: 0;
-    overflow: hidden;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    transition: opacity var(--portal-transition);
-}
-
-.avatar-circle:hover {
-    opacity: 0.92;
-}
-
-.avatar-circle:focus-visible {
-    outline: 2px solid var(--portal-primary);
-    outline-offset: 2px;
-}
-
-.avatar-circle__img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
-
-.avatar-upload-form {
-    display: flex;
-    flex-shrink: 0;
-}
-
-.avatar-upload-form__input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-}
-
-.portal-photo-status {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
 }
 
 .user-info {
@@ -5430,36 +5380,6 @@ html.portal-theme-dark .team-directory-page .team-agent-avatar {
 
 html.portal-theme-dark .team-directory-page .team-agent-card:hover {
     border-color: #6366f1;
-}
-
-/* ─── Agent avatars & profile menu ─────────────────────────────── */
-.agent-avatar {
-    --agent-avatar-size: 32px;
-    width: var(--agent-avatar-size);
-    height: var(--agent-avatar-size);
-    border-radius: 50%;
-    overflow: hidden;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    background: var(--portal-gradient);
-    border: 2px solid rgba(255, 255, 255, 0.85);
-    box-shadow: var(--portal-shadow-sm);
-}
-
-.agent-avatar__img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
-
-.agent-avatar__initial {
-    color: #fff;
-    font-size: calc(var(--agent-avatar-size) * 0.38);
-    font-weight: 800;
-    line-height: 1;
 }
 
 @media (max-width: 1200px) {

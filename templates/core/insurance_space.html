@@ -693,17 +693,14 @@
                 {% for stat in agent_stats %}
                 <tr>
                   <td>
-                    <div style="display: inline-flex; align-items: center; gap: 0.55rem;">
-                      {% include "partials/_agent_avatar.html" with photo_url=stat.profile_photo_url initial=stat.fullname size="30px" %}
-                      <a href="{% url 'insurance-agent-detail' stat.user_id %}" style="background-color: {{ stat.bg_color }}; color: {{ stat.text_color }}; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; white-space: nowrap; text-decoration: none; display: inline-block;">
-                        {{ stat.fullname }}
-                      </a>
-                      {% if stat.is_best %}
-                        <span class="agent-rank-badge" title="Best Performer — #1 in premium volume">👑</span>
-                      {% elif stat.is_second %}
-                        <span class="agent-rank-badge" title="2nd in Performance — premium volume">⭐</span>
-                      {% endif %}
-                    </div>
+                    <a href="{% url 'insurance-agent-detail' stat.user_id %}" style="background-color: {{ stat.bg_color }}; color: {{ stat.text_color }}; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; white-space: nowrap; text-decoration: none; display: inline-block;">
+                      {{ stat.fullname }}
+                    </a>
+                    {% if stat.is_best %}
+                      <span class="agent-rank-badge" title="Best Performer — #1 in premium volume">👑</span>
+                    {% elif stat.is_second %}
+                      <span class="agent-rank-badge" title="2nd in Performance — premium volume">⭐</span>
+                    {% endif %}
                   </td>
                   <td style="text-align: center; font-weight: 700; color: #1d4ed8;">{{ stat.quotes_count }}</td>
                   <td style="text-align: center; font-weight: 700; color: #16a34a;">{{ stat.policies_bound }}</td>

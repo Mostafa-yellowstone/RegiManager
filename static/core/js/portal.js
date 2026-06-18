@@ -58,13 +58,6 @@
         initTopNav() {
             const notifBtn = document.getElementById('notifBtn');
             const notifDropdown = document.getElementById('notifDropdown');
-            const profileAvatarBtn = document.getElementById('portalAvatarBtn');
-            const profilePhotoForm = document.getElementById('portalProfilePhotoForm');
-            const profilePhotoInput = document.getElementById('portalProfilePhotoInput');
-            const profilePhotoStatus = document.getElementById('portalProfilePhotoStatus');
-            const profileAvatarBtnMobile = document.getElementById('portalAvatarBtnMobile');
-            const profilePhotoFormMobile = document.getElementById('portalProfilePhotoFormMobile');
-            const profilePhotoInputMobile = document.getElementById('portalProfilePhotoInputMobile');
             const locBtn = document.getElementById('locBtn');
             const locDropdown = document.getElementById('locDropdown');
             const locBtnDrawer = document.getElementById('locBtnDrawer');
@@ -137,50 +130,6 @@
                 });
             }
 
-            const bindProfilePhotoUpload = (form, input, btn, statusEl) => {
-                if (!form || !input) return;
-
-                if (btn) {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        input.click();
-                    });
-                }
-
-                input.addEventListener('change', () => {
-                    if (input.files && input.files.length) {
-                        form.requestSubmit();
-                    }
-                });
-
-                form.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    if (!input.files || !input.files.length) {
-                        if (statusEl) statusEl.textContent = 'Choose a photo first.';
-                        return;
-                    }
-                    if (statusEl) statusEl.textContent = 'Uploading…';
-                    try {
-                        const response = await fetch(form.action || '/dashboard/profile/photo/', {
-                            method: 'POST',
-                            body: new FormData(form),
-                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                        });
-                        const data = await response.json();
-                        if (!response.ok || data.status !== 'success') {
-                            throw new Error(data.message || 'Upload failed.');
-                        }
-                        if (statusEl) statusEl.textContent = 'Photo updated.';
-                        window.setTimeout(() => window.location.reload(), 500);
-                    } catch (err) {
-                        if (statusEl) statusEl.textContent = err.message || 'Upload failed.';
-                    }
-                });
-            };
-
-            bindProfilePhotoUpload(profilePhotoForm, profilePhotoInput, profileAvatarBtn, profilePhotoStatus);
-            bindProfilePhotoUpload(profilePhotoFormMobile, profilePhotoInputMobile, profileAvatarBtnMobile, profilePhotoStatus);
-
             if (locBtn && locDropdown) {
                 locBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -233,7 +182,7 @@
             });
 
             document.addEventListener('click', (e) => {
-                if (e.target.closest('#notifBtn, #notifDropdown, #portalAvatarBtn, #portalAvatarBtnMobile, #locBtn, #locDropdown, #locBtnDrawer, #locDropdownDrawer, #portalMobileNavBtn, .portal-mobile-drawer, #portalNavBackdrop')) {
+                if (e.target.closest('#notifBtn, #notifDropdown, #locBtn, #locDropdown, #locBtnDrawer, #locDropdownDrawer, #portalMobileNavBtn, .portal-mobile-drawer, #portalNavBackdrop')) {
                     return;
                 }
                 closeAll();

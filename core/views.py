@@ -109,15 +109,6 @@ def _require_insurance_finance(request, organization, *, membership=None, is_own
         deny_access("You do not have permission to manage insurance finance data.")
 
 
-def _membership_profile_photo_url(membership):
-    if membership and membership.profile_photo:
-        try:
-            return membership.profile_photo.url
-        except (ValueError, OSError):
-            return None
-    return None
-
-
 def _referral_category_options_for_org(org):
     from .models import ReferralCategoryOption
 
@@ -3227,46 +3218,6 @@ def update_agent_permissions(request):
         return JsonResponse({"status": "success"})
     return JsonResponse({"status": "error"}, status=400)
 
-
-@login_required
-@require_POST
-def update_profile_photo(request):
-    from django.core.cache import cache
-
-    photo = request.FILES.get("profile_photo")
-    if not photo:
-        return JsonResponse({"status": "error", "message": "No photo uploaded."}, status=400)
-
-    content_type = (getattr(photo, "content_type", "") or "").lower()
-    allowed = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
-    if content_type and content_type not in allowed:
-        return JsonResponse({"status": "error", "message": "Use a JPG, PNG, or WebP image."}, status=400)
-    if photo.size > 5 * 1024 * 1024:
-        return JsonResponse({"status": "error", "message": "Image must be 5 MB or smaller."}, status=400)
-
-    org_id = request.POST.get("organization_id") or request.session.get("active_org_id")
-    memberships = OrganizationMembership.objects.filter(
-        user=request.user,
-        is_active=True,
-        organization__is_active=True,
-    )
-    if org_id:
-        membership = memberships.filter(organization_id=org_id).first()
-    else:
-        membership = memberships.first()
-
-    if not membership:
-        return JsonResponse({"status": "error", "message": "Membership not found."}, status=404)
-
-    membership.profile_photo = photo
-    membership.save(update_fields=["profile_photo"])
-    cache.delete(f"nav_ctx:{request.user.pk}:{request.session.get('active_org_id')}")
-    cache.delete(f"nav_ctx:{request.user.pk}:None")
-
-    return JsonResponse({
-        "status": "success",
-        "photo_url": membership.profile_photo.url,
-    })
 
 @login_required
 def get_documents(request, service_id):
