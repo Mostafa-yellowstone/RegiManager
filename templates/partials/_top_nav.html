@@ -63,9 +63,6 @@
             </div>
 
             {% include "partials/_user_profile_menu.html" %}
-            <a href="{% url 'logout' %}" class="logout-icon-btn nav-icon-btn nav-right--desktop" title="Sign Out">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-            </a>
         </div>
     </div>
 
@@ -74,18 +71,7 @@
     <aside id="portalMobileNav" class="portal-mobile-drawer" aria-label="Mobile navigation" aria-hidden="true">
         <div class="portal-mobile-drawer__header">
             <div class="portal-mobile-drawer__user">
-                <form id="portalProfilePhotoFormMobile" class="avatar-upload-form" action="{% url 'update-profile-photo' %}" method="post" enctype="multipart/form-data">
-                    {% csrf_token %}
-                    {% if active_organization %}<input type="hidden" name="organization_id" value="{{ active_organization.id }}">{% endif %}
-                    <input type="file" id="portalProfilePhotoInputMobile" name="profile_photo" accept="image/jpeg,image/png,image/webp" class="avatar-upload-form__input" tabindex="-1" aria-hidden="true">
-                    <button type="button" class="avatar-circle" id="portalAvatarBtnMobile" title="Update profile photo" aria-label="Update profile photo">
-                        {% if nav_profile_photo_url %}
-                        <img src="{{ nav_profile_photo_url }}" alt="" class="avatar-circle__img">
-                        {% else %}
-                        {{ user.first_name|slice:":1"|upper }}
-                        {% endif %}
-                    </button>
-                </form>
+                {% include "partials/_agent_avatar.html" with photo_url=nav_profile_photo_url initial=user.first_name|default:user.username size="40px" %}
                 <div class="user-info">
                     <span class="user-name">{{ user.get_full_name|default:user.username }}</span>
                     <span class="user-role">{{ user_nav_role }}</span>
