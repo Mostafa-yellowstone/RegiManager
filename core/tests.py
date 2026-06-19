@@ -1334,6 +1334,11 @@ class ClientIntakeTests(TestCase):
         self.assertContains(response, 'name="source"')
         self.assertContains(response, 'value="google_search" selected')
 
+    def test_intake_views_imports_client_ip_for_rate_limit(self):
+        from core import intake_views
+
+        self.assertTrue(callable(intake_views.client_ip))
+
     def test_public_intake_submission_saves_source(self):
         from core.models import ClientIntake, Referral
         dealer = Referral.objects.create(organization=self.org, name="Portal Dealer", category="dealer")
