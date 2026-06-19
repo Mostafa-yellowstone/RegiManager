@@ -730,7 +730,7 @@ class AgentAuditingTests(TestCase):
         self.assertIn("POL-MONTH-CURRENT-EARLY", policy_numbers)
         self.assertIn("POL-MONTH-CURRENT-LATE", policy_numbers)
         self.assertNotIn("POL-MONTH-PRIOR", policy_numbers)
-        self.assertEqual(policy_numbers[0], "POL-MONTH-CURRENT-EARLY")
+        self.assertEqual(policy_numbers[0], "POL-MONTH-CURRENT-LATE")
 
         response = self.client.get(
             reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance&comp_month_offset=-1"

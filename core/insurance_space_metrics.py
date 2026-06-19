@@ -91,7 +91,7 @@ def filter_policies_by_quote_period(policy_qs, start, end):
 
 
 def quote_period_ordering():
-    return ["bound_date", "-created_at"]
+    return ["-bound_date", "-created_at"]
 
 
 def period_stats(policy_qs, start, end):
