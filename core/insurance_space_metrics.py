@@ -1,6 +1,9 @@
 """Performance helpers for Insurance Space."""
 
+from datetime import date, datetime, timedelta
 from decimal import Decimal
+
+import calendar
 
 from django.db.models import Count, Prefetch, Q, Sum
 
@@ -18,8 +21,81 @@ def get_user_colors(username):
     return f"hsl({h}, 75%, 93%)", f"hsl({h}, 80%, 25%)"
 
 
+def resolve_insurance_period_bounds(
+    mode="monthly",
+    month_offset=0,
+    custom_from="",
+    custom_to="",
+    *,
+    today=None,
+):
+    """Return inclusive start/end dates for the selected insurance CRM period."""
+    today = today or date.today()
+    if mode == "custom" and custom_from and custom_to:
+        try:
+            return (
+                datetime.strptime(custom_from, "%Y-%m-%d").date(),
+                datetime.strptime(custom_to, "%Y-%m-%d").date(),
+            )
+        except ValueError:
+            pass
+
+    yr, mo = today.year, today.month
+    total_months = yr * 12 + (mo - 1) + month_offset
+    yr = total_months // 12
+    mo = (total_months % 12) + 1
+    if mode == "quarterly":
+        q_start_mo = ((mo - 1) // 3) * 3 + 1
+        start = date(yr, q_start_mo, 1)
+        end_mo = q_start_mo + 2
+        end_yr = yr
+        if end_mo > 12:
+            end_mo -= 12
+            end_yr += 1
+        end = date(end_yr, end_mo, calendar.monthrange(end_yr, end_mo)[1])
+    else:
+        start = date(yr, mo, 1)
+        end = date(yr, mo, calendar.monthrange(yr, mo)[1])
+    return start, end
+
+
+def previous_insurance_period_bounds(
+    mode,
+    month_offset,
+    custom_from="",
+    custom_to="",
+    *,
+    today=None,
+):
+    if mode == "quarterly":
+        return resolve_insurance_period_bounds(
+            mode, month_offset - 3, custom_from, custom_to, today=today
+        )
+    if mode == "custom" and custom_from and custom_to:
+        try:
+            start = datetime.strptime(custom_from, "%Y-%m-%d").date()
+            end = datetime.strptime(custom_to, "%Y-%m-%d").date()
+            duration = (end - start).days
+            return start - timedelta(days=duration + 1), start - timedelta(days=1)
+        except ValueError:
+            return resolve_insurance_period_bounds(
+                "monthly", month_offset - 1, today=today
+            )
+    return resolve_insurance_period_bounds(
+        "monthly", month_offset - 1, custom_from, custom_to, today=today
+    )
+
+
+def filter_policies_by_quote_period(policy_qs, start, end):
+    return policy_qs.filter(bound_date__gte=start, bound_date__lte=end)
+
+
+def quote_period_ordering():
+    return ["bound_date", "-created_at"]
+
+
 def period_stats(policy_qs, start, end):
-    period_qs = policy_qs.filter(created_at__date__gte=start, created_at__date__lte=end)
+    period_qs = filter_policies_by_quote_period(policy_qs, start, end)
     quotes = period_qs.filter(stage__in=InsurancePolicy.QUOTE_STAGES).count()
     bound = period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES).count()
     total = quotes + bound
@@ -90,10 +166,13 @@ def build_company_summaries(insurance_companies, all_policies):
     return summaries
 
 
-def build_agent_stats(all_policies, insurance_memberships):
+def build_agent_stats(policy_qs, insurance_memberships, start=None, end=None):
+    scoped_policies = policy_qs
+    if start is not None and end is not None:
+        scoped_policies = filter_policies_by_quote_period(policy_qs, start, end)
     rows = {
         row["added_by_id"]: row
-        for row in all_policies.filter(added_by__isnull=False)
+        for row in scoped_policies.filter(added_by__isnull=False)
         .values("added_by_id")
         .annotate(
             quotes_count=Count("id", filter=Q(stage__in=InsurancePolicy.QUOTE_STAGES)),

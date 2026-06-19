@@ -81,8 +81,12 @@ from .insurance_space_metrics import (
     build_agent_stats,
     build_company_summaries,
     decorate_policies,
+    filter_policies_by_quote_period,
     period_stats,
     prefetch_insurance_companies,
+    previous_insurance_period_bounds,
+    quote_period_ordering,
+    resolve_insurance_period_bounds,
 )
 from .dmv_documents import (
     build_vehicle_document_hub,
@@ -5694,11 +5698,26 @@ def inventory_detail(request, inventory_id):
         min_premium = request.GET.get("min_premium", "").strip()
         max_premium = request.GET.get("max_premium", "").strip()
 
+        comp_mode = request.GET.get("comp_mode", "monthly").strip()
+        comp_month_offset = 0
+        try:
+            comp_month_offset = int(request.GET.get("comp_month_offset", "0"))
+        except Exception:
+            pass
+        comp_custom_from = request.GET.get("comp_from", "").strip()
+        comp_custom_to = request.GET.get("comp_to", "").strip()
+        comp_start, comp_end = resolve_insurance_period_bounds(
+            comp_mode, comp_month_offset, comp_custom_from, comp_custom_to
+        )
+        prev_start, prev_end = previous_insurance_period_bounds(
+            comp_mode, comp_month_offset, comp_custom_from, comp_custom_to
+        )
+
         # Base query for all policies
         all_policies = InsurancePolicy.objects.filter(organization=active_org).select_related("client", "insurance_company", "added_by")
 
-        # Filter policies for the CRM table
-        policies = all_policies
+        # Filter policies for the CRM table (selected period uses quote date)
+        policies = filter_policies_by_quote_period(all_policies, comp_start, comp_end)
         if search_query:
             from django.db.models import Q
             policies = policies.filter(
@@ -5717,9 +5736,9 @@ def inventory_detail(request, inventory_id):
         if business_type_filter:
             policies = policies.filter(business_type=business_type_filter)
         if date_from:
-            policies = policies.filter(start_date__gte=date_from)
+            policies = policies.filter(bound_date__gte=date_from)
         if date_to:
-            policies = policies.filter(start_date__lte=date_to)
+            policies = policies.filter(bound_date__lte=date_to)
         if company_filter:
             policies = policies.filter(insurance_company_id=company_filter)
         if agent_filter:
@@ -5789,67 +5808,6 @@ def inventory_detail(request, inventory_id):
         total_commission = active_totals["total_commission"] or Decimal("0")
 
         # ── CRM Comparison Stats ──────────────────────────────────────────────
-        import json as _json
-        from datetime import date as _date, datetime as _datetime
-        _today = _date.today()
-
-        # Comparison mode: monthly (default), quarterly, custom
-        comp_mode = request.GET.get("comp_mode", "monthly").strip()
-        comp_month_offset = 0
-        try:
-            comp_month_offset = int(request.GET.get("comp_month_offset", "0"))
-        except Exception:
-            pass
-        comp_custom_from = request.GET.get("comp_from", "").strip()
-        comp_custom_to = request.GET.get("comp_to", "").strip()
-
-        def _period_bounds(mode, month_offset, custom_from="", custom_to=""):
-            if mode == "custom" and custom_from and custom_to:
-                try:
-                    return _datetime.strptime(custom_from, "%Y-%m-%d").date(), _datetime.strptime(custom_to, "%Y-%m-%d").date()
-                except Exception:
-                    pass
-            # Compute target month
-            import calendar
-            yr, mo = _today.year, _today.month
-            total_months = yr * 12 + (mo - 1) + month_offset
-            yr = total_months // 12
-            mo = (total_months % 12) + 1
-            if mode == "quarterly":
-                q_start_mo = ((mo - 1) // 3) * 3 + 1
-                start = _date(yr, q_start_mo, 1)
-                end_mo = q_start_mo + 2
-                end_yr = yr
-                if end_mo > 12:
-                    end_mo -= 12
-                    end_yr += 1
-                import calendar
-                end = _date(end_yr, end_mo, calendar.monthrange(end_yr, end_mo)[1])
-            else:  # monthly
-                import calendar
-                start = _date(yr, mo, 1)
-                end = _date(yr, mo, calendar.monthrange(yr, mo)[1])
-            return start, end
-
-        def _prev_period_bounds(mode, month_offset, custom_from="", custom_to=""):
-            if mode == "quarterly":
-                return _period_bounds(mode, month_offset - 3)
-            elif mode == "custom":
-                # Shift by same duration
-                try:
-                    s = _datetime.strptime(custom_from, "%Y-%m-%d").date()
-                    e = _datetime.strptime(custom_to, "%Y-%m-%d").date()
-                    duration = (e - s).days
-                    from datetime import timedelta
-                    return s - _datetime.timedelta(days=duration + 1), s - _datetime.timedelta(days=1)
-                except Exception:
-                    return _period_bounds("monthly", month_offset - 1)
-            else:
-                return _period_bounds("monthly", month_offset - 1)
-
-        comp_start, comp_end = _period_bounds(comp_mode, comp_month_offset, comp_custom_from, comp_custom_to)
-        prev_start, prev_end = _prev_period_bounds(comp_mode, comp_month_offset, comp_custom_from, comp_custom_to)
-
         comp_current = period_stats(all_policies, comp_start, comp_end)
         comp_previous = period_stats(all_policies, prev_start, prev_end)
         comp_period_label = f"{comp_start.strftime('%b %d')} – {comp_end.strftime('%b %d, %Y')}"
@@ -5882,13 +5840,20 @@ def inventory_detail(request, inventory_id):
         )
 
         crm_page_num = request.GET.get("page", 1)
-        crm_policies_page = Paginator(policies.order_by("-created_at"), 12).get_page(crm_page_num)
+        crm_policies_page = Paginator(policies.order_by(*quote_period_ordering()), 12).get_page(crm_page_num)
         decorate_policies(crm_policies_page, adjusted_unearned_map)
 
         insurance_policies_query = request.GET.copy()
         insurance_policies_query.pop("page", None)
         insurance_policies_query["tab"] = "insurance"
         insurance_policies_query_string = insurance_policies_query.urlencode()
+
+        month_prev_query = insurance_policies_query.copy()
+        month_prev_query["comp_month_offset"] = str(comp_month_offset - 1)
+        insurance_month_prev_query_string = month_prev_query.urlencode()
+        month_next_query = insurance_policies_query.copy()
+        month_next_query["comp_month_offset"] = str(comp_month_offset + 1)
+        insurance_month_next_query_string = month_next_query.urlencode()
 
         bank_page_num = request.GET.get("bank_page", 1)
         bank_transactions_page = Paginator(
@@ -5906,7 +5871,9 @@ def inventory_detail(request, inventory_id):
             is_active=True,
             user__is_active=True,
         ).select_related("user")
-        agent_stats, best_performer = build_agent_stats(all_policies, insurance_memberships)
+        agent_stats, best_performer = build_agent_stats(
+            all_policies, insurance_memberships, comp_start, comp_end
+        )
 
         chart_agent_names = [s["fullname"] for s in agent_stats]
         chart_agent_premiums = [float(s["total_premium"]) for s in agent_stats]
@@ -6040,6 +6007,8 @@ def inventory_detail(request, inventory_id):
             "min_premium": min_premium,
             "max_premium": max_premium,
             "insurance_policies_query_string": insurance_policies_query_string,
+            "insurance_month_prev_query_string": insurance_month_prev_query_string,
+            "insurance_month_next_query_string": insurance_month_next_query_string,
             "bank_transactions_query_string": bank_transactions_query_string,
             "insurance_source_choices": INSURANCE_SOURCE_CHOICES,
             "user_can_view_banking": user_can_view_banking,
@@ -6355,7 +6324,10 @@ def add_insurance_policy(request):
     insurance_type = request.POST.get("insurance_type", "")
     source = request.POST.get("source", "walk_in")
     business_type = request.POST.get("business_type", "new_business")
-    bound_date = request.POST.get("bound_date") or None
+    bound_date = request.POST.get("bound_date", "").strip()
+    if not bound_date:
+        messages.error(request, "Quote date is required.")
+        return _redirect_to_insurance_detail(org)
     start_date = request.POST.get("start_date")
     end_date = request.POST.get("end_date")
     insurance_period_months = request.POST.get("insurance_period_months", "6")
@@ -6447,7 +6419,11 @@ def edit_insurance_policy(request, policy_id):
         policy.insurance_type = request.POST.get("insurance_type", "")
         policy.source = request.POST.get("source", "walk_in")
         policy.business_type = request.POST.get("business_type", "new_business")
-        policy.bound_date = request.POST.get("bound_date") or None
+        bound_date = request.POST.get("bound_date", "").strip()
+        if not bound_date:
+            messages.error(request, "Quote date is required.")
+            return _redirect_to_insurance_detail(policy.organization)
+        policy.bound_date = bound_date
         policy.start_date = request.POST.get("start_date")
         policy.end_date = request.POST.get("end_date")
         policy.insurance_period_months = int(request.POST.get("insurance_period_months", "6") or 6)

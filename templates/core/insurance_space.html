@@ -133,8 +133,8 @@
               <button type="submit" style="padding: 6px 12px; border-radius: 8px; background: #093de6; border: none; color: white; font-weight: 700; font-size: 0.82rem; cursor: pointer;">Apply</button>
               {% else %}
               <input type="hidden" name="comp_month_offset" value="{{ comp_month_offset }}">
-              <a href="?comp_mode={{ comp_mode }}&comp_month_offset={{ comp_month_offset|add:"-1" }}" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.16); color: #f8fafc; font-weight: 700; font-size: 0.9rem; text-decoration: none;">‹</a>
-              <a href="?comp_mode={{ comp_mode }}&comp_month_offset={{ comp_month_offset|add:"1" }}" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.16); color: #f8fafc; font-weight: 700; font-size: 0.9rem; text-decoration: none;">›</a>
+              <a href="?{{ insurance_month_prev_query_string }}" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.16); color: #f8fafc; font-weight: 700; font-size: 0.9rem; text-decoration: none;">‹</a>
+              <a href="?{{ insurance_month_next_query_string }}" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.16); color: #f8fafc; font-weight: 700; font-size: 0.9rem; text-decoration: none;">›</a>
               {% endif %}
             </form>
           </div>
@@ -191,6 +191,12 @@
       <div style="background: #f8fafc; border-radius: 16px; padding: 1.25rem; border: 1px solid #e2e8f0; margin-bottom: 1.5rem;">
         <form method="GET" style="display: flex; flex-direction: column; gap: 0.8rem;">
           <input type="hidden" name="tab" value="insurance">
+          <input type="hidden" name="comp_mode" value="{{ comp_mode }}">
+          <input type="hidden" name="comp_month_offset" value="{{ comp_month_offset }}">
+          {% if comp_mode == 'custom' %}
+          <input type="hidden" name="comp_from" value="{{ comp_custom_from }}">
+          <input type="hidden" name="comp_to" value="{{ comp_custom_to }}">
+          {% endif %}
           <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
             <div style="flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 0.3rem;">
               <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Search Policies</label>
@@ -267,11 +273,11 @@
                 </select>
               </div>
               <div style="display: flex; flex-direction: column; gap: 0.3rem;">
-                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">From Date</label>
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Quote From</label>
                 <input type="date" name="date_from" value="{{ date_from }}" style="padding: 7px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
               </div>
               <div style="display: flex; flex-direction: column; gap: 0.3rem;">
-                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">To Date</label>
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Quote To</label>
                 <input type="date" name="date_to" value="{{ date_to }}" style="padding: 7px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
               </div>
               <div style="display: flex; flex-direction: column; gap: 0.3rem;">
@@ -287,8 +293,11 @@
         </form>
       </div>
 
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-        <h3 class="ins-section-title">Client Insurance Policies</h3>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+          <h3 class="ins-section-title" style="margin-bottom: 0.2rem;">Client Insurance Policies</h3>
+          <p style="margin: 0; color: #64748b; font-size: 0.85rem; font-weight: 600;">Showing quote dates in {{ comp_period_label }}</p>
+        </div>
         <button onclick="openAddPolicyModal()" style="padding: 8px 18px; background: #093de6; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Add Policy</button>
       </div>
       <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
@@ -380,7 +389,7 @@
               </td>
             </tr>
             {% empty %}
-            <tr><td colspan="11" style="text-align: center; padding: 3rem; color: #64748b; font-weight: 600;">No policies yet.</td></tr>
+            <tr><td colspan="11" style="text-align: center; padding: 3rem; color: #64748b; font-weight: 600;">No policies with a quote date in this period.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -799,6 +808,11 @@
     <form id="policyForm" method="POST" action="{% url 'add-insurance-policy' %}">
       {% csrf_token %}
       <input type="hidden" name="organization" value="{{ active_org.id }}">
+
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Quote Date <span style="color:#dc2626;">*</span></label>
+        <input type="date" name="bound_date" id="policyBoundDate" required class="field-input">
+      </div>
       
       <!-- Typed client name input with suggestions datalist -->
       <div style="margin-bottom: 1rem;">
@@ -876,10 +890,6 @@
             <option value="rewrite" style="background:#fff7ed; color:#9a3412;">✏️ Rewrite</option>
           </select>
         </div>
-      </div>
-      <div style="margin-bottom: 1rem;">
-        <label class="field-label">Quote Date</label>
-        <input type="date" name="bound_date" id="policyBoundDate" class="field-input">
       </div>
       <div id="inactiveDateRow" style="display: none; margin-bottom: 1rem;">
         <label class="field-label">Cancellation Date</label>
@@ -1181,7 +1191,7 @@ function openAddPolicyModal() {
   document.getElementById('policyInsuranceType').value = '';
   document.getElementById('policySource').value = 'walk_in';
   document.getElementById('policyBusinessType').value = 'new_business';
-  document.getElementById('policyBoundDate').value = '';
+  document.getElementById('policyBoundDate').value = new Date().toISOString().split('T')[0];
   toggleInactiveDate();
   document.getElementById('addPolicyModal').classList.add('active');
 }

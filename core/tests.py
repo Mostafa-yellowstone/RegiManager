@@ -21,6 +21,7 @@ class InsuranceSpaceTests(TestCase):
         self.company = InsuranceCompany.objects.create(organization=self.org, name="Allstate")
         self.client = TestClient()
         self.client.login(username="testuser", password="password123")
+        self.quote_date = date.today().isoformat()
 
     def test_add_policy_creates_client_if_not_exists(self):
         # We start with 0 clients in the organization
@@ -35,6 +36,7 @@ class InsuranceSpaceTests(TestCase):
             "commission_rate": "10.00",
             "stage": "bound",
             "status": "active",
+            "bound_date": self.quote_date,
             "start_date": "2026-06-01",
             "end_date": "2026-12-01",
             "insurance_period_months": "6",
@@ -53,6 +55,23 @@ class InsuranceSpaceTests(TestCase):
         self.assertEqual(policy.policy_number, "POL-999")
         self.assertEqual(policy.premium, Decimal("1200.00"))
         self.assertEqual(policy.commission_amount, Decimal("120.00"))
+
+    def test_add_policy_requires_quote_date(self):
+        response = self.client.post(reverse("add-insurance-policy"), {
+            "organization": self.org.id,
+            "client_name": "No Quote Date",
+            "insurance_company": self.company.id,
+            "policy_number": "POL-NO-QUOTE",
+            "premium": "900.00",
+            "commission_rate": "10.00",
+            "stage": "quote",
+            "status": "active",
+            "start_date": "2026-06-01",
+            "end_date": "2026-12-01",
+            "insurance_period_months": "6",
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(InsurancePolicy.objects.filter(policy_number="POL-NO-QUOTE").exists())
 
     def test_add_policy_uses_existing_client_if_exists(self):
         # Create an existing client
@@ -73,6 +92,7 @@ class InsuranceSpaceTests(TestCase):
             "commission_rate": "15.00",
             "stage": "bound",
             "status": "active",
+            "bound_date": self.quote_date,
             "start_date": "2026-06-01",
             "end_date": "2026-12-01",
             "insurance_period_months": "6",
@@ -457,6 +477,7 @@ class AgentAuditingTests(TestCase):
         self.org = Organization.objects.create(name="Test Org", city="NYC")
         self.space = Space.objects.create(organization=self.org, label="Insurance Space", key="insurance")
         self.company = InsuranceCompany.objects.create(organization=self.org, name="Geico")
+        self.quote_date = date.today()
         
         # User 1: Deal with insurance
         self.user1 = User.objects.create_user(username="agent1", password="password123")
@@ -498,13 +519,13 @@ class AgentAuditingTests(TestCase):
             organization=self.org, client=self.client_obj1, policy_number="POL-A1",
             insurance_company=self.company, premium=Decimal("500.00"), broker_fee=Decimal("10.00"),
             commission_rate=Decimal("10.00"), stage="quote", status="active", added_by=self.user1,
-            start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6
+            start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6, bound_date=self.quote_date
         )
         InsurancePolicy.objects.create(
             organization=self.org, client=self.client_obj1, policy_number="POL-A2",
             insurance_company=self.company, premium=Decimal("1000.00"), broker_fee=Decimal("50.00"),
             commission_rate=Decimal("10.00"), stage="bound", status="active", added_by=self.user1,
-            start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6
+            start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6, bound_date=self.quote_date
         )
         
         # Agent 2 has:
@@ -513,7 +534,7 @@ class AgentAuditingTests(TestCase):
             organization=self.org, client=self.client_obj2, policy_number="POL-B1",
             insurance_company=self.company, premium=Decimal("2000.00"), broker_fee=Decimal("100.00"),
             commission_rate=Decimal("15.00"), stage="bound", status="active", added_by=self.user2,
-            start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6
+            start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6, bound_date=self.quote_date
         )
         
         # Access the inventory-detail view for the insurance space
@@ -564,14 +585,14 @@ class AgentAuditingTests(TestCase):
             organization=self.org, client=self.client_obj1, policy_number="POL-FILTER-A",
             insurance_company=self.company, premium=Decimal("1500.00"), broker_fee=Decimal("50.00"),
             commission_rate=Decimal("10.00"), stage="bound", status="active", added_by=self.user1,
-            start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6
+            start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6, bound_date=self.quote_date
         )
         # Policy B
         InsurancePolicy.objects.create(
             organization=self.org, client=self.client_obj2, policy_number="POL-FILTER-B",
             insurance_company=self.company, premium=Decimal("2500.00"), broker_fee=Decimal("80.00"),
             commission_rate=Decimal("12.00"), stage="quote", status="active", added_by=self.user2,
-            start_date="2026-06-15", end_date="2026-12-15", insurance_period_months=6
+            start_date="2026-06-15", end_date="2026-12-15", insurance_period_months=6, bound_date=self.quote_date
         )
         
         # Filter by stage = "bound"
@@ -607,6 +628,7 @@ class AgentAuditingTests(TestCase):
                 start_date="2026-06-01",
                 end_date="2026-12-01",
                 insurance_period_months=6,
+                bound_date=self.quote_date,
             )
 
         InsurancePolicy.objects.create(
@@ -625,6 +647,7 @@ class AgentAuditingTests(TestCase):
             start_date="2026-06-01",
             end_date="2026-12-01",
             insurance_period_months=6,
+            bound_date=self.quote_date,
         )
 
         query = (
@@ -646,6 +669,75 @@ class AgentAuditingTests(TestCase):
         self.assertIn(f"agent={self.user1.id}", response.context["insurance_policies_query_string"])
         self.assertNotIn("page=", response.context["insurance_policies_query_string"])
 
+    def test_insurance_space_filters_and_sorts_by_quote_date_month(self):
+        today = date.today()
+        if today.month == 1:
+            prior_month_day = date(today.year - 1, 12, 10)
+        else:
+            prior_month_day = date(today.year, today.month - 1, 10)
+
+        InsurancePolicy.objects.create(
+            organization=self.org,
+            client=self.client_obj1,
+            policy_number="POL-MONTH-CURRENT-LATE",
+            insurance_company=self.company,
+            premium=Decimal("900.00"),
+            broker_fee=Decimal("10.00"),
+            commission_rate=Decimal("10.00"),
+            stage="quote",
+            status="active",
+            added_by=self.user1,
+            start_date="2026-06-01",
+            end_date="2026-12-01",
+            insurance_period_months=6,
+            bound_date=today.replace(day=min(28, today.day + 2)) if today.day <= 26 else today,
+        )
+        InsurancePolicy.objects.create(
+            organization=self.org,
+            client=self.client_obj1,
+            policy_number="POL-MONTH-CURRENT-EARLY",
+            insurance_company=self.company,
+            premium=Decimal("800.00"),
+            broker_fee=Decimal("10.00"),
+            commission_rate=Decimal("10.00"),
+            stage="quote",
+            status="active",
+            added_by=self.user1,
+            start_date="2026-06-01",
+            end_date="2026-12-01",
+            insurance_period_months=6,
+            bound_date=today.replace(day=1),
+        )
+        InsurancePolicy.objects.create(
+            organization=self.org,
+            client=self.client_obj2,
+            policy_number="POL-MONTH-PRIOR",
+            insurance_company=self.company,
+            premium=Decimal("700.00"),
+            broker_fee=Decimal("10.00"),
+            commission_rate=Decimal("10.00"),
+            stage="quote",
+            status="active",
+            added_by=self.user2,
+            start_date="2026-06-01",
+            end_date="2026-12-01",
+            insurance_period_months=6,
+            bound_date=prior_month_day,
+        )
+
+        response = self.client.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance")
+        policy_numbers = [p.policy_number for p in response.context["policies"]]
+        self.assertIn("POL-MONTH-CURRENT-EARLY", policy_numbers)
+        self.assertIn("POL-MONTH-CURRENT-LATE", policy_numbers)
+        self.assertNotIn("POL-MONTH-PRIOR", policy_numbers)
+        self.assertEqual(policy_numbers[0], "POL-MONTH-CURRENT-EARLY")
+
+        response = self.client.get(
+            reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance&comp_month_offset=-1"
+        )
+        policy_numbers = [p.policy_number for p in response.context["policies"]]
+        self.assertEqual(policy_numbers, ["POL-MONTH-PRIOR"])
+
     def test_unearned_commission_deducted_by_transactions(self):
         # Set active_org_id in session for PDF report endpoint compatibility
         session = self.client.session
@@ -658,7 +750,7 @@ class AgentAuditingTests(TestCase):
             insurance_company=self.company, premium=Decimal("1000.00"), broker_fee=Decimal("0.00"),
             commission_rate=Decimal("10.00"), stage="bound", status="inactive", added_by=self.user1,
             start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6,
-            inactive_date="2026-06-01"
+            inactive_date="2026-06-01", bound_date=self.quote_date,
         )
         # Verify initial unearned commission is exactly commission_amount ($100.00)
         self.assertEqual(policy.commission_amount, Decimal("100.00"))
