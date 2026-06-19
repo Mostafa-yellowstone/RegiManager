@@ -84,13 +84,6 @@ def find_existing_client_for_intake(intake) -> Client | None:
         if match:
             return match
 
-    if first_name and last_name:
-        return qs.filter(
-            first_name__iexact=first_name,
-            last_name__iexact=last_name,
-            is_commercial=False,
-        ).first()
-
     return None
 
 
@@ -194,35 +187,22 @@ def validate_intake_submission(organization, data) -> str | None:
     vin = (_intake_field(data, "vin") or "").strip()
     pending = find_pending_intake_duplicate(organization, data)
     if pending:
-        if vin and (pending.vin or "").strip().upper() == vin.upper():
+        pending_vin = (pending.vin or "").strip().upper()
+        submit_vin = vin.upper() if vin else ""
+        if submit_vin and pending_vin == submit_vin:
             return (
                 "An application for this vehicle is already being reviewed. "
                 "Please contact the office if you need to make changes."
             )
-        return (
-            "You already submitted an application that is being reviewed. "
-            "Please contact the office instead of submitting again."
-        )
+        if not (submit_vin and pending_vin and submit_vin != pending_vin):
+            return (
+                "You already submitted an application that is being reviewed. "
+                "Please contact the office instead of submitting again."
+            )
 
     existing_client = find_existing_client_for_intake(_IntakeIdentity(data, organization))
     if not existing_client:
         return None
-
-    if existing_client.is_commercial:
-        if vin:
-            has_vehicle = Vehicle.objects.filter(
-                client=existing_client,
-                vin__iexact=vin,
-            ).exists()
-            if has_vehicle:
-                return (
-                    "This vehicle is already on file for this business. "
-                    "Please contact the office if you need help with your registration."
-                )
-        return (
-            "A business profile matching this information is already in our system. "
-            "Please contact the office instead of submitting a new application."
-        )
 
     if vin:
         has_vehicle = Vehicle.objects.filter(
@@ -230,15 +210,18 @@ def validate_intake_submission(organization, data) -> str | None:
             vin__iexact=vin,
         ).exists()
         if has_vehicle:
+            if existing_client.is_commercial:
+                return (
+                    "This vehicle is already on file for this business. "
+                    "Please contact the office if you need help with your registration."
+                )
             return (
                 "This vehicle is already on file for your profile. "
                 "Please contact the office if you need help with your registration."
             )
 
-    return (
-        "A profile matching your information is already in our system. "
-        "Please contact the office instead of submitting a new application."
-    )
+    # Returning customers may submit intakes for new vehicles or services.
+    return None
 
 
 def validate_intake_submission_from_form(organization, cleaned_data) -> str | None:

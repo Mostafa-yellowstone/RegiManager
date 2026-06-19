@@ -305,7 +305,7 @@ class IntakePortalEnhancementTests(TestCase):
         self.assertContains(response, "already on file")
         self.assertEqual(ClientIntake.objects.filter(organization=self.org).count(), 0)
 
-    def test_intake_blocks_existing_client_profile_resubmission(self):
+    def test_intake_allows_existing_client_new_vehicle_submission(self):
         Client.objects.create(
             organization=self.org,
             first_name="Jane",
@@ -318,9 +318,30 @@ class IntakePortalEnhancementTests(TestCase):
             reverse("public-intake-direct", args=[self.org.portal_token]),
             self._base_post(vin="NEWVIN0000000002"),
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "already in our system")
-        self.assertEqual(ClientIntake.objects.filter(organization=self.org).count(), 0)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(ClientIntake.objects.filter(organization=self.org).count(), 1)
+
+    def test_intake_allows_same_name_different_people(self):
+        Client.objects.create(
+            organization=self.org,
+            first_name="John",
+            last_name="Smith",
+            gender="male",
+            phone_number="7185551111",
+            dob="1980-01-01",
+        )
+        response = self.http.post(
+            reverse("public-intake-direct", args=[self.org.portal_token]),
+            self._base_post(
+                first_name="John",
+                last_name="Smith",
+                phone_number="7185552222",
+                driver_license="DL-JOHN-OTHER",
+                vin="NEWVIN0000000099",
+            ),
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(ClientIntake.objects.filter(organization=self.org).count(), 1)
 
     def test_approve_links_existing_client_by_name_without_duplicate(self):
         existing = Client.objects.create(
@@ -395,7 +416,7 @@ class IntakePortalEnhancementTests(TestCase):
         self.assertTrue(client.is_commercial)
         self.assertEqual(client.business_ein, "12-3456789")
 
-    def test_commercial_intake_blocks_duplicate_business(self):
+    def test_commercial_intake_allows_existing_business_new_vehicle(self):
         Client.objects.create(
             organization=self.org,
             first_name="Commercial",
@@ -414,8 +435,8 @@ class IntakePortalEnhancementTests(TestCase):
                 "business_ein": "12-3456789",
             },
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "business profile")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(ClientIntake.objects.filter(organization=self.org, business_ein="12-3456789").count(), 1)
 
     def test_intake_monthly_payment_saved_and_copied_on_approval(self):
         response = self.http.post(
