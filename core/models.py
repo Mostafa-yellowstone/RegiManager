@@ -1203,6 +1203,22 @@ class ClientIntake(models.Model):
             return self.business_name
         return f"{self.first_name} {self.last_name}"
 
+    @property
+    def estimated_sales_tax(self):
+        from .intake_fee_estimates import get_fee_estimate
+
+        return get_fee_estimate(self.additional_data, "estimated_sales_tax")
+
+    @property
+    def estimated_dmv_fees(self):
+        from .intake_fee_estimates import get_fee_estimate
+
+        return get_fee_estimate(self.additional_data, "estimated_dmv_fees")
+
+    @property
+    def has_fee_estimates(self):
+        return self.estimated_sales_tax is not None or self.estimated_dmv_fees is not None
+
     def __str__(self):
         return f"Intake: {self.name} ({self.organization.name})"
 

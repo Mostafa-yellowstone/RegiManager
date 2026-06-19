@@ -151,6 +151,16 @@
                                 <span style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 800;">ALREADY IN SYSTEM</span>
                                 {% endif %}
                             </div>
+                            {% if intake.has_fee_estimates %}
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.8rem; color: #94a3b8;">
+                                {% if intake.estimated_sales_tax is not None %}
+                                <span>Est. sales tax: <strong style="color: #cbd5e1;">${{ intake.estimated_sales_tax|floatformat:2 }}</strong></span>
+                                {% endif %}
+                                {% if intake.estimated_dmv_fees is not None %}
+                                <span>Est. DMV fees: <strong style="color: #cbd5e1;">${{ intake.estimated_dmv_fees|floatformat:2 }}</strong></span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
                         </div>
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">

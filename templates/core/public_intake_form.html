@@ -135,6 +135,79 @@
         text-decoration: underline;
     }
 
+    .intake-fee-estimate-section {
+        background: #f0fdf4;
+        border-bottom: 1px solid #bbf7d0;
+    }
+
+    .intake-fee-estimate-intro {
+        margin: 0 0 1.25rem;
+        color: #475569;
+        font-size: 0.9rem;
+        line-height: 1.55;
+        max-width: 760px;
+    }
+
+    .intake-fee-estimate-cards {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .intake-fee-estimate-card {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        padding: 1rem 1.1rem;
+        border-radius: 14px;
+        border: 1px solid #bbf7d0;
+        background: #fff;
+        text-decoration: none;
+        color: inherit;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    .intake-fee-estimate-card:hover {
+        border-color: #22c55e;
+        box-shadow: 0 10px 24px rgba(34, 197, 94, 0.12);
+        transform: translateY(-1px);
+    }
+
+    .intake-fee-estimate-card__title {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: #14532d;
+    }
+
+    .intake-fee-estimate-card__meta {
+        font-size: 0.78rem;
+        color: #64748b;
+        line-height: 1.45;
+    }
+
+    .intake-fee-estimate-card__cta {
+        margin-top: auto;
+        font-size: 0.78rem;
+        font-weight: 800;
+        color: #15803d;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .intake-fee-estimate-disclaimer {
+        margin: 0 0 1rem;
+        font-size: 0.78rem;
+        color: #64748b;
+        line-height: 1.45;
+    }
+
+    @media (max-width: 700px) {
+        .intake-fee-estimate-cards {
+            grid-template-columns: 1fr;
+        }
+    }
+
     .footer-actions {
         padding: 2rem;
         background: #f8fafc;
@@ -646,6 +719,41 @@
                 </div>
 
             </section>
+
+            {% if show_ny_fee_estimates %}
+            <section class="step-section intake-fee-estimate-section">
+                <div class="step-title"><span class="step-number">3.1</span> Estimate NY DMV Costs</div>
+                <p class="intake-fee-estimate-intro">
+                    Use the official New York tools below to estimate sales tax and DMV registration fees for your transaction.
+                    If you already have amounts, you may enter them optionally so our team can review them with your submission.
+                </p>
+                <div class="intake-fee-estimate-cards">
+                    <a href="{{ ny_sales_tax_calculator_url }}" class="intake-fee-estimate-card" target="_blank" rel="noopener noreferrer">
+                        <span class="intake-fee-estimate-card__title">NY Sales Tax Calculator</span>
+                        <span class="intake-fee-estimate-card__meta">Estimate sales tax based on your purchase price and location.</span>
+                        <span class="intake-fee-estimate-card__cta">Open calculator ↗</span>
+                    </a>
+                    <a href="{{ ny_dmv_fee_calculator_url }}" class="intake-fee-estimate-card" target="_blank" rel="noopener noreferrer">
+                        <span class="intake-fee-estimate-card__title">Estimated DMV Fees</span>
+                        <span class="intake-fee-estimate-card__meta">Official NY DMV registration fee estimator for your vehicle and transaction type.</span>
+                        <span class="intake-fee-estimate-card__cta">Open calculator ↗</span>
+                    </a>
+                </div>
+                <p class="intake-fee-estimate-disclaimer">
+                    These are third-party / official NY estimates only. Final fees are determined by DMV and may differ from what you enter here.
+                </p>
+                <div class="form-grid">
+                    <div class="col-span-2">
+                        <label>Estimated Sales Tax ($) <span style="font-weight: 500; color: #64748b; text-transform: none;">(optional)</span></label>
+                        {{ form.estimated_sales_tax }}
+                    </div>
+                    <div class="col-span-2">
+                        <label>Estimated DMV Fees ($) <span style="font-weight: 500; color: #64748b; text-transform: none;">(optional)</span></label>
+                        {{ form.estimated_dmv_fees }}
+                    </div>
+                </div>
+            </section>
+            {% endif %}
 
             <!-- Step 4: Insurance & Liens -->
             <section class="step-section">

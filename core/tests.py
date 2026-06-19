@@ -1356,6 +1356,40 @@ class ClientIntakeTests(TestCase):
         self.assertIsNotNone(intake)
         self.assertEqual(intake.source, "dealer")
 
+    def test_public_intake_submission_saves_fee_estimates(self):
+        from core.models import ClientIntake
+
+        response = self.client.post(reverse("public-intake-direct", args=[self.org.portal_token]), {
+            "first_name": "Intake",
+            "last_name": "Fees",
+            "gender": "male",
+            "phone_number": "1234567890",
+            "vin": "12345678901234568",
+            "source": "walk_in",
+            "services": ["registration_title"],
+            "vehicle_type": "passenger",
+            "fuel_type": "gas",
+            "estimated_sales_tax": "125.50",
+            "estimated_dmv_fees": "89.00",
+        })
+        self.assertEqual(response.status_code, 302)
+        intake = ClientIntake.objects.filter(organization=self.org, last_name="Fees").first()
+        self.assertIsNotNone(intake)
+        self.assertEqual(intake.estimated_sales_tax, Decimal("125.50"))
+        self.assertEqual(intake.estimated_dmv_fees, Decimal("89.00"))
+
+    def test_public_intake_shows_ny_fee_section_for_ny_org(self):
+        response = self.client.get(reverse("public-intake-direct", args=[self.org.portal_token]))
+        self.assertContains(response, "Estimate NY DMV Costs")
+        self.assertContains(response, "NY Sales Tax Calculator")
+        self.assertContains(response, "process.dmv.ny.gov/regfeecalc")
+
+    def test_public_intake_hides_ny_fee_section_for_non_ny_org(self):
+        self.org.state = "CT"
+        self.org.save(update_fields=["state"])
+        response = self.client.get(reverse("public-intake-direct", args=[self.org.portal_token]))
+        self.assertNotContains(response, "Estimate NY DMV Costs")
+
     def test_approve_intake_propagates_source_to_client(self):
         from core.models import ClientIntake
         intake = ClientIntake.objects.create(

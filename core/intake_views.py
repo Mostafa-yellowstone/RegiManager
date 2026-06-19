@@ -24,7 +24,11 @@ from .models import (
     ServiceDocument,
     Vehicle,
 )
-from .ratelimit import client_ip
+from .intake_fee_estimates import (
+    NY_DMV_FEE_CALCULATOR_URL,
+    NY_SALES_TAX_CALCULATOR_URL,
+    show_ny_fee_estimate_section,
+)
 
 
 def _check_intake_post_rate(request):
@@ -81,6 +85,7 @@ def public_intake_portal(request, portal_token=None):
                         intake.organization = organization
                         intake.requested_services = request.POST.getlist("services")
                         form.apply_partner_and_note_to_instance(intake, request.POST)
+                        form.apply_fee_estimates_to_instance(intake)
                         intake.save()
                     return redirect(f"/intake/success/?portal_token={token}")
                 except Exception:
@@ -106,6 +111,9 @@ def public_intake_portal(request, portal_token=None):
             "vehicle_types": Vehicle.VEHICLE_TYPES,
             "body_types": Vehicle.BODY_TYPES,
             "fuel_types": Vehicle.FUEL_TYPES,
+            "show_ny_fee_estimates": show_ny_fee_estimate_section(organization),
+            "ny_sales_tax_calculator_url": NY_SALES_TAX_CALCULATOR_URL,
+            "ny_dmv_fee_calculator_url": NY_DMV_FEE_CALCULATOR_URL,
         },
     )
 

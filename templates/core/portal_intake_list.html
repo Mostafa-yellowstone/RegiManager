@@ -160,6 +160,16 @@
                                 <td>
                                     <div class="portal-intake-vehicle-title">{{ intake.year }} {{ intake.make }} {{ intake.model }}</div>
                                     <code class="portal-intake-vin">{{ intake.vin }}</code>
+                                    {% if intake.has_fee_estimates %}
+                                    <div class="portal-intake-fee-estimates">
+                                        {% if intake.estimated_sales_tax is not None %}
+                                        <span>Est. tax: ${{ intake.estimated_sales_tax|floatformat:2 }}</span>
+                                        {% endif %}
+                                        {% if intake.estimated_dmv_fees is not None %}
+                                        <span>Est. DMV: ${{ intake.estimated_dmv_fees|floatformat:2 }}</span>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     {% if intake.status == "pending" %}

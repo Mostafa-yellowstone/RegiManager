@@ -649,6 +649,34 @@ class ClientIntakeForm(forms.ModelForm):
             "maxlength": "5000",
         }),
     )
+    estimated_sales_tax = forms.DecimalField(
+        required=False,
+        min_value=Decimal("0"),
+        max_digits=10,
+        decimal_places=2,
+        label="Estimated sales tax",
+        widget=forms.NumberInput(attrs={
+            "class": "form-control",
+            "step": "0.01",
+            "min": "0",
+            "placeholder": "0.00",
+            "id": "id_estimated_sales_tax",
+        }),
+    )
+    estimated_dmv_fees = forms.DecimalField(
+        required=False,
+        min_value=Decimal("0"),
+        max_digits=10,
+        decimal_places=2,
+        label="Estimated DMV fees",
+        widget=forms.NumberInput(attrs={
+            "class": "form-control",
+            "step": "0.01",
+            "min": "0",
+            "placeholder": "0.00",
+            "id": "id_estimated_dmv_fees",
+        }),
+    )
     is_commercial = forms.BooleanField(
         required=False,
         label="This registration is for a business / corporation",
@@ -913,5 +941,15 @@ class ClientIntakeForm(forms.ModelForm):
                 intake.selected_referral = None
         else:
             intake.selected_referral = None
+        return intake
+
+    def apply_fee_estimates_to_instance(self, intake):
+        from .intake_fee_estimates import merge_fee_estimates_into_additional_data
+
+        intake.additional_data = merge_fee_estimates_into_additional_data(
+            intake.additional_data,
+            sales_tax=self.cleaned_data.get("estimated_sales_tax"),
+            dmv_fees=self.cleaned_data.get("estimated_dmv_fees"),
+        )
         return intake
 
