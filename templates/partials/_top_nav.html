@@ -16,6 +16,9 @@
         </div>
 
         <div class="nav-right">
+            {% if portal_timezone_label %}
+            <span class="portal-timezone-badge" id="portalTimezoneBadge" title="{{ portal_timezone_name }}">{{ portal_timezone_label }}</span>
+            {% endif %}
             {% include "partials/_location_switcher.html" with switcher_class="location-switcher--bar" %}
 
             <button type="button" id="portalThemeToggle" class="portal-theme-toggle nav-icon-btn" aria-label="Toggle dark mode" title="Toggle light/dark mode">

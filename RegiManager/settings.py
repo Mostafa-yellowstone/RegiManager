@@ -120,6 +120,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "core.middleware.PortalTimezoneMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "core.middleware.FriendlyErrorMiddleware",
@@ -140,6 +141,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "core.translations.translation_processor",
                 "core.context_processors.automation_status",
+                "core.context_processors.portal_timezone",
             ],
         },
     },
@@ -203,7 +205,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = os.getenv("DJANGO_TIME_ZONE", "America/New_York")
 
 USE_I18N = True
 

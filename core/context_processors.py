@@ -110,3 +110,19 @@ def automation_status(request):
         "site_news_unread_count": site_news_unread_count,
         "site_news_latest_unread": site_news_latest_unread,
     }
+
+
+def portal_timezone(request):
+    if not request.user.is_authenticated:
+        return {}
+
+    from django.utils import timezone as dj_timezone
+
+    from .timezone_utils import timezone_label
+
+    tzinfo = dj_timezone.get_current_timezone()
+    tz_name = str(tzinfo) if tzinfo else dj_timezone.get_default_timezone_name()
+    return {
+        "portal_timezone_name": tz_name,
+        "portal_timezone_label": timezone_label(tz_name),
+    }

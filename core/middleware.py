@@ -150,3 +150,48 @@ class SingleSessionMiddleware:
 
         response = self.get_response(request)
         return response
+
+
+class PortalTimezoneMiddleware:
+    """Activate the user's local timezone for dates/times shown in the portal."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from django.utils import timezone
+
+        from .models import Organization, OrganizationMembership
+        from .timezone_utils import is_valid_timezone, resolve_portal_timezone_name
+
+        tz_name = None
+        session_tz = request.session.get("portal_timezone")
+        if session_tz and is_valid_timezone(session_tz):
+            tz_name = session_tz.strip()
+        else:
+            organization = None
+            active_org_id = request.session.get("active_org_id")
+            if active_org_id and getattr(request, "user", None) and request.user.is_authenticated:
+                organization = Organization.objects.filter(
+                    pk=active_org_id,
+                    is_active=True,
+                ).only("state").first()
+            elif getattr(request, "user", None) and request.user.is_authenticated:
+                membership = (
+                    OrganizationMembership.objects.filter(
+                        user=request.user,
+                        is_active=True,
+                        organization__is_active=True,
+                    )
+                    .select_related("organization")
+                    .first()
+                )
+                organization = membership.organization if membership else None
+            tz_name = resolve_portal_timezone_name(organization=organization)
+
+        if tz_name and is_valid_timezone(tz_name):
+            timezone.activate(tz_name)
+        try:
+            return self.get_response(request)
+        finally:
+            timezone.deactivate()

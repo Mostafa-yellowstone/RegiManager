@@ -76,6 +76,7 @@ from core.views import (
     custom_range_report_pdf,
     send_manual_reminder,
     session_heartbeat,
+    set_portal_timezone,
     toggle_psb_automation,
     toggle_agent_active,
     switch_organization,
@@ -257,6 +258,7 @@ urlpatterns = [
     path("api/get-latest-news/", get_latest_news, name="get-latest-news"),
     path("api/mark-site-news-read/", mark_site_news_read, name="mark-site-news-read"),
     path("api/session-heartbeat/", session_heartbeat, name="session-heartbeat"),
+    path("api/set-portal-timezone/", set_portal_timezone, name="set-portal-timezone"),
     
     # Public Intake Routes
     path("intake/", public_intake_portal, name="public-intake-start"),

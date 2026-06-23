@@ -4800,6 +4800,36 @@ def session_heartbeat(request):
     """
     return JsonResponse({"status": "active", "user": request.user.username})
 
+
+@login_required
+@require_POST
+def set_portal_timezone(request):
+    """Store the browser's IANA timezone so portal dates/times match the user's area."""
+    from .timezone_utils import is_valid_timezone, timezone_label
+
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        payload = {}
+
+    tz_name = (payload.get("timezone") or request.POST.get("timezone") or "").strip()
+    if not is_valid_timezone(tz_name):
+        return JsonResponse(
+            {"status": "error", "message": "Invalid timezone."},
+            status=400,
+        )
+
+    request.session["portal_timezone"] = tz_name
+    request.session.modified = True
+    return JsonResponse(
+        {
+            "status": "ok",
+            "timezone": tz_name,
+            "label": timezone_label(tz_name),
+        }
+    )
+
+
 @require_POST
 @login_required
 def toggle_psb_automation(request):

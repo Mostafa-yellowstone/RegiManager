@@ -10,6 +10,7 @@
     const Portal = {
         init() {
             this.initTheme();
+            this.initTimezone();
             this.initTopNav();
             this.initTabs();
             this.initFilterPanels();
@@ -53,6 +54,55 @@
                     localStorage.setItem(THEME_KEY, next);
                 } catch (e) {}
             });
+        },
+
+        initTimezone() {
+            let browserTz = '';
+            try {
+                browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+            } catch (e) {
+                return;
+            }
+            if (!browserTz) return;
+
+            const storageKey = 'portal_timezone_synced';
+            try {
+                if (sessionStorage.getItem(storageKey) === browserTz) {
+                    return;
+                }
+            } catch (e) {}
+
+            fetch('/api/set-portal-timezone/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.getCsrfToken(),
+                },
+                body: JSON.stringify({ timezone: browserTz }),
+                credentials: 'same-origin',
+            })
+                .then((res) => (res.ok ? res.json() : null))
+                .then((data) => {
+                    if (!data || data.status !== 'ok') return;
+                    const reloadKey = storageKey + '_applied';
+                    let needsReload = false;
+                    try {
+                        needsReload = !sessionStorage.getItem(reloadKey);
+                        sessionStorage.setItem(storageKey, browserTz);
+                    } catch (e) {}
+                    const badge = document.getElementById('portalTimezoneBadge');
+                    if (badge && data.label) {
+                        badge.textContent = data.label;
+                        badge.title = data.timezone;
+                    }
+                    if (needsReload) {
+                        try {
+                            sessionStorage.setItem(reloadKey, '1');
+                        } catch (e) {}
+                        window.location.reload();
+                    }
+                })
+                .catch(() => null);
         },
 
         initTopNav() {
