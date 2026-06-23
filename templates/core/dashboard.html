@@ -236,37 +236,10 @@
             </div>
         </div>
 
-        {% if show_ny_fee_tools %}
-        <section class="dashboard-ny-fee-tools" aria-label="New York fee calculators">
-            <div class="dashboard-ny-fee-tools__head">
-                <h2 class="dashboard-ny-fee-tools__title">New York Fee Estimators</h2>
-                <span class="dashboard-ny-fee-tools__meta">Official external calculators — opens in a new tab</span>
-            </div>
-            <div class="dashboard-ny-fee-tools__grid">
-                <a href="{{ ny_sales_tax_calculator_url }}" class="dashboard-ny-fee-tool-btn dashboard-ny-fee-tool-btn--tax" target="_blank" rel="noopener noreferrer">
-                    <span class="dashboard-ny-fee-tool-btn__icon" aria-hidden="true">$</span>
-                    <span class="dashboard-ny-fee-tool-btn__body">
-                        <span class="dashboard-ny-fee-tool-btn__label">NY Sales Tax Calculator</span>
-                        <span class="dashboard-ny-fee-tool-btn__hint">Estimate sales tax by purchase price and location.</span>
-                    </span>
-                    <span class="dashboard-ny-fee-tool-btn__cta">Open ↗</span>
-                </a>
-                <a href="{{ ny_dmv_fee_calculator_url }}" class="dashboard-ny-fee-tool-btn dashboard-ny-fee-tool-btn--dmv" target="_blank" rel="noopener noreferrer">
-                    <span class="dashboard-ny-fee-tool-btn__icon" aria-hidden="true">DMV</span>
-                    <span class="dashboard-ny-fee-tool-btn__body">
-                        <span class="dashboard-ny-fee-tool-btn__label">Estimated DMV Fees</span>
-                        <span class="dashboard-ny-fee-tool-btn__hint">Official NY DMV registration fee estimator.</span>
-                    </span>
-                    <span class="dashboard-ny-fee-tool-btn__cta">Open ↗</span>
-                </a>
-            </div>
-        </section>
-        {% endif %}
-
         <style>
         /* ── NY Fee Tools (inline so styles apply before static cache refresh) ── */
         .dashboard-ny-fee-tools {
-            margin: 0 0 1.75rem;
+            margin: 1.75rem 0 2rem;
             padding: 1.1rem 1.2rem;
             border-radius: 18px;
             background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 55%, #eff6ff 100%);
@@ -689,6 +662,33 @@
                 </article>
             {% endif %}
         </section>
+
+        {% if show_ny_fee_tools %}
+        <section class="dashboard-ny-fee-tools" aria-label="New York fee calculators">
+            <div class="dashboard-ny-fee-tools__head">
+                <h2 class="dashboard-ny-fee-tools__title">New York Fee Estimators</h2>
+                <span class="dashboard-ny-fee-tools__meta">Official external calculators — opens in a new tab</span>
+            </div>
+            <div class="dashboard-ny-fee-tools__grid">
+                <a href="{{ ny_sales_tax_calculator_url }}" class="dashboard-ny-fee-tool-btn dashboard-ny-fee-tool-btn--tax" target="_blank" rel="noopener noreferrer">
+                    <span class="dashboard-ny-fee-tool-btn__icon" aria-hidden="true">$</span>
+                    <span class="dashboard-ny-fee-tool-btn__body">
+                        <span class="dashboard-ny-fee-tool-btn__label">NY Sales Tax Calculator</span>
+                        <span class="dashboard-ny-fee-tool-btn__hint">Estimate sales tax by purchase price and location.</span>
+                    </span>
+                    <span class="dashboard-ny-fee-tool-btn__cta">Open ↗</span>
+                </a>
+                <a href="{{ ny_dmv_fee_calculator_url }}" class="dashboard-ny-fee-tool-btn dashboard-ny-fee-tool-btn--dmv" target="_blank" rel="noopener noreferrer">
+                    <span class="dashboard-ny-fee-tool-btn__icon" aria-hidden="true">DMV</span>
+                    <span class="dashboard-ny-fee-tool-btn__body">
+                        <span class="dashboard-ny-fee-tool-btn__label">Estimated DMV Fees</span>
+                        <span class="dashboard-ny-fee-tool-btn__hint">Official NY DMV registration fee estimator.</span>
+                    </span>
+                    <span class="dashboard-ny-fee-tool-btn__cta">Open ↗</span>
+                </a>
+            </div>
+        </section>
+        {% endif %}
 
         {% if user_can_trigger_automation and automation_enabled %}
         <section class="dashboard-panels" id="automation" style="scroll-margin-top: 100px;">
