@@ -417,6 +417,148 @@ body.portal-body .dashboard-hero .brand-pill {
     margin-top: 0;
 }
 
+.dashboard-ny-fee-tools {
+    margin: 0 0 1.75rem;
+    padding: 1.1rem 1.2rem;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 55%, #eff6ff 100%);
+    border: 1px solid #dbeafe;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+}
+
+.dashboard-ny-fee-tools__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.9rem;
+}
+
+.dashboard-ny-fee-tools__title {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: 0.01em;
+}
+
+.dashboard-ny-fee-tools__meta {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.dashboard-ny-fee-tools__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+}
+
+.dashboard-ny-fee-tool-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.95rem 1.05rem;
+    border-radius: 14px;
+    border: 1px solid transparent;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    min-height: 72px;
+}
+
+.dashboard-ny-fee-tool-btn:hover {
+    transform: translateY(-1px);
+    text-decoration: none;
+    color: inherit;
+}
+
+.dashboard-ny-fee-tool-btn--tax {
+    background: linear-gradient(135deg, #ffffff 0%, #ecfdf5 100%);
+    border-color: #bbf7d0;
+    box-shadow: 0 8px 20px rgba(34, 197, 94, 0.08);
+}
+
+.dashboard-ny-fee-tool-btn--tax:hover {
+    border-color: #22c55e;
+    box-shadow: 0 12px 28px rgba(34, 197, 94, 0.14);
+}
+
+.dashboard-ny-fee-tool-btn--dmv {
+    background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+    border-color: #bfdbfe;
+    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.08);
+}
+
+.dashboard-ny-fee-tool-btn--dmv:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 12px 28px rgba(59, 130, 246, 0.14);
+}
+
+.dashboard-ny-fee-tool-btn__icon {
+    flex-shrink: 0;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+}
+
+.dashboard-ny-fee-tool-btn--tax .dashboard-ny-fee-tool-btn__icon {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.dashboard-ny-fee-tool-btn--dmv .dashboard-ny-fee-tool-btn__icon {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.dashboard-ny-fee-tool-btn__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.dashboard-ny-fee-tool-btn__label {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.25;
+}
+
+.dashboard-ny-fee-tool-btn__hint {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #64748b;
+    line-height: 1.35;
+}
+
+.dashboard-ny-fee-tool-btn__cta {
+    margin-left: auto;
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #475569;
+    white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+    .dashboard-ny-fee-tools__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-ny-fee-tool-btn__cta {
+        display: none;
+    }
+}
+
 .hero-btn-glass {
     background: rgba(255, 255, 255, 0.1) !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;

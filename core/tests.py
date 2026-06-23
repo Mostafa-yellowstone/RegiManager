@@ -1788,6 +1788,8 @@ class PortalIntakeListTests(TestCase):
         response = self.http.get(reverse("dashboard"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Portal Intakes")
+        self.assertContains(response, "NY Sales Tax Calculator")
+        self.assertContains(response, "process.dmv.ny.gov/regfeecalc")
 
     def test_dashboard_shows_portal_intake_chip_for_agent(self):
         self.http.login(username="intakeagent", password="password123")

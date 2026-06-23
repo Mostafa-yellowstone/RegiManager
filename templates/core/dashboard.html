@@ -236,6 +236,33 @@
             </div>
         </div>
 
+        {% if show_ny_fee_tools %}
+        <section class="dashboard-ny-fee-tools" aria-label="New York fee calculators">
+            <div class="dashboard-ny-fee-tools__head">
+                <h2 class="dashboard-ny-fee-tools__title">New York Fee Estimators</h2>
+                <span class="dashboard-ny-fee-tools__meta">Official external calculators — opens in a new tab</span>
+            </div>
+            <div class="dashboard-ny-fee-tools__grid">
+                <a href="{{ ny_sales_tax_calculator_url }}" class="dashboard-ny-fee-tool-btn dashboard-ny-fee-tool-btn--tax" target="_blank" rel="noopener noreferrer">
+                    <span class="dashboard-ny-fee-tool-btn__icon" aria-hidden="true">$</span>
+                    <span class="dashboard-ny-fee-tool-btn__body">
+                        <span class="dashboard-ny-fee-tool-btn__label">NY Sales Tax Calculator</span>
+                        <span class="dashboard-ny-fee-tool-btn__hint">Estimate sales tax by purchase price and location.</span>
+                    </span>
+                    <span class="dashboard-ny-fee-tool-btn__cta">Open ↗</span>
+                </a>
+                <a href="{{ ny_dmv_fee_calculator_url }}" class="dashboard-ny-fee-tool-btn dashboard-ny-fee-tool-btn--dmv" target="_blank" rel="noopener noreferrer">
+                    <span class="dashboard-ny-fee-tool-btn__icon" aria-hidden="true">DMV</span>
+                    <span class="dashboard-ny-fee-tool-btn__body">
+                        <span class="dashboard-ny-fee-tool-btn__label">Estimated DMV Fees</span>
+                        <span class="dashboard-ny-fee-tool-btn__hint">Official NY DMV registration fee estimator.</span>
+                    </span>
+                    <span class="dashboard-ny-fee-tool-btn__cta">Open ↗</span>
+                </a>
+            </div>
+        </section>
+        {% endif %}
+
         <style>
         /* ── Command Bar ──────────────────────────────────────────────── */
         .dash-cmd-bar {

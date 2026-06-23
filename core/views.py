@@ -1718,6 +1718,17 @@ def dashboard(request):
         for intake in pending_intakes:
             intake.vin_exists = intake.vin in existing_intake_vins
 
+    from .intake_fee_estimates import (
+        NY_DMV_FEE_CALCULATOR_URL,
+        NY_SALES_TAX_CALCULATOR_URL,
+        show_ny_fee_estimate_section,
+    )
+
+    show_ny_fee_tools = any(
+        show_ny_fee_estimate_section(org)
+        for org in organizations.only("state")
+    )
+
     return render(
         request,
         "core/dashboard.html",
@@ -1752,6 +1763,9 @@ def dashboard(request):
             "public_intake_enabled": public_intake_enabled,
             "user_can_trigger_automation": user_can_trigger_automation,
             "user_can_view_banking": user_can_view_banking,
+            "show_ny_fee_tools": show_ny_fee_tools,
+            "ny_sales_tax_calculator_url": NY_SALES_TAX_CALCULATOR_URL,
+            "ny_dmv_fee_calculator_url": NY_DMV_FEE_CALCULATOR_URL,
         },
     )
 
