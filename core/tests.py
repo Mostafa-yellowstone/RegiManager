@@ -297,6 +297,135 @@ class AddVehicleViewTests(TestCase):
         self.assertTrue(data["is_valid"])
         self.assertFalse(data.get("is_manual_type", False))
 
+    def test_add_vehicle_legacy_vin_succeeds(self):
+        response = self.client.post(
+            reverse("add-vehicle", args=[self.client_obj.id]),
+            {
+                "vehicle_type": "passenger",
+                "plate_type": "personal",
+                "vin": "ABC12",
+                "is_legacy_vin": "on",
+                "vehicle_number": "VEH-LEG001",
+                "year": "1975",
+                "make": "Ford",
+                "model": "F100",
+                "fuel_type": "gas",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        vehicle = Vehicle.objects.get(client=self.client_obj, vin="ABC12")
+        self.assertTrue(vehicle.is_legacy_vin)
+
+    def test_add_vehicle_legacy_vin_requires_year_make_model(self):
+        response = self.client.post(
+            reverse("add-vehicle", args=[self.client_obj.id]),
+            {
+                "vehicle_type": "passenger",
+                "plate_type": "personal",
+                "vin": "ABC12",
+                "is_legacy_vin": "on",
+                "vehicle_number": "VEH-LEG002",
+                "fuel_type": "gas",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Vehicle.objects.filter(client=self.client_obj, vin="ABC12").exists())
+
+    def test_edit_vehicle_invalid_post_renders_form_not_500(self):
+        vehicle = Vehicle.objects.create(
+            client=self.client_obj,
+            vin="1HGCM82633A123456",
+            year=2003,
+            make="Honda",
+            model="Accord",
+            vehicle_type="passenger",
+            plate_type="personal",
+            fuel_type="gas",
+        )
+        response = self.client.post(
+            reverse("edit-vehicle", args=[vehicle.id]),
+            {
+                "vehicle_type": "passenger",
+                "plate_type": "personal",
+                "vin": "SHORT",
+                "vehicle_number": vehicle.vehicle_number or "VEH-EDIT01",
+                "fuel_type": "gas",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Save Changes")
+
+    def test_edit_vehicle_legacy_vin_succeeds(self):
+        vehicle = Vehicle.objects.create(
+            client=self.client_obj,
+            vin="1HGCM82633A123456",
+            year=2003,
+            make="Honda",
+            model="Accord",
+            vehicle_type="passenger",
+            plate_type="personal",
+            fuel_type="gas",
+        )
+        response = self.client.post(
+            reverse("edit-vehicle", args=[vehicle.id]),
+            {
+                "vehicle_type": "passenger",
+                "plate_type": "personal",
+                "vin": "LEGACY1",
+                "is_legacy_vin": "on",
+                "vehicle_number": vehicle.vehicle_number or "VEH-EDIT02",
+                "year": "1978",
+                "make": "Chevy",
+                "model": "C10",
+                "fuel_type": "gas",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        vehicle.refresh_from_db()
+        self.assertEqual(vehicle.vin, "LEGACY1")
+        self.assertTrue(vehicle.is_legacy_vin)
+
+
+class ClientMatchingTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Match Org", city="NYC")
+        self.personal = Client.objects.create(
+            organization=self.org,
+            first_name="Jane",
+            last_name="Doe",
+            gender="female",
+        )
+        self.business = Client.objects.create(
+            organization=self.org,
+            is_commercial=True,
+            business_name="Acme Fleet LLC",
+            first_name="Commercial",
+            last_name="Acme Fleet LLC",
+        )
+
+    def test_find_client_by_display_name_matches_personal(self):
+        from core.client_matching import find_client_by_display_name
+
+        self.assertEqual(
+            find_client_by_display_name(self.org, "Jane Doe"),
+            self.personal,
+        )
+
+    def test_find_client_by_display_name_matches_commercial(self):
+        from core.client_matching import find_client_by_display_name
+
+        self.assertEqual(
+            find_client_by_display_name(self.org, "Acme Fleet LLC"),
+            self.business,
+        )
+
+    def test_get_or_create_reuses_existing_profile(self):
+        from core.client_matching import get_or_create_client_from_display_name
+
+        client = get_or_create_client_from_display_name(self.org, "Jane Doe")
+        self.assertEqual(client.id, self.personal.id)
+        self.assertEqual(Client.objects.filter(organization=self.org).count(), 2)
+
 
 class VehicleSoftDeleteTests(TestCase):
     def setUp(self):

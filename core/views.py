@@ -734,6 +734,20 @@ def add_client(request):
             if existing:
                 messages.info(request, f"Business {existing.name} already exists (EIN match). Redirecting to profile.")
                 return redirect("client-detail", client_id=existing.id)
+        elif is_commercial and org_id:
+            business_name = request.POST.get("business_name", "").strip()
+            if business_name:
+                existing = Client.objects.filter(
+                    organization_id=org_id,
+                    is_commercial=True,
+                    business_name__iexact=business_name,
+                ).first()
+                if existing:
+                    messages.info(
+                        request,
+                        f"Business {existing.name} already exists. Redirecting to profile.",
+                    )
+                    return redirect("client-detail", client_id=existing.id)
         elif first_name and last_name and org_id and not is_commercial:
             existing = Client.objects.filter(
                 first_name__iexact=first_name,
@@ -1109,12 +1123,16 @@ def all_clients(request):
 
 @login_required
 def add_vehicle(request, client_id):
+    from django.db import IntegrityError
+
     client = get_object_or_404(Client, id=client_id)
     if not _has_active_org_access(request.user, client.organization_id):
         deny_access("Access denied.")
 
     if request.method == "POST":
-        vin = request.POST.get('vin', '').strip().upper()
+        from .vin_validation import normalize_vin
+
+        vin = normalize_vin(request.POST.get("vin", ""))
         if vin:
             # Block only if the same client already has this VIN (active vehicle)
             existing_same_client = Vehicle.objects.filter(vin=vin, client=client).first()
@@ -1124,11 +1142,17 @@ def add_vehicle(request, client_id):
 
         form = VehicleForm(request.POST, client=client)
         if form.is_valid():
-            vehicle = form.save(commit=False)
-            vehicle.client = client
-            vehicle.save()
-            messages.success(request, f"Vehicle {vehicle} added for {client}.")
-            return redirect("client-detail", client_id=client.id)
+            try:
+                vehicle = form.save(commit=False)
+                vehicle.client = client
+                vehicle.save()
+                messages.success(request, f"Vehicle {vehicle} added for {client}.")
+                return redirect("client-detail", client_id=client.id)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "This client already has an active vehicle with that VIN.",
+                )
         else:
             for field, errors in form.errors.items():
                 for error in errors:
@@ -5054,6 +5078,8 @@ def edit_service(request, service_id):
 
 @login_required
 def edit_vehicle(request, vehicle_id):
+    from django.db import IntegrityError
+
     from .forms import VehicleForm
     vehicle = get_object_or_404(Vehicle.all_objects, id=vehicle_id)
     if not OrganizationMembership.objects.filter(user=request.user, organization=vehicle.client.organization).exists():
@@ -5062,21 +5088,32 @@ def edit_vehicle(request, vehicle_id):
     if request.method == 'POST':
         form = VehicleForm(request.POST, instance=vehicle, client=vehicle.client)
         if form.is_valid():
-            vehicle = form.save()
-            from .models import ServiceDocument
-            for doc in ServiceDocument.objects.filter(vehicle=vehicle, document_type="mv82"):
-                try:
-                    regenerate_mv82_document(doc)
-                except Exception:
-                    pass
-            return redirect('vehicle-detail', vehicle_id=vehicle.id)
+            try:
+                vehicle = form.save()
+                from .models import ServiceDocument
+                for doc in ServiceDocument.objects.filter(vehicle=vehicle, document_type="mv82"):
+                    try:
+                        regenerate_mv82_document(doc)
+                    except Exception:
+                        pass
+                messages.success(request, "Vehicle updated successfully.")
+                return redirect('vehicle-detail', vehicle_id=vehicle.id)
+            except IntegrityError:
+                messages.error(
+                    request,
+                    "This client already has an active vehicle with that VIN.",
+                )
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, error)
     else:
         form = VehicleForm(instance=vehicle, client=vehicle.client)
     
-        from .vin_validation import VIN_DECODE_VEHICLE_TYPES
-        import json
+    from .vin_validation import VIN_DECODE_VEHICLE_TYPES
+    import json
 
-        return render(request, 'core/add_vehicle.html', {
+    return render(request, 'core/add_vehicle.html', {
         'form': form,
         'edit_mode': True,
         'vehicle': vehicle,
@@ -6287,28 +6324,10 @@ def add_insurance_policy(request):
     if not client_name:
         messages.error(request, "Client name is required.")
         return _redirect_to_insurance_detail(org)
-        
-    name_parts = client_name.split()
-    if len(name_parts) >= 2:
-        first_name = " ".join(name_parts[:-1])
-        last_name = name_parts[-1]
-    else:
-        first_name = client_name
-        last_name = "."
-        
-    client = Client.objects.filter(
-        organization=org,
-        first_name__iexact=first_name,
-        last_name__iexact=last_name
-    ).first()
-    
-    if not client:
-        client = Client.objects.create(
-            organization=org,
-            first_name=first_name,
-            last_name=last_name,
-            source="insurance"
-        )
+
+    from .client_matching import get_or_create_client_from_display_name
+
+    client = get_or_create_client_from_display_name(org, client_name, source="insurance")
     
     company_id = request.POST.get("insurance_company")
     company = get_object_or_404(InsuranceCompany, id=company_id, organization=org)
@@ -6379,28 +6398,12 @@ def edit_insurance_policy(request, policy_id):
         if not client_name:
             messages.error(request, "Client name is required.")
             return _redirect_to_insurance_detail(policy.organization)
-            
-        name_parts = client_name.split()
-        if len(name_parts) >= 2:
-            first_name = " ".join(name_parts[:-1])
-            last_name = name_parts[-1]
-        else:
-            first_name = client_name
-            last_name = "."
-            
-        client = Client.objects.filter(
-            organization=policy.organization,
-            first_name__iexact=first_name,
-            last_name__iexact=last_name
-        ).first()
-        
-        if not client:
-            client = Client.objects.create(
-                organization=policy.organization,
-                first_name=first_name,
-                last_name=last_name,
-                source="insurance"
-            )
+
+        from .client_matching import get_or_create_client_from_display_name
+
+        client = get_or_create_client_from_display_name(
+            policy.organization, client_name, source="insurance"
+        )
         
         company_id = request.POST.get("insurance_company")
         company = get_object_or_404(InsuranceCompany, id=company_id, organization=policy.organization)
@@ -6688,26 +6691,9 @@ def add_daily_payment(request):
         messages.error(request, "Client name is required.")
         return _redirect_to_insurance_detail(org, tab="daily-payments")
 
-    name_parts = client_name.split()
-    if len(name_parts) >= 2:
-        first_name = " ".join(name_parts[:-1])
-        last_name = name_parts[-1]
-    else:
-        first_name = client_name
-        last_name = "."
+    from .client_matching import get_or_create_client_from_display_name
 
-    client = Client.objects.filter(
-        organization=org,
-        first_name__iexact=first_name,
-        last_name__iexact=last_name,
-    ).first()
-    if not client:
-        client = Client.objects.create(
-            organization=org,
-            first_name=first_name,
-            last_name=last_name,
-            source="insurance",
-        )
+    client = get_or_create_client_from_display_name(org, client_name, source="insurance")
 
     try:
         tx_date = dt_parse.strptime(transaction_date, "%Y-%m-%d").date() if transaction_date else timezone.localdate()

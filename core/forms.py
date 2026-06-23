@@ -458,11 +458,18 @@ class VehicleForm(forms.ModelForm):
             self.initial.setdefault("is_legacy_vin", True)
             self.fields["vin"].widget.attrs["maxlength"] = "16"
 
+    def clean_is_legacy_vin(self):
+        if self.data.get("is_legacy_vin") in ("on", "true", "True", "1"):
+            return True
+        return bool(self.cleaned_data.get("is_legacy_vin"))
+
     def clean_vin(self):
         from .vin_validation import normalize_vin, validate_vin, vehicle_type_skips_vin_decode
 
         raw_vin = self.cleaned_data.get("vin", "")
         legacy = self.cleaned_data.get("is_legacy_vin", False)
+        if not legacy and self.data.get("is_legacy_vin") in ("on", "true", "True", "1"):
+            legacy = True
         vehicle_type = self.cleaned_data.get("vehicle_type", "passenger")
         manual_type = vehicle_type_skips_vin_decode(vehicle_type) and not legacy
         vin = normalize_vin(raw_vin)
