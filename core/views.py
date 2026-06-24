@@ -32,6 +32,7 @@ from .access import (
     has_active_owner_access as _has_active_owner_access,
     organizations_for_user as _get_user_organizations,
     user_can_delete_receipt,
+    user_can_issue_refund,
 )
 from .constants import (
     ALL_REFERRALS_PAGE_SIZE,
@@ -1317,7 +1318,7 @@ def vehicle_detail(request, vehicle_id):
         Q(vehicle__client=vehicle.client) | 
         Q(service_record__vehicle__client=vehicle.client)
     ).distinct().order_by("-uploaded_at")
-    service_records = vehicle.service_records.order_by("-created_at")
+    service_records = vehicle.service_records.order_by("-transaction_date", "created_at")
     latest_service = service_records.first()
     
     # Paginate documents (docs tab)
@@ -1333,6 +1334,7 @@ def vehicle_detail(request, vehicle_id):
     latest_service = service_records.first()
 
     can_delete_receipt = user_can_delete_receipt(request.user, vehicle.client.organization_id)
+    can_issue_refund = user_can_issue_refund(request.user, vehicle.client.organization_id)
 
     organization = Organization.objects.only("state", "name").get(pk=vehicle.client.organization_id)
     dmv_state = normalize_state_code(organization.state)
@@ -1346,6 +1348,7 @@ def vehicle_detail(request, vehicle_id):
         "services_page_obj": services_page_obj,
         "latest_service": latest_service,
         "can_delete_receipt": can_delete_receipt,
+        "can_issue_refund": can_issue_refund,
         "dmv_doc_categories": dmv_doc_categories,
         "dmv_hub_total": dmv_hub_total,
         "dmv_hub_attached": dmv_hub_attached,
@@ -3255,6 +3258,8 @@ def update_agent_permissions(request):
             membership.can_deal_with_motorclub = value
         elif field == "can_manage_documents":
             membership.can_manage_documents = value
+        elif field == "can_issue_refund":
+            membership.can_issue_refund = value
         membership.save()
         
         return JsonResponse({"status": "success"})
@@ -6600,6 +6605,51 @@ def delete_service_record(request, service_id):
     )
 
     return JsonResponse({"status": "ok", "message": "Receipt deleted successfully."})
+
+
+@login_required
+@require_POST
+def issue_service_refund_view(request, service_id):
+    """Refund a service receipt and add a refund row on the vehicle transaction history."""
+    from .service_refunds import can_refund_service_record, issue_service_refund
+
+    record = get_object_or_404(ServiceRecord, id=service_id)
+
+    if not _has_active_org_access(request.user, record.organization_id):
+        return JsonResponse({"status": "error", "message": "Access denied."}, status=403)
+
+    if not user_can_issue_refund(request.user, record.organization_id):
+        return JsonResponse(
+            {"status": "error", "message": "You do not have permission to issue refunds."},
+            status=403,
+        )
+
+    if not record.vehicle_id:
+        return JsonResponse(
+            {"status": "error", "message": "This receipt is not linked to a vehicle."},
+            status=400,
+        )
+
+    if not can_refund_service_record(record):
+        return JsonResponse(
+            {"status": "error", "message": "This transaction cannot be refunded."},
+            status=400,
+        )
+
+    try:
+        refund_record = issue_service_refund(record, recorded_by=request.user)
+    except ValueError as exc:
+        return JsonResponse({"status": "error", "message": str(exc)}, status=400)
+
+    return JsonResponse(
+        {
+            "status": "ok",
+            "message": "Refund issued successfully.",
+            "refund_id": refund_record.id,
+            "refund_receipt": refund_record.receipt_number,
+            "refund_amount": str(refund_record.paid_amount),
+        }
+    )
 
 
 @login_required

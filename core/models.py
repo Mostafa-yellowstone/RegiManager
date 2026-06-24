@@ -122,6 +122,10 @@ class OrganizationMembership(models.Model):
         help_text="Can this member sell and manage Motor Club roadside memberships?",
     )
     can_delete_receipt = models.BooleanField(default=False, help_text="Can this agent delete/remove receipt records from the service list?")
+    can_issue_refund = models.BooleanField(
+        default=False,
+        help_text="Can this agent issue refunds from vehicle transaction history?",
+    )
     can_view_commission = models.BooleanField(
         default=False,
         help_text="Deprecated: use can_view_banking for commission and finance access.",
@@ -525,6 +529,7 @@ class ServiceRecord(SoftDeleteModel):
         ("pending", "Pending"),
         ("completed", "Completed"),
         ("failed", "Failed"),
+        ("refund", "Refund"),
     ]
     PAYMENT_METHODS = [
         ("cash", "Cash"),
@@ -602,7 +607,17 @@ class ServiceRecord(SoftDeleteModel):
     case_id = models.CharField(max_length=60, unique=True, blank=True, null=True, db_index=True)
     reminders_stopped = models.BooleanField(default=False)
     paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Amount actually paid by the client/referral at the time of service.")
+    refunded_from = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="refund_entries",
+    )
 
+    @property
+    def has_refund_entry(self) -> bool:
+        return self.refund_entries.filter(status="refund").exists()
 
     @property
     def service_type_label(self):
@@ -708,9 +723,11 @@ class ServiceRecordPayment(models.Model):
 
     ENTRY_OPENING = "opening"
     ENTRY_PAYMENT = "payment"
+    ENTRY_REFUND = "refund"
     ENTRY_TYPE_CHOICES = [
         (ENTRY_OPENING, "Opening transaction"),
         (ENTRY_PAYMENT, "Payment"),
+        (ENTRY_REFUND, "Refund"),
     ]
 
     service_record = models.ForeignKey(

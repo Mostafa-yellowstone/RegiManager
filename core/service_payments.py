@@ -66,7 +66,11 @@ def receipt_summary_description(record) -> str:
 
 def parse_payment_date(value, default=None):
     """Parse YYYY-MM-DD from form input; fall back to default (usually today)."""
+    from datetime import date as date_cls
+
     default = default or timezone.localdate()
+    if isinstance(value, date_cls):
+        return value
     raw = (value or "").strip()
     if not raw:
         return default
@@ -239,7 +243,10 @@ def reconcile_ledger_balances(record):
                 ServiceRecordPayment.objects.filter(pk=entry.pk).update(**updates)
         else:
             amt = entry.amount or Decimal("0")
-            cumulative_paid += amt
+            if entry.entry_type == ServiceRecordPayment.ENTRY_REFUND:
+                cumulative_paid -= amt
+            else:
+                cumulative_paid += amt
             balance = total_due - cumulative_paid
             if entry.balance_after != balance:
                 ServiceRecordPayment.objects.filter(pk=entry.pk).update(
@@ -285,7 +292,10 @@ def compute_ledger_rows(record) -> list[LedgerDisplayRow]:
             )
         else:
             amt = entry.amount or Decimal("0")
-            cumulative_paid += amt
+            if entry.entry_type == ServiceRecordPayment.ENTRY_REFUND:
+                cumulative_paid -= amt
+            else:
+                cumulative_paid += amt
             balance = total_due - cumulative_paid
             desc = format_receipt_row_description(
                 method_label,
@@ -403,6 +413,36 @@ def log_balance_payment(
         line_paid=amount,
         balance_after=Decimal("0"),
         payment_method=normalize_payment_method(payment_method),
+        payment_date=when,
+        cc_fee=Decimal("0"),
+        notes=notes,
+        recorded_by=recorded_by,
+    )
+    reconcile_ledger_balances(record)
+    return entry
+
+
+def log_refund_payment(
+    record,
+    amount,
+    *,
+    payment_method=None,
+    payment_date=None,
+    recorded_by=None,
+    notes="Refund issued",
+):
+    """Append a refund row and reduce the running paid balance on the original receipt."""
+    if amount <= Decimal("0"):
+        return None
+    ensure_opening_ledger_entry(record, recorded_by=recorded_by)
+    when = parse_payment_date(payment_date, default=record.transaction_date)
+    entry = ServiceRecordPayment.objects.create(
+        service_record=record,
+        entry_type=ServiceRecordPayment.ENTRY_REFUND,
+        amount=amount,
+        line_paid=amount,
+        balance_after=Decimal("0"),
+        payment_method=normalize_payment_method(payment_method or record.payment_method),
         payment_date=when,
         cc_fee=Decimal("0"),
         notes=notes,

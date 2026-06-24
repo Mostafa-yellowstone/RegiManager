@@ -654,6 +654,16 @@ h1 {
     color: var(--danger);
 }
 
+.status-badge.refund,
+.brand-pill.status-badge.refund {
+    background: #ffedd5;
+    color: #c2410c;
+}
+
+.transaction-row-refund td {
+    background: #fffbeb;
+}
+
 .btn-sm {
     min-height: 32px;
     padding: 0 0.6rem;

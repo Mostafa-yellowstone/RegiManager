@@ -1,0 +1,20 @@
+<button type="button"
+    class="btn-refund-receipt"
+    data-id="{{ record.id }}"
+    data-receipt="{{ record.receipt_number }}"
+    data-amount="{{ record.paid_amount }}"
+    title="Issue refund"
+    aria-label="Refund receipt {{ record.receipt_number }}"
+    style="
+        display:inline-flex; align-items:center; justify-content:center;
+        min-width:30px; height:30px; padding:0 0.45rem; border-radius:7px;
+        background:#fff7ed; border:1px solid #fdba74;
+        color:#c2410c; cursor:pointer; flex-shrink:0;
+        font-size:0.72rem; font-weight:800; letter-spacing:0.03em;
+        transition: background 0.15s, transform 0.15s;
+    "
+    onmouseover="this.style.background='#ffedd5'; this.style.transform='scale(1.05)';"
+    onmouseout="this.style.background='#fff7ed'; this.style.transform='scale(1)';"
+>
+    Refund
+</button>

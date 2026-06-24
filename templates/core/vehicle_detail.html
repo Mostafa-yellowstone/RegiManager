@@ -119,23 +119,30 @@
                         </thead>
                         <tbody>
                             {% for record in services_page_obj %}
-                            <tr>
+                            <tr class="{% if record.status == 'refund' %}transaction-row-refund{% endif %}">
                                 <td><span class="crm-receipt-no" title="{{ record.receipt_number }}">{{ record.receipt_number|short_receipt }}</span></td>
                                 <td>{{ record.service_type_label }}</td>
-                                <td>{{ record.created_at|date:"M d, Y" }}</td>
+                                <td>{{ record.transaction_date|date:"M d, Y" }}</td>
                                 <td>
                                     <span class="brand-pill status-badge {{ record.status }}">{{ record.get_status_display }}</span>
                                 </td>
-                                <td>${{ record.service_fee|floatformat:2 }}</td>
+                                <td>
+                                    {% if record.status == 'refund' %}-{% endif %}${{ record.service_fee|floatformat:2 }}
+                                </td>
                                 <td>
                                     <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                        {% if record.status != 'refund' %}
                                         <a href="{% url 'service-receipt-pdf' record.id %}" target="_blank"
                                             class="btn btn-secondary btn-sm portal-receipt-btn">Receipt</a>
                                         <a href="{% url 'edit-service' record.id %}" 
                                             style="color: #64748b; transition: color 0.2s;" title="Edit Transaction">
                                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                         </a>
-                                        {% if can_delete_receipt %}
+                                        {% if can_issue_refund and record.paid_amount > 0 and not record.has_refund_entry %}
+                                        {% include "partials/_refund_receipt_button.html" with record=record %}
+                                        {% endif %}
+                                        {% endif %}
+                                        {% if can_delete_receipt and record.status != 'refund' %}
                                         {% include "partials/_delete_receipt_button.html" with record=record %}
                                         {% endif %}
                                     </div>
@@ -413,5 +420,8 @@
 </script>
 {% if can_delete_receipt %}
 {% include "partials/_delete_receipt_modal.html" %}
+{% endif %}
+{% if can_issue_refund %}
+{% include "partials/_refund_receipt_modal.html" %}
 {% endif %}
 {% endblock %}

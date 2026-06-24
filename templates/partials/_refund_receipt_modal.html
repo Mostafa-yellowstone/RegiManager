@@ -1,0 +1,108 @@
+<div id="refundReceiptModal" style="
+    display:none; position:fixed; inset:0; z-index:9999;
+    background:rgba(15,23,42,0.55); backdrop-filter:blur(4px);
+    align-items:center; justify-content:center;
+">
+    <div style="
+        background:#fff; border-radius:18px; padding:2rem 2.2rem;
+        max-width:440px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,0.25);
+        animation: fadeInUp 0.22s ease;
+    ">
+        <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1.2rem;">
+            <span style="
+                display:flex; align-items:center; justify-content:center;
+                width:44px; height:44px; border-radius:50%;
+                background:#fff7ed; flex-shrink:0;
+            ">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24"
+                    fill="none" stroke="#c2410c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                    <path d="M3 3v5h5"/>
+                </svg>
+            </span>
+            <div>
+                <h3 style="margin:0; font-size:1.1rem; color:#0f172a; font-weight:700;">Issue Refund</h3>
+                <p style="margin:0.2rem 0 0; font-size:0.85rem; color:#64748b;">This will reverse the paid amount on the original receipt.</p>
+            </div>
+        </div>
+        <p style="color:#334155; font-size:0.93rem; margin-bottom:0.75rem;">
+            Refund receipt
+            <code id="refundReceiptCode" style="background:#f1f5f9; padding:2px 7px; border-radius:5px; color:#6366f1; font-weight:700;"></code>
+            for
+            <strong id="refundReceiptAmount" style="color:#c2410c;"></strong>?
+        </p>
+        <p style="color:#64748b; font-size:0.82rem; margin-bottom:1.5rem;">
+            The transaction date totals will be reduced and a new refund row will appear below this receipt.
+        </p>
+        <div style="display:flex; gap:0.75rem; justify-content:flex-end;">
+            <button type="button" id="refundReceiptCancelBtn" class="btn btn-secondary" style="min-width:90px;">Cancel</button>
+            <button type="button" id="refundReceiptConfirmBtn" class="btn" style="
+                min-width:110px; background:#c2410c; color:#fff; border:none;
+                font-weight:700; border-radius:9px;
+            ">Refund</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(){
+    const modal = document.getElementById('refundReceiptModal');
+    if (!modal) return;
+
+    const codeEl = document.getElementById('refundReceiptCode');
+    const amountEl = document.getElementById('refundReceiptAmount');
+    const cancelBtn = document.getElementById('refundReceiptCancelBtn');
+    const confirmBtn = document.getElementById('refundReceiptConfirmBtn');
+    const csrfToken = '{{ csrf_token }}';
+
+    let pendingServiceId = null;
+
+    function openRefundModal(btn) {
+        pendingServiceId = btn.dataset.id;
+        codeEl.textContent = btn.dataset.receipt;
+        amountEl.textContent = '$' + parseFloat(btn.dataset.amount || '0').toFixed(2);
+        modal.style.display = 'flex';
+    }
+
+    function closeRefundModal() {
+        modal.style.display = 'none';
+        pendingServiceId = null;
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Refund';
+    }
+
+    cancelBtn.addEventListener('click', closeRefundModal);
+    modal.addEventListener('click', function(e) { if (e.target === modal) closeRefundModal(); });
+
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-refund-receipt');
+        if (btn) openRefundModal(btn);
+    });
+
+    confirmBtn.addEventListener('click', function() {
+        if (!pendingServiceId) return;
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Processing…';
+
+        fetch(`/dashboard/service/${pendingServiceId}/refund/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                window.location.reload();
+            } else {
+                alert(data.message || 'Refund failed.');
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Refund';
+            }
+        })
+        .catch(() => {
+            alert('Network error. Please try again.');
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Refund';
+        });
+    });
+})();
+</script>

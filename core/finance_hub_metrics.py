@@ -39,11 +39,16 @@ def _add_to_bucket(totals, payment_method, amount):
 def _record_amounts(record):
     paid = record.paid_amount or Decimal("0")
     fee = record.service_fee or Decimal("0")
+    if record.status == "refund":
+        return (None, Decimal("0")), (None, Decimal("0"))
     if record.payment_method_2 and record.paid_amount_2:
         amt2 = record.paid_amount_2 or Decimal("0")
         amt1 = paid - amt2 if paid else fee - amt2
         return (record.payment_method, amt1), (record.payment_method_2, amt2)
-    amount = paid if paid else fee
+    if paid <= Decimal("0") and record.refund_entries.filter(status="refund").exists():
+        amount = Decimal("0")
+    else:
+        amount = paid if paid else fee
     return (record.payment_method, amount), (None, Decimal("0"))
 
 
@@ -51,7 +56,7 @@ def build_daily_payment_cards(records, organization_ids, target_date):
     """Today's intake by payment bucket (resets daily via transaction_date)."""
     totals = {method: Decimal("0.00") for method in PAYMENT_METHOD_META}
 
-    today_records = records.filter(transaction_date=target_date)
+    today_records = records.filter(transaction_date=target_date).exclude(status="refund")
     for record in today_records.iterator():
         primary, secondary = _record_amounts(record)
         _add_to_bucket(totals, primary[0], primary[1])
