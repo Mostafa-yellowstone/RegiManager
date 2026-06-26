@@ -38,6 +38,34 @@ def norm_source(value):
     return str(value).lower().strip().replace("-", "_")
 
 
+_GENERIC_RECEIPT_SOURCES = frozenset({"", "walk_in", "walkin", "other"})
+
+
+def resolve_acquisition_source_for_record(record) -> str:
+    """
+    Canonical acquisition source for analytics on a service transaction.
+
+    Vehicle service receipts usually keep the model default (walk-in) because the
+    start-process form does not expose source. The client profile stores the real
+    acquisition channel (google_search, meta_platform, website, etc.).
+    """
+    record_source = (getattr(record, "source", None) or "").strip()
+    vehicle = getattr(record, "vehicle", None)
+    client = getattr(vehicle, "client", None) if vehicle else None
+    client_source = (getattr(client, "source", None) or "").strip() if client else ""
+
+    if client_source:
+        client_key = norm_source(client_source)
+        record_key = norm_source(record_source)
+        if client_key not in _GENERIC_RECEIPT_SOURCES:
+            return client_source
+        if record_key not in _GENERIC_RECEIPT_SOURCES:
+            return record_source
+        return client_source
+
+    return record_source
+
+
 def referral_name_keys(organizations):
     """Normalized referral entity names — excluded from source dropdowns."""
     from .models import Referral

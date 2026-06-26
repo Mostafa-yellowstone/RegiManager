@@ -5,7 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from .referral_profit import effective_commission_for_record
-from .source_choices import norm_source
+from .source_choices import norm_source, resolve_acquisition_source_for_record
 
 
 def build_intake_source_profit_cards(records, source_choices, *, selected_source: str = ""):
@@ -20,7 +20,7 @@ def build_intake_source_profit_cards(records, source_choices, *, selected_source
     known_keys = set(buckets.keys())
 
     for record in records.iterator():
-        key = norm_source(record.source)
+        key = norm_source(resolve_acquisition_source_for_record(record))
         proc = record.processing_fee or Decimal("0")
         net = proc - effective_commission_for_record(record)
         if key in known_keys:

@@ -1379,7 +1379,10 @@ def start_process(request, vehicle_id):
             # Snapshots of client info
             record.client_name = vehicle.client.name
             record.client_address = vehicle.client.full_address
-            
+            client_source = (vehicle.client.source or "").strip()
+            if client_source:
+                record.source = client_source
+
             # Logic for payment and balance
             total_paid = form.cleaned_data.get('paid_amount')
             if total_paid is None:
@@ -5282,17 +5285,30 @@ def portal_intake_list(request):
         profit_records = ServiceRecord.objects.filter(
             organization_id__in=profit_org_ids,
             deleted_at__isnull=True,
-        ).exclude(status="refund").select_related("referral", "vehicle__client__referral")
+        ).exclude(status="refund").select_related(
+            "referral",
+            "vehicle__client",
+            "vehicle__client__referral",
+        )
 
         if date_from:
             profit_records = profit_records.filter(transaction_date__gte=date_from)
         if date_to:
             profit_records = profit_records.filter(transaction_date__lte=date_to)
 
-        profit_source_choices = build_source_choices(
-            ServiceRecord.objects.filter(organization_id__in=profit_org_ids).values_list(
+        profit_db_sources = set(
+            Client.objects.filter(organization_id__in=profit_org_ids).values_list(
                 "source", flat=True
-            ).distinct(),
+            )
+        )
+        profit_db_sources.update(
+            ServiceRecord.objects.filter(
+                organization_id__in=profit_org_ids,
+                vehicle__isnull=True,
+            ).values_list("source", flat=True)
+        )
+        profit_source_choices = build_source_choices(
+            profit_db_sources,
             organizations=intake_orgs.filter(id__in=profit_org_ids),
         )
         intake_source_profit_cards, intake_profit_grand_total = build_intake_source_profit_cards(
