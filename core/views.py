@@ -3436,10 +3436,7 @@ def all_agents_directory(request):
 @login_required
 def agent_audit_view(request, membership_id):
     membership = get_object_or_404(OrganizationMembership, id=membership_id)
-    organizations = _get_user_organizations(request)
-    
-    memberships = _get_user_organizations(request) # This returns a queryset of organizations, but the template usually expects memberships.
-    # Actually, let's follow the dashboard pattern:
+
     memberships = OrganizationMembership.objects.filter(
         user=request.user,
         is_active=True,
@@ -3450,41 +3447,57 @@ def agent_audit_view(request, membership_id):
         organization=membership.organization,
         role=OrganizationMembership.Role.OWNER
     ).exists()
-    
+
     if not is_owner:
         deny_access("Owner access required.")
 
     today = timezone.localdate()
-    month_start = today.replace(day=1)
-    start_date_str = request.GET.get("start_date")
-    end_date_str = request.GET.get("end_date")
-    
+    period = request.GET.get("period", "today").strip()
+    start_date_str = request.GET.get("start_date", "").strip()
+    end_date_str = request.GET.get("end_date", "").strip()
+
     if start_date_str and end_date_str:
         start_date = timezone.datetime.strptime(start_date_str, "%Y-%m-%d").date()
         end_date = timezone.datetime.strptime(end_date_str, "%Y-%m-%d").date()
-    else:
+        period = "custom"
+    elif period == "month":
         start_date = today.replace(day=1)
+        end_date = today
+    elif period == "year":
+        start_date = today.replace(month=1, day=1)
+        end_date = today
+    elif period == "all":
+        start_date = None
+        end_date = None
+    else:
+        period = "today"
+        start_date = today
         end_date = today
 
     records_qs = ServiceRecord.objects.filter(
         organization=membership.organization,
         handled_by=membership.user,
-        created_at__date__gte=start_date,
-        created_at__date__lte=end_date
-    )
+        deleted_at__isnull=True,
+    ).exclude(status="refund")
+
+    if start_date and end_date:
+        records_qs = records_qs.filter(
+            transaction_date__gte=start_date,
+            transaction_date__lte=end_date,
+        )
 
     total_records = records_qs.count()
     failed_records = records_qs.filter(status="failed").count()
     error_rate = round((failed_records / total_records * 100), 2) if total_records > 0 else 0
-    
+
     total_profit = round(records_qs.aggregate(prof=Sum("processing_fee"))["prof"] or Decimal("0"), 2)
-    
+
     badges = []
     if error_rate > 10:
         badges.append({"label": "Needs Improvement", "type": "danger", "icon": "⚠️"})
     elif total_records > 50 and error_rate < 2:
         badges.append({"label": "Top Performer", "type": "success", "icon": "🏆"})
-        
+
     if total_profit > 1000:
         badges.append({"label": "High Earner", "type": "warning", "icon": "💎"})
 
@@ -3499,34 +3512,31 @@ def agent_audit_view(request, membership_id):
         instructions = "No Activity: This agent has not processed any records in this period."
 
     daily_volume = (
-        records_qs.extra(select={'day': 'date(created_at)'})
-        .values('day')
-        .annotate(count=Count('id'))
-        .order_by('day')
+        records_qs.values("transaction_date")
+        .annotate(count=Count("id"))
+        .order_by("transaction_date")
     )
-    chart_dates = []
-    if daily_volume:
-        for v in daily_volume:
-            d_val = v['day']
-            if isinstance(d_val, str):
-                d_val = timezone.datetime.strptime(d_val[:10], "%Y-%m-%d").date()
-            chart_dates.append(d_val.strftime("%b %d"))
-    chart_counts = [v['count'] for v in daily_volume] if daily_volume else []
+    chart_dates = [
+        row["transaction_date"].strftime("%b %d")
+        for row in daily_volume
+        if row["transaction_date"]
+    ]
+    chart_counts = [row["count"] for row in daily_volume]
 
     type_distribution = (
         records_qs.values('service_type')
         .annotate(count=Count('id'))
     )
-    
+
     service_map = dict(ServiceRecord.SERVICE_TYPES)
     for ct in CustomServiceType.objects.filter(organization=membership.organization):
         service_map[ct.key] = ct.label
-        
+
     pie_labels = [service_map.get(d['service_type'], d['service_type']) for d in type_distribution] if type_distribution else []
     pie_counts = [d['count'] for d in type_distribution] if type_distribution else []
 
     from django.core.paginator import Paginator
-    paginator = Paginator(records_qs.order_by("-created_at"), 10)
+    paginator = Paginator(records_qs.order_by("-transaction_date", "-created_at"), 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -3534,8 +3544,9 @@ def agent_audit_view(request, membership_id):
         "is_owner": is_owner,
         "memberships": memberships,
         "agent_membership": membership,
-        "start_date": start_date.strftime("%Y-%m-%d"),
-        "end_date": end_date.strftime("%Y-%m-%d"),
+        "period": period,
+        "start_date": start_date.strftime("%Y-%m-%d") if start_date else "",
+        "end_date": end_date.strftime("%Y-%m-%d") if end_date else "",
         "total_records": total_records,
         "error_rate": round(error_rate, 1),
         "total_profit": total_profit,
@@ -7693,7 +7704,6 @@ def insurance_company_delete_document(request, doc_id):
 def insurance_agent_detail(request, user_id):
     from django.contrib.auth import get_user_model
     from .models import InsurancePolicy, InsuranceCompany
-    from datetime import date as _date
     import calendar as _calendar
     User = get_user_model()
     organizations = _get_user_organizations(request)
@@ -7729,7 +7739,7 @@ def insurance_agent_detail(request, user_id):
         return redirect("inventory-detail", inventory_id=_get_insurance_space_id(active_org))
 
     # ── Period Auditing ──────────────────────────────────────────────────────
-    today = _date.today()
+    today = timezone.localdate()
     period = request.GET.get("period", "today").strip()
     custom_from_str = request.GET.get("date_from", "").strip()
     custom_to_str = request.GET.get("date_to", "").strip()
@@ -7761,12 +7771,9 @@ def insurance_agent_detail(request, user_id):
         organization=active_org, added_by=agent
     ).select_related("client", "insurance_company")
 
-    # Period-scoped policies (for auditing metrics)
+    # Period-scoped policies (for auditing metrics) — match Insurance Space agent auditing
     if audit_start and audit_end:
-        period_policies = all_agent_policies.filter(
-            created_at__date__gte=audit_start,
-            created_at__date__lte=audit_end,
-        )
+        period_policies = filter_policies_by_quote_period(all_agent_policies, audit_start, audit_end)
     else:
         period_policies = all_agent_policies
 

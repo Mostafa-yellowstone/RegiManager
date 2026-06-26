@@ -87,7 +87,15 @@ def previous_insurance_period_bounds(
 
 
 def filter_policies_by_quote_period(policy_qs, start, end):
-    return policy_qs.filter(bound_date__gte=start, bound_date__lte=end)
+    """Policies active in a period: bound on bound_date, open quotes on created date."""
+    return policy_qs.filter(
+        Q(bound_date__gte=start, bound_date__lte=end)
+        | Q(
+            bound_date__isnull=True,
+            created_at__date__gte=start,
+            created_at__date__lte=end,
+        )
+    )
 
 
 def quote_period_ordering():

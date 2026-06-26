@@ -174,9 +174,8 @@ class InsuranceSpaceTests(TestCase):
         membership.save()
 
         client = Client.objects.create(organization=self.org, first_name="Audited", last_name="Client")
-        # Create policies with different dates
-        from django.utils import timezone
-        p1 = InsurancePolicy.objects.create(
+        today = date.today()
+        InsurancePolicy.objects.create(
             organization=self.org,
             client=client,
             insurance_company=self.company,
@@ -187,12 +186,10 @@ class InsuranceSpaceTests(TestCase):
             end_date="2026-12-01",
             stage="bound",
             status="active",
-            added_by=self.user
+            added_by=self.user,
+            bound_date=today,
         )
-        p1.created_at = timezone.now() # today
-        p1.save()
 
-        # Request today audit
         response = self.client.get(reverse("insurance-agent-detail", args=[self.user.id]) + "?period=today")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["bound_count"], 1)
@@ -1885,6 +1882,60 @@ class PortalIntakeListTests(TestCase):
         response = self.http.get(reverse("portal-intake-list"))
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Net Profit by Acquisition Source")
+
+
+class AgentServiceAuditTests(TestCase):
+    def setUp(self):
+        from datetime import timedelta
+
+        self.owner = User.objects.create_user(username="auditowner", password="password123")
+        self.agent = User.objects.create_user(username="auditagent", password="password123")
+        self.org = Organization.objects.create(name="Audit Org", city="NYC")
+        OrganizationMembership.objects.create(
+            user=self.owner,
+            organization=self.org,
+            is_active=True,
+            role="owner",
+        )
+        self.agent_membership = OrganizationMembership.objects.create(
+            user=self.agent,
+            organization=self.org,
+            is_active=True,
+            role="member",
+        )
+        self.http = TestClient()
+        self.today = date.today()
+        self.yesterday = self.today - timedelta(days=1)
+
+    def test_today_audit_uses_transaction_date_not_created_at(self):
+        from django.utils import timezone as dj_tz
+
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.agent,
+            service_type="vehicle_registration",
+            processing_fee=Decimal("75.00"),
+            transaction_date=self.today,
+            receipt_number=f"RCPT-AUDIT-TODAY-{self.org.id}",
+        )
+        old_record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.agent,
+            service_type="vehicle_registration",
+            processing_fee=Decimal("25.00"),
+            transaction_date=self.yesterday,
+            receipt_number=f"RCPT-AUDIT-YDAY-{self.org.id}",
+        )
+        ServiceRecord.objects.filter(pk=old_record.pk).update(created_at=dj_tz.now())
+
+        self.http.login(username="auditowner", password="password123")
+        response = self.http.get(
+            reverse("agent-audit", args=[self.agent_membership.id]),
+            {"period": "today"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["total_records"], 1)
+        self.assertEqual(response.context["total_profit"], Decimal("75.00"))
 
 
 class DocumentsSpaceTests(TestCase):

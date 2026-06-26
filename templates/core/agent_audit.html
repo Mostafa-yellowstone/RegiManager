@@ -59,9 +59,18 @@
         </section>
         {% endif %}
 
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1rem;">
-            <h2 class="portal-section-title" style="font-size: 1.5rem;">Performance Analytics</h2>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+            <div>
+                <h2 class="portal-section-title" style="font-size: 1.5rem; margin-bottom: 0.75rem;">Performance Analytics</h2>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <a href="?period=today" class="btn btn-sm {% if period == 'today' %}btn-primary{% else %}btn-secondary{% endif %}">Today</a>
+                    <a href="?period=month" class="btn btn-sm {% if period == 'month' %}btn-primary{% else %}btn-secondary{% endif %}">This Month</a>
+                    <a href="?period=year" class="btn btn-sm {% if period == 'year' %}btn-primary{% else %}btn-secondary{% endif %}">This Year</a>
+                    <a href="?period=all" class="btn btn-sm {% if period == 'all' %}btn-primary{% else %}btn-secondary{% endif %}">All Time</a>
+                </div>
+            </div>
             <form method="get" class="portal-card" style="display: flex; gap: 1rem; align-items: flex-end; padding: 1rem;">
+                <input type="hidden" name="period" value="custom">
                 <div>
                     <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 0.3rem;">Start Date</label>
                     <input type="date" name="start_date" value="{{ start_date }}" class="form-control" style="padding: 0.4rem; height: auto;" required>
@@ -95,7 +104,7 @@
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Date</th>
+                            <th>Transaction Date</th>
                             <th>Receipt No.</th>
                             <th>Service Type</th>
                             <th>Client Name</th>
@@ -106,7 +115,7 @@
                     <tbody>
                         {% for record in page_obj %}
                             <tr>
-                                <td>{{ record.created_at|date:"M d, Y g:i A" }}</td>
+                                <td>{{ record.transaction_date|date:"M d, Y" }}</td>
                                 <td>{{ record.receipt_number }}</td>
                                 <td>{{ record.service_type_label }}</td>
                                 <td>{{ record.client_name }}</td>
@@ -125,8 +134,8 @@
             {% if page_obj.has_other_pages %}
             <div class="pagination-container" style="margin-top: 1.5rem; display: flex; justify-content: center; gap: 0.5rem; align-items: center;">
                 {% if page_obj.has_previous %}
-                    <a href="?page=1{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="btn btn-secondary btn-sm">&laquo; First</a>
-                    <a href="?page={{ page_obj.previous_page_number }}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="btn btn-secondary btn-sm">Prev</a>
+                    <a href="?page=1{% if period %}&period={{ period }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="btn btn-secondary btn-sm">&laquo; First</a>
+                    <a href="?page={{ page_obj.previous_page_number }}{% if period %}&period={{ period }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="btn btn-secondary btn-sm">Prev</a>
                 {% endif %}
 
                 <span style="font-weight: 600; color: #64748b; font-size: 0.9rem;">
@@ -134,8 +143,8 @@
                 </span>
 
                 {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="btn btn-secondary btn-sm">Next</a>
-                    <a href="?page={{ page_obj.paginator.num_pages }}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="btn btn-secondary btn-sm">Last &raquo;</a>
+                    <a href="?page={{ page_obj.next_page_number }}{% if period %}&period={{ period }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="btn btn-secondary btn-sm">Next</a>
+                    <a href="?page={{ page_obj.paginator.num_pages }}{% if period %}&period={{ period }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" class="btn btn-secondary btn-sm">Last &raquo;</a>
                 {% endif %}
             </div>
             {% endif %}
