@@ -1855,6 +1855,14 @@ class DailyPaymentTransaction(models.Model):
         blank=True,
         related_name="recorded_daily_payments",
     )
+    updated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="updated_daily_payments",
+    )
+    updated_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True, default="")
     is_cleared = models.BooleanField(default=False, help_text="Bank has cleared this payment")
     cleared_date = models.DateField(null=True, blank=True, help_text="Date the bank cleared the amount")

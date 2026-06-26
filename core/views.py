@@ -6014,7 +6014,7 @@ def inventory_detail(request, inventory_id):
         daily_tx_qs = DailyPaymentTransaction.objects.filter(
             organization=active_org,
             transaction_date=daily_payment_date,
-        ).select_related("client", "recorded_by", "insurance_policy")
+        ).select_related("client", "recorded_by", "updated_by", "insurance_policy")
         daily_transactions = enrich_daily_transactions(list(daily_tx_qs))
         daily_method_cards, daily_grand_total = summarize_daily_payments(daily_transactions)
         daily_payable_total = compute_payable_total(active_org)
@@ -6833,6 +6833,104 @@ def add_daily_payment(request):
         messages.success(request, "Daily payment recorded.")
     except Exception as e:
         messages.error(request, f"Error saving payment: {e}")
+
+    return _redirect_to_insurance_detail(
+        org,
+        tab="daily-payments",
+        query_params=[f"daily_date={tx_date}"],
+    )
+
+
+@login_required
+@require_POST
+def edit_daily_payment(request, transaction_id):
+    from datetime import datetime as dt_parse
+    from .models import DailyPaymentTransaction
+    from .daily_payments import VALID_PAYMENT_METHODS, VALID_PAYMENT_TYPES
+
+    organizations = _get_user_organizations(request)
+    tx = get_object_or_404(
+        DailyPaymentTransaction,
+        id=transaction_id,
+        organization__in=organizations,
+    )
+    org = tx.organization
+    membership = membership_for_org(request.user, org)
+    is_owner = is_org_owner(request.user, org, membership)
+    if not can_manage_insurance_finance(
+        request.user, org, membership=membership, is_owner=is_owner
+    ):
+        messages.error(request, "You do not have permission to edit daily payments.")
+        return _redirect_to_insurance_detail(
+            org,
+            tab="daily-payments",
+            query_params=[f"daily_date={tx.transaction_date}"],
+        )
+
+    client_name = request.POST.get("client_name", "").strip()
+    amount = request.POST.get("amount", "0.00").strip()
+    payment_type = request.POST.get("payment_type", "").strip()
+    payment_method = request.POST.get("payment_method", "").strip()
+    transaction_date = request.POST.get("transaction_date", "").strip()
+    notes = request.POST.get("notes", "").strip()
+
+    if not client_name:
+        messages.error(request, "Client name is required.")
+        return _redirect_to_insurance_detail(
+            org,
+            tab="daily-payments",
+            query_params=[f"daily_date={tx.transaction_date}"],
+        )
+
+    from .client_matching import get_or_create_client_from_display_name
+
+    client = get_or_create_client_from_display_name(org, client_name, source="insurance")
+
+    try:
+        tx_date = (
+            dt_parse.strptime(transaction_date, "%Y-%m-%d").date()
+            if transaction_date
+            else tx.transaction_date
+        )
+    except ValueError:
+        tx_date = tx.transaction_date
+
+    if payment_type not in VALID_PAYMENT_TYPES:
+        messages.error(request, "Invalid payment type.")
+        return _redirect_to_insurance_detail(org, tab="daily-payments", query_params=[f"daily_date={tx_date}"])
+
+    if payment_method not in VALID_PAYMENT_METHODS:
+        messages.error(request, "Invalid payment method.")
+        return _redirect_to_insurance_detail(org, tab="daily-payments", query_params=[f"daily_date={tx_date}"])
+
+    is_cleared = request.POST.get("is_cleared") in ("1", "on", "true")
+    cleared_date_str = request.POST.get("cleared_date", "").strip()
+    cleared_date = None
+    if is_cleared:
+        try:
+            cleared_date = (
+                dt_parse.strptime(cleared_date_str, "%Y-%m-%d").date()
+                if cleared_date_str
+                else timezone.localdate()
+            )
+        except ValueError:
+            cleared_date = timezone.localdate()
+
+    try:
+        tx.client = client
+        tx.transaction_date = tx_date
+        tx.amount = Decimal(amount or "0.00")
+        tx.payment_type = payment_type
+        tx.payment_method = payment_method
+        tx.notes = notes
+        tx.is_cleared = is_cleared
+        tx.cleared_date = cleared_date if is_cleared else None
+        tx.updated_by = request.user
+        tx.updated_at = timezone.now()
+        tx.save()
+        messages.success(request, "Daily payment updated.")
+    except Exception as e:
+        messages.error(request, f"Error updating payment: {e}")
 
     return _redirect_to_insurance_detail(
         org,

@@ -87,5 +87,14 @@ def enrich_daily_transactions(transactions):
             tx.agent_bg_color = "#f1f5f9"
             tx.agent_text_color = "#475569"
             tx.agent_name = "—"
+        if tx.updated_by:
+            editor_bg, editor_text = agent_colors(tx.updated_by.username)
+            tx.editor_bg_color = editor_bg
+            tx.editor_text_color = editor_text
+            tx.editor_name = tx.updated_by.get_full_name() or tx.updated_by.username
+        else:
+            tx.editor_bg_color = ""
+            tx.editor_text_color = ""
+            tx.editor_name = ""
         enriched.append(tx)
     return enriched

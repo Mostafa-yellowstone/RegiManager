@@ -80,6 +80,27 @@
     line-height: 1.35;
     word-break: break-word;
   }
+  .dpt-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.3rem 0.55rem;
+    border-radius: 8px;
+    border: 1px solid #bfdbfe;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 0.72rem;
+    font-weight: 800;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .dpt-edit-btn:hover { background: #dbeafe; }
+  .dpt-editor-meta {
+    font-size: 0.68rem;
+    color: #94a3b8;
+    font-weight: 600;
+    margin-top: 2px;
+  }
 </style>
 
 <div class="dpt-hero">
@@ -136,13 +157,22 @@
           <th style="text-align: right;">Amount</th>
           <th>Notes</th>
           <th>Agent</th>
-          {% if user_can_clear_daily_payments %}<th>Bank Cleared</th><th>Clear Date</th>{% endif %}
+          {% if user_can_clear_daily_payments %}<th>Edited By</th><th>Bank Cleared</th><th>Clear Date</th>{% endif %}
           <th></th>
         </tr>
       </thead>
       <tbody>
         {% for tx in daily_transactions %}
-        <tr class="dpt-data-row{% if tx.is_cleared %} dpt-row-cleared{% endif %}" data-tx-id="{{ tx.id }}" data-amount="{{ tx.amount }}">
+        <tr class="dpt-data-row{% if tx.is_cleared %} dpt-row-cleared{% endif %}"
+            data-tx-id="{{ tx.id }}"
+            data-amount="{{ tx.amount }}"
+            data-client-name="{{ tx.client.name|escapejs }}"
+            data-payment-type="{{ tx.payment_type }}"
+            data-payment-method="{{ tx.payment_method }}"
+            data-transaction-date="{{ tx.transaction_date|date:'Y-m-d' }}"
+            data-notes="{{ tx.notes|default:''|escapejs }}"
+            data-is-cleared="{% if tx.is_cleared %}1{% else %}0{% endif %}"
+            data-cleared-date="{% if tx.cleared_date %}{{ tx.cleared_date|date:'Y-m-d' }}{% endif %}">
           <td style="font-size: 0.82rem; color: #64748b; white-space: nowrap;">{{ tx.transaction_date|date:"M j, Y" }}</td>
           <td>
             <a href="{% url 'client-detail' tx.client.id %}" style="color: #093de6; font-weight: 800; text-decoration: none;">{{ tx.client.name }}</a>
@@ -162,6 +192,16 @@
           </td>
           {% if user_can_clear_daily_payments %}
           <td>
+            {% if tx.editor_name %}
+              <span style="background: {{ tx.editor_bg_color }}; color: {{ tx.editor_text_color }}; padding: 4px 10px; border-radius: 8px; font-weight: 700; font-size: 0.78rem; white-space: nowrap;">{{ tx.editor_name }}</span>
+              {% if tx.updated_at %}
+              <div class="dpt-editor-meta">{{ tx.updated_at|date:"M j, Y g:i A" }}</div>
+              {% endif %}
+            {% else %}
+              <span style="color: #94a3b8; font-size: 0.78rem; font-weight: 600;">—</span>
+            {% endif %}
+          </td>
+          <td>
             <label style="display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.78rem; font-weight: 700; color: #334155;">
               <input type="checkbox" class="dpt-clear-check" {% if tx.is_cleared %}checked{% endif %} onchange="toggleDailyClear({{ tx.id }}, this)">
               {% if tx.is_cleared %}<span class="dpt-cleared-badge">✓ Cleared</span>{% else %}<span style="color: #94a3b8;">Pending</span>{% endif %}
@@ -171,13 +211,16 @@
             <input type="date" class="dpt-clear-date" value="{% if tx.cleared_date %}{{ tx.cleared_date|date:'Y-m-d' }}{% endif %}" {% if not tx.is_cleared %}disabled{% endif %} onchange="updateDailyClearDate({{ tx.id }}, this)">
           </td>
           {% endif %}
-          <td style="text-align: right;">
-            <a href="{% url 'delete-daily-payment' tx.id %}" onclick="return confirm('Remove this payment record?')" style="color: #dc2626; font-size: 0.75rem; font-weight: 700; text-decoration: none;">Remove</a>
+          <td style="text-align: right; white-space: nowrap;">
+            {% if user_can_clear_daily_payments %}
+            <button type="button" class="dpt-edit-btn" onclick="openEditDailyPayment(this)">Edit</button>
+            {% endif %}
+            <a href="{% url 'delete-daily-payment' tx.id %}" onclick="return confirm('Remove this payment record?')" style="color: #dc2626; font-size: 0.75rem; font-weight: 700; text-decoration: none; margin-left: 0.45rem;">Remove</a>
           </td>
         </tr>
         {% empty %}
         <tr>
-          <td colspan="{% if user_can_clear_daily_payments %}10{% else %}8{% endif %}" style="text-align: center; padding: 3rem; color: #94a3b8; font-weight: 600;">
+          <td colspan="{% if user_can_clear_daily_payments %}11{% else %}8{% endif %}" style="text-align: center; padding: 3rem; color: #94a3b8; font-weight: 600;">
             No payments recorded for this day yet.
           </td>
         </tr>
@@ -278,6 +321,64 @@
   </div>
 </div>
 
+{% if user_can_clear_daily_payments %}
+<!-- Edit Daily Payment Modal -->
+<div class="modal-overlay" id="editDailyPaymentModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <h3 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 1.2rem;">✏️ Edit Daily Payment</h3>
+      <button type="button" onclick="document.getElementById('editDailyPaymentModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
+    </div>
+    <form method="POST" id="editDailyPaymentForm" action="">
+      {% csrf_token %}
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Transaction Date</label>
+        <input type="date" name="transaction_date" id="editDailyPaymentDate" required class="field-input">
+      </div>
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Client Name</label>
+        <input type="text" name="client_name" id="editDailyPaymentClient" required class="field-input" list="dailyClientList" placeholder="e.g. John Doe">
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div>
+          <label class="field-label">Payment Type</label>
+          <select name="payment_type" id="editDailyPaymentType" required class="field-input">
+            <option value="new_business">New Business</option>
+            <option value="renewal">Renewal</option>
+            <option value="monthly_payment">Monthly Payment</option>
+            <option value="endorsement">Endorsement</option>
+            <option value="misc">Misc</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Payment Method</label>
+          <select name="payment_method" id="editDailyPaymentMethod" required class="field-input">
+            <option value="cash">Cash</option>
+            <option value="zelle">Zelle</option>
+            <option value="credit_card">Credit Card</option>
+            <option value="checks">Checks</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Amount ($)</label>
+        <input type="number" step="0.01" name="amount" id="editDailyPaymentAmount" required class="field-input" placeholder="0.00">
+      </div>
+      <div class="dpt-add-clear-box">
+        <input type="checkbox" name="is_cleared" id="editDailyPaymentCleared" class="dpt-clear-check" onchange="toggleEditClearDate(this)">
+        <label for="editDailyPaymentCleared" style="font-size: 0.85rem; font-weight: 800; color: #166534; cursor: pointer; margin: 0;">Bank Cleared</label>
+        <input type="date" name="cleared_date" id="editDailyPaymentClearDate" class="dpt-clear-date" disabled style="margin-left: auto;">
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <label class="field-label">Notes (optional)</label>
+        <textarea name="notes" id="editDailyPaymentNotes" class="field-input" rows="2" placeholder="Payment details, check number, policy reference…"></textarea>
+      </div>
+      <button type="submit" class="btn-submit">Save Changes</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
 <script>
 function openDailyDateDrawer() {
   document.getElementById('dailyDateDrawer').classList.add('active');
@@ -296,6 +397,46 @@ function toggleAddClearDate(checkbox) {
     dateInput.value = '';
   }
 }
+
+{% if user_can_clear_daily_payments %}
+function toggleEditClearDate(checkbox) {
+  const dateInput = document.getElementById('editDailyPaymentClearDate');
+  if (!dateInput) return;
+  dateInput.disabled = !checkbox.checked;
+  if (checkbox.checked && !dateInput.value) {
+    dateInput.value = new Date().toISOString().slice(0, 10);
+  }
+  if (!checkbox.checked) {
+    dateInput.value = '';
+  }
+}
+
+function openEditDailyPayment(button) {
+  const row = button.closest('tr');
+  if (!row) return;
+  const form = document.getElementById('editDailyPaymentForm');
+  const modal = document.getElementById('editDailyPaymentModal');
+  if (!form || !modal) return;
+
+  const txId = row.dataset.txId;
+  form.action = '{% url "edit-daily-payment" 0 %}'.replace('/0/', '/' + txId + '/');
+  document.getElementById('editDailyPaymentDate').value = row.dataset.transactionDate || '';
+  document.getElementById('editDailyPaymentClient').value = row.dataset.clientName || '';
+  document.getElementById('editDailyPaymentType').value = row.dataset.paymentType || 'misc';
+  document.getElementById('editDailyPaymentMethod').value = row.dataset.paymentMethod || 'cash';
+  document.getElementById('editDailyPaymentAmount').value = row.dataset.amount || '';
+  document.getElementById('editDailyPaymentNotes').value = row.dataset.notes || '';
+
+  const clearedCheckbox = document.getElementById('editDailyPaymentCleared');
+  const clearDate = document.getElementById('editDailyPaymentClearDate');
+  const isCleared = row.dataset.isCleared === '1';
+  clearedCheckbox.checked = isCleared;
+  clearDate.value = row.dataset.clearedDate || '';
+  clearDate.disabled = !isCleared;
+
+  modal.classList.add('active');
+}
+{% endif %}
 
 function playClearSweep(row) {
   const wrap = row.closest('.dpt-table-wrap');
