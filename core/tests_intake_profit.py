@@ -48,21 +48,34 @@ class IntakeProfitMetricsTests(TestCase):
         self.assertEqual(by_key["google_search"]["net_profit"], Decimal("50.00"))
         self.assertEqual(total, Decimal("140.00"))
 
-    def test_unknown_source_gets_own_card_not_other_bucket(self):
+    def test_non_standard_source_rolls_into_google_search_card(self):
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            service_type="vehicle_registration",
+            source="google_search",
+            processing_fee=Decimal("60.00"),
+            transaction_date=date(2026, 6, 3),
+            receipt_number=f"RCPT-INTAKE-PROFIT-3-{self.org.id}",
+        )
         ServiceRecord.objects.create(
             organization=self.org,
             handled_by=self.user,
             service_type="vehicle_registration",
             source="yelp_ads",
             processing_fee=Decimal("40.00"),
-            transaction_date=date(2026, 6, 3),
-            receipt_number=f"RCPT-INTAKE-PROFIT-3-{self.org.id}",
+            transaction_date=date(2026, 6, 4),
+            receipt_number=f"RCPT-INTAKE-PROFIT-4-{self.org.id}",
         )
-        source_choices = [{"key": "google_search", "label": "Google Search"}]
+        source_choices = [
+            {"key": "google_search", "label": "Google Search"},
+            {"key": "walk_in", "label": "Walk-In"},
+        ]
         records = ServiceRecord.objects.filter(organization=self.org)
         cards, total = build_intake_source_profit_cards(records, source_choices)
         by_key = {card["key"]: card for card in cards}
         self.assertNotIn("_other", by_key)
-        self.assertEqual(by_key["yelp_ads"]["net_profit"], Decimal("40.00"))
-        self.assertEqual(by_key["yelp_ads"]["transaction_count"], 1)
-        self.assertEqual(total, Decimal("40.00"))
+        self.assertNotIn("yelp_ads", by_key)
+        self.assertEqual(by_key["google_search"]["net_profit"], Decimal("100.00"))
+        self.assertEqual(by_key["google_search"]["transaction_count"], 2)
+        self.assertEqual(total, Decimal("100.00"))
