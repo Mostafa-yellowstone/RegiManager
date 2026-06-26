@@ -724,13 +724,13 @@ body.portal-body .dashboard-hero .brand-pill {
     margin: 0 0 0.25rem;
     font-size: 1.05rem;
     font-weight: 800;
-    color: var(--portal-text, #0f172a);
+    color: var(--portal-text);
 }
 
 .portal-intake-profit-subtitle {
     margin: 0;
     font-size: 0.82rem;
-    color: #64748b;
+    color: var(--portal-text-muted);
     font-weight: 600;
 }
 
@@ -738,8 +738,8 @@ body.portal-body .dashboard-hero .brand-pill {
     text-align: right;
     padding: 0.65rem 0.9rem;
     border-radius: 14px;
-    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-    border: 1px solid #a7f3d0;
+    background: var(--portal-success-bg);
+    border: 1px solid color-mix(in srgb, var(--portal-success) 28%, transparent);
 }
 
 .portal-intake-profit-total__label {
@@ -748,50 +748,62 @@ body.portal-body .dashboard-hero .brand-pill {
     font-weight: 800;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #047857;
+    color: var(--portal-success);
 }
 
 .portal-intake-profit-total__value {
     display: block;
     font-size: 1.45rem;
     font-weight: 900;
-    color: #065f46;
+    color: var(--portal-text);
     line-height: 1.15;
 }
 
 .portal-intake-profit-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
     gap: 0.85rem;
 }
 
 .portal-intake-profit-card {
+    --profit-card-bg: var(--portal-surface);
+    --profit-card-border: var(--portal-border);
+    --profit-card-source: var(--portal-text-muted);
+    --profit-card-amount: var(--portal-text);
+    --profit-card-meta: var(--portal-text-muted);
     padding: 0.95rem 1rem;
     border-radius: 16px;
-    border: 1px solid var(--portal-border, #e2e8f0);
-    background: var(--portal-surface, #fff);
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+    border: 1px solid var(--profit-card-border);
+    background: var(--profit-card-bg);
+    box-shadow: var(--portal-shadow-sm);
+    transition: border-color var(--portal-transition), box-shadow var(--portal-transition), opacity var(--portal-transition);
+}
+
+.portal-intake-profit-card.is-empty {
+    opacity: 0.72;
 }
 
 .portal-intake-profit-card.is-selected {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.18);
-    background: linear-gradient(180deg, #eef2ff 0%, #fff 100%);
+    border-color: var(--portal-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--portal-accent) 22%, transparent);
 }
 
-.portal-intake-profit-card__label {
-    font-size: 0.72rem;
+.portal-intake-profit-card__source {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.78rem;
     font-weight: 800;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 0.35rem;
+    color: var(--profit-card-source);
+    line-height: 1.35;
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.01em;
 }
 
 .portal-intake-profit-card__amount {
     font-size: 1.25rem;
     font-weight: 900;
-    color: #0f172a;
+    color: var(--profit-card-amount);
     line-height: 1.1;
 }
 
@@ -799,14 +811,204 @@ body.portal-body .dashboard-hero .brand-pill {
     margin-top: 0.35rem;
     font-size: 0.72rem;
     font-weight: 600;
-    color: #94a3b8;
+    color: var(--profit-card-meta);
 }
 
 .portal-intake-profit-empty {
     margin: 0;
-    color: #94a3b8;
+    color: var(--portal-text-muted);
     font-weight: 600;
     font-size: 0.9rem;
+}
+
+/* Acquisition source profit cards — light mode */
+.portal-intake-profit-card--google_search {
+    --profit-card-bg: #fef9c3;
+    --profit-card-border: #fde68a;
+    --profit-card-source: #713f12;
+    --profit-card-amount: #78350f;
+    --profit-card-meta: #92400e;
+}
+
+.portal-intake-profit-card--walk_in {
+    --profit-card-bg: #e0f2fe;
+    --profit-card-border: #bae6fd;
+    --profit-card-source: #075985;
+    --profit-card-amount: #0c4a6e;
+    --profit-card-meta: #0369a1;
+}
+
+.portal-intake-profit-card--website {
+    --profit-card-bg: #eff6ff;
+    --profit-card-border: #bfdbfe;
+    --profit-card-source: #1d4ed8;
+    --profit-card-amount: #1e3a8a;
+    --profit-card-meta: #2563eb;
+}
+
+.portal-intake-profit-card--meta_platform {
+    --profit-card-bg: #ede9fe;
+    --profit-card-border: #ddd6fe;
+    --profit-card-source: #5b21b6;
+    --profit-card-amount: #4c1d95;
+    --profit-card-meta: #6d28d9;
+}
+
+.portal-intake-profit-card--google_campaigns {
+    --profit-card-bg: #fef3c7;
+    --profit-card-border: #fde68a;
+    --profit-card-source: #92400e;
+    --profit-card-amount: #78350f;
+    --profit-card-meta: #b45309;
+}
+
+.portal-intake-profit-card--existing_client {
+    --profit-card-bg: #dcfce7;
+    --profit-card-border: #bbf7d0;
+    --profit-card-source: #166534;
+    --profit-card-amount: #14532d;
+    --profit-card-meta: #15803d;
+}
+
+.portal-intake-profit-card--dealer {
+    --profit-card-bg: #f0fdf4;
+    --profit-card-border: #bbf7d0;
+    --profit-card-source: #15803d;
+    --profit-card-amount: #14532d;
+    --profit-card-meta: #166534;
+}
+
+.portal-intake-profit-card--referral {
+    --profit-card-bg: #ffe4e6;
+    --profit-card-border: #fecdd3;
+    --profit-card-source: #9f1239;
+    --profit-card-amount: #881337;
+    --profit-card-meta: #be123c;
+}
+
+.portal-intake-profit-card--cold_calling {
+    --profit-card-bg: #f1f5f9;
+    --profit-card-border: #e2e8f0;
+    --profit-card-source: #475569;
+    --profit-card-amount: #334155;
+    --profit-card-meta: #64748b;
+}
+
+.portal-intake-profit-card--insurance {
+    --profit-card-bg: #e0f2fe;
+    --profit-card-border: #bae6fd;
+    --profit-card-source: #0c4a6e;
+    --profit-card-amount: #082f49;
+    --profit-card-meta: #075985;
+}
+
+.portal-intake-profit-card--other {
+    --profit-card-bg: #f8fafc;
+    --profit-card-border: #e2e8f0;
+    --profit-card-source: #64748b;
+    --profit-card-amount: #334155;
+    --profit-card-meta: #94a3b8;
+}
+
+/* Acquisition source profit cards — dark mode */
+html.portal-theme-dark .portal-intake-profit-total__value {
+    color: #bbf7d0;
+}
+
+html.portal-theme-dark .portal-intake-profit-card--google_search {
+    --profit-card-bg: rgba(217, 119, 6, 0.18);
+    --profit-card-border: rgba(251, 191, 36, 0.35);
+    --profit-card-source: #fbbf24;
+    --profit-card-amount: #fde68a;
+    --profit-card-meta: #fcd34d;
+}
+
+html.portal-theme-dark .portal-intake-profit-card--walk_in {
+    --profit-card-bg: rgba(14, 165, 233, 0.18);
+    --profit-card-border: rgba(56, 189, 248, 0.35);
+    --profit-card-source: #7dd3fc;
+    --profit-card-amount: #e0f2fe;
+    --profit-card-meta: #bae6fd;
+}
+
+html.portal-theme-dark .portal-intake-profit-card--website {
+    --profit-card-bg: rgba(37, 99, 235, 0.18);
+    --profit-card-border: rgba(96, 165, 250, 0.35);
+    --profit-card-source: #93c5fd;
+    --profit-card-amount: #dbeafe;
+    --profit-card-meta: #60a5fa;
+}
+
+html.portal-theme-dark .portal-intake-profit-card--meta_platform {
+    --profit-card-bg: rgba(124, 58, 237, 0.18);
+    --profit-card-border: rgba(167, 139, 250, 0.35);
+    --profit-card-source: #c4b5fd;
+    --profit-card-amount: #ede9fe;
+    --profit-card-meta: #a78bfa;
+}
+
+html.portal-theme-dark .portal-intake-profit-card--google_campaigns {
+    --profit-card-bg: rgba(217, 119, 6, 0.18);
+    --profit-card-border: rgba(251, 191, 36, 0.35);
+    --profit-card-source: #fbbf24;
+    --profit-card-amount: #fde68a;
+    --profit-card-meta: #fcd34d;
+}
+
+html.portal-theme-dark .portal-intake-profit-card--existing_client {
+    --profit-card-bg: rgba(22, 163, 74, 0.18);
+    --profit-card-border: rgba(74, 222, 128, 0.35);
+    --profit-card-source: #4ade80;
+    --profit-card-amount: #bbf7d0;
+    --profit-card-meta: #86efac;
+}
+
+html.portal-theme-dark .portal-intake-profit-card--dealer {
+    --profit-card-bg: rgba(22, 163, 74, 0.16);
+    --profit-card-border: rgba(74, 222, 128, 0.3);
+    --profit-card-source: #4ade80;
+    --profit-card-amount: #bbf7d0;
+    --profit-card-meta: #86efac;
+}
+
+html.portal-theme-dark .portal-intake-profit-card--referral {
+    --profit-card-bg: rgba(220, 38, 38, 0.15);
+    --profit-card-border: rgba(248, 113, 113, 0.35);
+    --profit-card-source: #f87171;
+    --profit-card-amount: #fecaca;
+    --profit-card-meta: #fca5a5;
+}
+
+html.portal-theme-dark .portal-intake-profit-card--cold_calling {
+    --profit-card-bg: rgba(148, 163, 184, 0.15);
+    --profit-card-border: rgba(148, 163, 184, 0.35);
+    --profit-card-source: #cbd5e1;
+    --profit-card-amount: #e2e8f0;
+    --profit-card-meta: #94a3b8;
+}
+
+html.portal-theme-dark .portal-intake-profit-card--insurance {
+    --profit-card-bg: rgba(14, 165, 233, 0.16);
+    --profit-card-border: rgba(56, 189, 248, 0.32);
+    --profit-card-source: #7dd3fc;
+    --profit-card-amount: #e0f2fe;
+    --profit-card-meta: #bae6fd;
+}
+
+html.portal-theme-dark .portal-intake-profit-card--other {
+    --profit-card-bg: rgba(148, 163, 184, 0.12);
+    --profit-card-border: rgba(148, 163, 184, 0.28);
+    --profit-card-source: #94a3b8;
+    --profit-card-amount: #cbd5e1;
+    --profit-card-meta: #64748b;
+}
+
+html.portal-theme-dark .portal-intake-profit-card.is-empty {
+    opacity: 0.55;
+}
+
+html.portal-theme-dark .portal-intake-profit-card.is-selected {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--portal-accent) 45%, transparent);
 }
 
 .portal-intake-crm-stats {

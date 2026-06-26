@@ -53,9 +53,9 @@
             </div>
             <div class="portal-intake-profit-grid">
                 {% for card in intake_source_profit_cards %}
-                {% if card.net_profit > 0 or card.transaction_count > 0 %}
-                <article class="portal-intake-profit-card{% if card.is_selected %} is-selected{% endif %}">
-                    <div class="portal-intake-profit-card__label">{{ card.label }}</div>
+                {% if card.key != "_other" or card.transaction_count > 0 %}
+                <article class="portal-intake-profit-card portal-intake-profit-card--{% if card.key == '_other' %}other{% else %}{{ card.key }}{% endif %}{% if card.is_selected %} is-selected{% endif %}{% if card.transaction_count == 0 %} is-empty{% endif %}">
+                    <div class="portal-intake-profit-card__source">{{ card.label }}</div>
                     <div class="portal-intake-profit-card__amount">${{ card.net_profit|floatformat:2 }}</div>
                     <div class="portal-intake-profit-card__meta">{{ card.transaction_count }} transaction{{ card.transaction_count|pluralize }}</div>
                 </article>
