@@ -5254,6 +5254,53 @@ def portal_intake_list(request):
         status=ClientIntake.Status.PENDING,
     ).count()
 
+    is_intake_owner = OrganizationMembership.objects.filter(
+        user=request.user,
+        organization__in=intake_orgs,
+        role=OrganizationMembership.Role.OWNER,
+        is_active=True,
+    ).exists()
+    user_can_view_net_profit = OrganizationMembership.objects.filter(
+        user=request.user,
+        organization__in=intake_orgs,
+        can_view_net_profit=True,
+        is_active=True,
+    ).exists()
+    show_intake_profit = is_intake_owner or user_can_view_net_profit
+
+    intake_source_profit_cards = []
+    intake_profit_grand_total = Decimal("0.00")
+    if show_intake_profit:
+        from .intake_profit_metrics import build_intake_source_profit_cards
+
+        profit_org_ids = intake_org_ids
+        if selected_org and selected_org.isdigit():
+            oid = int(selected_org)
+            if oid in intake_org_ids:
+                profit_org_ids = [oid]
+
+        profit_records = ServiceRecord.objects.filter(
+            organization_id__in=profit_org_ids,
+            deleted_at__isnull=True,
+        ).exclude(status="refund").select_related("referral", "vehicle__client__referral")
+
+        if date_from:
+            profit_records = profit_records.filter(transaction_date__gte=date_from)
+        if date_to:
+            profit_records = profit_records.filter(transaction_date__lte=date_to)
+
+        profit_source_choices = build_source_choices(
+            ServiceRecord.objects.filter(organization_id__in=profit_org_ids).values_list(
+                "source", flat=True
+            ).distinct(),
+            organizations=intake_orgs.filter(id__in=profit_org_ids),
+        )
+        intake_source_profit_cards, intake_profit_grand_total = build_intake_source_profit_cards(
+            profit_records,
+            profit_source_choices,
+            selected_source=selected_source,
+        )
+
     paginator = Paginator(intakes, 20)
     page_obj = paginator.get_page(request.GET.get("page"))
 
@@ -5279,6 +5326,9 @@ def portal_intake_list(request):
             "intake_orgs": intake_orgs,
             "status_choices": ClientIntake.Status.choices,
             "pending_count": pending_count,
+            "show_intake_profit": show_intake_profit,
+            "intake_source_profit_cards": intake_source_profit_cards,
+            "intake_profit_grand_total": intake_profit_grand_total,
         },
     )
 

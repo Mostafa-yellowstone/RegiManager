@@ -1835,6 +1835,57 @@ class PortalIntakeListTests(TestCase):
         self.assertContains(response, "Pending One")
         self.assertNotContains(response, "Done Two")
 
+    def test_owner_sees_intake_source_profit_cards(self):
+        from datetime import date
+
+        from core.models import Referral
+
+        referral = Referral.objects.create(
+            organization=self.org,
+            name="Intake Profit Partner",
+            referral_fee=Decimal("20.00"),
+        )
+        client = Client.objects.create(
+            organization=self.org,
+            first_name="Profit",
+            last_name="Client",
+            gender="male",
+            phone_number="5554443333",
+            source="walk_in",
+        )
+        vehicle = Vehicle.objects.create(
+            client=client,
+            vin="VINPROFIT12345678",
+            vehicle_type="passenger",
+            fuel_type="gas",
+        )
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.owner,
+            vehicle=vehicle,
+            referral=referral,
+            service_type="vehicle_registration",
+            source="walk_in",
+            processing_fee=Decimal("100.00"),
+            transaction_date=date(2026, 6, 10),
+            status="completed",
+            receipt_number=f"RCPT-INTAKE-CRM-{self.org.id}",
+        )
+        self.http.login(username="intakeowner", password="password123")
+        response = self.http.get(
+            reverse("portal-intake-list"),
+            {"date_from": "2026-06-01", "date_to": "2026-06-30"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Net Profit by Acquisition Source")
+        self.assertContains(response, "$80.00")
+
+    def test_agent_does_not_see_intake_source_profit_cards(self):
+        self.http.login(username="intakeagent", password="password123")
+        response = self.http.get(reverse("portal-intake-list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Net Profit by Acquisition Source")
+
 
 class DocumentsSpaceTests(TestCase):
     def setUp(self):

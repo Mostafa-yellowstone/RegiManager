@@ -706,6 +706,109 @@ body.portal-body .dashboard-hero .brand-pill {
     grid-template-columns: 1fr;
 }
 
+.portal-intake-profit-section {
+    margin-bottom: 1.25rem;
+    padding: 1.35rem 1.5rem 1.5rem;
+}
+
+.portal-intake-profit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.portal-intake-profit-header h3 {
+    margin: 0 0 0.25rem;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--portal-text, #0f172a);
+}
+
+.portal-intake-profit-subtitle {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.portal-intake-profit-total {
+    text-align: right;
+    padding: 0.65rem 0.9rem;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border: 1px solid #a7f3d0;
+}
+
+.portal-intake-profit-total__label {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #047857;
+}
+
+.portal-intake-profit-total__value {
+    display: block;
+    font-size: 1.45rem;
+    font-weight: 900;
+    color: #065f46;
+    line-height: 1.15;
+}
+
+.portal-intake-profit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.85rem;
+}
+
+.portal-intake-profit-card {
+    padding: 0.95rem 1rem;
+    border-radius: 16px;
+    border: 1px solid var(--portal-border, #e2e8f0);
+    background: var(--portal-surface, #fff);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+}
+
+.portal-intake-profit-card.is-selected {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.18);
+    background: linear-gradient(180deg, #eef2ff 0%, #fff 100%);
+}
+
+.portal-intake-profit-card__label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.35rem;
+}
+
+.portal-intake-profit-card__amount {
+    font-size: 1.25rem;
+    font-weight: 900;
+    color: #0f172a;
+    line-height: 1.1;
+}
+
+.portal-intake-profit-card__meta {
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+.portal-intake-profit-empty {
+    margin: 0;
+    color: #94a3b8;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
 .portal-intake-crm-stats {
     display: flex;
     flex-wrap: wrap;
@@ -751,6 +854,14 @@ body.portal-body .dashboard-hero .brand-pill {
 
 .portal-intake-filter-panel {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.portal-filter-hint {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    font-weight: 600;
 }
 
 .portal-intake-table-wrap {
