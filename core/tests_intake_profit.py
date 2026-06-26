@@ -47,3 +47,22 @@ class IntakeProfitMetricsTests(TestCase):
         self.assertEqual(by_key["walk_in"]["net_profit"], Decimal("90.00"))
         self.assertEqual(by_key["google_search"]["net_profit"], Decimal("50.00"))
         self.assertEqual(total, Decimal("140.00"))
+
+    def test_unknown_source_gets_own_card_not_other_bucket(self):
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            service_type="vehicle_registration",
+            source="yelp_ads",
+            processing_fee=Decimal("40.00"),
+            transaction_date=date(2026, 6, 3),
+            receipt_number=f"RCPT-INTAKE-PROFIT-3-{self.org.id}",
+        )
+        source_choices = [{"key": "google_search", "label": "Google Search"}]
+        records = ServiceRecord.objects.filter(organization=self.org)
+        cards, total = build_intake_source_profit_cards(records, source_choices)
+        by_key = {card["key"]: card for card in cards}
+        self.assertNotIn("_other", by_key)
+        self.assertEqual(by_key["yelp_ads"]["net_profit"], Decimal("40.00"))
+        self.assertEqual(by_key["yelp_ads"]["transaction_count"], 1)
+        self.assertEqual(total, Decimal("40.00"))
