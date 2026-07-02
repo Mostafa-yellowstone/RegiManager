@@ -81,6 +81,32 @@ class PsbReceiptPdfTests(TestCase):
         self.assertIn("One Hundred", pdf_text)
         self.assertIn("Dollars", pdf_text)
 
+    def test_business_owner_uses_profile_field_only(self):
+        other_owner = User.objects.create_user(
+            username="otherowner",
+            password="password123",
+            first_name="Other",
+            last_name="Owner",
+        )
+        OrganizationMembership.objects.create(
+            user=other_owner,
+            organization=self.org,
+            role="owner",
+        )
+        self.org.business_owner_name = ""
+        self.org.save(update_fields=["business_owner_name"])
+
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+        )
+        pdf_text = self._pdf_text(record)
+        self.assertNotIn("BUSINESS OWNER", pdf_text)
+        self.assertNotIn("OTHER OWNER", pdf_text)
+        self.assertNotIn("RECEIPTUSER", pdf_text)
+
     def test_classic_layout_fields(self):
         record = ServiceRecord.objects.create(
             organization=self.org,

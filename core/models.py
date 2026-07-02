@@ -62,7 +62,7 @@ class Organization(models.Model):
         max_length=200,
         blank=True,
         default="",
-        help_text="Legal owner name(s) printed below the PSB business name on service receipts.",
+        help_text="Full legal name of the business owner printed on service receipts. Only this field is used — not users with the Owner role.",
     )
     invite_code = models.CharField(max_length=20, unique=True, default=generate_invite_code)
     portal_token = models.CharField(max_length=64, unique=True, blank=True, null=True)

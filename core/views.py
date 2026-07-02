@@ -2496,8 +2496,8 @@ def service_receipt_pdf(request, service_id):
     _draw_receipt_payment_history(pdf, service_record, margin_x)
 
     pdf.setFont("Helvetica-Bold", 7)
-    pdf.drawCentredString(width / 2, 52, OFFICIAL_FOOTER_LINES[0])
-    pdf.drawCentredString(width / 2, 42, OFFICIAL_FOOTER_LINES[1])
+    pdf.drawCentredString(width / 2, 20, OFFICIAL_FOOTER_LINES[0])
+    pdf.drawCentredString(width / 2, 10, OFFICIAL_FOOTER_LINES[1])
 
     pdf.save()
     return response

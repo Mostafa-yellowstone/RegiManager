@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from decimal import Decimal, ROUND_DOWN
 
-from .models import OrganizationMembership, ServiceRecord
+from .models import ServiceRecord
 
 OFFICIAL_FOOTER_LINES = (
     "This is a Liscensed Private Service Bureau, but is not an official agency",
@@ -66,18 +66,5 @@ def format_receipt_number_display(service_record) -> str:
 
 
 def resolve_business_owner_name(org) -> str:
-    explicit = (getattr(org, "business_owner_name", None) or "").strip()
-    if explicit:
-        return explicit
-
-    owners = OrganizationMembership.objects.filter(
-        organization=org,
-        role=OrganizationMembership.Role.OWNER,
-        is_active=True,
-    ).select_related("user")
-    names = []
-    for membership in owners:
-        name = membership.user.get_full_name() or membership.user.username
-        if name:
-            names.append(name.strip())
-    return ", ".join(names)
+    """Return only the explicit business owner name set on the PSB profile."""
+    return (getattr(org, "business_owner_name", None) or "").strip()
