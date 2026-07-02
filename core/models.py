@@ -58,6 +58,12 @@ class Organization(models.Model):
         default="",
         help_text="PSB license number printed on service receipts under PSBC No.",
     )
+    business_owner_name = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        help_text="Legal owner name(s) printed below the PSB business name on service receipts.",
+    )
     invite_code = models.CharField(max_length=20, unique=True, default=generate_invite_code)
     portal_token = models.CharField(max_length=64, unique=True, blank=True, null=True)
     max_agents = models.IntegerField(default=5, help_text="Maximum number of agents allowed for this PSB.")

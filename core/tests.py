@@ -584,8 +584,6 @@ class ReceiptAddressTests(TestCase):
             vehicle=self.vehicle,
             service_type="vehicle_registration",
         )
-        receipt_parts = str(record.receipt_number).split("-")
-        receipt_short = receipt_parts[1][-6:] if len(receipt_parts) > 1 else str(record.receipt_number)[:6]
 
         response = self.client.get(reverse("service-receipt-pdf", args=[record.id]))
         self.assertEqual(response.status_code, 200)
@@ -595,7 +593,16 @@ class ReceiptAddressTests(TestCase):
         )
         self.assertIn("PSB-LIC-98765", pdf_text)
         self.assertIn("receipts@testpsb.com", pdf_text)
-        self.assertIn(receipt_short, pdf_text)
+        self.assertIn("00001", pdf_text)
+        self.assertNotIn("RCPT", pdf_text)
+        self.assertIn("Customer Name:", pdf_text)
+        self.assertIn("Fee for Service", pdf_text)
+        self.assertIn("The sum of", pdf_text)
+        self.assertIn(
+            "This is a Liscensed Private Service Bureau, but is not an official agency "
+            "of the Department of Motor Vehicles , State of New York",
+            pdf_text,
+        )
 
 
 class AgentAuditingTests(TestCase):
