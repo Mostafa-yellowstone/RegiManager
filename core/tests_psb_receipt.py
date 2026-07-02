@@ -22,7 +22,6 @@ class PsbReceiptPdfTests(TestCase):
     def setUp(self):
         self.org = Organization.objects.create(
             name="Xpress Plates",
-            business_owner_name="John A. Smith",
             address_line="123 Main Street",
             city="Anytown",
             state="NY",
@@ -64,7 +63,7 @@ class PsbReceiptPdfTests(TestCase):
         self.assertIn("00001", pdf_text)
         self.assertNotIn("RCPT", pdf_text)
 
-    def test_business_owner_and_sum_line(self):
+    def test_sum_line(self):
         record = ServiceRecord.objects.create(
             organization=self.org,
             handled_by=self.user,
@@ -75,37 +74,10 @@ class PsbReceiptPdfTests(TestCase):
             service_fee=Decimal("100.00"),
         )
         pdf_text = self._pdf_text(record)
-        self.assertIn("JOHN A. SMITH", pdf_text)
-        self.assertIn("BUSINESS OWNER", pdf_text)
         self.assertIn("The sum of", pdf_text)
         self.assertIn("One Hundred", pdf_text)
         self.assertIn("Dollars", pdf_text)
-
-    def test_business_owner_uses_profile_field_only(self):
-        other_owner = User.objects.create_user(
-            username="otherowner",
-            password="password123",
-            first_name="Other",
-            last_name="Owner",
-        )
-        OrganizationMembership.objects.create(
-            user=other_owner,
-            organization=self.org,
-            role="owner",
-        )
-        self.org.business_owner_name = ""
-        self.org.save(update_fields=["business_owner_name"])
-
-        record = ServiceRecord.objects.create(
-            organization=self.org,
-            handled_by=self.user,
-            vehicle=self.vehicle,
-            service_type="vehicle_registration",
-        )
-        pdf_text = self._pdf_text(record)
         self.assertNotIn("BUSINESS OWNER", pdf_text)
-        self.assertNotIn("OTHER OWNER", pdf_text)
-        self.assertNotIn("RECEIPTUSER", pdf_text)
 
     def test_classic_layout_fields(self):
         record = ServiceRecord.objects.create(

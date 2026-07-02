@@ -63,8 +63,3 @@ def format_receipt_number_display(service_record) -> str:
     if digits:
         return digits[-5:].zfill(5)
     return "00000"
-
-
-def resolve_business_owner_name(org) -> str:
-    """Return only the explicit business owner name set on the PSB profile."""
-    return (getattr(org, "business_owner_name", None) or "").strip()

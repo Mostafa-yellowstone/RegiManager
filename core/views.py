@@ -2245,7 +2245,6 @@ def service_receipt_pdf(request, service_id):
         OFFICIAL_FOOTER_LINES,
         dollars_to_words,
         format_receipt_number_display,
-        resolve_business_owner_name,
     )
 
     service_record = get_object_or_404(
@@ -2276,21 +2275,7 @@ def service_receipt_pdf(request, service_id):
     org_name = org.name.upper()
     pdf.drawString(margin_x, y, org_name)
 
-    y -= 22
-    owner_name = resolve_business_owner_name(org)
-    if owner_name:
-        pdf.setFont("Helvetica", 6.5)
-        pdf.setFillColorRGB(0.42, 0.42, 0.42)
-        pdf.drawString(margin_x, y, "BUSINESS OWNER")
-        y -= 10
-        pdf.setFont("Helvetica-BoldOblique", 10.5)
-        pdf.setFillColorRGB(0.12, 0.12, 0.12)
-        pdf.drawString(margin_x, y, owner_name.upper()[:72])
-        pdf.setFillColorRGB(0, 0, 0)
-        y -= 14
-    else:
-        y -= 3
-
+    y -= 25
     pdf.setFont("Helvetica-Bold", 10)
     address_parts = [
         (org.address_line or "").strip(),
