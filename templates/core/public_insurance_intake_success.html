@@ -106,8 +106,8 @@
             </ul>
         </div>
 
-        {% if organization and organization.show_review_button and organization.review_link %}
-        <a href="{{ organization.review_link }}" target="_blank" class="review-btn">
+        {% if organization and organization.insurance_show_review_button and organization.insurance_review_link %}
+        <a href="{{ organization.insurance_review_link }}" target="_blank" class="review-btn">
             <span style="color: #fbbf24; font-size: 1.2rem;">★</span> Leave us a Review!
         </a>
         {% endif %}

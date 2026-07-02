@@ -112,6 +112,19 @@ class PublicInsuranceIntakePortalTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(InsuranceIntake.objects.filter(organization=self.org).count(), 1)
 
+    def test_insurance_success_uses_insurance_review_link(self):
+        self.org.insurance_show_review_button = True
+        self.org.insurance_review_link = "https://example.com/insurance-review"
+        self.org.show_review_button = True
+        self.org.review_link = "https://example.com/client-review"
+        self.org.save()
+        response = self.client.get(
+            reverse("public-insurance-intake-success")
+            + f"?portal_token={self.org.portal_token}"
+        )
+        self.assertContains(response, "https://example.com/insurance-review")
+        self.assertNotContains(response, "https://example.com/client-review")
+
 
 class InsuranceIntakeQueueTests(TestCase):
     def setUp(self):
@@ -170,10 +183,28 @@ class InsuranceIntakeQueueTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "tab-intake-queue-btn")
 
-    def test_approve_creates_quote_policy(self):
+    def test_owner_sees_intake_queue_without_insurance_agent_flag(self):
+        owner = User.objects.create_user(username="owner", password="pass12345")
+        owner_membership = OrganizationMembership.objects.create(
+            user=owner,
+            organization=self.org,
+            role=OrganizationMembership.Role.OWNER,
+            can_view_spaces=True,
+            can_deal_with_insurance=False,
+        )
+        owner_membership.accessible_spaces.add(self.space)
+        self.client.login(username="owner", password="pass12345")
+        response = self.client.get(reverse("inventory-detail", args=[self.space.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Intake Queue")
+        self.assertContains(response, "Pat Quote")
+
+    def test_approve_redirects_to_inventory_detail_intake_tab(self):
         self.client.login(username="insagent", password="pass12345")
         response = self.client.post(reverse("approve-insurance-intake", args=[self.intake.id]))
         self.assertEqual(response.status_code, 302)
+        self.assertIn(f"/dashboard/inventory/{self.space.id}/", response.url)
+        self.assertIn("tab=intake-queue", response.url)
         self.intake.refresh_from_db()
         self.assertEqual(self.intake.status, InsuranceIntake.Status.APPROVED)
         self.assertIsNotNone(self.intake.created_policy_id)

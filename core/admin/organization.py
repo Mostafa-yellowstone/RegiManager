@@ -86,6 +86,13 @@ class OrganizationAdmin(admin.ModelAdmin):
         }),
         ("Insurance Space", {"fields": ("insurance_space_locked", "insurance_space_password")}),
         ("Public Intake", {"fields": ("show_review_button", "review_link")}),
+        (
+            "Insurance Intake Portal",
+            {
+                "fields": ("insurance_show_review_button", "insurance_review_link"),
+                "description": "Review button settings for the insurance intake success page (separate from client intake).",
+            },
+        ),
     )
 
     def intake_link_display(self, obj):

@@ -105,11 +105,16 @@ def public_insurance_intake_success(request):
 
 
 def _redirect_insurance_space(org, tab="intake-queue"):
+    from django.urls import reverse
+
     from .models import Space
 
     space = Space.objects.filter(organization=org, key="insurance").first()
     if space:
-        return redirect(f"/dashboard/spaces/{space.id}/?tab={tab}")
+        url = reverse("inventory-detail", kwargs={"inventory_id": space.id})
+        if tab:
+            url += f"?tab={tab}"
+        return redirect(url)
     return redirect("dashboard")
 
 
@@ -123,7 +128,9 @@ def approve_insurance_intake_view(request, intake_id):
             id=intake_id,
             organization__in=organizations,
         )
-        if not can_manage_insurance_intake(request.user, intake.organization):
+        if not can_manage_insurance_intake(
+            request.user, intake.organization, is_owner=None
+        ):
             messages.error(request, "You do not have permission to process insurance intakes.")
             return redirect("dashboard")
 
@@ -146,7 +153,9 @@ def reject_insurance_intake_view(request, intake_id):
             id=intake_id,
             organization__in=organizations,
         )
-        if not can_manage_insurance_intake(request.user, intake.organization):
+        if not can_manage_insurance_intake(
+            request.user, intake.organization, is_owner=None
+        ):
             messages.error(request, "You do not have permission to process insurance intakes.")
             return redirect("dashboard")
 

@@ -73,6 +73,18 @@ class Organization(models.Model):
     is_active = models.BooleanField(default=True, help_text="Enable or disable this PSB account.")
     show_review_button = models.BooleanField(default=False, verbose_name="Show Review Button on Success Page", help_text="Add a custom review button to the intake completion page.")
     review_link = models.URLField(max_length=500, blank=True, null=True, verbose_name="Review/Custom Link", help_text="The URL that the review button will link to.")
+    insurance_show_review_button = models.BooleanField(
+        default=False,
+        verbose_name="Show Review Button on Insurance Intake Success",
+        help_text="Add a review button to the insurance intake completion page.",
+    )
+    insurance_review_link = models.URLField(
+        max_length=500,
+        blank=True,
+        null=True,
+        verbose_name="Insurance Review Link",
+        help_text="URL for the review button on the insurance intake success page.",
+    )
     insurance_space_password = models.CharField(max_length=128, blank=True, default="", help_text="Password to access locked insurance space.")
     insurance_space_locked = models.BooleanField(default=False, help_text="Is the insurance space password-locked?")
     created_at = models.DateTimeField(auto_now_add=True)

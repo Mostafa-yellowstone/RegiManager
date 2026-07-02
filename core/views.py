@@ -6115,19 +6115,18 @@ def inventory_detail(request, inventory_id):
         from .models import InsuranceIntake
 
         user_can_manage_insurance_intake = can_manage_insurance_intake(
-            request.user, active_org, membership=membership
+            request.user, active_org, membership=membership, is_owner=is_owner
         )
         pending_insurance_intakes = []
         insurance_intake_portal_url = ""
         pending_insurance_intake_count = 0
         if user_can_manage_insurance_intake:
-            pending_insurance_intakes = list(
-                InsuranceIntake.objects.filter(
-                    organization=active_org,
-                    status=InsuranceIntake.Status.PENDING,
-                ).order_by("-created_at")[:100]
+            pending_qs = InsuranceIntake.objects.filter(
+                organization=active_org,
+                status=InsuranceIntake.Status.PENDING,
             )
-            pending_insurance_intake_count = len(pending_insurance_intakes)
+            pending_insurance_intake_count = pending_qs.count()
+            pending_insurance_intakes = list(pending_qs.order_by("-created_at")[:100])
             if active_org.is_public_insurance_intake_enabled and active_org.portal_token:
                 insurance_intake_portal_url = f"/insurance-intake/{active_org.portal_token}/"
 
