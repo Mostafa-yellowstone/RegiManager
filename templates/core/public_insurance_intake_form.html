@@ -1,12 +1,21 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Insurance Quote Request | {{ organization.name }}{% endblock %}
+{% block title %}Insurance Quote Request | {{ organization.insurance_intake_brand_name }}{% endblock %}
 
 {% block content %}
 <style>
+    :root {
+        --ins-navy: #0b1f3a;
+        --ins-blue: #1e4d8c;
+        --ins-teal: #0d9488;
+        --ins-gold: #d4a853;
+        --ins-ink: #0f172a;
+        --ins-muted: #475569;
+        --ins-border: #cbd5e1;
+    }
     .ins-intake-shell {
-        background: linear-gradient(160deg, #0f172a 0%, #1e3a8a 45%, #f1f5f9 45%);
+        background: linear-gradient(165deg, var(--ins-navy) 0%, #12325f 38%, #e8f4f8 38%, #f8fafc 100%);
         min-height: 100vh;
         padding: 2.5rem 1rem 3rem;
     }
@@ -14,32 +23,66 @@
         max-width: 960px;
         margin: 0 auto;
         background: #fff;
-        border-radius: 20px;
-        box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+        border-radius: 22px;
+        box-shadow: 0 28px 60px -18px rgba(11, 31, 58, 0.35);
         overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.6);
     }
     .ins-intake-header {
-        padding: 2rem 2rem 1.5rem;
-        background: #0f172a;
+        padding: 2.25rem 2rem 1.75rem;
+        background: linear-gradient(135deg, var(--ins-navy) 0%, var(--ins-blue) 55%, #1a5f7a 100%);
         color: #fff;
+        position: relative;
+        overflow: hidden;
+    }
+    .ins-intake-header::after {
+        content: "";
+        position: absolute;
+        top: -40%;
+        right: -10%;
+        width: 220px;
+        height: 220px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(212,168,83,0.25) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .ins-intake-header .brand-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ins-gold);
+        margin-bottom: 0.65rem;
     }
     .ins-intake-header h1 {
-        margin: 0 0 0.35rem;
-        font-size: 1.65rem;
+        margin: 0 0 0.5rem;
+        font-size: 1.85rem;
         font-weight: 800;
+        color: #ffffff;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+        position: relative;
+        z-index: 1;
     }
     .ins-intake-header p {
         margin: 0;
-        color: #94a3b8;
-        font-size: 0.95rem;
+        color: #b8d4e8;
+        font-size: 1rem;
+        line-height: 1.55;
+        max-width: 36rem;
+        position: relative;
+        z-index: 1;
     }
-    .ins-intake-body { padding: 2rem; }
+    .ins-intake-body { padding: 2rem; background: #fafcff; }
     .section-title {
-        font-size: 0.82rem;
+        font-size: 0.8rem;
         font-weight: 800;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: #64748b;
+        letter-spacing: 0.07em;
+        color: var(--ins-blue);
         margin: 0 0 1rem;
         display: flex;
         align-items: center;
@@ -49,8 +92,13 @@
         margin-bottom: 2rem;
         padding-bottom: 2rem;
         border-bottom: 1px solid #e2e8f0;
+        background: #fff;
+        border-radius: 16px;
+        padding: 1.5rem;
+        border: 1px solid #e8eef5;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
     }
-    .section-block:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .section-block:last-child { margin-bottom: 0; }
     .form-grid {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
@@ -65,50 +113,55 @@
         display: block;
         font-size: 0.72rem;
         font-weight: 700;
-        color: #64748b;
+        color: var(--ins-muted);
         margin-bottom: 0.35rem;
         text-transform: uppercase;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.05em;
     }
-    label .req { color: #dc2626; }
+    label .req { color: #c2410c; font-weight: 800; }
     .form-control {
         width: 100%;
         padding: 0.65rem 0.85rem;
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--ins-border);
         border-radius: 10px;
         font-size: 0.95rem;
+        color: var(--ins-ink);
+        background: #fff;
         box-sizing: border-box;
-        transition: border-color 0.2s;
+        transition: border-color 0.2s, box-shadow 0.2s;
     }
     .form-control:focus {
         outline: none;
-        border-color: #2563eb;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        border-color: var(--ins-teal);
+        box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.18);
     }
-    .field-error { color: #dc2626; font-size: 0.78rem; margin-top: 0.25rem; }
+    .field-error { color: #b91c1c; font-size: 0.78rem; margin-top: 0.25rem; font-weight: 600; }
     .lob-hint {
-        background: #eff6ff;
-        border: 1px solid #bfdbfe;
+        background: linear-gradient(135deg, #ecfdf5 0%, #e0f2fe 100%);
+        border: 1px solid #99d6c9;
         border-radius: 12px;
-        padding: 0.85rem 1rem;
-        font-size: 0.88rem;
-        color: #1e40af;
+        padding: 0.9rem 1rem;
+        font-size: 0.9rem;
+        color: #0f5f55;
         margin-bottom: 1.25rem;
+        font-weight: 600;
     }
     .hidden-section { display: none; }
     .submit-btn {
         width: 100%;
         margin-top: 1.5rem;
-        padding: 1rem;
+        padding: 1.05rem;
         border: none;
         border-radius: 12px;
-        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        background: linear-gradient(135deg, var(--ins-teal) 0%, var(--ins-blue) 100%);
         color: #fff;
         font-weight: 800;
         font-size: 1.05rem;
         cursor: pointer;
+        letter-spacing: 0.02em;
+        box-shadow: 0 8px 20px -6px rgba(13, 148, 136, 0.45);
     }
-    .submit-btn:hover { filter: brightness(1.05); }
+    .submit-btn:hover { filter: brightness(1.06); transform: translateY(-1px); }
     .alert-errors {
         background: #fef2f2;
         border: 1px solid #fecaca;
@@ -123,8 +176,9 @@
 <div class="ins-intake-shell">
     <div class="ins-intake-card">
         <div class="ins-intake-header">
-            <h1>{{ organization.name }}</h1>
-            <p>Request an insurance quote — secure online intake for auto, commercial, and business lines.</p>
+            <div class="brand-badge">🛡️ Insurance Quote Intake</div>
+            <h1>{{ organization.insurance_intake_brand_name }}</h1>
+            <p>{{ organization.insurance_intake_brand_tagline }}</p>
         </div>
 
         <div class="ins-intake-body">

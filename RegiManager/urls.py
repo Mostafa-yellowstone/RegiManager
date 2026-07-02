@@ -110,9 +110,7 @@ from core.views import (
 from rest_framework.routers import DefaultRouter
 from core.views import (
     spaces_home,
-    unlock_insurance_space,
-    lock_insurance_space,
-    toggle_insurance_lock,
+    update_insurance_space_branding,
     add_insurance_policy,
     edit_insurance_policy,
     view_insurance_policy_card,
@@ -302,9 +300,11 @@ urlpatterns = [
     
     # Spaces Hub and Insurance CRM / Banking Routes
     path("dashboard/spaces/", spaces_home, name="spaces-home"),
-    path("dashboard/spaces/unlock/", unlock_insurance_space, name="unlock-insurance-space"),
-    path("dashboard/spaces/lock/", lock_insurance_space, name="lock-insurance-space"),
-    path("dashboard/spaces/toggle-password-protection/", toggle_insurance_lock, name="toggle-insurance-lock"),
+    path(
+        "dashboard/spaces/insurance/branding/update/",
+        update_insurance_space_branding,
+        name="update-insurance-space-branding",
+    ),
     path("dashboard/spaces/insurance/policy/add/", add_insurance_policy, name="add-insurance-policy"),
     path("dashboard/spaces/insurance/policy/<int:policy_id>/edit/", edit_insurance_policy, name="edit-insurance-policy"),
     path("dashboard/spaces/insurance/policy/<int:policy_id>/card/", view_insurance_policy_card, name="view-insurance-policy-card"),

@@ -5844,11 +5844,6 @@ def inventory_detail(request, inventory_id):
         from .models import InsuranceCompany, InsurancePolicy, BankAccount, BankTransaction
         active_org = card.organization
         
-        is_locked = active_org.insurance_space_locked and active_org.insurance_space_password
-        unlocked_session_key = f"insurance_unlocked_{active_org.id}"
-        is_unlocked = request.session.get(unlocked_session_key, False)
-        insurance_locked = is_locked and not is_unlocked
-        
         clients = Client.objects.filter(organization=active_org).order_by("first_name", "last_name")[:500]
         insurance_companies = prefetch_insurance_companies(active_org)
         bank_accounts = BankAccount.objects.filter(organization=active_org)
@@ -6134,7 +6129,6 @@ def inventory_detail(request, inventory_id):
             "card": card,
             "is_owner": is_owner,
             "active_org": active_org,
-            "insurance_locked": insurance_locked,
             "clients": clients,
             "insurance_companies": insurance_companies,
             "company_summaries": company_summaries,
@@ -6407,60 +6401,31 @@ def spaces_home(request):
 
 @login_required
 @require_POST
-def unlock_insurance_space(request):
-    from django.contrib.auth.hashers import check_password
-    org_id = request.POST.get("org_id")
-    password = request.POST.get("password", "")
+def update_insurance_space_branding(request):
+    from .models import Space
+
+    org_id = request.POST.get("organization")
     organizations = _get_user_organizations(request)
     org = get_object_or_404(organizations, id=org_id)
-    
-    if org.insurance_space_password:
-        if check_password(password, org.insurance_space_password) or password == org.insurance_space_password:
-            request.session[f"insurance_unlocked_{org.id}"] = True
-            messages.success(request, "Insurance Space unlocked.")
-        else:
-            messages.error(request, "Invalid password.")
-    else:
-        request.session[f"insurance_unlocked_{org.id}"] = True
-        
-    return _redirect_to_insurance_detail(org)
+    membership = membership_for_org(request.user, org)
+    if not request.user.is_superuser and not is_org_owner(request.user, org, membership):
+        messages.error(request, "Only PSB owners can update insurance space branding.")
+        return _redirect_to_insurance_detail(org)
 
+    space = get_object_or_404(Space, organization=org, key="insurance")
+    space_label = request.POST.get("space_label", "").strip()
+    intake_name = request.POST.get("insurance_intake_display_name", "").strip()
+    intake_tagline = request.POST.get("insurance_intake_tagline", "").strip()
 
-@login_required
-@require_POST
-def lock_insurance_space(request):
-    org_id = request.POST.get("org_id")
-    organizations = _get_user_organizations(request)
-    org = get_object_or_404(organizations, id=org_id)
-    
-    unlocked_key = f"insurance_unlocked_{org.id}"
-    if unlocked_key in request.session:
-        del request.session[unlocked_key]
-    messages.info(request, "Insurance Space locked.")
-    return _redirect_to_insurance_detail(org)
+    if space_label:
+        space.label = space_label
+        space.save(update_fields=["label", "updated_at"])
 
-
-@login_required
-@require_POST
-def toggle_insurance_lock(request):
-    from django.contrib.auth.hashers import make_password
-    org_id = request.POST.get("org_id")
-    enabled = request.POST.get("enabled") == "on" or request.POST.get("enabled") == "true"
-    password = request.POST.get("password", "").strip()
-    
-    organizations = _get_user_organizations(request)
-    org = get_object_or_404(organizations, id=org_id)
-    
-    org.insurance_space_locked = enabled
-    if password:
-        org.insurance_space_password = make_password(password)
-    org.save()
-    
-    if enabled and password:
-        request.session[f"insurance_unlocked_{org.id}"] = True
-        
-    messages.success(request, "Lock settings updated.")
-    return _redirect_to_insurance_detail(org)
+    org.insurance_intake_display_name = intake_name
+    org.insurance_intake_tagline = intake_tagline
+    org.save(update_fields=["insurance_intake_display_name", "insurance_intake_tagline"])
+    messages.success(request, "Insurance space branding updated.")
+    return _redirect_to_insurance_detail(org, tab="insurance")
 
 
 @login_required
@@ -7261,12 +7226,6 @@ def export_insurance_report_pdf(request):
     organizations = _get_user_organizations(request)
     active_org_id = request.session.get('active_org_id')
     org = get_object_or_404(organizations, id=active_org_id)
-    
-    is_locked = org.insurance_space_locked and org.insurance_space_password
-    unlocked_session_key = f"insurance_unlocked_{org.id}"
-    is_unlocked = request.session.get(unlocked_session_key, False)
-    if is_locked and not is_unlocked:
-        deny_access("Access denied. Insurance Space is locked.")
         
     start_date_str = request.GET.get("start_date")
     end_date_str = request.GET.get("end_date")
@@ -7473,13 +7432,6 @@ def insurance_company_detail(request, company_id):
         membership and membership.role == OrganizationMembership.Role.OWNER
     )
     _require_insurance_finance(request, active_org, membership=membership, is_owner=is_owner)
-
-    # Lock check
-    is_locked = active_org.insurance_space_locked and active_org.insurance_space_password
-    unlocked_session_key = f"insurance_unlocked_{active_org.id}"
-    is_unlocked = request.session.get(unlocked_session_key, False)
-    if is_locked and not is_unlocked:
-        return redirect("inventory-detail", inventory_id=_get_insurance_space_id(active_org))
 
     # Policy filters
     search_query = request.GET.get("q", "").strip()
@@ -7760,13 +7712,6 @@ def insurance_agent_detail(request, user_id):
         ).first()
         if not membership:
             deny_access("Access denied.")
-
-    # Lock check
-    is_locked = active_org.insurance_space_locked and active_org.insurance_space_password
-    unlocked_session_key = f"insurance_unlocked_{active_org.id}"
-    is_unlocked = request.session.get(unlocked_session_key, False)
-    if is_locked and not is_unlocked:
-        return redirect("inventory-detail", inventory_id=_get_insurance_space_id(active_org))
 
     # ── Period Auditing ──────────────────────────────────────────────────────
     today = timezone.localdate()

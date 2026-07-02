@@ -85,8 +85,18 @@ class Organization(models.Model):
         verbose_name="Insurance Review Link",
         help_text="URL for the review button on the insurance intake success page.",
     )
-    insurance_space_password = models.CharField(max_length=128, blank=True, default="", help_text="Password to access locked insurance space.")
-    insurance_space_locked = models.BooleanField(default=False, help_text="Is the insurance space password-locked?")
+    insurance_intake_display_name = models.CharField(
+        max_length=160,
+        blank=True,
+        default="",
+        help_text="Public name shown on the insurance intake portal (e.g. Xpress Insurance Solutions). Falls back to PSB name.",
+    )
+    insurance_intake_tagline = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Subtitle shown under the name on the public insurance intake portal.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -104,6 +114,16 @@ class Organization(models.Model):
     def __str__(self):
         location = ", ".join(part for part in [self.city, self.state] if part)
         return f"{self.name} ({location})" if location else self.name
+
+    @property
+    def insurance_intake_brand_name(self):
+        custom = (self.insurance_intake_display_name or "").strip()
+        return custom or self.name
+
+    @property
+    def insurance_intake_brand_tagline(self):
+        custom = (self.insurance_intake_tagline or "").strip()
+        return custom or "Request an insurance quote — secure online intake for auto, commercial, and business lines."
 
 
 class OrganizationMembership(models.Model):

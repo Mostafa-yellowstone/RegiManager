@@ -94,7 +94,7 @@
         <div class="success-icon">🛡️</div>
         <h1 class="success-title">Quote Request Received!</h1>
         <p class="success-text">
-            Thank you for your submission. A licensed insurance agent will review your information and contact you shortly with quote options.
+            Thank you for submitting your request{% if organization %} to <strong>{{ organization.insurance_intake_brand_name }}</strong>{% endif %}. A licensed insurance agent will review your information and contact you shortly with quote options.
         </p>
 
         <div style="background: #f1f5f9; padding: 1.25rem; border-radius: 14px; text-align: left; margin-bottom: 1.75rem;">

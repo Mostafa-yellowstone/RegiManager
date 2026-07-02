@@ -80,19 +80,23 @@ class OrganizationAdmin(admin.ModelAdmin):
                 "is_automation_enabled",
                 "is_public_intake_enabled",
                 "intake_link_display",
-                "is_public_insurance_intake_enabled",
-                "insurance_intake_link_display",
             ),
         }),
-        ("Insurance Space", {"fields": ("insurance_space_locked", "insurance_space_password")}),
-        ("Public Intake", {"fields": ("show_review_button", "review_link")}),
         (
             "Insurance Intake Portal",
             {
-                "fields": ("insurance_show_review_button", "insurance_review_link"),
-                "description": "Review button settings for the insurance intake success page (separate from client intake).",
+                "fields": (
+                    "is_public_insurance_intake_enabled",
+                    "insurance_intake_link_display",
+                    "insurance_intake_display_name",
+                    "insurance_intake_tagline",
+                    "insurance_show_review_button",
+                    "insurance_review_link",
+                ),
+                "description": "Public insurance intake branding and review button (separate from client intake).",
             },
         ),
+        ("Public Intake", {"fields": ("show_review_button", "review_link")}),
     )
 
     def intake_link_display(self, obj):

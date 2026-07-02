@@ -1,7 +1,7 @@
 {% extends "base_portal.html" %}
 {% load static %}
 
-{% block title %}Insurance Space | RegiManager{% endblock %}
+{% block title %}{{ card.label }} | RegiManager{% endblock %}
 
 {% block portal_content %}
 
@@ -48,31 +48,27 @@
     cursor: help;
     vertical-align: middle;
 }
+.space-edit-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #475569;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+.space-edit-btn:hover {
+    border-color: #093de6;
+    color: #093de6;
+    background: #eff6ff;
+}
 </style>
 
-{% if insurance_locked %}
-<main style="background: #f8fafc; min-height: 100vh; display: flex; align-items: center; justify-content: center;">
-  <div style="max-width: 480px; width: 90%; padding: 2rem;">
-    <div style="background: white; border-radius: 24px; padding: 3rem 2.5rem; border: 1px solid #e2e8f0; box-shadow: 0 20px 40px rgba(0,0,0,0.08); text-align: center;">
-      <div style="width: 80px; height: 80px; background: #eff6ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#093de6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-      </div>
-      <h2 style="color: #0f172a; font-weight: 800; font-size: 1.5rem; margin-bottom: 0.5rem;">Insurance Space Locked</h2>
-      <p style="color: #64748b; font-size: 0.92rem; margin-bottom: 2rem;">This space for <strong>{{ active_org.name }}</strong> is password-protected.</p>
-      <form method="POST" action="{% url 'unlock-insurance-space' %}">
-        {% csrf_token %}
-        <input type="hidden" name="org_id" value="{{ active_org.id }}">
-        <div style="margin-bottom: 1.25rem; text-align: left;">
-          <label class="field-label">Enter Space Password</label>
-          <input type="password" name="password" required class="field-input" placeholder="••••••••" autofocus>
-        </div>
-        <button type="submit" class="btn-submit">Unlock Space</button>
-      </form>
-    </div>
-  </div>
-</main>
-
-{% else %}
 <main class="portal-space-shell">
   <div class="portal-space-inner portal-space-inner--wide">
 
@@ -82,19 +78,18 @@
         <div style="display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #4338ca; padding: 4px 12px; border-radius: 999px; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.5rem; border: 1px solid #c7d2fe;">
           🏢 {{ active_org.name }}
         </div>
-        <h1 class="portal-space-title">🛡️ Insurance Space</h1>
+        <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
+          <h1 class="portal-space-title" style="margin: 0;">🛡️ {{ card.label }}</h1>
+          {% if is_owner %}
+          <button type="button" class="space-edit-btn" title="Edit space name & intake portal branding" onclick="document.getElementById('brandingModal').classList.add('active')" aria-label="Edit branding">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>
+          {% endif %}
+        </div>
         <p style="color: #64748b; margin: 0.25rem 0 0; font-weight: 500; font-size: 0.95rem;">Policy CRM · Companies · Banking & Financials · Reports</p>
       </div>
       <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
         <a href="{% url 'spaces-home' %}" style="text-decoration: none; padding: 9px 16px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; font-weight: 700; color: #475569; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 4px;">&larr; Back to Spaces</a>
-        <button onclick="document.getElementById('settingsModal').classList.add('active')" style="padding: 9px 16px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; font-weight: 700; color: #475569; cursor: pointer; font-size: 0.88rem;">⚙️ Lock Settings</button>
-        {% if active_org.insurance_space_locked %}
-        <form method="POST" action="{% url 'lock-insurance-space' %}" style="margin: 0;">
-          {% csrf_token %}
-          <input type="hidden" name="org_id" value="{{ active_org.id }}">
-          <button type="submit" style="padding: 9px 16px; background: #fff1f2; border: 1px solid #ffe4e6; border-radius: 10px; font-weight: 700; color: #e11d48; cursor: pointer; font-size: 0.88rem;">🔒 Lock Space</button>
-        </form>
-        {% endif %}
       </div>
     </div>
 
@@ -822,25 +817,32 @@
   </div>
 </main>
 
-<!-- LOCK CONFIG MODAL -->
-<div class="modal-overlay" id="settingsModal" onclick="if(event.target===this)this.classList.remove('active')">
+<!-- BRANDING MODAL -->
+<div class="modal-overlay" id="brandingModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-      <h3 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 1.2rem;">🔒 Space Security</h3>
-      <button onclick="document.getElementById('settingsModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
+      <h3 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 1.2rem;">✏️ Space &amp; Intake Branding</h3>
+      <button onclick="document.getElementById('brandingModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
     </div>
-    <form method="POST" action="{% url 'toggle-insurance-lock' %}">
+    <form method="POST" action="{% url 'update-insurance-space-branding' %}">
       {% csrf_token %}
-      <input type="hidden" name="org_id" value="{{ active_org.id }}">
-      <div style="display: flex; align-items: center; gap: 10px; padding: 1rem; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 1.25rem; cursor: pointer;" onclick="document.getElementById('lockEnabled').click()">
-        <input type="checkbox" name="enabled" id="lockEnabled" {% if active_org.insurance_space_locked %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;">
-        <div>
-          <label for="lockEnabled" style="font-weight: 700; color: #0f172a; cursor: pointer; display: block; font-size: 0.92rem;">Enable password protection</label>
-          <span style="font-size: 0.8rem; color: #64748b;">Requires a password to access Insurance CRM, Companies, Banking & Reports</span>
-        </div>
+      <input type="hidden" name="organization" value="{{ active_org.id }}">
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Insurance Space Name</label>
+        <input type="text" name="space_label" class="field-input" value="{{ card.label }}" placeholder="e.g. Insurance Space" required>
+        <p style="margin: 0.35rem 0 0; font-size: 0.78rem; color: #64748b;">Shown as the title inside this space only.</p>
       </div>
-      <div style="margin-bottom: 1.5rem;"><label class="field-label">Set / Change Password</label><input type="password" name="password" class="field-input" placeholder="Leave blank to keep existing"></div>
-      <button type="submit" class="btn-submit">Save Settings</button>
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Public Intake Portal Name</label>
+        <input type="text" name="insurance_intake_display_name" class="field-input" value="{{ active_org.insurance_intake_display_name }}" placeholder="e.g. Xpress Insurance Solutions">
+        <p style="margin: 0.35rem 0 0; font-size: 0.78rem; color: #64748b;">Shown on the public insurance intake form. Leave blank to use PSB name ({{ active_org.name }}).</p>
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <label class="field-label">Public Intake Tagline</label>
+        <input type="text" name="insurance_intake_tagline" class="field-input" value="{{ active_org.insurance_intake_tagline }}" placeholder="Request an insurance quote — secure online intake...">
+        <p style="margin: 0.35rem 0 0; font-size: 0.78rem; color: #64748b;">Subtitle under the portal name on the public form.</p>
+      </div>
+      <button type="submit" class="btn-submit">Save Branding</button>
     </form>
   </div>
 </div>
@@ -1390,7 +1392,6 @@ function updateCategories() {
 }
 updateCategories();
 </script>
-{% endif %}
 
 <script>
 function handleCompanySelect(sel) {

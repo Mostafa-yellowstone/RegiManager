@@ -125,6 +125,47 @@ class PublicInsuranceIntakePortalTests(TestCase):
         self.assertContains(response, "https://example.com/insurance-review")
         self.assertNotContains(response, "https://example.com/client-review")
 
+    def test_portal_uses_custom_brand_name(self):
+        self.org.insurance_intake_display_name = "Xpress Insurance Solutions"
+        self.org.insurance_intake_tagline = "Your trusted commercial & personal lines partner."
+        self.org.save()
+        response = self.client.get(self.url)
+        self.assertContains(response, "Xpress Insurance Solutions")
+        self.assertContains(response, "Your trusted commercial")
+        self.assertNotContains(response, "Insurance PSB")
+
+
+class InsuranceIntakeBrandingTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Xpress Plates & Registrations Inc", city="NY", state="NY")
+        self.owner = User.objects.create_user(username="owner", password="pass12345")
+        self.space = Space.objects.create(organization=self.org, key="insurance", label="Insurance Space")
+        membership = OrganizationMembership.objects.create(
+            user=self.owner,
+            organization=self.org,
+            role=OrganizationMembership.Role.OWNER,
+            can_view_spaces=True,
+        )
+        membership.accessible_spaces.add(self.space)
+
+    def test_owner_can_update_branding(self):
+        self.client.login(username="owner", password="pass12345")
+        response = self.client.post(
+            reverse("update-insurance-space-branding"),
+            {
+                "organization": self.org.id,
+                "space_label": "Xpress Insurance Hub",
+                "insurance_intake_display_name": "Xpress Insurance Solutions",
+                "insurance_intake_tagline": "Commercial, personal & fleet coverage.",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.space.refresh_from_db()
+        self.org.refresh_from_db()
+        self.assertEqual(self.space.label, "Xpress Insurance Hub")
+        self.assertEqual(self.org.insurance_intake_display_name, "Xpress Insurance Solutions")
+        self.assertEqual(self.org.insurance_intake_brand_name, "Xpress Insurance Solutions")
+
 
 class InsuranceIntakeQueueTests(TestCase):
     def setUp(self):
