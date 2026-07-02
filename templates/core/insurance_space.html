@@ -101,6 +101,7 @@
     <!-- Tabs -->
     <div style="display: flex; gap: 0; border-bottom: 2px solid #e2e8f0; margin-bottom: 2rem; flex-wrap: wrap;">
       <button class="tab-btn active" id="tab-insurance-btn" onclick="switchTab('insurance')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid #093de6; color: #093de6; margin-bottom: -2px;">🛡️ Insurance CRM</button>
+      {% if user_can_manage_insurance_intake %}<button class="tab-btn" id="tab-intake-queue-btn" onclick="switchTab('intake-queue')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px; position: relative;">📥 Intake Queue{% if pending_insurance_intake_count %}<span style="margin-left: 6px; background: #ef4444; color: white; font-size: 0.68rem; padding: 2px 7px; border-radius: 999px;">{{ pending_insurance_intake_count }}</span>{% endif %}</button>{% endif %}
       {% if user_can_view_banking %}<button class="tab-btn" id="tab-companies-btn" onclick="switchTab('companies')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🏢 Companies</button>{% endif %}
       {% if user_can_view_banking %}<button class="tab-btn" id="tab-banking-btn" onclick="switchTab('banking')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🏦 Banking</button>{% endif %}
       <button class="tab-btn" id="tab-reporting-btn" onclick="switchTab('reporting')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">📊 Reports</button>
@@ -634,6 +635,71 @@
       {% include "core/partials/daily_payments_tab.html" with user_can_clear_daily_payments=user_can_clear_daily_payments %}
     </div>
 
+    {% if user_can_manage_insurance_intake %}
+    <!-- INSURANCE INTAKE QUEUE (insurance agents only) -->
+    <div id="tab-intake-queue" class="tab-panel" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+        <div>
+          <h3 style="margin: 0 0 0.35rem; font-weight: 800; color: var(--portal-text); font-size: 1.15rem;">📥 Insurance Intake Queue</h3>
+          <p style="margin: 0; color: var(--portal-text-muted); font-size: 0.88rem;">Pending online quote requests — visible to insurance agents only.</p>
+        </div>
+        {% if insurance_intake_portal_url %}
+        <a href="{{ insurance_intake_portal_url }}" target="_blank" style="padding: 0.65rem 1rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; color: #1d4ed8; font-weight: 700; font-size: 0.85rem; text-decoration: none;">🔗 Open Public Portal</a>
+        {% endif %}
+      </div>
+
+      {% if pending_insurance_intakes %}
+      <div style="overflow-x: auto; border: 1px solid var(--portal-border); border-radius: 16px;">
+        <table class="spaces-table">
+          <thead>
+            <tr>
+              <th>Submitted</th>
+              <th>Applicant</th>
+              <th>Line of Business</th>
+              <th>Contact</th>
+              <th>Vehicle / Business</th>
+              <th>Status</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for intake in pending_insurance_intakes %}
+            <tr>
+              <td>{{ intake.created_at|date:"M j, Y g:i A" }}</td>
+              <td><strong>{{ intake.name }}</strong></td>
+              <td><span class="chip">{{ intake.insurance_type_label }}</span></td>
+              <td>
+                <div>{{ intake.phone_number }}</div>
+                {% if intake.email %}<div style="font-size: 0.8rem; color: var(--portal-text-muted);">{{ intake.email }}</div>{% endif %}
+              </td>
+              <td style="font-size: 0.82rem;">
+                {% if intake.vin %}{{ intake.year }} {{ intake.make }} {{ intake.model }}<br><span style="color: var(--portal-text-muted);">VIN: {{ intake.vin }}</span>{% endif %}
+                {% if intake.business_name %}<div>{{ intake.business_name }}</div>{% endif %}
+                {% if intake.intake_note %}<div style="color: var(--portal-text-muted); margin-top: 4px;">{{ intake.intake_note|truncatechars:80 }}</div>{% endif %}
+              </td>
+              <td><span class="chip-pending">Pending</span></td>
+              <td style="text-align: right; white-space: nowrap;">
+                <form method="POST" action="{% url 'approve-insurance-intake' intake.id %}" style="display: inline;">
+                  {% csrf_token %}
+                  <button type="submit" style="padding: 6px 12px; border-radius: 8px; border: none; background: #16a34a; color: white; font-weight: 700; font-size: 0.78rem; cursor: pointer;">Approve</button>
+                </form>
+                <button type="button" onclick="openRejectInsuranceIntake({{ intake.id }}, '{{ intake.name|escapejs }}')" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #fecaca; background: #fff1f2; color: #b91c1c; font-weight: 700; font-size: 0.78rem; cursor: pointer; margin-left: 4px;">Reject</button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="spaces-metric" style="text-align: center; padding: 3rem 2rem;">
+        <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">✅</div>
+        <h4 style="margin: 0 0 0.5rem; font-weight: 800;">Queue is clear</h4>
+        <p style="margin: 0; color: var(--portal-text-muted); font-size: 0.9rem;">No pending insurance intake submissions right now.</p>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <!-- AGENTS AUDITING TAB -->
     <div id="tab-agents" class="tab-panel" style="display: none;">
       <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 2rem;">
@@ -1029,9 +1095,31 @@
   </div>
 </div>
 
+<!-- REJECT INSURANCE INTAKE MODAL -->
+<div class="modal-overlay" id="rejectInsuranceIntakeModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h3 style="margin: 0 0 1rem; font-weight: 800;">Reject Intake</h3>
+    <p id="rejectIntakeName" style="color: #64748b; font-size: 0.9rem; margin-bottom: 1rem;"></p>
+    <form method="POST" id="rejectInsuranceIntakeForm">
+      {% csrf_token %}
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Reason (optional)</label>
+        <textarea name="rejection_reason" class="field-input" rows="3" placeholder="Duplicate submission, out of appetite, etc."></textarea>
+      </div>
+      <button type="submit" class="btn-submit" style="background: #b91c1c;">Confirm Reject</button>
+    </form>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const tabs = ['insurance'{% if user_can_view_banking %}, 'companies', 'banking'{% endif %}, 'reporting', 'daily-payments', 'agents'];
+function openRejectInsuranceIntake(intakeId, name) {
+  document.getElementById('rejectIntakeName').textContent = 'Reject intake for ' + name + '?';
+  document.getElementById('rejectInsuranceIntakeForm').action = '/dashboard/insurance-intake/' + intakeId + '/reject/';
+  document.getElementById('rejectInsuranceIntakeModal').classList.add('active');
+}
+
+const tabs = ['insurance'{% if user_can_manage_insurance_intake %}, 'intake-queue'{% endif %}{% if user_can_view_banking %}, 'companies', 'banking'{% endif %}, 'reporting', 'daily-payments', 'agents'];
 let premiumChart = null;
 let profitChart = null;
 

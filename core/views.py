@@ -5367,6 +5367,13 @@ from .intake_views import (  # noqa: E402, F401
     reject_intake,
 )
 
+from .insurance_intake_views import (  # noqa: E402, F401
+    approve_insurance_intake_view,
+    public_insurance_intake_portal,
+    public_insurance_intake_success,
+    reject_insurance_intake_view,
+)
+
 @login_required
 def client_search_ajax(request):
     """
@@ -6104,6 +6111,26 @@ def inventory_detail(request, inventory_id):
         )
         daily_is_today = daily_payment_date == timezone.localdate()
 
+        from .insurance_permissions import can_manage_insurance_intake
+        from .models import InsuranceIntake
+
+        user_can_manage_insurance_intake = can_manage_insurance_intake(
+            request.user, active_org, membership=membership
+        )
+        pending_insurance_intakes = []
+        insurance_intake_portal_url = ""
+        pending_insurance_intake_count = 0
+        if user_can_manage_insurance_intake:
+            pending_insurance_intakes = list(
+                InsuranceIntake.objects.filter(
+                    organization=active_org,
+                    status=InsuranceIntake.Status.PENDING,
+                ).order_by("-created_at")[:100]
+            )
+            pending_insurance_intake_count = len(pending_insurance_intakes)
+            if active_org.is_public_insurance_intake_enabled and active_org.portal_token:
+                insurance_intake_portal_url = f"/insurance-intake/{active_org.portal_token}/"
+
         context = {
             "card": card,
             "is_owner": is_owner,
@@ -6186,6 +6213,10 @@ def inventory_detail(request, inventory_id):
             "daily_payable_total": daily_payable_total,
             "daily_available_dates": daily_available_dates,
             "insurance_type_options": _insurance_type_options_for_org(active_org),
+            "user_can_manage_insurance_intake": user_can_manage_insurance_intake,
+            "pending_insurance_intakes": pending_insurance_intakes,
+            "pending_insurance_intake_count": pending_insurance_intake_count,
+            "insurance_intake_portal_url": insurance_intake_portal_url,
         }
         return render(request, "core/insurance_space.html", context)
 

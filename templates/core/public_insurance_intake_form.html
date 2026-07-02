@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Insurance Quote Request | {{ organization.name }}{% endblock %}
+
+{% block content %}
+<style>
+    .ins-intake-shell {
+        background: linear-gradient(160deg, #0f172a 0%, #1e3a8a 45%, #f1f5f9 45%);
+        min-height: 100vh;
+        padding: 2.5rem 1rem 3rem;
+    }
+    .ins-intake-card {
+        max-width: 960px;
+        margin: 0 auto;
+        background: #fff;
+        border-radius: 20px;
+        box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+        overflow: hidden;
+    }
+    .ins-intake-header {
+        padding: 2rem 2rem 1.5rem;
+        background: #0f172a;
+        color: #fff;
+    }
+    .ins-intake-header h1 {
+        margin: 0 0 0.35rem;
+        font-size: 1.65rem;
+        font-weight: 800;
+    }
+    .ins-intake-header p {
+        margin: 0;
+        color: #94a3b8;
+        font-size: 0.95rem;
+    }
+    .ins-intake-body { padding: 2rem; }
+    .section-title {
+        font-size: 0.82rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #64748b;
+        margin: 0 0 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .section-block {
+        margin-bottom: 2rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .section-block:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem 1.25rem;
+    }
+    @media (max-width: 900px) { .form-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .form-grid { grid-template-columns: 1fr; } }
+    .span-2 { grid-column: span 2; }
+    .span-3 { grid-column: 1 / -1; }
+    @media (max-width: 560px) { .span-2 { grid-column: span 1; } }
+    label {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #64748b;
+        margin-bottom: 0.35rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    label .req { color: #dc2626; }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.85rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        box-sizing: border-box;
+        transition: border-color 0.2s;
+    }
+    .form-control:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    .field-error { color: #dc2626; font-size: 0.78rem; margin-top: 0.25rem; }
+    .lob-hint {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 12px;
+        padding: 0.85rem 1rem;
+        font-size: 0.88rem;
+        color: #1e40af;
+        margin-bottom: 1.25rem;
+    }
+    .hidden-section { display: none; }
+    .submit-btn {
+        width: 100%;
+        margin-top: 1.5rem;
+        padding: 1rem;
+        border: none;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: #fff;
+        font-weight: 800;
+        font-size: 1.05rem;
+        cursor: pointer;
+    }
+    .submit-btn:hover { filter: brightness(1.05); }
+    .alert-errors {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        padding: 1rem 1.25rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
+    }
+</style>
+
+<div class="ins-intake-shell">
+    <div class="ins-intake-card">
+        <div class="ins-intake-header">
+            <h1>{{ organization.name }}</h1>
+            <p>Request an insurance quote — secure online intake for auto, commercial, and business lines.</p>
+        </div>
+
+        <div class="ins-intake-body">
+            {% if messages %}
+            {% for message in messages %}
+            <div class="alert-errors" style="{% if message.tags == 'error' %}background:#fef2f2;border-color:#fecaca;color:#991b1b;{% else %}background:#eff6ff;border-color:#bfdbfe;color:#1e40af;{% endif %}">{{ message }}</div>
+            {% endfor %}
+            {% endif %}
+            {% if form.non_field_errors %}
+            <div class="alert-errors">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <form method="POST" enctype="multipart/form-data" id="insuranceIntakeForm" novalidate>
+                {% csrf_token %}
+
+                <div class="section-block">
+                    <div class="section-title">📋 Coverage Type</div>
+                    <div id="lobHint" class="lob-hint">Select your line of business. Required fields will update automatically.</div>
+                    <div class="form-grid">
+                        <div class="span-2">
+                            <label for="id_insurance_type">Line of Business <span class="req">*</span></label>
+                            {{ form.insurance_type }}
+                            {% if form.insurance_type.errors %}<div class="field-error">{{ form.insurance_type.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div>
+                            <label for="id_business_type">Quote Type</label>
+                            {{ form.business_type }}
+                        </div>
+                        <div>
+                            <label for="id_source">How did you find us? <span class="req">*</span></label>
+                            {{ form.source }}
+                            {% if form.source.errors %}<div class="field-error">{{ form.source.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div>
+                            <label for="id_requested_effective_date">Requested Effective Date <span class="req">*</span></label>
+                            {{ form.requested_effective_date }}
+                            {% if form.requested_effective_date.errors %}<div class="field-error">{{ form.requested_effective_date.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-block">
+                    <div class="section-title">👤 Contact Information</div>
+                    <div class="form-grid">
+                        <div>
+                            <label for="id_first_name">First Name <span class="req">*</span></label>
+                            {{ form.first_name }}
+                            {% if form.first_name.errors %}<div class="field-error">{{ form.first_name.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div>
+                            <label for="id_last_name">Last Name <span class="req">*</span></label>
+                            {{ form.last_name }}
+                            {% if form.last_name.errors %}<div class="field-error">{{ form.last_name.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div>
+                            <label for="id_phone_number">Phone <span class="req">*</span></label>
+                            {{ form.phone_number }}
+                            {% if form.phone_number.errors %}<div class="field-error">{{ form.phone_number.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div>
+                            <label for="id_email">Email <span class="req">*</span></label>
+                            {{ form.email }}
+                            {% if form.email.errors %}<div class="field-error">{{ form.email.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div id="fieldDob">
+                            <label for="id_dob">Date of Birth <span class="req personal-req">*</span></label>
+                            {{ form.dob }}
+                            {% if form.dob.errors %}<div class="field-error">{{ form.dob.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div id="fieldDriverLicense">
+                            <label for="id_driver_license">Driver License # <span class="req personal-req">*</span></label>
+                            {{ form.driver_license }}
+                            {% if form.driver_license.errors %}<div class="field-error">{{ form.driver_license.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div id="businessSection" class="section-block hidden-section">
+                    <div class="section-title">🏢 Business Details</div>
+                    <div class="form-grid">
+                        <div class="span-2">
+                            <label for="id_business_name">Business / Company Name <span class="req business-req">*</span></label>
+                            {{ form.business_name }}
+                            {% if form.business_name.errors %}<div class="field-error">{{ form.business_name.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div>
+                            <label for="id_business_ein">EIN / Tax ID <span class="req business-req">*</span></label>
+                            {{ form.business_ein }}
+                            {% if form.business_ein.errors %}<div class="field-error">{{ form.business_ein.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div id="fieldDot">
+                            <label for="id_dot_number">DOT Number</label>
+                            {{ form.dot_number }}
+                            {% if form.dot_number.errors %}<div class="field-error">{{ form.dot_number.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div id="fieldFleet">
+                            <label for="id_fleet_vehicle_count">Fleet Vehicle Count</label>
+                            {{ form.fleet_vehicle_count }}
+                            {% if form.fleet_vehicle_count.errors %}<div class="field-error">{{ form.fleet_vehicle_count.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-block">
+                    <div class="section-title">📍 Mailing Address</div>
+                    <div class="form-grid">
+                        <div class="span-3">
+                            <label for="id_street_address">Street Address <span class="req">*</span></label>
+                            {{ form.street_address }}
+                            {% if form.street_address.errors %}<div class="field-error">{{ form.street_address.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div>
+                            <label for="id_city">City <span class="req">*</span></label>
+                            {{ form.city }}
+                            {% if form.city.errors %}<div class="field-error">{{ form.city.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div>
+                            <label for="id_state">State <span class="req">*</span></label>
+                            {{ form.state }}
+                            {% if form.state.errors %}<div class="field-error">{{ form.state.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div>
+                            <label for="id_zip_code">ZIP <span class="req">*</span></label>
+                            {{ form.zip_code }}
+                            {% if form.zip_code.errors %}<div class="field-error">{{ form.zip_code.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div id="vehicleSection" class="section-block">
+                    <div class="section-title">🚗 Vehicle Information</div>
+                    <div class="form-grid">
+                        <div class="span-2">
+                            <label for="id_vin">VIN <span class="req vehicle-req">*</span></label>
+                            {{ form.vin }}
+                            {% if form.vin.errors %}<div class="field-error">{{ form.vin.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div>
+                            <label for="id_year">Year <span class="req vehicle-req">*</span></label>
+                            {{ form.year }}
+                            {% if form.year.errors %}<div class="field-error">{{ form.year.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div>
+                            <label for="id_make">Make <span class="req vehicle-req">*</span></label>
+                            {{ form.make }}
+                            {% if form.make.errors %}<div class="field-error">{{ form.make.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div>
+                            <label for="id_model">Model <span class="req vehicle-req">*</span></label>
+                            {{ form.model }}
+                            {% if form.model.errors %}<div class="field-error">{{ form.model.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-block">
+                    <div class="section-title">📎 Prior Coverage &amp; Documents</div>
+                    <div class="form-grid">
+                        <div>
+                            <label for="id_current_carrier">Current Carrier</label>
+                            {{ form.current_carrier }}
+                        </div>
+                        <div>
+                            <label for="id_prior_policy_number">Prior Policy #</label>
+                            {{ form.prior_policy_number }}
+                        </div>
+                        <div>
+                            <label for="id_driver_license_file">Driver License Scan</label>
+                            {{ form.driver_license_file }}
+                        </div>
+                        <div>
+                            <label for="id_vehicle_registration_file">Registration / Title</label>
+                            {{ form.vehicle_registration_file }}
+                        </div>
+                        <div>
+                            <label for="id_other_docs_file">Other Documents</label>
+                            {{ form.other_docs_file }}
+                        </div>
+                        <div class="span-3">
+                            <label for="id_intake_note">Additional Notes</label>
+                            {{ form.intake_note }}
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-btn">Submit Insurance Quote Request →</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const personalTypes = new Set({{ personal_auto_types_json|safe }});
+    const commercialTypes = new Set({{ commercial_auto_types_json|safe }});
+    const businessLobTypes = new Set(['business_owners_policy', 'general_liability', 'workers_compensation']);
+    const autoTypes = new Set([...personalTypes, ...commercialTypes]);
+
+    const typeSelect = document.getElementById('id_insurance_type');
+    const businessSection = document.getElementById('businessSection');
+    const vehicleSection = document.getElementById('vehicleSection');
+    const fieldDob = document.getElementById('fieldDob');
+    const fieldDriverLicense = document.getElementById('fieldDriverLicense');
+    const fieldDot = document.getElementById('fieldDot');
+    const fieldFleet = document.getElementById('fieldFleet');
+    const lobHint = document.getElementById('lobHint');
+
+    function updateLobSections() {
+        const t = typeSelect.value;
+        const isPersonal = personalTypes.has(t);
+        const isCommercial = commercialTypes.has(t);
+        const isAuto = autoTypes.has(t);
+        const needsBusiness = isCommercial || businessLobTypes.has(t);
+
+        businessSection.classList.toggle('hidden-section', !needsBusiness);
+        vehicleSection.classList.toggle('hidden-section', !isAuto);
+        fieldDob.style.display = isPersonal ? '' : 'none';
+        fieldDriverLicense.style.display = isPersonal ? '' : 'none';
+        fieldDot.style.display = t === 'trucking' ? '' : 'none';
+        fieldFleet.style.display = isCommercial ? '' : 'none';
+
+        if (isPersonal) {
+            lobHint.textContent = 'Personal auto: driver license, DOB, and full vehicle details are required.';
+        } else if (isCommercial) {
+            lobHint.textContent = 'Commercial / fleet: business name, EIN, and vehicle or fleet count are required.';
+        } else if (needsBusiness) {
+            lobHint.textContent = 'Business line: company name and EIN are required.';
+        } else {
+            lobHint.textContent = 'Property & liability lines: contact and address details are required.';
+        }
+    }
+
+    typeSelect.addEventListener('change', updateLobSections);
+    updateLobSections();
+})();
+</script>
+{% endblock %}

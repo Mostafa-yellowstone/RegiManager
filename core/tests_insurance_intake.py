@@ -1,0 +1,182 @@
+"""Tests for public insurance intake portal and agent queue."""
+
+from datetime import date
+from decimal import Decimal
+
+from django.contrib.auth import get_user_model
+from django.test import TestCase, override_settings
+from django.urls import reverse
+
+from core.insurance_intake_constants import EXCLUDED_INSURANCE_INTAKE_TYPES
+from core.insurance_intake_forms import InsuranceIntakeForm
+from core.models import (
+    InsuranceIntake,
+    InsurancePolicy,
+    Organization,
+    OrganizationMembership,
+    Space,
+)
+
+User = get_user_model()
+
+
+class InsuranceIntakeFormTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Test PSB", city="Albany", state="NY")
+
+    def _base_personal_data(self):
+        return {
+            "insurance_type": "auto_personal",
+            "source": "walk_in",
+            "business_type": "new_business",
+            "first_name": "Jane",
+            "last_name": "Driver",
+            "email": "jane@example.com",
+            "phone_number": "5185550100",
+            "dob": "1990-01-15",
+            "driver_license": "D1234567",
+            "street_address": "100 Main St",
+            "city": "Albany",
+            "state": "NY",
+            "zip_code": "12207",
+            "vin": "1HGCM82633A123456",
+            "year": 2020,
+            "make": "Honda",
+            "model": "Accord",
+            "requested_effective_date": "2026-07-01",
+        }
+
+    def test_personal_auto_requires_vehicle_and_license(self):
+        data = self._base_personal_data()
+        data.pop("vin")
+        form = InsuranceIntakeForm(data=data, organization=self.org)
+        self.assertFalse(form.is_valid())
+        self.assertIn("vin", form.errors)
+
+    def test_commercial_auto_requires_business_fields(self):
+        data = self._base_personal_data()
+        data["insurance_type"] = "commercial_auto"
+        data["business_name"] = "Acme Taxi LLC"
+        data["business_ein"] = "12-3456789"
+        form = InsuranceIntakeForm(data=data, organization=self.org)
+        self.assertTrue(form.is_valid())
+
+    def test_disability_not_in_public_choices(self):
+        choices = dict(InsuranceIntakeForm().fields["insurance_type"].choices)
+        for excluded in EXCLUDED_INSURANCE_INTAKE_TYPES:
+            self.assertNotIn(excluded, choices)
+
+
+@override_settings(DEBUG=True)
+class PublicInsuranceIntakePortalTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(
+            name="Insurance PSB",
+            city="Buffalo",
+            state="NY",
+            is_public_insurance_intake_enabled=True,
+        )
+        self.url = reverse("public-insurance-intake-direct", args=[self.org.portal_token])
+
+    def test_portal_disabled_when_flag_off(self):
+        self.org.is_public_insurance_intake_enabled = False
+        self.org.save()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "not available")
+
+    def test_successful_submission(self):
+        response = self.client.post(
+            self.url,
+            {
+                "insurance_type": "auto_personal",
+                "source": "google_search",
+                "business_type": "new_business",
+                "first_name": "Sam",
+                "last_name": "Lee",
+                "email": "sam@example.com",
+                "phone_number": "7165550199",
+                "dob": "1985-06-20",
+                "driver_license": "S9988776",
+                "street_address": "22 Oak Ave",
+                "city": "Buffalo",
+                "state": "NY",
+                "zip_code": "14201",
+                "vin": "2HGFG3B54CH501234",
+                "year": 2018,
+                "make": "Toyota",
+                "model": "Camry",
+                "requested_effective_date": "2026-08-01",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(InsuranceIntake.objects.filter(organization=self.org).count(), 1)
+
+
+class InsuranceIntakeQueueTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Queue PSB", city="Rochester", state="NY")
+        self.agent = User.objects.create_user(username="insagent", password="pass12345")
+        self.other = User.objects.create_user(username="other", password="pass12345")
+        OrganizationMembership.objects.create(
+            user=self.agent,
+            organization=self.org,
+            role=OrganizationMembership.Role.MEMBER,
+            can_view_spaces=True,
+            can_deal_with_insurance=True,
+        )
+        OrganizationMembership.objects.create(
+            user=self.other,
+            organization=self.org,
+            role=OrganizationMembership.Role.MEMBER,
+            can_view_spaces=True,
+            can_deal_with_insurance=False,
+        )
+        self.space = Space.objects.create(
+            organization=self.org,
+            key="insurance",
+            label="Insurance",
+        )
+        for membership in OrganizationMembership.objects.filter(organization=self.org):
+            membership.accessible_spaces.add(self.space)
+        self.intake = InsuranceIntake.objects.create(
+            organization=self.org,
+            first_name="Pat",
+            last_name="Quote",
+            phone_number="5855550101",
+            email="pat@example.com",
+            insurance_type="auto_personal",
+            street_address="1 Main",
+            city="Rochester",
+            state="NY",
+            zip_code="14604",
+            requested_effective_date=date(2026, 9, 1),
+            vin="3VW2A7AJ5HM123456",
+            year=2019,
+            make="VW",
+            model="Jetta",
+        )
+
+    def test_agent_sees_intake_queue_tab(self):
+        self.client.login(username="insagent", password="pass12345")
+        response = self.client.get(reverse("inventory-detail", args=[self.space.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Intake Queue")
+        self.assertContains(response, "Pat Quote")
+
+    def test_non_insurance_agent_does_not_see_queue(self):
+        self.client.login(username="other", password="pass12345")
+        response = self.client.get(reverse("inventory-detail", args=[self.space.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "tab-intake-queue-btn")
+
+    def test_approve_creates_quote_policy(self):
+        self.client.login(username="insagent", password="pass12345")
+        response = self.client.post(reverse("approve-insurance-intake", args=[self.intake.id]))
+        self.assertEqual(response.status_code, 302)
+        self.intake.refresh_from_db()
+        self.assertEqual(self.intake.status, InsuranceIntake.Status.APPROVED)
+        self.assertIsNotNone(self.intake.created_policy_id)
+        policy = self.intake.created_policy
+        self.assertEqual(policy.stage, InsurancePolicy.StageChoices.QUOTE)
+        self.assertEqual(policy.premium, Decimal("0.00"))

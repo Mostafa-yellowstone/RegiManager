@@ -90,6 +90,10 @@ from core.views import (
     reject_intake,
     intake_mv82_pdf,
     portal_intake_list,
+    public_insurance_intake_portal,
+    public_insurance_intake_success,
+    approve_insurance_intake_view,
+    reject_insurance_intake_view,
     outstanding_balances,
     mark_balance_paid,
     client_search_ajax,
@@ -271,6 +275,22 @@ urlpatterns = [
     path("dashboard/intake/<int:intake_id>/approve/", approve_intake, name="approve-intake"),
     path("dashboard/intake/<int:intake_id>/reject/", reject_intake, name="reject-intake"),
     path("intake/<int:intake_id>/mv82-preview/", intake_mv82_pdf, name="intake-mv82-pdf"),
+
+    # Public Insurance Intake Routes
+    path("insurance-intake/", public_insurance_intake_portal, name="public-insurance-intake-start"),
+    path("insurance-intake/success/", public_insurance_intake_success, name="public-insurance-intake-success"),
+    path("insurance-intake/<str:portal_token>/", public_insurance_intake_portal, name="public-insurance-intake-direct"),
+    path(
+        "dashboard/insurance-intake/<int:intake_id>/approve/",
+        approve_insurance_intake_view,
+        name="approve-insurance-intake",
+    ),
+    path(
+        "dashboard/insurance-intake/<int:intake_id>/reject/",
+        reject_insurance_intake_view,
+        name="reject-insurance-intake",
+    ),
+
     path("dashboard/outstanding-balances/", outstanding_balances, name="outstanding-balances"),
     path("dashboard/outstanding-balances/<int:record_id>/mark-paid/", mark_balance_paid, name="mark-balance-paid"),
     path("dashboard/client-search/", client_search_ajax, name="client-search-ajax"),

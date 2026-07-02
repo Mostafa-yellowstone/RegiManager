@@ -66,6 +66,10 @@ class Organization(models.Model):
         default=False,
         help_text="Enable the public client intake portal and owner intake CRM for this PSB.",
     )
+    is_public_insurance_intake_enabled = models.BooleanField(
+        default=False,
+        help_text="Enable the public insurance intake portal and insurance agent intake queue.",
+    )
     is_active = models.BooleanField(default=True, help_text="Enable or disable this PSB account.")
     show_review_button = models.BooleanField(default=False, verbose_name="Show Review Button on Success Page", help_text="Add a custom review button to the intake completion page.")
     review_link = models.URLField(max_length=500, blank=True, null=True, verbose_name="Review/Custom Link", help_text="The URL that the review button will link to.")
@@ -1238,6 +1242,118 @@ class ClientIntake(models.Model):
 
     def __str__(self):
         return f"Intake: {self.name} ({self.organization.name})"
+
+
+class InsuranceIntake(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending Review"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="insurance_intakes",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+
+    insurance_type = models.CharField(max_length=30, blank=True, default="")
+    source = models.CharField(max_length=50, default="walk_in")
+    business_type = models.CharField(max_length=50, default="new_business")
+
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    email = models.EmailField(blank=True, default="")
+    phone_number = models.CharField(max_length=20)
+    dob = models.DateField(blank=True, null=True)
+    driver_license = models.CharField(max_length=50, blank=True, default="")
+
+    business_name = models.CharField(max_length=200, blank=True, default="")
+    business_ein = models.CharField(max_length=20, blank=True, default="")
+    dot_number = models.CharField(max_length=30, blank=True, default="")
+    fleet_vehicle_count = models.PositiveIntegerField(blank=True, null=True)
+
+    street_address = models.CharField(max_length=200, blank=True, default="")
+    city = models.CharField(max_length=100, blank=True, default="")
+    state = models.CharField(max_length=2, default="NY", blank=True)
+    zip_code = models.CharField(max_length=10, blank=True, default="")
+
+    vin = models.CharField(max_length=50, blank=True, default="")
+    year = models.IntegerField(blank=True, null=True)
+    make = models.CharField(max_length=100, blank=True, default="")
+    model = models.CharField(max_length=100, blank=True, default="")
+
+    current_carrier = models.CharField(max_length=150, blank=True, default="")
+    prior_policy_number = models.CharField(max_length=100, blank=True, default="")
+    requested_effective_date = models.DateField(blank=True, null=True)
+    intake_note = models.TextField(blank=True, default="")
+
+    driver_license_file = models.FileField(
+        upload_to="insurance_intake_docs/dl/",
+        blank=True,
+        null=True,
+    )
+    vehicle_registration_file = models.FileField(
+        upload_to="insurance_intake_docs/registration/",
+        blank=True,
+        null=True,
+    )
+    other_docs_file = models.FileField(
+        upload_to="insurance_intake_docs/other/",
+        blank=True,
+        null=True,
+    )
+
+    additional_data = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    processed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="processed_insurance_intakes",
+    )
+    created_client = models.ForeignKey(
+        Client,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="insurance_intakes",
+    )
+    created_policy = models.ForeignKey(
+        "InsurancePolicy",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="source_intakes",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Insurance Intake"
+        verbose_name_plural = "Insurance Intakes"
+
+    @property
+    def name(self):
+        if self.business_name:
+            return self.business_name
+        return f"{self.first_name} {self.last_name}".strip()
+
+    @property
+    def insurance_type_label(self):
+        from .insurance_intake_constants import insurance_intake_type_choices
+
+        labels = dict(insurance_intake_type_choices())
+        return labels.get(self.insurance_type, self.insurance_type.replace("_", " ").title())
+
+    def __str__(self):
+        return f"Insurance Intake: {self.name} ({self.organization.name})"
 
 
 class Space(models.Model):

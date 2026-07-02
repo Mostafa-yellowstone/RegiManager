@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}Insurance Intake Unavailable{% endblock %}
+
+{% block content %}
+<div style="min-height: 70vh; display: flex; align-items: center; justify-content: center; padding: 2rem; background: #f8fafc;">
+    <div style="max-width: 480px; text-align: center; background: white; padding: 3rem 2rem; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.08);">
+        <h1 style="font-size: 1.35rem; font-weight: 800; color: #0f172a;">Insurance intake is not available</h1>
+        <p style="color: #64748b; margin-top: 0.75rem;">{{ organization.name }} has not enabled the public insurance intake portal. Please contact the agency directly.</p>
+    </div>
+</div>
+{% endblock %}

@@ -62,11 +62,12 @@ class OrganizationAdmin(admin.ModelAdmin):
         "invite_code",
         "intake_link_display",
         "is_public_intake_enabled",
+        "is_public_insurance_intake_enabled",
         "is_automation_enabled",
     )
-    list_filter = ("state", "city", "is_public_intake_enabled", "is_automation_enabled")
+    list_filter = ("state", "city", "is_public_intake_enabled", "is_public_insurance_intake_enabled", "is_automation_enabled")
     search_fields = ("name", "address_line", "city", "state", "phone_number", "email", "psbc_license")
-    readonly_fields = ("intake_link_display",)
+    readonly_fields = ("intake_link_display", "insurance_intake_link_display")
     inlines = [MembershipInline]
     fieldsets = (
         ("PSB Profile", {
@@ -74,7 +75,15 @@ class OrganizationAdmin(admin.ModelAdmin):
             "description": "Choose the PSB motor vehicle state from the dropdown (e.g. CT, PA, NJ). This controls which DMV forms appear on vehicle profiles.",
         }),
         ("Access & Limits", {"fields": ("invite_code", "portal_token", "max_agents", "is_active")}),
-        ("Features", {"fields": ("is_automation_enabled", "is_public_intake_enabled", "intake_link_display")}),
+        ("Features", {
+            "fields": (
+                "is_automation_enabled",
+                "is_public_intake_enabled",
+                "intake_link_display",
+                "is_public_insurance_intake_enabled",
+                "insurance_intake_link_display",
+            ),
+        }),
         ("Insurance Space", {"fields": ("insurance_space_locked", "insurance_space_password")}),
         ("Public Intake", {"fields": ("show_review_button", "review_link")}),
     )
@@ -86,6 +95,14 @@ class OrganizationAdmin(admin.ModelAdmin):
         return format_html('<a href="{}" target="_blank">Open Intake Portal</a>', url)
 
     intake_link_display.short_description = "Public Intake Link"
+
+    def insurance_intake_link_display(self, obj):
+        if not obj.is_public_insurance_intake_enabled:
+            return "Disabled (enable Insurance Intake Portal)"
+        url = f"/insurance-intake/{obj.portal_token}/"
+        return format_html('<a href="{}" target="_blank">Open Insurance Intake Portal</a>', url)
+
+    insurance_intake_link_display.short_description = "Insurance Intake Link"
 
     class Media:
         js = ("core/js/admin_automation_toggle.js",)
