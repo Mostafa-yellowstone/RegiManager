@@ -1,4 +1,4 @@
-"""Tests for NY PSB official-style service receipt PDF."""
+"""Tests for classic PSB service receipt PDF helpers and layout."""
 
 from decimal import Decimal
 from io import BytesIO
@@ -10,10 +10,8 @@ from pypdf import PdfReader
 
 from core.models import Client, Organization, OrganizationMembership, ServiceRecord, Vehicle
 from core.psb_receipt_pdf import (
-    OFFICIAL_FOOTER,
     OFFICIAL_FOOTER_LINES,
-    _build_service_row_amounts,
-    _dollars_to_words,
+    dollars_to_words,
     format_receipt_number_display,
 )
 
@@ -83,7 +81,7 @@ class PsbReceiptPdfTests(TestCase):
         self.assertIn("One Hundred", pdf_text)
         self.assertIn("Dollars", pdf_text)
 
-    def test_official_layout_fields(self):
+    def test_classic_layout_fields(self):
         record = ServiceRecord.objects.create(
             organization=self.org,
             handled_by=self.user,
@@ -94,30 +92,17 @@ class PsbReceiptPdfTests(TestCase):
             service_fee=Decimal("100.00"),
         )
         pdf_text = self._pdf_text(record)
-        self.assertIn("Customer Name:", pdf_text)
-        self.assertIn("Customer Address:", pdf_text)
-        self.assertIn("Services Provided", pdf_text)
-        self.assertIn("DMV Fee", pdf_text)
-        self.assertIn("Fee for Service", pdf_text)
-        self.assertIn("Obtaining Plates", pdf_text)
-        self.assertIn("Received by:", pdf_text)
+        self.assertIn("XPRESS PLATES", pdf_text)
+        self.assertIn("Client", pdf_text)
+        self.assertIn("Client Address", pdf_text)
+        self.assertIn("SERVICES PROVIDED", pdf_text)
+        self.assertIn("DMV FEE", pdf_text)
+        self.assertIn("VEHICLE REGISTRATION", pdf_text)
+        self.assertIn("GRAND TOTAL", pdf_text)
+        self.assertIn("PAYMENT HISTORY", pdf_text)
         self.assertIn(OFFICIAL_FOOTER_LINES[0], pdf_text)
         self.assertIn(OFFICIAL_FOOTER_LINES[1], pdf_text)
-        self.assertIn("PAYMENT HISTORY", pdf_text)
-
-    def test_service_row_mapping(self):
-        record = ServiceRecord.objects.create(
-            organization=self.org,
-            handled_by=self.user,
-            vehicle=self.vehicle,
-            service_type="duplicate_title",
-            dmv_fee=Decimal("20.00"),
-            processing_fee=Decimal("15.00"),
-        )
-        amounts = _build_service_row_amounts(record)
-        self.assertEqual(amounts["duplicate_title"]["dmv"], Decimal("20.00"))
-        self.assertEqual(amounts["duplicate_title"]["fee"], Decimal("15.00"))
 
     def test_dollars_to_words(self):
-        self.assertEqual(_dollars_to_words(Decimal("100.00")), "One Hundred")
-        self.assertEqual(_dollars_to_words(Decimal("0")), "Zero")
+        self.assertEqual(dollars_to_words(Decimal("100.00")), "One Hundred")
+        self.assertEqual(dollars_to_words(Decimal("0")), "Zero")

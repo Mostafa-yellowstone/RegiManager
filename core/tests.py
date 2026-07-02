@@ -595,11 +595,14 @@ class ReceiptAddressTests(TestCase):
         self.assertIn("receipts@testpsb.com", pdf_text)
         self.assertIn("00001", pdf_text)
         self.assertNotIn("RCPT", pdf_text)
-        self.assertIn("Customer Name:", pdf_text)
-        self.assertIn("Fee for Service", pdf_text)
+        self.assertIn("Client", pdf_text)
+        self.assertIn("SERVICES PROVIDED", pdf_text)
         self.assertIn("The sum of", pdf_text)
         self.assertIn(
-            "This is a Liscensed Private Service Bureau, but is not an official agency "
+            "This is a Liscensed Private Service Bureau, but is not an official agency",
+            pdf_text,
+        )
+        self.assertIn(
             "of the Department of Motor Vehicles , State of New York",
             pdf_text,
         )
