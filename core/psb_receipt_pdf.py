@@ -12,10 +12,13 @@ from reportlab.pdfgen import canvas
 
 from .models import OrganizationMembership, ServiceRecord
 
-OFFICIAL_FOOTER = (
-    "This is a Liscensed Private Service Bureau, but is not an official agency "
-    "of the Department of Motor Vehicles , State of New York "
+OFFICIAL_FOOTER_LINES = (
+    "This is a Liscensed Private Service Bureau, but is not an official agency",
+    "of the Department of Motor Vehicles , State of New York",
 )
+
+# Backward-compatible single string for tests/imports.
+OFFICIAL_FOOTER = " ".join(OFFICIAL_FOOTER_LINES)
 
 SERVICE_ROW_SPECS = [
     ("obtaining_plates", "Obtaining Plates", {
@@ -73,15 +76,17 @@ def _dollars_to_words(amount) -> str:
 
 def format_receipt_number_display(service_record) -> str:
     """Show receipt # as digits only (consecutive per PSB, e.g. 00001)."""
-    if not service_record.organization_id:
-        digits = re.sub(r"\D", "", str(service_record.receipt_number or ""))
-        return digits[-5:].zfill(5) if digits else "00000"
+    if service_record.organization_id:
+        seq = ServiceRecord.objects.filter(
+            organization_id=service_record.organization_id,
+            id__lte=service_record.id,
+        ).count()
+        return f"{seq:05d}"
 
-    seq = ServiceRecord.objects.filter(
-        organization_id=service_record.organization_id,
-        id__lte=service_record.id,
-    ).count()
-    return f"{seq:05d}"
+    digits = re.sub(r"\D", "", str(service_record.receipt_number or ""))
+    if digits:
+        return digits[-5:].zfill(5)
+    return "00000"
 
 
 def _format_org_header_name(org) -> str:
@@ -172,16 +177,36 @@ def _draw_labeled_field(pdf, x, y, width, label, value, label_size=8, value_size
         pdf.drawString(line_x + 2, y, str(value)[: int((width - label_w) / 5.5)])
 
 
+def _draw_business_owner_line(pdf, width, y, owner_name: str) -> float:
+    """Render owner name under business name with a polished subtitle treatment."""
+    center_x = width / 2
+    pdf.setStrokeColorRGB(0.72, 0.72, 0.72)
+    pdf.setLineWidth(0.6)
+    pdf.line(center_x - 110, y + 11, center_x - 18, y + 11)
+    pdf.line(center_x + 18, y + 11, center_x + 110, y + 11)
+    pdf.setStrokeColorRGB(0, 0, 0)
+
+    pdf.setFont("Helvetica", 6.5)
+    pdf.setFillColorRGB(0.42, 0.42, 0.42)
+    pdf.drawCentredString(center_x, y + 2, "BUSINESS OWNER")
+
+    pdf.setFont("Helvetica-BoldOblique", 10.5)
+    pdf.setFillColorRGB(0.12, 0.12, 0.12)
+    pdf.drawCentredString(center_x, y - 10, owner_name.upper()[:72])
+    pdf.setFillColorRGB(0, 0, 0)
+    return y - 28
+
+
 def _draw_sum_of_dollars_line(pdf, margin, inner_w, inner_right, y, grand_total):
     sum_words = _dollars_to_words(grand_total)
     pdf.setFont("Helvetica", 8.5)
     pdf.drawString(margin + 12, y, "The sum of")
-    sum_x = margin + 58
-    sum_w = inner_w - 124
+    sum_x = margin + 72
+    sum_w = inner_w - 150
     pdf.line(sum_x, y - 2, sum_x + sum_w, y - 2)
+    pdf.setFont("Helvetica-Bold", 9)
+    pdf.drawString(sum_x + 4, y, sum_words[:52])
     pdf.setFont("Helvetica-Bold", 8.5)
-    pdf.drawString(sum_x + 4, y, sum_words[:58])
-    pdf.setFont("Helvetica", 8.5)
     pdf.drawRightString(inner_right - 12, y, "Dollars")
 
 
@@ -296,16 +321,7 @@ def render_psb_service_receipt(pdf, service_record) -> None:
 
     owner_name = _resolve_business_owner_name(org)
     if owner_name:
-        owner_line_y = y
-        pdf.setStrokeColorRGB(0.75, 0.75, 0.75)
-        pdf.setLineWidth(0.5)
-        pdf.line(width / 2 - 90, owner_line_y + 10, width / 2 + 90, owner_line_y + 10)
-        pdf.setStrokeColorRGB(0, 0, 0)
-        pdf.setFont("Helvetica-Oblique", 9)
-        pdf.setFillColorRGB(0.2, 0.2, 0.2)
-        pdf.drawCentredString(width / 2, owner_line_y, owner_name.upper()[:70])
-        pdf.setFillColorRGB(0, 0, 0)
-        y -= 16
+        y = _draw_business_owner_line(pdf, width, y, owner_name)
 
     address = _format_org_address(org).upper()
     pdf.setFont("Helvetica", 8.5)
@@ -452,7 +468,8 @@ def render_psb_service_receipt(pdf, service_record) -> None:
     )
 
     pdf.setFont("Helvetica-Bold", 7)
-    pdf.drawCentredString(width / 2, margin + 16, OFFICIAL_FOOTER)
+    pdf.drawCentredString(width / 2, margin + 24, OFFICIAL_FOOTER_LINES[0])
+    pdf.drawCentredString(width / 2, margin + 14, OFFICIAL_FOOTER_LINES[1])
 
     pdf.showPage()
     _draw_receipt_payment_history_page(pdf, service_record, margin)

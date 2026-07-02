@@ -11,6 +11,7 @@ from pypdf import PdfReader
 from core.models import Client, Organization, OrganizationMembership, ServiceRecord, Vehicle
 from core.psb_receipt_pdf import (
     OFFICIAL_FOOTER,
+    OFFICIAL_FOOTER_LINES,
     _build_service_row_amounts,
     _dollars_to_words,
     format_receipt_number_display,
@@ -77,6 +78,7 @@ class PsbReceiptPdfTests(TestCase):
         )
         pdf_text = self._pdf_text(record)
         self.assertIn("JOHN A. SMITH", pdf_text)
+        self.assertIn("BUSINESS OWNER", pdf_text)
         self.assertIn("The sum of", pdf_text)
         self.assertIn("One Hundred", pdf_text)
         self.assertIn("Dollars", pdf_text)
@@ -99,7 +101,8 @@ class PsbReceiptPdfTests(TestCase):
         self.assertIn("Fee for Service", pdf_text)
         self.assertIn("Obtaining Plates", pdf_text)
         self.assertIn("Received by:", pdf_text)
-        self.assertIn(OFFICIAL_FOOTER.strip(), pdf_text)
+        self.assertIn(OFFICIAL_FOOTER_LINES[0], pdf_text)
+        self.assertIn(OFFICIAL_FOOTER_LINES[1], pdf_text)
         self.assertIn("PAYMENT HISTORY", pdf_text)
 
     def test_service_row_mapping(self):
