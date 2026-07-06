@@ -669,7 +669,7 @@
             {% for intake in pending_insurance_intakes %}
             <tr>
               <td>{{ intake.created_at|date:"M j, Y g:i A" }}</td>
-              <td><strong>{{ intake.name }}</strong></td>
+              <td><strong>{{ intake.name }}</strong>{% if intake.is_ezlynx_portal_intake %}<br><span style="font-size:0.72rem;font-weight:700;color:#1d4ed8;background:#eff6ff;padding:2px 6px;border-radius:6px;">EZLynx Portal</span>{% endif %}</td>
               <td><span class="chip">{{ intake.insurance_type_label }}</span></td>
               <td>
                 <div>{{ intake.phone_number }}</div>
@@ -837,10 +837,25 @@
         <input type="text" name="insurance_intake_display_name" class="field-input" value="{{ active_org.insurance_intake_display_name }}" placeholder="e.g. Xpress Insurance Solutions">
         <p style="margin: 0.35rem 0 0; font-size: 0.78rem; color: #64748b;">Shown on the public insurance intake form. Leave blank to use PSB name ({{ active_org.name }}).</p>
       </div>
-      <div style="margin-bottom: 1.5rem;">
+      <div style="margin-bottom: 1rem;">
         <label class="field-label">Public Intake Tagline</label>
         <input type="text" name="insurance_intake_tagline" class="field-input" value="{{ active_org.insurance_intake_tagline }}" placeholder="Request an insurance quote — secure online intake...">
         <p style="margin: 0.35rem 0 0; font-size: 0.78rem; color: #64748b;">Subtitle under the portal name on the public form.</p>
+      </div>
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">EZLynx / AgentInsure Quote URL</label>
+        <input type="url" name="insurance_ezlynx_quote_url" class="field-input" value="{{ active_org.insurance_ezlynx_quote_url }}" placeholder="https://www.agentinsure.com/compare/.../quote.aspx">
+        <p style="margin: 0.35rem 0 0; font-size: 0.78rem; color: #64748b;">Consumer quoting link from EZLynx. When set, the public portal can embed this form.</p>
+      </div>
+      <div style="margin-bottom: 1.5rem;">
+        <label class="field-label">Portal Mode</label>
+        <select name="insurance_intake_portal_mode" class="field-input">
+          <option value="" {% if not active_org.insurance_intake_portal_mode %}selected{% endif %}>Auto (EZLynx dual when URL is set)</option>
+          <option value="native" {% if active_org.insurance_intake_portal_mode == "native" %}selected{% endif %}>RegiManager full form only</option>
+          <option value="ezlynx_dual" {% if active_org.insurance_intake_portal_mode == "ezlynx_dual" %}selected{% endif %}>EZLynx embed + RegiManager capture (recommended)</option>
+          <option value="ezlynx_only" {% if active_org.insurance_intake_portal_mode == "ezlynx_only" %}selected{% endif %}>EZLynx embed only</option>
+        </select>
+        <p style="margin: 0.35rem 0 0; font-size: 0.78rem; color: #64748b;">Dual mode saves the lead in RegiManager, then shows the EZLynx quote application (also creates the applicant in EZLynx).</p>
       </div>
       <button type="submit" class="btn-submit">Save Branding</button>
     </form>

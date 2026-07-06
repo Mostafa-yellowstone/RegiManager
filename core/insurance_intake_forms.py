@@ -6,6 +6,8 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from .insurance_intake_constants import (
+    EZLYNX_QUOTE_TYPE_CHOICES,
+    map_ezlynx_quote_type_to_insurance_type,
     insurance_intake_type_choices,
     is_commercial_auto,
     is_personal_auto,
@@ -150,3 +152,64 @@ class InsuranceIntakeForm(forms.ModelForm):
             pass
 
         return cleaned
+
+
+class InsuranceIntakeEzlynxCaptureForm(forms.Form):
+    """Step 1 capture for EZLynx dual portal — mirrors the CQ getting-started fields."""
+
+    first_name = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "given-name"}),
+    )
+    last_name = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "family-name"}),
+    )
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={"class": "form-control", "autocomplete": "email"}),
+    )
+    phone_number = forms.CharField(
+        max_length=20,
+        label="Home phone",
+        widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "tel", "placeholder": "e.g. 914-555-1234"}),
+    )
+    zip_code = forms.CharField(
+        max_length=10,
+        label="ZIP code",
+        widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "postal-code"}),
+    )
+    quote_type = forms.ChoiceField(
+        choices=EZLYNX_QUOTE_TYPE_CHOICES,
+        label="Quote type",
+        widget=forms.Select(attrs={"class": "form-control"}),
+        initial="auto",
+    )
+
+    def save_intake(self, organization):
+        from django.utils import timezone
+
+        from .models import InsuranceIntake
+
+        quote_type = self.cleaned_data["quote_type"]
+        insurance_type = map_ezlynx_quote_type_to_insurance_type(quote_type)
+        note_parts = [f"EZLynx online quote ({quote_type.replace('_', ' ')})"]
+        if quote_type == "both":
+            note_parts.append("Requested auto and home coverage")
+
+        return InsuranceIntake.objects.create(
+            organization=organization,
+            first_name=self.cleaned_data["first_name"],
+            last_name=self.cleaned_data["last_name"],
+            email=self.cleaned_data["email"],
+            phone_number=self.cleaned_data["phone_number"],
+            zip_code=self.cleaned_data["zip_code"],
+            insurance_type=insurance_type,
+            source="website",
+            requested_effective_date=timezone.localdate(),
+            intake_note=" — ".join(note_parts),
+            additional_data={
+                "portal_mode": "ezlynx_dual",
+                "ezlynx_quote_type": quote_type,
+                "capture_step": "completed",
+            },
+        )

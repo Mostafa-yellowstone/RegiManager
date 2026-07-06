@@ -103,6 +103,18 @@ class Organization(models.Model):
         default="",
         help_text="Subtitle shown under the name on the public insurance intake portal.",
     )
+    insurance_ezlynx_quote_url = models.URLField(
+        max_length=500,
+        blank=True,
+        default="",
+        help_text="EZLynx / AgentInsure consumer quoting URL to embed on the public insurance portal.",
+    )
+    insurance_intake_portal_mode = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        help_text="Leave blank to auto-select: EZLynx dual capture when a quote URL is set, otherwise the native form.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -130,6 +142,12 @@ class Organization(models.Model):
     def insurance_intake_brand_tagline(self):
         custom = (self.insurance_intake_tagline or "").strip()
         return custom or "Request an insurance quote — secure online intake for auto, commercial, and business lines."
+
+    @property
+    def insurance_intake_effective_portal_mode(self):
+        from .insurance_intake_constants import insurance_intake_effective_portal_mode
+
+        return insurance_intake_effective_portal_mode(self)
 
 
 class OrganizationMembership(models.Model):
@@ -1389,6 +1407,11 @@ class InsuranceIntake(models.Model):
 
         labels = dict(insurance_intake_type_choices())
         return labels.get(self.insurance_type, self.insurance_type.replace("_", " ").title())
+
+    @property
+    def is_ezlynx_portal_intake(self):
+        portal_mode = (self.additional_data or {}).get("portal_mode", "")
+        return portal_mode in {"ezlynx_dual", "ezlynx_only"}
 
     def __str__(self):
         return f"Insurance Intake: {self.name} ({self.organization.name})"

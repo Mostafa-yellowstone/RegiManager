@@ -21,7 +21,7 @@ from .insurance_intake_constants import (
     PERSONAL_AUTO_INSURANCE_TYPES,
     insurance_intake_type_choices,
 )
-from .insurance_intake_forms import InsuranceIntakeForm
+from .insurance_intake_forms import InsuranceIntakeEzlynxCaptureForm, InsuranceIntakeForm
 from .insurance_permissions import can_manage_insurance_intake
 from .models import InsuranceIntake, Organization
 from .ratelimit import client_ip
@@ -43,20 +43,7 @@ def _check_insurance_intake_post_rate(request):
     return True
 
 
-@ensure_csrf_cookie
-def public_insurance_intake_portal(request, portal_token=None):
-    token = portal_token or request.GET.get("portal_token")
-    if not token:
-        return render(request, "core/public_insurance_intake_start.html")
-
-    organization = get_object_or_404(Organization, portal_token=token, is_active=True)
-    if not organization.is_public_insurance_intake_enabled:
-        return render(
-            request,
-            "core/public_insurance_intake_disabled.html",
-            {"organization": organization},
-        )
-
+def _render_native_insurance_intake(request, organization, token):
     if request.method == "POST":
         if not _check_insurance_intake_post_rate(request):
             messages.error(request, "Too many submissions. Please wait a minute and try again.")
@@ -68,6 +55,10 @@ def public_insurance_intake_portal(request, portal_token=None):
                     with transaction.atomic():
                         intake = form.save(commit=False)
                         intake.organization = organization
+                        intake.additional_data = {
+                            **(intake.additional_data or {}),
+                            "portal_mode": "native",
+                        }
                         intake.save()
                     return redirect(f"/insurance-intake/success/?portal_token={token}")
                 except Exception:
@@ -90,6 +81,92 @@ def public_insurance_intake_portal(request, portal_token=None):
             "commercial_auto_types_json": json.dumps(sorted(COMMERCIAL_AUTO_INSURANCE_TYPES)),
         },
     )
+
+
+def _render_ezlynx_capture_step(request, organization, token):
+    if request.method == "POST":
+        if not _check_insurance_intake_post_rate(request):
+            messages.error(request, "Too many submissions. Please wait a minute and try again.")
+            form = InsuranceIntakeEzlynxCaptureForm(request.POST)
+        else:
+            form = InsuranceIntakeEzlynxCaptureForm(request.POST)
+            if form.is_valid():
+                try:
+                    with transaction.atomic():
+                        intake = form.save_intake(organization)
+                    request.session[f"ezlynx_intake_{token}"] = intake.id
+                    return redirect(f"/insurance-intake/{token}/?step=quote")
+                except Exception:
+                    messages.error(
+                        request,
+                        "An error occurred while saving your information. Please try again.",
+                    )
+    else:
+        form = InsuranceIntakeEzlynxCaptureForm()
+
+    return render(
+        request,
+        "core/public_insurance_intake_ezlynx_capture.html",
+        {
+            "form": form,
+            "organization": organization,
+            "portal_token": token,
+            "ezlynx_quote_url": organization.insurance_ezlynx_quote_url,
+        },
+    )
+
+
+def _render_ezlynx_quote_step(request, organization, token, ezlynx_url):
+    intake = None
+    intake_id = request.GET.get("intake_id") or request.session.get(f"ezlynx_intake_{token}")
+    if intake_id:
+        intake = InsuranceIntake.objects.filter(
+            id=intake_id,
+            organization=organization,
+        ).first()
+
+    return render(
+        request,
+        "core/public_insurance_intake_ezlynx_quote.html",
+        {
+            "organization": organization,
+            "portal_token": token,
+            "ezlynx_quote_url": ezlynx_url,
+            "captured_intake": intake,
+            "portal_mode": organization.insurance_intake_effective_portal_mode,
+        },
+    )
+
+
+@ensure_csrf_cookie
+def public_insurance_intake_portal(request, portal_token=None):
+    token = portal_token or request.GET.get("portal_token")
+    if not token:
+        return render(request, "core/public_insurance_intake_start.html")
+
+    organization = get_object_or_404(Organization, portal_token=token, is_active=True)
+    if not organization.is_public_insurance_intake_enabled:
+        return render(
+            request,
+            "core/public_insurance_intake_disabled.html",
+            {"organization": organization},
+        )
+
+    portal_mode = organization.insurance_intake_effective_portal_mode
+    ezlynx_url = (organization.insurance_ezlynx_quote_url or "").strip()
+
+    if portal_mode == "native" or not ezlynx_url:
+        if portal_mode != "native" and not ezlynx_url:
+            messages.info(
+                request,
+                "Online quoting is not configured yet. Please use the form below or contact the agency.",
+            )
+        return _render_native_insurance_intake(request, organization, token)
+
+    if portal_mode == "ezlynx_dual" and request.GET.get("step") != "quote":
+        return _render_ezlynx_capture_step(request, organization, token)
+
+    return _render_ezlynx_quote_step(request, organization, token, ezlynx_url)
 
 
 def public_insurance_intake_success(request):

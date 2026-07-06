@@ -94,10 +94,16 @@ class OrganizationAdmin(admin.ModelAdmin):
                     "insurance_intake_link_display",
                     "insurance_intake_display_name",
                     "insurance_intake_tagline",
+                    "insurance_ezlynx_quote_url",
+                    "insurance_intake_portal_mode",
                     "insurance_show_review_button",
                     "insurance_review_link",
                 ),
-                "description": "Public insurance intake branding and review button (separate from client intake).",
+                "description": (
+                    "Public insurance intake branding and EZLynx consumer quoting embed. "
+                    "Set the EZLynx / AgentInsure quote URL and choose dual mode to capture leads in RegiManager "
+                    "before clients complete the embedded quote application."
+                ),
             },
         ),
         ("Public Intake", {"fields": ("show_review_button", "review_link")}),

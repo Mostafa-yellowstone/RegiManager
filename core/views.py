@@ -6421,6 +6421,8 @@ def update_insurance_space_branding(request):
     space_label = request.POST.get("space_label", "").strip()
     intake_name = request.POST.get("insurance_intake_display_name", "").strip()
     intake_tagline = request.POST.get("insurance_intake_tagline", "").strip()
+    ezlynx_url = request.POST.get("insurance_ezlynx_quote_url", "").strip()
+    portal_mode = request.POST.get("insurance_intake_portal_mode", "").strip()
 
     if space_label:
         space.label = space_label
@@ -6428,7 +6430,14 @@ def update_insurance_space_branding(request):
 
     org.insurance_intake_display_name = intake_name
     org.insurance_intake_tagline = intake_tagline
-    org.save(update_fields=["insurance_intake_display_name", "insurance_intake_tagline"])
+    org.insurance_ezlynx_quote_url = ezlynx_url
+    org.insurance_intake_portal_mode = portal_mode
+    org.save(update_fields=[
+        "insurance_intake_display_name",
+        "insurance_intake_tagline",
+        "insurance_ezlynx_quote_url",
+        "insurance_intake_portal_mode",
+    ])
     messages.success(request, "Insurance space branding updated.")
     return _redirect_to_insurance_detail(org, tab="insurance")
 

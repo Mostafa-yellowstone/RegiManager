@@ -46,3 +46,31 @@ def insurance_intake_type_choices():
         for key, label in InsurancePolicy.INSURANCE_TYPE_CHOICES
         if key not in EXCLUDED_INSURANCE_INTAKE_TYPES
     ]
+
+
+INSURANCE_INTAKE_PORTAL_MODES = (
+    ("native", "RegiManager full intake form"),
+    ("ezlynx_dual", "EZLynx quote embed + RegiManager lead capture"),
+    ("ezlynx_only", "EZLynx quote embed only"),
+)
+
+EZLYNX_QUOTE_TYPE_CHOICES = (
+    ("auto", "Auto"),
+    ("home", "Home / Condo / Renters"),
+    ("both", "Auto & Home"),
+)
+
+
+def map_ezlynx_quote_type_to_insurance_type(quote_type: str) -> str:
+    if quote_type == "home":
+        return "home_owners"
+    return "auto_personal"
+
+
+def insurance_intake_effective_portal_mode(organization) -> str:
+    mode = (getattr(organization, "insurance_intake_portal_mode", None) or "").strip()
+    if mode:
+        return mode
+    if (getattr(organization, "insurance_ezlynx_quote_url", None) or "").strip():
+        return "ezlynx_dual"
+    return "native"
