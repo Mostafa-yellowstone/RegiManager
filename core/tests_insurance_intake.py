@@ -183,11 +183,7 @@ class EzlynxInsuranceIntakePortalTests(TestCase):
         self.assertContains(quote_response, self.EZLYNX_URL)
         self.assertContains(quote_response, "ezlynxQuoteFrame")
         self.assertContains(quote_response, "Alex")
-        self.assertContains(quote_response, 'name="Applicant_FirstName"')
-        self.assertContains(quote_response, 'value="Alex"')
-        self.assertContains(quote_response, 'name="Applicant_LOB"')
-        self.assertContains(quote_response, 'value="Auto"')
-        self.assertContains(quote_response, "ezlynxPrefillForm")
+        self.assertNotContains(quote_response, "ezlynxPrefillForm")
 
     def test_ezlynx_only_skips_capture(self):
         self.org.insurance_intake_portal_mode = "ezlynx_only"
@@ -242,27 +238,6 @@ class InsuranceIntakeBrandingTests(TestCase):
         self.assertEqual(self.org.insurance_intake_brand_name, "Xpress Insurance Solutions")
         self.assertEqual(self.org.insurance_ezlynx_quote_url, ezlynx_url)
         self.assertEqual(self.org.insurance_intake_portal_mode, "ezlynx_dual")
-
-
-class EzlynxPrefillTests(TestCase):
-    def test_build_prefill_fields_maps_phone_and_quote_type(self):
-        from core.ezlynx_prefill import build_ezlynx_prefill_fields
-
-        intake = InsuranceIntake(
-            first_name="Jane",
-            last_name="Doe",
-            email="jane@example.com",
-            phone_number="914-555-0100",
-            zip_code="10704",
-            additional_data={"ezlynx_quote_type": "home"},
-        )
-        fields = build_ezlynx_prefill_fields(intake)
-        self.assertEqual(fields["Applicant_FirstName"], "Jane")
-        self.assertEqual(fields["Applicant_HomePhone"], "914")
-        self.assertEqual(fields["Applicant_HomePhone_1"], "555")
-        self.assertEqual(fields["Applicant_HomePhone_2"], "0100")
-        self.assertEqual(fields["Applicant_LOB"], "Home")
-        self.assertEqual(fields["Rating_Zip"], "10704")
 
 
 class InsuranceIntakeQueueTests(TestCase):

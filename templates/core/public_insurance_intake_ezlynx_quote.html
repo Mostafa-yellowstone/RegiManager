@@ -29,32 +29,18 @@
 
             {% if captured_intake %}
             <div class="ins-alert ins-alert-success">
-                Thank you, <strong>{{ captured_intake.first_name }}</strong>.
-                {% if use_ezlynx_prefill %}
-                Your details were sent to the quote application automatically — review them below and continue.
-                {% else %}
-                Your contact details are saved with our agency. Finish the application below to receive your quote.
-                {% endif %}
+                Thank you, <strong>{{ captured_intake.first_name }}</strong>. Your contact details are saved with our agency. Finish the application below to receive your quote.
             </div>
-            {% endif %}
-
-            {% if use_ezlynx_prefill %}
-            <form id="ezlynxPrefillForm" method="post" action="{{ ezlynx_quote_url }}" target="ezlynxQuoteFrame" style="display:none;" aria-hidden="true">
-                {% for name, value in ezlynx_prefill_fields.items %}
-                <input type="hidden" name="{{ name }}" value="{{ value }}">
-                {% endfor %}
-            </form>
             {% endif %}
 
             <div class="ezlynx-frame-wrap">
                 <div class="ezlynx-frame-loading" id="ezlynxLoading">
                     <div style="font-size:1.5rem;">⏳</div>
-                    <div>{% if use_ezlynx_prefill %}Sending your information and loading the quote application…{% else %}Loading secure quote application…{% endif %}</div>
+                    <div>Loading secure quote application…</div>
                 </div>
                 <iframe
                     id="ezlynxQuoteFrame"
-                    name="ezlynxQuoteFrame"
-                    {% if not use_ezlynx_prefill %}src="{{ ezlynx_quote_url }}"{% endif %}
+                    src="{{ ezlynx_quote_url }}"
                     title="Insurance quote application"
                     loading="lazy"
                     referrerpolicy="no-referrer-when-downgrade"
@@ -76,20 +62,13 @@
 (function () {
     var frame = document.getElementById('ezlynxQuoteFrame');
     var loading = document.getElementById('ezlynxLoading');
-    var prefillForm = document.getElementById('ezlynxPrefillForm');
-
-    function hideLoading() {
-        if (loading) loading.classList.add('hidden');
-    }
-
-    if (frame) {
-        frame.addEventListener('load', hideLoading);
-    }
-    setTimeout(hideLoading, 10000);
-
-    if (prefillForm) {
-        prefillForm.submit();
-    }
+    if (!frame || !loading) return;
+    frame.addEventListener('load', function () {
+        loading.classList.add('hidden');
+    });
+    setTimeout(function () {
+        loading.classList.add('hidden');
+    }, 8000);
 })();
 </script>
 {% endblock %}
