@@ -22,6 +22,7 @@ from .insurance_intake_constants import (
     insurance_intake_type_choices,
 )
 from .insurance_intake_forms import InsuranceIntakeEzlynxCaptureForm, InsuranceIntakeForm
+from .ezlynx_prefill import build_ezlynx_prefill_fields
 from .insurance_permissions import can_manage_insurance_intake
 from .models import InsuranceIntake, Organization
 from .ratelimit import client_ip
@@ -125,6 +126,10 @@ def _render_ezlynx_quote_step(request, organization, token, ezlynx_url):
             organization=organization,
         ).first()
 
+    prefill_fields = None
+    if intake:
+        prefill_fields = build_ezlynx_prefill_fields(intake)
+
     return render(
         request,
         "core/public_insurance_intake_ezlynx_quote.html",
@@ -134,6 +139,8 @@ def _render_ezlynx_quote_step(request, organization, token, ezlynx_url):
             "ezlynx_quote_url": ezlynx_url,
             "captured_intake": intake,
             "portal_mode": organization.insurance_intake_effective_portal_mode,
+            "ezlynx_prefill_fields": prefill_fields,
+            "use_ezlynx_prefill": bool(prefill_fields),
         },
     )
 
