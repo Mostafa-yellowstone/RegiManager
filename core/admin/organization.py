@@ -175,6 +175,7 @@ class OrganizationMembershipAdmin(admin.ModelAdmin):
                     "can_manage_news",
                     "can_manage_knowledge_hub",
                     "can_manage_documents",
+                    "can_manage_email_marketing",
                 ),
             },
         ),

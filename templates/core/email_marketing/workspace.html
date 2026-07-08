@@ -1,0 +1,412 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}{{ marketing_list.name }} | Email Marketing{% endblock %}
+
+{% block portal_head %}
+<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=1">
+{% endblock %}
+
+{% block portal_content %}
+<main class="dashboard-shell em-page" style="--em-accent: {{ marketing_list.accent_color|default:'#2563eb' }};">
+    <div class="em-workspace">
+        <div class="em-workspace-header">
+            <div>
+                <a href="{% url 'email-marketing-home' %}" class="em-back-link">← All lists</a>
+                <h1>{{ marketing_list.name }}</h1>
+                {% if marketing_list.description %}<p class="em-hero-desc" style="color: var(--em-text-muted); margin: 0.35rem 0 0;">{{ marketing_list.description }}</p>{% endif %}
+            </div>
+            <span class="em-badge em-badge--draft">{{ contacts_page.paginator.count }} contacts</span>
+        </div>
+
+        <nav class="em-tabs" aria-label="Workspace sections">
+            <a href="?tab=crm" class="em-tab {% if tab == 'crm' %}is-active{% endif %}">CRM</a>
+            <a href="?tab=campaigns{% if active_campaign %}&campaign={{ active_campaign.id }}{% endif %}" class="em-tab {% if tab == 'campaigns' %}is-active{% endif %}">Campaigns</a>
+            <a href="?tab=history{% if active_campaign %}&campaign={{ active_campaign.id }}{% endif %}" class="em-tab {% if tab == 'history' %}is-active{% endif %}">Send History</a>
+        </nav>
+
+        {% if tab == 'crm' %}
+        <section class="em-panel" id="em-crm-panel">
+            <form method="get" class="em-toolbar">
+                <input type="hidden" name="tab" value="crm">
+                <label class="em-field em-field--grow">
+                    <span>Search</span>
+                    <input type="search" name="q" value="{{ filter_q }}" placeholder="Name, email, phone, city">
+                </label>
+                <label class="em-field">
+                    <span>State</span>
+                    <select name="state">
+                        <option value="">All</option>
+                        {% for code, label in us_states %}
+                        <option value="{{ code }}" {% if filter_state == code %}selected{% endif %}>{{ code }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="em-field">
+                    <span>City</span>
+                    <input type="text" name="city" value="{{ filter_city }}">
+                </label>
+                <label class="em-field">
+                    <span>ZIP</span>
+                    <input type="text" name="zip_code" value="{{ filter_zip }}">
+                </label>
+                <label class="em-field">
+                    <span>Has email</span>
+                    <select name="has_email">
+                        <option value="">Any</option>
+                        <option value="1" {% if filter_has_email == '1' %}selected{% endif %}>With email only</option>
+                    </select>
+                </label>
+                <button type="submit" class="em-btn em-btn--primary">Apply filters</button>
+                <a href="?tab=crm" class="em-btn em-btn--ghost">Reset</a>
+            </form>
+
+            <div class="em-toolbar">
+                <button type="button" class="em-btn em-btn--primary" id="em-add-contact-btn">+ Add contact</button>
+                <form method="post" action="{% url 'email-marketing-import' marketing_list.id %}" enctype="multipart/form-data" class="em-toolbar" style="margin: 0;">
+                    {% csrf_token %}
+                    <label class="em-field">
+                        <span>Import CSV / Excel</span>
+                        <input type="file" name="import_file" accept=".csv,.xlsx,.xlsm" required>
+                    </label>
+                    <button type="submit" class="em-btn em-btn--ghost">Import</button>
+                </form>
+            </div>
+
+            <div class="em-table-wrap">
+                <table class="em-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Address</th>
+                            <th>City</th>
+                            <th>State</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th>Website</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for contact in contacts_page %}
+                        <tr>
+                            <td><strong>{{ contact.name }}</strong></td>
+                            <td>
+                                {{ contact.address_line1 }}
+                                {% if contact.address_line2 %}<br>{{ contact.address_line2 }}{% endif %}
+                                {% if contact.address_line3 %}<br>{{ contact.address_line3 }}{% endif %}
+                            </td>
+                            <td>{{ contact.city }}</td>
+                            <td>{{ contact.state }}</td>
+                            <td>{{ contact.phone }}</td>
+                            <td>{{ contact.email }}</td>
+                            <td>{% if contact.website %}<a href="{{ contact.website }}" target="_blank" rel="noopener">Link</a>{% endif %}</td>
+                            <td>
+                                <button type="button" class="em-btn em-btn--ghost em-edit-contact"
+                                    data-id="{{ contact.id }}"
+                                    data-name="{{ contact.name|escape }}"
+                                    data-address_line1="{{ contact.address_line1|escape }}"
+                                    data-address_line2="{{ contact.address_line2|escape }}"
+                                    data-address_line3="{{ contact.address_line3|escape }}"
+                                    data-city="{{ contact.city|escape }}"
+                                    data-state="{{ contact.state|escape }}"
+                                    data-zip_code="{{ contact.zip_code|escape }}"
+                                    data-phone="{{ contact.phone|escape }}"
+                                    data-email="{{ contact.email|escape }}"
+                                    data-website="{{ contact.website|escape }}"
+                                    data-notes="{{ contact.notes|escape }}">Edit</button>
+                                <form method="post" action="{% url 'email-marketing-delete-contact' marketing_list.id contact.id %}" style="display:inline;" onsubmit="return confirm('Delete this contact?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="em-btn em-btn--danger">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8">No contacts yet. Add manually or import a spreadsheet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if contacts_page.paginator.num_pages > 1 %}
+            <nav class="em-pagination" aria-label="Contacts pagination">
+                {% if contacts_page.has_previous %}
+                <a href="?tab=crm&page={{ contacts_page.previous_page_number }}&q={{ filter_q }}&state={{ filter_state }}&city={{ filter_city }}&zip_code={{ filter_zip }}&has_email={{ filter_has_email }}">Previous</a>
+                {% endif %}
+                <span class="current">Page {{ contacts_page.number }} of {{ contacts_page.paginator.num_pages }}</span>
+                {% if contacts_page.has_next %}
+                <a href="?tab=crm&page={{ contacts_page.next_page_number }}&q={{ filter_q }}&state={{ filter_state }}&city={{ filter_city }}&zip_code={{ filter_zip }}&has_email={{ filter_has_email }}">Next</a>
+                {% endif %}
+            </nav>
+            {% endif %}
+        </section>
+
+        {% elif tab == 'campaigns' %}
+        <section class="em-panel">
+            <div class="em-campaign-picker">
+                {% for c in campaigns %}
+                <a href="?tab=campaigns&campaign={{ c.id }}" class="em-campaign-chip {% if active_campaign and active_campaign.id == c.id %}is-active{% endif %}">
+                    {{ c.name }}
+                    <span class="em-badge em-badge--{% if c.status == 'sent' %}sent{% else %}draft{% endif %}">{{ c.get_status_display }}</span>
+                </a>
+                {% endfor %}
+                <form method="post" action="{% url 'email-marketing-save-campaign' marketing_list.id %}" style="display:inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="name" value="New Campaign {{ campaigns.count|add:1 }}">
+                    <input type="hidden" name="subject" value="">
+                    <input type="hidden" name="html_content" value="<p>Hello {% templatetag openvariable %}name{% templatetag closevariable %},</p>">
+                    <input type="hidden" name="css_content" value="body { font-family: Arial, sans-serif; }">
+                    <button type="submit" class="em-btn em-btn--ghost">+ New campaign</button>
+                </form>
+            </div>
+
+            {% if active_campaign %}
+            <form method="post" action="{% url 'email-marketing-save-campaign' marketing_list.id %}" id="em-campaign-form">
+                {% csrf_token %}
+                <input type="hidden" name="campaign_id" value="{{ active_campaign.id }}">
+                <div class="em-toolbar">
+                    <label class="em-field em-field--grow">
+                        <span>Campaign name</span>
+                        <input type="text" name="name" value="{{ active_campaign.name }}" required>
+                    </label>
+                    <label class="em-field em-field--grow">
+                        <span>Email subject</span>
+                        <input type="text" name="subject" value="{{ active_campaign.subject }}" placeholder="Subject line with personalization tokens">
+                    </label>
+                    <button type="submit" class="em-btn em-btn--primary">Save campaign</button>
+                </div>
+
+                <p style="font-size:0.85rem;color:var(--em-text-muted);margin:0 0 0.75rem;">
+                    Personalization tokens — click to insert into HTML:
+                </p>
+                <div class="em-token-row" data-target="html_content">
+                    <button type="button" class="em-token" data-token="name">{% templatetag openvariable %}name{% templatetag closevariable %}</button>
+                    <button type="button" class="em-token" data-token="address_line1">{% templatetag openvariable %}address_line1{% templatetag closevariable %}</button>
+                    <button type="button" class="em-token" data-token="address_line2">{% templatetag openvariable %}address_line2{% templatetag closevariable %}</button>
+                    <button type="button" class="em-token" data-token="address_line3">{% templatetag openvariable %}address_line3{% templatetag closevariable %}</button>
+                    <button type="button" class="em-token" data-token="city">{% templatetag openvariable %}city{% templatetag closevariable %}</button>
+                    <button type="button" class="em-token" data-token="state">{% templatetag openvariable %}state{% templatetag closevariable %}</button>
+                    <button type="button" class="em-token" data-token="zip_code">{% templatetag openvariable %}zip_code{% templatetag closevariable %}</button>
+                    <button type="button" class="em-token" data-token="phone">{% templatetag openvariable %}phone{% templatetag closevariable %}</button>
+                    <button type="button" class="em-token" data-token="email">{% templatetag openvariable %}email{% templatetag closevariable %}</button>
+                    <button type="button" class="em-token" data-token="website">{% templatetag openvariable %}website{% templatetag closevariable %}</button>
+                    <button type="button" class="em-token" data-token="full_address">{% templatetag openvariable %}full_address{% templatetag closevariable %}</button>
+                </div>
+
+                <div class="em-campaign-layout" style="margin-top:1rem;">
+                    <div class="em-editor-stack">
+                        <label class="em-field">
+                            <span>HTML body</span>
+                            <textarea name="html_content" id="html_content" rows="14">{{ active_campaign.html_content }}</textarea>
+                        </label>
+                        <label class="em-field">
+                            <span>CSS styles</span>
+                            <textarea name="css_content" id="css_content" rows="8">{{ active_campaign.css_content }}</textarea>
+                        </label>
+
+                        <div>
+                            <span class="em-field"><span>Image assets</span></span>
+                            <form id="em-asset-upload" enctype="multipart/form-data">
+                                {% csrf_token %}
+                                <input type="file" name="image" accept="image/*" id="em-asset-file">
+                                <button type="button" class="em-btn em-btn--ghost" id="em-upload-btn">Upload to server</button>
+                            </form>
+                            <div class="em-assets" id="em-assets">
+                                {% for asset in assets %}
+                                <div class="em-asset">
+                                    <img src="{{ asset.image.url }}" alt="{{ asset.label }}" data-url="{{ asset.image.url }}" title="Click to copy img tag">
+                                    <div>{{ asset.label|truncatechars:12 }}</div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="em-toolbar">
+                            <label class="em-field">
+                                <span>Preview as contact</span>
+                                <select id="em-preview-contact">
+                                    <option value="">Sample contact</option>
+                                    {% for contact in preview_contacts %}
+                                    {% if contact.email %}
+                                    <option value="{{ contact.id }}">{{ contact.name }}</option>
+                                    {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <button type="button" class="em-btn em-btn--ghost" id="em-refresh-preview">Refresh preview</button>
+                        </div>
+                        <iframe class="em-preview-frame" id="em-preview-frame" title="Email preview" srcdoc="{{ preview_html|escape }}"></iframe>
+                    </div>
+                </div>
+            </form>
+
+            <div class="em-send-panel">
+                <h4>Bulk send with advanced filters</h4>
+                <form method="post" action="{% url 'email-marketing-send-campaign' marketing_list.id active_campaign.id %}" id="em-send-form">
+                    {% csrf_token %}
+                    <div class="em-toolbar">
+                        <label class="em-field em-field--grow">
+                            <span>Search</span>
+                            <input type="search" name="q" value="{{ filter_q }}" placeholder="Filter recipients">
+                        </label>
+                        <label class="em-field">
+                            <span>State</span>
+                            <select name="state">
+                                <option value="">All</option>
+                                {% for code, label in us_states %}
+                                <option value="{{ code }}" {% if filter_state == code %}selected{% endif %}>{{ code }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label class="em-field">
+                            <span>City</span>
+                            <input type="text" name="city" value="{{ filter_city }}">
+                        </label>
+                        <label class="em-field">
+                            <span>ZIP</span>
+                            <input type="text" name="zip_code" value="{{ filter_zip }}">
+                        </label>
+                        <input type="hidden" name="has_email" value="1">
+                        <button type="submit" class="em-btn em-btn--primary" onclick="return confirm('Send this campaign to all matching contacts with email?');">Send bulk email</button>
+                    </div>
+                    <p style="font-size:0.82rem;color:var(--em-text-muted);margin:0.5rem 0 0;">Only contacts with a valid email address are included. Save the campaign before sending.</p>
+                </form>
+            </div>
+            {% else %}
+            <div class="em-empty-state">
+                <h3>No campaigns yet</h3>
+                <p>Create a campaign to design HTML email and send to your list.</p>
+            </div>
+            {% endif %}
+        </section>
+
+        {% elif tab == 'history' %}
+        <section class="em-panel">
+            {% if active_campaign %}
+            <p style="margin-top:0;color:var(--em-text-muted);">History for <strong>{{ active_campaign.name }}</strong>
+                — <a href="?tab=campaigns&campaign={{ active_campaign.id }}">Reopen editor</a>
+            </p>
+            {% endif %}
+
+            <div class="em-campaign-picker">
+                {% for c in campaigns %}
+                <a href="?tab=history&campaign={{ c.id }}" class="em-campaign-chip {% if active_campaign and active_campaign.id == c.id %}is-active{% endif %}">{{ c.name }}</a>
+                {% endfor %}
+            </div>
+
+            {% for batch in batches %}
+            <div class="em-history-item">
+                <div>
+                    <strong>{{ batch.created_at|date:"M j, Y g:i A" }}</strong>
+                    <div style="font-size:0.85rem;color:var(--em-text-muted);">
+                        {{ batch.recipient_count }} queued · {{ batch.sent_count }} sent · {{ batch.failed_count }} failed
+                    </div>
+                </div>
+                <div style="display:flex;gap:0.5rem;">
+                    <a href="?tab=campaigns&campaign={{ batch.campaign_id }}" class="em-btn em-btn--ghost">Open</a>
+                    <form method="post" action="{% url 'email-marketing-send-campaign' marketing_list.id batch.campaign_id %}" onsubmit="return confirm('Resend to the same filter snapshot?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="q" value="{{ batch.filter_snapshot.q|default:'' }}">
+                        <input type="hidden" name="state" value="{{ batch.filter_snapshot.state|default:'' }}">
+                        <input type="hidden" name="city" value="{{ batch.filter_snapshot.city|default:'' }}">
+                        <input type="hidden" name="zip_code" value="{{ batch.filter_snapshot.zip_code|default:'' }}">
+                        <input type="hidden" name="has_email" value="1">
+                        <button type="submit" class="em-btn em-btn--primary">Resend</button>
+                    </form>
+                </div>
+            </div>
+            {% empty %}
+            <div class="em-empty-state">
+                <h3>No sends yet</h3>
+                <p>When you send a campaign, batches and delivery stats appear here.</p>
+            </div>
+            {% endfor %}
+        </section>
+        {% endif %}
+    </div>
+</main>
+
+<div class="em-modal" id="em-contact-modal" hidden>
+    <div class="em-modal-backdrop" data-close-modal></div>
+    <div class="em-modal-panel" role="dialog" aria-labelledby="em-contact-modal-title">
+        <h3 id="em-contact-modal-title">Add contact</h3>
+        <form method="post" action="{% url 'email-marketing-save-contact' marketing_list.id %}" class="em-form" id="em-contact-form">
+            {% csrf_token %}
+            <input type="hidden" name="contact_id" id="contact_id" value="">
+            <label class="em-field">
+                <span>Full name</span>
+                <input type="text" name="name" id="contact_name" required maxlength="200">
+            </label>
+            <div class="em-address-grid">
+                <label class="em-field">
+                    <span>Address line 1</span>
+                    <input type="text" name="address_line1" id="contact_address_line1" maxlength="200">
+                </label>
+                <label class="em-field">
+                    <span>Address line 2</span>
+                    <input type="text" name="address_line2" id="contact_address_line2" maxlength="200">
+                </label>
+                <label class="em-field">
+                    <span>Address line 3</span>
+                    <input type="text" name="address_line3" id="contact_address_line3" maxlength="200">
+                </label>
+            </div>
+            <div class="em-toolbar">
+                <label class="em-field em-field--grow">
+                    <span>City</span>
+                    <input type="text" name="city" id="contact_city" maxlength="100">
+                </label>
+                <label class="em-field">
+                    <span>State</span>
+                    <select name="state" id="contact_state">
+                        <option value="">—</option>
+                        {% for code, label in us_states %}
+                        <option value="{{ code }}">{{ code }} — {{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="em-field">
+                    <span>ZIP</span>
+                    <input type="text" name="zip_code" id="contact_zip_code" maxlength="10">
+                </label>
+            </div>
+            <div class="em-toolbar">
+                <label class="em-field em-field--grow">
+                    <span>Phone</span>
+                    <input type="text" name="phone" id="contact_phone" maxlength="30">
+                </label>
+                <label class="em-field em-field--grow">
+                    <span>Email</span>
+                    <input type="email" name="email" id="contact_email">
+                </label>
+            </div>
+            <label class="em-field">
+                <span>Website</span>
+                <input type="url" name="website" id="contact_website" placeholder="https://">
+            </label>
+            <label class="em-field">
+                <span>Notes</span>
+                <textarea name="notes" id="contact_notes" rows="2"></textarea>
+            </label>
+            <div class="em-modal-actions">
+                <button type="button" class="em-btn em-btn--ghost" data-close-modal>Cancel</button>
+                <button type="submit" class="em-btn em-btn--primary">Save contact</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block portal_scripts %}
+<script>
+window.EM_CONFIG = {
+    listId: {{ marketing_list.id }},
+    campaignId: {% if active_campaign %}{{ active_campaign.id }}{% else %}null{% endif %},
+    previewUrl: "{% if active_campaign %}{% url 'email-marketing-preview' marketing_list.id active_campaign.id %}{% endif %}",
+    uploadUrl: "{% url 'email-marketing-upload-asset' marketing_list.id %}",
+    csrfToken: "{{ csrf_token }}"
+};
+</script>
+<script src="{% static 'core/js/email_marketing.js' %}?v=1" defer></script>
+{% endblock %}

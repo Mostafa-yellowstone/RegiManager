@@ -1,0 +1,84 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}Email Marketing | RegiManager{% endblock %}
+
+{% block portal_head %}
+<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=1">
+{% endblock %}
+
+{% block portal_content %}
+<main class="dashboard-shell em-page">
+    <header class="em-hero">
+        <div class="em-hero-copy">
+            <p class="em-eyebrow">Outreach Studio</p>
+            <h1>Email Marketing</h1>
+            <p class="em-hero-desc">Create named lists, manage contacts, design HTML campaigns, and send personalized bulk email.</p>
+        </div>
+        <button type="button" class="em-btn em-btn--light" id="em-open-create-list">
+            <span>+ New List</span>
+        </button>
+    </header>
+
+    <section class="em-home-grid">
+        {% for item in marketing_lists %}
+        <article class="em-list-card" style="--em-accent: {{ item.accent_color|default:'#2563eb' }};">
+            <a href="{% url 'email-marketing-workspace' item.id %}" class="em-list-card-link">
+                <div class="em-list-card-top">
+                    <span class="em-list-icon" aria-hidden="true">✉</span>
+                    <h2>{{ item.name }}</h2>
+                </div>
+                {% if item.description %}
+                <p class="em-list-desc">{{ item.description }}</p>
+                {% endif %}
+                <div class="em-list-meta">
+                    <span>{{ item.contact_count }} contact{{ item.contact_count|pluralize }}</span>
+                    <span>{{ item.campaigns.count }} campaign{{ item.campaigns.count|pluralize }}</span>
+                </div>
+            </a>
+            <form method="post" action="{% url 'email-marketing-delete-list' item.id %}" class="em-list-delete" onsubmit="return confirm('Delete this list and all contacts/campaigns?');">
+                {% csrf_token %}
+                <button type="submit" class="em-icon-btn" title="Delete list" aria-label="Delete {{ item.name }}">×</button>
+            </form>
+        </article>
+        {% empty %}
+        <div class="em-empty-state em-empty-state--wide">
+            <h3>Start your first marketing list</h3>
+            <p>Name a list like “Spring Renewal” or “VIP Clients”, then add contacts and build campaigns inside.</p>
+            <button type="button" class="em-btn em-btn--primary" id="em-open-create-list-empty">Create List</button>
+        </div>
+        {% endfor %}
+    </section>
+</main>
+
+<div class="em-modal" id="em-create-list-modal" hidden>
+    <div class="em-modal-backdrop" data-close-modal></div>
+    <div class="em-modal-panel" role="dialog" aria-labelledby="em-create-list-title">
+        <h3 id="em-create-list-title">New Marketing List</h3>
+        <form method="post" class="em-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_list">
+            <label class="em-field">
+                <span>List name</span>
+                <input type="text" name="name" required maxlength="120" placeholder="e.g. VIP Clients">
+            </label>
+            <label class="em-field">
+                <span>Description</span>
+                <textarea name="description" rows="3" placeholder="Optional notes for your team"></textarea>
+            </label>
+            <label class="em-field">
+                <span>Accent color</span>
+                <input type="color" name="accent_color" value="#2563eb">
+            </label>
+            <div class="em-modal-actions">
+                <button type="button" class="em-btn em-btn--ghost" data-close-modal>Cancel</button>
+                <button type="submit" class="em-btn em-btn--primary">Create List</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block portal_scripts %}
+<script src="{% static 'core/js/email_marketing.js' %}?v=1" defer></script>
+{% endblock %}

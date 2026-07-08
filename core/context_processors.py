@@ -34,6 +34,9 @@ def _membership_context(request):
     can_view_spaces = request.user.is_superuser or any(
         m.can_view_spaces for m in active_memberships
     )
+    can_manage_email_marketing = is_owner or any(
+        m.can_manage_email_marketing for m in active_memberships
+    )
 
     result = {
         "automation_enabled": enabled,
@@ -41,6 +44,7 @@ def _membership_context(request):
         "can_view_partners": can_view_partners,
         "can_view_finance_bi": can_view_finance_bi,
         "can_view_spaces": can_view_spaces,
+        "can_manage_email_marketing": can_manage_email_marketing,
         "user_organizations": user_organizations,
         "active_organization": active_organization,
     }
@@ -55,6 +59,7 @@ def automation_status(request):
             "user_nav_role": "PSB Agent",
             "can_view_partners": False,
             "can_view_finance_bi": False,
+            "can_manage_email_marketing": False,
             "notif_unread_count": 0,
             "top_notifications": [],
             "user_organizations": [],

@@ -172,6 +172,18 @@ from core.inventory_views import (
     delete_inventory_supplier,
     add_inventory_purchase,
 )
+from core.email_marketing_views import (
+    email_marketing_home,
+    email_marketing_workspace,
+    email_marketing_save_contact,
+    email_marketing_delete_contact,
+    email_marketing_import_contacts,
+    email_marketing_save_campaign,
+    email_marketing_send_campaign,
+    email_marketing_upload_asset,
+    email_marketing_preview_campaign,
+    email_marketing_delete_list,
+)
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from core.api import ClientViewSet, VehicleViewSet, ServiceRecordViewSet
 
@@ -356,6 +368,16 @@ urlpatterns = [
     path("dashboard/spaces/documents/type/<int:type_id>/edit/", edit_document_type, name="edit-document-type"),
     path("dashboard/spaces/documents/<int:space_id>/record/add/", add_document_record, name="add-document-record"),
     path("dashboard/spaces/documents/record/<int:record_id>/delete/", delete_document_record, name="delete-document-record"),
+    path("dashboard/email-marketing/", email_marketing_home, name="email-marketing-home"),
+    path("dashboard/email-marketing/<int:list_id>/", email_marketing_workspace, name="email-marketing-workspace"),
+    path("dashboard/email-marketing/<int:list_id>/contacts/save/", email_marketing_save_contact, name="email-marketing-save-contact"),
+    path("dashboard/email-marketing/<int:list_id>/contacts/<int:contact_id>/delete/", email_marketing_delete_contact, name="email-marketing-delete-contact"),
+    path("dashboard/email-marketing/<int:list_id>/contacts/import/", email_marketing_import_contacts, name="email-marketing-import"),
+    path("dashboard/email-marketing/<int:list_id>/campaigns/save/", email_marketing_save_campaign, name="email-marketing-save-campaign"),
+    path("dashboard/email-marketing/<int:list_id>/campaigns/<int:campaign_id>/send/", email_marketing_send_campaign, name="email-marketing-send-campaign"),
+    path("dashboard/email-marketing/<int:list_id>/campaigns/<int:campaign_id>/preview/", email_marketing_preview_campaign, name="email-marketing-preview"),
+    path("dashboard/email-marketing/<int:list_id>/assets/upload/", email_marketing_upload_asset, name="email-marketing-upload-asset"),
+    path("dashboard/email-marketing/<int:list_id>/delete/", email_marketing_delete_list, name="email-marketing-delete-list"),
 ]
 
 from core.error_handlers import render_error_page

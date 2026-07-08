@@ -203,6 +203,10 @@ class OrganizationMembership(models.Model):
         default=False,
         help_text="Can this agent create folders, document types, and records in the Documents space?",
     )
+    can_manage_email_marketing = models.BooleanField(
+        default=False,
+        help_text="Can this agent manage email marketing lists, CRM contacts, and campaigns?",
+    )
     accessible_spaces = models.ManyToManyField(
         "Space",
         blank=True,
@@ -2330,4 +2334,207 @@ class MotorclubMembership(models.Model):
             number = f"MC-{self.organization_id}-{self.id:05d}"
             MotorclubMembership.objects.filter(pk=self.pk).update(membership_number=number)
             self.membership_number = number
+
+
+class EmailMarketingList(models.Model):
+    """Named marketing workspace card (list + campaigns)."""
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="email_marketing_lists",
+    )
+    name = models.CharField(max_length=120)
+    description = models.TextField(blank=True, default="")
+    accent_color = models.CharField(max_length=7, default="#2563eb")
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="email_marketing_lists_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "name"]
+        unique_together = ("organization", "name")
+
+    def __str__(self):
+        return f"{self.name} ({self.organization.name})"
+
+    @property
+    def contact_count(self):
+        return self.contacts.count()
+
+
+class EmailMarketingContact(models.Model):
+    marketing_list = models.ForeignKey(
+        EmailMarketingList,
+        on_delete=models.CASCADE,
+        related_name="contacts",
+    )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="email_marketing_contacts",
+    )
+    name = models.CharField(max_length=200)
+    address_line1 = models.CharField(max_length=200, blank=True, default="")
+    address_line2 = models.CharField(max_length=200, blank=True, default="")
+    address_line3 = models.CharField(max_length=200, blank=True, default="")
+    city = models.CharField(max_length=100, blank=True, default="")
+    state = models.CharField(max_length=2, blank=True, default="")
+    zip_code = models.CharField(max_length=10, blank=True, default="")
+    phone = models.CharField(max_length=30, blank=True, default="")
+    email = models.EmailField(blank=True, default="")
+    website = models.URLField(max_length=500, blank=True, default="")
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def full_address(self):
+        parts = [
+            self.address_line1,
+            self.address_line2,
+            self.address_line3,
+            self.city,
+            self.state,
+            self.zip_code,
+        ]
+        return ", ".join(part for part in parts if part)
+
+
+class EmailMarketingAsset(models.Model):
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="email_marketing_assets",
+    )
+    marketing_list = models.ForeignKey(
+        EmailMarketingList,
+        on_delete=models.CASCADE,
+        related_name="assets",
+        null=True,
+        blank=True,
+    )
+    image = models.ImageField(upload_to="email_marketing/%Y/%m/")
+    label = models.CharField(max_length=120, blank=True, default="")
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class EmailCampaign(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        SENT = "sent", "Sent"
+
+    marketing_list = models.ForeignKey(
+        EmailMarketingList,
+        on_delete=models.CASCADE,
+        related_name="campaigns",
+    )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="email_campaigns",
+    )
+    name = models.CharField(max_length=160)
+    subject = models.CharField(max_length=255, blank=True, default="")
+    html_content = models.TextField(blank=True, default="")
+    css_content = models.TextField(blank=True, default="")
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="email_campaigns_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-id"]
+
+    def __str__(self):
+        return self.name
+
+
+class EmailCampaignBatch(models.Model):
+    campaign = models.ForeignKey(
+        EmailCampaign,
+        on_delete=models.CASCADE,
+        related_name="batches",
+    )
+    sent_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    filter_snapshot = models.JSONField(default=dict, blank=True)
+    recipient_count = models.PositiveIntegerField(default=0)
+    sent_count = models.PositiveIntegerField(default=0)
+    failed_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class EmailCampaignRecipient(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        SENT = "sent", "Sent"
+        FAILED = "failed", "Failed"
+
+    batch = models.ForeignKey(
+        EmailCampaignBatch,
+        on_delete=models.CASCADE,
+        related_name="recipient_logs",
+    )
+    campaign = models.ForeignKey(
+        EmailCampaign,
+        on_delete=models.CASCADE,
+        related_name="recipient_logs",
+    )
+    contact = models.ForeignKey(
+        EmailMarketingContact,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    email = models.EmailField()
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    error_message = models.TextField(blank=True, default="")
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-sent_at", "-id"]
 

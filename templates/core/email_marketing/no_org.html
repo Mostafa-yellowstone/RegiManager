@@ -1,0 +1,13 @@
+{% extends "base_portal.html" %}
+{% block title %}Email Marketing | RegiManager{% endblock %}
+{% block portal_content %}
+<main class="dashboard-shell em-page">
+    <section class="dashboard-layout" style="padding: 3rem 2rem;">
+        <div class="em-empty-state">
+            <h2>No organization selected</h2>
+            <p>Join or select a PSB organization to use Email Marketing.</p>
+            <a href="{% url 'dashboard' %}" class="btn btn-primary">Go to Dashboard</a>
+        </div>
+    </section>
+</main>
+{% endblock %}

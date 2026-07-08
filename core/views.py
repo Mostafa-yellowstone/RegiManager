@@ -3266,6 +3266,8 @@ def update_agent_permissions(request):
             membership.can_deal_with_motorclub = value
         elif field == "can_manage_documents":
             membership.can_manage_documents = value
+        elif field == "can_manage_email_marketing":
+            membership.can_manage_email_marketing = value
         elif field == "can_issue_refund":
             membership.can_issue_refund = value
         membership.save()

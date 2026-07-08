@@ -21,6 +21,12 @@
 {% if can_view_spaces %}
 <a href="{% url 'spaces-home' %}" class="nav-link {% if 'spaces' in request.path or 'inventory' in request.path or 'insurance' in request.path %}active{% endif %}" role="menuitem">Spaces</a>
 {% endif %}
+{% if can_manage_email_marketing %}
+<a href="{% url 'email-marketing-home' %}" class="nav-link {% if 'email-marketing' in request.path %}active{% endif %}" role="menuitem">
+    <span class="nav-label nav-label--full">Email Marketing</span>
+    <span class="nav-label nav-label--short" aria-hidden="true">Email</span>
+</a>
+{% endif %}
 <span class="nav-link-wrap">
     <a href="{% url 'site-news-list' %}" class="nav-link {% if 'site-news' in request.path %}active{% endif %}" role="menuitem">News</a>
     {% if site_news_unread_count and site_news_unread_count > 0 %}

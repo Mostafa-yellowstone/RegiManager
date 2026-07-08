@@ -818,6 +818,7 @@
                                 <th>News</th>
                                 <th title="Manage Knowledge Hub">Hub</th>
                                 <th title="Manage Documents Space">Docs</th>
+                                <th title="Email Marketing lists, CRM, and campaigns">Email</th>
                                 <th title="Issue refunds on vehicle transactions">Refund</th>
                                 <th>Audit</th>
                             </tr>
@@ -898,6 +899,12 @@
                                     <td>
                                         <label class="switch" title="Manage Documents Space">
                                             <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_manage_documents" {% if agent_mem.can_manage_documents %}checked{% endif %}>
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </td>
+                                    <td>
+                                        <label class="switch" title="Email Marketing">
+                                            <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_manage_email_marketing" {% if agent_mem.can_manage_email_marketing %}checked{% endif %}>
                                             <span class="slider round"></span>
                                         </label>
                                     </td>
