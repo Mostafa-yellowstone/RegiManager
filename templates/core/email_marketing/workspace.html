@@ -4,7 +4,7 @@
 {% block title %}{{ marketing_list.name }} | Email Marketing{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=2">
+<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=3">
 {% endblock %}
 
 {% block portal_content %}
@@ -325,9 +325,8 @@
         </section>
         {% endif %}
     </div>
-</main>
 
-<div class="em-modal" id="em-contact-modal" hidden>
+    <div class="em-modal" id="em-contact-modal" hidden>
     <div class="em-modal-backdrop" data-close-modal></div>
     <div class="em-modal-panel em-modal-panel--create" role="dialog" aria-labelledby="em-contact-modal-title" aria-modal="true">
         <div class="em-modal-header">
@@ -402,6 +401,7 @@
         </form>
     </div>
 </div>
+</main>
 {% endblock %}
 
 {% block portal_scripts %}
@@ -414,5 +414,5 @@ window.EM_CONFIG = {
     csrfToken: "{{ csrf_token }}"
 };
 </script>
-<script src="{% static 'core/js/email_marketing.js' %}?v=2" defer></script>
+<script src="{% static 'core/js/email_marketing.js' %}?v=3" defer></script>
 {% endblock %}

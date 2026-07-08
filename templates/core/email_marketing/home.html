@@ -4,11 +4,18 @@
 {% block title %}Email Marketing | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=2">
+<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=3">
 {% endblock %}
 
 {% block portal_content %}
 <main class="dashboard-shell em-page">
+    {% if messages %}
+    <div class="em-flash-messages" role="status">
+        {% for message in messages %}
+        <div class="em-flash em-flash--{{ message.tags|default:'info' }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
     <header class="em-hero">
         <div class="em-hero-copy">
             <p class="em-eyebrow">Outreach Studio</p>
@@ -50,45 +57,45 @@
         </div>
         {% endfor %}
     </section>
-</main>
 
-<div class="em-modal" id="em-create-list-modal" hidden>
-    <div class="em-modal-backdrop" data-close-modal></div>
-    <div class="em-modal-panel em-modal-panel--create" role="dialog" aria-labelledby="em-create-list-title" aria-modal="true">
-        <div class="em-modal-header">
-            <div class="em-modal-icon" aria-hidden="true">✉</div>
-            <div>
-                <h3 id="em-create-list-title">New Marketing List</h3>
-                <p class="em-modal-subtitle">Name your audience workspace — contacts, campaigns, and send history live inside each list.</p>
-            </div>
-        </div>
-        <form method="post" class="em-form em-form--modal">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="create_list">
-            <label class="em-field em-field--modal">
-                <span>List name</span>
-                <input type="text" name="name" required maxlength="120" placeholder="e.g. VIP Clients" autocomplete="off">
-            </label>
-            <label class="em-field em-field--modal">
-                <span>Description</span>
-                <textarea name="description" rows="3" placeholder="Optional notes for your team"></textarea>
-            </label>
-            <label class="em-field em-field--modal em-field--color">
-                <span>Accent color</span>
-                <div class="em-color-picker-wrap">
-                    <input type="color" name="accent_color" value="#2563eb" class="em-color-input">
-                    <span class="em-color-hint">Used on the list card stripe and highlights</span>
+    <div class="em-modal" id="em-create-list-modal" hidden>
+        <div class="em-modal-backdrop" data-close-modal></div>
+        <div class="em-modal-panel em-modal-panel--create" role="dialog" aria-labelledby="em-create-list-title" aria-modal="true">
+            <div class="em-modal-header">
+                <div class="em-modal-icon" aria-hidden="true">✉</div>
+                <div>
+                    <h3 id="em-create-list-title">New Marketing List</h3>
+                    <p class="em-modal-subtitle">Name your audience workspace — contacts, campaigns, and send history live inside each list.</p>
                 </div>
-            </label>
-            <div class="em-modal-actions">
-                <button type="button" class="em-btn em-btn--ghost em-btn--modal-cancel" data-close-modal>Cancel</button>
-                <button type="submit" class="em-btn em-btn--primary em-btn--modal-submit">Create List</button>
             </div>
-        </form>
+            <form method="post" action="{% url 'email-marketing-home' %}" class="em-form em-form--modal" id="em-create-list-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create_list">
+                <label class="em-field em-field--modal">
+                    <span>List name</span>
+                    <input type="text" name="name" required maxlength="120" placeholder="e.g. VIP Clients" autocomplete="off">
+                </label>
+                <label class="em-field em-field--modal">
+                    <span>Description</span>
+                    <textarea name="description" rows="3" placeholder="Optional notes for your team"></textarea>
+                </label>
+                <label class="em-field em-field--modal em-field--color">
+                    <span>Accent color</span>
+                    <div class="em-color-picker-wrap">
+                        <input type="color" name="accent_color" value="#2563eb" class="em-color-input">
+                        <span class="em-color-hint">Used on the list card stripe and highlights</span>
+                    </div>
+                </label>
+                <div class="em-modal-actions">
+                    <button type="button" class="em-btn em-btn--ghost em-btn--modal-cancel" data-close-modal>Cancel</button>
+                    <button type="submit" class="em-btn em-btn--primary em-btn--modal-submit" id="em-create-list-submit">Create List</button>
+                </div>
+            </form>
+        </div>
     </div>
-</div>
+</main>
 {% endblock %}
 
 {% block portal_scripts %}
-<script src="{% static 'core/js/email_marketing.js' %}?v=2" defer></script>
+<script src="{% static 'core/js/email_marketing.js' %}?v=3" defer></script>
 {% endblock %}

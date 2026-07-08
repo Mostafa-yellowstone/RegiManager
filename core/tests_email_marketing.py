@@ -114,3 +114,20 @@ class EmailMarketingAccessTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertTrue(EmailCampaign.objects.filter(name="Spring Promo").exists())
+
+    def test_create_list_via_home_post(self):
+        self.client.login(username="owner", password="pass12345")
+        response = self.client.post(
+            reverse("email-marketing-home"),
+            {"action": "create_list", "name": "Newsletter", "description": "Test", "accent_color": "#2563eb"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(EmailMarketingList.objects.filter(name="Newsletter").exists())
+
+    def test_create_duplicate_list_shows_error(self):
+        self.client.login(username="owner", password="pass12345")
+        url = reverse("email-marketing-home")
+        self.client.post(url, {"action": "create_list", "name": "Dup", "accent_color": "#2563eb"})
+        response = self.client.post(url, {"action": "create_list", "name": "Dup", "accent_color": "#2563eb"})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(EmailMarketingList.objects.filter(name="Dup").count(), 1)

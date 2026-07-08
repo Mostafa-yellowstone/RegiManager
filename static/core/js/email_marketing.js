@@ -36,6 +36,16 @@
         }
     });
 
+    var createListForm = document.getElementById("em-create-list-form");
+    if (createListForm) {
+        createListForm.addEventListener("submit", function () {
+            var btn = document.getElementById("em-create-list-submit");
+            if (!btn || btn.disabled) return;
+            btn.disabled = true;
+            btn.textContent = "Creating…";
+        });
+    }
+
     var addBtn = document.getElementById("em-add-contact-btn");
     if (addBtn) {
         addBtn.addEventListener("click", function () {

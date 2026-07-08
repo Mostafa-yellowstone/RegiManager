@@ -529,7 +529,19 @@
     display: none !important;
 }
 
+/* Modal is portaled outside .em-page — define tokens and explicit colors here */
 .em-modal {
+    --em-accent: #2563eb;
+    --em-accent-hover: #1d4ed8;
+    --em-surface: #ffffff;
+    --em-muted: #f8fafc;
+    --em-border: #cbd5e1;
+    --em-text: #0f172a;
+    --em-text-muted: #475569;
+    --em-label: #334155;
+    --em-input-bg: #ffffff;
+    --em-input-text: #0f172a;
+    --em-input-border: #94a3b8;
     position: fixed;
     inset: 0;
     z-index: 5000;
@@ -620,7 +632,7 @@
 }
 
 .em-field--modal > span {
-    color: #334155 !important;
+    color: var(--em-label) !important;
     font-size: 0.8rem;
     font-weight: 800;
 }
@@ -628,10 +640,11 @@
 .em-field--modal input,
 .em-field--modal select,
 .em-field--modal textarea {
-    background: #f8fafc;
-    border: 1.5px solid #cbd5e1;
-    color: #0f172a;
+    background: var(--em-input-bg);
+    border: 1.5px solid var(--em-input-border);
+    color: var(--em-input-text) !important;
     box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+    -webkit-text-fill-color: var(--em-input-text);
 }
 
 .em-field--modal input:focus,
@@ -684,8 +697,8 @@
 
 .em-btn--modal-cancel {
     background: #f1f5f9;
-    border: 1.5px solid #cbd5e1;
-    color: #334155;
+    border: 1.5px solid #94a3b8;
+    color: #1e293b !important;
     font-weight: 700;
 }
 
@@ -693,9 +706,23 @@
     background: #e2e8f0;
 }
 
-.em-btn--modal-submit {
+.em-btn--modal-submit,
+.em-modal .em-btn--primary {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    border: none;
     min-width: 8.5rem;
     box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+}
+
+.em-btn--modal-submit:hover:not(:disabled),
+.em-modal .em-btn--primary:hover:not(:disabled) {
+    background: #1d4ed8 !important;
+}
+
+.em-btn--modal-submit:disabled {
+    opacity: 0.75;
+    cursor: wait;
 }
 
 .em-form .em-field {
@@ -704,6 +731,38 @@
 
 body.em-modal-open {
     overflow: hidden;
+}
+
+.em-flash-messages {
+    padding: 0 2rem;
+    margin-bottom: -0.5rem;
+}
+
+.em-flash {
+    padding: 0.85rem 1.1rem;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.92rem;
+    margin-bottom: 0.5rem;
+}
+
+.em-flash--success,
+.em-flash--debug {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #86efac;
+}
+
+.em-flash--error {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.em-flash--warning {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
 }
 
 .em-address-grid {
@@ -774,13 +833,25 @@ html.portal-theme-dark .em-btn--hero {
     border-color: #e2e8f0;
 }
 
+html.portal-theme-dark .em-modal {
+    --em-surface: #1a2332;
+    --em-muted: #141c28;
+    --em-border: #475569;
+    --em-text: #f1f5f9;
+    --em-text-muted: #94a3b8;
+    --em-label: #e2e8f0;
+    --em-input-bg: #0f172a;
+    --em-input-text: #f8fafc;
+    --em-input-border: #64748b;
+}
+
 html.portal-theme-dark .em-modal-backdrop {
     background: rgba(0, 0, 0, 0.78);
 }
 
 html.portal-theme-dark .em-modal-panel {
-    background: #1a2332;
-    color: #f1f5f9;
+    background: var(--em-surface);
+    color: var(--em-text);
     border-color: #3d4f66;
     box-shadow:
         0 0 0 1px rgba(148, 163, 184, 0.08),
@@ -799,18 +870,6 @@ html.portal-theme-dark .em-modal-icon {
     background: linear-gradient(135deg, rgba(37, 99, 235, 0.35), rgba(59, 130, 246, 0.15));
     color: #93c5fd;
     box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.25);
-}
-
-html.portal-theme-dark .em-field--modal > span {
-    color: #cbd5e1 !important;
-}
-
-html.portal-theme-dark .em-field--modal input,
-html.portal-theme-dark .em-field--modal select,
-html.portal-theme-dark .em-field--modal textarea {
-    background: #0f172a;
-    border-color: #475569;
-    color: #f1f5f9;
 }
 
 html.portal-theme-dark .em-field--modal input:focus,
@@ -841,10 +900,28 @@ html.portal-theme-dark .em-modal-actions {
 
 html.portal-theme-dark .em-btn--modal-cancel {
     background: #141c28;
-    border-color: #475569;
-    color: #e2e8f0;
+    border-color: #64748b;
+    color: #f1f5f9 !important;
 }
 
 html.portal-theme-dark .em-btn--modal-cancel:hover {
     background: #1e293b;
+}
+
+html.portal-theme-dark .em-btn--modal-submit,
+html.portal-theme-dark .em-modal .em-btn--primary {
+    background: #3b82f6 !important;
+    color: #ffffff !important;
+}
+
+html.portal-theme-dark .em-flash--success {
+    background: rgba(22, 163, 74, 0.2);
+    color: #86efac;
+    border-color: rgba(134, 239, 172, 0.35);
+}
+
+html.portal-theme-dark .em-flash--error {
+    background: rgba(220, 38, 38, 0.2);
+    color: #fca5a5;
+    border-color: rgba(252, 165, 165, 0.35);
 }

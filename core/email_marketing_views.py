@@ -5,7 +5,7 @@ from __future__ import annotations
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -93,15 +93,25 @@ def email_marketing_home(request):
         name = (request.POST.get("name") or "").strip()
         description = (request.POST.get("description") or "").strip()
         accent_color = (request.POST.get("accent_color") or "#2563eb").strip()
+        if not accent_color.startswith("#") or len(accent_color) != 7:
+            accent_color = "#2563eb"
         if name:
-            EmailMarketingList.objects.create(
-                organization=org,
-                name=name,
-                description=description,
-                accent_color=accent_color,
-                created_by=request.user,
-            )
-            messages.success(request, f'Created marketing list "{name}".')
+            if EmailMarketingList.objects.filter(organization=org, name=name).exists():
+                messages.error(request, f'A list named "{name}" already exists for this organization.')
+            else:
+                try:
+                    EmailMarketingList.objects.create(
+                        organization=org,
+                        name=name,
+                        description=description,
+                        accent_color=accent_color,
+                        created_by=request.user,
+                    )
+                    messages.success(request, f'Created marketing list "{name}".')
+                except IntegrityError:
+                    messages.error(request, f'A list named "{name}" already exists for this organization.')
+                except Exception:
+                    messages.error(request, "Could not create the list. Please try again.")
         else:
             messages.error(request, "List name is required.")
         return redirect("email-marketing-home")
