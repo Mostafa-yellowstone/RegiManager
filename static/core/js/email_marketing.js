@@ -8,11 +8,22 @@
 
     function openModal(id) {
         var modal = document.getElementById(id);
-        if (modal) modal.hidden = false;
+        if (!modal) return;
+        modal.hidden = false;
+        document.body.classList.add("em-modal-open");
+        var firstInput = modal.querySelector("input:not([type='hidden']), textarea, select");
+        if (firstInput) {
+            window.setTimeout(function () { firstInput.focus(); }, 80);
+        }
     }
     function closeModals() {
         qsa(".em-modal").forEach(function (m) { m.hidden = true; });
+        document.body.classList.remove("em-modal-open");
     }
+
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") closeModals();
+    });
 
     document.addEventListener("click", function (e) {
         if (e.target.matches("[data-close-modal]") || e.target.classList.contains("em-modal-backdrop")) {

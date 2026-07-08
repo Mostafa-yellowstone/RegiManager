@@ -4,7 +4,7 @@
 {% block title %}{{ marketing_list.name }} | Email Marketing{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=1">
+<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=2">
 {% endblock %}
 
 {% block portal_content %}
@@ -329,35 +329,41 @@
 
 <div class="em-modal" id="em-contact-modal" hidden>
     <div class="em-modal-backdrop" data-close-modal></div>
-    <div class="em-modal-panel" role="dialog" aria-labelledby="em-contact-modal-title">
-        <h3 id="em-contact-modal-title">Add contact</h3>
-        <form method="post" action="{% url 'email-marketing-save-contact' marketing_list.id %}" class="em-form" id="em-contact-form">
+    <div class="em-modal-panel em-modal-panel--create" role="dialog" aria-labelledby="em-contact-modal-title" aria-modal="true">
+        <div class="em-modal-header">
+            <div class="em-modal-icon" aria-hidden="true">👤</div>
+            <div>
+                <h3 id="em-contact-modal-title">Add contact</h3>
+                <p class="em-modal-subtitle">Store name, address, and contact details for personalized campaigns.</p>
+            </div>
+        </div>
+        <form method="post" action="{% url 'email-marketing-save-contact' marketing_list.id %}" class="em-form em-form--modal" id="em-contact-form">
             {% csrf_token %}
             <input type="hidden" name="contact_id" id="contact_id" value="">
-            <label class="em-field">
+            <label class="em-field em-field--modal">
                 <span>Full name</span>
                 <input type="text" name="name" id="contact_name" required maxlength="200">
             </label>
             <div class="em-address-grid">
-                <label class="em-field">
+                <label class="em-field em-field--modal">
                     <span>Address line 1</span>
                     <input type="text" name="address_line1" id="contact_address_line1" maxlength="200">
                 </label>
-                <label class="em-field">
+                <label class="em-field em-field--modal">
                     <span>Address line 2</span>
                     <input type="text" name="address_line2" id="contact_address_line2" maxlength="200">
                 </label>
-                <label class="em-field">
+                <label class="em-field em-field--modal">
                     <span>Address line 3</span>
                     <input type="text" name="address_line3" id="contact_address_line3" maxlength="200">
                 </label>
             </div>
             <div class="em-toolbar">
-                <label class="em-field em-field--grow">
+                <label class="em-field em-field--modal em-field--grow">
                     <span>City</span>
                     <input type="text" name="city" id="contact_city" maxlength="100">
                 </label>
-                <label class="em-field">
+                <label class="em-field em-field--modal">
                     <span>State</span>
                     <select name="state" id="contact_state">
                         <option value="">—</option>
@@ -366,32 +372,32 @@
                         {% endfor %}
                     </select>
                 </label>
-                <label class="em-field">
+                <label class="em-field em-field--modal">
                     <span>ZIP</span>
                     <input type="text" name="zip_code" id="contact_zip_code" maxlength="10">
                 </label>
             </div>
             <div class="em-toolbar">
-                <label class="em-field em-field--grow">
+                <label class="em-field em-field--modal em-field--grow">
                     <span>Phone</span>
                     <input type="text" name="phone" id="contact_phone" maxlength="30">
                 </label>
-                <label class="em-field em-field--grow">
+                <label class="em-field em-field--modal em-field--grow">
                     <span>Email</span>
                     <input type="email" name="email" id="contact_email">
                 </label>
             </div>
-            <label class="em-field">
+            <label class="em-field em-field--modal">
                 <span>Website</span>
                 <input type="url" name="website" id="contact_website" placeholder="https://">
             </label>
-            <label class="em-field">
+            <label class="em-field em-field--modal">
                 <span>Notes</span>
                 <textarea name="notes" id="contact_notes" rows="2"></textarea>
             </label>
             <div class="em-modal-actions">
-                <button type="button" class="em-btn em-btn--ghost" data-close-modal>Cancel</button>
-                <button type="submit" class="em-btn em-btn--primary">Save contact</button>
+                <button type="button" class="em-btn em-btn--ghost em-btn--modal-cancel" data-close-modal>Cancel</button>
+                <button type="submit" class="em-btn em-btn--primary em-btn--modal-submit">Save contact</button>
             </div>
         </form>
     </div>
@@ -408,5 +414,5 @@ window.EM_CONFIG = {
     csrfToken: "{{ csrf_token }}"
 };
 </script>
-<script src="{% static 'core/js/email_marketing.js' %}?v=1" defer></script>
+<script src="{% static 'core/js/email_marketing.js' %}?v=2" defer></script>
 {% endblock %}
