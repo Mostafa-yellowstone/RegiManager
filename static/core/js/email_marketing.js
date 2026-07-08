@@ -46,6 +46,30 @@
         });
     }
 
+    var importFile = document.getElementById("em-import-file");
+    var importFileName = document.getElementById("em-import-file-name");
+    var importForm = document.getElementById("em-import-form");
+    if (importFile && importFileName) {
+        importFile.addEventListener("change", function () {
+            var file = importFile.files && importFile.files[0];
+            if (file) {
+                importFileName.textContent = file.name;
+                importFileName.hidden = false;
+            } else {
+                importFileName.textContent = "";
+                importFileName.hidden = true;
+            }
+        });
+    }
+    if (importForm) {
+        importForm.addEventListener("submit", function () {
+            var btn = document.getElementById("em-import-submit");
+            if (!btn || btn.disabled) return;
+            btn.disabled = true;
+            btn.textContent = "Importing…";
+        });
+    }
+
     var addBtn = document.getElementById("em-add-contact-btn");
     if (addBtn) {
         addBtn.addEventListener("click", function () {

@@ -4,7 +4,7 @@
 {% block title %}{{ marketing_list.name }} | Email Marketing{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=3">
+<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=4">
 {% endblock %}
 
 {% block portal_content %}
@@ -61,17 +61,44 @@
                 <a href="?tab=crm" class="em-btn em-btn--ghost">Reset</a>
             </form>
 
-            <div class="em-toolbar">
+            <div class="em-crm-actions">
                 <button type="button" class="em-btn em-btn--primary" id="em-add-contact-btn">+ Add contact</button>
-                <form method="post" action="{% url 'email-marketing-import' marketing_list.id %}" enctype="multipart/form-data" class="em-toolbar" style="margin: 0;">
-                    {% csrf_token %}
-                    <label class="em-field">
-                        <span>Import CSV / Excel</span>
-                        <input type="file" name="import_file" accept=".csv,.xlsx,.xlsm" required>
-                    </label>
-                    <button type="submit" class="em-btn em-btn--ghost">Import</button>
-                </form>
             </div>
+
+            <section class="em-import-card" aria-labelledby="em-import-title">
+                <div class="em-import-card-header">
+                    <div class="em-import-icon" aria-hidden="true">📥</div>
+                    <div>
+                        <h3 id="em-import-title">Import contacts</h3>
+                        <p class="em-import-desc">Upload CSV or Excel — columns are matched automatically by similar names (e.g. <em>Full Name</em>, <em>E-mail</em>, <em>Phone Number</em>). Missing columns are fine.</p>
+                    </div>
+                </div>
+                <form method="post" action="{% url 'email-marketing-import' marketing_list.id %}" enctype="multipart/form-data" class="em-import-form" id="em-import-form">
+                    {% csrf_token %}
+                    <label class="em-import-dropzone" id="em-import-dropzone">
+                        <input type="file" name="import_file" id="em-import-file" accept=".csv,.xlsx,.xlsm,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required class="em-import-file-input">
+                        <span class="em-import-dropzone-title">Drop your spreadsheet here or click to browse</span>
+                        <span class="em-import-dropzone-hint">.csv, .xlsx — first row should be column headers</span>
+                        <span class="em-import-file-name" id="em-import-file-name" hidden></span>
+                    </label>
+                    <div class="em-import-columns">
+                        <span class="em-import-columns-label">Recognized column names</span>
+                        <div class="em-import-column-chips">
+                            <span class="em-import-chip">Name / Full Name</span>
+                            <span class="em-import-chip">Email / E-mail</span>
+                            <span class="em-import-chip">Phone / Mobile</span>
+                            <span class="em-import-chip">Address / Street</span>
+                            <span class="em-import-chip">City</span>
+                            <span class="em-import-chip">State</span>
+                            <span class="em-import-chip">ZIP / Postal</span>
+                            <span class="em-import-chip">Website</span>
+                        </div>
+                    </div>
+                    <div class="em-import-actions">
+                        <button type="submit" class="em-btn em-btn--primary em-btn--modal-submit" id="em-import-submit">Import contacts</button>
+                    </div>
+                </form>
+            </section>
 
             <div class="em-table-wrap">
                 <table class="em-table">
@@ -414,5 +441,5 @@ window.EM_CONFIG = {
     csrfToken: "{{ csrf_token }}"
 };
 </script>
-<script src="{% static 'core/js/email_marketing.js' %}?v=3" defer></script>
+<script src="{% static 'core/js/email_marketing.js' %}?v=4" defer></script>
 {% endblock %}

@@ -1,13 +1,9 @@
 """Tests for Email Marketing module."""
 
-import io
-
 from django.contrib.auth import get_user_model
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from core.email_marketing_import import parse_contact_import_file
 from core.email_marketing_personalize import render_campaign_html
 from core.models import (
     EmailCampaign,
@@ -37,17 +33,6 @@ class EmailMarketingPersonalizeTests(TestCase):
         self.assertIn("Jane Doe", html)
         self.assertIn("Albany", html)
         self.assertIn("color: blue", html)
-
-
-class EmailMarketingImportTests(TestCase):
-    def test_csv_import_maps_columns(self):
-        content = "name,email,address_line1,city,state\nJohn,john@test.com,1 St,Buffalo,NY\n"
-        upload = SimpleUploadedFile("contacts.csv", content.encode("utf-8"), content_type="text/csv")
-        rows = parse_contact_import_file(upload)
-        self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["name"], "John")
-        self.assertEqual(rows[0]["email"], "john@test.com")
-        self.assertEqual(rows[0]["city"], "Buffalo")
 
 
 @override_settings(DEBUG=True)

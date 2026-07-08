@@ -253,21 +253,43 @@ def email_marketing_import_contacts(request, list_id):
         return redirect(f"{reverse('email-marketing-workspace', args=[list_id])}?tab=crm")
 
     try:
-        rows = parse_contact_import_file(upload)
+        result = parse_contact_import_file(upload)
     except ValueError as exc:
         messages.error(request, str(exc))
         return redirect(f"{reverse('email-marketing-workspace', args=[list_id])}?tab=crm")
 
+    if not result.contacts:
+        if result.headers:
+            mapped_pairs = [
+                f"{header} → {field}"
+                for header, field in result.column_mapping.items()
+            ]
+            mapped_text = ", ".join(mapped_pairs) if mapped_pairs else "no recognizable columns"
+            messages.error(
+                request,
+                f"Imported 0 contacts from {result.total_rows} row(s). "
+                f"File columns: {', '.join(result.headers)}. "
+                f"Matched: {mapped_text}. "
+                f"Include at least a Name, Email, or Phone column.",
+            )
+        else:
+            messages.error(request, "Imported 0 contacts. The file looks empty or is missing a header row.")
+        return redirect(f"{reverse('email-marketing-workspace', args=[list_id])}?tab=crm")
+
     created = 0
     with transaction.atomic():
-        for row in rows:
+        for row in result.contacts:
             EmailMarketingContact.objects.create(
                 organization=org,
                 marketing_list=marketing_list,
                 **row,
             )
             created += 1
-    messages.success(request, f"Imported {created} contact(s).")
+    messages.success(
+        request,
+        f"Imported {created} contact(s) from {result.total_rows} row(s)"
+        + (f" ({result.skipped_rows} skipped)." if result.skipped_rows else "."),
+    )
     return redirect(f"{reverse('email-marketing-workspace', args=[list_id])}?tab=crm")
 
 
