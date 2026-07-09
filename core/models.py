@@ -1055,8 +1055,25 @@ class Notification(models.Model):
         WARNING = "warning", "Warning"
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications", db_index=True)
+    organization = models.ForeignKey(
+        "Organization",
+        on_delete=models.CASCADE,
+        related_name="notifications",
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     client = models.ForeignKey("Client", on_delete=models.CASCADE, related_name="notifications", db_index=True)
     note = models.ForeignKey("ClientNote", on_delete=models.CASCADE, related_name="notifications", null=True, blank=True)
+    policy = models.ForeignKey(
+        "InsurancePolicy",
+        on_delete=models.CASCADE,
+        related_name="notifications",
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    event_type = models.CharField(max_length=40, blank=True, default="", db_index=True)
     title = models.CharField(max_length=140)
     message = models.TextField(blank=True, default="")
     level = models.CharField(max_length=20, choices=Level.choices, default=Level.WARNING, db_index=True)

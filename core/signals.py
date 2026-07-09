@@ -1,7 +1,10 @@
 from django.contrib.auth.signals import user_logged_in, user_logged_out
 from django.contrib.sessions.models import Session
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-from .models import UserSession
+
+from .models import InsurancePolicy, UserSession
+from .owner_notifications import notify_owners_policy_bound
 
 
 @receiver(user_logged_in)
@@ -45,3 +48,24 @@ def on_user_logged_out(sender, request, user, **kwargs):
     """
     if user and hasattr(user, "pk") and user.pk:
         UserSession.objects.filter(user=user).delete()
+
+
+@receiver(pre_save, sender=InsurancePolicy)
+def cache_policy_stage(sender, instance, **kwargs):
+    if instance.pk:
+        try:
+            previous = InsurancePolicy.objects.only("stage").get(pk=instance.pk)
+            instance._previous_stage = previous.stage
+        except InsurancePolicy.DoesNotExist:
+            instance._previous_stage = None
+    else:
+        instance._previous_stage = None
+
+
+@receiver(post_save, sender=InsurancePolicy)
+def notify_on_policy_bound(sender, instance, created, **kwargs):
+    previous_stage = getattr(instance, "_previous_stage", None)
+    if instance.stage not in InsurancePolicy.BOUND_STAGES:
+        return
+    if created or previous_stage not in InsurancePolicy.BOUND_STAGES:
+        notify_owners_policy_bound(instance)

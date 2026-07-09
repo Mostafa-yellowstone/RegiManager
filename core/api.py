@@ -37,7 +37,7 @@ class ClientViewSet(PSBBaseViewSet):
 class VehicleViewSet(PSBBaseViewSet):
     queryset = Vehicle.objects.all()
     serializer_class = VehicleSerializer
-    filterset_fields = ["vin", "plate_number", "vehicle_type"]
+    filterset_fields = ["client", "vin", "plate_number", "vehicle_type"]
 
 
 class ServiceRecordViewSet(PSBBaseViewSet):

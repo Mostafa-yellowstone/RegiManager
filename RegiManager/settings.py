@@ -104,10 +104,32 @@ REST_FRAMEWORK = {
 
 # API Documentation Settings
 SPECTACULAR_SETTINGS = {
-    "TITLE": "RegiManager PSB API",
-    "DESCRIPTION": "Enterprise API for PSB integration with DMV services.",
-    "VERSION": "1.0.0",
+    "TITLE": "RegiManager Companion API",
+    "DESCRIPTION": (
+        "REST API for the RegiManager companion mobile app and PSB integrations. "
+        "Authenticate with POST /api/auth/login/, then send Authorization: Token <key> on every request. "
+        "See docs/COMPANION_APP_API.md for the full guide and implementation strategy."
+    ),
+    "VERSION": "1.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    "TAGS": [
+        {"name": "auth", "description": "Login, profile, and token management"},
+        {"name": "owner", "description": "Owner dashboard — finance, spaces, processes, notifications"},
+        {"name": "clients", "description": "CRM clients"},
+        {"name": "vehicles", "description": "Vehicles linked to clients"},
+        {"name": "service-records", "description": "DMV service transactions"},
+    ],
+    "SECURITY": [{"TokenAuth": []}],
+    "APPEND_COMPONENTS": {
+        "securitySchemes": {
+            "TokenAuth": {
+                "type": "apiKey",
+                "in": "header",
+                "name": "Authorization",
+                "description": "DRF token. Format: Token <your-api-token>",
+            }
+        }
+    },
 }
 
 

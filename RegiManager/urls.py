@@ -15,7 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.contrib.admin.views.decorators import staff_member_required
+from rest_framework.permissions import IsAuthenticated
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
@@ -186,6 +186,33 @@ from core.email_marketing_views import (
 )
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from core.api import ClientViewSet, VehicleViewSet, ServiceRecordViewSet
+from core.companion_api import CompanionLoginView, CompanionLogoutView, CompanionMeView
+from core.owner_api import (
+    OwnerFinanceChartView,
+    OwnerFinanceCompareView,
+    OwnerFinanceSummaryView,
+    OwnerInsurancePoliciesView,
+    OwnerNotificationMarkAllReadView,
+    OwnerNotificationReadView,
+    OwnerNotificationsView,
+    OwnerOverviewView,
+    OwnerProcessesView,
+    OwnerSpaceDetailView,
+    OwnerSpacesListView,
+)
+
+
+class AuthenticatedSpectacularAPIView(SpectacularAPIView):
+    permission_classes = [IsAuthenticated]
+
+
+class AuthenticatedSpectacularSwaggerView(SpectacularSwaggerView):
+    permission_classes = [IsAuthenticated]
+
+
+class AuthenticatedSpectacularRedocView(SpectacularRedocView):
+    permission_classes = [IsAuthenticated]
+
 
 router = DefaultRouter()
 router.register(r'clients', ClientViewSet, basename='api-client')
@@ -198,9 +225,23 @@ urlpatterns = [
     
     # API Routes
     path('api/', include(router.urls)),
-    path('api/schema/', staff_member_required(SpectacularAPIView.as_view()), name='schema'),
-    path('api/docs/swagger/', staff_member_required(SpectacularSwaggerView.as_view(url_name='schema')), name='swagger-ui'),
-    path('api/docs/redoc/', staff_member_required(SpectacularRedocView.as_view(url_name='schema')), name='redoc'),
+    path('api/auth/login/', CompanionLoginView.as_view(), name='api-auth-login'),
+    path('api/auth/logout/', CompanionLogoutView.as_view(), name='api-auth-logout'),
+    path('api/auth/me/', CompanionMeView.as_view(), name='api-auth-me'),
+    path('api/owner/overview/', OwnerOverviewView.as_view(), name='api-owner-overview'),
+    path('api/owner/finance/summary/', OwnerFinanceSummaryView.as_view(), name='api-owner-finance-summary'),
+    path('api/owner/finance/compare/', OwnerFinanceCompareView.as_view(), name='api-owner-finance-compare'),
+    path('api/owner/finance/chart/', OwnerFinanceChartView.as_view(), name='api-owner-finance-chart'),
+    path('api/owner/spaces/', OwnerSpacesListView.as_view(), name='api-owner-spaces'),
+    path('api/owner/spaces/<int:space_id>/', OwnerSpaceDetailView.as_view(), name='api-owner-space-detail'),
+    path('api/owner/insurance/policies/', OwnerInsurancePoliciesView.as_view(), name='api-owner-insurance-policies'),
+    path('api/owner/processes/', OwnerProcessesView.as_view(), name='api-owner-processes'),
+    path('api/owner/notifications/', OwnerNotificationsView.as_view(), name='api-owner-notifications'),
+    path('api/owner/notifications/mark-all-read/', OwnerNotificationMarkAllReadView.as_view(), name='api-owner-notifications-mark-all'),
+    path('api/owner/notifications/<int:notification_id>/read/', OwnerNotificationReadView.as_view(), name='api-owner-notification-read'),
+    path('api/schema/', AuthenticatedSpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/swagger/', AuthenticatedSpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/docs/redoc/', AuthenticatedSpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
     path("", home, name="home"),
 
