@@ -16,7 +16,7 @@ from .access import organizations_for_user
 from .email_marketing_import import parse_contact_import_file
 from .email_marketing_permissions import can_manage_email_marketing
 from .email_marketing_personalize import render_campaign_html
-from .email_marketing_tasks import send_email_campaign_batch
+from .email_marketing_tasks import dispatch_email_campaign_batch, email_delivery_configured
 from .http import deny_access
 from .models import (
     EmailCampaign,
@@ -356,6 +356,16 @@ def email_marketing_send_campaign(request, list_id, campaign_id):
             f"{reverse('email-marketing-workspace', args=[list_id])}?tab=campaigns&campaign={campaign.id}"
         )
 
+    if not email_delivery_configured():
+        messages.error(
+            request,
+            "Email delivery is not configured on the server. "
+            "Set EMAIL_HOST, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, and DEFAULT_FROM_EMAIL.",
+        )
+        return redirect(
+            f"{reverse('email-marketing-workspace', args=[list_id])}?tab=campaigns&campaign={campaign.id}"
+        )
+
     filter_snapshot = {
         "q": request.POST.get("q", ""),
         "state": request.POST.get("state", ""),
@@ -382,8 +392,32 @@ def email_marketing_send_campaign(request, list_id, campaign_id):
             for contact in contacts
         ])
 
-    send_email_campaign_batch.delay(batch.id)
-    messages.success(request, f"Queued {len(contacts)} email(s) for delivery.")
+    dispatch_status = dispatch_email_campaign_batch(batch.id)
+    batch.refresh_from_db()
+
+    if dispatch_status == "queued":
+        messages.success(
+            request,
+            f"Queued {len(contacts)} email(s). Delivery starts when the mail worker picks up the batch.",
+        )
+    elif dispatch_status == "sending":
+        messages.success(
+            request,
+            f"Sending {len(contacts)} email(s) in the background. Refresh this page in a moment for delivery stats.",
+        )
+    elif batch.failed_count and not batch.sent_count:
+        messages.error(
+            request,
+            f"Could not deliver emails ({batch.failed_count} failed). "
+            f"Check server email settings. First error: "
+            f"{batch.recipient_logs.exclude(error_message='').values_list('error_message', flat=True).first() or 'unknown'}",
+        )
+    else:
+        messages.success(
+            request,
+            f"Sent {batch.sent_count} email(s)"
+            + (f", {batch.failed_count} failed." if batch.failed_count else ".")
+        )
     return redirect(
         f"{reverse('email-marketing-workspace', args=[list_id])}?tab=history&campaign={campaign.id}"
     )

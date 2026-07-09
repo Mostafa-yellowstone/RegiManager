@@ -325,9 +325,25 @@
             {% for batch in batches %}
             <div class="em-history-item">
                 <div>
-                    <strong>{{ batch.created_at|date:"M j, Y g:i A" }}</strong>
-                    <div style="font-size:0.85rem;color:var(--em-text-muted);">
-                        {{ batch.recipient_count }} queued · {{ batch.sent_count }} sent · {{ batch.failed_count }} failed
+                    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                        <strong>{{ batch.created_at|date:"M j, Y g:i A" }}</strong>
+                        {% if batch.delivery_status == 'pending' %}
+                        <span class="em-badge em-badge--draft">Pending delivery</span>
+                        {% elif batch.delivery_status == 'partial' %}
+                        <span class="em-badge em-badge--draft">In progress</span>
+                        {% elif batch.delivery_status == 'failed' %}
+                        <span class="em-badge em-badge--failed">Failed</span>
+                        {% elif batch.delivery_status == 'completed_with_errors' %}
+                        <span class="em-badge em-badge--sent">Sent with errors</span>
+                        {% else %}
+                        <span class="em-badge em-badge--sent">Delivered</span>
+                        {% endif %}
+                    </div>
+                    <div style="font-size:0.85rem;color:var(--em-text-muted);margin-top:0.35rem;">
+                        {{ batch.recipient_count }} recipient{{ batch.recipient_count|pluralize }}
+                        · {{ batch.sent_count }} sent
+                        · {{ batch.failed_count }} failed
+                        {% if batch.pending_count %}· {{ batch.pending_count }} pending{% endif %}
                     </div>
                 </div>
                 <div style="display:flex;gap:0.5rem;">

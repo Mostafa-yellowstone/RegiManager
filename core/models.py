@@ -2503,6 +2503,22 @@ class EmailCampaignBatch(models.Model):
     class Meta:
         ordering = ["-created_at"]
 
+    @property
+    def pending_count(self) -> int:
+        return max(0, self.recipient_count - self.sent_count - self.failed_count)
+
+    @property
+    def delivery_status(self) -> str:
+        if self.pending_count > 0 and self.sent_count == 0 and self.failed_count == 0:
+            return "pending"
+        if self.pending_count > 0:
+            return "partial"
+        if self.failed_count and not self.sent_count:
+            return "failed"
+        if self.failed_count:
+            return "completed_with_errors"
+        return "completed"
+
 
 class EmailCampaignRecipient(models.Model):
     class Status(models.TextChoices):
