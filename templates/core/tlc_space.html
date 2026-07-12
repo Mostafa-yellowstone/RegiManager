@@ -1,0 +1,179 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}{{ card.label }} | TLC Policy Profitability{% endblock %}
+
+{% block portal_content %}
+<style>
+.tlc-tab-btn { padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: var(--portal-text-muted); margin-bottom: -2px; }
+.tlc-tab-btn.active { color: #0d9488 !important; border-bottom: 2px solid #14b8a6 !important; }
+.tlc-tab-panel { display: none; }
+.tlc-tab-panel.active { display: block; }
+.tlc-metric { background: var(--portal-surface); border-radius: 16px; padding: 1.25rem 1.5rem; border: 1px solid var(--portal-border); box-shadow: var(--portal-shadow-sm); }
+.tlc-metric-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--portal-text-muted); margin-bottom: 0.35rem; }
+.tlc-metric-value { font-size: 1.65rem; font-weight: 900; color: var(--portal-text); line-height: 1.1; }
+.tlc-hero { background: linear-gradient(135deg, #042f2e 0%, #0f766e 45%, #14b8a6 100%); border-radius: 20px; padding: 1.5rem 1.75rem; color: white; margin-bottom: 1.5rem; }
+.tlc-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.tlc-table th { padding: 0.85rem 1rem; background: var(--portal-surface-muted); border-bottom: 1px solid var(--portal-border); color: var(--portal-text-muted); font-weight: 700; font-size: 0.72rem; text-transform: uppercase; text-align: left; }
+.tlc-table td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--portal-border); color: var(--portal-text-secondary); font-weight: 600; }
+.tlc-table tr:hover td { background: var(--portal-surface-muted); }
+.tlc-chip { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; }
+.tlc-chip-active { background: #ccfbf1; color: #0f766e; }
+.tlc-chip-pending { background: #fef9c3; color: #854d0e; }
+.tlc-chip-cancelled { background: #fee2e2; color: #991b1b; }
+.tlc-profit-positive { color: #059669; font-weight: 900; }
+.tlc-profit-negative { color: #dc2626; font-weight: 900; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.35); backdrop-filter: blur(6px); z-index: 2000; align-items: center; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal-box { background: var(--portal-surface); border-radius: 20px; padding: 1.75rem; max-width: 720px; width: 95%; max-height: 92vh; overflow-y: auto; box-shadow: var(--portal-shadow-lg); border: 1px solid var(--portal-border); }
+.field-label { display: block; font-size: 0.76rem; font-weight: 800; color: var(--portal-text-muted); margin-bottom: 0.35rem; text-transform: uppercase; }
+.field-input { width: 100%; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid var(--portal-border); background: var(--portal-surface-muted); color: var(--portal-text); font-size: 0.88rem; box-sizing: border-box; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+.btn-submit { width: 100%; padding: 0.75rem; background: linear-gradient(135deg, #0f766e, #14b8a6); border: none; border-radius: 10px; color: white; font-weight: 700; cursor: pointer; }
+html.portal-theme-dark .tlc-chip-active { background: rgba(20,184,166,0.2); color: #5eead4; }
+</style>
+
+<main class="portal-space-shell">
+  <div class="portal-space-inner portal-space-inner--wide">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1.25rem;margin-bottom:1.5rem;">
+      <div>
+        <div style="display:inline-flex;align-items:center;gap:6px;background:#ccfbf1;color:#0f766e;padding:4px 12px;border-radius:999px;font-size:0.78rem;font-weight:800;text-transform:uppercase;margin-bottom:0.5rem;border:1px solid #99f6e4;">🚕 {{ active_org.name }}</div>
+        <h1 class="portal-space-title">TLC Policy Profitability Engine</h1>
+        <p class="portal-space-subtitle">{{ card.description|default:"Track every TLC policy's true net profit — premiums, installments, DMV, carrier payables, and expenses." }}</p>
+      </div>
+      <a href="{% url 'spaces-home' %}" style="text-decoration:none;padding:9px 16px;background:var(--portal-surface);border:1px solid var(--portal-border);border-radius:10px;font-weight:700;color:var(--portal-text-secondary);">&larr; Back to Spaces</a>
+    </div>
+
+    <div class="tlc-hero">
+      <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#99f6e4;margin-bottom:0.35rem;">Aggregate Net Policy Profit</div>
+      <div style="font-size:2.2rem;font-weight:900;">${{ stats.aggregate_net_profit|floatformat:2 }}</div>
+      <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:0.85rem;font-size:0.85rem;color:#ccfbf1;font-weight:600;">
+        <span>{{ stats.total_policies }} policies</span>
+        <span>{{ stats.active_policies }} active</span>
+        <span>${{ stats.aggregate_gross_revenue|floatformat:2 }} gross revenue</span>
+        <span>{{ stats.month_new_policies }} new this month</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--portal-border);margin-bottom:1.75rem;flex-wrap:wrap;">
+      <button type="button" class="tlc-tab-btn {% if active_tab == 'dashboard' %}active{% endif %}" onclick="tlcSwitchTab('dashboard', this)">📊 Dashboard</button>
+      <button type="button" class="tlc-tab-btn {% if active_tab == 'policies' %}active{% endif %}" onclick="tlcSwitchTab('policies', this)">📋 Policies</button>
+    </div>
+
+    <div id="tlc-tab-dashboard" class="tlc-tab-panel {% if active_tab == 'dashboard' %}active{% endif %}">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem;">
+        <div class="tlc-metric"><div class="tlc-metric-label">Active Policies</div><div class="tlc-metric-value">{{ stats.active_policies }}</div></div>
+        <div class="tlc-metric"><div class="tlc-metric-label">Pending</div><div class="tlc-metric-value">{{ stats.pending_policies }}</div></div>
+        <div class="tlc-metric"><div class="tlc-metric-label">Cancelled / Suspended</div><div class="tlc-metric-value">{{ stats.cancelled_policies }}</div></div>
+        <div class="tlc-metric"><div class="tlc-metric-label">Gross Agency Revenue</div><div class="tlc-metric-value">${{ stats.aggregate_gross_revenue|floatformat:2 }}</div></div>
+      </div>
+      <p style="color:var(--portal-text-muted);font-size:0.9rem;font-weight:600;">Open any policy to see written premium, installments, DMV profit, carrier net due, and net policy profit in one view.</p>
+    </div>
+
+    <div id="tlc-tab-policies" class="tlc-tab-panel {% if active_tab == 'policies' %}active{% endif %}">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+        <form method="get" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+          <input type="hidden" name="tab" value="policies">
+          <input type="text" name="q" value="{{ search }}" placeholder="Policy, insured, VIN, TLC #…" class="field-input" style="width:220px;">
+          <select name="status" class="field-input" style="width:auto;">
+            <option value="">All statuses</option>
+            {% for val, label in status_choices %}<option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          <select name="carrier" class="field-input" style="width:auto;">
+            <option value="">All carriers</option>
+            {% for c in carriers %}<option value="{{ c }}" {% if carrier_filter == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+        </form>
+        {% if can_manage_tlc %}
+        <button type="button" onclick="document.getElementById('addPolicyModal').classList.add('active')" class="btn btn-primary btn-sm">+ New TLC Policy</button>
+        {% endif %}
+      </div>
+
+      <div style="background:var(--portal-surface);border:1px solid var(--portal-border);border-radius:16px;overflow:hidden;">
+        <table class="tlc-table">
+          <thead>
+            <tr>
+              <th>Policy #</th>
+              <th>Insured / Business</th>
+              <th>Carrier</th>
+              <th>Status</th>
+              <th>Written Premium</th>
+              <th>Net Profit</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in policy_rows %}
+            <tr>
+              <td><strong>{{ row.policy.policy_number }}</strong></td>
+              <td>{{ row.policy.named_insured|default:row.policy.business_name|default:"—" }}</td>
+              <td>{{ row.policy.carrier|default:"—" }}</td>
+              <td>
+                <span class="tlc-chip {% if row.policy.status == 'active' %}tlc-chip-active{% elif row.policy.status == 'pending' %}tlc-chip-pending{% else %}tlc-chip-cancelled{% endif %}">{{ row.policy.get_status_display }}</span>
+              </td>
+              <td>${{ row.profit.written_premium }}</td>
+              <td class="{% if row.profit.net_profit|floatformat:2 >= '0' %}tlc-profit-positive{% else %}tlc-profit-negative{% endif %}">${{ row.profit.net_profit }}</td>
+              <td><a href="{% url 'tlc-policy-detail' card.id row.policy.id %}" style="color:#0d9488;font-weight:800;text-decoration:none;">Open &rarr;</a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--portal-text-muted);">No TLC policies yet.{% if can_manage_tlc %} Create your first policy to start tracking profitability.{% endif %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if policies_page.has_other_pages %}
+      <div style="margin-top:1rem;display:flex;gap:0.5rem;justify-content:center;">
+        {% if policies_page.has_previous %}<a href="?tab=policies&page={{ policies_page.previous_page_number }}&q={{ search }}&status={{ status_filter }}&carrier={{ carrier_filter }}" class="btn btn-secondary btn-sm">Previous</a>{% endif %}
+        <span style="padding:0.5rem 1rem;font-weight:700;color:var(--portal-text-muted);">Page {{ policies_page.number }} of {{ policies_page.paginator.num_pages }}</span>
+        {% if policies_page.has_next %}<a href="?tab=policies&page={{ policies_page.next_page_number }}&q={{ search }}&status={{ status_filter }}&carrier={{ carrier_filter }}" class="btn btn-secondary btn-sm">Next</a>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</main>
+
+{% if can_manage_tlc %}
+<div id="addPolicyModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h2 style="margin:0 0 1rem;font-size:1.25rem;">New TLC Policy</h2>
+    <form method="post" action="{% url 'add-tlc-policy' card.id %}">
+      {% csrf_token %}
+      <div class="grid-2">
+        <div><label class="field-label">Policy Number *</label><input name="policy_number" class="field-input" required></div>
+        <div><label class="field-label">Carrier</label><input name="carrier" class="field-input" placeholder="Maya Assurance, American Transit…"></div>
+        <div><label class="field-label">Policy Type</label><select name="policy_type" class="field-input">{% for val, label in policy_type_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+        <div><label class="field-label">Status</label><select name="status" class="field-input">{% for val, label in status_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
+        <div><label class="field-label">Named Insured</label><input name="named_insured" class="field-input"></div>
+        <div><label class="field-label">Business Name</label><input name="business_name" class="field-input"></div>
+        <div><label class="field-label">TLC Base #</label><input name="tlc_base_number" class="field-input"></div>
+        <div><label class="field-label">TLC License #</label><input name="tlc_license_number" class="field-input"></div>
+        <div><label class="field-label">VIN</label><input name="vin" class="field-input"></div>
+        <div><label class="field-label">Plate</label><input name="plate_number" class="field-input"></div>
+        <div><label class="field-label">Written Premium</label><input name="total_written_premium" type="number" step="0.01" class="field-input"></div>
+        <div><label class="field-label">Down Payment</label><input name="down_payment" type="number" step="0.01" class="field-input"></div>
+        <div><label class="field-label">Commission Rate %</label><input name="commission_rate" type="number" step="0.01" class="field-input"></div>
+        <div><label class="field-label">Broker Fee Collected</label><input name="broker_fee_collected" type="number" step="0.01" class="field-input"></div>
+        <div><label class="field-label">Effective Date</label><input name="effective_date" type="date" class="field-input"></div>
+        <div><label class="field-label">Expiration Date</label><input name="expiration_date" type="date" class="field-input"></div>
+        <div><label class="field-label">Client</label><select name="client" class="field-input"><option value="">—</option>{% for c in clients %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
+        <div><label class="field-label">Vehicle</label><select name="vehicle" class="field-input"><option value="">—</option>{% for v in vehicles %}<option value="{{ v.id }}">{{ v.plate_number|default:v.vin }} — {{ v.client.name }}</option>{% endfor %}</select></div>
+      </div>
+      <button type="submit" class="btn-submit" style="margin-top:1rem;">Create Policy</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<script>
+function tlcSwitchTab(name, btn) {
+  document.querySelectorAll('.tlc-tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tlc-tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tlc-tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  const url = new URL(window.location);
+  url.searchParams.set('tab', name);
+  window.history.replaceState({}, '', url);
+}
+</script>
+{% endblock %}

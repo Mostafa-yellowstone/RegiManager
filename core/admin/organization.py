@@ -169,6 +169,7 @@ class OrganizationMembershipAdmin(admin.ModelAdmin):
                     "can_trigger_automation",
                     "can_deal_with_insurance",
                     "can_deal_with_motorclub",
+                    "can_deal_with_tlc",
                     "can_delete_receipt",
                     "can_issue_refund",
                     "can_view_banking",

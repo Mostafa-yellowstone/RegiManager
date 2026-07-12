@@ -181,6 +181,10 @@ class OrganizationMembership(models.Model):
         default=False,
         help_text="Can this member sell and manage Motor Club roadside memberships?",
     )
+    can_deal_with_tlc = models.BooleanField(
+        default=False,
+        help_text="Can this member manage TLC policy profitability records?",
+    )
     can_delete_receipt = models.BooleanField(default=False, help_text="Can this agent delete/remove receipt records from the service list?")
     can_issue_refund = models.BooleanField(
         default=False,
@@ -2570,4 +2574,19 @@ class EmailCampaignRecipient(models.Model):
 
     class Meta:
         ordering = ["-sent_at", "-id"]
+
+
+# TLC Policy Profitability Engine (imported so migrations discover models)
+from .tlc_models import (  # noqa: E402,F401
+    TLCAgencyExpense,
+    TLCCarrierRemittance,
+    TLCDMVService,
+    TLCEndorsement,
+    TLCInstallment,
+    TLCPolicy,
+    TLCPolicyDocument,
+    TLCPolicyTimelineEvent,
+    TLCPremiumBreakdown,
+    TLCReinstatement,
+)
 

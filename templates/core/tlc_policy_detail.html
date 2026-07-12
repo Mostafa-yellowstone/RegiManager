@@ -1,0 +1,196 @@
+{% extends "base_portal.html" %}
+
+{% block title %}{{ policy.policy_number }} | TLC Profitability{% endblock %}
+
+{% block portal_content %}
+<style>
+.tlc-tab-btn { padding: 0.65rem 1rem; border: none; background: transparent; font-weight: 700; font-size: 0.85rem; cursor: pointer; border-bottom: 2px solid transparent; color: var(--portal-text-muted); margin-bottom: -2px; }
+.tlc-tab-btn.active { color: #0d9488 !important; border-bottom-color: #14b8a6 !important; }
+.tlc-tab-panel { display: none; }.tlc-tab-panel.active { display: block; }
+.tlc-dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.85rem; margin-bottom: 1.5rem; }
+.tlc-dash-card { background: var(--portal-surface); border: 1px solid var(--portal-border); border-radius: 14px; padding: 1rem 1.1rem; }
+.tlc-dash-label { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--portal-text-muted); }
+.tlc-dash-value { font-size: 1.35rem; font-weight: 900; margin-top: 0.25rem; color: var(--portal-text); }
+.tlc-dash-value.highlight { color: #059669; }
+.tlc-dash-value.due { color: #dc2626; }
+.tlc-hero { background: linear-gradient(135deg, #042f2e, #0f766e 50%, #2dd4bf); border-radius: 18px; padding: 1.5rem; color: white; margin-bottom: 1.25rem; }
+.tlc-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.tlc-table th, .tlc-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--portal-border); text-align: left; }
+.tlc-table th { font-size: 0.7rem; text-transform: uppercase; color: var(--portal-text-muted); background: var(--portal-surface-muted); }
+.field-input { width: 100%; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--portal-border); background: var(--portal-surface-muted); box-sizing: border-box; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.4); backdrop-filter: blur(6px); z-index: 2000; align-items: center; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal-box { background: var(--portal-surface); border-radius: 16px; padding: 1.5rem; max-width: 560px; width: 95%; max-height: 90vh; overflow-y: auto; }
+.timeline-item { border-left: 3px solid #14b8a6; padding: 0.5rem 0 0.5rem 1rem; margin-bottom: 0.75rem; }
+</style>
+
+<main class="portal-space-shell">
+  <div class="portal-space-inner portal-space-inner--wide">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+      <div>
+        <a href="{% url 'inventory-detail' card.id %}?tab=policies" style="color:#0d9488;font-weight:700;text-decoration:none;font-size:0.85rem;">&larr; TLC Policies</a>
+        <h1 class="portal-space-title" style="margin-top:0.35rem;">{{ policy.policy_number }}</h1>
+        <p class="portal-space-subtitle">{{ policy.named_insured|default:policy.business_name }} · {{ policy.carrier|default:"Carrier TBD" }} · {{ policy.get_status_display }}</p>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;color:var(--portal-text-muted);">Net Policy Profit</div>
+        <div style="font-size:2rem;font-weight:900;color:#059669;">${{ profit.net_profit }}</div>
+      </div>
+    </div>
+
+    <div class="tlc-hero">
+      <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;opacity:0.85;">Policy Profitability Snapshot</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem;margin-top:0.75rem;font-size:0.88rem;">
+        <div><div style="opacity:0.8;">Written Premium</div><strong style="font-size:1.1rem;">${{ profit.written_premium }}</strong></div>
+        <div><div style="opacity:0.8;">Total Collected</div><strong style="font-size:1.1rem;">${{ profit.total_collected }}</strong></div>
+        <div><div style="opacity:0.8;">Customer Balance</div><strong style="font-size:1.1rem;">${{ profit.remaining_customer_balance }}</strong></div>
+        <div><div style="opacity:0.8;">Company Net Due</div><strong style="font-size:1.1rem;">${{ profit.company_net_due }}</strong></div>
+        <div><div style="opacity:0.8;">Installments</div><strong style="font-size:1.1rem;">{{ profit.installments_label }}</strong></div>
+        <div><div style="opacity:0.8;">Next Due</div><strong style="font-size:1.1rem;">{{ profit.next_due_date|default:"—" }}</strong></div>
+      </div>
+    </div>
+
+    <div class="tlc-dash-grid">
+      <div class="tlc-dash-card"><div class="tlc-dash-label">Down Payment</div><div class="tlc-dash-value">${{ profit.down_payment }}</div></div>
+      <div class="tlc-dash-card"><div class="tlc-dash-label">Late Fees</div><div class="tlc-dash-value">${{ profit.late_fees_collected }}</div></div>
+      <div class="tlc-dash-card"><div class="tlc-dash-label">NSF Fees</div><div class="tlc-dash-value">${{ profit.nsf_fees }}</div></div>
+      <div class="tlc-dash-card"><div class="tlc-dash-label">Reinstatement Fees</div><div class="tlc-dash-value">${{ profit.reinstatement_fees }}</div></div>
+      <div class="tlc-dash-card"><div class="tlc-dash-label">Broker Fees</div><div class="tlc-dash-value">${{ profit.broker_fees_collected }}</div></div>
+      <div class="tlc-dash-card"><div class="tlc-dash-label">Carrier Commission</div><div class="tlc-dash-value">${{ profit.carrier_commission }}</div></div>
+      <div class="tlc-dash-card"><div class="tlc-dash-label">DMV Net Profit</div><div class="tlc-dash-value highlight">${{ profit.dmv_net_profit }}</div></div>
+      <div class="tlc-dash-card"><div class="tlc-dash-label">Gross Agency Revenue</div><div class="tlc-dash-value">${{ profit.gross_agency_revenue }}</div></div>
+      <div class="tlc-dash-card"><div class="tlc-dash-label">Total Expenses</div><div class="tlc-dash-value">${{ profit.total_expenses }}</div></div>
+      <div class="tlc-dash-card"><div class="tlc-dash-label">Producer Commission</div><div class="tlc-dash-value">${{ profit.producer_commission }}</div></div>
+      <div class="tlc-dash-card"><div class="tlc-dash-label">Past Due</div><div class="tlc-dash-value due">${{ profit.past_due_amount }}</div></div>
+      <div class="tlc-dash-card"><div class="tlc-dash-label">Pending Commission</div><div class="tlc-dash-value">${{ profit.commission.pending_commission }}</div></div>
+    </div>
+
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--portal-border);margin-bottom:1.25rem;flex-wrap:wrap;overflow-x:auto;">
+      <button class="tlc-tab-btn {% if active_tab == 'overview' %}active{% endif %}" onclick="tlcTab('overview',this)">Overview</button>
+      <button class="tlc-tab-btn {% if active_tab == 'installments' %}active{% endif %}" onclick="tlcTab('installments',this)">Installments</button>
+      <button class="tlc-tab-btn {% if active_tab == 'reinstatements' %}active{% endif %}" onclick="tlcTab('reinstatements',this)">Reinstatements</button>
+      <button class="tlc-tab-btn {% if active_tab == 'endorsements' %}active{% endif %}" onclick="tlcTab('endorsements',this)">Endorsements</button>
+      <button class="tlc-tab-btn {% if active_tab == 'dmv' %}active{% endif %}" onclick="tlcTab('dmv',this)">DMV / TLC</button>
+      <button class="tlc-tab-btn {% if active_tab == 'expenses' %}active{% endif %}" onclick="tlcTab('expenses',this)">Expenses</button>
+      <button class="tlc-tab-btn {% if active_tab == 'carrier' %}active{% endif %}" onclick="tlcTab('carrier',this)">Carrier Balance</button>
+      <button class="tlc-tab-btn {% if active_tab == 'documents' %}active{% endif %}" onclick="tlcTab('documents',this)">Documents</button>
+      <button class="tlc-tab-btn {% if active_tab == 'timeline' %}active{% endif %}" onclick="tlcTab('timeline',this)">Timeline</button>
+    </div>
+
+    <div id="tlc-panel-overview" class="tlc-tab-panel {% if active_tab == 'overview' %}active{% endif %}">
+      <div class="grid-2" style="gap:1.5rem;">
+        <div style="background:var(--portal-surface);border:1px solid var(--portal-border);border-radius:14px;padding:1.25rem;">
+          <h3 style="margin:0 0 1rem;font-size:1rem;">Policy Overview</h3>
+          <dl style="display:grid;grid-template-columns:auto 1fr;gap:0.4rem 1rem;font-size:0.88rem;margin:0;">
+            <dt style="color:var(--portal-text-muted);font-weight:700;">Type</dt><dd>{{ policy.get_policy_type_display }}</dd>
+            <dt style="color:var(--portal-text-muted);font-weight:700;">TLC Base</dt><dd>{{ policy.tlc_base_number|default:"—" }}</dd>
+            <dt style="color:var(--portal-text-muted);font-weight:700;">TLC License</dt><dd>{{ policy.tlc_license_number|default:"—" }}</dd>
+            <dt style="color:var(--portal-text-muted);font-weight:700;">VIN / Plate</dt><dd>{{ policy.vin|default:"—" }} / {{ policy.plate_number|default:"—" }}</dd>
+            <dt style="color:var(--portal-text-muted);font-weight:700;">Driver</dt><dd>{{ policy.driver_name|default:"—" }}</dd>
+            <dt style="color:var(--portal-text-muted);font-weight:700;">Broker</dt><dd>{{ policy.broker_name|default:"—" }}</dd>
+            <dt style="color:var(--portal-text-muted);font-weight:700;">Effective</dt><dd>{{ policy.effective_date|date:"M j, Y"|default:"—" }}</dd>
+            <dt style="color:var(--portal-text-muted);font-weight:700;">Expiration</dt><dd>{{ policy.expiration_date|date:"M j, Y"|default:"—" }}</dd>
+          </dl>
+        </div>
+        <div style="background:var(--portal-surface);border:1px solid var(--portal-border);border-radius:14px;padding:1.25rem;">
+          <h3 style="margin:0 0 1rem;font-size:1rem;">Customer & Carrier Balance</h3>
+          <dl style="display:grid;grid-template-columns:auto 1fr;gap:0.4rem 1rem;font-size:0.88rem;margin:0;">
+            <dt style="font-weight:700;color:var(--portal-text-muted);">Remaining Balance</dt><dd>${{ profit.customer_balance.remaining_balance }}</dd>
+            <dt style="font-weight:700;color:var(--portal-text-muted);">Past Due</dt><dd>${{ profit.customer_balance.past_due }}</dd>
+            <dt style="font-weight:700;color:var(--portal-text-muted);">Carrier Premium</dt><dd>${{ profit.carrier_balance.carrier_premium }}</dd>
+            <dt style="font-weight:700;color:var(--portal-text-muted);">Remitted</dt><dd>${{ profit.carrier_balance.already_paid_to_carrier }}</dd>
+            <dt style="font-weight:700;color:var(--portal-text-muted);">Net Due Carrier</dt><dd>${{ profit.carrier_balance.carrier_net_due }}</dd>
+          </dl>
+        </div>
+      </div>
+      {% if breakdown %}
+      <div style="margin-top:1.25rem;background:var(--portal-surface);border:1px solid var(--portal-border);border-radius:14px;padding:1.25rem;">
+        <h3 style="margin:0 0 1rem;">Premium Breakdown</h3>
+        <div class="tlc-dash-grid">
+          <div class="tlc-dash-card"><div class="tlc-dash-label">Financed</div><div class="tlc-dash-value">${{ breakdown.amount_financed }}</div></div>
+          <div class="tlc-dash-card"><div class="tlc-dash-label">Monthly Installment</div><div class="tlc-dash-value">${{ breakdown.monthly_installment }}</div></div>
+          <div class="tlc-dash-card"><div class="tlc-dash-label">Policy Fee</div><div class="tlc-dash-value">${{ breakdown.policy_fee }}</div></div>
+          <div class="tlc-dash-card"><div class="tlc-dash-label">Finance Charge</div><div class="tlc-dash-value">${{ breakdown.finance_charge }}</div></div>
+          <div class="tlc-dash-card"><div class="tlc-dash-label">Taxes</div><div class="tlc-dash-value">${{ breakdown.taxes }}</div></div>
+          <div class="tlc-dash-card"><div class="tlc-dash-label">SR22 Fee</div><div class="tlc-dash-value">${{ breakdown.sr22_fee }}</div></div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div id="tlc-panel-installments" class="tlc-tab-panel {% if active_tab == 'installments' %}active{% endif %}">
+      {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="document.getElementById('instModal').classList.add('active')">+ Add Installment</button>{% endif %}
+      <table class="tlc-table"><thead><tr><th>#</th><th>Due</th><th>Amount</th><th>Paid</th><th>Payment Date</th><th>Late</th><th>NSF</th><th>Balance</th></tr></thead>
+      <tbody>{% for i in installments %}<tr><td>{{ i.installment_number }}</td><td>{{ i.due_date|date:"M j, Y" }}</td><td>${{ i.amount }}</td><td>{% if i.is_paid %}✅{% else %}❌{% endif %}</td><td>{{ i.payment_date|date:"M j, Y"|default:"—" }}</td><td>${{ i.late_fee }}</td><td>${{ i.nsf_fee }}</td><td>${{ i.balance }}</td></tr>{% empty %}<tr><td colspan="8">No installments scheduled.</td></tr>{% endfor %}</tbody></table>
+    </div>
+
+    <div id="tlc-panel-reinstatements" class="tlc-tab-panel {% if active_tab == 'reinstatements' %}active{% endif %}">
+      {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="document.getElementById('reinModal').classList.add('active')">+ Record Reinstatement</button>{% endif %}
+      <table class="tlc-table"><thead><tr><th>Cancelled</th><th>Reason</th><th>Reinstated</th><th>Fee</th><th>Paid</th><th>Confirmation</th></tr></thead>
+      <tbody>{% for r in reinstatements %}<tr><td>{{ r.cancellation_date|date:"M j, Y"|default:"—" }}</td><td>{{ r.cancellation_reason|default:"—" }}</td><td>{{ r.reinstatement_date|date:"M j, Y"|default:"—" }}</td><td>${{ r.reinstatement_fee }}</td><td>{% if r.is_paid %}Yes{% else %}No{% endif %}</td><td>{{ r.carrier_confirmation|default:"—" }}</td></tr>{% empty %}<tr><td colspan="6">No reinstatements on file.</td></tr>{% endfor %}</tbody></table>
+    </div>
+
+    <div id="tlc-panel-endorsements" class="tlc-tab-panel {% if active_tab == 'endorsements' %}active{% endif %}">
+      {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="document.getElementById('endModal').classList.add('active')">+ Add Endorsement</button>{% endif %}
+      <table class="tlc-table"><thead><tr><th>Type</th><th>Premium Δ</th><th>Commission Δ</th><th>Effective</th><th>By</th></tr></thead>
+      <tbody>{% for e in endorsements %}<tr><td>{{ e.get_endorsement_type_display }}</td><td>${{ e.premium_difference }}</td><td>${{ e.commission_difference }}</td><td>{{ e.effective_date|date:"M j, Y"|default:"—" }}</td><td>{{ e.processed_by.get_full_name|default:e.processed_by.username|default:"—" }}</td></tr>{% empty %}<tr><td colspan="5">No endorsements.</td></tr>{% endfor %}</tbody></table>
+    </div>
+
+    <div id="tlc-panel-dmv" class="tlc-tab-panel {% if active_tab == 'dmv' %}active{% endif %}">
+      {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="document.getElementById('dmvModal').classList.add('active')">+ Add DMV/TLC Service</button>{% endif %}
+      <p style="font-weight:700;margin-bottom:0.75rem;">DMV Revenue ${{ profit.dmv_revenue }} · Cost ${{ profit.dmv_cost }} · Net ${{ profit.dmv_net_profit }}</p>
+      <table class="tlc-table"><thead><tr><th>Service</th><th>Charged</th><th>Cost</th><th>Profit</th><th>Date</th></tr></thead>
+      <tbody>{% for s in dmv_services %}<tr><td>{{ s.get_service_type_display }}</td><td>${{ s.fee_charged }}</td><td>${{ s.dmv_tlc_cost }}</td><td style="color:#059669;font-weight:800;">${{ s.agency_profit }}</td><td>{{ s.service_date|date:"M j, Y"|default:"—" }}</td></tr>{% empty %}<tr><td colspan="5">No DMV/TLC services linked.</td></tr>{% endfor %}</tbody></table>
+    </div>
+
+    <div id="tlc-panel-expenses" class="tlc-tab-panel {% if active_tab == 'expenses' %}active{% endif %}">
+      {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="document.getElementById('expModal').classList.add('active')">+ Add Expense</button>{% endif %}
+      <table class="tlc-table"><thead><tr><th>Type</th><th>Amount</th><th>Date</th><th>Notes</th></tr></thead>
+      <tbody>{% for e in agency_expenses %}<tr><td>{{ e.get_expense_type_display }}</td><td>${{ e.amount }}</td><td>{{ e.expense_date|date:"M j, Y"|default:"—" }}</td><td>{{ e.notes|default:"—" }}</td></tr>{% empty %}<tr><td colspan="4">No expenses allocated.</td></tr>{% endfor %}</tbody></table>
+    </div>
+
+    <div id="tlc-panel-carrier" class="tlc-tab-panel {% if active_tab == 'carrier' %}active{% endif %}">
+      {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="document.getElementById('remModal').classList.add('active')">+ Record Remittance</button>{% endif %}
+      <table class="tlc-table"><thead><tr><th>Date</th><th>Amount</th><th>Notes</th></tr></thead>
+      <tbody>{% for r in carrier_remittances %}<tr><td>{{ r.remittance_date|date:"M j, Y"|default:"—" }}</td><td>${{ r.amount }}</td><td>{{ r.notes|default:"—" }}</td></tr>{% empty %}<tr><td colspan="3">No remittances recorded.</td></tr>{% endfor %}</tbody></table>
+    </div>
+
+    <div id="tlc-panel-documents" class="tlc-tab-panel {% if active_tab == 'documents' %}active{% endif %}">
+      {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="document.getElementById('docModal').classList.add('active')">+ Upload Document</button>{% endif %}
+      <table class="tlc-table"><thead><tr><th>Type</th><th>Title</th><th>Uploaded</th><th></th></tr></thead>
+      <tbody>{% for d in documents %}<tr><td>{{ d.get_document_type_display }}</td><td>{{ d.title }}</td><td>{{ d.uploaded_at|date:"M j, Y" }}</td><td>{% if d.file %}<a href="{{ d.file.url }}" target="_blank">View</a>{% else %}—{% endif %}</td></tr>{% empty %}<tr><td colspan="4">No documents.</td></tr>{% endfor %}</tbody></table>
+    </div>
+
+    <div id="tlc-panel-timeline" class="tlc-tab-panel {% if active_tab == 'timeline' %}active{% endif %}">
+      {% for ev in timeline %}
+      <div class="timeline-item">
+        <div style="font-weight:800;">{{ ev.title }} <span style="color:var(--portal-text-muted);font-weight:600;font-size:0.8rem;">{{ ev.get_event_type_display }}</span></div>
+        <div style="font-size:0.82rem;color:var(--portal-text-muted);">{{ ev.event_date|date:"M j, Y"|default:"—" }}{% if ev.created_by %} · {{ ev.created_by.get_full_name|default:ev.created_by.username }}{% endif %}</div>
+        {% if ev.description %}<div style="font-size:0.85rem;margin-top:0.25rem;">{{ ev.description }}</div>{% endif %}
+      </div>
+      {% empty %}<p style="color:var(--portal-text-muted);">Timeline events appear as you process installments, endorsements, and reinstatements.</p>{% endfor %}
+    </div>
+  </div>
+</main>
+
+{% if can_manage_tlc %}
+<div id="instModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')"><div class="modal-box"><h3>Add Installment</h3><form method="post" action="{% url 'add-tlc-installment' policy.id %}">{% csrf_token %}<div class="grid-2"><div><label>#</label><input name="installment_number" type="number" class="field-input" value="{{ installments|length|add:1 }}"></div><div><label>Due Date</label><input name="due_date" type="date" class="field-input"></div><div><label>Amount</label><input name="amount" type="number" step="0.01" class="field-input"></div><div><label>Late Fee</label><input name="late_fee" type="number" step="0.01" class="field-input" value="0"></div></div><label style="margin-top:0.5rem;display:block;"><input type="checkbox" name="is_paid"> Paid</label><button type="submit" class="btn btn-primary" style="margin-top:1rem;width:100%;">Save</button></form></div></div>
+<div id="reinModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')"><div class="modal-box"><h3>Reinstatement</h3><form method="post" action="{% url 'add-tlc-reinstatement' policy.id %}">{% csrf_token %}<div class="grid-2"><div><label>Cancellation Date</label><input name="cancellation_date" type="date" class="field-input"></div><div><label>Reinstatement Date</label><input name="reinstatement_date" type="date" class="field-input"></div><div><label>Fee</label><input name="reinstatement_fee" type="number" step="0.01" class="field-input"></div><div><label>Carrier Confirmation</label><input name="carrier_confirmation" class="field-input"></div></div><label>Reason</label><input name="cancellation_reason" class="field-input"><label style="display:block;margin-top:0.5rem;"><input type="checkbox" name="is_paid"> Fee paid</label><button type="submit" class="btn btn-primary" style="margin-top:1rem;width:100%;">Save</button></form></div></div>
+<div id="endModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')"><div class="modal-box"><h3>Endorsement</h3><form method="post" action="{% url 'add-tlc-endorsement' policy.id %}">{% csrf_token %}<label>Type</label><select name="endorsement_type" class="field-input">{% for v,l in endorsement_type_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select><div class="grid-2" style="margin-top:0.5rem;"><div><label>Premium Δ</label><input name="premium_difference" type="number" step="0.01" class="field-input"></div><div><label>Commission Δ</label><input name="commission_difference" type="number" step="0.01" class="field-input"></div></div><label>Effective</label><input name="effective_date" type="date" class="field-input"><button type="submit" class="btn btn-primary" style="margin-top:1rem;width:100%;">Save</button></form></div></div>
+<div id="dmvModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')"><div class="modal-box"><h3>DMV / TLC Service</h3><form method="post" action="{% url 'add-tlc-dmv-service' policy.id %}">{% csrf_token %}<label>Service</label><select name="service_type" class="field-input">{% for v,l in dmv_service_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select><div class="grid-2" style="margin-top:0.5rem;"><div><label>Fee Charged</label><input name="fee_charged" type="number" step="0.01" class="field-input"></div><div><label>DMV/TLC Cost</label><input name="dmv_tlc_cost" type="number" step="0.01" class="field-input"></div></div><label>Date</label><input name="service_date" type="date" class="field-input"><button type="submit" class="btn btn-primary" style="margin-top:1rem;width:100%;">Save</button></form></div></div>
+<div id="expModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')"><div class="modal-box"><h3>Agency Expense</h3><form method="post" action="{% url 'add-tlc-expense' policy.id %}">{% csrf_token %}<label>Type</label><select name="expense_type" class="field-input">{% for v,l in expense_type_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select><label>Amount</label><input name="amount" type="number" step="0.01" class="field-input"><button type="submit" class="btn btn-primary" style="margin-top:1rem;width:100%;">Save</button></form></div></div>
+<div id="remModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')"><div class="modal-box"><h3>Carrier Remittance</h3><form method="post" action="{% url 'add-tlc-remittance' policy.id %}">{% csrf_token %}<label>Amount</label><input name="amount" type="number" step="0.01" class="field-input"><label>Date</label><input name="remittance_date" type="date" class="field-input"><button type="submit" class="btn btn-primary" style="margin-top:1rem;width:100%;">Save</button></form></div></div>
+<div id="docModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')"><div class="modal-box"><h3>Upload Document</h3><form method="post" action="{% url 'add-tlc-document' policy.id %}" enctype="multipart/form-data">{% csrf_token %}<label>Type</label><select name="document_type" class="field-input">{% for v,l in document_type_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select><label>Title</label><input name="title" class="field-input" required><label>File</label><input name="file" type="file" class="field-input"><button type="submit" class="btn btn-primary" style="margin-top:1rem;width:100%;">Upload</button></form></div></div>
+{% endif %}
+
+<script>
+function tlcTab(name, btn) {
+  document.querySelectorAll('.tlc-tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tlc-tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tlc-panel-' + name).classList.add('active');
+  btn.classList.add('active');
+  const u = new URL(location); u.searchParams.set('tab', name); history.replaceState({}, '', u);
+}
+</script>
+{% endblock %}

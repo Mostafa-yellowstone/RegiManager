@@ -6235,6 +6235,11 @@ def inventory_detail(request, inventory_id):
         context = build_documents_space_context(request, card, is_owner, membership)
         return render(request, "core/documents_space.html", context)
 
+    if card.key == "tlc":
+        from .tlc_views import build_tlc_space_context
+        context = build_tlc_space_context(request, card, is_owner, membership)
+        return render(request, "core/tlc_space.html", context)
+
     if card.key == "knowledge_hub":
         from collections import defaultdict
         # Only top-level materials (no parent)
@@ -6389,6 +6394,14 @@ def spaces_home(request):
         defaults={
             "label": "Documents",
             "description": "Organized document records — folders, types, order numbers & ranges",
+        },
+    )
+    Space.objects.get_or_create(
+        organization=active_org,
+        key="tlc",
+        defaults={
+            "label": "TLC",
+            "description": "TLC Policy Profitability Engine — premiums, installments, DMV profit, and carrier payables",
         },
     )
         

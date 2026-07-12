@@ -233,6 +233,10 @@ class OwnerSpaceDetailView(OwnerAPIBase):
         }
         if space.key == "insurance":
             payload["pipeline"] = build_insurance_profit_report(organization.id, today)["pipeline"]
+        if space.key == "tlc":
+            from .tlc_profitability import tlc_dashboard_stats
+
+            payload["tlc_summary"] = tlc_dashboard_stats(space, today=today)
         return Response(payload)
 
 

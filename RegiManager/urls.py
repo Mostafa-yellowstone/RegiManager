@@ -155,6 +155,17 @@ from core.documents_views import (
     add_document_record,
     delete_document_record,
 )
+from core.tlc_views import (
+    tlc_policy_detail,
+    add_tlc_policy,
+    add_tlc_installment,
+    add_tlc_dmv_service,
+    add_tlc_reinstatement,
+    add_tlc_endorsement,
+    add_tlc_expense,
+    add_tlc_remittance,
+    add_tlc_document,
+)
 from core.inventory_views import (
     add_inventory_category,
     delete_inventory_category,
@@ -409,6 +420,15 @@ urlpatterns = [
     path("dashboard/spaces/documents/type/<int:type_id>/edit/", edit_document_type, name="edit-document-type"),
     path("dashboard/spaces/documents/<int:space_id>/record/add/", add_document_record, name="add-document-record"),
     path("dashboard/spaces/documents/record/<int:record_id>/delete/", delete_document_record, name="delete-document-record"),
+    path("dashboard/spaces/tlc/<int:space_id>/policy/<int:policy_id>/", tlc_policy_detail, name="tlc-policy-detail"),
+    path("dashboard/spaces/tlc/<int:space_id>/policy/add/", add_tlc_policy, name="add-tlc-policy"),
+    path("dashboard/spaces/tlc/policy/<int:policy_id>/installment/add/", add_tlc_installment, name="add-tlc-installment"),
+    path("dashboard/spaces/tlc/policy/<int:policy_id>/dmv/add/", add_tlc_dmv_service, name="add-tlc-dmv-service"),
+    path("dashboard/spaces/tlc/policy/<int:policy_id>/reinstatement/add/", add_tlc_reinstatement, name="add-tlc-reinstatement"),
+    path("dashboard/spaces/tlc/policy/<int:policy_id>/endorsement/add/", add_tlc_endorsement, name="add-tlc-endorsement"),
+    path("dashboard/spaces/tlc/policy/<int:policy_id>/expense/add/", add_tlc_expense, name="add-tlc-expense"),
+    path("dashboard/spaces/tlc/policy/<int:policy_id>/remittance/add/", add_tlc_remittance, name="add-tlc-remittance"),
+    path("dashboard/spaces/tlc/policy/<int:policy_id>/document/add/", add_tlc_document, name="add-tlc-document"),
     path("dashboard/email-marketing/", email_marketing_home, name="email-marketing-home"),
     path("dashboard/email-marketing/<int:list_id>/", email_marketing_workspace, name="email-marketing-workspace"),
     path("dashboard/email-marketing/<int:list_id>/contacts/save/", email_marketing_save_contact, name="email-marketing-save-contact"),

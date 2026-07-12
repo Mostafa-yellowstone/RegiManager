@@ -51,6 +51,7 @@ def ensure_default_spaces(organization: Organization) -> None:
         ("custom_inventory", "Custom Inventory", "Product inventory and sales"),
         ("motorclub", "Motor Club", "Motor club memberships and partners"),
         ("documents", "Documents", "Document management space"),
+        ("tlc", "TLC", "TLC Policy Profitability Engine"),
     ]
     for key, label, description in defaults:
         Space.objects.get_or_create(
@@ -238,6 +239,11 @@ def build_space_period_profit(space: Space, today: date) -> dict:
             "year": {"profit": "0.00", "transactions": qs.filter(created_at__date__gte=year_start).count()},
             "total_records": qs.count(),
         }
+
+    if space.key == "tlc":
+        from .tlc_profitability import tlc_space_period_profit
+
+        return tlc_space_period_profit(space, today)
 
     return {
         "key": space.key,
