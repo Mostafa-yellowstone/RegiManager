@@ -158,6 +158,8 @@ from core.documents_views import (
 from core.tlc_views import (
     tlc_policy_detail,
     add_tlc_policy,
+    import_tlc_dec_page,
+    import_tlc_dec_to_policy,
     add_tlc_installment,
     add_tlc_dmv_service,
     add_tlc_reinstatement,
@@ -441,6 +443,8 @@ urlpatterns = [
     path("dashboard/spaces/documents/record/<int:record_id>/delete/", delete_document_record, name="delete-document-record"),
     path("dashboard/spaces/tlc/<int:space_id>/policy/<int:policy_id>/", tlc_policy_detail, name="tlc-policy-detail"),
     path("dashboard/spaces/tlc/<int:space_id>/policy/add/", add_tlc_policy, name="add-tlc-policy"),
+    path("dashboard/spaces/tlc/<int:space_id>/policy/import-dec/", import_tlc_dec_page, name="import-tlc-dec-page"),
+    path("dashboard/spaces/tlc/policy/<int:policy_id>/import-dec/", import_tlc_dec_to_policy, name="import-tlc-dec-to-policy"),
     path("dashboard/spaces/tlc/policy/<int:policy_id>/installment/add/", add_tlc_installment, name="add-tlc-installment"),
     path("dashboard/spaces/tlc/policy/<int:policy_id>/dmv/add/", add_tlc_dmv_service, name="add-tlc-dmv-service"),
     path("dashboard/spaces/tlc/policy/<int:policy_id>/reinstatement/add/", add_tlc_reinstatement, name="add-tlc-reinstatement"),

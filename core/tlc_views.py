@@ -216,6 +216,8 @@ def build_tlc_policy_detail_context(request, card, policy, is_owner, membership)
         "vehicles": Vehicle.objects.filter(client__organization=card.organization).select_related("client")[:500],
         "status_choices": TLCPolicy.Status.choices,
         "policy_type_choices": TLCPolicy.PolicyType.choices,
+        "policy_vehicles": policy.policy_vehicles.all(),
+        "policy_drivers": policy.policy_drivers.all(),
         "active_tab": request.GET.get("tab", "overview"),
     }
 
@@ -236,6 +238,8 @@ def tlc_policy_detail(request, space_id, policy_id):
             "carrier_remittances",
             "documents",
             "timeline_events",
+            "policy_vehicles",
+            "policy_drivers",
         ),
         id=policy_id,
         space=card,
@@ -324,6 +328,101 @@ def add_tlc_policy(request, space_id):
     )
     messages.success(request, f"TLC policy {policy.policy_number} created.")
     return redirect("tlc-policy-detail", space_id=card.id, policy_id=policy.id)
+
+
+@login_required
+@require_POST
+def import_tlc_dec_page(request, space_id):
+    """Create a new TLC policy by importing an American Transit declaration page PDF."""
+    card, is_owner, membership = _resolve_tlc_access(request, space_id=space_id)
+    if not (is_owner or (membership and membership.can_deal_with_tlc)):
+        messages.error(request, "You do not have permission to import TLC policies.")
+        return _redirect_tlc(card, tab="policies")
+
+    upload = request.FILES.get("dec_page")
+    if not upload:
+        messages.error(request, "Please choose a declaration page PDF.")
+        return _redirect_tlc(card, tab="policies")
+    if not upload.name.lower().endswith(".pdf"):
+        messages.error(request, "Declaration page must be a PDF file.")
+        return _redirect_tlc(card, tab="policies")
+
+    from .tlc_dec_import import DecPageParseError, apply_parsed_dec_to_policy, parse_tlc_dec_page
+
+    try:
+        parsed = parse_tlc_dec_page(upload)
+    except DecPageParseError as exc:
+        messages.error(request, str(exc))
+        return _redirect_tlc(card, tab="policies")
+
+    if TLCPolicy.objects.filter(organization=card.organization, policy_number=parsed.policy_number).exists():
+        messages.error(
+            request,
+            f"Policy {parsed.policy_number} already exists. Open it and use "
+            f'"Update from Dec Page" on the policy overview.',
+        )
+        return _redirect_tlc(card, tab="policies")
+
+    upload.seek(0)
+    policy = TLCPolicy.objects.create(
+        organization=card.organization,
+        space=card,
+        policy_number=parsed.policy_number,
+        status=TLCPolicy.Status.ACTIVE,
+        added_by=request.user,
+    )
+    apply_parsed_dec_to_policy(policy, parsed, user=request.user, dec_file=upload)
+
+    if parsed.parse_warnings:
+        messages.warning(request, "; ".join(parsed.parse_warnings))
+    messages.success(
+        request,
+        f"Imported {policy.policy_number} — {parsed.named_insured} "
+        f"({len(parsed.vehicles)} vehicle(s), {len(parsed.payments)} payment(s)).",
+    )
+    return redirect("tlc-policy-detail", space_id=card.id, policy_id=policy.id)
+
+
+@login_required
+@require_POST
+def import_tlc_dec_to_policy(request, policy_id):
+    """Refresh an existing TLC policy from a declaration page PDF."""
+    policy = get_object_or_404(TLCPolicy, id=policy_id)
+    card, is_owner, membership = _resolve_tlc_access(request, card=policy.space)
+    if not (is_owner or (membership and membership.can_deal_with_tlc)):
+        messages.error(request, "Permission denied.")
+        return redirect("tlc-policy-detail", space_id=card.id, policy_id=policy.id)
+
+    upload = request.FILES.get("dec_page")
+    if not upload:
+        messages.error(request, "Please choose a declaration page PDF.")
+        return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=overview")
+    if not upload.name.lower().endswith(".pdf"):
+        messages.error(request, "Declaration page must be a PDF file.")
+        return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=overview")
+
+    from .tlc_dec_import import DecPageParseError, apply_parsed_dec_to_policy, parse_tlc_dec_page
+
+    try:
+        parsed = parse_tlc_dec_page(upload)
+    except DecPageParseError as exc:
+        messages.error(request, str(exc))
+        return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=overview")
+
+    if parsed.policy_number and parsed.policy_number != policy.policy_number:
+        messages.error(
+            request,
+            f"This dec page is for policy {parsed.policy_number}, not {policy.policy_number}.",
+        )
+        return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=overview")
+
+    upload.seek(0)
+    apply_parsed_dec_to_policy(policy, parsed, user=request.user, dec_file=upload)
+
+    if parsed.parse_warnings:
+        messages.warning(request, "; ".join(parsed.parse_warnings))
+    messages.success(request, "Policy updated from declaration page.")
+    return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=overview")
 
 
 @login_required

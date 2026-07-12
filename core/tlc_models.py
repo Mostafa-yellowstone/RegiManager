@@ -54,6 +54,9 @@ class TLCPolicy(models.Model):
     plate_number = models.CharField(max_length=20, blank=True, default="")
     driver_name = models.CharField(max_length=200, blank=True, default="")
     broker_name = models.CharField(max_length=120, blank=True, default="")
+    issue_date = models.DateField(null=True, blank=True)
+    insured_address = models.CharField(max_length=255, blank=True, default="")
+    form_of_business = models.CharField(max_length=80, blank=True, default="")
     producer = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -406,6 +409,44 @@ class TLCCarrierRemittance(models.Model):
         return f"Remittance ${self.amount} — {self.policy.policy_number}"
 
 
+class TLCPolicyVehicle(models.Model):
+    """Vehicle listed on a TLC policy declaration schedule."""
+
+    policy = models.ForeignKey(
+        TLCPolicy, on_delete=models.CASCADE, related_name="policy_vehicles"
+    )
+    auto_number = models.PositiveSmallIntegerField(default=1)
+    year = models.PositiveSmallIntegerField(null=True, blank=True)
+    make = models.CharField(max_length=60, blank=True, default="")
+    vin = models.CharField(max_length=17, blank=True, default="")
+    effective_date = models.DateField(null=True, blank=True)
+    expiration_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["auto_number"]
+        unique_together = ("policy", "auto_number")
+
+    def __str__(self):
+        return f"#{self.auto_number} {self.year} {self.make} — {self.policy.policy_number}"
+
+
+class TLCPolicyDriver(models.Model):
+    """Driver listed on a TLC policy declaration schedule."""
+
+    policy = models.ForeignKey(
+        TLCPolicy, on_delete=models.CASCADE, related_name="policy_drivers"
+    )
+    name = models.CharField(max_length=200)
+    effective_date = models.DateField(null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} — {self.policy.policy_number}"
+
+
 class TLCPolicyDocument(models.Model):
     """Document attached to a TLC policy."""
 
@@ -423,6 +464,7 @@ class TLCPolicyDocument(models.Model):
         DMV_DOCUMENT = "dmv_document", "DMV Document"
         PHOTO = "photo", "Photo"
         SIGNED_APPLICATION = "signed_application", "Signed Application"
+        DECLARATION_PAGE = "declaration_page", "Declaration Page"
         OTHER = "other", "Other"
 
     policy = models.ForeignKey(

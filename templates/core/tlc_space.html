@@ -91,6 +91,7 @@ html.portal-theme-dark .tlc-chip-active { background: rgba(20,184,166,0.2); colo
           <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
         </form>
         {% if can_manage_tlc %}
+        <button type="button" onclick="document.getElementById('importDecModal').classList.add('active')" class="btn btn-secondary btn-sm">Import Dec Page</button>
         <button type="button" onclick="document.getElementById('addPolicyModal').classList.add('active')" class="btn btn-primary btn-sm">+ New TLC Policy</button>
         {% endif %}
       </div>
@@ -175,6 +176,21 @@ html.portal-theme-dark .tlc-chip-active { background: rgba(20,184,166,0.2); colo
 </main>
 
 {% if can_manage_tlc %}
+<div id="importDecModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h2 style="margin:0 0 0.5rem;font-size:1.25rem;">Import Declaration Page</h2>
+    <p style="font-size:0.85rem;color:var(--portal-text-muted);margin:0 0 1rem;line-height:1.5;">
+      Upload an American Transit (ATIC) declaration page PDF to auto-create a policy with
+      insured, broker, premium, vehicles, drivers, and payment schedule.
+    </p>
+    <form method="post" action="{% url 'import-tlc-dec-page' card.id %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <label class="field-label">Declaration Page PDF</label>
+      <input name="dec_page" type="file" accept="application/pdf,.pdf" class="field-input" required>
+      <button type="submit" class="btn-submit" style="margin-top:1rem;">Import & Create Policy</button>
+    </form>
+  </div>
+</div>
 <div id="addPolicyModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box">
     <h2 style="margin:0 0 1rem;font-size:1.25rem;">New TLC Policy</h2>
