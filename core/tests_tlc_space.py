@@ -115,3 +115,43 @@ class TLCSpaceTests(TestCase):
         detail = self.client.get(reverse("tlc-policy-detail", args=[self.space.id, policy.id]))
         self.assertEqual(detail.status_code, 200)
         self.assertContains(detail, "TLC-2002")
+
+    def test_edit_tlc_installment_via_post(self):
+        policy = TLCPolicy.objects.create(
+            organization=self.org,
+            space=self.space,
+            policy_number="TLC-EDIT-1",
+            carrier="Maya Assurance",
+            named_insured="Edit Test",
+            status=TLCPolicy.Status.ACTIVE,
+            added_by=self.owner,
+        )
+        installment = TLCInstallment.objects.create(
+            policy=policy,
+            installment_number=1,
+            due_date="2026-02-01",
+            amount=Decimal("500.00"),
+            installment_fee=Decimal("5.00"),
+            is_paid=False,
+            balance=Decimal("505.00"),
+        )
+        response = self.client.post(
+            reverse("edit-tlc-installment", args=[installment.id]),
+            {
+                "installment_number": "1",
+                "due_date": "2026-02-15",
+                "amount": "550.00",
+                "installment_fee": "5.00",
+                "late_fee": "0",
+                "nsf_fee": "0",
+                "balance": "555.00",
+                "is_paid": "on",
+                "payment_date": "2026-02-14",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        installment.refresh_from_db()
+        self.assertTrue(installment.is_paid)
+        self.assertEqual(installment.amount, Decimal("550.00"))
+        detail = self.client.get(reverse("tlc-policy-detail", args=[self.space.id, policy.id]))
+        self.assertContains(detail, "Edit")

@@ -174,7 +174,7 @@ def build_tlc_space_context(request, card, is_owner, membership):
         "vehicles": Vehicle.objects.filter(client__organization=active_org).select_related("client")[:500],
         "commission_rules": TLCCarrierCommissionRule.objects.filter(organization=active_org),
         "finance_companies": TLCFinanceCompany.objects.filter(organization=active_org),
-        "carrier_statements": TLCCarrierStatement.objects.filter(organization=active_org)[:50],
+        "carrier_statements": TLCCarrierStatement.objects.filter(organization=active_org).prefetch_related("lines")[:50],
         "receivables_aging": build_receivables_aging(card),
         "renewal_forecast": build_renewal_forecast(card),
         "active_tab": request.GET.get("tab", "dashboard"),
@@ -212,6 +212,10 @@ def build_tlc_policy_detail_context(request, card, policy, is_owner, membership)
         "finance_contract": getattr(policy, "finance_contract", None),
         "finance_companies": TLCFinanceCompany.objects.filter(organization=card.organization, is_active=True),
         "reminders": policy.installment_reminders.select_related("installment").order_by("scheduled_for")[:50],
+        "clients": Client.objects.filter(organization=card.organization).order_by("first_name", "last_name")[:500],
+        "vehicles": Vehicle.objects.filter(client__organization=card.organization).select_related("client")[:500],
+        "status_choices": TLCPolicy.Status.choices,
+        "policy_type_choices": TLCPolicy.PolicyType.choices,
         "active_tab": request.GET.get("tab", "overview"),
     }
 
@@ -485,8 +489,9 @@ def add_tlc_remittance(request, policy_id):
         remittance_date=_parse_date(request.POST.get("remittance_date")),
         notes=request.POST.get("notes", "").strip(),
     )
-    policy.amount_remitted_to_carrier += amount
-    policy.save(update_fields=["amount_remitted_to_carrier", "updated_at"])
+    from .tlc_edit_views import _sync_policy_remitted_total
+
+    _sync_policy_remitted_total(policy)
     messages.success(request, "Carrier remittance recorded.")
     return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=carrier")
 

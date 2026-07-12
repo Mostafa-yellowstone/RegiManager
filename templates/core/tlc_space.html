@@ -154,21 +154,22 @@ html.portal-theme-dark .tlc-chip-active { background: rgba(20,184,166,0.2); colo
     </div>
 
     <div id="tlc-tab-commission_rules" class="tlc-tab-panel {% if active_tab == 'commission_rules' %}active{% endif %}">
-      {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="document.getElementById('ruleModal').classList.add('active')">+ Commission Rule</button>{% endif %}
-      <table class="tlc-table"><thead><tr><th>Carrier</th><th>Type</th><th>Product</th><th>Rate</th><th>Renewal</th></tr></thead>
-      <tbody>{% for rule in commission_rules %}<tr><td>{{ rule.carrier }}</td><td>{{ rule.get_policy_type_display|default:"All" }}</td><td>{{ rule.product_type|default:"—" }}</td><td>{{ rule.commission_rate }}%</td><td>{{ rule.renewal_commission_rate }}%</td></tr>{% empty %}<tr><td colspan="5">No carrier rules yet.</td></tr>{% endfor %}</tbody></table>
+      {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="tlcOpenAdd('ruleModal','{% url 'add-tlc-commission-rule' card.id %}')">+ Commission Rule</button>{% endif %}
+      <table class="tlc-table"><thead><tr><th>Carrier</th><th>Type</th><th>Product</th><th>Rate</th><th>Renewal</th>{% if can_manage_tlc %}<th></th>{% endif %}</tr></thead>
+      <tbody>{% for rule in commission_rules %}<tr><td>{{ rule.carrier }}</td><td>{{ rule.get_policy_type_display|default:"All" }}</td><td>{{ rule.product_type|default:"—" }}</td><td>{{ rule.commission_rate }}%</td><td>{{ rule.renewal_commission_rate }}%</td>{% if can_manage_tlc %}<td><button type="button" class="btn btn-secondary btn-sm" onclick='tlcOpenEdit("ruleModal","{% url "edit-tlc-commission-rule" rule.id %}",{carrier:"{{ rule.carrier|escapejs }}",policy_type:"{{ rule.policy_type }}",product_type:"{{ rule.product_type|default:""|escapejs }}",commission_rate:"{{ rule.commission_rate }}",renewal_commission_rate:"{{ rule.renewal_commission_rate }}",notes:"{{ rule.notes|default:""|escapejs }}",is_active:{% if rule.is_active %}true{% else %}false{% endif %}})'>Edit</button></td>{% endif %}</tr>{% empty %}<tr><td colspan="{% if can_manage_tlc %}6{% else %}5{% endif %}">No carrier rules yet.</td></tr>{% endfor %}</tbody></table>
     </div>
 
     <div id="tlc-tab-finance" class="tlc-tab-panel {% if active_tab == 'finance' %}active{% endif %}">
-      {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="document.getElementById('financeCoModal').classList.add('active')">+ Finance Company</button>{% endif %}
-      <table class="tlc-table"><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Default Installment Fee</th></tr></thead>
-      <tbody>{% for co in finance_companies %}<tr><td>{{ co.name }}</td><td>{{ co.contact_phone|default:"—" }}</td><td>{{ co.contact_email|default:"—" }}</td><td>${{ co.default_installment_fee }}</td></tr>{% empty %}<tr><td colspan="4">No finance companies configured.</td></tr>{% endfor %}</tbody></table>
+      {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="tlcOpenAdd('financeCoModal','{% url 'add-tlc-finance-company' card.id %}')">+ Finance Company</button>{% endif %}
+      <table class="tlc-table"><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Default Installment Fee</th>{% if can_manage_tlc %}<th></th>{% endif %}</tr></thead>
+      <tbody>{% for co in finance_companies %}<tr><td>{{ co.name }}</td><td>{{ co.contact_phone|default:"—" }}</td><td>{{ co.contact_email|default:"—" }}</td><td>${{ co.default_installment_fee }}</td>{% if can_manage_tlc %}<td><button type="button" class="btn btn-secondary btn-sm" onclick='tlcOpenEdit("financeCoModal","{% url "edit-tlc-finance-company" co.id %}",{name:"{{ co.name|escapejs }}",contact_phone:"{{ co.contact_phone|default:""|escapejs }}",contact_email:"{{ co.contact_email|default:""|escapejs }}",default_installment_fee:"{{ co.default_installment_fee }}",is_active:{% if co.is_active %}true{% else %}false{% endif %}})'>Edit</button></td>{% endif %}</tr>{% empty %}<tr><td colspan="{% if can_manage_tlc %}5{% else %}4{% endif %}">No finance companies configured.</td></tr>{% endfor %}</tbody></table>
     </div>
 
     <div id="tlc-tab-reconciliation" class="tlc-tab-panel {% if active_tab == 'reconciliation' %}active{% endif %}">
-      {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="document.getElementById('statementModal').classList.add('active')">+ Import Statement</button>{% endif %}
-      <table class="tlc-table"><thead><tr><th>Carrier</th><th>Date</th><th>Premium</th><th>Commission</th><th>Remitted</th><th>Status</th></tr></thead>
-      <tbody>{% for st in carrier_statements %}<tr><td>{{ st.carrier }}</td><td>{{ st.statement_date|date:"M j, Y" }}</td><td>${{ st.total_premium }}</td><td>${{ st.total_commission }}</td><td>${{ st.total_remitted }}</td><td>{% if st.is_reconciled %}✅ Reconciled{% else %}⚠ Review{% endif %}</td></tr>{% empty %}<tr><td colspan="6">No carrier statements imported.</td></tr>{% endfor %}</tbody></table>
+      {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="tlcOpenAdd('statementModal','{% url 'add-tlc-carrier-statement' card.id %}')">+ Import Statement</button>{% endif %}
+      <table class="tlc-table"><thead><tr><th>Carrier</th><th>Date</th><th>Premium</th><th>Commission</th><th>Remitted</th><th>Status</th>{% if can_manage_tlc %}<th></th>{% endif %}</tr></thead>
+      <tbody>{% for st in carrier_statements %}<tr><td>{{ st.carrier }}</td><td>{{ st.statement_date|date:"M j, Y" }}</td><td>${{ st.total_premium }}</td><td>${{ st.total_commission }}</td><td>${{ st.total_remitted }}</td><td>{% if st.is_reconciled %}✅ Reconciled{% else %}⚠ Review{% endif %}</td>{% if can_manage_tlc %}<td><button type="button" class="btn btn-secondary btn-sm" onclick='tlcOpenStatementEdit("{% url "edit-tlc-carrier-statement" st.id %}",{carrier:"{{ st.carrier|escapejs }}",statement_date:"{{ st.statement_date|date:"Y-m-d" }}",period_start:"{% if st.period_start %}{{ st.period_start|date:"Y-m-d" }}{% endif %}",period_end:"{% if st.period_end %}{{ st.period_end|date:"Y-m-d" }}{% endif %}",total_premium:"{{ st.total_premium }}",total_commission:"{{ st.total_commission }}",total_remitted:"{{ st.total_remitted }}",notes:"{{ st.notes|default:""|escapejs }}"},`{% for line in st.lines.all %}{{ line.policy_number }},{{ line.premium_amount }},{{ line.commission_amount }},{{ line.remitted_amount }}
+{% endfor %}`)'>Edit</button></td>{% endif %}</tr>{% empty %}<tr><td colspan="{% if can_manage_tlc %}7{% else %}6{% endif %}">No carrier statements imported.</td></tr>{% endfor %}</tbody></table>
     </div>
   </div>
 </main>
@@ -214,9 +215,9 @@ html.portal-theme-dark .tlc-chip-active { background: rgba(20,184,166,0.2); colo
 {% endif %}
 
 {% if can_manage_tlc %}
-<div id="ruleModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')"><div class="modal-box"><h3>Carrier Commission Rule</h3><form method="post" action="{% url 'add-tlc-commission-rule' card.id %}">{% csrf_token %}<label>Carrier</label><input name="carrier" class="field-input" required><label>Policy Type</label><select name="policy_type" class="field-input"><option value="">All types</option>{% for val,label in policy_type_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select><label>Product</label><input name="product_type" class="field-input"><label>Commission %</label><input name="commission_rate" type="number" step="0.01" class="field-input" required><label>Renewal %</label><input name="renewal_commission_rate" type="number" step="0.01" class="field-input"><button type="submit" class="btn-submit" style="margin-top:1rem;">Save Rule</button></form></div></div>
-<div id="financeCoModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')"><div class="modal-box"><h3>Finance Company</h3><form method="post" action="{% url 'add-tlc-finance-company' card.id %}">{% csrf_token %}<label>Name</label><input name="name" class="field-input" required><label>Default Installment Fee</label><input name="default_installment_fee" type="number" step="0.01" class="field-input"><button type="submit" class="btn-submit" style="margin-top:1rem;">Save</button></form></div></div>
-<div id="statementModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')"><div class="modal-box wide"><h3>Import Carrier Statement</h3><form method="post" action="{% url 'add-tlc-carrier-statement' card.id %}">{% csrf_token %}<div class="grid-2"><div><label>Carrier</label><input name="carrier" class="field-input" required></div><div><label>Statement Date</label><input name="statement_date" type="date" class="field-input" required></div></div><label>Lines (policy_number,premium,commission,remitted — one per line)</label><textarea name="lines" class="field-input" rows="6" placeholder="TLC-1001,8950,1074,5000"></textarea><button type="submit" class="btn-submit" style="margin-top:1rem;">Import & Reconcile</button></form></div></div>
+<div id="ruleModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')"><div class="modal-box"><h3 data-add-title="Carrier Commission Rule" data-edit-title="Edit Commission Rule">Carrier Commission Rule</h3><form method="post" action="{% url 'add-tlc-commission-rule' card.id %}" data-add-action="{% url 'add-tlc-commission-rule' card.id %}">{% csrf_token %}<label>Carrier</label><input name="carrier" class="field-input" required><label>Policy Type</label><select name="policy_type" class="field-input"><option value="">All types</option>{% for val,label in policy_type_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select><label>Product</label><input name="product_type" class="field-input"><label>Commission %</label><input name="commission_rate" type="number" step="0.01" class="field-input" required><label>Renewal %</label><input name="renewal_commission_rate" type="number" step="0.01" class="field-input"><label>Notes</label><input name="notes" class="field-input"><label style="display:block;margin-top:0.5rem;"><input type="checkbox" name="is_active" checked> Active</label><button type="submit" class="btn-submit" style="margin-top:1rem;">Save Rule</button></form></div></div>
+<div id="financeCoModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')"><div class="modal-box"><h3 data-add-title="Finance Company" data-edit-title="Edit Finance Company">Finance Company</h3><form method="post" action="{% url 'add-tlc-finance-company' card.id %}" data-add-action="{% url 'add-tlc-finance-company' card.id %}">{% csrf_token %}<label>Name</label><input name="name" class="field-input" required><label>Phone</label><input name="contact_phone" class="field-input"><label>Email</label><input name="contact_email" class="field-input" type="email"><label>Default Installment Fee</label><input name="default_installment_fee" type="number" step="0.01" class="field-input"><label style="display:block;margin-top:0.5rem;"><input type="checkbox" name="is_active" checked> Active</label><button type="submit" class="btn-submit" style="margin-top:1rem;">Save</button></form></div></div>
+<div id="statementModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')"><div class="modal-box wide"><h3 data-add-title="Import Carrier Statement" data-edit-title="Edit Carrier Statement">Import Carrier Statement</h3><form method="post" action="{% url 'add-tlc-carrier-statement' card.id %}" data-add-action="{% url 'add-tlc-carrier-statement' card.id %}">{% csrf_token %}<div class="grid-2"><div><label>Carrier</label><input name="carrier" class="field-input" required></div><div><label>Statement Date</label><input name="statement_date" type="date" class="field-input" required></div><div><label>Period Start</label><input name="period_start" type="date" class="field-input"></div><div><label>Period End</label><input name="period_end" type="date" class="field-input"></div><div><label>Total Premium</label><input name="total_premium" type="number" step="0.01" class="field-input"></div><div><label>Total Commission</label><input name="total_commission" type="number" step="0.01" class="field-input"></div><div><label>Total Remitted</label><input name="total_remitted" type="number" step="0.01" class="field-input"></div></div><label>Notes</label><input name="notes" class="field-input"><label>Lines (policy_number,premium,commission,remitted — one per line)</label><textarea name="lines" class="field-input" rows="6" placeholder="TLC-1001,8950,1074,5000"></textarea><button type="submit" class="btn-submit" style="margin-top:1rem;">Save & Reconcile</button></form></div></div>
 {% endif %}
 
 <script>
@@ -249,6 +250,39 @@ function tlcSwitchTab(name, btn) {
   const url = new URL(window.location);
   url.searchParams.set('tab', name);
   window.history.replaceState({}, '', url);
+}
+function tlcOpenAdd(modalId, addUrl) {
+  const modal = document.getElementById(modalId);
+  if (!modal) return;
+  const form = modal.querySelector('form');
+  const title = modal.querySelector('h3');
+  const action = addUrl || form.dataset.addAction;
+  if (action) form.action = action;
+  form.reset();
+  if (title && title.dataset.addTitle) title.textContent = title.dataset.addTitle;
+  const activeCb = form.querySelector('input[name=is_active]');
+  if (activeCb) activeCb.checked = true;
+  modal.classList.add('active');
+}
+function tlcOpenEdit(modalId, editUrl, fields) {
+  const modal = document.getElementById(modalId);
+  if (!modal) return;
+  const form = modal.querySelector('form');
+  const title = modal.querySelector('h3');
+  form.action = editUrl;
+  if (title && title.dataset.editTitle) title.textContent = title.dataset.editTitle;
+  Object.entries(fields || {}).forEach(([name, value]) => {
+    const el = form.elements[name];
+    if (!el) return;
+    if (el.type === 'checkbox') el.checked = value === true || value === 'true' || value === 'on';
+    else el.value = value == null ? '' : value;
+  });
+  modal.classList.add('active');
+}
+function tlcOpenStatementEdit(editUrl, fields, linesText) {
+  tlcOpenEdit('statementModal', editUrl, fields);
+  const form = document.querySelector('#statementModal form');
+  if (form && form.elements.lines) form.elements.lines.value = (linesText || '').trim();
 }
 </script>
 {% endblock %}
