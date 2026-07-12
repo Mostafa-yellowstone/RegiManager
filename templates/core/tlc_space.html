@@ -58,6 +58,11 @@ html.portal-theme-dark .tlc-chip-active { background: rgba(20,184,166,0.2); colo
     <div style="display:flex;gap:0;border-bottom:2px solid var(--portal-border);margin-bottom:1.75rem;flex-wrap:wrap;">
       <button type="button" class="tlc-tab-btn {% if active_tab == 'dashboard' %}active{% endif %}" onclick="tlcSwitchTab('dashboard', this)">📊 Dashboard</button>
       <button type="button" class="tlc-tab-btn {% if active_tab == 'policies' %}active{% endif %}" onclick="tlcSwitchTab('policies', this)">📋 Policies</button>
+      <button type="button" class="tlc-tab-btn {% if active_tab == 'aging' %}active{% endif %}" onclick="tlcSwitchTab('aging', this)">⏳ Receivables</button>
+      <button type="button" class="tlc-tab-btn {% if active_tab == 'renewals' %}active{% endif %}" onclick="tlcSwitchTab('renewals', this)">🔁 Renewals</button>
+      <button type="button" class="tlc-tab-btn {% if active_tab == 'commission_rules' %}active{% endif %}" onclick="tlcSwitchTab('commission_rules', this)">📐 Commission Rules</button>
+      <button type="button" class="tlc-tab-btn {% if active_tab == 'finance' %}active{% endif %}" onclick="tlcSwitchTab('finance', this)">🏦 Finance Cos</button>
+      <button type="button" class="tlc-tab-btn {% if active_tab == 'reconciliation' %}active{% endif %}" onclick="tlcSwitchTab('reconciliation', this)">🧾 Reconciliation</button>
     </div>
 
     <div id="tlc-tab-dashboard" class="tlc-tab-panel {% if active_tab == 'dashboard' %}active{% endif %}">
@@ -130,6 +135,41 @@ html.portal-theme-dark .tlc-chip-active { background: rgba(20,184,166,0.2); colo
       </div>
       {% endif %}
     </div>
+
+    <div id="tlc-tab-aging" class="tlc-tab-panel {% if active_tab == 'aging' %}active{% endif %}">
+      <p style="font-weight:700;margin-bottom:0.75rem;">Total outstanding: ${{ receivables_aging.total_outstanding }} across {{ receivables_aging.policies_with_balance }} policies</p>
+      <div class="tlc-dash-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0.85rem;">
+        <div class="tlc-metric"><div class="tlc-metric-label">Current</div><div class="tlc-metric-value">${{ receivables_aging.buckets.current }}</div></div>
+        <div class="tlc-metric"><div class="tlc-metric-label">1–30 Days</div><div class="tlc-metric-value">${{ receivables_aging.buckets.days_1_30 }}</div></div>
+        <div class="tlc-metric"><div class="tlc-metric-label">31–60 Days</div><div class="tlc-metric-value">${{ receivables_aging.buckets.days_31_60 }}</div></div>
+        <div class="tlc-metric"><div class="tlc-metric-label">61–90 Days</div><div class="tlc-metric-value">${{ receivables_aging.buckets.days_61_90 }}</div></div>
+        <div class="tlc-metric"><div class="tlc-metric-label">90+ Days</div><div class="tlc-metric-value" style="color:#dc2626;">${{ receivables_aging.buckets.days_90_plus }}</div></div>
+      </div>
+    </div>
+
+    <div id="tlc-tab-renewals" class="tlc-tab-panel {% if active_tab == 'renewals' %}active{% endif %}">
+      <p style="font-weight:700;">Next {{ renewal_forecast.horizon_days }} days — {{ renewal_forecast.renewal_count }} renewals · ${{ renewal_forecast.expected_premium }} premium · ${{ renewal_forecast.expected_commission }} commission</p>
+      <table class="tlc-table" style="margin-top:1rem;"><thead><tr><th>Policy</th><th>Insured</th><th>Carrier</th><th>Renewal</th><th>Premium</th></tr></thead>
+      <tbody>{% for row in renewal_forecast.renewals %}<tr><td>{{ row.policy_number }}</td><td>{{ row.named_insured }}</td><td>{{ row.carrier }}</td><td>{{ row.renewal_date }}</td><td>${{ row.written_premium }}</td></tr>{% empty %}<tr><td colspan="5">No renewals in horizon.</td></tr>{% endfor %}</tbody></table>
+    </div>
+
+    <div id="tlc-tab-commission_rules" class="tlc-tab-panel {% if active_tab == 'commission_rules' %}active{% endif %}">
+      {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="document.getElementById('ruleModal').classList.add('active')">+ Commission Rule</button>{% endif %}
+      <table class="tlc-table"><thead><tr><th>Carrier</th><th>Type</th><th>Product</th><th>Rate</th><th>Renewal</th></tr></thead>
+      <tbody>{% for rule in commission_rules %}<tr><td>{{ rule.carrier }}</td><td>{{ rule.get_policy_type_display|default:"All" }}</td><td>{{ rule.product_type|default:"—" }}</td><td>{{ rule.commission_rate }}%</td><td>{{ rule.renewal_commission_rate }}%</td></tr>{% empty %}<tr><td colspan="5">No carrier rules yet.</td></tr>{% endfor %}</tbody></table>
+    </div>
+
+    <div id="tlc-tab-finance" class="tlc-tab-panel {% if active_tab == 'finance' %}active{% endif %}">
+      {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="document.getElementById('financeCoModal').classList.add('active')">+ Finance Company</button>{% endif %}
+      <table class="tlc-table"><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Default Installment Fee</th></tr></thead>
+      <tbody>{% for co in finance_companies %}<tr><td>{{ co.name }}</td><td>{{ co.contact_phone|default:"—" }}</td><td>{{ co.contact_email|default:"—" }}</td><td>${{ co.default_installment_fee }}</td></tr>{% empty %}<tr><td colspan="4">No finance companies configured.</td></tr>{% endfor %}</tbody></table>
+    </div>
+
+    <div id="tlc-tab-reconciliation" class="tlc-tab-panel {% if active_tab == 'reconciliation' %}active{% endif %}">
+      {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="document.getElementById('statementModal').classList.add('active')">+ Import Statement</button>{% endif %}
+      <table class="tlc-table"><thead><tr><th>Carrier</th><th>Date</th><th>Premium</th><th>Commission</th><th>Remitted</th><th>Status</th></tr></thead>
+      <tbody>{% for st in carrier_statements %}<tr><td>{{ st.carrier }}</td><td>{{ st.statement_date|date:"M j, Y" }}</td><td>${{ st.total_premium }}</td><td>${{ st.total_commission }}</td><td>${{ st.total_remitted }}</td><td>{% if st.is_reconciled %}✅ Reconciled{% else %}⚠ Review{% endif %}</td></tr>{% empty %}<tr><td colspan="6">No carrier statements imported.</td></tr>{% endfor %}</tbody></table>
+    </div>
   </div>
 </main>
 
@@ -139,25 +179,33 @@ html.portal-theme-dark .tlc-chip-active { background: rgba(20,184,166,0.2); colo
     <h2 style="margin:0 0 1rem;font-size:1.25rem;">New TLC Policy</h2>
     <form method="post" action="{% url 'add-tlc-policy' card.id %}">
       {% csrf_token %}
+      <p style="font-size:0.85rem;color:var(--portal-text-muted);margin:0 0 1rem;line-height:1.5;">
+        <strong>CRM Client (optional)</strong> links this policy to your customer profile for history, email reminders, and vehicle records.
+        <strong>Named Insured</strong> is the legal name printed on the policy dec page (may differ from CRM).
+        <strong>Business Name</strong> is the medallion corp / LLC for commercial TLC policies.
+      </p>
       <div class="grid-2">
+        <div style="grid-column:1/-1;"><label class="field-label">Link CRM Client (optional)</label><select name="client" id="tlcClientSelect" class="field-input" onchange="tlcPrefillFromClient(this)"><option value="">— No CRM link —</option>{% for c in clients %}<option value="{{ c.id }}" data-named="{{ c.first_name }} {{ c.last_name }}" data-business="{{ c.business_name }}" data-commercial="{% if c.is_commercial %}1{% else %}0{% endif %}">{{ c.name }}{% if c.phone_number %} · {{ c.phone_number }}{% endif %}</option>{% endfor %}</select></div>
         <div><label class="field-label">Policy Number *</label><input name="policy_number" class="field-input" required></div>
         <div><label class="field-label">Carrier</label><input name="carrier" class="field-input" placeholder="Maya Assurance, American Transit…"></div>
         <div><label class="field-label">Policy Type</label><select name="policy_type" class="field-input">{% for val, label in policy_type_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
         <div><label class="field-label">Status</label><select name="status" class="field-input">{% for val, label in status_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select></div>
-        <div><label class="field-label">Named Insured</label><input name="named_insured" class="field-input"></div>
-        <div><label class="field-label">Business Name</label><input name="business_name" class="field-input"></div>
+        <div><label class="field-label">Named Insured (on policy)</label><input name="named_insured" id="tlcNamedInsured" class="field-input" placeholder="Legal name on dec page"></div>
+        <div><label class="field-label">Business / Medallion Name</label><input name="business_name" id="tlcBusinessName" class="field-input" placeholder="Commercial LLC or corp"></div>
         <div><label class="field-label">TLC Base #</label><input name="tlc_base_number" class="field-input"></div>
         <div><label class="field-label">TLC License #</label><input name="tlc_license_number" class="field-input"></div>
         <div><label class="field-label">VIN</label><input name="vin" class="field-input"></div>
         <div><label class="field-label">Plate</label><input name="plate_number" class="field-input"></div>
         <div><label class="field-label">Written Premium</label><input name="total_written_premium" type="number" step="0.01" class="field-input"></div>
         <div><label class="field-label">Down Payment</label><input name="down_payment" type="number" step="0.01" class="field-input"></div>
-        <div><label class="field-label">Commission Rate %</label><input name="commission_rate" type="number" step="0.01" class="field-input"></div>
+        <div><label class="field-label">Monthly Installment</label><input name="monthly_installment" type="number" step="0.01" class="field-input"></div>
+        <div><label class="field-label"># Installments</label><input name="number_of_installments" type="number" class="field-input" placeholder="Auto-generates schedule"></div>
+        <div><label class="field-label">Installment Fee (each)</label><input name="installment_fee" type="number" step="0.01" class="field-input" placeholder="Carrier/installment fee per payment"></div>
+        <div><label class="field-label">Commission Rate %</label><input name="commission_rate" type="number" step="0.01" class="field-input" placeholder="Leave blank to use carrier rule"></div>
         <div><label class="field-label">Broker Fee Collected</label><input name="broker_fee_collected" type="number" step="0.01" class="field-input"></div>
         <div><label class="field-label">Effective Date</label><input name="effective_date" type="date" class="field-input"></div>
         <div><label class="field-label">Expiration Date</label><input name="expiration_date" type="date" class="field-input"></div>
-        <div><label class="field-label">Client</label><select name="client" class="field-input"><option value="">—</option>{% for c in clients %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
-        <div><label class="field-label">Vehicle</label><select name="vehicle" class="field-input"><option value="">—</option>{% for v in vehicles %}<option value="{{ v.id }}">{{ v.plate_number|default:v.vin }} — {{ v.client.name }}</option>{% endfor %}</select></div>
+        <div style="grid-column:1/-1;"><label class="field-label">CRM Vehicle (optional — only if client linked)</label><select name="vehicle" id="tlcVehicleSelect" class="field-input"><option value="">—</option>{% for v in vehicles %}<option value="{{ v.id }}" data-client-id="{{ v.client_id }}" data-vin="{{ v.vin }}" data-plate="{{ v.plate_number }}" hidden>{{ v.plate_number|default:v.vin }} — {{ v.client.name }}</option>{% endfor %}</select></div>
       </div>
       <button type="submit" class="btn-submit" style="margin-top:1rem;">Create Policy</button>
     </form>
@@ -165,7 +213,34 @@ html.portal-theme-dark .tlc-chip-active { background: rgba(20,184,166,0.2); colo
 </div>
 {% endif %}
 
+{% if can_manage_tlc %}
+<div id="ruleModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')"><div class="modal-box"><h3>Carrier Commission Rule</h3><form method="post" action="{% url 'add-tlc-commission-rule' card.id %}">{% csrf_token %}<label>Carrier</label><input name="carrier" class="field-input" required><label>Policy Type</label><select name="policy_type" class="field-input"><option value="">All types</option>{% for val,label in policy_type_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select><label>Product</label><input name="product_type" class="field-input"><label>Commission %</label><input name="commission_rate" type="number" step="0.01" class="field-input" required><label>Renewal %</label><input name="renewal_commission_rate" type="number" step="0.01" class="field-input"><button type="submit" class="btn-submit" style="margin-top:1rem;">Save Rule</button></form></div></div>
+<div id="financeCoModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')"><div class="modal-box"><h3>Finance Company</h3><form method="post" action="{% url 'add-tlc-finance-company' card.id %}">{% csrf_token %}<label>Name</label><input name="name" class="field-input" required><label>Default Installment Fee</label><input name="default_installment_fee" type="number" step="0.01" class="field-input"><button type="submit" class="btn-submit" style="margin-top:1rem;">Save</button></form></div></div>
+<div id="statementModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')"><div class="modal-box wide"><h3>Import Carrier Statement</h3><form method="post" action="{% url 'add-tlc-carrier-statement' card.id %}">{% csrf_token %}<div class="grid-2"><div><label>Carrier</label><input name="carrier" class="field-input" required></div><div><label>Statement Date</label><input name="statement_date" type="date" class="field-input" required></div></div><label>Lines (policy_number,premium,commission,remitted — one per line)</label><textarea name="lines" class="field-input" rows="6" placeholder="TLC-1001,8950,1074,5000"></textarea><button type="submit" class="btn-submit" style="margin-top:1rem;">Import & Reconcile</button></form></div></div>
+{% endif %}
+
 <script>
+function tlcPrefillFromClient(select) {
+  const opt = select.options[select.selectedIndex];
+  const clientId = select.value;
+  const named = document.getElementById('tlcNamedInsured');
+  const business = document.getElementById('tlcBusinessName');
+  const vehicleSelect = document.getElementById('tlcVehicleSelect');
+  if (!clientId) {
+    if (named) named.value = '';
+    if (business) business.value = '';
+  } else {
+    if (named) named.value = (opt.dataset.named || '').trim();
+    if (business) business.value = opt.dataset.commercial === '1' ? (opt.dataset.business || '') : '';
+  }
+  if (vehicleSelect) {
+    Array.from(vehicleSelect.options).forEach(o => {
+      if (!o.value) return;
+      o.hidden = clientId && o.dataset.clientId !== clientId;
+    });
+    vehicleSelect.value = '';
+  }
+}
 function tlcSwitchTab(name, btn) {
   document.querySelectorAll('.tlc-tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tlc-tab-btn').forEach(b => b.classList.remove('active'));

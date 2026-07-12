@@ -150,6 +150,10 @@ class TLCPolicy(models.Model):
             self.carrier_commission_amount = (
                 premium * (Decimal(str(self.commission_rate)) / Decimal("100"))
             ).quantize(Decimal("0.01"))
+        elif premium and not self.commission_rate:
+            from .tlc_commissions import apply_commission_rule_to_policy
+
+            apply_commission_rule_to_policy(self, premium=premium, save=False)
         super().save(*args, **kwargs)
 
 
@@ -219,7 +223,19 @@ class TLCInstallment(models.Model):
     nsf_fee = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
     was_reinstated = models.BooleanField(default=False)
     balance = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    installment_fee = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Per-installment carrier/installment fee charged to the customer.",
+    )
     notes = models.CharField(max_length=255, blank=True, default="")
+
+    @property
+    def total_due(self) -> Decimal:
+        return (self.amount + self.installment_fee + self.late_fee + self.nsf_fee).quantize(
+            Decimal("0.01")
+        )
 
     class Meta:
         ordering = ["installment_number"]
@@ -469,3 +485,182 @@ class TLCPolicyTimelineEvent(models.Model):
 
     def __str__(self):
         return f"{self.title} — {self.policy.policy_number}"
+
+
+class TLCCarrierCommissionRule(models.Model):
+    """Carrier-specific commission rate by policy type and product."""
+
+    organization = models.ForeignKey(
+        "Organization", on_delete=models.CASCADE, related_name="tlc_commission_rules"
+    )
+    carrier = models.CharField(max_length=120, db_index=True)
+    policy_type = models.CharField(
+        max_length=20,
+        choices=TLCPolicy.PolicyType.choices,
+        blank=True,
+        default="",
+        help_text="Leave blank to apply to all policy types for this carrier.",
+    )
+    product_type = models.CharField(
+        max_length=60,
+        blank=True,
+        default="",
+        help_text="Optional product label, e.g. TLC Liability, Commercial Auto.",
+    )
+    commission_rate = models.DecimalField(max_digits=5, decimal_places=2)
+    renewal_commission_rate = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal("0.00")
+    )
+    is_active = models.BooleanField(default=True)
+    notes = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["carrier", "policy_type", "product_type"]
+        unique_together = ("organization", "carrier", "policy_type", "product_type")
+
+    def __str__(self):
+        return f"{self.carrier} — {self.commission_rate}%"
+
+
+class TLCFinanceCompany(models.Model):
+    """Premium finance company used for TLC policy installments."""
+
+    organization = models.ForeignKey(
+        "Organization", on_delete=models.CASCADE, related_name="tlc_finance_companies"
+    )
+    name = models.CharField(max_length=120)
+    contact_phone = models.CharField(max_length=40, blank=True, default="")
+    contact_email = models.EmailField(blank=True, default="")
+    default_installment_fee = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+        unique_together = ("organization", "name")
+
+    def __str__(self):
+        return self.name
+
+
+class TLCPolicyFinance(models.Model):
+    """Premium finance contract tied to a TLC policy."""
+
+    policy = models.OneToOneField(
+        TLCPolicy, on_delete=models.CASCADE, related_name="finance_contract"
+    )
+    finance_company = models.ForeignKey(
+        TLCFinanceCompany,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="policies",
+    )
+    contract_number = models.CharField(max_length=80, blank=True, default="")
+    amount_financed = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    payoff_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    next_payoff_date = models.DateField(null=True, blank=True)
+    is_delinquent = models.BooleanField(default=False)
+    delinquency_notes = models.TextField(blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Finance — {self.policy.policy_number}"
+
+
+class TLCInstallmentReminder(models.Model):
+    """Scheduled email/SMS reminder for an installment due date."""
+
+    class Channel(models.TextChoices):
+        EMAIL = "email", "Email"
+        SMS = "sms", "SMS"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        SENT = "sent", "Sent"
+        FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    policy = models.ForeignKey(
+        TLCPolicy, on_delete=models.CASCADE, related_name="installment_reminders"
+    )
+    installment = models.ForeignKey(
+        TLCInstallment,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="reminders",
+    )
+    channel = models.CharField(max_length=10, choices=Channel.choices, default=Channel.EMAIL)
+    days_before_due = models.PositiveSmallIntegerField(
+        default=3, help_text="0 = remind on due date."
+    )
+    scheduled_for = models.DateTimeField(db_index=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(
+        max_length=12, choices=Status.choices, default=Status.PENDING, db_index=True
+    )
+    recipient_email = models.EmailField(blank=True, default="")
+    recipient_phone = models.CharField(max_length=20, blank=True, default="")
+    error_message = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["scheduled_for"]
+
+    def __str__(self):
+        return f"Reminder — {self.policy.policy_number}"
+
+
+class TLCCarrierStatement(models.Model):
+    """Carrier statement for monthly reconciliation."""
+
+    organization = models.ForeignKey(
+        "Organization", on_delete=models.CASCADE, related_name="tlc_carrier_statements"
+    )
+    carrier = models.CharField(max_length=120, db_index=True)
+    statement_date = models.DateField()
+    period_start = models.DateField(null=True, blank=True)
+    period_end = models.DateField(null=True, blank=True)
+    total_premium = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    total_commission = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    total_remitted = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    is_reconciled = models.BooleanField(default=False)
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-statement_date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.carrier} — {self.statement_date}"
+
+
+class TLCCarrierStatementLine(models.Model):
+    """Single policy line on a carrier statement."""
+
+    statement = models.ForeignKey(
+        TLCCarrierStatement, on_delete=models.CASCADE, related_name="lines"
+    )
+    policy = models.ForeignKey(
+        TLCPolicy,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="carrier_statement_lines",
+    )
+    policy_number = models.CharField(max_length=100, db_index=True)
+    premium_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    commission_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    remitted_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    is_matched = models.BooleanField(default=False)
+    variance_notes = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        ordering = ["policy_number"]
+
+    def __str__(self):
+        return self.policy_number

@@ -13,19 +13,31 @@ from django.views.decorators.http import require_POST
 from .http import deny_access
 from .models import Client, OrganizationMembership, Space, Vehicle
 from .space_access import require_space_access
+from .tlc_client_sync import apply_client_to_policy
 from .tlc_models import (
     TLCAgencyExpense,
+    TLCCarrierCommissionRule,
     TLCCarrierRemittance,
+    TLCCarrierStatement,
+    TLCCarrierStatementLine,
     TLCDMVService,
     TLCEndorsement,
+    TLCFinanceCompany,
     TLCInstallment,
+    TLCInstallmentReminder,
     TLCPolicy,
     TLCPolicyDocument,
+    TLCPolicyFinance,
     TLCPolicyTimelineEvent,
     TLCPremiumBreakdown,
     TLCReinstatement,
 )
+from .tlc_analytics import build_receivables_aging, build_renewal_forecast
+from .tlc_commissions import apply_commission_rule_to_policy
 from .tlc_profitability import build_policy_profitability, tlc_dashboard_stats
+from .tlc_reconciliation import reconcile_statement
+from .tlc_schedule import generate_installment_schedule
+from .tlc_tasks import schedule_installment_reminders
 from .views import _get_user_organizations
 
 
@@ -160,6 +172,11 @@ def build_tlc_space_context(request, card, is_owner, membership):
         "carriers": carriers,
         "clients": Client.objects.filter(organization=active_org).order_by("first_name", "last_name")[:500],
         "vehicles": Vehicle.objects.filter(client__organization=active_org).select_related("client")[:500],
+        "commission_rules": TLCCarrierCommissionRule.objects.filter(organization=active_org),
+        "finance_companies": TLCFinanceCompany.objects.filter(organization=active_org),
+        "carrier_statements": TLCCarrierStatement.objects.filter(organization=active_org)[:50],
+        "receivables_aging": build_receivables_aging(card),
+        "renewal_forecast": build_renewal_forecast(card),
         "active_tab": request.GET.get("tab", "dashboard"),
         "search": search,
         "status_filter": status_filter,
@@ -192,6 +209,9 @@ def build_tlc_policy_detail_context(request, card, policy, is_owner, membership)
         "dmv_service_choices": TLCDMVService.ServiceType.choices,
         "expense_type_choices": TLCAgencyExpense.ExpenseType.choices,
         "document_type_choices": TLCPolicyDocument.DocumentType.choices,
+        "finance_contract": getattr(policy, "finance_contract", None),
+        "finance_companies": TLCFinanceCompany.objects.filter(organization=card.organization, is_active=True),
+        "reminders": policy.installment_reminders.select_related("installment").order_by("scheduled_for")[:50],
         "active_tab": request.GET.get("tab", "overview"),
     }
 
@@ -200,7 +220,9 @@ def build_tlc_policy_detail_context(request, card, policy, is_owner, membership)
 def tlc_policy_detail(request, space_id, policy_id):
     card, is_owner, membership = _resolve_tlc_access(request, space_id=space_id)
     policy = get_object_or_404(
-        TLCPolicy.objects.select_related("premium_breakdown", "client", "vehicle", "producer", "csr")
+        TLCPolicy.objects.select_related(
+            "premium_breakdown", "client", "vehicle", "producer", "csr", "finance_contract__finance_company"
+        )
         .prefetch_related(
             "installments",
             "reinstatements",
@@ -247,8 +269,6 @@ def add_tlc_policy(request, space_id):
     policy = TLCPolicy.objects.create(
         organization=card.organization,
         space=card,
-        client=client,
-        vehicle=vehicle,
         policy_number=policy_number,
         carrier=request.POST.get("carrier", "").strip(),
         policy_type=request.POST.get("policy_type", TLCPolicy.PolicyType.NEW_BUSINESS),
@@ -256,8 +276,8 @@ def add_tlc_policy(request, space_id):
         business_name=request.POST.get("business_name", "").strip(),
         tlc_base_number=request.POST.get("tlc_base_number", "").strip(),
         tlc_license_number=request.POST.get("tlc_license_number", "").strip(),
-        vin=request.POST.get("vin", "").strip() or (vehicle.vin if vehicle else ""),
-        plate_number=request.POST.get("plate_number", "").strip() or (vehicle.plate_number if vehicle else ""),
+        vin=request.POST.get("vin", "").strip(),
+        plate_number=request.POST.get("plate_number", "").strip(),
         driver_name=request.POST.get("driver_name", "").strip(),
         broker_name=request.POST.get("broker_name", "").strip(),
         status=request.POST.get("status", TLCPolicy.Status.PENDING),
@@ -268,6 +288,11 @@ def add_tlc_policy(request, space_id):
         broker_fee_collected=_parse_decimal(request.POST.get("broker_fee_collected")),
         added_by=request.user,
     )
+    apply_client_to_policy(policy, client, vehicle)
+    if request.POST.get("named_insured", "").strip():
+        policy.named_insured = request.POST.get("named_insured", "").strip()
+    if request.POST.get("business_name", "").strip():
+        policy.business_name = request.POST.get("business_name", "").strip()
 
     TLCPremiumBreakdown.objects.create(
         policy=policy,
@@ -277,8 +302,14 @@ def add_tlc_policy(request, space_id):
         number_of_installments=int(request.POST.get("number_of_installments") or 0),
         monthly_installment=_parse_decimal(request.POST.get("monthly_installment")),
         policy_fee=_parse_decimal(request.POST.get("policy_fee")),
+        installment_fee=_parse_decimal(request.POST.get("installment_fee")),
     )
+    if not policy.commission_rate:
+        apply_commission_rule_to_policy(policy, save=False)
     policy.save()
+
+    if policy.premium_breakdown.number_of_installments > 0:
+        generate_installment_schedule(policy, replace_existing=True)
 
     _record_timeline(
         policy,
@@ -311,6 +342,7 @@ def add_tlc_installment(request, policy_id):
         defaults={
             "due_date": _parse_date(request.POST.get("due_date")) or policy.effective_date,
             "amount": amount,
+            "installment_fee": _parse_decimal(request.POST.get("installment_fee")),
             "is_paid": is_paid,
             "payment_date": _parse_date(request.POST.get("payment_date")) if is_paid else None,
             "late_fee": _parse_decimal(request.POST.get("late_fee")),
@@ -484,3 +516,156 @@ def add_tlc_document(request, policy_id):
     doc.save()
     messages.success(request, "Document uploaded.")
     return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=documents")
+
+
+@login_required
+@require_POST
+def generate_tlc_installment_schedule(request, policy_id):
+    policy = get_object_or_404(TLCPolicy.objects.select_related("premium_breakdown"), id=policy_id)
+    card, is_owner, membership = _resolve_tlc_access(request, card=policy.space)
+    if not (is_owner or (membership and membership.can_deal_with_tlc)):
+        messages.error(request, "Permission denied.")
+        return redirect("tlc-policy-detail", space_id=card.id, policy_id=policy.id)
+    created = generate_installment_schedule(policy, replace_existing=request.POST.get("replace") == "1")
+    if created:
+        messages.success(request, f"Generated {created} installments with installment fees.")
+    else:
+        messages.error(request, "Set number of installments and monthly amount on premium breakdown first.")
+    return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=installments")
+
+
+@login_required
+@require_POST
+def schedule_tlc_reminders(request, policy_id):
+    policy = get_object_or_404(TLCPolicy, id=policy_id)
+    card, is_owner, membership = _resolve_tlc_access(request, card=policy.space)
+    if not (is_owner or (membership and membership.can_deal_with_tlc)):
+        messages.error(request, "Permission denied.")
+        return redirect("tlc-policy-detail", space_id=card.id, policy_id=policy.id)
+    days = int(request.POST.get("days_before", 3) or 3)
+    count = schedule_installment_reminders(policy, days_before=days)
+    messages.success(request, f"Scheduled {count} email reminder(s).")
+    return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=reminders")
+
+
+@login_required
+@require_POST
+def save_tlc_policy_finance(request, policy_id):
+    policy = get_object_or_404(TLCPolicy, id=policy_id)
+    card, is_owner, membership = _resolve_tlc_access(request, card=policy.space)
+    if not (is_owner or (membership and membership.can_deal_with_tlc)):
+        messages.error(request, "Permission denied.")
+        return redirect("tlc-policy-detail", space_id=card.id, policy_id=policy.id)
+    company_id = request.POST.get("finance_company") or None
+    company = (
+        TLCFinanceCompany.objects.filter(id=company_id, organization=card.organization).first()
+        if company_id
+        else None
+    )
+    TLCPolicyFinance.objects.update_or_create(
+        policy=policy,
+        defaults={
+            "finance_company": company,
+            "contract_number": request.POST.get("contract_number", "").strip(),
+            "amount_financed": _parse_decimal(request.POST.get("amount_financed")),
+            "payoff_amount": _parse_decimal(request.POST.get("payoff_amount")),
+            "next_payoff_date": _parse_date(request.POST.get("next_payoff_date")),
+            "is_delinquent": request.POST.get("is_delinquent") == "on",
+            "delinquency_notes": request.POST.get("delinquency_notes", "").strip(),
+        },
+    )
+    messages.success(request, "Finance contract saved.")
+    return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=finance")
+
+
+@login_required
+@require_POST
+def add_tlc_commission_rule(request, space_id):
+    card, is_owner, membership = _resolve_tlc_access(request, space_id=space_id)
+    if not (is_owner or (membership and membership.can_deal_with_tlc)):
+        messages.error(request, "Permission denied.")
+        return _redirect_tlc(card, tab="commission_rules")
+    carrier = request.POST.get("carrier", "").strip()
+    rate = _parse_decimal(request.POST.get("commission_rate"))
+    if not carrier or rate <= 0:
+        messages.error(request, "Carrier and commission rate are required.")
+        return _redirect_tlc(card, tab="commission_rules")
+    TLCCarrierCommissionRule.objects.update_or_create(
+        organization=card.organization,
+        carrier=carrier,
+        policy_type=request.POST.get("policy_type", "").strip(),
+        product_type=request.POST.get("product_type", "").strip(),
+        defaults={
+            "commission_rate": rate,
+            "renewal_commission_rate": _parse_decimal(request.POST.get("renewal_commission_rate")),
+            "notes": request.POST.get("notes", "").strip(),
+            "is_active": True,
+        },
+    )
+    messages.success(request, "Commission rule saved.")
+    return _redirect_tlc(card, tab="commission_rules")
+
+
+@login_required
+@require_POST
+def add_tlc_finance_company(request, space_id):
+    card, is_owner, membership = _resolve_tlc_access(request, space_id=space_id)
+    if not (is_owner or (membership and membership.can_deal_with_tlc)):
+        messages.error(request, "Permission denied.")
+        return _redirect_tlc(card, tab="finance")
+    name = request.POST.get("name", "").strip()
+    if not name:
+        messages.error(request, "Finance company name is required.")
+        return _redirect_tlc(card, tab="finance")
+    TLCFinanceCompany.objects.update_or_create(
+        organization=card.organization,
+        name=name,
+        defaults={
+            "contact_phone": request.POST.get("contact_phone", "").strip(),
+            "contact_email": request.POST.get("contact_email", "").strip(),
+            "default_installment_fee": _parse_decimal(request.POST.get("default_installment_fee")),
+            "is_active": True,
+        },
+    )
+    messages.success(request, "Finance company saved.")
+    return _redirect_tlc(card, tab="finance")
+
+
+@login_required
+@require_POST
+def add_tlc_carrier_statement(request, space_id):
+    card, is_owner, membership = _resolve_tlc_access(request, space_id=space_id)
+    if not (is_owner or (membership and membership.can_deal_with_tlc)):
+        messages.error(request, "Permission denied.")
+        return _redirect_tlc(card, tab="reconciliation")
+    carrier = request.POST.get("carrier", "").strip()
+    statement_date = _parse_date(request.POST.get("statement_date"))
+    if not carrier or not statement_date:
+        messages.error(request, "Carrier and statement date are required.")
+        return _redirect_tlc(card, tab="reconciliation")
+    statement = TLCCarrierStatement.objects.create(
+        organization=card.organization,
+        carrier=carrier,
+        statement_date=statement_date,
+        period_start=_parse_date(request.POST.get("period_start")),
+        period_end=_parse_date(request.POST.get("period_end")),
+        total_premium=_parse_decimal(request.POST.get("total_premium")),
+        total_commission=_parse_decimal(request.POST.get("total_commission")),
+        total_remitted=_parse_decimal(request.POST.get("total_remitted")),
+        notes=request.POST.get("notes", "").strip(),
+    )
+    for line in request.POST.get("lines", "").splitlines():
+        parts = [part.strip() for part in line.split(",")]
+        if len(parts) < 4:
+            continue
+        policy_number, premium, commission, remitted = parts[0], parts[1], parts[2], parts[3]
+        TLCCarrierStatementLine.objects.create(
+            statement=statement,
+            policy_number=policy_number,
+            premium_amount=_parse_decimal(premium),
+            commission_amount=_parse_decimal(commission),
+            remitted_amount=_parse_decimal(remitted),
+        )
+    reconcile_statement(statement)
+    messages.success(request, "Carrier statement imported and reconciled.")
+    return _redirect_tlc(card, tab="reconciliation")

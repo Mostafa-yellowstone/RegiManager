@@ -73,6 +73,7 @@ class TLCSpaceTests(TestCase):
             installment_number=1,
             due_date="2026-01-10",
             amount=Decimal("740.00"),
+            installment_fee=Decimal("5.00"),
             is_paid=True,
             payment_date="2026-01-08",
             balance=Decimal("0.00"),
@@ -88,6 +89,7 @@ class TLCSpaceTests(TestCase):
         self.assertEqual(snapshot["written_premium"], "8950.00")
         self.assertEqual(snapshot["broker_fees_collected"], "350.00")
         self.assertEqual(snapshot["dmv_net_profit"], "62.50")
+        self.assertEqual(snapshot["installment_fees_collected"], "5.00")
         self.assertIn("net_profit", snapshot)
 
         stats = tlc_dashboard_stats(self.space)

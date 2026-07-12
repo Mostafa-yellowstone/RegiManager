@@ -308,6 +308,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "core.tasks.check_registration_reminders",
         "schedule": 60 * 60 * 24,
     },
+    "dispatch-tlc-installment-reminders-hourly": {
+        "task": "core.tlc_tasks.dispatch_due_tlc_installment_reminders",
+        "schedule": 60 * 60,
+    },
 }
 
 # Email Settings (Gmail SMTP)

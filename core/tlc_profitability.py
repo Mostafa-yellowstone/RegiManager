@@ -39,6 +39,8 @@ class InstallmentSummary:
     past_due_amount: Decimal
     late_fees_collected: Decimal
     nsf_fees_collected: Decimal
+    installment_fees_collected: Decimal
+    installment_fees_outstanding: Decimal
     total_collected: Decimal
 
 
@@ -54,15 +56,20 @@ def summarize_installments(policy: TLCPolicy, *, today: date | None = None) -> I
     next_due: date | None = None
     late_fees = ZERO
     nsf_fees = ZERO
+    installment_fees_collected = ZERO
+    installment_fees_outstanding = ZERO
     collected = ZERO
 
     for row in installments:
         late_fees += _d(row.late_fee)
         nsf_fees += _d(row.nsf_fee)
+        inst_fee = _d(row.installment_fee)
         if row.is_paid:
-            collected += _d(row.amount) + _d(row.late_fee) + _d(row.nsf_fee)
+            collected += _d(row.amount) + inst_fee + _d(row.late_fee) + _d(row.nsf_fee)
+            installment_fees_collected += inst_fee
         else:
-            remaining_balance += _d(row.balance or row.amount)
+            remaining_balance += _d(row.balance or row.amount) + inst_fee
+            installment_fees_outstanding += inst_fee
             if row.due_date and row.due_date < today:
                 past_due += _d(row.balance or row.amount)
                 days_late = max(days_late, (today - row.due_date).days)
@@ -79,6 +86,8 @@ def summarize_installments(policy: TLCPolicy, *, today: date | None = None) -> I
         past_due_amount=past_due,
         late_fees_collected=late_fees,
         nsf_fees_collected=nsf_fees,
+        installment_fees_collected=installment_fees_collected,
+        installment_fees_outstanding=installment_fees_outstanding,
         total_collected=collected,
     )
 
@@ -188,6 +197,7 @@ def build_policy_profitability(policy: TLCPolicy, *, today: date | None = None) 
         + policy_fees
         + inspection_fees
         + endorsement_fees
+        + installments.installment_fees_collected
         + dmv["dmv_net_profit"]
     )
 
@@ -233,6 +243,8 @@ def build_policy_profitability(policy: TLCPolicy, *, today: date | None = None) 
         "days_late": installments.days_late,
         "late_fees_collected": _money(installments.late_fees_collected),
         "nsf_fees": _money(installments.nsf_fees_collected),
+        "installment_fees_collected": _money(installments.installment_fees_collected),
+        "installment_fees_outstanding": _money(installments.installment_fees_outstanding),
         "reinstatement_fees": _money(reinstatements["reinstatement_fees_collected"]),
         "broker_fees_collected": _money(broker_fees),
         "carrier_commission": _money(carrier_commission),
