@@ -309,6 +309,24 @@ class TLCEndorsement(models.Model):
     premium_difference = models.DecimalField(
         max_digits=12, decimal_places=2, default=Decimal("0.00")
     )
+    written_premium_before = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Current written premium immediately before this endorsement.",
+    )
+    written_premium_after = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="New total written premium after this endorsement (including endorsement fees).",
+    )
+    endorsement_fee = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Carrier endorsement fee charged on this change.",
+    )
     commission_difference = models.DecimalField(
         max_digits=12, decimal_places=2, default=Decimal("0.00")
     )
@@ -385,6 +403,24 @@ class TLCPolicyCancellation(models.Model):
     successor_broker = models.CharField(max_length=120, blank=True, default="")
     successor_policy_number = models.CharField(max_length=100, blank=True, default="")
     successor_effective_date = models.DateField(null=True, blank=True)
+    unearned_commission = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Prorated commission to return to the carrier after cancellation.",
+    )
+    return_premium = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Prorated unearned premium owed back after cancellation.",
+    )
+    earned_commission_at_cancel = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Installment commission already earned when the policy was cancelled.",
+    )
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

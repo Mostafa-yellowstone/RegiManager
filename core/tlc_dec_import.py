@@ -830,6 +830,12 @@ def apply_parsed_dec_to_policy(
 
         generate_installment_schedule(policy, replace_existing=True)
 
+    from .tlc_accounting import sync_installment_accounting, sync_policy_commission_amount
+
+    sync_policy_commission_amount(policy)
+    policy.save(update_fields=["carrier_commission_amount", "updated_at"])
+    sync_installment_accounting(policy)
+
     if dec_file is not None:
         TLCPolicyDocument.objects.create(
             policy=policy,

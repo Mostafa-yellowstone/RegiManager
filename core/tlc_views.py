@@ -481,6 +481,9 @@ def add_tlc_installment(request, policy_id):
             "notes": notes,
         },
     )
+    from .tlc_accounting import sync_installment_accounting
+
+    sync_installment_accounting(policy)
     _record_timeline(
         policy,
         TLCPolicyTimelineEvent.EventType.INSTALLMENT,
@@ -532,8 +535,9 @@ def add_tlc_reinstatement(request, policy_id):
         dmv_document_number=request.POST.get("dmv_document_number", "").strip(),
         notes=request.POST.get("notes", "").strip(),
     )
-    policy.status = TLCPolicy.Status.REINSTATED
-    policy.save(update_fields=["status", "updated_at"])
+    from .tlc_accounting import apply_reinstatement_accounting
+
+    apply_reinstatement_accounting(policy)
     _record_timeline(
         policy,
         TLCPolicyTimelineEvent.EventType.REINSTATEMENT,
@@ -554,27 +558,54 @@ def add_tlc_endorsement(request, policy_id):
         messages.error(request, "Permission denied.")
         return redirect("tlc-policy-detail", space_id=card.id, policy_id=policy.id)
 
-    premium_diff = _parse_decimal(request.POST.get("premium_difference"))
+    from .tlc_accounting import (
+        apply_endorsement_accounting,
+        format_endorsement_timeline_description,
+        prepare_endorsement_amounts,
+    )
+
     coverage_date = _parse_date(request.POST.get("coverage_change_date"))
     endorsement_type = request.POST.get("endorsement_type", TLCEndorsement.EndorsementType.OTHER)
+    notes = request.POST.get("notes", "").strip()
+    new_written_raw = request.POST.get("new_written_premium", "").strip()
+    premium_diff_raw = request.POST.get("premium_difference", "").strip()
+    amounts = prepare_endorsement_amounts(
+        policy,
+        new_written_premium=_parse_decimal(new_written_raw) if new_written_raw else None,
+        premium_difference=_parse_decimal(premium_diff_raw) if premium_diff_raw else None,
+        endorsement_fee=_parse_decimal(request.POST.get("endorsement_fee")),
+        commission_difference=_parse_decimal(request.POST.get("commission_difference")),
+    )
+    if not new_written_raw and not premium_diff_raw:
+        messages.error(
+            request,
+            "Enter the new written premium after this endorsement (or a premium adjustment).",
+        )
+        return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=endorsements")
+
     TLCEndorsement.objects.create(
         policy=policy,
         endorsement_type=endorsement_type,
-        premium_difference=premium_diff,
-        commission_difference=_parse_decimal(request.POST.get("commission_difference")),
+        premium_difference=amounts["premium_difference"],
+        written_premium_before=amounts["written_premium_before"],
+        written_premium_after=amounts["written_premium_after"],
+        endorsement_fee=amounts["endorsement_fee"],
+        commission_difference=amounts["commission_difference"],
         coverage_change_date=coverage_date,
         processed_by=request.user,
-        notes=request.POST.get("notes", "").strip(),
+        notes=notes,
     )
-    policy.endorsement_balance += premium_diff
-    policy.save(update_fields=["endorsement_balance", "updated_at"])
+    apply_endorsement_accounting(policy)
+    type_label = dict(TLCEndorsement.EndorsementType.choices).get(endorsement_type, endorsement_type)
+    diff = amounts["premium_difference"]
+    direction = "increased" if diff > 0 else "decreased" if diff < 0 else "unchanged"
     _record_timeline(
         policy,
         TLCPolicyTimelineEvent.EventType.ENDORSEMENT,
-        f"{dict(TLCEndorsement.EndorsementType.choices).get(endorsement_type, endorsement_type)}: {_money_label(premium_diff)} premium adjustment",
+        f"{type_label}: written premium {direction} to ${amounts['written_premium_after']:,.2f}",
         event_date=coverage_date,
         user=request.user,
-        description=request.POST.get("notes", "").strip(),
+        description=format_endorsement_timeline_description(amounts, notes=notes),
     )
     messages.success(request, "Endorsement saved.")
     return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=endorsements")
@@ -600,6 +631,17 @@ def record_tlc_cancellation(request, policy_id):
         messages.error(request, "Please enter a custom cancellation note.")
         return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=overview")
 
+    from .tlc_accounting import (
+        apply_cancellation_accounting,
+        calculate_tlc_return_premium,
+        calculate_tlc_unearned_commission,
+        policy_commission_earned,
+    )
+
+    unearned_commission = calculate_tlc_unearned_commission(policy, cancellation_date)
+    return_premium = calculate_tlc_return_premium(policy, cancellation_date)
+    earned_commission_at_cancel = policy_commission_earned(policy)
+
     TLCPolicyCancellation.objects.create(
         policy=policy,
         cancellation_date=cancellation_date,
@@ -610,9 +652,11 @@ def record_tlc_cancellation(request, policy_id):
         successor_policy_number=request.POST.get("successor_policy_number", "").strip(),
         successor_effective_date=_parse_date(request.POST.get("successor_effective_date")),
         recorded_by=request.user,
+        unearned_commission=unearned_commission,
+        return_premium=return_premium,
+        earned_commission_at_cancel=earned_commission_at_cancel,
     )
-    policy.status = TLCPolicy.Status.CANCELLED
-    policy.save(update_fields=["status", "updated_at"])
+    apply_cancellation_accounting(policy, cancellation_date)
     _record_timeline(
         policy,
         TLCPolicyTimelineEvent.EventType.CANCELLATION,
@@ -622,6 +666,11 @@ def record_tlc_cancellation(request, policy_id):
         description=custom_note,
     )
     messages.success(request, "Cancellation recorded on policy profile.")
+    if unearned_commission > 0:
+        messages.info(
+            request,
+            f"Unearned commission chargeback recorded: ${_money_label(unearned_commission)}.",
+        )
     return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=overview")
 
 

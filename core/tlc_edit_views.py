@@ -54,9 +54,9 @@ def _sync_policy_remitted_total(policy: TLCPolicy) -> None:
 
 
 def _sync_endorsement_balance(policy: TLCPolicy) -> None:
-    total = sum(_parse_decimal(row.premium_difference) for row in policy.endorsements.all())
-    policy.endorsement_balance = total
-    policy.save(update_fields=["endorsement_balance", "updated_at"])
+    from .tlc_accounting import apply_endorsement_accounting
+
+    apply_endorsement_accounting(policy)
 
 
 @login_required
@@ -119,6 +119,10 @@ def edit_tlc_policy(request, policy_id):
     if not policy.commission_rate:
         apply_commission_rule_to_policy(policy, save=False)
     policy.save()
+    from .tlc_accounting import apply_endorsement_accounting, sync_policy_commission_amount
+
+    sync_policy_commission_amount(policy)
+    policy.save(update_fields=["carrier_commission_amount", "updated_at"])
     messages.success(request, "Policy updated.")
     return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=overview")
 
@@ -153,6 +157,9 @@ def edit_tlc_installment(request, installment_id):
     )
     installment.notes = notes
     installment.save()
+    from .tlc_accounting import sync_installment_accounting
+
+    sync_installment_accounting(policy)
     messages.success(request, "Installment updated.")
     return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=installments")
 
@@ -173,6 +180,9 @@ def edit_tlc_reinstatement(request, reinstatement_id):
     row.dmv_document_number = request.POST.get("dmv_document_number", "").strip()
     row.notes = request.POST.get("notes", "").strip()
     row.save()
+    from .tlc_accounting import apply_reinstatement_accounting
+
+    apply_reinstatement_accounting(policy)
     messages.success(request, "Reinstatement updated.")
     return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=reinstatements")
 
@@ -186,9 +196,24 @@ def edit_tlc_endorsement(request, endorsement_id):
     if not (is_owner or (membership and membership.can_deal_with_tlc)):
         return _deny_manage(request, card, membership, is_owner, policy_id=policy.id, tab="endorsements")
 
+    from .tlc_accounting import prepare_endorsement_amounts
+
+    new_written_raw = request.POST.get("new_written_premium", "").strip()
+    premium_diff_raw = request.POST.get("premium_difference", "").strip()
+    amounts = prepare_endorsement_amounts(
+        policy,
+        new_written_premium=_parse_decimal(new_written_raw) if new_written_raw else None,
+        premium_difference=_parse_decimal(premium_diff_raw) if premium_diff_raw else None,
+        endorsement_fee=_parse_decimal(request.POST.get("endorsement_fee")),
+        commission_difference=_parse_decimal(request.POST.get("commission_difference")),
+        exclude_endorsement_id=row.id,
+    )
     row.endorsement_type = request.POST.get("endorsement_type", row.endorsement_type)
-    row.premium_difference = _parse_decimal(request.POST.get("premium_difference"))
-    row.commission_difference = _parse_decimal(request.POST.get("commission_difference"))
+    row.premium_difference = amounts["premium_difference"]
+    row.written_premium_before = amounts["written_premium_before"]
+    row.written_premium_after = amounts["written_premium_after"]
+    row.endorsement_fee = amounts["endorsement_fee"]
+    row.commission_difference = amounts["commission_difference"]
     row.coverage_change_date = _parse_date(request.POST.get("coverage_change_date"))
     row.notes = request.POST.get("notes", "").strip()
     row.save()

@@ -80,7 +80,15 @@ class TLCReinstatementAdmin(admin.ModelAdmin):
 
 @admin.register(TLCEndorsement)
 class TLCEndorsementAdmin(admin.ModelAdmin):
-    list_display = ("policy", "endorsement_type", "premium_difference", "coverage_change_date")
+    list_display = (
+        "policy",
+        "endorsement_type",
+        "written_premium_before",
+        "written_premium_after",
+        "premium_difference",
+        "endorsement_fee",
+        "coverage_change_date",
+    )
 
 
 @admin.register(TLCDMVService)
@@ -95,7 +103,14 @@ class TLCCarrierRemittanceAdmin(admin.ModelAdmin):
 
 @admin.register(TLCPolicyCancellation)
 class TLCPolicyCancellationAdmin(admin.ModelAdmin):
-    list_display = ("policy", "cancellation_date", "reason", "successor_policy_number")
+    list_display = (
+        "policy",
+        "cancellation_date",
+        "reason",
+        "unearned_commission",
+        "return_premium",
+        "successor_policy_number",
+    )
 
 
 @admin.register(TLCPolicyDocument)

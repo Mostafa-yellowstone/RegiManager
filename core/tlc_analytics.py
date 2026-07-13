@@ -33,8 +33,9 @@ def build_receivables_aging(space, *, today: date | None = None) -> dict:
     for policy in policies:
         policy_has_balance = False
         for inst in policy.installments.filter(is_paid=False):
-            amount = _d(inst.balance or inst.amount) + _d(inst.installment_fee)
-            if amount <= ZERO:
+            amount = _d(inst.balance if inst.balance is not None else inst.total_due)
+            if amount <= ZERO and inst.total_due > ZERO:
+                amount = _d(inst.total_due)
                 continue
             policy_has_balance = True
             total_outstanding += amount
