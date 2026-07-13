@@ -26,7 +26,7 @@ from .tlc_models import (
 ZERO = Decimal("0.00")
 DEFAULT_INSTALLMENT_FEE = Decimal("5.00")
 _CITY_STATE_ZIP = re.compile(
-    r"^[A-Z0-9 .'-]+(?:,\s*[A-Z]{2}|[A-Z]{2})\s+\d{5}(?:-\d{4})?$",
+    r"^[A-Z0-9 .'#-]+(?:,\s*(?:[A-Z]{2}|[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*))\s+\d{5}(?:-\d{4})?$",
     re.I,
 )
 _DATE_MDY = re.compile(r"(\d{2}/\d{2}/\d{4})")
@@ -65,6 +65,15 @@ _MAYA_PAYMENT_ROW = re.compile(
     r"\$?\s*([\d,]+\.\d{2})\s+"
     r"\$?\s*([\d,]+\.\d{2})\s+"
     r"\$?\s*([\d,]+\.\d{2})",
+    re.M | re.I,
+)
+_HIC_PAYMENT_ROW = re.compile(
+    r"^(Deposit|\d+)\s+"
+    r"(\d{2}/\d{2}/\d{4})\s+"
+    r"\$?\s*([\d,]+\.\d{2})\s+"
+    r"\$?\s*([\d,]+\.\d{2})\s+"
+    r"\$?\s*([\d,]+\.\d{2})\s+"
+    r"\$?\s*([\d,]+\.\d{2})\s*$",
     re.M | re.I,
 )
 _INSURED_BROKER_STOP_MARKERS = (
@@ -176,6 +185,15 @@ def _first_match(pattern: str, text: str, flags: int = 0) -> str:
     return match.group(1).strip() if match else ""
 
 
+def _parse_policy_number(text: str) -> str:
+    return (
+        _first_match(r"Policy Number:\s*(\S+)", text, re.I)
+        or _first_match(r"Policy Number\s+(\S+)", text, re.I)
+        or _first_match(r"Policy No\s*:\s*(\S+)", text, re.I)
+        or _first_match(r"(\S+?)POLICY NO\.?", text, re.I)
+    )
+
+
 def _is_insured_broker_stop(line: str) -> bool:
     upper = line.upper()
     return any(upper.startswith(marker) or marker in upper for marker in _INSURED_BROKER_STOP_MARKERS)
@@ -263,7 +281,7 @@ def _parse_policy_period(text: str, result: ParsedDecPage) -> None:
     if result.effective_date and result.expiration_date:
         return
     period = re.search(
-        r"POLICY PERIOD Effective\s+(\d{2}/\d{2}/\d{4}).*?Expires\s*:\s*(\d{2}/\d{2}/\d{4})",
+        r"POLICY PERIOD Effective\s*(\d{2}/\d{2}/\d{4}).*?Expires\s*:\s*(\d{2}/\d{2}/\d{4})",
         text,
         re.I | re.S,
     )
@@ -294,6 +312,16 @@ def _parse_premium_amounts(text: str, result: ParsedDecPage) -> None:
     annual = re.search(r"Annual Premium\s+\$?\s*([\d,]+\.\d{2})", text, re.I)
     if annual:
         result.annual_premium = _parse_money(annual.group(1))
+
+    amended_hic = re.search(
+        r"Amended Premium\s+\$?\s*([\d,]+\.\d{2})\s+Premium\s+\$?\s*([\d,]+\.\d{2})",
+        text,
+        re.I,
+    )
+    if amended_hic:
+        result.amended_total = _parse_money(amended_hic.group(1))
+        if not result.annual_premium:
+            result.annual_premium = _parse_money(amended_hic.group(2))
 
     amended_row = re.search(
         r"EFFECTIVE DATE.*?AMENDED ANNUAL PREMIUM\s*"
@@ -330,6 +358,10 @@ def _parse_premium_amounts(text: str, result: ParsedDecPage) -> None:
         down = re.search(r"DOWN PAYMENT\s*\n\$?\s*([\d,]+\.\d{2})", text, re.I)
         if down:
             result.down_payment = _parse_money(down.group(1))
+        elif not result.down_payment:
+            down_same_line = re.search(r"DOWN PAYMENT\s+\$?\s*([\d,]+\.\d{2})", text, re.I)
+            if down_same_line:
+                result.down_payment = _parse_money(down_same_line.group(1))
 
 
 def _parse_vehicles(text: str, result: ParsedDecPage) -> None:
@@ -561,6 +593,83 @@ def parse_maya_assurance_dec_text(text: str) -> ParsedDecPage:
     return result
 
 
+def _normalize_hic_payment_label(label: str) -> str:
+    cleaned = label.strip().upper()
+    if cleaned == "DEPOSIT":
+        return "DEPOSIT"
+    if cleaned.isdigit():
+        return f"BILL # {cleaned}"
+    return cleaned
+
+
+def _parse_hic_payment_schedule(text: str, result: ParsedDecPage) -> None:
+    installment_fee = ZERO
+    for match in _HIC_PAYMENT_ROW.finditer(text):
+        due = _parse_date(match.group(2))
+        premium = _parse_money(match.group(3))
+        fee = _parse_money(match.group(5))
+        bill_amount = _parse_money(match.group(6))
+        if not due or bill_amount <= ZERO:
+            continue
+        label = _normalize_hic_payment_label(match.group(1))
+        result.payments.append(
+            DecPayment(label=label, due_date=due, amount=bill_amount, fee=fee)
+        )
+        if label == "DEPOSIT":
+            result.deposit_amount = bill_amount
+            result.down_payment = premium
+        elif installment_fee <= ZERO and fee > ZERO:
+            installment_fee = fee
+
+    if installment_fee > ZERO:
+        result.installment_fee = installment_fee
+
+    bills = [payment for payment in result.payments if payment.label != "DEPOSIT"]
+    if bills:
+        result.monthly_installment = bills[0].amount
+
+
+def parse_hereford_dec_text(text: str) -> ParsedDecPage:
+    """Parse Hereford Insurance (HIC) NY commercial auto declaration pages."""
+    result = ParsedDecPage()
+    normalized = text.replace("\r\n", "\n")
+
+    carrier_match = re.search(r"(HEREFORD INSURANCE COMPANY)", normalized, re.I)
+    if carrier_match:
+        result.carrier = carrier_match.group(1).strip()
+
+    result.policy_number = _parse_policy_number(normalized)
+    _parse_policy_period(normalized, result)
+    result.issue_date = result.effective_date
+    _parse_insured_and_broker(normalized, result)
+    _parse_premium_amounts(normalized, result)
+    _parse_vehicles(normalized, result)
+    _parse_drivers(normalized, result)
+    _parse_hic_payment_schedule(normalized, result)
+
+    reinstate = re.search(
+        r"fee of \$(\d+)\s+per day",
+        normalized,
+        re.I,
+    )
+    if reinstate:
+        result.reinstatement_fee = Decimal(reinstate.group(1)).quantize(Decimal("0.01"))
+
+    if not result.policy_number:
+        raise DecPageParseError("Could not find a policy number on this declaration page.")
+
+    if not result.named_insured and not result.vehicles:
+        raise DecPageParseError(
+            "Could not extract insured or vehicle data — this may not be a supported dec page format."
+        )
+
+    if not result.amended_total and result.annual_premium:
+        result.amended_total = result.annual_premium
+        result.parse_warnings.append("Amended total not found; using annual premium.")
+
+    return result
+
+
 def parse_american_transit_dec_text(text: str) -> ParsedDecPage:
     """Parse American Transit NY declaration page text (single-car or multicar)."""
     result = ParsedDecPage()
@@ -577,9 +686,7 @@ def parse_american_transit_dec_text(text: str) -> ParsedDecPage:
         result.carrier = carrier_match.group(1).strip()
         result.carrier_code = carrier_match.group(2) or ""
 
-    result.policy_number = _first_match(r"Policy Number\s+(\S+)", normalized, re.I) or _first_match(
-        r"Policy No[.:]\s*(\S+)", normalized, re.I
-    )
+    result.policy_number = _parse_policy_number(normalized)
     result.issue_date = _parse_date(
         _first_match(r"Issue Date\s*:\s*(\d{2}/\d{2}/\d{4})", normalized, re.I)
         or _first_match(r"DATE OF ISSUE\s+(\d{2}/\d{2}/\d{4})", normalized, re.I)
@@ -658,7 +765,9 @@ def parse_tlc_dec_page(file_obj: BinaryIO) -> ParsedDecPage:
         return parse_american_transit_dec_text(text)
     if "MAYA ASSURANCE" in upper:
         return parse_maya_assurance_dec_text(text)
-    if _first_match(r"Policy Number\s+(\S+)", text) or _first_match(r"Policy No[.:]\s*(\S+)", text):
+    if "HEREFORD" in upper or "HIC- DEC" in upper or "HIC-ALI" in upper:
+        return parse_hereford_dec_text(text)
+    if _parse_policy_number(text):
         result = parse_american_transit_dec_text(text)
         result.parse_warnings.append("Carrier not recognized; used American Transit parser.")
         return result
@@ -667,7 +776,8 @@ def parse_tlc_dec_page(file_obj: BinaryIO) -> ParsedDecPage:
         result.parse_warnings.append("Carrier not recognized; used Maya Assurance parser.")
         return result
     raise DecPageParseError(
-        "Unsupported declaration page format. Currently supported: American Transit (ATIC), Maya Assurance."
+        "Unsupported declaration page format. Currently supported: American Transit (ATIC), "
+        "Maya Assurance, Hereford Insurance (HIC)."
     )
 
 

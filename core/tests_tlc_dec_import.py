@@ -14,6 +14,7 @@ from core.tlc_dec_import import (
     DecPageParseError,
     apply_parsed_dec_to_policy,
     parse_american_transit_dec_text,
+    parse_hereford_dec_text,
     parse_maya_assurance_dec_text,
     parse_tlc_dec_page,
 )
@@ -153,7 +154,64 @@ to comply with this installment Payment Endorsement.
 """
 
 
+SAMPLE_HIC_DEC = """
+HEREFORD INSURANCE COMPANY
+36 – 01 43RD AVENUE, 2nd FLOOR
+LONG ISLAND CITY, NY 11101
+COMMERCIAL AUTOMOBILE INSURANCE.
+NAMED INSURED AND ADDRESS PRODUCERS NAME AND ADDRESS
+PEDRO T TAVERASCABREJA
+2409 CRESTON AVE #44
+Bronx, New York 10468
+PEARLAND BROKERAGE INC
+36-01 43rd Avenue
+Long Island City, New York 11101
+POLICY PERIOD Effective03/24/2026 (12:01 AM) - Expires : 03/24/2027 (12:01 AM)
+CASE MODEL YEAR MAKE IDENTIFICATION NUMBER CLASS TERR UNIT # PLATE #
+1 2025 VOLKSWAGEN 1V2HR2CA8SC530919
+DRIVER 1. PEDRO T TAVERASCABREJA DRIVER 2.
+Amended Premium $4,610.00 Premium $4,610.00
+Annual Premium $4,610.00
+DOWN PAYMENT $1,150.06
+PCA1386002-0POLICY NO.
+Policy Number: PCA1386002-0
+PAYMENT SCHEDULE
+Deposit 03/24/2026 $1,150.06 $0.00 $0.00 $1,150.06
+1 04/24/2026 $383.46 $0.00 $20.00 $403.46
+2 05/24/2026 $383.31 $0.00 $20.00 $403.31
+3 06/24/2026 $383.31 $0.00 $20.00 $403.31
+Reinstatements for cancelled policies are subject to approval by the Company. If approved, a fee of $15 per day,
+beginning on the effective cancellation date, until the payment date shall be charged.
+"""
+
+
 class TLCDecImportParserTests(TestCase):
+    def test_parse_hereford_sample(self):
+        parsed = parse_hereford_dec_text(SAMPLE_HIC_DEC)
+        self.assertEqual(parsed.policy_number, "PCA1386002-0")
+        self.assertEqual(parsed.carrier, "HEREFORD INSURANCE COMPANY")
+        self.assertEqual(parsed.named_insured, "PEDRO T TAVERASCABREJA")
+        self.assertIn("2409 CRESTON AVE #44", parsed.insured_address)
+        self.assertIn("Bronx, New York 10468", parsed.insured_address)
+        self.assertEqual(parsed.broker_name, "PEARLAND BROKERAGE INC")
+        self.assertIn("Long Island City, New York 11101", parsed.broker_address)
+        self.assertEqual(parsed.effective_date.isoformat(), "2026-03-24")
+        self.assertEqual(parsed.expiration_date.isoformat(), "2027-03-24")
+        self.assertEqual(parsed.annual_premium, Decimal("4610.00"))
+        self.assertEqual(parsed.amended_total, Decimal("4610.00"))
+        self.assertEqual(parsed.down_payment, Decimal("1150.06"))
+        self.assertEqual(parsed.installment_fee, Decimal("20.00"))
+        self.assertEqual(len(parsed.vehicles), 1)
+        self.assertEqual(parsed.vehicles[0].vin, "1V2HR2CA8SC530919")
+        self.assertEqual(len(parsed.drivers), 1)
+        self.assertEqual(parsed.drivers[0].name, "Pedro T Taverascabreja")
+        self.assertEqual(len(parsed.payments), 4)
+        self.assertEqual(parsed.payments[0].label, "DEPOSIT")
+        self.assertEqual(parsed.payments[0].amount, Decimal("1150.06"))
+        self.assertEqual(parsed.payments[1].label, "BILL # 1")
+        self.assertEqual(parsed.payments[1].amount, Decimal("403.46"))
+        self.assertEqual(parsed.payments[1].fee, Decimal("20.00"))
+
     def test_parse_maya_assurance_sample(self):
         parsed = parse_maya_assurance_dec_text(SAMPLE_MAYA_DEC)
         self.assertEqual(parsed.policy_number, "5-MA000499")
@@ -237,6 +295,17 @@ class TLCDecImportParserTests(TestCase):
         self.assertEqual(bill.installment_fee, Decimal("5.00"))
         self.assertEqual(bill.amount, Decimal("1632.90"))
         self.assertEqual(bill.balance, Decimal("1637.90"))
+
+    def test_parse_real_hereford_pdf_when_available(self):
+        pdf_path = Path(r"c:\Users\mcc\Downloads\PCA1386002_-_DEC.pdf")
+        if not pdf_path.exists():
+            self.skipTest("Hereford dec PDF not on disk")
+        with pdf_path.open("rb") as handle:
+            parsed = parse_tlc_dec_page(handle)
+        self.assertEqual(parsed.policy_number, "PCA1386002-0")
+        self.assertEqual(parsed.broker_name, "PEARLAND BROKERAGE INC")
+        self.assertEqual(len(parsed.vehicles), 1)
+        self.assertEqual(len(parsed.payments), 10)
 
     def test_parse_real_maya_pdf_when_available(self):
         pdf_path = Path(r"c:\Users\mcc\Downloads\DEC_COL_5-MA000499_20250924000001855.pdf")
