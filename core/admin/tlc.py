@@ -1,9 +1,11 @@
 from django.contrib import admin
 
 from ..tlc_models import (
+    TLCCarrier,
     TLCCarrierRemittance,
     TLCDMVService,
     TLCEndorsement,
+    TLCFinanceCompany,
     TLCInstallment,
     TLCPolicy,
     TLCPolicyCancellation,
@@ -45,6 +47,30 @@ class TLCPolicyAdmin(admin.ModelAdmin):
         "tlc_base_number",
     )
     inlines = [TLCPremiumBreakdownInline, TLCInstallmentInline]
+
+
+@admin.register(TLCCarrier)
+class TLCCarrierAdmin(admin.ModelAdmin):
+    list_display = ("name", "organization", "is_active", "created_at")
+    list_filter = ("organization", "is_active")
+    search_fields = ("name", "organization__name")
+    ordering = ("organization", "name")
+
+
+@admin.register(TLCFinanceCompany)
+class TLCFinanceCompanyAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "organization",
+        "contact_phone",
+        "contact_email",
+        "default_installment_fee",
+        "is_active",
+        "created_at",
+    )
+    list_filter = ("organization", "is_active")
+    search_fields = ("name", "contact_phone", "contact_email", "organization__name")
+    ordering = ("organization", "name")
 
 
 @admin.register(TLCReinstatement)

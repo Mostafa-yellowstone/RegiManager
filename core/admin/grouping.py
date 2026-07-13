@@ -65,6 +65,21 @@ CORE_ADMIN_GROUPS = (
             "MotorclubMembership",
         ),
     ),
+    (
+        "TLC",
+        (
+            "TLCPolicy",
+            "TLCCarrier",
+            "TLCFinanceCompany",
+            "TLCPolicyCancellation",
+            "TLCReinstatement",
+            "TLCEndorsement",
+            "TLCDMVService",
+            "TLCCarrierRemittance",
+            "TLCPolicyDocument",
+            "TLCPolicyTimelineEvent",
+        ),
+    ),
 )
 
 CORE_GROUP_ORDER = {name: index for index, (name, _) in enumerate(CORE_ADMIN_GROUPS)}

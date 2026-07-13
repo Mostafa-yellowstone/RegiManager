@@ -588,6 +588,8 @@ class TLCCarrier(models.Model):
     class Meta:
         ordering = ["name"]
         unique_together = ("organization", "name")
+        verbose_name = "TLC carrier"
+        verbose_name_plural = "TLC carriers"
 
     def __str__(self):
         return self.name
@@ -611,6 +613,8 @@ class TLCFinanceCompany(models.Model):
     class Meta:
         ordering = ["name"]
         unique_together = ("organization", "name")
+        verbose_name = "TLC finance company"
+        verbose_name_plural = "TLC finance companies"
 
     def __str__(self):
         return self.name
