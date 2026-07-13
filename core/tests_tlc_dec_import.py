@@ -20,6 +20,30 @@ from core.tlc_models import TLCPolicy, TLCPolicyDocument
 
 User = get_user_model()
 
+SAMPLE_ATIC_SINGLE_CAR_DEC = """
+AMERICAN TRANSIT INSURANCE COMPANY (036)
+DECLARATION AUTOMOBILE INSURANCE
+Policy Number B513377
+DATE OF ISSUE 02/26/2026
+        (                        NAMED INSURED AND ADDRESS                               )                                                            (                PRODUCERS NAME AND ADDRESS                     )
+TRAORE,YAYA
+137 W 141ST 10
+NEW YORK, NY 10030
+GM BROKERAGE OF ROCKLAND, INC
+2255 GRAND CONCOURSE, STORE # 9
+BRONX, NY 10453
+POLICY PERIOD 03/01/2026 12:01 AM - 03/01/2027 12:01 AM
+GARAGE ADDRESS
+CAR MODEL YEAR TRADE NAME IDENTIFICATION NUMBER CLASS TERR MEDALLION # PLATE #
+TOYOTA 2013 TOYOTA 2T3RFREV8DW086061 BC 18 T685180C
+DRIVER 1. YAYA TRAORE DRIVER 4.
+PREMIUMS(ALL PREMIUMS SHOWN ARE FULL POLICY PREMIUMS)
+EFFECTIVE DATE PR/SR AMENDED ANNUAL PREMIUM
+03/01/2026 1.00 $4,960.99 $4,960.99
+DOWN PAYMENT $1310.25 *MONTHLY PREMIUM THEREAFTER $433.25
+"""
+
+
 SAMPLE_ATIC_DEC = """
 AMERICAN TRANSIT INSURANCE COMPANY (036)
 DECLARATION AUTOMOBILE INSURANCE
@@ -64,6 +88,28 @@ to comply with this installment Payment Endorsement.
 
 
 class TLCDecImportParserTests(TestCase):
+    def test_parse_american_transit_single_car_sample(self):
+        parsed = parse_american_transit_dec_text(SAMPLE_ATIC_SINGLE_CAR_DEC)
+        self.assertEqual(parsed.policy_number, "B513377")
+        self.assertEqual(parsed.named_insured, "TRAORE, YAYA")
+        self.assertIn("137 W 141ST 10", parsed.insured_address)
+        self.assertIn("NEW YORK, NY 10030", parsed.insured_address)
+        self.assertNotIn("GM BROKERAGE", parsed.insured_address)
+        self.assertEqual(parsed.broker_name, "GM BROKERAGE OF ROCKLAND, INC")
+        self.assertIn("BRONX, NY 10453", parsed.broker_address)
+        self.assertEqual(parsed.effective_date.isoformat(), "2026-03-01")
+        self.assertEqual(parsed.amended_total, Decimal("4960.99"))
+        self.assertEqual(parsed.down_payment, Decimal("1310.25"))
+        self.assertEqual(parsed.monthly_installment, Decimal("433.25"))
+        self.assertEqual(len(parsed.vehicles), 1)
+        self.assertEqual(parsed.vehicles[0].vin, "2T3RFREV8DW086061")
+        self.assertEqual(parsed.vehicles[0].plate, "T685180C")
+        self.assertEqual(len(parsed.drivers), 1)
+        self.assertEqual(parsed.drivers[0].name, "Yaya Traore")
+        self.assertEqual(len(parsed.payments), 10)
+        self.assertEqual(parsed.payments[0].label, "DEPOSIT")
+        self.assertEqual(parsed.payments[-1].amount, Decimal("184.74"))
+
     def test_parse_american_transit_sample(self):
         parsed = parse_american_transit_dec_text(SAMPLE_ATIC_DEC)
         self.assertEqual(parsed.policy_number, "TNC000474")
@@ -101,6 +147,17 @@ class TLCDecImportParserTests(TestCase):
         self.assertEqual(bill.installment_fee, Decimal("5.00"))
         self.assertEqual(bill.amount, Decimal("1632.90"))
         self.assertEqual(bill.balance, Decimal("1637.90"))
+
+    def test_parse_real_single_car_pdf_when_available(self):
+        pdf_path = Path(r"c:\Users\mcc\Downloads\yaya+dec+2026.pdf")
+        if not pdf_path.exists():
+            self.skipTest("Single-car dec PDF not on disk")
+        with pdf_path.open("rb") as handle:
+            parsed = parse_tlc_dec_page(handle)
+        self.assertEqual(parsed.policy_number, "B513377")
+        self.assertEqual(parsed.broker_name, "GM BROKERAGE OF ROCKLAND, INC")
+        self.assertEqual(len(parsed.vehicles), 1)
+        self.assertGreaterEqual(len(parsed.payments), 9)
 
     def test_parse_real_pdf_when_available(self):
         pdf_path = Path(r"c:\Users\mcc\Downloads\NEW+DECPAGE1753732091.pdf")

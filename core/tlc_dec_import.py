@@ -25,7 +25,10 @@ from .tlc_models import (
 
 ZERO = Decimal("0.00")
 DEFAULT_INSTALLMENT_FEE = Decimal("5.00")
-_CITY_STATE_ZIP = re.compile(r"^[A-Z0-9 .'-]+[A-Z]{2}\s+\d{5}(?:-\d{4})?$", re.I)
+_CITY_STATE_ZIP = re.compile(
+    r"^[A-Z0-9 .'-]+(?:,\s*[A-Z]{2}|[A-Z]{2})\s+\d{5}(?:-\d{4})?$",
+    re.I,
+)
 _DATE_MDY = re.compile(r"(\d{2}/\d{2}/\d{4})")
 _MONEY = re.compile(r"\$?\s*([\d,]+\.\d{2})")
 _VIN = re.compile(r"\b([A-HJ-NPR-Z0-9]{17})\b")
@@ -33,13 +36,37 @@ _VEHICLE_ROW = re.compile(
     r"^\s*(\d+)\s+(\d{4})\s+([A-Z][A-Z0-9-]*)\s+([A-HJ-NPR-Z0-9]{17})\s",
     re.M,
 )
+_SINGLE_CAR_VEHICLE_ROW = re.compile(
+    r"^([A-Z][A-Z0-9-]*)\s+(\d{4})\s+([A-Z0-9-]+)\s+([A-HJ-NPR-Z0-9]{17})(?:\s+\S+\s+\d+\s+(\S+))?",
+    re.M,
+)
 _DRIVER_ROW = re.compile(
     r"^([A-Z][A-Z'-]+,[A-Z][A-Z\s'-]+?)\s+(\d{2}/\d{2}/\d{4})\s+(\d{2}/\d{2}/\d{4})",
+    re.M,
+)
+_SINGLE_CAR_DRIVER_ROW = re.compile(
+    r"DRIVER\s+(\d+)\.\s+([A-Z][A-Z\s'-]+?)(?=\s+DRIVER\s+\d+\.|\s*$)",
     re.M,
 )
 _PAYMENT_ROW = re.compile(
     r"^(DEPOSIT|Bill\s*#\s*\d+)\s+(\d{2}/\d{2}/\d{4})\s+\$?\s*([\d,]+\.\d{2})",
     re.M | re.I,
+)
+_INSURED_BROKER_STOP_MARKERS = (
+    "POLICY PERIOD",
+    "GARAGE ADDRESS",
+    "CAR MODEL YEAR",
+    "PREMIUMS(",
+    "SCHEDULE #",
+    "REGISTERED OWNED",
+    "COVERAGES SYMBOL",
+    "BODILY INJURY",
+    "DOWN PAYMENT",
+    "EFFECTIVE DATE PR/SR",
+    "ANNUAL PREMIUM",
+    "FORM OF BUSINESS",
+    "DRIVER 1.",
+    "DRIVER 1 ",
 )
 
 
@@ -49,6 +76,7 @@ class DecVehicle:
     year: int
     make: str
     vin: str
+    plate: str = ""
 
 
 @dataclass
@@ -86,6 +114,7 @@ class ParsedDecPage:
     drivers: list[DecDriver] = field(default_factory=list)
     payments: list[DecPayment] = field(default_factory=list)
     installment_fee: Decimal = ZERO
+    monthly_installment: Decimal = ZERO
     carrier_code: str = ""
     parse_warnings: list[str] = field(default_factory=list)
 
@@ -131,30 +160,47 @@ def _first_match(pattern: str, text: str, flags: int = 0) -> str:
     return match.group(1).strip() if match else ""
 
 
+def _is_insured_broker_stop(line: str) -> bool:
+    upper = line.upper()
+    return any(upper.startswith(marker) or marker in upper for marker in _INSURED_BROKER_STOP_MARKERS)
+
+
+def _normalize_person_name(name: str) -> str:
+    cleaned = re.sub(r"\s+", " ", name.strip())
+    if "," in cleaned and ", " not in cleaned:
+        cleaned = cleaned.replace(",", ", ")
+    return cleaned
+
+
+def _is_header_junk_line(line: str) -> bool:
+    stripped = line.strip()
+    if not stripped or stripped in {"(", ")"}:
+        return True
+    compact = stripped.strip("() ").upper()
+    if not compact:
+        return True
+    return compact.startswith("PRODUCER") and "ADDRESS" in compact
+
+
 def _parse_insured_and_broker(text: str, result: ParsedDecPage) -> None:
     header = re.search(r"NAMED INSURED AND ADDRESS", text, re.I)
     if not header:
         issued = re.search(r"Issued to:\s*(.+?)(?:\n|Policy No)", text, re.I)
         if issued:
-            result.named_insured = issued.group(1).strip()
+            result.named_insured = _normalize_person_name(issued.group(1))
         return
 
-    lines = [line.strip() for line in text[header.end() :].splitlines() if line.strip()]
-    if lines and "PRODUCER" in lines[0].upper():
-        lines = lines[1:]
+    lines = [
+        line.strip()
+        for line in text[header.end() :].splitlines()
+        if line.strip() and not _is_header_junk_line(line.strip())
+    ]
 
     insured_lines: list[str] = []
     broker_lines: list[str] = []
     phase = "insured"
     for line in lines:
-        upper = line.upper()
-        if phase == "broker" and (
-            upper.startswith("ANNUAL PREMIUM")
-            or upper.startswith("SCHEDULE")
-            or upper.startswith("COVERAGES")
-            or upper.startswith("BODILY INJURY")
-            or upper.startswith("DOWN PAYMENT")
-        ):
+        if _is_insured_broker_stop(line):
             break
         if phase == "insured" and _CITY_STATE_ZIP.match(line):
             insured_lines.append(line)
@@ -166,13 +212,15 @@ def _parse_insured_and_broker(text: str, result: ParsedDecPage) -> None:
         broker_lines.append(line)
 
     if insured_lines:
-        result.named_insured = insured_lines[0]
+        result.named_insured = _normalize_person_name(insured_lines[0])
         if len(insured_lines) > 1:
             result.insured_address = ", ".join(insured_lines[1:])
     if broker_lines:
         name_parts: list[str] = []
         address_parts: list[str] = []
         for line in broker_lines:
+            if _is_insured_broker_stop(line):
+                break
             if _CITY_STATE_ZIP.match(line) or re.match(r"^\d", line):
                 address_parts.append(line)
             elif not address_parts:
@@ -195,8 +243,157 @@ def _parse_insured_and_broker(text: str, result: ParsedDecPage) -> None:
             )
 
 
+def _parse_policy_period(text: str, result: ParsedDecPage) -> None:
+    if result.effective_date and result.expiration_date:
+        return
+    period = re.search(
+        r"POLICY PERIOD Effective\s+(\d{2}/\d{2}/\d{4}).*?Expires\s*:\s*(\d{2}/\d{2}/\d{4})",
+        text,
+        re.I | re.S,
+    )
+    if period:
+        result.effective_date = _parse_date(period.group(1))
+        result.expiration_date = _parse_date(period.group(2))
+        return
+    single_period = re.search(
+        r"POLICY PERIOD\s+(\d{2}/\d{2}/\d{4}).*?-\s*(\d{2}/\d{2}/\d{4})",
+        text,
+        re.I | re.S,
+    )
+    if single_period:
+        result.effective_date = _parse_date(single_period.group(1))
+        result.expiration_date = _parse_date(single_period.group(2))
+        return
+    alt = re.search(
+        r"Effective\s*:(\d{2}/\d{2}/\d{4})\s*-\s*(\d{2}/\d{2}/\d{4})",
+        text,
+        re.I,
+    )
+    if alt:
+        result.effective_date = _parse_date(alt.group(1))
+        result.expiration_date = _parse_date(alt.group(2))
+
+
+def _parse_premium_amounts(text: str, result: ParsedDecPage) -> None:
+    annual = re.search(r"Annual Premium\s+\$?\s*([\d,]+\.\d{2})", text, re.I)
+    if annual:
+        result.annual_premium = _parse_money(annual.group(1))
+
+    amended_row = re.search(
+        r"EFFECTIVE DATE.*?AMENDED ANNUAL PREMIUM\s*"
+        r"(\d{2}/\d{2}/\d{4})\s+[\d.]+\s+\$?\s*([\d,]+\.\d{2})\s+\$?\s*([\d,]+\.\d{2})",
+        text,
+        re.I | re.S,
+    )
+    if amended_row:
+        if not result.effective_date:
+            result.effective_date = _parse_date(amended_row.group(1))
+        if not result.annual_premium:
+            result.annual_premium = _parse_money(amended_row.group(2))
+        result.amended_total = _parse_money(amended_row.group(3))
+
+    amended = re.search(
+        r"DOWN PAYMENT\s*\n\$?\s*[\d,]+\.\d{2}\s*\n\$?\s*([\d,]+\.\d{2})",
+        text,
+        re.I,
+    )
+    if not amended:
+        amended = re.search(r"\$?\s*([\d,]+\.\d{2})\s*\n\*\*AMENDED TOTAL", text, re.I)
+    if amended and not result.amended_total:
+        result.amended_total = _parse_money(amended.group(1))
+
+    down_inline = re.search(
+        r"DOWN PAYMENT\s+\$?\s*([\d,]+\.\d{2}).*?MONTHLY PREMIUM THEREAFTER\s+\$?\s*([\d,]+\.\d{2})",
+        text,
+        re.I | re.S,
+    )
+    if down_inline:
+        result.down_payment = _parse_money(down_inline.group(1))
+        result.monthly_installment = _parse_money(down_inline.group(2))
+    else:
+        down = re.search(r"DOWN PAYMENT\s*\n\$?\s*([\d,]+\.\d{2})", text, re.I)
+        if down:
+            result.down_payment = _parse_money(down.group(1))
+
+
+def _parse_vehicles(text: str, result: ParsedDecPage) -> None:
+    for match in _VEHICLE_ROW.finditer(text):
+        result.vehicles.append(
+            DecVehicle(
+                auto_number=int(match.group(1)),
+                year=int(match.group(2)),
+                make=match.group(3).title(),
+                vin=match.group(4),
+            )
+        )
+    if result.vehicles:
+        return
+    for index, match in enumerate(_SINGLE_CAR_VEHICLE_ROW.finditer(text), start=1):
+        result.vehicles.append(
+            DecVehicle(
+                auto_number=index,
+                year=int(match.group(2)),
+                make=match.group(1).title(),
+                vin=match.group(4),
+                plate=(match.group(5) or "").strip(),
+            )
+        )
+
+
+def _parse_drivers(text: str, result: ParsedDecPage) -> None:
+    for match in _DRIVER_ROW.finditer(text):
+        name = _normalize_person_name(match.group(1))
+        result.drivers.append(
+            DecDriver(
+                name=name,
+                effective_date=_parse_date(match.group(2)),
+                expiry_date=_parse_date(match.group(3)),
+            )
+        )
+    if result.drivers:
+        return
+    for match in _SINGLE_CAR_DRIVER_ROW.finditer(text):
+        name = re.sub(r"\s+", " ", match.group(2)).strip(" .")
+        if len(name) < 3:
+            continue
+        result.drivers.append(
+            DecDriver(
+                name=name.title(),
+                effective_date=result.effective_date,
+                expiry_date=result.expiration_date,
+            )
+        )
+
+
+def _append_synthesized_payments(result: ParsedDecPage) -> None:
+    if result.payments or not result.monthly_installment:
+        return
+    written = result.amended_total or result.annual_premium
+    down = result.down_payment
+    monthly = result.monthly_installment
+    if not result.effective_date or written <= ZERO or monthly <= ZERO:
+        return
+
+    from dateutil.relativedelta import relativedelta
+
+    if down > ZERO:
+        result.payments.append(DecPayment("DEPOSIT", result.effective_date, down))
+        result.deposit_amount = down
+    remaining = (written - down).quantize(Decimal("0.01"))
+    bill_num = 1
+    while remaining > ZERO and bill_num <= 24:
+        due = result.effective_date + relativedelta(months=bill_num)
+        amount = min(monthly, remaining)
+        result.payments.append(DecPayment(f"BILL # {bill_num}", due, amount))
+        remaining = (remaining - amount).quantize(Decimal("0.01"))
+        bill_num += 1
+    result.parse_warnings.append(
+        "Built payment schedule from down payment and monthly premium shown on the dec page."
+    )
+
+
 def parse_american_transit_dec_text(text: str) -> ParsedDecPage:
-    """Parse American Transit multicar NY declaration page text."""
+    """Parse American Transit NY declaration page text (single-car or multicar)."""
     result = ParsedDecPage()
     normalized = text.replace("\r\n", "\n")
 
@@ -211,28 +408,15 @@ def parse_american_transit_dec_text(text: str) -> ParsedDecPage:
         result.carrier = carrier_match.group(1).strip()
         result.carrier_code = carrier_match.group(2) or ""
 
-    result.policy_number = _first_match(r"Policy Number\s+(\S+)", normalized) or _first_match(
-        r"Policy No[.:]\s*(\S+)", normalized
+    result.policy_number = _first_match(r"Policy Number\s+(\S+)", normalized, re.I) or _first_match(
+        r"Policy No[.:]\s*(\S+)", normalized, re.I
     )
-    result.issue_date = _parse_date(_first_match(r"Issue Date\s*:\s*(\d{2}/\d{2}/\d{4})", normalized))
+    result.issue_date = _parse_date(
+        _first_match(r"Issue Date\s*:\s*(\d{2}/\d{2}/\d{4})", normalized, re.I)
+        or _first_match(r"DATE OF ISSUE\s+(\d{2}/\d{2}/\d{4})", normalized, re.I)
+    )
 
-    period = re.search(
-        r"POLICY PERIOD Effective\s+(\d{2}/\d{2}/\d{4}).*?Expires\s*:\s*(\d{2}/\d{2}/\d{4})",
-        normalized,
-        re.I | re.S,
-    )
-    if period:
-        result.effective_date = _parse_date(period.group(1))
-        result.expiration_date = _parse_date(period.group(2))
-    else:
-        alt = re.search(
-            r"Effective\s*:(\d{2}/\d{2}/\d{4})\s*-\s*(\d{2}/\d{2}/\d{4})",
-            normalized,
-            re.I,
-        )
-        if alt:
-            result.effective_date = _parse_date(alt.group(1))
-            result.expiration_date = _parse_date(alt.group(2))
+    _parse_policy_period(normalized, result)
 
     result.form_of_business = _first_match(
         r"Form Of Business\s+(.+?)(?:\n|Policy Number)", normalized, re.I | re.S
@@ -252,23 +436,7 @@ def parse_american_transit_dec_text(text: str) -> ParsedDecPage:
                 part.strip() for part in (broker.group(2), broker.group(3)) if part.strip()
             )
 
-    annual = re.search(r"Annual Premium\s+\$?\s*([\d,]+\.\d{2})", normalized, re.I)
-    if annual:
-        result.annual_premium = _parse_money(annual.group(1))
-
-    amended = re.search(
-        r"DOWN PAYMENT\s*\n\$?\s*[\d,]+\.\d{2}\s*\n\$?\s*([\d,]+\.\d{2})",
-        normalized,
-        re.I,
-    )
-    if not amended:
-        amended = re.search(r"\$?\s*([\d,]+\.\d{2})\s*\n\*\*AMENDED TOTAL", normalized, re.I)
-    if amended:
-        result.amended_total = _parse_money(amended.group(1))
-
-    down = re.search(r"DOWN PAYMENT\s*\n\$?\s*([\d,]+\.\d{2})", normalized, re.I)
-    if down:
-        result.down_payment = _parse_money(down.group(1))
+    _parse_premium_amounts(normalized, result)
 
     reinstate = re.search(
         r"\$\s*([\d,]+\.\d{2})\s+Reinstatement Fee",
@@ -278,25 +446,8 @@ def parse_american_transit_dec_text(text: str) -> ParsedDecPage:
     if reinstate:
         result.reinstatement_fee = _parse_money(reinstate.group(1))
 
-    for match in _VEHICLE_ROW.finditer(normalized):
-        result.vehicles.append(
-            DecVehicle(
-                auto_number=int(match.group(1)),
-                year=int(match.group(2)),
-                make=match.group(3).title(),
-                vin=match.group(4),
-            )
-        )
-
-    for match in _DRIVER_ROW.finditer(normalized):
-        name = match.group(1).replace(",", ", ").strip()
-        result.drivers.append(
-            DecDriver(
-                name=name,
-                effective_date=_parse_date(match.group(2)),
-                expiry_date=_parse_date(match.group(3)),
-            )
-        )
+    _parse_vehicles(normalized, result)
+    _parse_drivers(normalized, result)
 
     for match in _PAYMENT_ROW.finditer(normalized):
         due = _parse_date(match.group(2))
@@ -309,6 +460,8 @@ def parse_american_transit_dec_text(text: str) -> ParsedDecPage:
         deposit = next((p for p in result.payments if p.label == "DEPOSIT"), None)
         if deposit:
             result.deposit_amount = deposit.amount
+
+    _append_synthesized_payments(result)
 
     if not result.policy_number:
         raise DecPageParseError("Could not find a policy number on this declaration page.")
@@ -422,6 +575,8 @@ def apply_parsed_dec_to_policy(
         policy.business_name = parsed.named_insured
     if parsed.vehicles:
         policy.vin = parsed.vehicles[0].vin
+        if parsed.vehicles[0].plate:
+            policy.plate_number = parsed.vehicles[0].plate
     if parsed.drivers:
         policy.driver_name = parsed.drivers[0].name
 
@@ -435,6 +590,8 @@ def apply_parsed_dec_to_policy(
     if bills:
         breakdown.number_of_installments = len(bills)
         breakdown.monthly_installment = bills[0].amount
+    elif parsed.monthly_installment > ZERO:
+        breakdown.monthly_installment = parsed.monthly_installment
     breakdown.reinstatement_fee = parsed.reinstatement_fee or breakdown.reinstatement_fee
     per_installment_fee = _resolve_installment_fee(policy, parsed)
     breakdown.installment_fee = per_installment_fee
