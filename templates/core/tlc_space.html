@@ -5,10 +5,60 @@
 
 {% block portal_content %}
 <style>
-.tlc-tab-btn { padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: var(--portal-text-muted); margin-bottom: -2px; }
-.tlc-tab-btn.active { color: #0d9488 !important; border-bottom: 2px solid #14b8a6 !important; }
+.tlc-tab-nav {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  padding: 0.4rem;
+  margin-bottom: 1.25rem;
+  background: var(--portal-surface);
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  box-shadow: var(--portal-shadow-sm);
+  overflow-x: auto;
+}
+.tlc-tab-btn {
+  padding: 0.7rem 1.25rem;
+  border: none;
+  background: transparent;
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border-radius: 10px;
+  color: #1e293b;
+  margin-bottom: 0;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.tlc-tab-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.tlc-tab-btn.active {
+  color: #fff !important;
+  background: linear-gradient(135deg, #0f766e, #14b8a6) !important;
+  box-shadow: 0 2px 10px rgba(15, 118, 110, 0.35);
+  border-bottom: none !important;
+}
 .tlc-tab-panel { display: none; }
 .tlc-tab-panel.active { display: block; }
+html.portal-theme-dark .tlc-tab-nav {
+  background: var(--portal-surface-muted);
+  border-color: var(--portal-border-strong);
+}
+html.portal-theme-dark .tlc-tab-btn {
+  color: #cbd5e1;
+}
+html.portal-theme-dark .tlc-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+}
+html.portal-theme-dark .tlc-tab-btn.active {
+  color: #042f2e !important;
+  background: linear-gradient(135deg, #2dd4bf, #5eead4) !important;
+  box-shadow: 0 2px 12px rgba(45, 212, 191, 0.25);
+}
 .tlc-metric { background: var(--portal-surface); border-radius: 16px; padding: 1.25rem 1.5rem; border: 1px solid var(--portal-border); box-shadow: var(--portal-shadow-sm); }
 .tlc-metric-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--portal-text-muted); margin-bottom: 0.35rem; }
 .tlc-metric-value { font-size: 1.65rem; font-weight: 900; color: var(--portal-text); line-height: 1.1; }
@@ -55,7 +105,7 @@ html.portal-theme-dark .tlc-chip-active { background: rgba(20,184,166,0.2); colo
       </div>
     </div>
 
-    <div style="display:flex;gap:0;border-bottom:2px solid var(--portal-border);margin-bottom:1.75rem;flex-wrap:wrap;">
+    <nav class="tlc-tab-nav" aria-label="TLC space sections">
       <button type="button" class="tlc-tab-btn {% if active_tab == 'dashboard' %}active{% endif %}" onclick="tlcSwitchTab('dashboard', this)">📊 Dashboard</button>
       <button type="button" class="tlc-tab-btn {% if active_tab == 'policies' %}active{% endif %}" onclick="tlcSwitchTab('policies', this)">📋 Policies</button>
       <button type="button" class="tlc-tab-btn {% if active_tab == 'aging' %}active{% endif %}" onclick="tlcSwitchTab('aging', this)">⏳ Receivables</button>
@@ -63,7 +113,7 @@ html.portal-theme-dark .tlc-chip-active { background: rgba(20,184,166,0.2); colo
       <button type="button" class="tlc-tab-btn {% if active_tab == 'commission_rules' %}active{% endif %}" onclick="tlcSwitchTab('commission_rules', this)">📐 Commission Rules</button>
       <button type="button" class="tlc-tab-btn {% if active_tab == 'finance' %}active{% endif %}" onclick="tlcSwitchTab('finance', this)">🏦 Finance Cos</button>
       <button type="button" class="tlc-tab-btn {% if active_tab == 'reconciliation' %}active{% endif %}" onclick="tlcSwitchTab('reconciliation', this)">🧾 Reconciliation</button>
-    </div>
+    </nav>
 
     <div id="tlc-tab-dashboard" class="tlc-tab-panel {% if active_tab == 'dashboard' %}active{% endif %}">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem;">
