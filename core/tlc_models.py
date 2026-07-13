@@ -575,6 +575,24 @@ class TLCCarrierCommissionRule(models.Model):
         return f"{self.carrier} — {self.commission_rate}%"
 
 
+class TLCCarrier(models.Model):
+    """Insurance carrier available when creating TLC policies."""
+
+    organization = models.ForeignKey(
+        "Organization", on_delete=models.CASCADE, related_name="tlc_carriers"
+    )
+    name = models.CharField(max_length=120)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+        unique_together = ("organization", "name")
+
+    def __str__(self):
+        return self.name
+
+
 class TLCFinanceCompany(models.Model):
     """Premium finance company used for TLC policy installments."""
 

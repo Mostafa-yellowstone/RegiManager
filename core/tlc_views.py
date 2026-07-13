@@ -7,12 +7,14 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from .http import deny_access
 from .models import Client, OrganizationMembership, Space, Vehicle
 from .space_access import require_space_access
+from .tlc_carriers import ensure_tlc_carrier, get_tlc_carrier_names
 from .tlc_client_sync import apply_client_to_policy
 from .tlc_installments import build_installment_row
 from .tlc_models import (
@@ -121,6 +123,15 @@ def _record_timeline(policy, event_type, title, *, event_date=None, user=None, d
     )
 
 
+def _policy_carrier_choices(organization_id: int, current: str = "") -> list[str]:
+    carriers = get_tlc_carrier_names(organization_id)
+    cleaned = (current or "").strip()
+    if cleaned and cleaned not in carriers:
+        carriers.append(cleaned)
+        carriers.sort(key=str.casefold)
+    return carriers
+
+
 def build_tlc_space_context(request, card, is_owner, membership):
     active_org = card.organization
     stats = tlc_dashboard_stats(card)
@@ -158,13 +169,7 @@ def build_tlc_space_context(request, card, is_owner, membership):
             }
         )
 
-    carriers = (
-        TLCPolicy.objects.filter(space=card)
-        .exclude(carrier="")
-        .values_list("carrier", flat=True)
-        .distinct()
-        .order_by("carrier")
-    )
+    carriers = get_tlc_carrier_names(active_org.id)
 
     can_manage = is_owner or (membership and membership.can_deal_with_tlc)
 
@@ -218,6 +223,7 @@ def build_tlc_policy_detail_context(request, card, policy, is_owner, membership)
         "document_type_choices": TLCPolicyDocument.DocumentType.choices,
         "finance_contract": getattr(policy, "finance_contract", None),
         "finance_companies": TLCFinanceCompany.objects.filter(organization=card.organization, is_active=True),
+        "carriers": _policy_carrier_choices(card.organization_id, policy.carrier),
         "reminders": policy.installment_reminders.select_related("installment").order_by("scheduled_for")[:50],
         "clients": Client.objects.filter(organization=card.organization).order_by("first_name", "last_name")[:500],
         "vehicles": Vehicle.objects.filter(client__organization=card.organization).select_related("client")[:500],
@@ -281,11 +287,15 @@ def add_tlc_policy(request, space_id):
         else None
     )
 
+    carrier_name = request.POST.get("carrier", "").strip()
+    if carrier_name:
+        ensure_tlc_carrier(card.organization, carrier_name)
+
     policy = TLCPolicy.objects.create(
         organization=card.organization,
         space=card,
         policy_number=policy_number,
-        carrier=request.POST.get("carrier", "").strip(),
+        carrier=carrier_name,
         policy_type=request.POST.get("policy_type", TLCPolicy.PolicyType.NEW_BUSINESS),
         named_insured=request.POST.get("named_insured", "").strip(),
         business_name=request.POST.get("business_name", "").strip(),
@@ -776,6 +786,30 @@ def add_tlc_finance_company(request, space_id):
     )
     messages.success(request, "Finance company saved.")
     return _redirect_tlc(card, tab="finance")
+
+
+@login_required
+@require_POST
+def add_tlc_carrier(request, space_id):
+    card, is_owner, membership = _resolve_tlc_access(request, space_id=space_id)
+    if not (is_owner or (membership and membership.can_deal_with_tlc)):
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"ok": False, "error": "Permission denied."}, status=403)
+        messages.error(request, "Permission denied.")
+        return _redirect_tlc(card, tab="policies")
+
+    name = request.POST.get("name", "").strip()
+    if not name:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"ok": False, "error": "Carrier name is required."}, status=400)
+        messages.error(request, "Carrier name is required.")
+        return _redirect_tlc(card, tab="policies")
+
+    ensure_tlc_carrier(card.organization, name)
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"ok": True, "name": name})
+    messages.success(request, f"Carrier “{name}” saved.")
+    return _redirect_tlc(card, tab="policies")
 
 
 @login_required

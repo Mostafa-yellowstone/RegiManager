@@ -172,6 +172,7 @@ from core.tlc_views import (
     save_tlc_policy_finance,
     add_tlc_commission_rule,
     add_tlc_finance_company,
+    add_tlc_carrier,
     add_tlc_carrier_statement,
 )
 from core.tlc_edit_views import (
@@ -456,6 +457,7 @@ urlpatterns = [
     path("dashboard/spaces/tlc/policy/<int:policy_id>/finance/save/", save_tlc_policy_finance, name="save-tlc-policy-finance"),
     path("dashboard/spaces/tlc/<int:space_id>/commission-rule/add/", add_tlc_commission_rule, name="add-tlc-commission-rule"),
     path("dashboard/spaces/tlc/<int:space_id>/finance-company/add/", add_tlc_finance_company, name="add-tlc-finance-company"),
+    path("dashboard/spaces/tlc/<int:space_id>/carrier/add/", add_tlc_carrier, name="add-tlc-carrier"),
     path("dashboard/spaces/tlc/<int:space_id>/carrier-statement/add/", add_tlc_carrier_statement, name="add-tlc-carrier-statement"),
     path("dashboard/spaces/tlc/policy/<int:policy_id>/edit/", edit_tlc_policy, name="edit-tlc-policy"),
     path("dashboard/spaces/tlc/installment/<int:installment_id>/edit/", edit_tlc_installment, name="edit-tlc-installment"),

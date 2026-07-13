@@ -115,6 +115,21 @@ class TLCSpaceTests(TestCase):
         detail = self.client.get(reverse("tlc-policy-detail", args=[self.space.id, policy.id]))
         self.assertEqual(detail.status_code, 200)
         self.assertContains(detail, "TLC-2002")
+        self.assertContains(detail, "+ New Carrier")
+
+    def test_add_tlc_carrier_via_ajax(self):
+        response = self.client.post(
+            reverse("add-tlc-carrier", args=[self.space.id]),
+            {"name": "Maya Assurance"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["name"], "Maya Assurance")
+        page = self.client.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=policies")
+        self.assertContains(page, "Maya Assurance")
+        self.assertContains(page, "+ New Carrier")
 
     def test_edit_tlc_installment_via_post(self):
         policy = TLCPolicy.objects.create(

@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
 from .models import Client, Vehicle
+from .tlc_carriers import ensure_tlc_carrier
 from .tlc_client_sync import apply_client_to_policy
 from .tlc_commissions import apply_commission_rule_to_policy
 from .tlc_installments import build_installment_row
@@ -75,7 +76,10 @@ def edit_tlc_policy(request, policy_id):
         else None
     )
 
-    policy.carrier = request.POST.get("carrier", "").strip()
+    carrier_name = request.POST.get("carrier", "").strip()
+    if carrier_name:
+        ensure_tlc_carrier(card.organization, carrier_name)
+    policy.carrier = carrier_name
     policy.policy_type = request.POST.get("policy_type", policy.policy_type)
     policy.named_insured = request.POST.get("named_insured", "").strip()
     policy.business_name = request.POST.get("business_name", "").strip()

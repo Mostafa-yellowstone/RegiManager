@@ -2589,6 +2589,7 @@ from .tlc_models import (  # noqa: E402,F401
     TLCPremiumBreakdown,
     TLCReinstatement,
     TLCCarrierCommissionRule,
+    TLCCarrier,
     TLCFinanceCompany,
     TLCPolicyFinance,
     TLCInstallmentReminder,
