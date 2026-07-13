@@ -12,6 +12,7 @@ from pypdf import PdfReader
 from pypdf.errors import PdfReadError, PdfStreamError
 
 from .tlc_commissions import apply_commission_rule_to_policy
+from .tlc_installments import build_installment_row
 from .tlc_models import (
     TLCPolicy,
     TLCPolicyDocument,
@@ -373,14 +374,21 @@ def apply_dec_payment_schedule(
         policy.installments.all().delete()
     created = 0
     for number, payment in enumerate(payments, start=1):
-        per_fee = ZERO if payment.label == "DEPOSIT" else installment_fee
+        apply_fee = payment.label != "DEPOSIT"
+        row = build_installment_row(
+            policy,
+            payment.amount,
+            installment_fee=installment_fee,
+            apply_fee=apply_fee,
+        )
         TLCInstallment.objects.create(
             policy=policy,
             installment_number=number,
             due_date=payment.due_date,
-            amount=payment.amount,
-            installment_fee=per_fee,
-            balance=(payment.amount + per_fee).quantize(Decimal("0.01")),
+            amount=row["amount"],
+            installment_fee=row["installment_fee"],
+            commission_amount=row["commission_amount"],
+            balance=row["balance"],
             notes=payment.label,
         )
         created += 1

@@ -11,8 +11,8 @@ from django.views.decorators.http import require_POST
 from .models import Client, Vehicle
 from .tlc_client_sync import apply_client_to_policy
 from .tlc_commissions import apply_commission_rule_to_policy
+from .tlc_installments import build_installment_row
 from .tlc_models import (
-    TLCAgencyExpense,
     TLCCarrierCommissionRule,
     TLCCarrierRemittance,
     TLCCarrierStatement,
@@ -129,20 +129,25 @@ def edit_tlc_installment(request, installment_id):
         return _deny_manage(request, card, membership, is_owner, policy_id=policy.id, tab="installments")
 
     is_paid = request.POST.get("is_paid") == "on"
-    amount = _parse_decimal(request.POST.get("amount"))
+    gross = _parse_decimal(request.POST.get("gross_amount") or request.POST.get("amount"))
+    per_fee = _parse_decimal(request.POST.get("installment_fee"))
+    notes = request.POST.get("notes", "").strip()
+    apply_fee = "down payment" not in notes.lower() and "deposit" not in notes.lower()
+    row = build_installment_row(policy, gross, installment_fee=per_fee, apply_fee=apply_fee)
     installment.installment_number = int(request.POST.get("installment_number") or installment.installment_number)
     installment.due_date = _parse_date(request.POST.get("due_date")) or installment.due_date
-    installment.amount = amount
-    installment.installment_fee = _parse_decimal(request.POST.get("installment_fee"))
+    installment.amount = row["amount"]
+    installment.installment_fee = row["installment_fee"]
+    installment.commission_amount = row["commission_amount"]
     installment.is_paid = is_paid
     installment.payment_date = _parse_date(request.POST.get("payment_date")) if is_paid else None
     installment.late_fee = _parse_decimal(request.POST.get("late_fee"))
     installment.nsf_fee = _parse_decimal(request.POST.get("nsf_fee"))
     installment.was_reinstated = request.POST.get("was_reinstated") == "on"
     installment.balance = _parse_decimal(
-        request.POST.get("balance"), default=Decimal("0") if is_paid else amount
+        request.POST.get("balance"), default=Decimal("0") if is_paid else row["balance"]
     )
-    installment.notes = request.POST.get("notes", "").strip()
+    installment.notes = notes
     installment.save()
     messages.success(request, "Installment updated.")
     return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=installments")
@@ -161,8 +166,7 @@ def edit_tlc_reinstatement(request, reinstatement_id):
     row.cancellation_reason = request.POST.get("cancellation_reason", "").strip()
     row.reinstatement_date = _parse_date(request.POST.get("reinstatement_date"))
     row.reinstatement_fee = _parse_decimal(request.POST.get("reinstatement_fee"))
-    row.carrier_confirmation = request.POST.get("carrier_confirmation", "").strip()
-    row.is_paid = request.POST.get("is_paid") == "on"
+    row.dmv_document_number = request.POST.get("dmv_document_number", "").strip()
     row.notes = request.POST.get("notes", "").strip()
     row.save()
     messages.success(request, "Reinstatement updated.")
@@ -181,7 +185,7 @@ def edit_tlc_endorsement(request, endorsement_id):
     row.endorsement_type = request.POST.get("endorsement_type", row.endorsement_type)
     row.premium_difference = _parse_decimal(request.POST.get("premium_difference"))
     row.commission_difference = _parse_decimal(request.POST.get("commission_difference"))
-    row.effective_date = _parse_date(request.POST.get("effective_date"))
+    row.coverage_change_date = _parse_date(request.POST.get("coverage_change_date"))
     row.notes = request.POST.get("notes", "").strip()
     row.save()
     _sync_endorsement_balance(policy)
@@ -206,24 +210,6 @@ def edit_tlc_dmv_service(request, service_id):
     row.save()
     messages.success(request, "DMV/TLC service updated.")
     return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=dmv")
-
-
-@login_required
-@require_POST
-def edit_tlc_expense(request, expense_id):
-    row = get_object_or_404(TLCAgencyExpense, id=expense_id)
-    policy = row.policy
-    card, is_owner, membership = _resolve_tlc_access(request, card=policy.space)
-    if not (is_owner or (membership and membership.can_deal_with_tlc)):
-        return _deny_manage(request, card, membership, is_owner, policy_id=policy.id, tab="expenses")
-
-    row.expense_type = request.POST.get("expense_type", row.expense_type)
-    row.amount = _parse_decimal(request.POST.get("amount"))
-    row.expense_date = _parse_date(request.POST.get("expense_date"))
-    row.notes = request.POST.get("notes", "").strip()
-    row.save()
-    messages.success(request, "Expense updated.")
-    return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=expenses")
 
 
 @login_required

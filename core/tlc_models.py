@@ -230,7 +230,13 @@ class TLCInstallment(models.Model):
         max_digits=12,
         decimal_places=2,
         default=Decimal("0.00"),
-        help_text="Per-installment carrier/installment fee charged to the customer.",
+        help_text="Per-installment carrier/installment fee deducted from the gross payment.",
+    )
+    commission_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Agency commission earned on this installment's net premium.",
     )
     notes = models.CharField(max_length=255, blank=True, default="")
 
@@ -267,8 +273,7 @@ class TLCReinstatement(models.Model):
         blank=True,
         related_name="tlc_reinstatements_processed",
     )
-    carrier_confirmation = models.CharField(max_length=120, blank=True, default="")
-    is_paid = models.BooleanField(default=False)
+    dmv_document_number = models.CharField(max_length=120, blank=True, default="")
     notes = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -286,7 +291,10 @@ class TLCEndorsement(models.Model):
         ADDED_DRIVER = "added_driver", "Added Driver"
         REMOVED_DRIVER = "removed_driver", "Removed Driver"
         ADDRESS_CHANGE = "address_change", "Address Change"
-        VEHICLE_CHANGE = "vehicle_change", "Vehicle Change"
+        ADD_VEHICLE = "add_vehicle", "Add a Vehicle"
+        REMOVE_VEHICLE = "remove_vehicle", "Remove a Vehicle"
+        REPLACE_VEHICLE = "replace_vehicle", "Replace a Vehicle"
+        DDC = "ddc", "DDC"
         COVERAGE_CHANGE = "coverage_change", "Coverage Change"
         PLATE_CHANGE = "plate_change", "Plate Change"
         TLC_NUMBER_CHANGE = "tlc_number_change", "TLC Number Change"
@@ -304,7 +312,7 @@ class TLCEndorsement(models.Model):
     commission_difference = models.DecimalField(
         max_digits=12, decimal_places=2, default=Decimal("0.00")
     )
-    effective_date = models.DateField(null=True, blank=True)
+    coverage_change_date = models.DateField(null=True, blank=True)
     processed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -316,7 +324,7 @@ class TLCEndorsement(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-effective_date", "-created_at"]
+        ordering = ["-coverage_change_date", "-created_at"]
 
     def __str__(self):
         return f"{self.get_endorsement_type_display()} — {self.policy.policy_number}"
@@ -358,37 +366,39 @@ class TLCDMVService(models.Model):
         return f"{self.get_service_type_display()} — {self.policy.policy_number}"
 
 
-class TLCAgencyExpense(models.Model):
-    """Agency expense allocated to a TLC policy."""
+class TLCPolicyCancellation(models.Model):
+    """Cancellation record and successor policy history for a TLC policy."""
 
-    class ExpenseType(models.TextChoices):
-        PRODUCER_COMMISSION = "producer_commission", "Producer Commission"
-        CSR_BONUS = "csr_bonus", "CSR Bonus"
-        MERCHANT_FEES = "merchant_fees", "Merchant Fees"
-        PROCESSING_FEES = "processing_fees", "Processing Fees"
-        CHARGEBACKS = "chargebacks", "Chargebacks"
-        ADVERTISING = "advertising", "Advertising Cost"
-        OFFICE_ALLOCATION = "office_allocation", "Office Allocation"
-        SOFTWARE = "software", "Software Cost"
-        PAYROLL = "payroll", "Payroll Allocation"
-        MISC = "misc", "Misc Expenses"
+    class CancelReason(models.TextChoices):
+        SURRENDER_PLATES = "surrender_plates", "Surrender Plates"
+        MOVED_CARRIER = "moved_carrier", "Moved to Another Carrier"
+        MOVED_BROKER = "moved_broker", "Moved to Another Broker"
+        CUSTOM = "custom", "Custom Note"
 
     policy = models.ForeignKey(
-        TLCPolicy, on_delete=models.CASCADE, related_name="agency_expenses"
+        TLCPolicy, on_delete=models.CASCADE, related_name="cancellations"
     )
-    expense_type = models.CharField(
-        max_length=30, choices=ExpenseType.choices, default=ExpenseType.MISC
+    cancellation_date = models.DateField()
+    reason = models.CharField(max_length=30, choices=CancelReason.choices)
+    custom_note = models.TextField(blank=True, default="")
+    successor_carrier = models.CharField(max_length=120, blank=True, default="")
+    successor_broker = models.CharField(max_length=120, blank=True, default="")
+    successor_policy_number = models.CharField(max_length=100, blank=True, default="")
+    successor_effective_date = models.DateField(null=True, blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tlc_cancellations_recorded",
     )
-    amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
-    expense_date = models.DateField(null=True, blank=True)
-    notes = models.CharField(max_length=255, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-expense_date", "-created_at"]
+        ordering = ["-cancellation_date", "-created_at"]
 
     def __str__(self):
-        return f"{self.get_expense_type_display()} — {self.policy.policy_number}"
+        return f"Cancellation — {self.policy.policy_number} ({self.get_reason_display()})"
 
 
 class TLCCarrierRemittance(models.Model):

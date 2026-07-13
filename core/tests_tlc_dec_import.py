@@ -99,7 +99,8 @@ class TLCDecImportParserTests(TestCase):
         bill = policy.installments.get(notes="BILL # 1")
         self.assertEqual(deposit.installment_fee, Decimal("0.00"))
         self.assertEqual(bill.installment_fee, Decimal("5.00"))
-        self.assertEqual(bill.balance, Decimal("1642.90"))
+        self.assertEqual(bill.amount, Decimal("1632.90"))
+        self.assertEqual(bill.balance, Decimal("1637.90"))
 
     def test_parse_real_pdf_when_available(self):
         pdf_path = Path(r"c:\Users\mcc\Downloads\NEW+DECPAGE1753732091.pdf")

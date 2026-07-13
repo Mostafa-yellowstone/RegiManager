@@ -14,8 +14,8 @@ from .http import deny_access
 from .models import Client, OrganizationMembership, Space, Vehicle
 from .space_access import require_space_access
 from .tlc_client_sync import apply_client_to_policy
+from .tlc_installments import build_installment_row
 from .tlc_models import (
-    TLCAgencyExpense,
     TLCCarrierCommissionRule,
     TLCCarrierRemittance,
     TLCCarrierStatement,
@@ -26,6 +26,7 @@ from .tlc_models import (
     TLCInstallment,
     TLCInstallmentReminder,
     TLCPolicy,
+    TLCPolicyCancellation,
     TLCPolicyDocument,
     TLCPolicyFinance,
     TLCPolicyTimelineEvent,
@@ -101,6 +102,12 @@ def _tlc_url(card, tab=None, policy_id=None):
 
 def _redirect_tlc(card, tab=None):
     return redirect(_tlc_url(card, tab=tab))
+
+
+def _money_label(value) -> str:
+    amount = _parse_decimal(value)
+    prefix = "+" if amount > 0 else ""
+    return f"{prefix}${amount}"
 
 
 def _record_timeline(policy, event_type, title, *, event_date=None, user=None, description=""):
@@ -200,14 +207,14 @@ def build_tlc_policy_detail_context(request, card, policy, is_owner, membership)
         "reinstatements": policy.reinstatements.select_related("processed_by"),
         "endorsements": policy.endorsements.select_related("processed_by"),
         "dmv_services": policy.dmv_services.all(),
-        "agency_expenses": policy.agency_expenses.all(),
         "carrier_remittances": policy.carrier_remittances.all(),
+        "cancellations": policy.cancellations.select_related("recorded_by"),
+        "cancellation_reason_choices": TLCPolicyCancellation.CancelReason.choices,
         "documents": policy.documents.select_related("uploaded_by"),
         "timeline": policy.timeline_events.select_related("created_by"),
         "breakdown": getattr(policy, "premium_breakdown", None),
         "endorsement_type_choices": TLCEndorsement.EndorsementType.choices,
         "dmv_service_choices": TLCDMVService.ServiceType.choices,
-        "expense_type_choices": TLCAgencyExpense.ExpenseType.choices,
         "document_type_choices": TLCPolicyDocument.DocumentType.choices,
         "finance_contract": getattr(policy, "finance_contract", None),
         "finance_companies": TLCFinanceCompany.objects.filter(organization=card.organization, is_active=True),
@@ -234,8 +241,8 @@ def tlc_policy_detail(request, space_id, policy_id):
             "reinstatements",
             "endorsements",
             "dmv_services",
-            "agency_expenses",
             "carrier_remittances",
+            "cancellations",
             "documents",
             "timeline_events",
             "policy_vehicles",
@@ -436,23 +443,32 @@ def add_tlc_installment(request, policy_id):
 
     installment_number = int(request.POST.get("installment_number") or 1)
     is_paid = request.POST.get("is_paid") == "on"
-    amount = _parse_decimal(request.POST.get("amount"))
-    balance = _parse_decimal(request.POST.get("balance"), default=amount if not is_paid else Decimal("0"))
+    gross = _parse_decimal(request.POST.get("gross_amount") or request.POST.get("amount"))
+    per_fee = _parse_decimal(request.POST.get("installment_fee"))
+    try:
+        per_fee = per_fee or policy.premium_breakdown.installment_fee
+    except TLCPremiumBreakdown.DoesNotExist:
+        pass
+    notes = request.POST.get("notes", "").strip()
+    apply_fee = "down payment" not in notes.lower() and "deposit" not in notes.lower()
+    row = build_installment_row(policy, gross, installment_fee=per_fee, apply_fee=apply_fee)
+    balance = _parse_decimal(request.POST.get("balance"), default=row["balance"] if not is_paid else Decimal("0"))
 
     TLCInstallment.objects.update_or_create(
         policy=policy,
         installment_number=installment_number,
         defaults={
             "due_date": _parse_date(request.POST.get("due_date")) or policy.effective_date,
-            "amount": amount,
-            "installment_fee": _parse_decimal(request.POST.get("installment_fee")),
+            "amount": row["amount"],
+            "installment_fee": row["installment_fee"],
+            "commission_amount": row["commission_amount"],
             "is_paid": is_paid,
             "payment_date": _parse_date(request.POST.get("payment_date")) if is_paid else None,
             "late_fee": _parse_decimal(request.POST.get("late_fee")),
             "nsf_fee": _parse_decimal(request.POST.get("nsf_fee")),
             "was_reinstated": request.POST.get("was_reinstated") == "on",
             "balance": balance,
-            "notes": request.POST.get("notes", "").strip(),
+            "notes": notes,
         },
     )
     _record_timeline(
@@ -503,8 +519,7 @@ def add_tlc_reinstatement(request, policy_id):
         reinstatement_date=_parse_date(request.POST.get("reinstatement_date")),
         reinstatement_fee=_parse_decimal(request.POST.get("reinstatement_fee")),
         processed_by=request.user,
-        carrier_confirmation=request.POST.get("carrier_confirmation", "").strip(),
-        is_paid=request.POST.get("is_paid") == "on",
+        dmv_document_number=request.POST.get("dmv_document_number", "").strip(),
         notes=request.POST.get("notes", "").strip(),
     )
     policy.status = TLCPolicy.Status.REINSTATED
@@ -530,12 +545,14 @@ def add_tlc_endorsement(request, policy_id):
         return redirect("tlc-policy-detail", space_id=card.id, policy_id=policy.id)
 
     premium_diff = _parse_decimal(request.POST.get("premium_difference"))
+    coverage_date = _parse_date(request.POST.get("coverage_change_date"))
+    endorsement_type = request.POST.get("endorsement_type", TLCEndorsement.EndorsementType.OTHER)
     TLCEndorsement.objects.create(
         policy=policy,
-        endorsement_type=request.POST.get("endorsement_type", TLCEndorsement.EndorsementType.OTHER),
+        endorsement_type=endorsement_type,
         premium_difference=premium_diff,
         commission_difference=_parse_decimal(request.POST.get("commission_difference")),
-        effective_date=_parse_date(request.POST.get("effective_date")),
+        coverage_change_date=coverage_date,
         processed_by=request.user,
         notes=request.POST.get("notes", "").strip(),
     )
@@ -544,9 +561,10 @@ def add_tlc_endorsement(request, policy_id):
     _record_timeline(
         policy,
         TLCPolicyTimelineEvent.EventType.ENDORSEMENT,
-        "Endorsement processed",
-        event_date=_parse_date(request.POST.get("effective_date")),
+        f"{dict(TLCEndorsement.EndorsementType.choices).get(endorsement_type, endorsement_type)}: {_money_label(premium_diff)} premium adjustment",
+        event_date=coverage_date,
         user=request.user,
+        description=request.POST.get("notes", "").strip(),
     )
     messages.success(request, "Endorsement saved.")
     return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=endorsements")
@@ -554,22 +572,47 @@ def add_tlc_endorsement(request, policy_id):
 
 @login_required
 @require_POST
-def add_tlc_expense(request, policy_id):
+def record_tlc_cancellation(request, policy_id):
     policy = get_object_or_404(TLCPolicy, id=policy_id)
     card, is_owner, membership = _resolve_tlc_access(request, card=policy.space)
     if not (is_owner or (membership and membership.can_deal_with_tlc)):
         messages.error(request, "Permission denied.")
-        return redirect("tlc-policy-detail", space_id=card.id, policy_id=policy.id)
+        return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=overview")
 
-    TLCAgencyExpense.objects.create(
+    cancellation_date = _parse_date(request.POST.get("cancellation_date"))
+    reason = request.POST.get("cancellation_reason", "").strip()
+    if not cancellation_date or not reason:
+        messages.error(request, "Cancellation date and reason are required.")
+        return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=overview")
+
+    custom_note = request.POST.get("custom_note", "").strip()
+    if reason == TLCPolicyCancellation.CancelReason.CUSTOM and not custom_note:
+        messages.error(request, "Please enter a custom cancellation note.")
+        return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=overview")
+
+    TLCPolicyCancellation.objects.create(
         policy=policy,
-        expense_type=request.POST.get("expense_type", TLCAgencyExpense.ExpenseType.MISC),
-        amount=_parse_decimal(request.POST.get("amount")),
-        expense_date=_parse_date(request.POST.get("expense_date")),
-        notes=request.POST.get("notes", "").strip(),
+        cancellation_date=cancellation_date,
+        reason=reason,
+        custom_note=custom_note,
+        successor_carrier=request.POST.get("successor_carrier", "").strip(),
+        successor_broker=request.POST.get("successor_broker", "").strip(),
+        successor_policy_number=request.POST.get("successor_policy_number", "").strip(),
+        successor_effective_date=_parse_date(request.POST.get("successor_effective_date")),
+        recorded_by=request.user,
     )
-    messages.success(request, "Expense recorded.")
-    return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=expenses")
+    policy.status = TLCPolicy.Status.CANCELLED
+    policy.save(update_fields=["status", "updated_at"])
+    _record_timeline(
+        policy,
+        TLCPolicyTimelineEvent.EventType.CANCELLATION,
+        f"Policy cancelled — {dict(TLCPolicyCancellation.CancelReason.choices).get(reason, reason)}",
+        event_date=cancellation_date,
+        user=request.user,
+        description=custom_note,
+    )
+    messages.success(request, "Cancellation recorded on policy profile.")
+    return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=overview")
 
 
 @login_required

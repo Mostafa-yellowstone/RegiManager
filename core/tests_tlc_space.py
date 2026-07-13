@@ -140,11 +140,11 @@ class TLCSpaceTests(TestCase):
             {
                 "installment_number": "1",
                 "due_date": "2026-02-15",
-                "amount": "550.00",
+                "gross_amount": "555.00",
                 "installment_fee": "5.00",
                 "late_fee": "0",
                 "nsf_fee": "0",
-                "balance": "555.00",
+                "balance": "0",
                 "is_paid": "on",
                 "payment_date": "2026-02-14",
             },

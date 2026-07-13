@@ -41,6 +41,8 @@ class InstallmentSummary:
     nsf_fees_collected: Decimal
     installment_fees_collected: Decimal
     installment_fees_outstanding: Decimal
+    installment_commission_collected: Decimal
+    installment_commission_outstanding: Decimal
     total_collected: Decimal
 
 
@@ -58,20 +60,26 @@ def summarize_installments(policy: TLCPolicy, *, today: date | None = None) -> I
     nsf_fees = ZERO
     installment_fees_collected = ZERO
     installment_fees_outstanding = ZERO
+    commission_collected = ZERO
+    commission_outstanding = ZERO
     collected = ZERO
 
     for row in installments:
         late_fees += _d(row.late_fee)
         nsf_fees += _d(row.nsf_fee)
         inst_fee = _d(row.installment_fee)
+        commission = _d(row.commission_amount)
+        row_total = _d(row.total_due)
         if row.is_paid:
-            collected += _d(row.amount) + inst_fee + _d(row.late_fee) + _d(row.nsf_fee)
+            collected += row_total
             installment_fees_collected += inst_fee
+            commission_collected += commission
         else:
-            remaining_balance += _d(row.balance or row.amount) + inst_fee
+            remaining_balance += _d(row.balance or row_total)
             installment_fees_outstanding += inst_fee
+            commission_outstanding += commission
             if row.due_date and row.due_date < today:
-                past_due += _d(row.balance or row.amount)
+                past_due += _d(row.balance or row_total)
                 days_late = max(days_late, (today - row.due_date).days)
             elif next_due is None and row.due_date:
                 next_due = row.due_date
@@ -88,6 +96,8 @@ def summarize_installments(policy: TLCPolicy, *, today: date | None = None) -> I
         nsf_fees_collected=nsf_fees,
         installment_fees_collected=installment_fees_collected,
         installment_fees_outstanding=installment_fees_outstanding,
+        installment_commission_collected=commission_collected,
+        installment_commission_outstanding=commission_outstanding,
         total_collected=collected,
     )
 
@@ -104,34 +114,21 @@ def summarize_dmv_services(policy: TLCPolicy) -> dict:
     return {
         "dmv_revenue": revenue,
         "dmv_cost": cost,
+        "dmv_fees_collected": revenue,
         "dmv_net_profit": profit,
         "service_count": rows.count(),
     }
 
 
-def summarize_agency_expenses(policy: TLCPolicy) -> dict:
-    rows = policy.agency_expenses.all()
-    total = ZERO
-    by_type: dict[str, Decimal] = {}
-    for row in rows:
-        amount = _d(row.amount)
-        total += amount
-        by_type[row.expense_type] = by_type.get(row.expense_type, ZERO) + amount
-    return {"total_expenses": total, "by_type": by_type}
-
-
 def summarize_reinstatements(policy: TLCPolicy) -> dict:
     rows = policy.reinstatements.all()
     reinstatement_fees = ZERO
-    paid_fees = ZERO
     for row in rows:
         reinstatement_fees += _d(row.reinstatement_fee)
-        if row.is_paid:
-            paid_fees += _d(row.reinstatement_fee)
     return {
         "reinstatement_count": rows.count(),
         "reinstatement_fees_total": reinstatement_fees,
-        "reinstatement_fees_collected": paid_fees,
+        "reinstatement_fees_collected": reinstatement_fees,
     }
 
 
@@ -164,7 +161,6 @@ def build_policy_profitability(policy: TLCPolicy, *, today: date | None = None) 
     breakdown = getattr(policy, "premium_breakdown", None)
     installments = summarize_installments(policy, today=today)
     dmv = summarize_dmv_services(policy)
-    expenses = summarize_agency_expenses(policy)
     reinstatements = summarize_reinstatements(policy)
     commission = summarize_commission(policy)
 
@@ -180,13 +176,10 @@ def build_policy_profitability(policy: TLCPolicy, *, today: date | None = None) 
         endorsement_fees += _d(row.premium_difference)
 
     carrier_commission = commission["expected_commission"]
-    total_collected = (
-        installments.total_collected
-        + down_payment
-        + broker_fees
-        + finance_fees
-        + reinstatements["reinstatement_fees_collected"]
+    installment_commission = (
+        installments.installment_commission_collected + installments.installment_commission_outstanding
     )
+    total_collected = installments.total_collected + broker_fees + finance_fees + reinstatements["reinstatement_fees_collected"]
     if policy.amount_collected_from_client:
         total_collected = max(total_collected, _d(policy.amount_collected_from_client))
 
@@ -198,17 +191,13 @@ def build_policy_profitability(policy: TLCPolicy, *, today: date | None = None) 
         + inspection_fees
         + endorsement_fees
         + installments.installment_fees_collected
+        + installments.installment_commission_collected
         + dmv["dmv_net_profit"]
     )
 
     producer_commission = _d(policy.producer_commission_amount)
     csr_commission = _d(policy.csr_commission_amount)
-    office_expenses = expenses["by_type"].get("office_allocation", ZERO)
-    advertising = expenses["by_type"].get("advertising", ZERO)
-    merchant_fees = expenses["by_type"].get("merchant_fees", ZERO)
-    chargebacks = expenses["by_type"].get("chargebacks", ZERO) + commission["chargeback"]
-
-    total_expenses = expenses["total_expenses"] + producer_commission + csr_commission
+    total_expenses = producer_commission + csr_commission + commission["chargeback"]
 
     net_profit = gross_agency_revenue - total_expenses
 
@@ -224,17 +213,10 @@ def build_policy_profitability(policy: TLCPolicy, *, today: date | None = None) 
     if remitted > carrier_premium:
         overpayment = remitted - carrier_premium
 
-    customer_balance = (
-        installments.total_remaining_balance
-        + _d(policy.endorsement_balance)
-        + installments.past_due_amount
-    )
-
     return {
         "written_premium": _money(written_premium),
         "down_payment": _money(down_payment),
         "total_collected": _money(total_collected),
-        "remaining_customer_balance": _money(customer_balance),
         "installments_paid": installments.installments_paid,
         "installments_total": installments.total_installments,
         "installments_label": f"{installments.installments_paid} / {installments.total_installments}",
@@ -245,15 +227,18 @@ def build_policy_profitability(policy: TLCPolicy, *, today: date | None = None) 
         "nsf_fees": _money(installments.nsf_fees_collected),
         "installment_fees_collected": _money(installments.installment_fees_collected),
         "installment_fees_outstanding": _money(installments.installment_fees_outstanding),
+        "installment_commission_collected": _money(installments.installment_commission_collected),
+        "installment_commission_outstanding": _money(installments.installment_commission_outstanding),
+        "installment_commission_total": _money(installment_commission),
         "reinstatement_fees": _money(reinstatements["reinstatement_fees_collected"]),
         "broker_fees_collected": _money(broker_fees),
         "carrier_commission": _money(carrier_commission),
         "dmv_revenue": _money(dmv["dmv_revenue"]),
         "dmv_cost": _money(dmv["dmv_cost"]),
+        "dmv_fees_collected": _money(dmv["dmv_fees_collected"]),
         "dmv_net_profit": _money(dmv["dmv_net_profit"]),
         "producer_commission": _money(producer_commission),
         "csr_commission": _money(csr_commission),
-        "office_expenses": _money(office_expenses),
         "gross_agency_revenue": _money(gross_agency_revenue),
         "total_expenses": _money(total_expenses),
         "net_profit": _money(net_profit),
@@ -266,20 +251,6 @@ def build_policy_profitability(policy: TLCPolicy, *, today: date | None = None) 
             "overpayment": _money(overpayment),
             "credits": _money(policy.carrier_credits),
             "carrier_net_due": _money(carrier_net_due),
-        },
-        "customer_balance": {
-            "total_policy_balance": _money(customer_balance + total_collected),
-            "past_due": _money(installments.past_due_amount),
-            "current_due": _money(installments.total_remaining_balance - installments.past_due_amount),
-            "next_installment": _money(
-                policy.installments.filter(is_paid=False).order_by("due_date").values_list("amount", flat=True).first()
-                or ZERO
-            ),
-            "late_fees": _money(installments.late_fees_collected),
-            "nsf_fees": _money(installments.nsf_fees_collected),
-            "reinstatement_fees": _money(reinstatements["reinstatement_fees_collected"]),
-            "endorsement_balance": _money(policy.endorsement_balance),
-            "remaining_balance": _money(customer_balance),
         },
         "commission": {k: _money(v) if isinstance(v, Decimal) else v for k, v in commission.items()},
         "dmv": {k: _money(v) if isinstance(v, Decimal) else v for k, v in dmv.items()},
@@ -307,7 +278,7 @@ def tlc_dashboard_stats(space, *, today: date | None = None) -> dict:
     gross_revenue_total = ZERO
     policies_with_profit = 0
     for policy in policies.select_related("premium_breakdown").prefetch_related(
-        "installments", "dmv_services", "agency_expenses", "endorsements", "reinstatements"
+        "installments", "dmv_services", "endorsements", "reinstatements"
     )[:500]:
         snapshot = build_policy_profitability(policy, today=today)
         net_profit_total += Decimal(snapshot["net_profit"])
@@ -331,14 +302,14 @@ def tlc_space_period_profit(space, today: date) -> dict:
     """Owner API profit rollup for the TLC space."""
     from .tlc_models import TLCPolicy
 
-    month_start = today.replace(day=1)
+    month_start = today.replace(month=1, day=1)
     year_start = today.replace(month=1, day=1)
 
     def _profit_for_range(start: date, end: date) -> dict:
         qs = TLCPolicy.objects.filter(space=space, created_at__date__gte=start, created_at__date__lte=end)
         net = ZERO
         for policy in qs.select_related("premium_breakdown").prefetch_related(
-            "installments", "dmv_services", "agency_expenses"
+            "installments", "dmv_services"
         ):
             snap = build_policy_profitability(policy, today=end)
             net += Decimal(snap["net_profit"])

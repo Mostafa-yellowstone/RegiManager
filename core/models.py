@@ -2578,7 +2578,7 @@ class EmailCampaignRecipient(models.Model):
 
 # TLC Policy Profitability Engine (imported so migrations discover models)
 from .tlc_models import (  # noqa: E402,F401
-    TLCAgencyExpense,
+    TLCPolicyCancellation,
     TLCCarrierRemittance,
     TLCDMVService,
     TLCEndorsement,

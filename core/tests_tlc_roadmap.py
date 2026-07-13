@@ -49,4 +49,5 @@ class TLCRoadmapTests(TestCase):
         self.assertEqual(created, 10)
         first = self.policy.installments.order_by("installment_number").first()
         self.assertEqual(first.installment_fee, Decimal("8.00"))
-        self.assertEqual(first.balance, Decimal("508.00"))
+        self.assertEqual(first.amount, Decimal("492.00"))
+        self.assertEqual(first.balance, Decimal("500.00"))
