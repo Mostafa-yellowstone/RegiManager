@@ -52,6 +52,21 @@ _PAYMENT_ROW = re.compile(
     r"^(DEPOSIT|Bill\s*#\s*\d+)\s+(\d{2}/\d{2}/\d{4})\s+\$?\s*([\d,]+\.\d{2})",
     re.M | re.I,
 )
+_MAYA_VEHICLE_ROW = re.compile(
+    r"(\d+)\s+(\d{4}),\s*([A-Z]+),\s*([A-Z0-9\s]+?),\s*([A-HJ-NPR-Z0-9]{17})",
+    re.I,
+)
+_MAYA_DRIVER_ROW = re.compile(
+    r"(?m)^\s*(\d+)\s*\n\s*([A-Z][A-Z'-]+,\s*[A-Z][A-Z\s'-]+)\s*$",
+)
+_MAYA_PAYMENT_ROW = re.compile(
+    r"(DEPOSIT|INSTALLMENT-\d+)\s+"
+    r"(\d{2}/\d{2}/\d{4})\s+"
+    r"\$?\s*([\d,]+\.\d{2})\s+"
+    r"\$?\s*([\d,]+\.\d{2})\s+"
+    r"\$?\s*([\d,]+\.\d{2})",
+    re.M | re.I,
+)
 _INSURED_BROKER_STOP_MARKERS = (
     "POLICY PERIOD",
     "GARAGE ADDRESS",
@@ -91,6 +106,7 @@ class DecPayment:
     label: str
     due_date: date
     amount: Decimal
+    fee: Decimal = ZERO
 
 
 @dataclass
@@ -392,6 +408,159 @@ def _append_synthesized_payments(result: ParsedDecPage) -> None:
     )
 
 
+def _parse_maya_form_of_business(text: str) -> str:
+    for business_type in ("Individual", "Corporation", "Partnership", "Other"):
+        if re.search(rf"\nX\s*\n\s*{business_type}\b", text, re.I):
+            return business_type
+    return ""
+
+
+def _parse_maya_insured_and_broker(text: str, result: ParsedDecPage) -> None:
+    insured_block = re.search(
+        r"NAMED INSURED & ADDRESS\s*(.+?)\s*FORM OF NAMED INSURED",
+        text,
+        re.I | re.S,
+    )
+    if insured_block:
+        lines = [line.strip() for line in insured_block.group(1).splitlines() if line.strip()]
+        if lines:
+            result.named_insured = _normalize_person_name(lines[0])
+            if len(lines) > 1:
+                result.insured_address = ", ".join(lines[1:])
+
+    producer_block = re.search(
+        r"PRODUCER\s*\n(.+?)\n\s*New",
+        text,
+        re.I | re.S,
+    )
+    if producer_block:
+        lines = [line.strip() for line in producer_block.group(1).splitlines() if line.strip()]
+        if lines:
+            result.broker_name = lines[0]
+            if len(lines) > 1:
+                result.broker_address = ", ".join(lines[1:])
+
+
+def _normalize_maya_payment_label(label: str) -> str:
+    cleaned = label.strip().upper()
+    installment = re.match(r"INSTALLMENT-(\d+)", cleaned)
+    if installment:
+        return f"BILL # {installment.group(1)}"
+    return cleaned
+
+
+def parse_maya_assurance_dec_text(text: str) -> ParsedDecPage:
+    """Parse Maya Assurance NY business auto declaration page text."""
+    result = ParsedDecPage()
+    normalized = text.replace("\r\n", "\n")
+
+    carrier_match = re.search(r"^(MAYA ASSURANCE COMPANY)\b", normalized, re.M | re.I)
+    if carrier_match:
+        result.carrier = carrier_match.group(1).strip()
+
+    result.policy_number = (
+        _first_match(r"POLICY NUMBER\s+BUSINESS AUTO DECLARATIONS\s+(\S+)", normalized, re.I)
+        or _first_match(r"POLICY NUMBER\s+PAYMENT SCHEDULE\s+(\S+)", normalized, re.I)
+        or _first_match(r"AUTOMOBILE LIABILITY\s+(\d+-MA\d+)", normalized, re.I)
+    )
+
+    period = re.search(
+        r"POLICY PERIOD:\s*FROM\s+(\d{2}/\d{2}/\d{4})\s+TO\s+(\d{2}/\d{2}/\d{4})",
+        normalized,
+        re.I,
+    )
+    if period:
+        result.effective_date = _parse_date(period.group(1))
+        result.expiration_date = _parse_date(period.group(2))
+    else:
+        cert_period = re.search(
+            r"POLICY EFFECTIVE DATE\s+POLICY EXPIRATION DATE\s+"
+            r"AUTOMOBILE LIABILITY\s+\S+\s+(\d{2}/\d{2}/\d{4}).*?(\d{2}/\d{2}/\d{4})",
+            normalized,
+            re.I | re.S,
+        )
+        if cert_period:
+            result.effective_date = _parse_date(cert_period.group(1))
+            result.expiration_date = _parse_date(cert_period.group(2))
+
+    result.issue_date = result.effective_date
+    result.form_of_business = _parse_maya_form_of_business(normalized)
+    _parse_maya_insured_and_broker(normalized, result)
+
+    annual = re.search(r"ESTIMATED TOTAL ANNUAL PREMIUM[^\d$]*\$?\s*([\d,]+\.\d{2})", normalized, re.I)
+    if annual:
+        result.annual_premium = _parse_money(annual.group(1))
+        result.amended_total = result.annual_premium
+
+    reinstate = re.search(r"A \$(\d+)\s+FEE WILL BE ASSESSED", normalized, re.I)
+    if reinstate:
+        result.reinstatement_fee = Decimal(reinstate.group(1)).quantize(Decimal("0.01"))
+
+    for match in _MAYA_VEHICLE_ROW.finditer(normalized):
+        result.vehicles.append(
+            DecVehicle(
+                auto_number=int(match.group(1)),
+                year=int(match.group(2)),
+                make=match.group(3).title(),
+                vin=match.group(5),
+            )
+        )
+
+    driver_block = re.search(
+        r"DRIVERS SCHEDULE\s*(.+?)\s*(?:COVERAGE-|POLICY NUMBER)",
+        normalized,
+        re.I | re.S,
+    )
+    if driver_block:
+        for match in _MAYA_DRIVER_ROW.finditer(driver_block.group(1)):
+            result.drivers.append(
+                DecDriver(
+                    name=_normalize_person_name(match.group(2)),
+                    effective_date=result.effective_date,
+                    expiry_date=result.expiration_date,
+                )
+            )
+
+    installment_fee = ZERO
+    for match in _MAYA_PAYMENT_ROW.finditer(normalized):
+        due = _parse_date(match.group(2))
+        premium = _parse_money(match.group(3))
+        fee = _parse_money(match.group(4))
+        bill_amount = _parse_money(match.group(5))
+        if not due or bill_amount <= ZERO:
+            continue
+        label = _normalize_maya_payment_label(match.group(1))
+        result.payments.append(
+            DecPayment(label=label, due_date=due, amount=bill_amount, fee=fee)
+        )
+        if label == "DEPOSIT":
+            result.deposit_amount = bill_amount
+            result.down_payment = premium
+        elif label.startswith("BILL #") and installment_fee <= ZERO and fee > ZERO:
+            installment_fee = fee
+
+    if installment_fee > ZERO:
+        result.installment_fee = installment_fee
+
+    bills = [payment for payment in result.payments if payment.label != "DEPOSIT"]
+    if bills:
+        result.monthly_installment = bills[0].amount
+
+    if not result.policy_number:
+        raise DecPageParseError("Could not find a policy number on this declaration page.")
+
+    if not result.named_insured and not result.vehicles:
+        raise DecPageParseError(
+            "Could not extract insured or vehicle data — this may not be a supported dec page format."
+        )
+
+    if not result.amended_total and result.annual_premium:
+        result.amended_total = result.annual_premium
+        result.parse_warnings.append("Amended total not found; using annual premium.")
+
+    return result
+
+
 def parse_american_transit_dec_text(text: str) -> ParsedDecPage:
     """Parse American Transit NY declaration page text (single-car or multicar)."""
     result = ParsedDecPage()
@@ -487,12 +656,18 @@ def parse_tlc_dec_page(file_obj: BinaryIO) -> ParsedDecPage:
     upper = text.upper()
     if "AMERICAN TRANSIT" in upper or "ATIC" in upper:
         return parse_american_transit_dec_text(text)
+    if "MAYA ASSURANCE" in upper:
+        return parse_maya_assurance_dec_text(text)
     if _first_match(r"Policy Number\s+(\S+)", text) or _first_match(r"Policy No[.:]\s*(\S+)", text):
         result = parse_american_transit_dec_text(text)
         result.parse_warnings.append("Carrier not recognized; used American Transit parser.")
         return result
+    if re.search(r"\d+-MA\d+", text, re.I):
+        result = parse_maya_assurance_dec_text(text)
+        result.parse_warnings.append("Carrier not recognized; used Maya Assurance parser.")
+        return result
     raise DecPageParseError(
-        "Unsupported declaration page format. Currently supported: American Transit (ATIC)."
+        "Unsupported declaration page format. Currently supported: American Transit (ATIC), Maya Assurance."
     )
 
 
@@ -527,13 +702,27 @@ def apply_dec_payment_schedule(
         policy.installments.all().delete()
     created = 0
     for number, payment in enumerate(payments, start=1):
-        apply_fee = payment.label != "DEPOSIT"
-        row = build_installment_row(
-            policy,
-            payment.amount,
-            installment_fee=installment_fee,
-            apply_fee=apply_fee,
-        )
+        if payment.fee > ZERO:
+            row = build_installment_row(
+                policy,
+                payment.amount,
+                installment_fee=payment.fee,
+                apply_fee=True,
+            )
+        elif payment.label == "DEPOSIT":
+            row = build_installment_row(
+                policy,
+                payment.amount,
+                installment_fee=installment_fee,
+                apply_fee=False,
+            )
+        else:
+            row = build_installment_row(
+                policy,
+                payment.amount,
+                installment_fee=installment_fee,
+                apply_fee=True,
+            )
         TLCInstallment.objects.create(
             policy=policy,
             installment_number=number,

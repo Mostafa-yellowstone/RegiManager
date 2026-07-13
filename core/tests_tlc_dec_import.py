@@ -14,6 +14,7 @@ from core.tlc_dec_import import (
     DecPageParseError,
     apply_parsed_dec_to_policy,
     parse_american_transit_dec_text,
+    parse_maya_assurance_dec_text,
     parse_tlc_dec_page,
 )
 from core.tlc_models import TLCPolicy, TLCPolicyDocument
@@ -41,6 +42,71 @@ PREMIUMS(ALL PREMIUMS SHOWN ARE FULL POLICY PREMIUMS)
 EFFECTIVE DATE PR/SR AMENDED ANNUAL PREMIUM
 03/01/2026 1.00 $4,960.99 $4,960.99
 DOWN PAYMENT $1310.25 *MONTHLY PREMIUM THEREAFTER $433.25
+"""
+
+
+SAMPLE_MAYA_DEC = """
+MAYA ASSURANCE COMPANY
+24-29 JACKSON AVENUE, SUITE 200
+LONG ISLAND CITY, NEW YORK
+11101
+POLICY NUMBER
+BUSINESS AUTO DECLARATIONS
+5-MA000499
+ITEM ONE
+NAMED INSURED & ADDRESS
+SAEYDI, AYAD AMEN
+861 KINSELLA ST 2
+BRONX, NY 10462
+FORM OF NAMED INSURED'S BUSINESS
+ Corporation
+ Partnership
+X
+ Individual
+ Other
+PRODUCER
+MULTILINE INSURANCE BROKERAGE
+800 YONKERS AVE, 800 YONKERS AVE
+YONKERS, NY 10704
+ New
+X
+ Renewal
+ Amend
+POLICY PERIOD:  FROM
+09/26/2025   TO   09/26/2026
+ESTIMATED TOTAL ANNUAL PREMIUM
+$4,598.87
+ITEM THREE - SCHEDULE OF AUTOS YOU OWN
+1
+2016, HONDA, CIVIC, 19XFC1F38GE204992
+DRIVERS SCHEDULE
+1
+SAEYDI, AYAD AMEN
+POLICY NUMBER
+PAYMENT SCHEDULE
+5-MA000499
+BILL Sl NO.
+BILL DUE DATE
+PREMIUM
+FEES
+BILL AMOUNT
+DEPOSIT
+09/26/2025
+$919.77
+$30.00
+$949.77
+INSTALLMENT-1
+10/26/2025
+$408.84
+$20.00
+$428.84
+INSTALLMENT-2
+11/25/2025
+$408.84
+$20.00
+$428.84
+PLEASE PAY ON OR BEFORE THE DUE DATE. IF YOUR PAYMENT IS LATE, A CANCELLATION NOTICE WILL BE SENT AND
+A $50 FEE WILL BE ASSESSED TO REINSTATE THE POLICY.
 """
 
 
@@ -88,6 +154,30 @@ to comply with this installment Payment Endorsement.
 
 
 class TLCDecImportParserTests(TestCase):
+    def test_parse_maya_assurance_sample(self):
+        parsed = parse_maya_assurance_dec_text(SAMPLE_MAYA_DEC)
+        self.assertEqual(parsed.policy_number, "5-MA000499")
+        self.assertEqual(parsed.carrier, "MAYA ASSURANCE COMPANY")
+        self.assertEqual(parsed.named_insured, "SAEYDI, AYAD AMEN")
+        self.assertIn("861 KINSELLA ST 2", parsed.insured_address)
+        self.assertEqual(parsed.broker_name, "MULTILINE INSURANCE BROKERAGE")
+        self.assertIn("YONKERS, NY 10704", parsed.broker_address)
+        self.assertEqual(parsed.form_of_business, "Individual")
+        self.assertEqual(parsed.effective_date.isoformat(), "2025-09-26")
+        self.assertEqual(parsed.annual_premium, Decimal("4598.87"))
+        self.assertEqual(parsed.reinstatement_fee, Decimal("50.00"))
+        self.assertEqual(parsed.installment_fee, Decimal("20.00"))
+        self.assertEqual(len(parsed.vehicles), 1)
+        self.assertEqual(parsed.vehicles[0].vin, "19XFC1F38GE204992")
+        self.assertEqual(len(parsed.drivers), 1)
+        self.assertEqual(len(parsed.payments), 3)
+        self.assertEqual(parsed.payments[0].label, "DEPOSIT")
+        self.assertEqual(parsed.payments[0].amount, Decimal("949.77"))
+        self.assertEqual(parsed.payments[0].fee, Decimal("30.00"))
+        self.assertEqual(parsed.payments[1].label, "BILL # 1")
+        self.assertEqual(parsed.payments[1].amount, Decimal("428.84"))
+        self.assertEqual(parsed.payments[1].fee, Decimal("20.00"))
+
     def test_parse_american_transit_single_car_sample(self):
         parsed = parse_american_transit_dec_text(SAMPLE_ATIC_SINGLE_CAR_DEC)
         self.assertEqual(parsed.policy_number, "B513377")
@@ -147,6 +237,17 @@ class TLCDecImportParserTests(TestCase):
         self.assertEqual(bill.installment_fee, Decimal("5.00"))
         self.assertEqual(bill.amount, Decimal("1632.90"))
         self.assertEqual(bill.balance, Decimal("1637.90"))
+
+    def test_parse_real_maya_pdf_when_available(self):
+        pdf_path = Path(r"c:\Users\mcc\Downloads\DEC_COL_5-MA000499_20250924000001855.pdf")
+        if not pdf_path.exists():
+            self.skipTest("Maya dec PDF not on disk")
+        with pdf_path.open("rb") as handle:
+            parsed = parse_tlc_dec_page(handle)
+        self.assertEqual(parsed.policy_number, "5-MA000499")
+        self.assertEqual(parsed.broker_name, "MULTILINE INSURANCE BROKERAGE")
+        self.assertEqual(len(parsed.vehicles), 1)
+        self.assertEqual(len(parsed.payments), 10)
 
     def test_parse_real_single_car_pdf_when_available(self):
         pdf_path = Path(r"c:\Users\mcc\Downloads\yaya+dec+2026.pdf")
