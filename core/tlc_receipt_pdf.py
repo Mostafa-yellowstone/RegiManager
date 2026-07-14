@@ -524,7 +524,6 @@ def render_tlc_receipt_pdf(receipt) -> bytes:
     story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=2))
     story.append(Paragraph(
         f"<b>{agency_name}</b><br/>"
-        f"Hash {str(receipt.content_hash or '')[:12]}…  ·  "
         "Powered by Xpress Insurance Solutions Agency Management System",
         styles["footer"],
     ))
