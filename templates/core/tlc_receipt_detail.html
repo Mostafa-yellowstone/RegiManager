@@ -18,6 +18,41 @@
   .xis-table td { padding:.35rem .45rem; border-bottom:1px solid #e2e8f0; vertical-align:top; }
   .xis-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.4rem; }
   .xis-summary-item { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:.45rem .55rem; }
+  .xis-cross {
+    margin-top: .35rem;
+    margin-bottom: .55rem;
+    background: linear-gradient(135deg, #eff6ff, #f8fafc);
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    padding: .75rem .9rem;
+    text-align: center;
+  }
+  .xis-cross h4 {
+    margin: 0 0 .3rem;
+    color: #0b3a6e;
+    font-size: .82rem;
+    font-weight: 800;
+  }
+  .xis-cross p {
+    margin: 0 0 .55rem;
+    color: #334155;
+    font-size: .74rem;
+    line-height: 1.35;
+  }
+  .xis-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    justify-content: center;
+  }
+  .xis-pill {
+    background: #0b3a6e;
+    color: #fff;
+    font-size: .68rem;
+    font-weight: 800;
+    padding: .28rem .7rem;
+    border-radius: 999px;
+  }
   .xis-footer { margin-top:.5rem; padding-top:.5rem; border-top:1px solid #e2e8f0; text-align:center; color:#64748b; font-size:.68rem; line-height:1.4; }
   @media (max-width: 720px) {
     .xis-grid, .xis-grid-4, .xis-summary { grid-template-columns:1fr 1fr; }
@@ -108,9 +143,22 @@
     </div>
   </div>
 
+  <div class="xis-cross">
+    <h4>{{ snapshot.cross_sell.headline|default:"Protect more of what matters" }}</h4>
+    <p>{{ snapshot.cross_sell.message|default:"We also offer Personal Auto, Home, and Business Insurance — ask us for a complimentary review." }}</p>
+    <div class="xis-pills">
+      {% for product in snapshot.cross_sell.products %}
+      <span class="xis-pill">{{ product }}</span>
+      {% empty %}
+      <span class="xis-pill">Personal Auto</span>
+      <span class="xis-pill">Home</span>
+      <span class="xis-pill">Business Insurance</span>
+      {% endfor %}
+    </div>
+  </div>
+
   <div class="xis-footer">
-    <strong>{{ snapshot.agency.name|default:"Xpress Insurance Solutions" }}</strong>
-    · Thank you for your business · Keep this receipt for your records<br>
+    <strong>{{ snapshot.agency.name|default:"Xpress Insurance Solutions" }}</strong><br>
     Powered by Xpress Insurance Solutions Agency Management System
   </div>
 </div>

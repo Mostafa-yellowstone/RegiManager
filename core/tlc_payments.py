@@ -340,10 +340,14 @@ def build_receipt_snapshot(policy: TLCPolicy, txn: TLCPaymentTransaction) -> dic
             ),
         },
         "notices": [
-            "Thank you for your payment.",
+            "Thank you for your payment. Please keep this receipt for your records.",
             "Failure to make future payments before the due date may result in policy cancellation.",
-            "Please keep this receipt for your records.",
         ],
+        "cross_sell": {
+            "headline": "Protect more of what matters",
+            "message": "We also offer Personal Auto, Home, and Business Insurance — ask us for a complimentary review.",
+            "products": ["Personal Auto", "Home", "Business Insurance"],
+        },
     }
 
 

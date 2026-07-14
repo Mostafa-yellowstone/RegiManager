@@ -96,6 +96,18 @@ def _styles():
             "r_notice", parent=base["Normal"], fontName="Helvetica",
             fontSize=6.5, textColor=MUTED, alignment=TA_LEFT, leading=8,
         ),
+        "cross_headline": ParagraphStyle(
+            "r_cross_h", parent=base["Normal"], fontName="Helvetica-Bold",
+            fontSize=8, textColor=NAVY, alignment=TA_CENTER, leading=10,
+        ),
+        "cross_body": ParagraphStyle(
+            "r_cross_b", parent=base["Normal"], fontName="Helvetica",
+            fontSize=6.5, textColor=INK, alignment=TA_CENTER, leading=8.5,
+        ),
+        "cross_pill": ParagraphStyle(
+            "r_cross_p", parent=base["Normal"], fontName="Helvetica-Bold",
+            fontSize=6.5, textColor=colors.white, alignment=TA_CENTER, leading=8,
+        ),
     }
 
 
@@ -446,13 +458,72 @@ def render_tlc_receipt_pdf(receipt) -> bytes:
     story.append(_card("Account Summary", summary_table, styles))
     story.append(Spacer(1, 4))
 
-    # ── Notices + footer (kept on page 1) ──
-    notice_text = "  ·  ".join(notices) if notices else "Thank you for your payment."
+    # ── Notices + cross-sell + footer (kept on page 1) ──
+    notice_text = "  ·  ".join(notices) if notices else (
+        "Thank you for your payment. Please keep this receipt for your records."
+    )
     story.append(Paragraph(notice_text, styles["notice"]))
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 4))
+
+    cross = snapshot.get("cross_sell") or {}
+    products = cross.get("products") or ["Personal Auto", "Home", "Business Insurance"]
+    pill_cells = []
+    for product in products[:3]:
+        pill = Table(
+            [[Paragraph(product, styles["cross_pill"])]],
+            colWidths=[2.2 * inch],
+        )
+        pill.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), NAVY),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ]))
+        pill_cells.append(pill)
+    while len(pill_cells) < 3:
+        pill_cells.append("")
+    pills = Table([pill_cells], colWidths=[2.35 * inch] * 3)
+    pills.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    cross_inner = Table(
+        [
+            [Paragraph(
+                _safe(cross.get("headline"), "Protect more of what matters"),
+                styles["cross_headline"],
+            )],
+            [Paragraph(
+                _safe(
+                    cross.get("message"),
+                    "We also offer Personal Auto, Home, and Business Insurance — ask us for a complimentary review.",
+                ),
+                styles["cross_body"],
+            )],
+            [Spacer(1, 3)],
+            [pills],
+        ],
+        colWidths=[PAGE_W],
+    )
+    cross_inner.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), SOFT),
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#BFDBFE")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, 0), 6),
+        ("BOTTOMPADDING", (0, -1), (-1, -1), 7),
+        ("TOPPADDING", (0, 1), (-1, -2), 2),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+    ]))
+    story.append(cross_inner)
+    story.append(Spacer(1, 4))
     story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER, spaceAfter=2))
     story.append(Paragraph(
-        f"<b>{agency_name}</b>  ·  Thank you for your business  ·  Keep this receipt for your records<br/>"
+        f"<b>{agency_name}</b><br/>"
         f"Hash {str(receipt.content_hash or '')[:12]}…  ·  "
         "Powered by Xpress Insurance Solutions Agency Management System",
         styles["footer"],
