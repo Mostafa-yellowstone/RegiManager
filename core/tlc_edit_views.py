@@ -89,6 +89,7 @@ def edit_tlc_policy(request, policy_id):
     policy.plate_number = request.POST.get("plate_number", "").strip()
     policy.driver_name = request.POST.get("driver_name", "").strip()
     policy.broker_name = request.POST.get("broker_name", "").strip()
+    policy.referred_by = request.POST.get("referred_by", "").strip()
     policy.status = request.POST.get("status", policy.status)
     policy.effective_date = _parse_date(request.POST.get("effective_date"))
     policy.expiration_date = _parse_date(request.POST.get("expiration_date"))
@@ -116,10 +117,12 @@ def edit_tlc_policy(request, policy_id):
     if not policy.commission_rate:
         apply_commission_rule_to_policy(policy, save=False)
     policy.save()
-    from .tlc_accounting import apply_endorsement_accounting, sync_policy_commission_amount
+    from .tlc_accounting import sync_policy_commission_amount
+    from .tlc_installments import sync_installment_commissions
 
     sync_policy_commission_amount(policy)
     policy.save(update_fields=["carrier_commission_amount", "updated_at"])
+    sync_installment_commissions(policy)
     messages.success(request, "Policy updated.")
     return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=overview")
 

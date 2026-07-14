@@ -65,3 +65,43 @@ class TLCRoadmapTests(TestCase):
         first_bill = self.policy.installments.get(installment_number=1)
         self.assertFalse(first_bill.is_deposit)
         self.assertEqual(first_bill.notes, "Bill #1")
+
+    def test_normalize_legacy_deposit_numbering_and_commission(self):
+        from core.tlc_installments import annotate_installment_display_numbers
+        from core.tlc_models import TLCInstallment
+        from core.tlc_schedule import normalize_policy_installment_numbers
+
+        self.policy.commission_rate = Decimal("10.00")
+        self.policy.save(update_fields=["commission_rate"])
+        TLCInstallment.objects.create(
+            policy=self.policy,
+            installment_number=1,
+            due_date="2026-01-01",
+            amount=Decimal("1000.00"),
+            installment_fee=Decimal("0.00"),
+            commission_amount=Decimal("0.00"),
+            notes="DEPOSIT",
+        )
+        for n in range(2, 11):
+            TLCInstallment.objects.create(
+                policy=self.policy,
+                installment_number=n,
+                due_date=f"2026-{n:02d}-01" if n <= 12 else "2026-12-01",
+                amount=Decimal("500.00"),
+                installment_fee=Decimal("5.00"),
+                commission_amount=Decimal("0.00"),
+                notes=f"BILL # {n - 1}",
+            )
+        self.assertTrue(normalize_policy_installment_numbers(self.policy))
+        from core.tlc_installments import sync_installment_commissions
+
+        sync_installment_commissions(self.policy)
+        deposit = self.policy.installments.get(notes="DEPOSIT")
+        bills = list(self.policy.installments.exclude(notes="DEPOSIT").order_by("installment_number"))
+        self.assertEqual(deposit.installment_number, 0)
+        self.assertEqual([b.installment_number for b in bills], list(range(1, 10)))
+        self.assertEqual(bills[0].commission_amount, Decimal("50.00"))
+        annotated = annotate_installment_display_numbers(
+            list(self.policy.installments.order_by("installment_number"))
+        )
+        self.assertEqual([row.display_number for row in annotated], ["—"] + [str(i) for i in range(1, 10)])

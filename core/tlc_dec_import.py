@@ -850,6 +850,11 @@ def apply_dec_payment_schedule(
             notes=payment.label,
         )
         created += 1
+    from .tlc_installments import sync_installment_commissions
+    from .tlc_schedule import normalize_policy_installment_numbers
+
+    normalize_policy_installment_numbers(policy)
+    sync_installment_commissions(policy)
     return created
 
 

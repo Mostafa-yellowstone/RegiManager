@@ -54,6 +54,12 @@ class TLCPolicy(models.Model):
     plate_number = models.CharField(max_length=20, blank=True, default="")
     driver_name = models.CharField(max_length=200, blank=True, default="")
     broker_name = models.CharField(max_length=120, blank=True, default="")
+    referred_by = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        help_text="Name of the person who referred this policy.",
+    )
     issue_date = models.DateField(null=True, blank=True)
     insured_address = models.CharField(max_length=255, blank=True, default="")
     form_of_business = models.CharField(max_length=80, blank=True, default="")
@@ -258,6 +264,9 @@ class TLCInstallment(models.Model):
 
     @property
     def display_number(self) -> str:
+        ui = getattr(self, "ui_number", None)
+        if ui is not None:
+            return ui
         return "—" if self.is_deposit else str(self.installment_number)
 
     class Meta:

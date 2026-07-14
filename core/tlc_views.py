@@ -199,9 +199,16 @@ def build_tlc_space_context(request, card, is_owner, membership):
 
 
 def build_tlc_policy_detail_context(request, card, policy, is_owner, membership):
+    from .tlc_installments import annotate_installment_display_numbers, sync_installment_commissions
+    from .tlc_schedule import normalize_policy_installment_numbers
+
+    normalize_policy_installment_numbers(policy)
+    sync_installment_commissions(policy)
     profit = build_policy_profitability(policy)
     can_manage = is_owner or (membership and membership.can_deal_with_tlc)
     from .tlc_models import TLCPaymentTransaction
+
+    installments = annotate_installment_display_numbers(list(policy.installments.all()))
 
     return {
         "card": card,
@@ -210,7 +217,7 @@ def build_tlc_policy_detail_context(request, card, policy, is_owner, membership)
         "profit": profit,
         "is_owner": is_owner,
         "can_manage_tlc": can_manage,
-        "installments": policy.installments.all(),
+        "installments": installments,
         "reinstatements": policy.reinstatements.select_related("processed_by"),
         "endorsements": policy.endorsements.select_related("processed_by"),
         "dmv_services": policy.dmv_services.all(),
@@ -314,6 +321,7 @@ def add_tlc_policy(request, space_id):
         plate_number=request.POST.get("plate_number", "").strip(),
         driver_name=request.POST.get("driver_name", "").strip(),
         broker_name=request.POST.get("broker_name", "").strip(),
+        referred_by=request.POST.get("referred_by", "").strip(),
         status=request.POST.get("status", TLCPolicy.Status.PENDING),
         effective_date=_parse_date(request.POST.get("effective_date")),
         expiration_date=_parse_date(request.POST.get("expiration_date")),

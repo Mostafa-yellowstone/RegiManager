@@ -71,3 +71,41 @@ def build_installment_row(
         "commission_amount": commission,
         "balance": total,
     }
+
+
+def commission_on_premium(premium: Decimal, rate: Decimal) -> Decimal:
+    """Agency commission = net premium × commission rate %."""
+    premium = Decimal(premium or ZERO).quantize(Decimal("0.01"))
+    rate = Decimal(rate or ZERO)
+    if premium <= ZERO or rate <= ZERO:
+        return ZERO
+    return (premium * rate / Decimal("100")).quantize(Decimal("0.01"))
+
+
+def annotate_installment_display_numbers(installments) -> list:
+    """
+    Deposit/down payment shows as —, then bills display as 1..N regardless of stored number.
+    Fixes legacy schedules where deposit was #1 and bills were 2..10.
+    """
+    bill = 0
+    for row in installments:
+        if row.is_deposit:
+            row.ui_number = "—"
+        else:
+            bill += 1
+            row.ui_number = str(bill)
+    return list(installments)
+
+
+def sync_installment_commissions(policy, *, save: bool = True) -> int:
+    """Recompute each installment's commission_amount from net premium × policy rate."""
+    rate = policy_commission_rate(policy)
+    updated = 0
+    for row in policy.installments.all():
+        commission = commission_on_premium(row.amount, rate)
+        if Decimal(row.commission_amount or ZERO).quantize(Decimal("0.01")) != commission:
+            row.commission_amount = commission
+            if save:
+                row.save(update_fields=["commission_amount"])
+            updated += 1
+    return updated

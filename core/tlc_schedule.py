@@ -14,6 +14,40 @@ from .tlc_models import TLCInstallment, TLCPolicy, TLCPremiumBreakdown
 ZERO = Decimal("0.00")
 
 
+def normalize_policy_installment_numbers(policy: TLCPolicy) -> bool:
+    """
+    Persist numbering: deposit = 0, following bills = 1..N.
+    Returns True when any row was renumbered.
+    """
+    rows = list(policy.installments.order_by("due_date", "installment_number", "id"))
+    if not rows:
+        return False
+
+    deposits = [row for row in rows if row.is_deposit]
+    bills = [row for row in rows if not row.is_deposit]
+    target: dict[int, int] = {}
+
+    if deposits:
+        target[deposits[0].pk] = 0
+        # Extra deposit-labelled rows keep unique numbers after the bill sequence.
+        next_extra = len(bills) + 1
+        for extra in deposits[1:]:
+            target[extra.pk] = next_extra
+            next_extra += 1
+
+    for index, row in enumerate(bills, start=1):
+        target[row.pk] = index
+
+    if all(row.installment_number == target[row.pk] for row in rows):
+        return False
+
+    for index, row in enumerate(rows):
+        TLCInstallment.objects.filter(pk=row.pk).update(installment_number=10000 + index)
+    for pk, number in target.items():
+        TLCInstallment.objects.filter(pk=pk).update(installment_number=number)
+    return True
+
+
 def _add_months(start: date, months: int) -> date:
     target = start + relativedelta(months=months)
     last_day = monthrange(target.year, target.month)[1]
@@ -76,4 +110,8 @@ def generate_installment_schedule(policy: TLCPolicy, *, replace_existing: bool =
             },
         )
         created += 1
+    normalize_policy_installment_numbers(policy)
+    from .tlc_installments import sync_installment_commissions
+
+    sync_installment_commissions(policy)
     return created
