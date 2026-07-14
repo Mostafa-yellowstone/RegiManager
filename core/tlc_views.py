@@ -201,6 +201,8 @@ def build_tlc_space_context(request, card, is_owner, membership):
 def build_tlc_policy_detail_context(request, card, policy, is_owner, membership):
     profit = build_policy_profitability(policy)
     can_manage = is_owner or (membership and membership.can_deal_with_tlc)
+    from .tlc_models import TLCPaymentTransaction
+
     return {
         "card": card,
         "active_org": card.organization,
@@ -231,6 +233,11 @@ def build_tlc_policy_detail_context(request, card, policy, is_owner, membership)
         "policy_type_choices": TLCPolicy.PolicyType.choices,
         "policy_vehicles": policy.policy_vehicles.all(),
         "policy_drivers": policy.policy_drivers.all(),
+        "receipts": policy.receipts.select_related("transaction", "generated_by").order_by("-generated_at"),
+        "payment_transactions": policy.payment_transactions.prefetch_related("splits", "receipts").order_by(
+            "-payment_date", "-created_at"
+        ),
+        "payment_method_choices": TLCPaymentTransaction.PAYMENT_METHODS,
         "active_tab": request.GET.get("tab", "overview"),
     }
 
@@ -253,6 +260,8 @@ def tlc_policy_detail(request, space_id, policy_id):
             "timeline_events",
             "policy_vehicles",
             "policy_drivers",
+            "receipts",
+            "payment_transactions",
         ),
         id=policy_id,
         space=card,
@@ -452,7 +461,6 @@ def add_tlc_installment(request, policy_id):
         return redirect("tlc-policy-detail", space_id=card.id, policy_id=policy.id)
 
     installment_number = int(request.POST.get("installment_number") or 1)
-    is_paid = request.POST.get("is_paid") == "on"
     gross = _parse_decimal(request.POST.get("gross_amount") or request.POST.get("amount"))
     per_fee = _parse_decimal(request.POST.get("installment_fee"))
     try:
@@ -462,7 +470,7 @@ def add_tlc_installment(request, policy_id):
     notes = request.POST.get("notes", "").strip()
     apply_fee = "down payment" not in notes.lower() and "deposit" not in notes.lower()
     row = build_installment_row(policy, gross, installment_fee=per_fee, apply_fee=apply_fee)
-    balance = _parse_decimal(request.POST.get("balance"), default=row["balance"] if not is_paid else Decimal("0"))
+    balance = _parse_decimal(request.POST.get("balance"), default=row["balance"])
 
     TLCInstallment.objects.update_or_create(
         policy=policy,
@@ -472,8 +480,6 @@ def add_tlc_installment(request, policy_id):
             "amount": row["amount"],
             "installment_fee": row["installment_fee"],
             "commission_amount": row["commission_amount"],
-            "is_paid": is_paid,
-            "payment_date": _parse_date(request.POST.get("payment_date")) if is_paid else None,
             "late_fee": _parse_decimal(request.POST.get("late_fee")),
             "nsf_fee": _parse_decimal(request.POST.get("nsf_fee")),
             "was_reinstated": request.POST.get("was_reinstated") == "on",
@@ -488,10 +494,10 @@ def add_tlc_installment(request, policy_id):
         policy,
         TLCPolicyTimelineEvent.EventType.INSTALLMENT,
         f"Installment #{installment_number}",
-        event_date=_parse_date(request.POST.get("payment_date")) or _parse_date(request.POST.get("due_date")),
+        event_date=_parse_date(request.POST.get("due_date")),
         user=request.user,
     )
-    messages.success(request, "Installment saved.")
+    messages.success(request, "Installment saved. Use Collect Payment to record payment methods and generate a receipt.")
     return redirect(f"{_tlc_url(card, policy_id=policy.id)}?tab=installments")
 
 

@@ -175,6 +175,11 @@ from core.tlc_views import (
     add_tlc_carrier,
     add_tlc_carrier_statement,
 )
+from core.tlc_payment_views import (
+    record_tlc_payment_view,
+    tlc_receipt_detail,
+    tlc_receipt_pdf,
+)
 from core.tlc_edit_views import (
     edit_tlc_policy,
     edit_tlc_installment,
@@ -459,6 +464,9 @@ urlpatterns = [
     path("dashboard/spaces/tlc/<int:space_id>/finance-company/add/", add_tlc_finance_company, name="add-tlc-finance-company"),
     path("dashboard/spaces/tlc/<int:space_id>/carrier/add/", add_tlc_carrier, name="add-tlc-carrier"),
     path("dashboard/spaces/tlc/<int:space_id>/carrier-statement/add/", add_tlc_carrier_statement, name="add-tlc-carrier-statement"),
+    path("dashboard/spaces/tlc/policy/<int:policy_id>/payment/record/", record_tlc_payment_view, name="record-tlc-payment"),
+    path("dashboard/spaces/tlc/receipt/<int:receipt_id>/", tlc_receipt_detail, name="tlc-receipt-detail"),
+    path("dashboard/spaces/tlc/receipt/<int:receipt_id>/pdf/", tlc_receipt_pdf, name="tlc-receipt-pdf"),
     path("dashboard/spaces/tlc/policy/<int:policy_id>/edit/", edit_tlc_policy, name="edit-tlc-policy"),
     path("dashboard/spaces/tlc/installment/<int:installment_id>/edit/", edit_tlc_installment, name="edit-tlc-installment"),
     path("dashboard/spaces/tlc/reinstatement/<int:reinstatement_id>/edit/", edit_tlc_reinstatement, name="edit-tlc-reinstatement"),

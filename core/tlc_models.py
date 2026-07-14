@@ -774,3 +774,167 @@ class TLCCarrierStatementLine(models.Model):
 
     def __str__(self):
         return self.policy_number
+
+
+class TLCPaymentTransaction(models.Model):
+    """Customer-facing financial transaction on a TLC policy (supports split methods)."""
+
+    class TransactionType(models.TextChoices):
+        DOWN_PAYMENT = "down_payment", "Down Payment"
+        INSTALLMENT = "installment", "Installment Payment"
+        SPLIT_PAYMENT = "split_payment", "Split Payment"
+        BROKER_FEE = "broker_fee", "Broker Fee"
+        DMV = "dmv", "DMV Payment"
+        REINSTATEMENT = "reinstatement", "Reinstatement Fee"
+        LATE_FEE = "late_fee", "Late Fee"
+        NSF_FEE = "nsf_fee", "NSF Fee"
+        ENDORSEMENT = "endorsement", "Endorsement Payment"
+        RENEWAL = "renewal", "Renewal Payment"
+        ADDITIONAL_PREMIUM = "additional_premium", "Additional Premium"
+        REFUND = "refund", "Refund"
+        CREDIT = "credit", "Credit"
+        BALANCE_ADJUSTMENT = "balance_adjustment", "Balance Adjustment"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        COMPLETED = "completed", "Completed"
+        PENDING = "pending", "Pending"
+        FAILED = "failed", "Failed"
+        REVERSED = "reversed", "Reversed"
+
+    PAYMENT_METHODS = [
+        ("cash", "Cash"),
+        ("zelle", "Zelle"),
+        ("checks", "Checks"),
+        ("visa", "Visa"),
+        ("mastercard", "Mastercard"),
+        ("discover", "Discover"),
+        ("american_express", "American Express"),
+        ("credit_card", "Credit Card"),
+        ("debit_card", "Debit Card"),
+        ("money_order", "Money Order"),
+        ("wire", "Wire Transfer"),
+        ("other", "Other"),
+    ]
+
+    organization = models.ForeignKey(
+        "Organization", on_delete=models.CASCADE, related_name="tlc_payment_transactions"
+    )
+    policy = models.ForeignKey(
+        TLCPolicy, on_delete=models.CASCADE, related_name="payment_transactions"
+    )
+    transaction_id = models.CharField(max_length=40, unique=True, db_index=True)
+    transaction_type = models.CharField(
+        max_length=30, choices=TransactionType.choices, default=TransactionType.INSTALLMENT
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.COMPLETED, db_index=True
+    )
+    amount_due = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    amount_received = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    payment_date = models.DateField()
+    payment_time = models.TimeField(null=True, blank=True)
+    processed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tlc_payments_processed",
+    )
+    installment = models.ForeignKey(
+        TLCInstallment,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payment_transactions",
+    )
+    reinstatement = models.ForeignKey(
+        TLCReinstatement,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payment_transactions",
+    )
+    endorsement = models.ForeignKey(
+        TLCEndorsement,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payment_transactions",
+    )
+    dmv_service = models.ForeignKey(
+        TLCDMVService,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payment_transactions",
+    )
+    description = models.CharField(max_length=255, blank=True, default="")
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-payment_date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.transaction_id} — {self.policy.policy_number}"
+
+    @property
+    def is_split(self) -> bool:
+        return self.splits.count() > 1
+
+
+class TLCPaymentSplit(models.Model):
+    """One payment method row within a TLC payment transaction."""
+
+    transaction = models.ForeignKey(
+        TLCPaymentTransaction, on_delete=models.CASCADE, related_name="splits"
+    )
+    payment_method = models.CharField(
+        max_length=40,
+        choices=TLCPaymentTransaction.PAYMENT_METHODS,
+        default="cash",
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    reference_number = models.CharField(max_length=120, blank=True, default="")
+    approval_number = models.CharField(max_length=120, blank=True, default="")
+    last_four = models.CharField(max_length=8, blank=True, default="")
+    notes = models.CharField(max_length=255, blank=True, default="")
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    def __str__(self):
+        return f"{self.get_payment_method_display()} ${self.amount}"
+
+
+class TLCReceipt(models.Model):
+    """Immutable payment receipt generated after a TLC financial transaction."""
+
+    transaction = models.ForeignKey(
+        TLCPaymentTransaction, on_delete=models.CASCADE, related_name="receipts"
+    )
+    policy = models.ForeignKey(
+        TLCPolicy, on_delete=models.CASCADE, related_name="receipts"
+    )
+    receipt_number = models.CharField(max_length=40, unique=True, db_index=True)
+    version = models.PositiveSmallIntegerField(default=1)
+    generated_at = models.DateTimeField(auto_now_add=True)
+    generated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tlc_receipts_generated",
+    )
+    content_hash = models.CharField(max_length=64, blank=True, default="")
+    snapshot_json = models.JSONField(default=dict, blank=True)
+    pdf_file = models.FileField(upload_to="tlc_receipts/", blank=True, null=True)
+
+    class Meta:
+        ordering = ["-generated_at", "-id"]
+        unique_together = ("transaction", "version")
+
+    def __str__(self):
+        return f"Receipt {self.receipt_number} v{self.version}"

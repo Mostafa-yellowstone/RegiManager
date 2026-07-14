@@ -159,14 +159,13 @@ class TLCSpaceTests(TestCase):
                 "installment_fee": "5.00",
                 "late_fee": "0",
                 "nsf_fee": "0",
-                "balance": "0",
-                "is_paid": "on",
-                "payment_date": "2026-02-14",
+                "balance": "550.00",
             },
         )
         self.assertEqual(response.status_code, 302)
         installment.refresh_from_db()
-        self.assertTrue(installment.is_paid)
+        self.assertFalse(installment.is_paid)
         self.assertEqual(installment.amount, Decimal("550.00"))
         detail = self.client.get(reverse("tlc-policy-detail", args=[self.space.id, policy.id]))
-        self.assertContains(detail, "Edit")
+        self.assertContains(detail, "Collect Payment")
+        self.assertContains(detail, "Invoices")

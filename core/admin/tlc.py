@@ -7,11 +7,13 @@ from ..tlc_models import (
     TLCEndorsement,
     TLCFinanceCompany,
     TLCInstallment,
+    TLCPaymentTransaction,
     TLCPolicy,
     TLCPolicyCancellation,
     TLCPolicyDocument,
     TLCPolicyTimelineEvent,
     TLCPremiumBreakdown,
+    TLCReceipt,
     TLCReinstatement,
 )
 
@@ -121,3 +123,23 @@ class TLCPolicyDocumentAdmin(admin.ModelAdmin):
 @admin.register(TLCPolicyTimelineEvent)
 class TLCPolicyTimelineEventAdmin(admin.ModelAdmin):
     list_display = ("policy", "event_type", "title", "event_date")
+
+
+@admin.register(TLCPaymentTransaction)
+class TLCPaymentTransactionAdmin(admin.ModelAdmin):
+    list_display = (
+        "transaction_id",
+        "policy",
+        "transaction_type",
+        "amount_received",
+        "payment_date",
+        "status",
+    )
+    list_filter = ("transaction_type", "status", "organization")
+    search_fields = ("transaction_id", "policy__policy_number", "description")
+
+
+@admin.register(TLCReceipt)
+class TLCReceiptAdmin(admin.ModelAdmin):
+    list_display = ("receipt_number", "policy", "version", "generated_at", "content_hash")
+    search_fields = ("receipt_number", "policy__policy_number", "transaction__transaction_id")

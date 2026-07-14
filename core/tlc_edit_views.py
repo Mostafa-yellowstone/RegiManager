@@ -136,7 +136,6 @@ def edit_tlc_installment(request, installment_id):
     if not (is_owner or (membership and membership.can_deal_with_tlc)):
         return _deny_manage(request, card, membership, is_owner, policy_id=policy.id, tab="installments")
 
-    is_paid = request.POST.get("is_paid") == "on"
     gross = _parse_decimal(request.POST.get("gross_amount") or request.POST.get("amount"))
     per_fee = _parse_decimal(request.POST.get("installment_fee"))
     notes = request.POST.get("notes", "").strip()
@@ -147,14 +146,11 @@ def edit_tlc_installment(request, installment_id):
     installment.amount = row["amount"]
     installment.installment_fee = row["installment_fee"]
     installment.commission_amount = row["commission_amount"]
-    installment.is_paid = is_paid
-    installment.payment_date = _parse_date(request.POST.get("payment_date")) if is_paid else None
     installment.late_fee = _parse_decimal(request.POST.get("late_fee"))
     installment.nsf_fee = _parse_decimal(request.POST.get("nsf_fee"))
     installment.was_reinstated = request.POST.get("was_reinstated") == "on"
-    installment.balance = _parse_decimal(
-        request.POST.get("balance"), default=Decimal("0") if is_paid else row["balance"]
-    )
+    if not installment.is_paid:
+        installment.balance = _parse_decimal(request.POST.get("balance"), default=row["balance"])
     installment.notes = notes
     installment.save()
     from .tlc_accounting import sync_installment_accounting
