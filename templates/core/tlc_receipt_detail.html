@@ -138,7 +138,7 @@
     <div class="xis-summary">
       <div class="xis-summary-item"><div class="xis-label">Original Premium</div><div class="xis-value">${{ snapshot.account_summary.original_premium|default:"0.00" }}</div></div>
       <div class="xis-summary-item"><div class="xis-label">Endorsements</div><div class="xis-value">${{ snapshot.account_summary.endorsements|default:"0.00" }}</div></div>
-      <div class="xis-summary-item"><div class="xis-label">Current Written</div><div class="xis-value">${{ snapshot.account_summary.current_written_premium|default:"0.00" }}</div></div>
+      <div class="xis-summary-item"><div class="xis-label">Billing Amount</div><div class="xis-value">${{ snapshot.account_summary.billing_amount|default:snapshot.account_summary.current_written_premium|default:"0.00" }}</div></div>
       <div class="xis-summary-item"><div class="xis-label">Fees Collected</div><div class="xis-value">${{ snapshot.account_summary.fees|default:"0.00" }}</div></div>
       <div class="xis-summary-item"><div class="xis-label">Payments Made</div><div class="xis-value">${{ snapshot.account_summary.payments_made|default:"0.00" }}</div></div>
       <div class="xis-summary-item"><div class="xis-label">Outstanding Balance</div><div class="xis-value">${{ snapshot.account_summary.outstanding_balance|default:"0.00" }}</div></div>

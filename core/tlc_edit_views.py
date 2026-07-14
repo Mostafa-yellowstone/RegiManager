@@ -95,9 +95,6 @@ def edit_tlc_policy(request, policy_id):
     policy.renewal_date = _parse_date(request.POST.get("renewal_date"))
     policy.commission_rate = _parse_decimal(request.POST.get("commission_rate"))
     policy.broker_fee_collected = _parse_decimal(request.POST.get("broker_fee_collected"))
-    policy.producer_commission_amount = _parse_decimal(request.POST.get("producer_commission_amount"))
-    policy.csr_commission_amount = _parse_decimal(request.POST.get("csr_commission_amount"))
-    policy.commission_received = _parse_decimal(request.POST.get("commission_received"))
     apply_client_to_policy(policy, client, vehicle)
     if request.POST.get("named_insured", "").strip():
         policy.named_insured = request.POST.get("named_insured", "").strip()

@@ -179,6 +179,7 @@ def build_policy_profitability(policy: TLCPolicy, *, today: date | None = None) 
 
     written_premium = accounting["base_written_premium"]
     current_written_premium = accounting["current_written_premium"]
+    billing_amount = accounting["billing_amount"]
     endorsement_adjustments = accounting["endorsement_premium_adjustments"]
     down_payment = _d(breakdown.down_payment) if breakdown else ZERO
 
@@ -196,13 +197,13 @@ def build_policy_profitability(policy: TLCPolicy, *, today: date | None = None) 
     if policy.amount_collected_from_client:
         total_collected = max(total_collected, _d(policy.amount_collected_from_client))
 
+    # Installment fees are carrier pass-through — never agency profit.
     gross_agency_revenue = (
         commission["commission_earned"]
         + broker_fees
         + finance_fees
         + policy_fees
         + inspection_fees
-        + installments.installment_fees_collected
         + installments.late_fees_collected
         + installments.nsf_fees_collected
         + reinstatements["reinstatement_fees_collected"]
@@ -230,6 +231,7 @@ def build_policy_profitability(policy: TLCPolicy, *, today: date | None = None) 
     return {
         "written_premium": _money(written_premium),
         "current_written_premium": _money(current_written_premium),
+        "billing_amount": _money(billing_amount),
         "endorsement_adjustments": _money(endorsement_adjustments),
         "return_premium": _money(accounting["return_premium"]),
         "down_payment": _money(down_payment),
@@ -245,6 +247,7 @@ def build_policy_profitability(policy: TLCPolicy, *, today: date | None = None) 
         "nsf_fees": _money(installments.nsf_fees_collected),
         "installment_fees_collected": _money(installments.installment_fees_collected),
         "installment_fees_outstanding": _money(installments.installment_fees_outstanding),
+        "installment_fees_total": _money(accounting["installment_fees_total"]),
         "installment_commission_collected": _money(installments.installment_commission_collected),
         "installment_commission_outstanding": _money(installments.installment_commission_outstanding),
         "installment_commission_total": _money(
@@ -255,6 +258,7 @@ def build_policy_profitability(policy: TLCPolicy, *, today: date | None = None) 
         "reinstatement_fees": _money(reinstatements["reinstatement_fees_collected"]),
         "broker_fees_collected": _money(broker_fees),
         "carrier_commission": _money(commission["expected_commission"]),
+        "commission_rate": str(_d(policy.commission_rate)),
         "commission_earned": _money(commission["commission_earned"]),
         "unearned_commission": _money(commission["unearned_commission"]),
         "commission_chargeback": _money(commission["chargeback"]),

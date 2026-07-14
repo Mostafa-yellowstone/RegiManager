@@ -135,7 +135,10 @@ class TLCAccountingTests(TestCase):
         installment_commission = Decimal(snapshot["installment_commission_collected"])
         fees = Decimal(snapshot["installment_fees_collected"])
         self.assertEqual(earned, installment_commission)
-        self.assertEqual(gross, earned + fees)
+        # Installment fees remitted to carrier — not counted as agency profit.
+        self.assertEqual(fees, Decimal("5.00"))
+        self.assertEqual(gross, earned)
+        self.assertEqual(snapshot["billing_amount"], "1005.00")
 
     def test_accounting_snapshot_pending_commission_after_partial_payment(self):
         self._add_paid_installment(1, "200.00", fee="0.00")

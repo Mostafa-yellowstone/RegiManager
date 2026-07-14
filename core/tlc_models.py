@@ -246,12 +246,27 @@ class TLCInstallment(models.Model):
             Decimal("0.01")
         )
 
+    @property
+    def is_deposit(self) -> bool:
+        """Down payment / deposit rows are unnumbered; bills start at 1 after them."""
+        if self.installment_number == 0:
+            return True
+        notes = (self.notes or "").strip().lower()
+        return notes in {"deposit", "down payment"} or "down payment" in notes or notes.startswith(
+            "deposit"
+        )
+
+    @property
+    def display_number(self) -> str:
+        return "—" if self.is_deposit else str(self.installment_number)
+
     class Meta:
         ordering = ["installment_number"]
         unique_together = ("policy", "installment_number")
 
     def __str__(self):
-        return f"#{self.installment_number} — {self.policy.policy_number}"
+        label = "Deposit" if self.is_deposit else f"#{self.installment_number}"
+        return f"{label} — {self.policy.policy_number}"
 
 
 class TLCReinstatement(models.Model):

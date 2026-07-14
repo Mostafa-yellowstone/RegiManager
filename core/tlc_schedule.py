@@ -23,7 +23,7 @@ def _add_months(start: date, months: int) -> date:
 def generate_installment_schedule(policy: TLCPolicy, *, replace_existing: bool = False) -> int:
     """
     Build installment rows from premium breakdown.
-    Down payment is installment #1; monthly bills follow with fee deducted from gross.
+    Down payment / deposit is unnumbered (installment_number=0); monthly bills start at #1.
     """
     try:
         breakdown: TLCPremiumBreakdown = policy.premium_breakdown
@@ -42,7 +42,7 @@ def generate_installment_schedule(policy: TLCPolicy, *, replace_existing: bool =
         row = build_installment_row(policy, down_payment, installment_fee=per_fee, apply_fee=False)
         TLCInstallment.objects.create(
             policy=policy,
-            installment_number=1,
+            installment_number=0,
             due_date=start_date,
             amount=row["amount"],
             installment_fee=row["installment_fee"],
@@ -59,7 +59,7 @@ def generate_installment_schedule(policy: TLCPolicy, *, replace_existing: bool =
         return created
 
     for offset in range(count):
-        number = created + offset + 1
+        number = offset + 1
         due = _add_months(start_date, offset + (1 if down_payment > ZERO else 0))
         row = build_installment_row(policy, monthly, installment_fee=per_fee, apply_fee=True)
         TLCInstallment.objects.update_or_create(

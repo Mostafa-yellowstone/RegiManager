@@ -811,7 +811,8 @@ def apply_dec_payment_schedule(
     if replace_existing:
         policy.installments.all().delete()
     created = 0
-    for number, payment in enumerate(payments, start=1):
+    next_bill = 1
+    for payment in payments:
         if payment.fee > ZERO:
             row = build_installment_row(
                 policy,
@@ -833,6 +834,11 @@ def apply_dec_payment_schedule(
                 installment_fee=installment_fee,
                 apply_fee=True,
             )
+        if payment.label == "DEPOSIT":
+            number = 0
+        else:
+            number = next_bill
+            next_bill += 1
         TLCInstallment.objects.create(
             policy=policy,
             installment_number=number,

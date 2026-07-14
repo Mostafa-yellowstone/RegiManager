@@ -88,6 +88,18 @@ def policy_installment_fees_collected(policy: TLCPolicy) -> Decimal:
     )
 
 
+def policy_installment_fees_total(policy: TLCPolicy) -> Decimal:
+    """All installment fees on the schedule (carrier pass-through, not agency profit)."""
+    return _d(policy.installments.aggregate(total=Sum("installment_fee"))["total"])
+
+
+def policy_billing_amount(policy: TLCPolicy) -> Decimal:
+    """Customer billing total: current written premium + installment fees."""
+    return (policy_written_premium(policy) + policy_installment_fees_total(policy)).quantize(
+        Decimal("0.01")
+    )
+
+
 def calculate_tlc_return_premium(
     policy: TLCPolicy,
     inactive_date: date | None,
@@ -325,16 +337,20 @@ def build_accounting_snapshot(policy: TLCPolicy, *, today: date | None = None) -
         calculate_tlc_unearned_commission(policy, inactive) if inactive else ZERO
     )
     return_premium = calculate_tlc_return_premium(policy, inactive) if inactive else ZERO
-    carrier_premium = max(written - return_premium, ZERO)
+    installment_fees_total = policy_installment_fees_total(policy)
+    # Installment fees are remitted to the carrier (not agency revenue).
+    carrier_premium = max(written - return_premium, ZERO) + installment_fees_total
     chargeback = _d(policy.commission_chargeback)
     if inactive and chargeback == ZERO:
         chargeback = unearned_commission
+    billing_amount = (written + installment_fees_total).quantize(Decimal("0.01"))
 
     return {
         "today": today,
         "base_written_premium": base_written,
         "endorsement_premium_adjustments": endorsement_premium,
         "current_written_premium": written,
+        "billing_amount": billing_amount,
         "carrier_premium_due": carrier_premium,
         "return_premium": return_premium,
         "expected_commission": expected_commission,
@@ -345,5 +361,6 @@ def build_accounting_snapshot(policy: TLCPolicy, *, today: date | None = None) -
         "net_premium_collected": policy_net_premium_collected(policy),
         "gross_collected": policy_gross_collected(policy),
         "installment_fees_collected": policy_installment_fees_collected(policy),
+        "installment_fees_total": installment_fees_total,
         "inactive_date": inactive,
     }

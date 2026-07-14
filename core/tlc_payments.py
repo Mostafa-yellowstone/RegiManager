@@ -141,11 +141,16 @@ def resolve_payment_target(
             else TLCPaymentTransaction.TransactionType.INSTALLMENT
         )
         links["installment"] = installment
+        if installment.is_deposit:
+            label = "Deposit"
+        else:
+            label = f"Installment #{installment.display_number}"
+        if installment.notes:
+            label = f"{label} — {installment.notes}"
         return (
             txn_type,
             installment.total_due,
-            f"Installment #{installment.installment_number}"
-            + (f" — {installment.notes}" if installment.notes else ""),
+            label,
             links,
         )
 
@@ -216,7 +221,7 @@ def build_receipt_snapshot(policy: TLCPolicy, txn: TLCPaymentTransaction) -> dic
         )
     schedule = [
         {
-            "installment_number": row.installment_number,
+            "installment_number": row.display_number,
             "due_date": row.due_date.isoformat() if row.due_date else "",
             "amount": str(row.total_due),
             "status": "Paid" if row.is_paid else ("Past Due" if row.due_date and row.due_date < date.today() else "Upcoming"),
@@ -329,12 +334,13 @@ def build_receipt_snapshot(policy: TLCPolicy, txn: TLCPaymentTransaction) -> dic
             "original_premium": str(profit.get("written_premium") or ZERO),
             "endorsements": str(profit.get("endorsement_adjustments") or ZERO),
             "current_written_premium": str(profit.get("current_written_premium") or ZERO),
+            "billing_amount": str(profit.get("billing_amount") or ZERO),
+            "commission_rate": str(profit.get("commission_rate") or policy.commission_rate or ZERO),
             "payments_made": str(profit.get("total_collected") or ZERO),
             "outstanding_balance": str(unpaid_balance),
             "fees": str(
                 (
-                    Decimal(str(profit.get("installment_fees_collected") or ZERO))
-                    + Decimal(str(profit.get("late_fees_collected") or ZERO))
+                    Decimal(str(profit.get("late_fees_collected") or ZERO))
                     + Decimal(str(profit.get("nsf_fees") or ZERO))
                 ).quantize(Decimal("0.01"))
             ),

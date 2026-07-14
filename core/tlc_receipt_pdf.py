@@ -419,7 +419,7 @@ def render_tlc_receipt_pdf(receipt) -> bytes:
     summary_items = [
         ("Original Premium", _money(account.get("original_premium"))),
         ("Endorsements", _money(account.get("endorsements"))),
-        ("Current Written", _money(account.get("current_written_premium"))),
+        ("Billing Amount", _money(account.get("billing_amount") or account.get("current_written_premium"))),
         ("Fees Collected", _money(account.get("fees"))),
         ("Payments Made", _money(account.get("payments_made"))),
         ("Outstanding Balance", _money(account.get("outstanding_balance"))),

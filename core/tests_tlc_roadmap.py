@@ -51,3 +51,17 @@ class TLCRoadmapTests(TestCase):
         self.assertEqual(first.installment_fee, Decimal("8.00"))
         self.assertEqual(first.amount, Decimal("492.00"))
         self.assertEqual(first.balance, Decimal("500.00"))
+
+    def test_generate_installment_schedule_deposit_unnumbered(self):
+        breakdown = self.policy.premium_breakdown
+        breakdown.down_payment = Decimal("1000.00")
+        breakdown.save(update_fields=["down_payment"])
+        created = generate_installment_schedule(self.policy, replace_existing=True)
+        self.assertEqual(created, 11)
+        deposit = self.policy.installments.get(installment_number=0)
+        self.assertTrue(deposit.is_deposit)
+        self.assertEqual(deposit.display_number, "—")
+        self.assertEqual(deposit.notes, "Down Payment")
+        first_bill = self.policy.installments.get(installment_number=1)
+        self.assertFalse(first_bill.is_deposit)
+        self.assertEqual(first_bill.notes, "Bill #1")
