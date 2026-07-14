@@ -875,6 +875,8 @@ class TLCPaymentTransaction(models.Model):
 
     class Meta:
         ordering = ["-payment_date", "-created_at"]
+        verbose_name = "TLC payment"
+        verbose_name_plural = "TLC payments"
 
     def __str__(self):
         return f"{self.transaction_id} — {self.policy.policy_number}"
@@ -935,6 +937,8 @@ class TLCReceipt(models.Model):
     class Meta:
         ordering = ["-generated_at", "-id"]
         unique_together = ("transaction", "version")
+        verbose_name = "TLC receipt"
+        verbose_name_plural = "TLC receipts"
 
     def __str__(self):
         return f"Receipt {self.receipt_number} v{self.version}"

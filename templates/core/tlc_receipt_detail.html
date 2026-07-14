@@ -28,16 +28,18 @@
     text-align: center;
   }
   .xis-cross h4 {
-    margin: 0 0 .3rem;
+    margin: 0 0 .2rem;
     color: #0b3a6e;
-    font-size: .82rem;
+    font-size: .78rem;
     font-weight: 800;
+    letter-spacing: 0.02em;
   }
-  .xis-cross p {
+  .xis-cross .xis-cta {
     margin: 0 0 .55rem;
-    color: #334155;
-    font-size: .74rem;
-    line-height: 1.35;
+    color: #0f172a;
+    font-size: 1.05rem;
+    font-weight: 800;
+    line-height: 1.3;
   }
   .xis-pills {
     display: flex;
@@ -145,7 +147,7 @@
 
   <div class="xis-cross">
     <h4>{{ snapshot.cross_sell.headline|default:"Protect more of what matters" }}</h4>
-    <p>{{ snapshot.cross_sell.message|default:"We also offer Personal Auto, Home, and Business Insurance — ask us for a complimentary review." }}</p>
+    <p class="xis-cta">{{ snapshot.cross_sell.message|default:"Ask us for a complimentary review." }}</p>
     <div class="xis-pills">
       {% for product in snapshot.cross_sell.products %}
       <span class="xis-pill">{{ product }}</span>

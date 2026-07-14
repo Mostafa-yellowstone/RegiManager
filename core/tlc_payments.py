@@ -345,7 +345,7 @@ def build_receipt_snapshot(policy: TLCPolicy, txn: TLCPaymentTransaction) -> dic
         ],
         "cross_sell": {
             "headline": "Protect more of what matters",
-            "message": "We also offer Personal Auto, Home, and Business Insurance — ask us for a complimentary review.",
+            "message": "Ask us for a complimentary review.",
             "products": ["Personal Auto", "Home", "Business Insurance"],
         },
     }

@@ -100,9 +100,9 @@ def _styles():
             "r_cross_h", parent=base["Normal"], fontName="Helvetica-Bold",
             fontSize=8, textColor=NAVY, alignment=TA_CENTER, leading=10,
         ),
-        "cross_body": ParagraphStyle(
-            "r_cross_b", parent=base["Normal"], fontName="Helvetica",
-            fontSize=6.5, textColor=INK, alignment=TA_CENTER, leading=8.5,
+        "cross_cta": ParagraphStyle(
+            "r_cross_cta", parent=base["Normal"], fontName="Helvetica-Bold",
+            fontSize=10, textColor=INK, alignment=TA_CENTER, leading=12,
         ),
         "cross_pill": ParagraphStyle(
             "r_cross_p", parent=base["Normal"], fontName="Helvetica-Bold",
@@ -498,11 +498,8 @@ def render_tlc_receipt_pdf(receipt) -> bytes:
                 styles["cross_headline"],
             )],
             [Paragraph(
-                _safe(
-                    cross.get("message"),
-                    "We also offer Personal Auto, Home, and Business Insurance — ask us for a complimentary review.",
-                ),
-                styles["cross_body"],
+                _safe(cross.get("message"), "Ask us for a complimentary review."),
+                styles["cross_cta"],
             )],
             [Spacer(1, 3)],
             [pills],
@@ -516,7 +513,8 @@ def render_tlc_receipt_pdf(receipt) -> bytes:
         ("RIGHTPADDING", (0, 0), (-1, -1), 8),
         ("TOPPADDING", (0, 0), (-1, 0), 6),
         ("BOTTOMPADDING", (0, -1), (-1, -1), 7),
-        ("TOPPADDING", (0, 1), (-1, -2), 2),
+        ("TOPPADDING", (0, 1), (-1, 1), 4),
+        ("BOTTOMPADDING", (0, 1), (-1, 1), 2),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
     ]))
     story.append(cross_inner)

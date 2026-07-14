@@ -7,6 +7,7 @@ from ..tlc_models import (
     TLCEndorsement,
     TLCFinanceCompany,
     TLCInstallment,
+    TLCPaymentSplit,
     TLCPaymentTransaction,
     TLCPolicy,
     TLCPolicyCancellation,
@@ -26,6 +27,29 @@ class TLCInstallmentInline(admin.TabularInline):
 class TLCPremiumBreakdownInline(admin.StackedInline):
     model = TLCPremiumBreakdown
     extra = 0
+
+
+class TLCPaymentSplitInline(admin.TabularInline):
+    model = TLCPaymentSplit
+    extra = 0
+    fields = (
+        "payment_method",
+        "amount",
+        "reference_number",
+        "approval_number",
+        "last_four",
+        "notes",
+        "sort_order",
+    )
+
+
+class TLCReceiptInline(admin.TabularInline):
+    model = TLCReceipt
+    extra = 0
+    fields = ("receipt_number", "version", "generated_at", "generated_by", "pdf_file")
+    readonly_fields = ("receipt_number", "version", "generated_at", "generated_by", "pdf_file")
+    can_delete = False
+    show_change_link = True
 
 
 @admin.register(TLCPolicy)
@@ -130,16 +154,84 @@ class TLCPaymentTransactionAdmin(admin.ModelAdmin):
     list_display = (
         "transaction_id",
         "policy",
+        "organization",
         "transaction_type",
+        "amount_due",
         "amount_received",
         "payment_date",
         "status",
+        "processed_by",
+        "created_at",
     )
-    list_filter = ("transaction_type", "status", "organization")
-    search_fields = ("transaction_id", "policy__policy_number", "description")
+    list_filter = ("transaction_type", "status", "organization", "payment_date")
+    search_fields = (
+        "transaction_id",
+        "policy__policy_number",
+        "policy__named_insured",
+        "description",
+        "notes",
+    )
+    readonly_fields = ("transaction_id", "created_at")
+    date_hierarchy = "payment_date"
+    raw_id_fields = ("policy", "processed_by", "installment", "reinstatement", "endorsement", "dmv_service")
+    inlines = [TLCPaymentSplitInline, TLCReceiptInline]
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "organization",
+                    "policy",
+                    "transaction_id",
+                    "transaction_type",
+                    "status",
+                    "description",
+                )
+            },
+        ),
+        (
+            "Amounts",
+            {"fields": ("amount_due", "amount_received", "payment_date", "payment_time")},
+        ),
+        (
+            "Linked records",
+            {
+                "fields": ("installment", "reinstatement", "endorsement", "dmv_service"),
+            },
+        ),
+        ("Audit", {"fields": ("processed_by", "notes", "created_at")}),
+    )
 
 
 @admin.register(TLCReceipt)
 class TLCReceiptAdmin(admin.ModelAdmin):
-    list_display = ("receipt_number", "policy", "version", "generated_at", "content_hash")
-    search_fields = ("receipt_number", "policy__policy_number", "transaction__transaction_id")
+    list_display = (
+        "receipt_number",
+        "policy",
+        "transaction",
+        "version",
+        "generated_at",
+        "generated_by",
+        "has_pdf",
+    )
+    list_filter = ("generated_at", "version")
+    search_fields = (
+        "receipt_number",
+        "policy__policy_number",
+        "transaction__transaction_id",
+        "content_hash",
+    )
+    readonly_fields = (
+        "receipt_number",
+        "version",
+        "generated_at",
+        "content_hash",
+        "snapshot_json",
+        "pdf_file",
+    )
+    date_hierarchy = "generated_at"
+    raw_id_fields = ("policy", "transaction", "generated_by")
+
+    @admin.display(boolean=True, description="PDF")
+    def has_pdf(self, obj):
+        return bool(obj.pdf_file)

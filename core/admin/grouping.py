@@ -76,6 +76,8 @@ CORE_ADMIN_GROUPS = (
             "TLCEndorsement",
             "TLCDMVService",
             "TLCCarrierRemittance",
+            "TLCPaymentTransaction",
+            "TLCReceipt",
             "TLCPolicyDocument",
             "TLCPolicyTimelineEvent",
         ),

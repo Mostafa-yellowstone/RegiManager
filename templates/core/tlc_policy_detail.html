@@ -142,6 +142,69 @@ html.portal-theme-dark .tlc-overview-table.tlc-table td {
   color: var(--portal-text);
   border-bottom-color: rgba(241, 245, 249, 0.28);
 }
+
+/* Policy printable report */
+.tlc-report-toolbar { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
+.tlc-report {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1.5rem;
+  color: #0f172a;
+}
+.tlc-report-header {
+  display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap;
+  padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 2px solid #0b3a6e;
+}
+.tlc-report-brand { font-size: 1.15rem; font-weight: 850; color: #0b3a6e; }
+.tlc-report-meta { text-align:right; font-size: 0.82rem; color: #64748b; line-height: 1.45; }
+.tlc-report h3 {
+  margin: 1.15rem 0 0.55rem; font-size: 0.72rem; letter-spacing: 0.08em;
+  text-transform: uppercase; color: #0b3a6e; font-weight: 850;
+}
+.tlc-report-grid {
+  display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem 1rem;
+  margin-bottom: 0.35rem;
+}
+.tlc-report-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; }
+.tlc-report-value { font-size: 0.88rem; font-weight: 750; color: #0f172a; }
+.tlc-report-summary {
+  display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.55rem; margin: 0.75rem 0 0.25rem;
+}
+.tlc-report-chip {
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.65rem 0.75rem;
+}
+.tlc-report-table { width:100%; border-collapse: collapse; font-size: 0.8rem; margin-bottom: 0.25rem; }
+.tlc-report-table th {
+  background: #0b3a6e; color: #fff; text-align: left; padding: 0.45rem 0.55rem; font-size: 0.68rem;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.tlc-report-table td { padding: 0.4rem 0.55rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+.tlc-report-table tr:nth-child(even) td { background: #f8fafc; }
+.tlc-report-empty { color: #94a3b8; font-size: 0.82rem; padding: 0.35rem 0; }
+.tlc-report-footer {
+  margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px solid #e2e8f0;
+  font-size: 0.72rem; color: #64748b; text-align: center;
+}
+@media (max-width: 900px) {
+  .tlc-report-grid, .tlc-report-summary { grid-template-columns: 1fr 1fr; }
+}
+@media print {
+  body * { visibility: hidden !important; }
+  #tlc-panel-report, #tlc-panel-report * { visibility: visible !important; }
+  #tlc-panel-report {
+    display: block !important;
+    position: absolute; left: 0; top: 0; width: 100%;
+    background: #fff !important;
+  }
+  .tlc-report-toolbar, .tlc-tab-nav, .no-print { display: none !important; }
+  .tlc-report {
+    border: none !important; border-radius: 0 !important; padding: 0 !important;
+    box-shadow: none !important;
+  }
+  .portal-space-shell, .portal-space-inner { margin: 0 !important; padding: 0 !important; max-width: none !important; }
+  a[href]::after { content: "" !important; }
+}
 </style>
 
 <main class="portal-space-shell">
@@ -199,6 +262,7 @@ html.portal-theme-dark .tlc-overview-table.tlc-table td {
       <button class="tlc-tab-btn {% if active_tab == 'endorsements' %}active{% endif %}" onclick="tlcTab('endorsements',this)">Endorsements</button>
       <button class="tlc-tab-btn {% if active_tab == 'dmv' %}active{% endif %}" onclick="tlcTab('dmv',this)">DMV / TLC</button>
       <button class="tlc-tab-btn {% if active_tab == 'invoices' %}active{% endif %}" onclick="tlcTab('invoices',this)">Invoices</button>
+      <button class="tlc-tab-btn {% if active_tab == 'report' %}active{% endif %}" onclick="tlcTab('report',this)">Report</button>
       <button class="tlc-tab-btn {% if active_tab == 'carrier' %}active{% endif %}" onclick="tlcTab('carrier',this)">Carrier Balance</button>
       <button class="tlc-tab-btn {% if active_tab == 'documents' %}active{% endif %}" onclick="tlcTab('documents',this)">Documents</button>
       <button class="tlc-tab-btn {% if active_tab == 'finance' %}active{% endif %}" onclick="tlcTab('finance',this)">Finance</button>
@@ -387,6 +451,199 @@ html.portal-theme-dark .tlc-overview-table.tlc-table td {
       </table>
     </div>
 
+    <div id="tlc-panel-report" class="tlc-tab-panel {% if active_tab == 'report' %}active{% endif %}">
+      <div class="tlc-report-toolbar no-print">
+        <div>
+          <h3 style="margin:0;font-size:1.05rem;">Policy Report</h3>
+          <p style="margin:0.35rem 0 0;font-size:0.85rem;color:var(--portal-text-muted);">Printable summary of premium, installments, payments, endorsements, reinstatements, DMV, and receipts.</p>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" onclick="tlcPrintReport()">Print Report</button>
+      </div>
+
+      <div class="tlc-report" id="tlcPolicyReport">
+        <div class="tlc-report-header">
+          <div>
+            <div class="tlc-report-brand">{{ card.label|default:"TLC" }} · Policy Report</div>
+            <div style="font-size:0.9rem;font-weight:800;margin-top:0.25rem;">{{ policy.policy_number }} — {{ policy.named_insured|default:policy.business_name|default:"—" }}</div>
+            <div style="font-size:0.8rem;color:#64748b;margin-top:0.2rem;">
+              {% if card.business_address %}{{ card.business_address|linebreaksbr }}<br>{% endif %}
+              {% if card.business_phone %}{{ card.business_phone }}{% endif %}
+              {% if card.business_phone and card.business_email %} · {% endif %}
+              {% if card.business_email %}{{ card.business_email }}{% endif %}
+            </div>
+          </div>
+          <div class="tlc-report-meta">
+            <div><strong>Status:</strong> {{ policy.get_status_display }}</div>
+            <div><strong>Carrier:</strong> {{ policy.carrier|default:"—" }}</div>
+            <div><strong>Effective:</strong> {{ policy.effective_date|date:"M j, Y"|default:"—" }}</div>
+            <div><strong>Expiration:</strong> {{ policy.expiration_date|date:"M j, Y"|default:"—" }}</div>
+            <div><strong>Printed:</strong> {% now "M j, Y g:i A" %}</div>
+          </div>
+        </div>
+
+        <h3>Account Snapshot</h3>
+        <div class="tlc-report-summary">
+          <div class="tlc-report-chip"><div class="tlc-report-label">Current Written</div><div class="tlc-report-value">${{ profit.current_written_premium }}</div></div>
+          <div class="tlc-report-chip"><div class="tlc-report-label">Total Collected</div><div class="tlc-report-value">${{ profit.total_collected }}</div></div>
+          <div class="tlc-report-chip"><div class="tlc-report-label">Commission Earned</div><div class="tlc-report-value">${{ profit.commission_earned }}</div></div>
+          <div class="tlc-report-chip"><div class="tlc-report-label">Net Policy Profit</div><div class="tlc-report-value">${{ profit.net_profit }}</div></div>
+        </div>
+
+        <h3>Policy Details</h3>
+        <div class="tlc-report-grid">
+          <div><div class="tlc-report-label">Named Insured</div><div class="tlc-report-value">{{ policy.named_insured|default:"—" }}</div></div>
+          <div><div class="tlc-report-label">Business Name</div><div class="tlc-report-value">{{ policy.business_name|default:"—" }}</div></div>
+          <div><div class="tlc-report-label">Policy Type</div><div class="tlc-report-value">{{ policy.get_policy_type_display }}</div></div>
+          <div><div class="tlc-report-label">VIN</div><div class="tlc-report-value">{{ policy.vin|default:"—" }}</div></div>
+          <div><div class="tlc-report-label">Plate</div><div class="tlc-report-value">{{ policy.plate_number|default:"—" }}</div></div>
+          <div><div class="tlc-report-label">Driver</div><div class="tlc-report-value">{{ policy.driver_name|default:"—" }}</div></div>
+          <div><div class="tlc-report-label">TLC Base #</div><div class="tlc-report-value">{{ policy.tlc_base_number|default:"—" }}</div></div>
+          <div><div class="tlc-report-label">TLC License #</div><div class="tlc-report-value">{{ policy.tlc_license_number|default:"—" }}</div></div>
+          <div><div class="tlc-report-label">Broker</div><div class="tlc-report-value">{{ policy.broker_name|default:"—" }}</div></div>
+        </div>
+
+        <h3>Installment Schedule</h3>
+        <table class="tlc-report-table">
+          <thead><tr><th>#</th><th>Due</th><th>Label</th><th>Gross</th><th>Premium</th><th>Fee</th><th>Paid</th><th>Payment Date</th></tr></thead>
+          <tbody>
+            {% for i in installments %}
+            <tr>
+              <td>{{ i.installment_number }}</td>
+              <td>{{ i.due_date|date:"M j, Y" }}</td>
+              <td>{{ i.notes|default:"—" }}</td>
+              <td>${{ i.total_due }}</td>
+              <td>${{ i.amount }}</td>
+              <td>${{ i.installment_fee }}</td>
+              <td>{% if i.is_paid %}Paid{% else %}Open{% endif %}</td>
+              <td>{{ i.payment_date|date:"M j, Y"|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" class="tlc-report-empty">No installments on file.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <h3>Payments Collected</h3>
+        <table class="tlc-report-table">
+          <thead><tr><th>Date</th><th>Txn / Receipt</th><th>Type</th><th>Methods</th><th>Amount</th><th>Status</th><th>By</th></tr></thead>
+          <tbody>
+            {% for t in payment_transactions %}
+            <tr>
+              <td>{{ t.payment_date|date:"M j, Y" }}{% if t.payment_time %}<div style="font-size:0.72rem;color:#64748b;">{{ t.payment_time|time:"g:i A" }}</div>{% endif %}</td>
+              <td>
+                <strong>{{ t.transaction_id }}</strong>
+                {% for r in t.receipts.all %}
+                <div style="font-size:0.72rem;color:#64748b;">{{ r.receipt_number }}</div>
+                {% endfor %}
+              </td>
+              <td>{{ t.get_transaction_type_display }}</td>
+              <td>{% for s in t.splits.all %}{{ s.get_payment_method_display }} ${{ s.amount }}{% if not forloop.last %}<br>{% endif %}{% empty %}—{% endfor %}</td>
+              <td>${{ t.amount_received }}</td>
+              <td>{{ t.get_status_display }}</td>
+              <td>{{ t.processed_by.get_full_name|default:t.processed_by.username|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="tlc-report-empty">No payments collected yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <h3>Endorsements</h3>
+        <table class="tlc-report-table">
+          <thead><tr><th>Type</th><th>Before</th><th>After</th><th>Adjustment</th><th>Fee</th><th>Commission Δ</th><th>Date</th></tr></thead>
+          <tbody>
+            {% for e in endorsements %}
+            <tr>
+              <td>{{ e.get_endorsement_type_display }}</td>
+              <td>${{ e.written_premium_before|default:profit.written_premium }}</td>
+              <td>${{ e.written_premium_after }}</td>
+              <td>${{ e.premium_difference }}</td>
+              <td>${{ e.endorsement_fee }}</td>
+              <td>${{ e.commission_difference }}</td>
+              <td>{{ e.coverage_change_date|date:"M j, Y"|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="tlc-report-empty">No endorsements.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <h3>Reinstatements</h3>
+        <table class="tlc-report-table">
+          <thead><tr><th>Cancelled</th><th>Reason</th><th>Reinstated</th><th>Fee</th><th>DMV Doc #</th></tr></thead>
+          <tbody>
+            {% for r in reinstatements %}
+            <tr>
+              <td>{{ r.cancellation_date|date:"M j, Y"|default:"—" }}</td>
+              <td>{{ r.cancellation_reason|default:"—" }}</td>
+              <td>{{ r.reinstatement_date|date:"M j, Y"|default:"—" }}</td>
+              <td>${{ r.reinstatement_fee }}</td>
+              <td>{{ r.dmv_document_number|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="tlc-report-empty">No reinstatements.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <h3>DMV / TLC Services</h3>
+        <table class="tlc-report-table">
+          <thead><tr><th>Service</th><th>Charged</th><th>Cost</th><th>Profit</th><th>Date</th></tr></thead>
+          <tbody>
+            {% for s in dmv_services %}
+            <tr>
+              <td>{{ s.get_service_type_display }}</td>
+              <td>${{ s.fee_charged }}</td>
+              <td>${{ s.dmv_tlc_cost }}</td>
+              <td>${{ s.agency_profit }}</td>
+              <td>{{ s.service_date|date:"M j, Y"|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="tlc-report-empty">No DMV / TLC services.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <h3>Receipts / Invoices</h3>
+        <table class="tlc-report-table">
+          <thead><tr><th>Receipt #</th><th>Date</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for r in receipts %}
+            <tr>
+              <td>{{ r.receipt_number }}</td>
+              <td>{{ r.transaction.payment_date|date:"M j, Y" }}</td>
+              <td>{{ r.transaction.get_transaction_type_display }}</td>
+              <td>${{ r.transaction.amount_received }}</td>
+              <td>{{ r.transaction.get_status_display }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="tlc-report-empty">No receipts generated.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <h3>Carrier Remittances</h3>
+        <table class="tlc-report-table">
+          <thead><tr><th>Date</th><th>Amount</th><th>Notes</th></tr></thead>
+          <tbody>
+            {% for r in carrier_remittances %}
+            <tr>
+              <td>{{ r.remittance_date|date:"M j, Y"|default:"—" }}</td>
+              <td>${{ r.amount }}</td>
+              <td>{{ r.notes|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="tlc-report-empty">No remittances recorded.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <div class="tlc-report-footer">
+          Generated from RegiManager TLC · {{ policy.policy_number }} · Confidential agency record
+        </div>
+      </div>
+    </div>
+
     <div id="tlc-panel-carrier" class="tlc-tab-panel {% if active_tab == 'carrier' %}active{% endif %}">
       {% if can_manage_tlc %}<button type="button" class="btn btn-primary btn-sm" style="margin-bottom:1rem;" onclick="tlcOpenAdd('remModal','{% url 'add-tlc-remittance' policy.id %}')">+ Record Remittance</button>{% endif %}
       <table class="tlc-table"><thead><tr><th>Date</th><th>Amount</th><th>Notes</th>{% if can_manage_tlc %}<th></th>{% endif %}</tr></thead>
@@ -474,6 +731,11 @@ function tlcTab(name, btn) {
   document.getElementById('tlc-panel-' + name).classList.add('active');
   btn.classList.add('active');
   const u = new URL(location); u.searchParams.set('tab', name); history.replaceState({}, '', u);
+}
+function tlcPrintReport() {
+  const reportBtn = Array.from(document.querySelectorAll('.tlc-tab-btn')).find(b => (b.textContent || '').trim() === 'Report');
+  if (reportBtn) tlcTab('report', reportBtn);
+  setTimeout(() => window.print(), 50);
 }
 function tlcOpenAdd(modalId, addUrl) {
   const modal = document.getElementById(modalId);
