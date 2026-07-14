@@ -110,6 +110,7 @@ from core.views import (
 from rest_framework.routers import DefaultRouter
 from core.views import (
     spaces_home,
+    update_space_branding,
     update_insurance_space_branding,
     add_insurance_policy,
     edit_insurance_policy,
@@ -390,6 +391,7 @@ urlpatterns = [
     
     # Spaces Hub and Insurance CRM / Banking Routes
     path("dashboard/spaces/", spaces_home, name="spaces-home"),
+    path("dashboard/spaces/<int:space_id>/branding/", update_space_branding, name="update-space-branding"),
     path(
         "dashboard/spaces/insurance/branding/update/",
         update_insurance_space_branding,

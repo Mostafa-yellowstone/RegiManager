@@ -45,6 +45,57 @@
     text-decoration: none;
     color: inherit;
     display: block;
+    height: 100%;
+}
+.space-card-shell {
+    position: relative;
+    height: 100%;
+}
+.space-brand-btn {
+    position: absolute;
+    top: 1.1rem;
+    right: 1.1rem;
+    z-index: 2;
+    border: 1px solid var(--portal-border);
+    background: var(--portal-surface);
+    border-radius: 10px;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #475569;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+.space-brand-btn:hover {
+    background: #eef2ff;
+    color: #093de6;
+    border-color: #c7d2fe;
+}
+.space-logo {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    object-fit: contain;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+}
+.space-logo-fallback {
+    width: 52px;
+    height: 52px;
+    background: #e0e7ff;
+    color: #093de6;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.space-card-meta {
+    margin-top: 0.85rem;
+    font-size: 0.78rem;
+    color: var(--portal-text-muted);
+    line-height: 1.45;
 }
 .modal-overlay {
     display: none;
@@ -141,49 +192,66 @@
 <main class="portal-space-shell">
   <div class="portal-space-inner">
 
-    <!-- Header -->
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 3rem;">
       <div>
         <div style="display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #4338ca; padding: 5px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.75rem; border: 1px solid #c7d2fe;">
           🏢 {{ active_org.name }}
         </div>
         <h1 class="portal-space-title">Location Spaces</h1>
-        <p class="portal-space-subtitle">Access and manage your localized workspaces.</p>
+        <p class="portal-space-subtitle">Access and manage your localized workspaces. Each space can have its own logo, phone, email, and address.</p>
       </div>
     </div>
 
-    <!-- SPACES GRID -->
     <div class="spaces-grid">
       {% for item in inventory_items %}
-      <a href="{% url 'inventory-detail' item.id %}" class="space-card-link">
-        <div class="space-card">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
-            <div style="width: 52px; height: 52px; background: #e0e7ff; color: #093de6; border-radius: 16px; display: flex; align-items: center; justify-content: center;">
-              {% if item.key == 'insurance' %}
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              {% elif item.key == 'custom_inventory' %}
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-              {% elif item.key == 'motorclub' %}
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
-              {% elif item.key == 'documents' %}
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-              {% elif item.key == 'tlc' %}
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>
+      <div class="space-card-shell">
+        {% if is_owner %}
+        <button type="button" class="space-brand-btn" title="Edit space branding"
+          onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('brandModal-{{ item.id }}').classList.add('active')"
+          aria-label="Edit branding for {{ item.label }}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </button>
+        {% endif %}
+        <a href="{% url 'inventory-detail' item.id %}" class="space-card-link">
+          <div class="space-card">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; padding-right: {% if is_owner %}2.5rem{% else %}0{% endif %};">
+              {% if item.logo %}
+                <img src="{{ item.logo.url }}" alt="{{ item.label }} logo" class="space-logo">
               {% else %}
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              <div class="space-logo-fallback">
+                {% if item.key == 'insurance' %}
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                {% elif item.key == 'custom_inventory' %}
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                {% elif item.key == 'motorclub' %}
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+                {% elif item.key == 'documents' %}
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                {% elif item.key == 'tlc' %}
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>
+                {% else %}
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                {% endif %}
+              </div>
               {% endif %}
+              <span class="space-card-key">{{ item.key }}</span>
             </div>
-            <span class="space-card-key">{{ item.key }}</span>
+
+            <h3 class="space-card-title">{{ item.label }}</h3>
+            <p class="space-card-desc">{{ item.description|default:"No description provided." }}</p>
+            {% if item.business_phone or item.business_email or item.business_address %}
+            <div class="space-card-meta">
+              {% if item.business_phone %}<div>{{ item.business_phone }}</div>{% endif %}
+              {% if item.business_email %}<div>{{ item.business_email }}</div>{% endif %}
+            </div>
+            {% endif %}
+
+            <div style="display: flex; justify-content: flex-end; align-items: center; padding-top: 1.25rem; border-top: 1px solid var(--portal-border); margin-top: auto;">
+              <span class="space-card-cta">Open Workspace &rarr;</span>
+            </div>
           </div>
-          
-          <h3 class="space-card-title">{{ item.label }}</h3>
-          <p class="space-card-desc">{{ item.description|default:"No description provided." }}</p>
-          
-          <div style="display: flex; justify-content: flex-end; align-items: center; padding-top: 1.25rem; border-top: 1px solid var(--portal-border); margin-top: auto;">
-            <span class="space-card-cta">Open Workspace &rarr;</span>
-          </div>
-        </div>
-      </a>
+        </a>
+      </div>
       {% empty %}
       <div style="grid-column: 1/-1; text-align: center; padding: 5rem 2rem; color: #64748b; font-weight: 600; background: white; border-radius: 24px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
         No spaces found.
@@ -193,6 +261,49 @@
 
   </div>
 </main>
+
+{% if is_owner %}
+{% for item in inventory_items %}
+<div class="modal-overlay" id="brandModal-{{ item.id }}" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h3 style="margin:0 0 0.35rem;font-weight:800;">{{ item.label }} Branding</h3>
+    <p style="margin:0 0 1.25rem;font-size:0.85rem;color:#64748b;">Logo appears on the Spaces page. Address, phone, and email are used on this space’s invoices and receipts.</p>
+    <form method="post" action="{% url 'update-space-branding' item.id %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div style="margin-bottom:1rem;">
+        <label class="field-label">Space Name</label>
+        <input type="text" name="label" value="{{ item.label }}" class="field-input" required>
+      </div>
+      <div style="margin-bottom:1rem;">
+        <label class="field-label">Space Logo</label>
+        {% if item.logo %}
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+          <img src="{{ item.logo.url }}" alt="" style="height:48px;width:48px;object-fit:contain;border:1px solid #e2e8f0;border-radius:10px;background:#fff;">
+          <label style="font-size:0.85rem;"><input type="checkbox" name="clear_logo"> Remove current logo</label>
+        </div>
+        {% endif %}
+        <input type="file" name="logo" accept="image/*" class="field-input">
+      </div>
+      <div style="margin-bottom:1rem;">
+        <label class="field-label">Address</label>
+        <textarea name="business_address" class="field-input" rows="3" placeholder="Street&#10;City, State ZIP">{{ item.business_address }}</textarea>
+      </div>
+      <div class="grid-2" style="margin-bottom:1.25rem;">
+        <div>
+          <label class="field-label">Phone</label>
+          <input type="text" name="business_phone" value="{{ item.business_phone }}" class="field-input">
+        </div>
+        <div>
+          <label class="field-label">Email</label>
+          <input type="email" name="business_email" value="{{ item.business_email }}" class="field-input">
+        </div>
+      </div>
+      <button type="submit" class="btn-submit">Save Branding</button>
+    </form>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
 {% endif %}
 
 {% endblock %}

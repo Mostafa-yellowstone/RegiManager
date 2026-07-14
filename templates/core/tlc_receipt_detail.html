@@ -2,107 +2,120 @@
 {% block title %}Receipt {{ receipt.receipt_number }}{% endblock %}
 {% block content %}
 <style>
-  .xis-receipt { max-width: 920px; margin: 1.5rem auto 3rem; padding: 0 1rem; }
-  .xis-top { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap; margin-bottom:1.25rem; }
-  .xis-card { background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:1.15rem 1.25rem; margin-bottom:1rem; box-shadow:0 8px 24px rgba(15,23,42,.04); }
-  .xis-card h3 { margin:0 0 .85rem; font-size:1rem; color:#0b3a6e; }
-  .xis-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:.75rem 1.25rem; }
-  .xis-label { font-size:.72rem; color:#64748b; text-transform:uppercase; letter-spacing:.04em; }
-  .xis-value { font-size:.95rem; font-weight:700; color:#0f172a; }
-  .xis-badge { display:inline-block; padding:.35rem .75rem; border-radius:999px; color:#fff; font-weight:800; font-size:.8rem; background:#059669; }
-  .xis-table { width:100%; border-collapse:collapse; font-size:.88rem; }
-  .xis-table th { background:#0b3a6e; color:#fff; text-align:left; padding:.55rem .65rem; }
-  .xis-table td { padding:.5rem .65rem; border-bottom:1px solid #e2e8f0; }
-  .xis-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
+  .xis-receipt { max-width: 880px; margin: 1.25rem auto 2.5rem; padding: 0 1rem; }
+  .xis-top { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap; margin-bottom:1rem; }
+  .xis-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:1rem 1.1rem; margin-bottom:.85rem; }
+  .xis-card h3 { margin:0 0 .7rem; font-size:.78rem; letter-spacing:.06em; text-transform:uppercase; color:#0b3a6e; }
+  .xis-split { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  .xis-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.65rem 1rem; }
+  .xis-grid-2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.65rem 1rem; }
+  .xis-label { font-size:.7rem; color:#64748b; text-transform:uppercase; letter-spacing:.04em; }
+  .xis-value { font-size:.9rem; font-weight:700; color:#0f172a; }
+  .xis-badge { display:inline-block; padding:.3rem .7rem; border-radius:999px; color:#fff; font-weight:800; font-size:.75rem; background:#059669; }
+  .xis-table { width:100%; border-collapse:collapse; font-size:.86rem; }
+  .xis-table th { background:#0b3a6e; color:#fff; text-align:left; padding:.45rem .55rem; }
+  .xis-table td { padding:.45rem .55rem; border-bottom:1px solid #e2e8f0; }
+  .xis-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; }
+  .xis-summary-item { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:.65rem .75rem; }
+  @media (max-width: 720px) {
+    .xis-split, .xis-grid, .xis-grid-2, .xis-summary { grid-template-columns:1fr 1fr; }
+  }
 </style>
 <div class="xis-receipt">
   <div class="xis-top">
     <div>
       <a href="{% url 'tlc-policy-detail' card.id policy.id %}?tab=invoices" style="font-size:.85rem;">← Back to Invoices</a>
-      <h1 style="margin:.4rem 0 0; color:#0b3a6e;">{{ snapshot.agency.name|default:"Xpress Insurance Solutions" }}</h1>
-      <div style="color:#64748b;font-size:.9rem;">Official Payment Receipt</div>
+      <h1 style="margin:.35rem 0 0; color:#0b3a6e; font-size:1.45rem;">{{ snapshot.agency.name|default:"Xpress Insurance Solutions" }}</h1>
+      <div style="color:#64748b;font-size:.85rem;line-height:1.4;">
+        {% if snapshot.agency.address %}{{ snapshot.agency.address }}<br>{% endif %}
+        {% if snapshot.agency.phone %}{{ snapshot.agency.phone }}{% endif %}
+        {% if snapshot.agency.phone and snapshot.agency.email %} · {% endif %}
+        {% if snapshot.agency.email %}{{ snapshot.agency.email }}{% endif %}
+      </div>
     </div>
     <div style="text-align:right;">
       <div class="xis-badge">{{ snapshot.policy.status|default:policy.get_status_display|upper }}</div>
-      <div class="xis-actions" style="margin-top:.75rem; justify-content:flex-end;">
+      <div style="margin-top:.55rem;font-size:.9rem;">
+        <strong>Receipt #{{ receipt.receipt_number }}</strong><br>
+        <span style="color:#64748b;">{{ transaction.transaction_id }}</span>
+      </div>
+      <div style="margin-top:.65rem;">
         <a class="btn btn-primary btn-sm" href="{% url 'tlc-receipt-pdf' receipt.id %}" target="_blank">Download / Print PDF</a>
       </div>
     </div>
   </div>
 
   <div class="xis-card">
-    <h3>Receipt Header</h3>
-    <div class="xis-grid">
-      <div><div class="xis-label">Receipt #</div><div class="xis-value">{{ receipt.receipt_number }}</div></div>
-      <div><div class="xis-label">Transaction ID</div><div class="xis-value">{{ transaction.transaction_id }}</div></div>
-      <div><div class="xis-label">Payment Date</div><div class="xis-value">{{ transaction.payment_date|date:"M j, Y" }}</div></div>
-      <div><div class="xis-label">Payment Time</div><div class="xis-value">{{ transaction.payment_time|time:"g:i A"|default:"—" }}</div></div>
-      <div><div class="xis-label">Processed By</div><div class="xis-value">{{ transaction.processed_by.get_full_name|default:transaction.processed_by.username|default:"—" }}</div></div>
-      <div><div class="xis-label">Verification Hash</div><div class="xis-value" style="font-size:.75rem;word-break:break-all;">{{ receipt.content_hash|slice:":16" }}…</div></div>
+    <div class="xis-split">
+      <div>
+        <h3>Company</h3>
+        <div class="xis-grid-2">
+          <div><div class="xis-label">Agency</div><div class="xis-value">{{ snapshot.agency.name }}</div></div>
+          <div><div class="xis-label">License</div><div class="xis-value">{{ snapshot.agency.license|default:"—" }}</div></div>
+          <div><div class="xis-label">Phone</div><div class="xis-value">{{ snapshot.agency.phone|default:"—" }}</div></div>
+          <div><div class="xis-label">Email</div><div class="xis-value">{{ snapshot.agency.email|default:"—" }}</div></div>
+          <div style="grid-column:1/-1;"><div class="xis-label">Address</div><div class="xis-value">{{ snapshot.agency.address|default:"—" }}</div></div>
+        </div>
+      </div>
+      <div>
+        <h3>Customer</h3>
+        <div class="xis-grid-2">
+          <div><div class="xis-label">Customer</div><div class="xis-value">{{ snapshot.customer.name|default:policy.named_insured }}</div></div>
+          <div><div class="xis-label">Business</div><div class="xis-value">{{ snapshot.customer.business_name|default:"—" }}</div></div>
+          <div><div class="xis-label">Phone</div><div class="xis-value">{{ snapshot.customer.phone|default:"—" }}</div></div>
+          <div><div class="xis-label">Email</div><div class="xis-value">{{ snapshot.customer.email|default:"—" }}</div></div>
+          <div style="grid-column:1/-1;"><div class="xis-label">Address</div><div class="xis-value">{{ snapshot.customer.address|default:"—" }}</div></div>
+        </div>
+      </div>
     </div>
   </div>
 
   <div class="xis-card">
-    <h3>Customer &amp; Policy</h3>
+    <h3>Policy</h3>
     <div class="xis-grid">
-      <div><div class="xis-label">Customer</div><div class="xis-value">{{ snapshot.customer.name|default:policy.named_insured }}</div></div>
-      <div><div class="xis-label">Business</div><div class="xis-value">{{ snapshot.customer.business_name|default:"—" }}</div></div>
       <div><div class="xis-label">Policy #</div><div class="xis-value">{{ policy.policy_number }}</div></div>
       <div><div class="xis-label">Carrier</div><div class="xis-value">{{ policy.carrier|default:"—" }}</div></div>
+      <div><div class="xis-label">Type</div><div class="xis-value">{{ snapshot.policy.policy_type|default:"—" }}</div></div>
       <div><div class="xis-label">VIN</div><div class="xis-value">{{ policy.vin|default:"—" }}</div></div>
       <div><div class="xis-label">Plate</div><div class="xis-value">{{ policy.plate_number|default:"—" }}</div></div>
-    </div>
-  </div>
-
-  <div class="xis-card">
-    <h3>Payment Details</h3>
-    <div class="xis-grid">
-      <div><div class="xis-label">Type</div><div class="xis-value">{{ transaction.get_transaction_type_display }}</div></div>
-      <div><div class="xis-label">Description</div><div class="xis-value">{{ transaction.description|default:"—" }}</div></div>
-      <div><div class="xis-label">Amount Due</div><div class="xis-value">${{ transaction.amount_due }}</div></div>
-      <div><div class="xis-label">Amount Received</div><div class="xis-value">${{ transaction.amount_received }}</div></div>
-      <div><div class="xis-label">Status</div><div class="xis-value">{{ transaction.get_status_display }}</div></div>
+      <div><div class="xis-label">Driver</div><div class="xis-value">{{ policy.driver_name|default:"—" }}</div></div>
     </div>
   </div>
 
   <div class="xis-card">
     <h3>Payment Methods</h3>
     <table class="xis-table">
-      <thead><tr><th>Method</th><th>Reference</th><th>Amount</th><th>Approval</th><th>Last 4</th><th>Notes</th></tr></thead>
+      <thead><tr><th>Date / Time</th><th>Method</th><th>Amount</th><th>Notes</th></tr></thead>
       <tbody>
         {% for s in transaction.splits.all %}
         <tr>
+          <td>{{ transaction.payment_date|date:"M j, Y" }}{% if transaction.payment_time %} {{ transaction.payment_time|time:"g:i A" }}{% endif %}</td>
           <td>{{ s.get_payment_method_display }}</td>
-          <td>{{ s.reference_number|default:"—" }}</td>
           <td>${{ s.amount }}</td>
-          <td>{{ s.approval_number|default:"—" }}</td>
-          <td>{{ s.last_four|default:"—" }}</td>
           <td>{{ s.notes|default:"—" }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="6">No payment methods recorded.</td></tr>
+        <tr><td colspan="4">No payment methods recorded.</td></tr>
         {% endfor %}
+        <tr>
+          <td colspan="2"><strong>Total Received</strong></td>
+          <td><strong>${{ transaction.amount_received }}</strong></td>
+          <td>Due ${{ transaction.amount_due }}</td>
+        </tr>
       </tbody>
     </table>
   </div>
 
   <div class="xis-card">
-    <h3>Account Snapshot</h3>
-    <div class="xis-grid">
-      <div><div class="xis-label">Installments Paid</div><div class="xis-value">{{ snapshot.installment_summary.paid_count }} / {{ snapshot.installment_summary.total_count }}</div></div>
-      <div><div class="xis-label">Next Due</div><div class="xis-value">{{ snapshot.installment_summary.next_due_date|default:"—" }}</div></div>
-      <div><div class="xis-label">Remaining Balance</div><div class="xis-value">${{ snapshot.breakdown.remaining_balance|default:"0.00" }}</div></div>
-      <div><div class="xis-label">Payments Made</div><div class="xis-value">${{ snapshot.account_summary.payments_made|default:"0.00" }}</div></div>
+    <h3>Account Summary</h3>
+    <div class="xis-summary">
+      <div class="xis-summary-item"><div class="xis-label">Original Premium</div><div class="xis-value">${{ snapshot.account_summary.original_premium|default:"0.00" }}</div></div>
+      <div class="xis-summary-item"><div class="xis-label">Endorsements</div><div class="xis-value">${{ snapshot.account_summary.endorsements|default:"0.00" }}</div></div>
+      <div class="xis-summary-item"><div class="xis-label">Current Written</div><div class="xis-value">${{ snapshot.account_summary.current_written_premium|default:"0.00" }}</div></div>
+      <div class="xis-summary-item"><div class="xis-label">Fees Collected</div><div class="xis-value">${{ snapshot.account_summary.fees|default:"0.00" }}</div></div>
+      <div class="xis-summary-item"><div class="xis-label">Payments Made</div><div class="xis-value">${{ snapshot.account_summary.payments_made|default:"0.00" }}</div></div>
+      <div class="xis-summary-item"><div class="xis-label">Outstanding Balance</div><div class="xis-value">${{ snapshot.account_summary.outstanding_balance|default:"0.00" }}</div></div>
     </div>
-  </div>
-
-  <div class="xis-card">
-    <h3>Important Notices</h3>
-    <ul style="margin:0;padding-left:1.1rem;color:#334155;font-size:.9rem;">
-      {% for n in snapshot.notices %}<li style="margin-bottom:.35rem;">{{ n }}</li>{% empty %}
-      <li>Thank you for your payment.</li>
-      {% endfor %}
-    </ul>
   </div>
 </div>
 {% endblock %}

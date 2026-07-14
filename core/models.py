@@ -1447,10 +1447,16 @@ class Space(models.Model):
     key = models.CharField(max_length=60)
     label = models.CharField(max_length=120)
     description = models.TextField(blank=True, default="")
+    logo = models.ImageField(
+        upload_to="space_logos/",
+        blank=True,
+        null=True,
+        help_text="Custom logo shown on the Spaces home cards and space documents/receipts.",
+    )
     business_address = models.TextField(
         blank=True,
         default="",
-        help_text="Address shown on custom inventory invoices and reports",
+        help_text="Address shown on space invoices, reports, and receipts",
     )
     business_phone = models.CharField(max_length=40, blank=True, default="")
     business_email = models.EmailField(blank=True, default="")

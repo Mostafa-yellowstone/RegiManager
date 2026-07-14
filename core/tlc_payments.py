@@ -225,17 +225,31 @@ def build_receipt_snapshot(policy: TLCPolicy, txn: TLCPaymentTransaction) -> dic
     ]
     unpaid_balance = sum((row.total_due for row in unpaid), ZERO).quantize(Decimal("0.01"))
     org = policy.organization
+    space = policy.space
     agency_name = (org.insurance_intake_display_name or org.name or "Xpress Insurance Solutions Inc.").strip()
+    space_address = (space.business_address or "").replace("\n", ", ").strip() if space else ""
+    org_address = ", ".join(p for p in [org.address_line, org.city, org.state] if p)
+    logo_path = ""
+    if space and space.logo:
+        try:
+            logo_path = space.logo.path
+        except Exception:
+            logo_path = ""
+    if not logo_path and org.logo:
+        try:
+            logo_path = org.logo.path
+        except Exception:
+            logo_path = ""
     return {
         "agency": {
             "name": agency_name,
-            "address": ", ".join(p for p in [org.address_line, org.city, org.state] if p),
-            "phone": org.phone_number or "",
-            "email": org.email or "",
+            "address": space_address or org_address,
+            "phone": (space.business_phone if space and space.business_phone else org.phone_number) or "",
+            "email": (space.business_email if space and space.business_email else org.email) or "",
             "website": "",
             "npn": "",
             "license": org.psbc_license or "",
-            "logo_path": org.logo.path if org.logo else "",
+            "logo_path": logo_path,
         },
         "customer": {
             "name": policy.named_insured or "",
@@ -269,7 +283,7 @@ def build_receipt_snapshot(policy: TLCPolicy, txn: TLCPaymentTransaction) -> dic
             "description": txn.description,
             "amount_due": str(txn.amount_due),
             "amount_received": str(txn.amount_received),
-            "payment_date": txn.payment_date.isoformat(),
+            "payment_date": txn.payment_date.isoformat() if hasattr(txn.payment_date, "isoformat") else str(txn.payment_date),
             "payment_time": txn.payment_time.strftime("%I:%M %p") if txn.payment_time else "",
             "processed_by": (
                 txn.processed_by.get_full_name() or txn.processed_by.username
@@ -279,10 +293,7 @@ def build_receipt_snapshot(policy: TLCPolicy, txn: TLCPaymentTransaction) -> dic
             "splits": [
                 {
                     "payment_method": s.get_payment_method_display(),
-                    "reference_number": s.reference_number,
                     "amount": str(s.amount),
-                    "approval_number": s.approval_number,
-                    "last_four": s.last_four,
                     "notes": s.notes,
                 }
                 for s in txn.splits.all()

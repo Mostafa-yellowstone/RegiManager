@@ -5835,10 +5835,13 @@ def inventory_detail(request, inventory_id):
         try:
             card.label = label
             card.description = description
-            if card.key == "custom_inventory":
-                card.business_address = request.POST.get("business_address", "").strip()
-                card.business_phone = request.POST.get("business_phone", "").strip()
-                card.business_email = request.POST.get("business_email", "").strip()
+            card.business_address = request.POST.get("business_address", "").strip()
+            card.business_phone = request.POST.get("business_phone", "").strip()
+            card.business_email = request.POST.get("business_email", "").strip()
+            if request.FILES.get("logo"):
+                card.logo = request.FILES["logo"]
+            if request.POST.get("clear_logo") == "on":
+                card.logo = None
             card.save()
             messages.success(request, f"Space '{label}' updated successfully.")
         except Exception as e:
@@ -6415,8 +6418,41 @@ def spaces_home(request):
         "needs_org_selection": False,
         "active_org": active_org,
         "inventory_items": inventory_items,
+        "is_owner": request.user.is_superuser or is_owner,
     }
     return render(request, "core/spaces_home.html", context)
+
+
+@login_required
+@require_POST
+def update_space_branding(request, space_id):
+    """Update a space's logo, address, phone, and email (Spaces home branding)."""
+    from .models import Space
+
+    space = get_object_or_404(Space, id=space_id)
+    organizations = _get_user_organizations(request)
+    if space.organization_id not in organizations.values_list("id", flat=True):
+        messages.error(request, "Access denied.")
+        return redirect("spaces-home")
+
+    membership = membership_for_org(request.user, space.organization)
+    if not request.user.is_superuser and not is_org_owner(request.user, space.organization, membership):
+        messages.error(request, "Only owners can update space branding.")
+        return redirect("spaces-home")
+
+    label = request.POST.get("label", "").strip()
+    if label:
+        space.label = label
+    space.business_address = request.POST.get("business_address", "").strip()
+    space.business_phone = request.POST.get("business_phone", "").strip()
+    space.business_email = request.POST.get("business_email", "").strip()
+    if request.FILES.get("logo"):
+        space.logo = request.FILES["logo"]
+    if request.POST.get("clear_logo") == "on":
+        space.logo = None
+    space.save()
+    messages.success(request, f"Branding updated for {space.label}.")
+    return redirect("spaces-home")
 
 
 @login_required
