@@ -2,31 +2,33 @@
 {% block title %}Receipt {{ receipt.receipt_number }}{% endblock %}
 {% block content %}
 <style>
-  .xis-receipt { max-width: 880px; margin: 1.25rem auto 2.5rem; padding: 0 1rem; }
-  .xis-top { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap; margin-bottom:1rem; }
-  .xis-card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:1rem 1.1rem; margin-bottom:.85rem; }
-  .xis-card h3 { margin:0 0 .7rem; font-size:.78rem; letter-spacing:.06em; text-transform:uppercase; color:#0b3a6e; }
-  .xis-split { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
-  .xis-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.65rem 1rem; }
-  .xis-grid-2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.65rem 1rem; }
-  .xis-label { font-size:.7rem; color:#64748b; text-transform:uppercase; letter-spacing:.04em; }
-  .xis-value { font-size:.9rem; font-weight:700; color:#0f172a; }
-  .xis-badge { display:inline-block; padding:.3rem .7rem; border-radius:999px; color:#fff; font-weight:800; font-size:.75rem; background:#059669; }
-  .xis-table { width:100%; border-collapse:collapse; font-size:.86rem; }
-  .xis-table th { background:#0b3a6e; color:#fff; text-align:left; padding:.45rem .55rem; }
-  .xis-table td { padding:.45rem .55rem; border-bottom:1px solid #e2e8f0; }
-  .xis-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; }
-  .xis-summary-item { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:.65rem .75rem; }
+  .xis-receipt { max-width: 820px; margin: 1rem auto 2rem; padding: 0 1rem; font-size: 0.9rem; }
+  .xis-top { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap; margin-bottom:0.85rem; }
+  .xis-agency-name { margin:.25rem 0 0; color:#0b3a6e; font-size:1.15rem; font-weight:800; }
+  .xis-agency-meta { color:#64748b; font-size:.8rem; line-height:1.35; }
+  .xis-card { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:.7rem .85rem; margin-bottom:.65rem; }
+  .xis-card h3 { margin:0 0 .5rem; font-size:.68rem; letter-spacing:.07em; text-transform:uppercase; color:#0b3a6e; font-weight:800; }
+  .xis-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.45rem .75rem; }
+  .xis-grid-4 { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.45rem .75rem; }
+  .xis-label { font-size:.62rem; color:#64748b; text-transform:uppercase; letter-spacing:.04em; margin-bottom:.1rem; }
+  .xis-value { font-size:.78rem; font-weight:700; color:#0f172a; line-height:1.25; word-break:break-word; }
+  .xis-badge { display:inline-block; padding:.22rem .55rem; border-radius:999px; color:#fff; font-weight:800; font-size:.68rem; background:#059669; }
+  .xis-table { width:100%; border-collapse:collapse; font-size:.78rem; }
+  .xis-table th { background:#0b3a6e; color:#fff; text-align:left; padding:.35rem .45rem; font-size:.68rem; }
+  .xis-table td { padding:.35rem .45rem; border-bottom:1px solid #e2e8f0; vertical-align:top; }
+  .xis-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.4rem; }
+  .xis-summary-item { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:.45rem .55rem; }
+  .xis-footer { margin-top:.5rem; padding-top:.5rem; border-top:1px solid #e2e8f0; text-align:center; color:#64748b; font-size:.68rem; line-height:1.4; }
   @media (max-width: 720px) {
-    .xis-split, .xis-grid, .xis-grid-2, .xis-summary { grid-template-columns:1fr 1fr; }
+    .xis-grid, .xis-grid-4, .xis-summary { grid-template-columns:1fr 1fr; }
   }
 </style>
 <div class="xis-receipt">
   <div class="xis-top">
     <div>
-      <a href="{% url 'tlc-policy-detail' card.id policy.id %}?tab=invoices" style="font-size:.85rem;">← Back to Invoices</a>
-      <h1 style="margin:.35rem 0 0; color:#0b3a6e; font-size:1.45rem;">{{ snapshot.agency.name|default:"Xpress Insurance Solutions" }}</h1>
-      <div style="color:#64748b;font-size:.85rem;line-height:1.4;">
+      <a href="{% url 'tlc-policy-detail' card.id policy.id %}?tab=invoices" style="font-size:.8rem;">← Back to Invoices</a>
+      <div class="xis-agency-name">{{ snapshot.agency.name|default:"Xpress Insurance Solutions" }}</div>
+      <div class="xis-agency-meta">
         {% if snapshot.agency.address %}{{ snapshot.agency.address }}<br>{% endif %}
         {% if snapshot.agency.phone %}{{ snapshot.agency.phone }}{% endif %}
         {% if snapshot.agency.phone and snapshot.agency.email %} · {% endif %}
@@ -35,49 +37,37 @@
     </div>
     <div style="text-align:right;">
       <div class="xis-badge">{{ snapshot.policy.status|default:policy.get_status_display|upper }}</div>
-      <div style="margin-top:.55rem;font-size:.9rem;">
+      <div style="margin-top:.4rem;font-size:.8rem;">
         <strong>Receipt #{{ receipt.receipt_number }}</strong><br>
-        <span style="color:#64748b;">{{ transaction.transaction_id }}</span>
+        <span style="color:#64748b;font-size:.72rem;">{{ transaction.transaction_id }}</span>
       </div>
-      <div style="margin-top:.65rem;">
+      <div style="margin-top:.5rem;">
         <a class="btn btn-primary btn-sm" href="{% url 'tlc-receipt-pdf' receipt.id %}" target="_blank">Download / Print PDF</a>
       </div>
     </div>
   </div>
 
   <div class="xis-card">
-    <div class="xis-split">
-      <div>
-        <h3>Company</h3>
-        <div class="xis-grid-2">
-          <div><div class="xis-label">Agency</div><div class="xis-value">{{ snapshot.agency.name }}</div></div>
-          <div><div class="xis-label">License</div><div class="xis-value">{{ snapshot.agency.license|default:"—" }}</div></div>
-          <div><div class="xis-label">Phone</div><div class="xis-value">{{ snapshot.agency.phone|default:"—" }}</div></div>
-          <div><div class="xis-label">Email</div><div class="xis-value">{{ snapshot.agency.email|default:"—" }}</div></div>
-          <div style="grid-column:1/-1;"><div class="xis-label">Address</div><div class="xis-value">{{ snapshot.agency.address|default:"—" }}</div></div>
-        </div>
-      </div>
-      <div>
-        <h3>Customer</h3>
-        <div class="xis-grid-2">
-          <div><div class="xis-label">Customer</div><div class="xis-value">{{ snapshot.customer.name|default:policy.named_insured }}</div></div>
-          <div><div class="xis-label">Business</div><div class="xis-value">{{ snapshot.customer.business_name|default:"—" }}</div></div>
-          <div><div class="xis-label">Phone</div><div class="xis-value">{{ snapshot.customer.phone|default:"—" }}</div></div>
-          <div><div class="xis-label">Email</div><div class="xis-value">{{ snapshot.customer.email|default:"—" }}</div></div>
-          <div style="grid-column:1/-1;"><div class="xis-label">Address</div><div class="xis-value">{{ snapshot.customer.address|default:"—" }}</div></div>
-        </div>
-      </div>
+    <h3>Customer</h3>
+    <div class="xis-grid">
+      <div><div class="xis-label">Customer Name</div><div class="xis-value">{{ snapshot.customer.name|default:policy.named_insured }}</div></div>
+      <div><div class="xis-label">Business / Policy Holder</div><div class="xis-value">{{ snapshot.customer.business_name|default:"—" }}</div></div>
+      <div><div class="xis-label">Phone</div><div class="xis-value">{{ snapshot.customer.phone|default:"—" }}</div></div>
+      <div><div class="xis-label">Email</div><div class="xis-value">{{ snapshot.customer.email|default:"—" }}</div></div>
+      <div style="grid-column:span 2;"><div class="xis-label">Address</div><div class="xis-value">{{ snapshot.customer.address|default:"—" }}</div></div>
     </div>
   </div>
 
   <div class="xis-card">
     <h3>Policy</h3>
-    <div class="xis-grid">
+    <div class="xis-grid-4">
       <div><div class="xis-label">Policy #</div><div class="xis-value">{{ policy.policy_number }}</div></div>
       <div><div class="xis-label">Carrier</div><div class="xis-value">{{ policy.carrier|default:"—" }}</div></div>
       <div><div class="xis-label">Type</div><div class="xis-value">{{ snapshot.policy.policy_type|default:"—" }}</div></div>
+      <div><div class="xis-label">Status</div><div class="xis-value">{{ snapshot.policy.status|default:policy.get_status_display }}</div></div>
       <div><div class="xis-label">VIN</div><div class="xis-value">{{ policy.vin|default:"—" }}</div></div>
       <div><div class="xis-label">Plate</div><div class="xis-value">{{ policy.plate_number|default:"—" }}</div></div>
+      <div><div class="xis-label">TLC #</div><div class="xis-value">{{ snapshot.policy.tlc_number|default:"—" }}</div></div>
       <div><div class="xis-label">Driver</div><div class="xis-value">{{ policy.driver_name|default:"—" }}</div></div>
     </div>
   </div>
@@ -116,6 +106,12 @@
       <div class="xis-summary-item"><div class="xis-label">Payments Made</div><div class="xis-value">${{ snapshot.account_summary.payments_made|default:"0.00" }}</div></div>
       <div class="xis-summary-item"><div class="xis-label">Outstanding Balance</div><div class="xis-value">${{ snapshot.account_summary.outstanding_balance|default:"0.00" }}</div></div>
     </div>
+  </div>
+
+  <div class="xis-footer">
+    <strong>{{ snapshot.agency.name|default:"Xpress Insurance Solutions" }}</strong>
+    · Thank you for your business · Keep this receipt for your records<br>
+    Powered by Xpress Insurance Solutions Agency Management System
   </div>
 </div>
 {% endblock %}
