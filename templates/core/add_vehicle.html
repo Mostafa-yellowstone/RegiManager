@@ -229,6 +229,8 @@
 document.addEventListener('DOMContentLoaded', function() {
     const vinInput = document.getElementById('id_vin');
     const legacyVinCheckbox = document.getElementById('id_is_legacy_vin');
+    const EDIT_MODE = {% if edit_mode %}true{% else %}false{% endif %};
+    const ORIGINAL_VIN = "{% if edit_mode %}{{ vehicle.vin|default:''|escapejs }}{% endif %}";
     const vehicleTypeSelect = document.getElementById('id_vehicle_type');
     const legacyVinToggle = document.getElementById('legacy-vin-toggle');
     const warning = document.getElementById('vin-warning');
@@ -551,7 +553,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function handleVinResponse(data) {
-        if (data.exists_this_client) {
+        const currentVin = (vinInput && vinInput.value.trim().toUpperCase()) || '';
+        const unchangedEditVin = EDIT_MODE && ORIGINAL_VIN && currentVin === ORIGINAL_VIN;
+
+        if (unchangedEditVin && data.is_valid) {
+            if (warning) warning.style.display = 'none';
+            updateBadge('success', 'OK');
+            setSubmitEnabled(true);
+            vinInput.style.border = '2px solid #10b981';
+            return;
+        }
+
+        if (data.exists_this_client && !unchangedEditVin) {
             if (warning) {
                 warning.style.background = '#fee2e2';
                 warning.style.color = '#991b1b';

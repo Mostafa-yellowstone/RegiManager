@@ -717,57 +717,6 @@ from django.db import transaction
 def add_client(request):
     organizations = _get_user_organizations(request)
     if request.method == "POST":
-        # Pre-check for existing client to allow auto-merging/redirecting
-        first_name = request.POST.get('first_name', '').strip()
-        last_name = request.POST.get('last_name', '').strip()
-        dl = request.POST.get('driver_license', '').strip().upper()
-        org_id = request.POST.get('organization')
-        is_commercial = request.POST.get('is_commercial') in ['on', 'true', '1']
-        business_ein = request.POST.get('business_ein', '').strip()
-
-        if is_commercial and business_ein and org_id:
-            # Duplicate check for commercial: match by EIN
-            existing = Client.objects.filter(
-                is_commercial=True,
-                business_ein__iexact=business_ein,
-                organization_id=org_id
-            ).first()
-            if existing:
-                messages.info(request, f"Business {existing.name} already exists (EIN match). Redirecting to profile.")
-                return redirect("client-detail", client_id=existing.id)
-        elif is_commercial and org_id:
-            business_name = request.POST.get("business_name", "").strip()
-            if business_name:
-                existing = Client.objects.filter(
-                    organization_id=org_id,
-                    is_commercial=True,
-                    business_name__iexact=business_name,
-                ).first()
-                if existing:
-                    messages.info(
-                        request,
-                        f"Business {existing.name} already exists. Redirecting to profile.",
-                    )
-                    return redirect("client-detail", client_id=existing.id)
-        elif first_name and last_name and org_id and not is_commercial:
-            existing = Client.objects.filter(
-                first_name__iexact=first_name,
-                last_name__iexact=last_name,
-                organization_id=org_id,
-                is_commercial=False,
-            ).first()
-            if existing:
-                messages.info(request, f"Client {existing.name} already exists. Redirecting to profile.")
-                return redirect("client-detail", client_id=existing.id)
-            if dl:
-                existing_dl = Client.objects.filter(
-                    driver_license__iexact=dl,
-                    organization_id=org_id,
-                ).first()
-                if existing_dl:
-                    messages.info(request, f"Client with DL {dl} already exists. Redirecting to profile.")
-                    return redirect("client-detail", client_id=existing_dl.id)
-
         form = ClientForm(request.POST, request.FILES, organizations=organizations)
         if form.is_valid():
             try:
@@ -1319,23 +1268,57 @@ def check_vin_ajax(request):
 
 @login_required
 def check_client_name_ajax(request):
+    from .client_duplicates import find_duplicate_commercial_client, find_duplicate_client
+
     first_name = request.GET.get("first_name", "").strip()
+    middle_name = request.GET.get("middle_name", "").strip()
     last_name = request.GET.get("last_name", "").strip()
+    driver_license = request.GET.get("driver_license", "").strip()
+    business_name = request.GET.get("business_name", "").strip()
+    business_ein = request.GET.get("business_ein", "").strip()
+    is_commercial = request.GET.get("is_commercial", "").strip().lower() in {"1", "true", "yes", "on"}
     org_id = request.GET.get("org_id", "").strip()
-    
-    if not first_name or not last_name or not org_id:
-        return JsonResponse({"exists": False})
+    exclude_client_id = request.GET.get("exclude_client_id", "").strip()
 
     if not org_id.isdigit() or not _has_active_org_access(request.user, int(org_id)):
         return JsonResponse({"exists": False})
-    
-    exists = Client.objects.filter(
-        first_name__iexact=first_name,
-        last_name__iexact=last_name,
-        organization_id=int(org_id)
-    ).exists()
-    
-    return JsonResponse({"exists": exists})
+
+    from .models import Organization
+
+    organization = Organization.objects.filter(id=int(org_id)).first()
+    if not organization:
+        return JsonResponse({"exists": False})
+
+    exclude_id = int(exclude_client_id) if exclude_client_id.isdigit() else None
+
+    if is_commercial:
+        if not business_name and not business_ein:
+            return JsonResponse({"exists": False})
+        duplicate = find_duplicate_commercial_client(
+            organization,
+            business_name=business_name or last_name,
+            business_ein=business_ein,
+            exclude_client_id=exclude_id,
+        )
+    else:
+        if not first_name or not last_name:
+            return JsonResponse({"exists": False})
+        duplicate = find_duplicate_client(
+            organization,
+            first_name=first_name,
+            middle_name=middle_name,
+            last_name=last_name,
+            driver_license=driver_license,
+            exclude_client_id=exclude_id,
+            is_commercial=False,
+        )
+
+    if not duplicate:
+        return JsonResponse({"exists": False})
+
+    from .client_duplicates import duplicate_client_message
+
+    return JsonResponse({"exists": True, "message": duplicate_client_message(duplicate)})
 
 
 @login_required
@@ -6599,9 +6582,13 @@ def add_insurance_policy(request):
         messages.error(request, "Client name is required.")
         return _redirect_to_insurance_detail(org, request=request)
 
-    from .client_matching import get_or_create_client_from_display_name
+    from .client_matching import DuplicateClientError, resolve_client_for_display_name
 
-    client = get_or_create_client_from_display_name(org, client_name, source="insurance")
+    try:
+        client = resolve_client_for_display_name(org, client_name, source="insurance")
+    except DuplicateClientError as exc:
+        messages.error(request, exc.message)
+        return _redirect_to_insurance_detail(org, request=request)
     
     company_id = request.POST.get("insurance_company")
     company = get_object_or_404(InsuranceCompany, id=company_id, organization=org)
@@ -6673,11 +6660,15 @@ def edit_insurance_policy(request, policy_id):
             messages.error(request, "Client name is required.")
             return _redirect_to_insurance_detail(policy.organization, request=request)
 
-        from .client_matching import get_or_create_client_from_display_name
+        from .client_matching import DuplicateClientError, resolve_client_for_display_name
 
-        client = get_or_create_client_from_display_name(
-            policy.organization, client_name, source="insurance"
-        )
+        try:
+            client = resolve_client_for_display_name(
+                policy.organization, client_name, source="insurance"
+            )
+        except DuplicateClientError as exc:
+            messages.error(request, exc.message)
+            return _redirect_to_insurance_detail(policy.organization, request=request)
         
         company_id = request.POST.get("insurance_company")
         company = get_object_or_404(InsuranceCompany, id=company_id, organization=policy.organization)
@@ -7132,9 +7123,13 @@ def add_daily_payment(request):
         messages.error(request, "Client name is required.")
         return _redirect_to_insurance_detail(org, tab="daily-payments", request=request)
 
-    from .client_matching import get_or_create_client_from_display_name
+    from .client_matching import DuplicateClientError, resolve_client_for_display_name
 
-    client = get_or_create_client_from_display_name(org, client_name, source="insurance")
+    try:
+        client = resolve_client_for_display_name(org, client_name, source="insurance")
+    except DuplicateClientError as exc:
+        messages.error(request, exc.message)
+        return _redirect_to_insurance_detail(org, tab="daily-payments", request=request)
 
     try:
         tx_date = dt_parse.strptime(transaction_date, "%Y-%m-%d").date() if transaction_date else timezone.localdate()
@@ -7223,9 +7218,18 @@ def edit_daily_payment(request, transaction_id):
             tab="daily-payments",
             query_params=[f"daily_date={tx.transaction_date}"], request=request)
 
-    from .client_matching import get_or_create_client_from_display_name
+    from .client_matching import DuplicateClientError, resolve_client_for_display_name
 
-    client = get_or_create_client_from_display_name(org, client_name, source="insurance")
+    try:
+        client = resolve_client_for_display_name(org, client_name, source="insurance")
+    except DuplicateClientError as exc:
+        messages.error(request, exc.message)
+        return _redirect_to_insurance_detail(
+            org,
+            tab="daily-payments",
+            query_params=[f"daily_date={tx.transaction_date}"],
+            request=request,
+        )
 
     try:
         tx_date = (

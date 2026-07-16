@@ -319,18 +319,17 @@ class ClientForm(forms.ModelForm):
 
             organization = cleaned_data.get("organization")
             if business_name and organization:
-                biz_query = Client.objects.filter(
-                    organization=organization,
+                from .client_duplicates import validate_new_client_not_duplicate
+
+                duplicate_error = validate_new_client_not_duplicate(
+                    organization,
+                    business_name=business_name,
+                    business_ein=cleaned_data.get("business_ein", ""),
+                    exclude_client_id=self.instance.pk if self.instance and self.instance.pk else None,
                     is_commercial=True,
-                    business_name__iexact=business_name,
                 )
-                if self.instance and self.instance.pk:
-                    biz_query = biz_query.exclude(pk=self.instance.pk)
-                if biz_query.exists():
-                    raise forms.ValidationError(
-                        "A business with this name already exists in this PSB "
-                        "(matched case-insensitively)."
-                    )
+                if duplicate_error:
+                    raise forms.ValidationError(duplicate_error)
         else:
             first_name = cleaned_data.get("first_name")
             last_name = cleaned_data.get("last_name")
@@ -344,32 +343,19 @@ class ClientForm(forms.ModelForm):
             
             organization = cleaned_data.get("organization")
             if first_name and last_name and organization:
-                existing_query = Client.objects.filter(
-                    organization=organization,
-                    is_commercial=False,
-                    first_name__iexact=first_name.strip(),
-                    last_name__iexact=last_name.strip(),
-                )
-                if self.instance and self.instance.pk:
-                    existing_query = existing_query.exclude(pk=self.instance.pk)
-                if existing_query.exists():
-                    raise forms.ValidationError(
-                        "A client with this first and last name already exists in this PSB "
-                        "(names are matched case-insensitively)."
-                    )
+                from .client_duplicates import validate_new_client_not_duplicate
 
-                dl = cleaned_data.get("driver_license", "").strip().upper()
-                if dl:
-                    dl_query = Client.objects.filter(
-                        organization=organization,
-                        driver_license__iexact=dl,
-                    )
-                    if self.instance and self.instance.pk:
-                        dl_query = dl_query.exclude(pk=self.instance.pk)
-                    if dl_query.exists():
-                        raise forms.ValidationError(
-                            "A client with this driver license already exists in this PSB."
-                        )
+                duplicate_error = validate_new_client_not_duplicate(
+                    organization,
+                    first_name=first_name,
+                    middle_name=cleaned_data.get("middle_name", ""),
+                    last_name=last_name,
+                    driver_license=cleaned_data.get("driver_license", ""),
+                    exclude_client_id=self.instance.pk if self.instance and self.instance.pk else None,
+                    is_commercial=False,
+                )
+                if duplicate_error:
+                    raise forms.ValidationError(duplicate_error)
 
         referral_select = cleaned_data.get("referral_select")
         referral_name = (cleaned_data.get("referral_name") or "").strip()
