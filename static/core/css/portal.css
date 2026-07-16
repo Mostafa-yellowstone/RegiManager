@@ -2000,10 +2000,58 @@ html.portal-theme-dark .branch-compare__analytics-btn:hover {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 0.65rem;
+}
+
+.notif-dropdown-header-main {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+    min-width: 0;
 }
 
 .notif-dropdown-header strong {
     color: var(--portal-text);
+}
+
+.notif-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    border: 1px solid var(--portal-border, #e2e8f0);
+    background: var(--portal-surface, #fff);
+    color: #0f766e;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background var(--portal-transition), border-color var(--portal-transition), color var(--portal-transition), transform 0.12s ease;
+}
+
+.notif-action-btn:hover {
+    background: #ecfdf5;
+    border-color: #99f6e4;
+    color: #0f766e;
+    transform: translateY(-1px);
+}
+
+.notif-item-row {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--portal-surface-muted);
+}
+
+.notif-item-row .notif-item {
+    flex: 1;
+    min-width: 0;
+    border-bottom: none;
+}
+
+.notif-item-row .notif-mark-one-btn {
+    margin: 0.65rem 0.75rem 0.65rem 0;
+    align-self: center;
 }
 
 .notif-dropdown-body {
@@ -3608,6 +3656,17 @@ html.portal-theme-dark .loc-dropdown-link:hover {
 
 html.portal-theme-dark .notif-item:hover {
     background: var(--portal-surface-muted);
+}
+
+html.portal-theme-dark .notif-action-btn {
+    background: rgba(15, 23, 42, 0.55);
+    border-color: rgba(148, 163, 184, 0.28);
+    color: #5eead4;
+}
+
+html.portal-theme-dark .notif-action-btn:hover {
+    background: rgba(15, 118, 110, 0.28);
+    border-color: rgba(45, 212, 191, 0.45);
 }
 
 html.portal-theme-dark body.portal-body .field-input,

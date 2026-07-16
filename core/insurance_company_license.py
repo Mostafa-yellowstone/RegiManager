@@ -174,7 +174,6 @@ def sync_company_license_alerts(company: InsuranceCompany, *, today: date | None
             user=user,
             insurance_company=company,
             event_type=event_type,
-            is_read=False,
             message__contains=f"Ref:{token}",
         ).exists()
         if exists:

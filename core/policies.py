@@ -48,3 +48,39 @@ def safe_redirect_target(request, fallback="dashboard"):
     ):
         return referer
     return reverse(fallback)
+
+
+def is_safe_internal_url(request, url):
+    """True when url is a same-host absolute URL or a relative path."""
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    url = (url or "").strip()
+    if not url:
+        return False
+    if url.startswith("/") and not url.startswith("//"):
+        return True
+    return url_has_allowed_host_and_scheme(
+        url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    )
+
+
+def redirect_back(request, fallback):
+    """
+    Prefer POST/GET `next`, then same-host Referer, then fallback.
+
+    Keeps CRM filters (query strings) after add/edit/delete when the user
+    submitted from a filtered list page.
+    """
+    from django.shortcuts import redirect
+
+    candidates = [
+        (request.POST.get("next") or "").strip(),
+        (request.GET.get("next") or "").strip(),
+        (request.META.get("HTTP_REFERER") or "").strip(),
+    ]
+    for url in candidates:
+        if is_safe_internal_url(request, url):
+            return redirect(url)
+    return redirect(fallback)

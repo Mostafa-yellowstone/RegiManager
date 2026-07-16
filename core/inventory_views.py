@@ -17,6 +17,7 @@ from django.views.decorators.http import require_POST
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
+from .policies import redirect_back
 from .inventory_crm import (
     apply_invoice_stock_deductions,
     category_stats,
@@ -160,7 +161,7 @@ def add_inventory_category(request, space_id):
     except Exception as e:
         messages.error(request, f"Error adding category: {e}")
 
-    return redirect(f"/dashboard/inventory/{space.id}/?tab=categories")
+    return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=categories")
 
 
 @login_required
@@ -176,7 +177,7 @@ def delete_inventory_category(request, category_id):
     name = category.name
     category.delete()
     messages.success(request, f"Category '{name}' deleted.")
-    return redirect(f"/dashboard/inventory/{space.id}/?tab=categories")
+    return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=categories")
 
 
 @login_required
@@ -189,7 +190,7 @@ def add_inventory_product(request, space_id):
     name = request.POST.get("name", "").strip()
     if not name:
         messages.error(request, "Product name is required.")
-        return redirect(f"/dashboard/inventory/{space.id}/?tab=products")
+        return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=products")
 
     category_id = request.POST.get("category_id", "").strip()
     category = None
@@ -221,7 +222,7 @@ def add_inventory_product(request, space_id):
     except Exception as e:
         messages.error(request, f"Error adding product: {e}")
 
-    return redirect(f"/dashboard/inventory/{space.id}/?tab=products")
+    return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=products")
 
 
 @login_required
@@ -253,7 +254,7 @@ def edit_inventory_product(request, product_id):
     name = request.POST.get("name", "").strip()
     if not name:
         messages.error(request, "Product name is required.")
-        return redirect(f"/dashboard/inventory/{space.id}/?tab=products")
+        return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=products")
 
     category_id = request.POST.get("category_id", "").strip()
     category = None
@@ -281,7 +282,7 @@ def edit_inventory_product(request, product_id):
     except (InvalidOperation, ValueError) as e:
         messages.error(request, f"Invalid product data: {e}")
 
-    return redirect(f"/dashboard/inventory/{space.id}/?tab=products")
+    return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=products")
 
 
 @login_required
@@ -297,7 +298,7 @@ def delete_inventory_product(request, product_id):
     name = product.name
     product.delete()
     messages.success(request, f"Product '{name}' deleted.")
-    return redirect(f"/dashboard/inventory/{space.id}/?tab=products")
+    return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=products")
 
 
 @login_required
@@ -318,14 +319,14 @@ def adjust_inventory_stock(request, product_id):
 
     if adjustment == 0:
         messages.error(request, "Adjustment quantity cannot be zero.")
-        return redirect(f"/dashboard/inventory/{space.id}/?tab=products")
+        return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=products")
 
     if movement_type not in InventoryStockMovement.MovementType.values:
         movement_type = InventoryStockMovement.MovementType.ADJUSTMENT
 
     if product.quantity + adjustment < 0:
         messages.error(request, "Stock cannot go below zero.")
-        return redirect(f"/dashboard/inventory/{space.id}/?tab=products")
+        return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=products")
 
     record_stock_movement(
         product,
@@ -335,7 +336,7 @@ def adjust_inventory_stock(request, product_id):
         user=request.user,
     )
     messages.success(request, f"Stock updated for '{product.name}'.")
-    return redirect(f"/dashboard/inventory/{space.id}/?tab=products")
+    return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=products")
 
 
 @login_required
@@ -348,7 +349,7 @@ def add_inventory_buyer(request, space_id):
     name = request.POST.get("name", "").strip()
     if not name:
         messages.error(request, "Buyer name is required.")
-        return redirect(f"/dashboard/inventory/{space.id}/?tab=buyers")
+        return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=buyers")
 
     InventoryBuyer.objects.create(
         organization=space.organization,
@@ -360,7 +361,7 @@ def add_inventory_buyer(request, space_id):
         notes=request.POST.get("notes", "").strip(),
     )
     messages.success(request, f"Buyer '{name}' added.")
-    return redirect(f"/dashboard/inventory/{space.id}/?tab=buyers")
+    return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=buyers")
 
 
 @login_required
@@ -376,7 +377,7 @@ def delete_inventory_buyer(request, buyer_id):
     name = buyer.name
     buyer.delete()
     messages.success(request, f"Buyer '{name}' removed.")
-    return redirect(f"/dashboard/inventory/{space.id}/?tab=buyers")
+    return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=buyers")
 
 
 @login_required
@@ -389,7 +390,7 @@ def add_inventory_invoice(request, space_id):
     buyer_name = request.POST.get("buyer_name", "").strip()
     if not buyer_name:
         messages.error(request, "Buyer name is required.")
-        return redirect(f"/dashboard/inventory/{space.id}/?tab=invoices")
+        return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=invoices")
 
     buyer_phone = request.POST.get("buyer_phone", "").strip()
     buyer_email = request.POST.get("buyer_email", "").strip()
@@ -421,7 +422,7 @@ def add_inventory_invoice(request, space_id):
 
     if not descriptions:
         messages.error(request, "Add at least one line item.")
-        return redirect(f"/dashboard/inventory/{space.id}/?tab=invoices")
+        return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=invoices")
 
     buyer = None
     if buyer_id.isdigit():
@@ -483,7 +484,7 @@ def add_inventory_invoice(request, space_id):
             if not invoice.lines.exists():
                 invoice.delete()
                 messages.error(request, "No valid line items.")
-                return redirect(f"/dashboard/inventory/{space.id}/?tab=invoices")
+                return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=invoices")
 
             recalculate_invoice_totals(invoice)
             apply_invoice_stock_deductions(invoice, user=request.user)
@@ -494,7 +495,7 @@ def add_inventory_invoice(request, space_id):
     except Exception as e:
         messages.error(request, f"Error creating invoice: {e}")
 
-    return redirect(f"/dashboard/inventory/{space.id}/?tab=invoices")
+    return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=invoices")
 
 
 @login_required
@@ -510,7 +511,7 @@ def delete_inventory_invoice(request, invoice_id):
     number = invoice.invoice_number
     invoice.delete()
     messages.success(request, f"Invoice {number} deleted.")
-    return redirect(f"/dashboard/inventory/{space.id}/?tab=invoices")
+    return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=invoices")
 
 
 @login_required
@@ -635,7 +636,7 @@ def add_inventory_supplier(request, space_id):
     name = request.POST.get("name", "").strip()
     if not name:
         messages.error(request, "Supplier name is required.")
-        return redirect(f"/dashboard/inventory/{space.id}/?tab=suppliers")
+        return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=suppliers")
 
     InventorySupplier.objects.create(
         organization=space.organization,
@@ -649,7 +650,7 @@ def add_inventory_supplier(request, space_id):
         notes=request.POST.get("notes", "").strip(),
     )
     messages.success(request, f"Supplier '{name}' added.")
-    return redirect(f"/dashboard/inventory/{space.id}/?tab=suppliers")
+    return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=suppliers")
 
 
 @login_required
@@ -666,7 +667,7 @@ def delete_inventory_supplier(request, supplier_id):
     supplier.is_active = False
     supplier.save(update_fields=["is_active", "updated_at"])
     messages.success(request, f"Supplier '{name}' archived.")
-    return redirect(f"/dashboard/inventory/{space.id}/?tab=suppliers")
+    return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=suppliers")
 
 
 @login_required
@@ -679,7 +680,7 @@ def add_inventory_purchase(request, space_id):
     supplier_id = request.POST.get("supplier_id", "").strip()
     if not supplier_id.isdigit():
         messages.error(request, "Select a supplier.")
-        return redirect(f"/dashboard/inventory/{space.id}/?tab=suppliers")
+        return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=suppliers")
 
     supplier = get_object_or_404(InventorySupplier, id=int(supplier_id), space=space)
     purchase_date_str = request.POST.get("purchase_date", "").strip()
@@ -737,7 +738,7 @@ def add_inventory_purchase(request, space_id):
             if not purchase.lines.exists():
                 purchase.delete()
                 messages.error(request, "Add at least one valid purchase line.")
-                return redirect(f"/dashboard/inventory/{space.id}/?tab=suppliers")
+                return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=suppliers")
 
             recalculate_purchase_totals(purchase)
             apply_purchase_receipt(purchase, user=request.user)
@@ -746,4 +747,4 @@ def add_inventory_purchase(request, space_id):
     except Exception as e:
         messages.error(request, f"Error recording purchase: {e}")
 
-    return redirect(f"/dashboard/inventory/{space.id}/?tab=suppliers")
+    return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=suppliers")

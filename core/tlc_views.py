@@ -102,8 +102,12 @@ def _tlc_url(card, tab=None, policy_id=None):
     return url
 
 
-def _redirect_tlc(card, tab=None):
-    return redirect(_tlc_url(card, tab=tab))
+def _redirect_tlc(card, tab=None, request=None):
+    from .policies import redirect_back
+    url = _tlc_url(card, tab=tab)
+    if request is not None:
+        return redirect_back(request, url)
+    return redirect(url)
 
 
 def _money_label(value) -> str:
@@ -283,16 +287,16 @@ def add_tlc_policy(request, space_id):
     card, is_owner, membership = _resolve_tlc_access(request, space_id=space_id)
     if not (is_owner or (membership and membership.can_deal_with_tlc)):
         messages.error(request, "You do not have permission to add TLC policies.")
-        return _redirect_tlc(card)
+        return _redirect_tlc(card, request=request)
 
     policy_number = request.POST.get("policy_number", "").strip()
     if not policy_number:
         messages.error(request, "Policy number is required.")
-        return _redirect_tlc(card, tab="policies")
+        return _redirect_tlc(card, tab="policies", request=request)
 
     if TLCPolicy.objects.filter(organization=card.organization, policy_number=policy_number).exists():
         messages.error(request, "A policy with this number already exists.")
-        return _redirect_tlc(card, tab="policies")
+        return _redirect_tlc(card, tab="policies", request=request)
 
     client_id = request.POST.get("client") or None
     vehicle_id = request.POST.get("vehicle") or None
@@ -371,15 +375,15 @@ def import_tlc_dec_page(request, space_id):
     card, is_owner, membership = _resolve_tlc_access(request, space_id=space_id)
     if not (is_owner or (membership and membership.can_deal_with_tlc)):
         messages.error(request, "You do not have permission to import TLC policies.")
-        return _redirect_tlc(card, tab="policies")
+        return _redirect_tlc(card, tab="policies", request=request)
 
     upload = request.FILES.get("dec_page")
     if not upload:
         messages.error(request, "Please choose a declaration page PDF.")
-        return _redirect_tlc(card, tab="policies")
+        return _redirect_tlc(card, tab="policies", request=request)
     if not upload.name.lower().endswith(".pdf"):
         messages.error(request, "Declaration page must be a PDF file.")
-        return _redirect_tlc(card, tab="policies")
+        return _redirect_tlc(card, tab="policies", request=request)
 
     from .tlc_dec_import import DecPageParseError, apply_parsed_dec_to_policy, parse_tlc_dec_page
 
@@ -387,7 +391,7 @@ def import_tlc_dec_page(request, space_id):
         parsed = parse_tlc_dec_page(upload)
     except DecPageParseError as exc:
         messages.error(request, str(exc))
-        return _redirect_tlc(card, tab="policies")
+        return _redirect_tlc(card, tab="policies", request=request)
 
     if TLCPolicy.objects.filter(organization=card.organization, policy_number=parsed.policy_number).exists():
         messages.error(
@@ -395,7 +399,7 @@ def import_tlc_dec_page(request, space_id):
             f"Policy {parsed.policy_number} already exists. Open it and use "
             f'"Update from Dec Page" on the policy overview.',
         )
-        return _redirect_tlc(card, tab="policies")
+        return _redirect_tlc(card, tab="policies", request=request)
 
     upload.seek(0)
     policy = TLCPolicy.objects.create(
@@ -804,12 +808,12 @@ def add_tlc_commission_rule(request, space_id):
     card, is_owner, membership = _resolve_tlc_access(request, space_id=space_id)
     if not (is_owner or (membership and membership.can_deal_with_tlc)):
         messages.error(request, "Permission denied.")
-        return _redirect_tlc(card, tab="commission_rules")
+        return _redirect_tlc(card, tab="commission_rules", request=request)
     carrier = request.POST.get("carrier", "").strip()
     rate = _parse_decimal(request.POST.get("commission_rate"))
     if not carrier or rate <= 0:
         messages.error(request, "Carrier and commission rate are required.")
-        return _redirect_tlc(card, tab="commission_rules")
+        return _redirect_tlc(card, tab="commission_rules", request=request)
     TLCCarrierCommissionRule.objects.update_or_create(
         organization=card.organization,
         carrier=carrier,
@@ -823,7 +827,7 @@ def add_tlc_commission_rule(request, space_id):
         },
     )
     messages.success(request, "Commission rule saved.")
-    return _redirect_tlc(card, tab="commission_rules")
+    return _redirect_tlc(card, tab="commission_rules", request=request)
 
 
 @login_required
@@ -832,11 +836,11 @@ def add_tlc_finance_company(request, space_id):
     card, is_owner, membership = _resolve_tlc_access(request, space_id=space_id)
     if not (is_owner or (membership and membership.can_deal_with_tlc)):
         messages.error(request, "Permission denied.")
-        return _redirect_tlc(card, tab="finance")
+        return _redirect_tlc(card, tab="finance", request=request)
     name = request.POST.get("name", "").strip()
     if not name:
         messages.error(request, "Finance company name is required.")
-        return _redirect_tlc(card, tab="finance")
+        return _redirect_tlc(card, tab="finance", request=request)
     TLCFinanceCompany.objects.update_or_create(
         organization=card.organization,
         name=name,
@@ -848,7 +852,7 @@ def add_tlc_finance_company(request, space_id):
         },
     )
     messages.success(request, "Finance company saved.")
-    return _redirect_tlc(card, tab="finance")
+    return _redirect_tlc(card, tab="finance", request=request)
 
 
 @login_required
@@ -859,20 +863,20 @@ def add_tlc_carrier(request, space_id):
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return JsonResponse({"ok": False, "error": "Permission denied."}, status=403)
         messages.error(request, "Permission denied.")
-        return _redirect_tlc(card, tab="policies")
+        return _redirect_tlc(card, tab="policies", request=request)
 
     name = request.POST.get("name", "").strip()
     if not name:
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return JsonResponse({"ok": False, "error": "Carrier name is required."}, status=400)
         messages.error(request, "Carrier name is required.")
-        return _redirect_tlc(card, tab="policies")
+        return _redirect_tlc(card, tab="policies", request=request)
 
     ensure_tlc_carrier(card.organization, name)
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return JsonResponse({"ok": True, "name": name})
     messages.success(request, f"Carrier “{name}” saved.")
-    return _redirect_tlc(card, tab="policies")
+    return _redirect_tlc(card, tab="policies", request=request)
 
 
 @login_required
@@ -881,12 +885,12 @@ def add_tlc_carrier_statement(request, space_id):
     card, is_owner, membership = _resolve_tlc_access(request, space_id=space_id)
     if not (is_owner or (membership and membership.can_deal_with_tlc)):
         messages.error(request, "Permission denied.")
-        return _redirect_tlc(card, tab="reconciliation")
+        return _redirect_tlc(card, tab="reconciliation", request=request)
     carrier = request.POST.get("carrier", "").strip()
     statement_date = _parse_date(request.POST.get("statement_date"))
     if not carrier or not statement_date:
         messages.error(request, "Carrier and statement date are required.")
-        return _redirect_tlc(card, tab="reconciliation")
+        return _redirect_tlc(card, tab="reconciliation", request=request)
     statement = TLCCarrierStatement.objects.create(
         organization=card.organization,
         carrier=carrier,
@@ -912,4 +916,4 @@ def add_tlc_carrier_statement(request, space_id):
         )
     reconcile_statement(statement)
     messages.success(request, "Carrier statement imported and reconciled.")
-    return _redirect_tlc(card, tab="reconciliation")
+    return _redirect_tlc(card, tab="reconciliation", request=request)

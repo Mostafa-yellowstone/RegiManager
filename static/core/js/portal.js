@@ -16,6 +16,7 @@
             this.initFilterPanels();
             this.initModals();
             this.initSiteNewsAlert();
+            this.preserveCrmFilters();
         },
 
         applyTheme(theme) {
@@ -178,6 +179,7 @@
                     e.stopPropagation();
                     togglePanel(notifBtn, notifDropdown);
                 });
+                this.initNotificationActions(notifDropdown);
             }
 
             if (locBtn && locDropdown) {
@@ -316,6 +318,124 @@
                     badge.remove();
                 }
             });
+        },
+
+        updateNotifBadges(count) {
+            const pill = document.getElementById('notifCountPill');
+            if (pill) {
+                pill.textContent = `${count} unread`;
+            }
+            const btn = document.getElementById('notifBtn');
+            if (!btn) return;
+            let badge = btn.querySelector('.notif-badge');
+            if (count > 0) {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'notif-badge';
+                    btn.appendChild(badge);
+                }
+                badge.textContent = String(count);
+            } else if (badge) {
+                badge.remove();
+            }
+            const markAll = document.getElementById('notifMarkAllReadBtn');
+            if (markAll && count === 0) {
+                markAll.remove();
+            }
+        },
+
+        postNotifAction(url) {
+            return fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': this.getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            }).then((res) => (res.ok ? res.json() : null)).catch(() => null);
+        },
+
+        initNotificationActions(notifDropdown) {
+            const markAllBtn = document.getElementById('notifMarkAllReadBtn');
+            if (markAllBtn) {
+                markAllBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const url = markAllBtn.dataset.url;
+                    if (!url) return;
+                    this.postNotifAction(url).then((data) => {
+                        if (!data || !data.success) return;
+                        notifDropdown.querySelectorAll('.notif-item-row').forEach((row) => row.remove());
+                        const body = notifDropdown.querySelector('.notif-dropdown-body');
+                        if (body && !body.querySelector('.notif-empty')) {
+                            const empty = document.createElement('div');
+                            empty.className = 'notif-empty';
+                            empty.textContent = 'No notifications.';
+                            body.appendChild(empty);
+                        }
+                        this.updateNotifBadges(0);
+                    });
+                });
+            }
+
+            notifDropdown.querySelectorAll('.notif-mark-one-btn').forEach((btn) => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const url = btn.dataset.url;
+                    const row = btn.closest('.notif-item-row');
+                    if (!url) return;
+                    this.postNotifAction(url).then((data) => {
+                        if (!data || !data.success) return;
+                        if (row) row.remove();
+                        const body = notifDropdown.querySelector('.notif-dropdown-body');
+                        if (body && !body.querySelector('.notif-item-row') && !body.querySelector('.notif-empty')) {
+                            const empty = document.createElement('div');
+                            empty.className = 'notif-empty';
+                            empty.textContent = 'No notifications.';
+                            body.appendChild(empty);
+                        }
+                        this.updateNotifBadges(
+                            typeof data.unread_count === 'number' ? data.unread_count : 0
+                        );
+                    });
+                });
+            });
+        },
+
+        preserveCrmFilters() {
+            const current = window.location.pathname + window.location.search;
+            document.querySelectorAll('form[method="post"], form[method="POST"]').forEach((form) => {
+                if (form.querySelector('input[name="next"]')) return;
+                if (form.getAttribute('data-skip-next') === '1') return;
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'next';
+                input.value = current;
+                form.appendChild(input);
+            });
+
+            // Hero comparison form: keep advanced CRM filters when changing period.
+            const compForm = document.getElementById('compForm');
+            if (compForm) {
+                const keepKeys = [
+                    'q', 'stage', 'status', 'insurance_type', 'source', 'business_type',
+                    'date_from', 'date_to', 'insurance_company', 'agent', 'min_premium', 'max_premium',
+                    'bq', 'bank_account', 'bank_type', 'bank_category', 'bank_company',
+                    'bank_date_from', 'bank_date_to', 'bank_min_amount', 'bank_max_amount',
+                ];
+                const params = new URLSearchParams(window.location.search);
+                keepKeys.forEach((key) => {
+                    const value = params.get(key);
+                    if (value === null || value === '') return;
+                    if (compForm.querySelector(`[name="${key}"]`)) return;
+                    const hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = key;
+                    hidden.value = value;
+                    compForm.appendChild(hidden);
+                });
+            }
         },
 
         initSiteNewsAlert() {

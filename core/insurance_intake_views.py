@@ -181,17 +181,22 @@ def public_insurance_intake_success(request):
     )
 
 
-def _redirect_insurance_space(org, tab="intake-queue"):
+def _redirect_insurance_space(org, tab="intake-queue", request=None):
     from django.urls import reverse
 
     from .models import Space
+    from .policies import redirect_back
 
     space = Space.objects.filter(organization=org, key="insurance").first()
     if space:
         url = reverse("inventory-detail", kwargs={"inventory_id": space.id})
         if tab:
             url += f"?tab={tab}"
+        if request is not None:
+            return redirect_back(request, url)
         return redirect(url)
+    if request is not None:
+        return redirect_back(request, "dashboard")
     return redirect("dashboard")
 
 
@@ -213,11 +218,11 @@ def approve_insurance_intake_view(request, intake_id):
 
         if intake.status != InsuranceIntake.Status.PENDING:
             messages.error(request, "This intake has already been processed.")
-            return _redirect_insurance_space(intake.organization)
+            return _redirect_insurance_space(intake.organization, request=request)
 
         approve_insurance_intake(intake, request.user)
         messages.success(request, f"Insurance intake approved for {intake.name}.")
-    return _redirect_insurance_space(intake.organization)
+    return _redirect_insurance_space(intake.organization, request=request)
 
 
 @login_required
@@ -238,7 +243,7 @@ def reject_insurance_intake_view(request, intake_id):
 
         if intake.status != InsuranceIntake.Status.PENDING:
             messages.error(request, "This intake has already been processed.")
-            return _redirect_insurance_space(intake.organization)
+            return _redirect_insurance_space(intake.organization, request=request)
 
         reason = (request.POST.get("rejection_reason") or "").strip()
         intake.status = InsuranceIntake.Status.REJECTED
@@ -248,4 +253,4 @@ def reject_insurance_intake_view(request, intake_id):
             intake.additional_data = {**(intake.additional_data or {}), "rejection_reason": reason}
         intake.save()
         messages.warning(request, f"Insurance intake rejected for {intake.name}.")
-    return _redirect_insurance_space(intake.organization)
+    return _redirect_insurance_space(intake.organization, request=request)

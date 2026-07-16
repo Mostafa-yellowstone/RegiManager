@@ -27,8 +27,12 @@ def _documents_url(card, folder_id=None):
     return url
 
 
-def _redirect_documents(card, folder_id=None):
-    return redirect(_documents_url(card, folder_id))
+def _redirect_documents(card, folder_id=None, request=None):
+    from .policies import redirect_back
+    url = _documents_url(card, folder_id)
+    if request is not None:
+        return redirect_back(request, url)
+    return redirect(url)
 
 
 def _resolve_documents_access(request, space_id=None, card=None):
@@ -164,7 +168,7 @@ def add_document_folder(request, space_id):
     parent_id = request.POST.get("parent_id", "").strip()
     if not name:
         messages.error(request, "Folder name is required.")
-        return _redirect_documents(card, parent_id if parent_id.isdigit() else None)
+        return _redirect_documents(card, parent_id if parent_id.isdigit() else None, request=request)
 
     parent = None
     if parent_id.isdigit():
@@ -172,7 +176,7 @@ def add_document_folder(request, space_id):
 
     if DocumentFolder.objects.filter(space=card, parent=parent, name__iexact=name).exists():
         messages.error(request, f"A folder named “{name}” already exists here.")
-        return _redirect_documents(card, parent.id if parent else None)
+        return _redirect_documents(card, parent.id if parent else None, request=request)
 
     DocumentFolder.objects.create(
         space=card,
@@ -182,7 +186,7 @@ def add_document_folder(request, space_id):
         created_by=request.user,
     )
     messages.success(request, f"Folder “{name}” created.")
-    return _redirect_documents(card, parent.id if parent else None)
+    return _redirect_documents(card, parent.id if parent else None, request=request)
 
 
 @login_required
@@ -202,7 +206,7 @@ def edit_document_folder(request, folder_id):
 
     if not name:
         messages.error(request, "Folder name cannot be empty.")
-        return _redirect_documents(card, redirect_to)
+        return _redirect_documents(card, redirect_to, request=request)
 
     if (
         DocumentFolder.objects.filter(space=card, parent=folder.parent, name__iexact=name)
@@ -210,13 +214,13 @@ def edit_document_folder(request, folder_id):
         .exists()
     ):
         messages.error(request, f"A folder named “{name}” already exists here.")
-        return _redirect_documents(card, redirect_to)
+        return _redirect_documents(card, redirect_to, request=request)
 
     old_name = folder.name
     folder.name = name
     folder.save(update_fields=["name"])
     messages.success(request, f"Folder renamed from “{old_name}” to “{name}”.")
-    return _redirect_documents(card, redirect_to)
+    return _redirect_documents(card, redirect_to, request=request)
 
 
 @login_required
@@ -230,11 +234,11 @@ def add_document_type(request, space_id):
     folder_id = request.POST.get("folder_id", "").strip()
     if not name:
         messages.error(request, "Document type name is required.")
-        return _redirect_documents(card, folder_id if folder_id.isdigit() else None)
+        return _redirect_documents(card, folder_id if folder_id.isdigit() else None, request=request)
 
     if SpaceDocumentType.objects.filter(space=card, name__iexact=name).exists():
         messages.error(request, f"Document type “{name}” already exists.")
-        return _redirect_documents(card, folder_id if folder_id.isdigit() else None)
+        return _redirect_documents(card, folder_id if folder_id.isdigit() else None, request=request)
 
     SpaceDocumentType.objects.create(
         space=card,
@@ -242,7 +246,7 @@ def add_document_type(request, space_id):
         name=name,
     )
     messages.success(request, f"Document type “{name}” added.")
-    return _redirect_documents(card, folder_id if folder_id.isdigit() else None)
+    return _redirect_documents(card, folder_id if folder_id.isdigit() else None, request=request)
 
 
 @login_required
@@ -257,7 +261,7 @@ def edit_document_type(request, type_id):
     folder_id = request.POST.get("folder_id", "").strip()
     if not name:
         messages.error(request, "Document type name cannot be empty.")
-        return _redirect_documents(card, folder_id if folder_id.isdigit() else None)
+        return _redirect_documents(card, folder_id if folder_id.isdigit() else None, request=request)
 
     if (
         SpaceDocumentType.objects.filter(space=card, name__iexact=name)
@@ -265,13 +269,13 @@ def edit_document_type(request, type_id):
         .exists()
     ):
         messages.error(request, f"Document type “{name}” already exists.")
-        return _redirect_documents(card, folder_id if folder_id.isdigit() else None)
+        return _redirect_documents(card, folder_id if folder_id.isdigit() else None, request=request)
 
     old_name = doc_type.name
     doc_type.name = name
     doc_type.save(update_fields=["name"])
     messages.success(request, f"Document type renamed from “{old_name}” to “{name}”.")
-    return _redirect_documents(card, folder_id if folder_id.isdigit() else None)
+    return _redirect_documents(card, folder_id if folder_id.isdigit() else None, request=request)
 
 
 @login_required
@@ -296,7 +300,7 @@ def add_document_record(request, space_id):
 
     if not doc_type_id.isdigit():
         messages.error(request, "Select a document type.")
-        return _redirect_documents(card, folder.id if folder else None)
+        return _redirect_documents(card, folder.id if folder else None, request=request)
 
     doc_type = get_object_or_404(SpaceDocumentType, id=int(doc_type_id), space=card)
 
@@ -314,7 +318,7 @@ def add_document_record(request, space_id):
         added_by=request.user,
     )
     messages.success(request, "Document record saved.")
-    return _redirect_documents(card, folder.id if folder else None)
+    return _redirect_documents(card, folder.id if folder else None, request=request)
 
 
 @login_required
@@ -331,4 +335,4 @@ def delete_document_record(request, record_id):
         record.file.delete(save=False)
     record.delete()
     messages.success(request, f"Record {record_number} deleted.")
-    return _redirect_documents(card, folder_id)
+    return _redirect_documents(card, folder_id, request=request)

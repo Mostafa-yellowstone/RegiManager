@@ -74,12 +74,8 @@ def automation_status(request):
         from .models import Notification
 
         notif_qs = (
-            Notification.objects.filter(user=request.user)
+            Notification.objects.filter(user=request.user, is_read=False)
             .filter(Q(client__isnull=True) | Q(client__deleted_at__isnull=True))
-            .filter(
-                Q(note__isnull=False, note__is_done=False)
-                | Q(note__isnull=True, is_read=False)
-            )
             .select_related("client", "note", "insurance_company")
         )
         notif_unread_count = notif_qs.count()

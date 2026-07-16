@@ -68,8 +68,12 @@ def _motorclub_url(card, tab=None):
     return url
 
 
-def _redirect_motorclub(card, tab=None):
-    return redirect(_motorclub_url(card, tab))
+def _redirect_motorclub(card, tab=None, request=None):
+    from .policies import redirect_back
+    url = _motorclub_url(card, tab)
+    if request is not None:
+        return redirect_back(request, url)
+    return redirect(url)
 
 
 def _parse_decimal(value, default=Decimal("0")):
@@ -174,7 +178,7 @@ def save_motorclub_config(request, space_id):
     config.psb_profit_notes = request.POST.get("psb_profit_notes", "").strip()
     config.save()
     messages.success(request, "Motor Club configuration saved.")
-    return _redirect_motorclub(card, tab="configuration")
+    return _redirect_motorclub(card, tab="configuration", request=request)
 
 
 def _create_motorclub_membership_from_request(request, card, client):
@@ -252,10 +256,10 @@ def add_motorclub_membership(request, space_id):
     created, error = _create_motorclub_membership_from_request(request, card, client)
     if error:
         messages.error(request, error)
-        return _redirect_motorclub(card, tab="members")
+        return _redirect_motorclub(card, tab="members", request=request)
 
     messages.success(request, f"Motor Club membership added for {client.name}.")
-    return _redirect_motorclub(card, tab="members")
+    return _redirect_motorclub(card, tab="members", request=request)
 
 
 @login_required
@@ -327,7 +331,7 @@ def edit_motorclub_membership(request, membership_id):
     )
     membership.save()
     messages.success(request, "Motor Club membership updated.")
-    return _redirect_motorclub(card, tab="members")
+    return _redirect_motorclub(card, tab="members", request=request)
 
 
 @login_required
@@ -344,7 +348,7 @@ def delete_motorclub_membership(request, membership_id):
     client_name = membership.client.name
     membership.delete()
     messages.success(request, f"Removed Motor Club membership for {client_name}.")
-    return _redirect_motorclub(card, tab="members")
+    return _redirect_motorclub(card, tab="members", request=request)
 
 
 @login_required
@@ -357,7 +361,7 @@ def add_motorclub_b2b_partner(request, space_id):
     name = request.POST.get("name", "").strip()
     if not name:
         messages.error(request, "Partner company name is required.")
-        return _redirect_motorclub(card, tab="b2b")
+        return _redirect_motorclub(card, tab="b2b", request=request)
 
     MotorclubB2BPartner.objects.create(
         organization=card.organization,
@@ -368,7 +372,7 @@ def add_motorclub_b2b_partner(request, space_id):
         notes=request.POST.get("notes", "").strip(),
     )
     messages.success(request, f"B2B partner '{name}' added.")
-    return _redirect_motorclub(card, tab="b2b")
+    return _redirect_motorclub(card, tab="b2b", request=request)
 
 
 @login_required
@@ -385,4 +389,4 @@ def delete_motorclub_b2b_partner(request, partner_id):
     name = partner.name
     partner.delete()
     messages.success(request, f"Removed B2B partner '{name}'.")
-    return _redirect_motorclub(card, tab="b2b")
+    return _redirect_motorclub(card, tab="b2b", request=request)

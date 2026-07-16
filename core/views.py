@@ -40,7 +40,7 @@ from .constants import (
     REFERRAL_PROFILE_PAGE_SIZE,
 )
 from .ocr_service import check_ocr_auth as _check_ocr_auth, perform_ocr as _perform_ocr
-from .policies import safe_redirect_target
+from .policies import safe_redirect_target, redirect_back
 from .ratelimit import rate_limit
 from .referral_metrics import attach_referral_list_metrics
 from .upload_validation import validate_ocr_upload
@@ -1014,8 +1014,7 @@ def open_notification(request, notification_id):
         messages.error(request, "Notifications are temporarily unavailable. Please run migrations.")
         return redirect("dashboard")
 
-    # Keep note-linked notifications visible until user marks note as done.
-    if not notif.note_id and not notif.is_read:
+    if not notif.is_read:
         notif.is_read = True
         notif.save(update_fields=["is_read"])
 
@@ -1028,6 +1027,34 @@ def open_notification(request, notification_id):
 
     messages.info(request, notif.title or "Notification opened.")
     return redirect("dashboard")
+
+
+@login_required
+@require_POST
+def mark_notification_read(request, notification_id):
+    """Mark a single notification as read (AJAX or form POST)."""
+    try:
+        notif = Notification.objects.filter(user=request.user, id=notification_id).first()
+    except (OperationalError, ProgrammingError):
+        return JsonResponse({"success": False, "error": "unavailable"}, status=503)
+    if not notif:
+        return JsonResponse({"success": False, "error": "not_found"}, status=404)
+    if not notif.is_read:
+        notif.is_read = True
+        notif.save(update_fields=["is_read"])
+    unread = Notification.objects.filter(user=request.user, is_read=False).count()
+    return JsonResponse({"success": True, "unread_count": unread})
+
+
+@login_required
+@require_POST
+def mark_all_notifications_read(request):
+    """Mark all of the current user's unread notifications as read."""
+    try:
+        updated = Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+    except (OperationalError, ProgrammingError):
+        return JsonResponse({"success": False, "error": "unavailable"}, status=503)
+    return JsonResponse({"success": True, "updated": updated, "unread_count": 0})
 
 
 @login_required
@@ -5814,9 +5841,12 @@ def inventory_list(request):
     return redirect("spaces-home")
 
 
-def _redirect_to_insurance_detail(org, tab=None, query_params=None):
-    from .models import Space
+def _redirect_to_insurance_detail(org, tab=None, query_params=None, request=None):
     from django.urls import reverse
+
+    from .models import Space
+    from .policies import redirect_back
+
     insurance_card = Space.objects.filter(organization=org, key="insurance").first()
     if insurance_card:
         url = reverse("inventory-detail", kwargs={"inventory_id": insurance_card.id})
@@ -5827,7 +5857,11 @@ def _redirect_to_insurance_detail(org, tab=None, query_params=None):
             params.extend(query_params)
         if params:
             url += "?" + "&".join(params)
+        if request is not None:
+            return redirect_back(request, url)
         return redirect(url)
+    if request is not None:
+        return redirect_back(request, reverse("spaces-home"))
     return redirect("spaces-home")
 
 
@@ -6520,7 +6554,7 @@ def update_insurance_space_branding(request):
     membership = membership_for_org(request.user, org)
     if not request.user.is_superuser and not is_org_owner(request.user, org, membership):
         messages.error(request, "Only PSB owners can update insurance space branding.")
-        return _redirect_to_insurance_detail(org)
+        return _redirect_to_insurance_detail(org, request=request)
 
     space = get_object_or_404(Space, organization=org, key="insurance")
     space_label = request.POST.get("space_label", "").strip()
@@ -6544,7 +6578,7 @@ def update_insurance_space_branding(request):
         "insurance_intake_portal_mode",
     ])
     messages.success(request, "Insurance space branding updated.")
-    return _redirect_to_insurance_detail(org, tab="insurance")
+    return _redirect_to_insurance_detail(org, tab="insurance", request=request)
 
 
 @login_required
@@ -6563,7 +6597,7 @@ def add_insurance_policy(request):
     client_name = request.POST.get("client_name", "").strip()
     if not client_name:
         messages.error(request, "Client name is required.")
-        return _redirect_to_insurance_detail(org)
+        return _redirect_to_insurance_detail(org, request=request)
 
     from .client_matching import get_or_create_client_from_display_name
 
@@ -6586,7 +6620,7 @@ def add_insurance_policy(request):
     bound_date = request.POST.get("bound_date", "").strip()
     if not bound_date:
         messages.error(request, "Quote date is required.")
-        return _redirect_to_insurance_detail(org)
+        return _redirect_to_insurance_detail(org, request=request)
     start_date = request.POST.get("start_date")
     end_date = request.POST.get("end_date")
     insurance_period_months = request.POST.get("insurance_period_months", "6")
@@ -6619,7 +6653,7 @@ def add_insurance_policy(request):
     except Exception as e:
         messages.error(request, f"Error saving policy: {e}")
 
-    return _redirect_to_insurance_detail(org)
+    return _redirect_to_insurance_detail(org, request=request)
 
 
 @login_required
@@ -6637,7 +6671,7 @@ def edit_insurance_policy(request, policy_id):
         client_name = request.POST.get("client_name", "").strip()
         if not client_name:
             messages.error(request, "Client name is required.")
-            return _redirect_to_insurance_detail(policy.organization)
+            return _redirect_to_insurance_detail(policy.organization, request=request)
 
         from .client_matching import get_or_create_client_from_display_name
 
@@ -6665,7 +6699,7 @@ def edit_insurance_policy(request, policy_id):
         bound_date = request.POST.get("bound_date", "").strip()
         if not bound_date:
             messages.error(request, "Quote date is required.")
-            return _redirect_to_insurance_detail(policy.organization)
+            return _redirect_to_insurance_detail(policy.organization, request=request)
         policy.bound_date = bound_date
         policy.start_date = request.POST.get("start_date")
         policy.end_date = request.POST.get("end_date")
@@ -6685,7 +6719,7 @@ def edit_insurance_policy(request, policy_id):
             messages.success(request, "Insurance policy updated.")
         except Exception as e:
             messages.error(request, f"Error updating policy: {e}")
-        return _redirect_to_insurance_detail(policy.organization)
+        return _redirect_to_insurance_detail(policy.organization, request=request)
 
     return JsonResponse({
         "id": policy.id,
@@ -6732,7 +6766,7 @@ def delete_insurance_policy(request, policy_id):
     org = policy.organization
     policy.delete()
     messages.success(request, "Policy deleted.")
-    return _redirect_to_insurance_detail(org)
+    return _redirect_to_insurance_detail(org, request=request)
 
 
 @login_required
@@ -6941,6 +6975,8 @@ def edit_insurance_company_license(request, company_id):
     """Update license metadata, BR/BC arrangement, and renewal alert window."""
     from datetime import datetime
 
+    from django.urls import reverse
+
     from .insurance_company_license import clamp_alert_days, sync_company_license_alerts
     from .models import InsuranceCompany
 
@@ -6963,13 +6999,13 @@ def edit_insurance_company_license(request, company_id):
     arrangement = (request.POST.get("broker_arrangement") or "").strip().lower()
     if arrangement not in ("", InsuranceCompany.BrokerArrangement.BR, InsuranceCompany.BrokerArrangement.BC):
         messages.error(request, "Invalid BR/BC selection.")
-        return redirect("insurance-company-detail", company_id=company.id)
+        return redirect_back(request, reverse("insurance-company-detail", kwargs={"company_id": company.id}))
 
     effective = _parse_date(request.POST.get("license_effective_date"))
     expiration = _parse_date(request.POST.get("license_expiration_date"))
     if effective and expiration and expiration < effective:
         messages.error(request, "License expiration cannot be before the effective date.")
-        return redirect("insurance-company-detail", company_id=company.id)
+        return redirect_back(request, reverse("insurance-company-detail", kwargs={"company_id": company.id}))
 
     company.license_number = (request.POST.get("license_number") or "").strip()[:80]
     company.license_effective_date = effective
@@ -6990,7 +7026,7 @@ def edit_insurance_company_license(request, company_id):
     except Exception:
         pass
     messages.success(request, "Company license details saved.")
-    return redirect("insurance-company-detail", company_id=company.id)
+    return redirect_back(request, reverse("insurance-company-detail", kwargs={"company_id": company.id}))
 
 
 @login_required
@@ -7066,7 +7102,7 @@ def delete_insurance_company(request, company_id):
     _require_insurance_finance(request, org, membership=membership, is_owner=is_owner)
     company.delete()
     messages.success(request, "Company deleted.")
-    return _redirect_to_insurance_detail(org)
+    return _redirect_to_insurance_detail(org, request=request)
 
 
 @login_required
@@ -7094,7 +7130,7 @@ def add_daily_payment(request):
 
     if not client_name:
         messages.error(request, "Client name is required.")
-        return _redirect_to_insurance_detail(org, tab="daily-payments")
+        return _redirect_to_insurance_detail(org, tab="daily-payments", request=request)
 
     from .client_matching import get_or_create_client_from_display_name
 
@@ -7107,11 +7143,11 @@ def add_daily_payment(request):
 
     if payment_type not in VALID_PAYMENT_TYPES:
         messages.error(request, "Invalid payment type.")
-        return _redirect_to_insurance_detail(org, tab="daily-payments", query_params=[f"daily_date={tx_date}"])
+        return _redirect_to_insurance_detail(org, tab="daily-payments", query_params=[f"daily_date={tx_date}"], request=request)
 
     if payment_method not in VALID_PAYMENT_METHODS:
         messages.error(request, "Invalid payment method.")
-        return _redirect_to_insurance_detail(org, tab="daily-payments", query_params=[f"daily_date={tx_date}"])
+        return _redirect_to_insurance_detail(org, tab="daily-payments", query_params=[f"daily_date={tx_date}"], request=request)
 
     is_cleared = request.POST.get("is_cleared") in ("1", "on", "true")
     if is_cleared and not can_clear_payments:
@@ -7145,11 +7181,9 @@ def add_daily_payment(request):
     except Exception as e:
         messages.error(request, f"Error saving payment: {e}")
 
-    return _redirect_to_insurance_detail(
-        org,
+    return _redirect_to_insurance_detail(org,
         tab="daily-payments",
-        query_params=[f"daily_date={tx_date}"],
-    )
+        query_params=[f"daily_date={tx_date}"], request=request)
 
 
 @login_required
@@ -7172,11 +7206,9 @@ def edit_daily_payment(request, transaction_id):
         request.user, org, membership=membership, is_owner=is_owner
     ):
         messages.error(request, "You do not have permission to edit daily payments.")
-        return _redirect_to_insurance_detail(
-            org,
+        return _redirect_to_insurance_detail(org,
             tab="daily-payments",
-            query_params=[f"daily_date={tx.transaction_date}"],
-        )
+            query_params=[f"daily_date={tx.transaction_date}"], request=request)
 
     client_name = request.POST.get("client_name", "").strip()
     amount = request.POST.get("amount", "0.00").strip()
@@ -7187,11 +7219,9 @@ def edit_daily_payment(request, transaction_id):
 
     if not client_name:
         messages.error(request, "Client name is required.")
-        return _redirect_to_insurance_detail(
-            org,
+        return _redirect_to_insurance_detail(org,
             tab="daily-payments",
-            query_params=[f"daily_date={tx.transaction_date}"],
-        )
+            query_params=[f"daily_date={tx.transaction_date}"], request=request)
 
     from .client_matching import get_or_create_client_from_display_name
 
@@ -7208,11 +7238,11 @@ def edit_daily_payment(request, transaction_id):
 
     if payment_type not in VALID_PAYMENT_TYPES:
         messages.error(request, "Invalid payment type.")
-        return _redirect_to_insurance_detail(org, tab="daily-payments", query_params=[f"daily_date={tx_date}"])
+        return _redirect_to_insurance_detail(org, tab="daily-payments", query_params=[f"daily_date={tx_date}"], request=request)
 
     if payment_method not in VALID_PAYMENT_METHODS:
         messages.error(request, "Invalid payment method.")
-        return _redirect_to_insurance_detail(org, tab="daily-payments", query_params=[f"daily_date={tx_date}"])
+        return _redirect_to_insurance_detail(org, tab="daily-payments", query_params=[f"daily_date={tx_date}"], request=request)
 
     is_cleared = request.POST.get("is_cleared") in ("1", "on", "true")
     cleared_date_str = request.POST.get("cleared_date", "").strip()
@@ -7243,11 +7273,9 @@ def edit_daily_payment(request, transaction_id):
     except Exception as e:
         messages.error(request, f"Error updating payment: {e}")
 
-    return _redirect_to_insurance_detail(
-        org,
+    return _redirect_to_insurance_detail(org,
         tab="daily-payments",
-        query_params=[f"daily_date={tx_date}"],
-    )
+        query_params=[f"daily_date={tx_date}"], request=request)
 
 
 @login_required
@@ -7263,11 +7291,9 @@ def delete_daily_payment(request, transaction_id):
     tx_date = tx.transaction_date
     tx.delete()
     messages.success(request, "Payment transaction removed.")
-    return _redirect_to_insurance_detail(
-        org,
+    return _redirect_to_insurance_detail(org,
         tab="daily-payments",
-        query_params=[f"daily_date={tx_date}"],
-    )
+        query_params=[f"daily_date={tx_date}"], request=request)
 
 
 @login_required
@@ -7344,7 +7370,7 @@ def add_bank_account(request):
             messages.success(request, "Bank account added.")
         except Exception as e:
             messages.error(request, f"Error: {e}")
-    return _redirect_to_insurance_detail(org)
+    return _redirect_to_insurance_detail(org, request=request)
 
 
 @login_required
@@ -7358,7 +7384,7 @@ def delete_bank_account(request, account_id):
     _require_insurance_finance(request, org, membership=membership, is_owner=is_owner)
     account.delete()
     messages.success(request, "Bank account deleted.")
-    return _redirect_to_insurance_detail(org)
+    return _redirect_to_insurance_detail(org, request=request)
 
 
 @login_required
@@ -7388,11 +7414,11 @@ def edit_bank_account(request, account_id):
             account.balance = Decimal(balance)
         except Exception:
             messages.error(request, "Invalid balance amount.")
-            return _redirect_to_insurance_detail(org)
+            return _redirect_to_insurance_detail(org, request=request)
 
     account.save()
     messages.success(request, "Bank account updated.")
-    return _redirect_to_insurance_detail(org)
+    return _redirect_to_insurance_detail(org, request=request)
 
 
 @login_required
@@ -7434,7 +7460,7 @@ def add_bank_transaction(request):
     except Exception as e:
         messages.error(request, f"Error: {e}")
         
-    return _redirect_to_insurance_detail(org)
+    return _redirect_to_insurance_detail(org, request=request)
 
 
 @login_required
@@ -7453,7 +7479,7 @@ def delete_bank_transaction(request, transaction_id):
     org = transaction.bank_account.organization
     transaction.delete()
     messages.success(request, "Transaction deleted.")
-    return _redirect_to_insurance_detail(org)
+    return _redirect_to_insurance_detail(org, request=request)
 
 
 @login_required
@@ -7894,7 +7920,7 @@ def insurance_company_upload_document(request, company_id):
 
     if not uploaded_file:
         messages.error(request, "Please select a file to upload.")
-        return redirect("insurance-company-detail", company_id=company.id)
+        return redirect_back(request, f"/dashboard/spaces/insurance/company/{company.id}/")
 
     try:
         InsuranceCompanyDocument.objects.create(
@@ -7907,7 +7933,7 @@ def insurance_company_upload_document(request, company_id):
     except Exception as e:
         messages.error(request, f"Upload error: {e}")
 
-    return redirect("insurance-company-detail", company_id=company.id)
+    return redirect_back(request, f"/dashboard/spaces/insurance/company/{company.id}/")
 
 
 @login_required
@@ -7924,7 +7950,7 @@ def insurance_company_delete_document(request, doc_id):
         pass
     doc.delete()
     messages.success(request, "Document deleted.")
-    return redirect("insurance-company-detail", company_id=company_id)
+    return redirect_back(request, f"/dashboard/spaces/insurance/company/{company_id}/")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -150,7 +150,6 @@ def sync_psb_license_alerts(organization: Organization, *, today: date | None = 
             organization=organization,
             insurance_company__isnull=True,
             event_type=event_type,
-            is_read=False,
             message__contains=f"Ref:{token}",
         ).exists()
         if exists:

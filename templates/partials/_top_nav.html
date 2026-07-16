@@ -43,21 +43,50 @@
 
                 <div id="notifDropdown" class="portal-dropdown notif-dropdown" role="menu">
                     <div class="notif-dropdown-header">
-                        <strong>Notifications</strong>
-                        <span class="brand-pill notif-count-pill">{{ notif_unread_count|default:0 }} unread</span>
+                        <div class="notif-dropdown-header-main">
+                            <strong>Notifications</strong>
+                            <span class="brand-pill notif-count-pill" id="notifCountPill">{{ notif_unread_count|default:0 }} unread</span>
+                        </div>
+                        {% if notif_unread_count and notif_unread_count > 0 %}
+                        <button
+                            type="button"
+                            class="notif-action-btn"
+                            id="notifMarkAllReadBtn"
+                            title="Mark all as read"
+                            aria-label="Mark all notifications as read"
+                            data-url="{% url 'mark-all-notifications-read' %}"
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M2 12l5 5L13 7"/><path d="M13 17l2 2 7-10"/>
+                            </svg>
+                        </button>
+                        {% endif %}
                     </div>
                     <div class="notif-dropdown-body">
                         {% for n in top_notifications %}
-                        <a href="{% url 'open-notification' n.id %}" class="notif-item">
-                            <div class="notif-item-inner">
-                                <div class="notif-dot {% if n.level == 'warning' %}warning{% else %}info{% endif %}"></div>
-                                <div class="notif-item-body">
-                                    <div class="notif-item-title">{{ n.title }}</div>
-                                    <div class="notif-item-msg">{% if n.insurance_company %}{{ n.insurance_company.name }}{% elif n.client %}{{ n.client.name }}{% else %}System{% endif %}{% if n.message %} • {{ n.message }}{% endif %}</div>
-                                    <div class="notif-item-time">{{ n.created_at|date:"M d, H:i" }}</div>
+                        <div class="notif-item-row" data-notif-id="{{ n.id }}">
+                            <a href="{% url 'open-notification' n.id %}" class="notif-item">
+                                <div class="notif-item-inner">
+                                    <div class="notif-dot {% if n.level == 'warning' %}warning{% else %}info{% endif %}"></div>
+                                    <div class="notif-item-body">
+                                        <div class="notif-item-title">{{ n.title }}</div>
+                                        <div class="notif-item-msg">{% if n.insurance_company %}{{ n.insurance_company.name }}{% elif n.client %}{{ n.client.name }}{% else %}System{% endif %}{% if n.message %} • {{ n.message }}{% endif %}</div>
+                                        <div class="notif-item-time">{{ n.created_at|date:"M d, H:i" }}</div>
+                                    </div>
                                 </div>
-                            </div>
-                        </a>
+                            </a>
+                            <button
+                                type="button"
+                                class="notif-action-btn notif-mark-one-btn"
+                                title="Mark as read"
+                                aria-label="Mark notification as read"
+                                data-url="{% url 'mark-notification-read' n.id %}"
+                            >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </button>
+                        </div>
                         {% empty %}
                         <div class="notif-empty">No notifications.</div>
                         {% endfor %}

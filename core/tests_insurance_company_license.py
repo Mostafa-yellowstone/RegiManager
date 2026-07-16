@@ -117,6 +117,12 @@ class InsuranceCompanyLicenseTests(TestCase):
         open_resp = self.client.get(reverse("open-notification", args=[notif.id]))
         self.assertEqual(open_resp.status_code, 302)
         self.assertIn(f"/company/{self.company.id}/", open_resp.url)
+        notif.refresh_from_db()
+        self.assertTrue(notif.is_read)
+        # Visiting company detail syncs alerts but must not recreate a dismissed Ref.
+        detail = self.client.get(reverse("insurance-company-detail", args=[self.company.id]))
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(Notification.objects.filter(is_read=False).count(), 0)
 
     def test_rejects_expiration_before_effective(self):
         self.client.login(username="lic_owner", password="pass")
