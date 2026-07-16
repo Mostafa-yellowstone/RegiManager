@@ -161,5 +161,17 @@ def check_insurance_company_license_alerts():
     )
 
 
+@shared_task
+def check_psb_license_alerts():
+    """Daily sync of PSB (Organization) license renewal notifications."""
+    from .psb_license import sync_all_psb_license_alerts
+
+    result = sync_all_psb_license_alerts()
+    return (
+        f"PSB license alerts synced for {result['organizations']} organizations "
+        f"(created={result['created']}, cleared={result['cleared']})"
+    )
+
+
 
 

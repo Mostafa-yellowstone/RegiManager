@@ -58,6 +58,7 @@ class OrganizationAdmin(admin.ModelAdmin):
         "city",
         "state",
         "psbc_license",
+        "psbc_license_expiration_date",
         "email",
         "invite_code",
         "intake_link_display",
@@ -71,11 +72,25 @@ class OrganizationAdmin(admin.ModelAdmin):
     inlines = [MembershipInline]
     fieldsets = (
         ("PSB Profile", {
-            "fields": ("name", "business_owner_name", "logo", "address_line", "city", "state", "phone_number", "email", "psbc_license"),
+            "fields": (
+                "name",
+                "business_owner_name",
+                "logo",
+                "address_line",
+                "city",
+                "state",
+                "phone_number",
+                "email",
+                "psbc_license",
+                "psbc_license_effective_date",
+                "psbc_license_expiration_date",
+                "psbc_license_alert_days",
+            ),
             "description": (
                 "Choose the PSB motor vehicle state from the dropdown (e.g. CT, PA, NJ). "
                 "This controls which DMV forms appear on vehicle profiles. "
-                "Set Business owner name to the full legal name shown on receipts; users with the Owner role are not used."
+                "Set Business owner name to the full legal name shown on receipts; users with the Owner role are not used. "
+                "PSB license dates drive dashboard renewal alerts for owners."
             ),
         }),
         ("Access & Limits", {"fields": ("invite_code", "portal_token", "max_agents", "is_active")}),

@@ -1,0 +1,371 @@
+{# PSB license renewal alert + optional edit modal. Expects: psb_license_attention, psb_license_attention_has_expired, is_owner #}
+{% if psb_license_attention %}
+<style>
+.psb-license-crm-alert {
+  position: relative;
+  overflow: hidden;
+  margin: 0 0 1.35rem;
+  border-radius: 18px;
+  border: 1px solid #f59e0b;
+  background:
+    radial-gradient(1200px 180px at 0% 0%, rgba(251, 191, 36, 0.35), transparent 55%),
+    radial-gradient(900px 160px at 100% 100%, rgba(245, 158, 11, 0.22), transparent 50%),
+    linear-gradient(135deg, #fffbeb 0%, #fef3c7 48%, #ffedd5 100%);
+  box-shadow: 0 12px 28px rgba(245, 158, 11, 0.18), inset 0 1px 0 rgba(255,255,255,0.7);
+  padding: 1.15rem 1.25rem 1.2rem;
+  animation: psbLicenseAlertIn 0.45s ease;
+}
+.psb-license-crm-alert.has-expired {
+  border-color: #f97316;
+  background:
+    radial-gradient(1100px 180px at 0% 0%, rgba(251, 146, 60, 0.32), transparent 55%),
+    radial-gradient(900px 160px at 100% 0%, rgba(239, 68, 68, 0.16), transparent 50%),
+    linear-gradient(135deg, #fff7ed 0%, #ffedd5 45%, #fee2e2 100%);
+  box-shadow: 0 12px 28px rgba(239, 68, 68, 0.14), inset 0 1px 0 rgba(255,255,255,0.65);
+}
+.psb-license-crm-alert::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  background: linear-gradient(180deg, #fbbf24, #f59e0b 55%, #ea580c);
+}
+.psb-license-crm-alert.has-expired::before {
+  background: linear-gradient(180deg, #fb923c, #ef4444);
+}
+.psb-license-crm-alert__glow {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  right: -60px;
+  top: -90px;
+  border-radius: 50%;
+  background: rgba(251, 191, 36, 0.28);
+  filter: blur(8px);
+  pointer-events: none;
+  animation: psbLicensePulse 2.8s ease-in-out infinite;
+}
+.psb-license-crm-alert__head {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+.psb-license-crm-alert__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #92400e;
+}
+.psb-license-crm-alert.has-expired .psb-license-crm-alert__kicker { color: #9a3412; }
+.psb-license-crm-alert__pulse-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: #f59e0b;
+  box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55);
+  animation: psbLicenseDot 1.6s ease-out infinite;
+}
+.psb-license-crm-alert.has-expired .psb-license-crm-alert__pulse-dot {
+  background: #ef4444;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+}
+.psb-license-crm-alert__title {
+  margin: 0.35rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #78350f;
+  letter-spacing: -0.02em;
+}
+.psb-license-crm-alert.has-expired .psb-license-crm-alert__title { color: #7c2d12; }
+.psb-license-crm-alert__sub {
+  margin: 0.3rem 0 0;
+  color: #a16207;
+  font-size: 0.88rem;
+  font-weight: 600;
+  max-width: 46rem;
+  line-height: 1.45;
+}
+.psb-license-crm-alert.has-expired .psb-license-crm-alert__sub { color: #9a3412; }
+.psb-license-crm-alert__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.4rem;
+  height: 2.4rem;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  background: #78350f;
+  color: #fffbeb;
+  font-weight: 900;
+  font-size: 1rem;
+  box-shadow: 0 8px 18px rgba(120, 53, 15, 0.28);
+}
+.psb-license-crm-alert.has-expired .psb-license-crm-alert__count { background: #9a3412; }
+.psb-license-crm-alert__list { position: relative; display: grid; gap: 0.55rem; }
+.psb-license-crm-alert__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  backdrop-filter: blur(4px);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.psb-license-crm-alert__row:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(146, 64, 14, 0.08);
+}
+.psb-license-crm-alert__row.is-expired {
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(255, 255, 255, 0.78);
+}
+.psb-license-crm-alert__company {
+  color: #78350f;
+  font-weight: 850;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+.psb-license-crm-alert__meta {
+  margin-top: 0.18rem;
+  color: #a16207;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+.psb-license-crm-alert__row.is-expired .psb-license-crm-alert__company { color: #9a3412; }
+.psb-license-crm-alert__row.is-expired .psb-license-crm-alert__meta { color: #b91c1c; }
+.psb-license-crm-alert__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+.psb-license-crm-alert__tag.expired {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+.psb-license-crm-alert__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.95rem;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  color: white;
+  font-weight: 800;
+  font-size: 0.82rem;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 8px 16px rgba(217, 119, 6, 0.28);
+  white-space: nowrap;
+}
+.psb-license-crm-alert.has-expired .psb-license-crm-alert__cta {
+  background: linear-gradient(135deg, #ea580c, #ef4444);
+  box-shadow: 0 8px 16px rgba(239, 68, 68, 0.24);
+}
+.psb-license-crm-alert__cta:hover { filter: brightness(1.05); }
+@keyframes psbLicenseAlertIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes psbLicensePulse {
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.08); }
+}
+@keyframes psbLicenseDot {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55); }
+  70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+html.portal-theme-dark .psb-license-crm-alert {
+  background:
+    radial-gradient(1000px 160px at 0% 0%, rgba(245, 158, 11, 0.22), transparent 55%),
+    linear-gradient(135deg, #422006 0%, #78350f 55%, #7c2d12 100%);
+  border-color: #b45309;
+}
+html.portal-theme-dark .psb-license-crm-alert__title,
+html.portal-theme-dark .psb-license-crm-alert__company { color: #ffedd5; }
+html.portal-theme-dark .psb-license-crm-alert__sub,
+html.portal-theme-dark .psb-license-crm-alert__meta,
+html.portal-theme-dark .psb-license-crm-alert__kicker { color: #fde68a; }
+html.portal-theme-dark .psb-license-crm-alert__row {
+  background: rgba(15, 23, 42, 0.35);
+  border-color: rgba(251, 191, 36, 0.25);
+}
+</style>
+
+<div class="psb-license-crm-alert{% if psb_license_attention_has_expired %} has-expired{% endif %}" role="alert" aria-live="polite">
+  <div class="psb-license-crm-alert__glow" aria-hidden="true"></div>
+  <div class="psb-license-crm-alert__head">
+    <div>
+      <div class="psb-license-crm-alert__kicker">
+        <span class="psb-license-crm-alert__pulse-dot" aria-hidden="true"></span>
+        PSB license renewal action
+      </div>
+      <h3 class="psb-license-crm-alert__title">
+        {% if psb_license_attention|length == 1 %}
+          1 PSB license needs renewal attention
+        {% else %}
+          {{ psb_license_attention|length }} PSB licenses need renewal attention
+        {% endif %}
+      </h3>
+      <p class="psb-license-crm-alert__sub">
+        Renew your PSBC license before it lapses so receipts and bureau operations stay compliant.
+      </p>
+    </div>
+    <div class="psb-license-crm-alert__count" title="PSBs needing action">{{ psb_license_attention|length }}</div>
+  </div>
+  <div class="psb-license-crm-alert__list">
+    {% for row in psb_license_attention %}
+    <div class="psb-license-crm-alert__row{% if row.status.state == 'expired' %} is-expired{% endif %}">
+      <div>
+        <div class="psb-license-crm-alert__company">{{ row.organization.name }}</div>
+        <div class="psb-license-crm-alert__meta">
+          {{ row.status.label }}
+          {% if row.status.expiration_date %} · Expires {{ row.status.expiration_date|date:"M j, Y" }}{% endif %}
+          {% if row.status.license_number %} · PSBC No. {{ row.status.license_number }}{% endif %}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;">
+        <span class="psb-license-crm-alert__tag{% if row.status.state == 'expired' %} expired{% endif %}">
+          {% if row.status.state == 'expired' %}Expired{% else %}Due soon{% endif %}
+        </span>
+        {% if is_owner %}
+        <button
+          type="button"
+          class="psb-license-crm-alert__cta"
+          onclick="openPsbLicenseModal({
+            id: {{ row.organization.id }},
+            name: '{{ row.organization.name|escapejs }}',
+            license: '{{ row.organization.psbc_license|default:''|escapejs }}',
+            effective: '{% if row.organization.psbc_license_effective_date %}{{ row.organization.psbc_license_effective_date|date:'Y-m-d' }}{% endif %}',
+            expiration: '{% if row.organization.psbc_license_expiration_date %}{{ row.organization.psbc_license_expiration_date|date:'Y-m-d' }}{% endif %}',
+            alertDays: '{{ row.organization.psbc_license_alert_days|default:5 }}'
+          })"
+        >Update license →</button>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if is_owner and psb_license_manage_orgs %}
+<div class="psb-license-manage" style="margin:0 0 1.25rem;padding:0.9rem 1rem;border-radius:14px;border:1px solid #e2e8f0;background:rgba(248,250,252,0.9);">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.65rem;">
+    <div>
+      <div style="font-size:0.7rem;font-weight:850;letter-spacing:0.06em;text-transform:uppercase;color:#64748b;">PSB license</div>
+      <div style="font-weight:800;color:#0f172a;font-size:0.95rem;">Update license number, dates, and alert window</div>
+    </div>
+  </div>
+  <div style="display:grid;gap:0.45rem;">
+    {% for row in psb_license_manage_orgs %}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;padding:0.55rem 0.7rem;border-radius:10px;background:#fff;border:1px solid #e2e8f0;">
+      <div>
+        <div style="font-weight:800;color:#0f172a;">{{ row.organization.name }}</div>
+        <div style="font-size:0.78rem;color:#64748b;font-weight:650;">{{ row.status.label }}{% if row.status.license_number %} · PSBC No. {{ row.status.license_number }}{% endif %}</div>
+      </div>
+      <button
+        type="button"
+        class="psb-license-crm-alert__cta"
+        style="background:linear-gradient(135deg,#0f766e,#14b8a6);box-shadow:0 8px 16px rgba(15,118,110,0.22);"
+        onclick="openPsbLicenseModal({
+          id: {{ row.organization.id }},
+          name: '{{ row.organization.name|escapejs }}',
+          license: '{{ row.organization.psbc_license|default:''|escapejs }}',
+          effective: '{% if row.organization.psbc_license_effective_date %}{{ row.organization.psbc_license_effective_date|date:'Y-m-d' }}{% endif %}',
+          expiration: '{% if row.organization.psbc_license_expiration_date %}{{ row.organization.psbc_license_expiration_date|date:'Y-m-d' }}{% endif %}',
+          alertDays: '{{ row.organization.psbc_license_alert_days|default:5 }}'
+        })"
+      >{% if row.status.state == 'missing' %}Set license →{% else %}Edit license →{% endif %}</button>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if is_owner %}
+<div class="modal-overlay" id="psbLicenseModal" onclick="if(event.target===this)this.classList.remove('active')" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.35);backdrop-filter:blur(8px);z-index:2200;align-items:center;justify-content:center;">
+  <div class="modal-box" style="background:var(--portal-surface,#fff);border-radius:18px;padding:1.5rem;max-width:560px;width:95%;max-height:90vh;overflow:auto;border:1px solid var(--portal-border,#e2e8f0);">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1rem;">
+      <div>
+        <h3 style="margin:0;font-weight:850;font-size:1.1rem;" id="psbLicenseModalTitle">Update PSB License</h3>
+        <p style="margin:0.3rem 0 0;color:#64748b;font-size:0.82rem;font-weight:600;">License number, effective/expiration dates, and alert window.</p>
+      </div>
+      <button type="button" onclick="document.getElementById('psbLicenseModal').classList.remove('active')" style="background:transparent;border:none;font-size:1.5rem;cursor:pointer;color:#94a3b8;">&times;</button>
+    </div>
+    <form method="post" action="{% url 'edit-psb-license' %}" id="psbLicenseForm">
+      {% csrf_token %}
+      <input type="hidden" name="organization_id" id="psbLicenseOrgId" value="">
+      <input type="hidden" name="next" id="psbLicenseNext" value="">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.85rem;">
+        <div style="grid-column:1/-1;">
+          <label class="field-label" style="display:block;font-size:0.75rem;font-weight:800;color:#64748b;margin-bottom:0.35rem;text-transform:uppercase;">PSBC License Number</label>
+          <input type="text" name="psbc_license" id="psbLicenseNumber" class="field-input" style="width:100%;padding:0.65rem 0.85rem;border-radius:8px;border:1px solid #cbd5e1;box-sizing:border-box;" placeholder="e.g. 123456">
+        </div>
+        <div>
+          <label class="field-label" style="display:block;font-size:0.75rem;font-weight:800;color:#64748b;margin-bottom:0.35rem;text-transform:uppercase;">Effective Date</label>
+          <input type="date" name="psbc_license_effective_date" id="psbLicenseEffective" class="field-input" style="width:100%;padding:0.65rem 0.85rem;border-radius:8px;border:1px solid #cbd5e1;box-sizing:border-box;">
+        </div>
+        <div>
+          <label class="field-label" style="display:block;font-size:0.75rem;font-weight:800;color:#64748b;margin-bottom:0.35rem;text-transform:uppercase;">Expiration Date</label>
+          <input type="date" name="psbc_license_expiration_date" id="psbLicenseExpiration" class="field-input" style="width:100%;padding:0.65rem 0.85rem;border-radius:8px;border:1px solid #cbd5e1;box-sizing:border-box;">
+        </div>
+        <div style="grid-column:1/-1;">
+          <label class="field-label" style="display:block;font-size:0.75rem;font-weight:800;color:#64748b;margin-bottom:0.35rem;text-transform:uppercase;">Alert Days Before Expiration</label>
+          <input type="number" name="psbc_license_alert_days" id="psbLicenseAlertDays" min="1" max="365" value="5" class="field-input" style="width:100%;padding:0.65rem 0.85rem;border-radius:8px;border:1px solid #cbd5e1;box-sizing:border-box;">
+          <p style="margin:0.35rem 0 0;font-size:0.75rem;color:#64748b;">Dashboard alert appears this many days before expiration (1–365).</p>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="margin-top:1.15rem;width:100%;">Save PSB License</button>
+    </form>
+  </div>
+</div>
+<script>
+function openPsbLicenseModal(opts) {
+  const modal = document.getElementById('psbLicenseModal');
+  if (!modal) return;
+  document.getElementById('psbLicenseOrgId').value = opts.id || '';
+  document.getElementById('psbLicenseModalTitle').textContent = 'Update License — ' + (opts.name || 'PSB');
+  document.getElementById('psbLicenseNumber').value = opts.license || '';
+  document.getElementById('psbLicenseEffective').value = opts.effective || '';
+  document.getElementById('psbLicenseExpiration').value = opts.expiration || '';
+  document.getElementById('psbLicenseAlertDays').value = opts.alertDays || '5';
+  document.getElementById('psbLicenseNext').value = window.location.href;
+  modal.style.display = 'flex';
+  modal.classList.add('active');
+}
+(function() {
+  const modal = document.getElementById('psbLicenseModal');
+  if (!modal) return;
+  const sync = () => {
+    if (modal.classList.contains('active')) modal.style.display = 'flex';
+    else modal.style.display = 'none';
+  };
+  const obs = new MutationObserver(sync);
+  obs.observe(modal, { attributes: true, attributeFilter: ['class'] });
+})();
+</script>
+{% endif %}

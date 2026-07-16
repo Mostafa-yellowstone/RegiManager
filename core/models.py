@@ -58,6 +58,20 @@ class Organization(models.Model):
         default="",
         help_text="PSB license number printed on service receipts under PSBC No.",
     )
+    psbc_license_effective_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date the PSB license became effective.",
+    )
+    psbc_license_expiration_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date the PSB license expires.",
+    )
+    psbc_license_alert_days = models.PositiveSmallIntegerField(
+        default=5,
+        help_text="Show a renewal alert this many days before the PSB license expires.",
+    )
     business_owner_name = models.CharField(
         max_length=200,
         blank=True,

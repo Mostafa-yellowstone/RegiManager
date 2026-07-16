@@ -1740,6 +1740,28 @@ def dashboard(request):
         for org in organizations.only("state")
     )
 
+    from .psb_license import (
+        organizations_needing_license_attention,
+        psb_license_status,
+        sync_organizations_license_alerts,
+    )
+
+    psb_license_orgs = list(organizations)
+    try:
+        sync_organizations_license_alerts(psb_license_orgs)
+    except Exception:
+        pass
+    psb_license_attention = organizations_needing_license_attention(psb_license_orgs)
+    psb_license_attention_has_expired = any(
+        row["status"]["state"] == "expired" for row in psb_license_attention
+    )
+    psb_license_manage_orgs = []
+    if is_owner:
+        for org in owner_orgs.order_by("name"):
+            psb_license_manage_orgs.append(
+                {"organization": org, "status": psb_license_status(org)}
+            )
+
     return render(
         request,
         "core/dashboard.html",
@@ -1777,6 +1799,9 @@ def dashboard(request):
             "show_ny_fee_tools": show_ny_fee_tools,
             "ny_sales_tax_calculator_url": NY_SALES_TAX_CALCULATOR_URL,
             "ny_dmv_fee_calculator_url": NY_DMV_FEE_CALCULATOR_URL,
+            "psb_license_attention": psb_license_attention,
+            "psb_license_attention_has_expired": psb_license_attention_has_expired,
+            "psb_license_manage_orgs": psb_license_manage_orgs,
         },
     )
 
@@ -3008,6 +3033,21 @@ def service_list(request, service_type):
         can_delete_receipt=True
     ).exists()
 
+    from .psb_license import (
+        organizations_needing_license_attention,
+        sync_organizations_license_alerts,
+    )
+
+    psb_license_orgs = list(organizations)
+    try:
+        sync_organizations_license_alerts(psb_license_orgs)
+    except Exception:
+        pass
+    psb_license_attention = organizations_needing_license_attention(psb_license_orgs)
+    psb_license_attention_has_expired = any(
+        row["status"]["state"] == "expired" for row in psb_license_attention
+    )
+
     return render(
         request,
         "core/service_list.html",
@@ -3036,6 +3076,8 @@ def service_list(request, service_type):
             "query_string_no_page": filtered_query.urlencode(),
             "is_owner": is_owner,
             "can_delete_receipt": can_delete_receipt,
+            "psb_license_attention": psb_license_attention,
+            "psb_license_attention_has_expired": psb_license_attention_has_expired,
         }
     )
 
@@ -6957,6 +6999,68 @@ def edit_insurance_company_license(request, company_id):
         pass
     messages.success(request, "Company license details saved.")
     return redirect("insurance-company-detail", company_id=company.id)
+
+
+@login_required
+@require_POST
+def edit_psb_license(request):
+    """Owner-only update of PSB (Organization) license number, dates, and alert window."""
+    from datetime import datetime
+    from urllib.parse import urlparse
+
+    from .insurance_company_license import clamp_alert_days
+    from .psb_license import sync_psb_license_alerts
+
+    org_id = (request.POST.get("organization_id") or "").strip()
+    if not org_id.isdigit():
+        messages.error(request, "Invalid PSB.")
+        return redirect("dashboard")
+
+    organizations = _get_user_organizations(request)
+    org = get_object_or_404(organizations, id=int(org_id))
+    membership = membership_for_org(request.user, org)
+    if not is_org_owner(request.user, org, membership):
+        deny_access("Owner access required to update the PSB license.")
+
+    def _parse_date(value):
+        value = (value or "").strip()
+        if not value:
+            return None
+        try:
+            return datetime.strptime(value, "%Y-%m-%d").date()
+        except ValueError:
+            return None
+
+    effective = _parse_date(request.POST.get("psbc_license_effective_date"))
+    expiration = _parse_date(request.POST.get("psbc_license_expiration_date"))
+    if effective and expiration and expiration < effective:
+        messages.error(request, "PSB license expiration cannot be before the effective date.")
+        return redirect("dashboard")
+
+    org.psbc_license = (request.POST.get("psbc_license") or "").strip()[:60]
+    org.psbc_license_effective_date = effective
+    org.psbc_license_expiration_date = expiration
+    org.psbc_license_alert_days = clamp_alert_days(request.POST.get("psbc_license_alert_days"), default=5)
+    org.save(
+        update_fields=[
+            "psbc_license",
+            "psbc_license_effective_date",
+            "psbc_license_expiration_date",
+            "psbc_license_alert_days",
+        ]
+    )
+    try:
+        sync_psb_license_alerts(org)
+    except Exception:
+        pass
+    messages.success(request, "PSB license details saved.")
+
+    next_url = (request.POST.get("next") or "").strip()
+    if next_url:
+        parsed = urlparse(next_url)
+        if not parsed.netloc and parsed.path.startswith("/"):
+            return redirect(next_url)
+    return redirect("dashboard")
 
 
 @login_required
