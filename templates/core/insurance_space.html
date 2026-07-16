@@ -28,6 +28,225 @@
 .chip-pending { display: inline-flex; align-items: center; gap: 5px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; color: #854d0e; background: #fef9c3; }
 .chip-rejected { display: inline-flex; align-items: center; gap: 5px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; color: #b91c1c; background: #fee2e2; }
 .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+
+/* License renewal alert above CRM table */
+.ins-license-crm-alert {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1.35rem;
+  border-radius: 18px;
+  border: 1px solid #f59e0b;
+  background:
+    radial-gradient(1200px 180px at 0% 0%, rgba(251, 191, 36, 0.35), transparent 55%),
+    radial-gradient(900px 160px at 100% 100%, rgba(245, 158, 11, 0.22), transparent 50%),
+    linear-gradient(135deg, #fffbeb 0%, #fef3c7 48%, #ffedd5 100%);
+  box-shadow: 0 12px 28px rgba(245, 158, 11, 0.18), inset 0 1px 0 rgba(255,255,255,0.7);
+  padding: 1.15rem 1.25rem 1.2rem;
+  animation: insLicenseAlertIn 0.45s ease;
+}
+.ins-license-crm-alert.has-expired {
+  border-color: #f97316;
+  background:
+    radial-gradient(1100px 180px at 0% 0%, rgba(251, 146, 60, 0.32), transparent 55%),
+    radial-gradient(900px 160px at 100% 0%, rgba(239, 68, 68, 0.16), transparent 50%),
+    linear-gradient(135deg, #fff7ed 0%, #ffedd5 45%, #fee2e2 100%);
+  box-shadow: 0 12px 28px rgba(239, 68, 68, 0.14), inset 0 1px 0 rgba(255,255,255,0.65);
+}
+.ins-license-crm-alert::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  background: linear-gradient(180deg, #fbbf24, #f59e0b 55%, #ea580c);
+}
+.ins-license-crm-alert.has-expired::before {
+  background: linear-gradient(180deg, #fb923c, #ef4444);
+}
+.ins-license-crm-alert__glow {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  right: -60px;
+  top: -90px;
+  border-radius: 50%;
+  background: rgba(251, 191, 36, 0.28);
+  filter: blur(8px);
+  pointer-events: none;
+  animation: insLicensePulse 2.8s ease-in-out infinite;
+}
+.ins-license-crm-alert__head {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+.ins-license-crm-alert__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #92400e;
+}
+.ins-license-crm-alert.has-expired .ins-license-crm-alert__kicker { color: #9a3412; }
+.ins-license-crm-alert__pulse-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: #f59e0b;
+  box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55);
+  animation: insLicenseDot 1.6s ease-out infinite;
+}
+.ins-license-crm-alert.has-expired .ins-license-crm-alert__pulse-dot {
+  background: #ef4444;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+}
+.ins-license-crm-alert__title {
+  margin: 0.35rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #78350f;
+  letter-spacing: -0.02em;
+}
+.ins-license-crm-alert.has-expired .ins-license-crm-alert__title { color: #7c2d12; }
+.ins-license-crm-alert__sub {
+  margin: 0.3rem 0 0;
+  color: #a16207;
+  font-size: 0.88rem;
+  font-weight: 600;
+  max-width: 46rem;
+  line-height: 1.45;
+}
+.ins-license-crm-alert.has-expired .ins-license-crm-alert__sub { color: #9a3412; }
+.ins-license-crm-alert__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.4rem;
+  height: 2.4rem;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  background: #78350f;
+  color: #fffbeb;
+  font-weight: 900;
+  font-size: 1rem;
+  box-shadow: 0 8px 18px rgba(120, 53, 15, 0.28);
+}
+.ins-license-crm-alert.has-expired .ins-license-crm-alert__count {
+  background: #9a3412;
+}
+.ins-license-crm-alert__list {
+  position: relative;
+  display: grid;
+  gap: 0.55rem;
+}
+.ins-license-crm-alert__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  backdrop-filter: blur(4px);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.ins-license-crm-alert__row:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(146, 64, 14, 0.08);
+}
+.ins-license-crm-alert__row.is-expired {
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(255, 255, 255, 0.78);
+}
+.ins-license-crm-alert__company {
+  color: #78350f;
+  font-weight: 850;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+.ins-license-crm-alert__company:hover { text-decoration: underline; }
+.ins-license-crm-alert__meta {
+  margin-top: 0.18rem;
+  color: #a16207;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+.ins-license-crm-alert__row.is-expired .ins-license-crm-alert__company { color: #9a3412; }
+.ins-license-crm-alert__row.is-expired .ins-license-crm-alert__meta { color: #b91c1c; }
+.ins-license-crm-alert__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+.ins-license-crm-alert__tag.expired {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+.ins-license-crm-alert__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.95rem;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  color: white;
+  font-weight: 800;
+  font-size: 0.82rem;
+  text-decoration: none;
+  box-shadow: 0 8px 16px rgba(217, 119, 6, 0.28);
+  white-space: nowrap;
+}
+.ins-license-crm-alert.has-expired .ins-license-crm-alert__cta {
+  background: linear-gradient(135deg, #ea580c, #ef4444);
+  box-shadow: 0 8px 16px rgba(239, 68, 68, 0.24);
+}
+.ins-license-crm-alert__cta:hover { filter: brightness(1.05); }
+@keyframes insLicenseAlertIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes insLicensePulse {
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.08); }
+}
+@keyframes insLicenseDot {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55); }
+  70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+html.portal-theme-dark .ins-license-crm-alert {
+  background:
+    radial-gradient(1000px 160px at 0% 0%, rgba(245, 158, 11, 0.22), transparent 55%),
+    linear-gradient(135deg, #422006 0%, #78350f 55%, #7c2d12 100%);
+  border-color: #b45309;
+}
+html.portal-theme-dark .ins-license-crm-alert__title,
+html.portal-theme-dark .ins-license-crm-alert__company { color: #ffedd5; }
+html.portal-theme-dark .ins-license-crm-alert__sub,
+html.portal-theme-dark .ins-license-crm-alert__meta,
+html.portal-theme-dark .ins-license-crm-alert__kicker { color: #fde68a; }
+html.portal-theme-dark .ins-license-crm-alert__row {
+  background: rgba(15, 23, 42, 0.35);
+  border-color: rgba(251, 191, 36, 0.25);
+}
 /* Source chips */
 .src-walk_in { background:#e0f2fe; color:#075985; }
 .src-google_search { background:#fef9c3; color:#713f12; }
@@ -296,6 +515,52 @@
           </details>
         </form>
       </div>
+
+      {% if license_attention %}
+      <div class="ins-license-crm-alert{% if license_attention_has_expired %} has-expired{% endif %}" role="alert" aria-live="polite">
+        <div class="ins-license-crm-alert__glow" aria-hidden="true"></div>
+        <div class="ins-license-crm-alert__head">
+          <div>
+            <div class="ins-license-crm-alert__kicker">
+              <span class="ins-license-crm-alert__pulse-dot" aria-hidden="true"></span>
+              License renewal action
+            </div>
+            <h3 class="ins-license-crm-alert__title">
+              {% if license_attention|length == 1 %}
+                1 insurance company needs renewal attention
+              {% else %}
+                {{ license_attention|length }} insurance companies need renewal attention
+              {% endif %}
+            </h3>
+            <p class="ins-license-crm-alert__sub">
+              Review license expiration dates and renew before coverage appointments lapse. Click a company to update license details.
+            </p>
+          </div>
+          <div class="ins-license-crm-alert__count" title="Companies needing action">{{ license_attention|length }}</div>
+        </div>
+        <div class="ins-license-crm-alert__list">
+          {% for row in license_attention %}
+          <div class="ins-license-crm-alert__row{% if row.status.state == 'expired' %} is-expired{% endif %}">
+            <div>
+              <a class="ins-license-crm-alert__company" href="{% url 'insurance-company-detail' row.company.id %}">{{ row.company.name }}</a>
+              <div class="ins-license-crm-alert__meta">
+                {{ row.status.label }}
+                {% if row.status.expiration_date %} · Expires {{ row.status.expiration_date|date:"M j, Y" }}{% endif %}
+                {% if row.company.license_number %} · Lic # {{ row.company.license_number }}{% endif %}
+                {% if row.company.broker_arrangement == 'br' %} · BR{% elif row.company.broker_arrangement == 'bc' %} · BC{% endif %}
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;">
+              <span class="ins-license-crm-alert__tag{% if row.status.state == 'expired' %} expired{% endif %}">
+                {% if row.status.state == 'expired' %}Expired{% else %}Due soon{% endif %}
+              </span>
+              <a class="ins-license-crm-alert__cta" href="{% url 'insurance-company-detail' row.company.id %}">Open profile →</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
 
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
         <div>

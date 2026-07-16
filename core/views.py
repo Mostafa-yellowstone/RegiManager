@@ -6024,6 +6024,9 @@ def inventory_detail(request, inventory_id):
         except Exception:
             pass
         license_attention = companies_needing_license_attention(active_org)
+        license_attention_has_expired = any(
+            row["status"]["state"] == "expired" for row in license_attention
+        )
         total_unearned_commission = sum(
             adjusted_unearned_map.get(p.id, policy_unearned_commission(p))
             for p in inactive_for_unearned
@@ -6158,6 +6161,7 @@ def inventory_detail(request, inventory_id):
             "insurance_companies": insurance_companies,
             "company_summaries": company_summaries,
             "license_attention": license_attention,
+            "license_attention_has_expired": license_attention_has_expired,
             "policies": crm_policies_page,
             "crm_policies_page": crm_policies_page,
             "bank_accounts": bank_accounts,
