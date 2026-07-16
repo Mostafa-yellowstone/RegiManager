@@ -1742,7 +1742,6 @@ def dashboard(request):
 
     from .psb_license import (
         organizations_needing_license_attention,
-        psb_license_status,
         sync_organizations_license_alerts,
     )
 
@@ -1755,12 +1754,6 @@ def dashboard(request):
     psb_license_attention_has_expired = any(
         row["status"]["state"] == "expired" for row in psb_license_attention
     )
-    psb_license_manage_orgs = []
-    if is_owner:
-        for org in owner_orgs.order_by("name"):
-            psb_license_manage_orgs.append(
-                {"organization": org, "status": psb_license_status(org)}
-            )
 
     return render(
         request,
@@ -1801,7 +1794,6 @@ def dashboard(request):
             "ny_dmv_fee_calculator_url": NY_DMV_FEE_CALCULATOR_URL,
             "psb_license_attention": psb_license_attention,
             "psb_license_attention_has_expired": psb_license_attention_has_expired,
-            "psb_license_manage_orgs": psb_license_manage_orgs,
         },
     )
 

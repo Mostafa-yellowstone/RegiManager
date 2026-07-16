@@ -272,40 +272,6 @@ html.portal-theme-dark .psb-license-crm-alert__row {
 </div>
 {% endif %}
 
-{% if is_owner and psb_license_manage_orgs %}
-<div class="psb-license-manage" style="margin:0 0 1.25rem;padding:0.9rem 1rem;border-radius:14px;border:1px solid #e2e8f0;background:rgba(248,250,252,0.9);">
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.65rem;">
-    <div>
-      <div style="font-size:0.7rem;font-weight:850;letter-spacing:0.06em;text-transform:uppercase;color:#64748b;">PSB license</div>
-      <div style="font-weight:800;color:#0f172a;font-size:0.95rem;">Update license number, dates, and alert window</div>
-    </div>
-  </div>
-  <div style="display:grid;gap:0.45rem;">
-    {% for row in psb_license_manage_orgs %}
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;padding:0.55rem 0.7rem;border-radius:10px;background:#fff;border:1px solid #e2e8f0;">
-      <div>
-        <div style="font-weight:800;color:#0f172a;">{{ row.organization.name }}</div>
-        <div style="font-size:0.78rem;color:#64748b;font-weight:650;">{{ row.status.label }}{% if row.status.license_number %} · PSBC No. {{ row.status.license_number }}{% endif %}</div>
-      </div>
-      <button
-        type="button"
-        class="psb-license-crm-alert__cta"
-        style="background:linear-gradient(135deg,#0f766e,#14b8a6);box-shadow:0 8px 16px rgba(15,118,110,0.22);"
-        onclick="openPsbLicenseModal({
-          id: {{ row.organization.id }},
-          name: '{{ row.organization.name|escapejs }}',
-          license: '{{ row.organization.psbc_license|default:''|escapejs }}',
-          effective: '{% if row.organization.psbc_license_effective_date %}{{ row.organization.psbc_license_effective_date|date:'Y-m-d' }}{% endif %}',
-          expiration: '{% if row.organization.psbc_license_expiration_date %}{{ row.organization.psbc_license_expiration_date|date:'Y-m-d' }}{% endif %}',
-          alertDays: '{{ row.organization.psbc_license_alert_days|default:5 }}'
-        })"
-      >{% if row.status.state == 'missing' %}Set license →{% else %}Edit license →{% endif %}</button>
-    </div>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
-
 {% if is_owner %}
 <div class="modal-overlay" id="psbLicenseModal" onclick="if(event.target===this)this.classList.remove('active')" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.35);backdrop-filter:blur(8px);z-index:2200;align-items:center;justify-content:center;">
   <div class="modal-box" style="background:var(--portal-surface,#fff);border-radius:18px;padding:1.5rem;max-width:560px;width:95%;max-height:90vh;overflow:auto;border:1px solid var(--portal-border,#e2e8f0);">
