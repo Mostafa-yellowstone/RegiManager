@@ -412,11 +412,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const referralSectionSubtitle = document.getElementById('referral-section-subtitle');
     const referralSavedIndicator = document.getElementById('referral-saved-indicator');
     const newReferralElements = document.querySelectorAll('.new-referral-only');
-    const isEditMode = referralSection && referralSection.dataset.editMode === 'true';
+    const clientFormRoot = document.querySelector('[data-edit-mode]');
+    const isEditMode = clientFormRoot && clientFormRoot.dataset.editMode === 'true';
+    const excludeClientId = clientFormRoot && clientFormRoot.dataset.clientId ? clientFormRoot.dataset.clientId : '';
     const hasSavedReferral = referralSection && referralSection.dataset.hasReferral === 'true';
 
     function usesReferralPartner(source) {
-        return source === 'referral' || source === 'dealer';
+        const normalized = (source || '').toLowerCase().replace(/-/g, '_');
+        return normalized === 'referral' || normalized === 'dealer';
     }
 
     function updateReferralSectionCopy() {
@@ -456,7 +459,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!referralSection || !sourceSelect) return;
         const show = usesReferralPartner(sourceSelect.value) || (isEditMode && hasSavedReferral);
         referralSection.style.display = show ? 'block' : 'none';
-        if (show) updateReferralSectionCopy();
+        if (show) {
+            updateReferralSectionCopy();
+            toggleNewReferralFields();
+        }
     }
 
     function toggleNewReferralFields() {
@@ -587,9 +593,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const lastNameInput = document.getElementById('id_last_name');
     const orgSelect = document.getElementById('id_organization');
     const nameWarning = document.getElementById('name-warning');
-    const clientFormRoot = document.querySelector('[data-edit-mode]');
-    const isEditMode = clientFormRoot && clientFormRoot.dataset.editMode === 'true';
-    const excludeClientId = clientFormRoot && clientFormRoot.dataset.clientId ? clientFormRoot.dataset.clientId : '';
 
     const middleNameInput = document.getElementById('id_middle_name');
     const driverLicenseInput = document.getElementById('id_driver_license');
