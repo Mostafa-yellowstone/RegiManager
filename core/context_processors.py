@@ -75,12 +75,12 @@ def automation_status(request):
 
         notif_qs = (
             Notification.objects.filter(user=request.user)
-            .filter(client__deleted_at__isnull=True)
+            .filter(Q(client__isnull=True) | Q(client__deleted_at__isnull=True))
             .filter(
                 Q(note__isnull=False, note__is_done=False)
                 | Q(note__isnull=True, is_read=False)
             )
-            .select_related("client", "note")
+            .select_related("client", "note", "insurance_company")
         )
         notif_unread_count = notif_qs.count()
         top_notifications = list(notif_qs.order_by("-created_at")[:6])

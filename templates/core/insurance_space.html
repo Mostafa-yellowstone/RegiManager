@@ -428,14 +428,43 @@
         <h3 class="ins-section-title">Insurance Companies</h3>
         <button onclick="document.getElementById('addCompanyModal').classList.add('active')" style="padding: 8px 18px; background: #093de6; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Add Company</button>
       </div>
+      {% if license_attention %}
+      <div style="margin-bottom:1.25rem;padding:0.95rem 1.1rem;border-radius:14px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #f59e0b;color:#92400e;">
+        <div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.35rem;">License renewal alerts</div>
+        <div style="display:flex;flex-direction:column;gap:0.45rem;">
+          {% for row in license_attention %}
+          <div style="display:flex;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;align-items:center;">
+            <div style="font-weight:700;">
+              <a href="{% url 'insurance-company-detail' row.company.id %}" style="color:#92400e;text-decoration:none;font-weight:850;">{{ row.company.name }}</a>
+              · {{ row.status.label }}
+            </div>
+            <span style="font-size:0.78rem;font-weight:700;background:rgba(255,255,255,0.65);padding:0.2rem 0.55rem;border-radius:999px;">
+              {% if row.status.state == 'expired' %}Expired{% else %}Due soon{% endif %}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
       <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem;">
         {% for entry in company_summaries %}
         <div class="ins-surface-card" style="display: flex; flex-direction: column; justify-content: space-between;">
           <div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; gap: 0.5rem;">
               <a href="{% url 'insurance-company-detail' entry.id %}" class="ins-company-name-link">{{ entry.name }} →</a>
               <a href="{% url 'delete-insurance-company' entry.id %}" onclick="return confirm('Delete company?')" style="color: #dc2626; font-size: 0.78rem; text-decoration: none; font-weight: 700; background: #fff5f5; padding: 2px 8px; border-radius: 6px; border: 1px solid #fee2e2;">Remove</a>
             </div>
+            {% if entry.license_status.needs_alert %}
+            <div style="margin-bottom:0.65rem;padding:0.45rem 0.65rem;border-radius:10px;font-size:0.75rem;font-weight:800;{% if entry.license_status.state == 'expired' %}background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;{% else %}background:#fffbeb;color:#b45309;border:1px solid #fde68a;{% endif %}">
+              {{ entry.license_status.label }}
+            </div>
+            {% elif entry.license_number or entry.broker_arrangement %}
+            <div style="margin-bottom:0.65rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
+              {% if entry.license_number %}<span style="font-size:0.72rem;font-weight:700;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;padding:0.2rem 0.5rem;border-radius:999px;">Lic # {{ entry.license_number }}</span>{% endif %}
+              {% if entry.broker_arrangement == 'br' %}<span style="font-size:0.72rem;font-weight:800;color:#047857;background:#ecfdf5;border:1px solid #a7f3d0;padding:0.2rem 0.5rem;border-radius:999px;">BR</span>
+              {% elif entry.broker_arrangement == 'bc' %}<span style="font-size:0.72rem;font-weight:800;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;padding:0.2rem 0.5rem;border-radius:999px;">BC</span>{% endif %}
+            </div>
+            {% endif %}
             <div style="color: #64748b; font-size: 0.85rem; margin-bottom: 0.75rem;">Active Policies: <strong style="color: #0f172a;">{{ entry.active_count }}</strong></div>
             <div style="border-top: 1px solid #f1f5f9; padding-top: 0.75rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem;">
               <div>

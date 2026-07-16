@@ -306,6 +306,115 @@ html.portal-theme-dark .company-profile-page .chip-rejected { background: rgba(2
 html.portal-theme-dark .company-profile-page .policy-received-label { background: var(--portal-surface-muted); border-color: var(--border); }
 html.portal-theme-dark .company-profile-page .policy-received-label:hover { background: rgba(99, 102, 241, 0.2); border-color: #818cf8; }
 html.portal-theme-dark .company-profile-page .policy-crm-row.is-received td { background: rgba(124, 58, 237, 0.14); }
+
+.company-license-box {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 1.25rem 1.35rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+.company-license-box__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.company-license-box__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 850;
+  color: #0f172a;
+}
+.company-license-box__sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  color: #64748b;
+  font-weight: 600;
+}
+.company-license-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.85rem;
+}
+.company-license-item {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.8rem 0.9rem;
+}
+.company-license-item .lbl {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  font-weight: 800;
+}
+.company-license-item .val {
+  margin-top: 0.3rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+.company-license-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.company-license-badge.tone-success { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.company-license-badge.tone-warning { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+.company-license-badge.tone-danger { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.company-license-badge.tone-muted { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+.company-license-alert {
+  margin-bottom: 1.25rem;
+  padding: 0.9rem 1.1rem;
+  border-radius: 14px;
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.company-license-alert.tone-warning {
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  border: 1px solid #f59e0b;
+  color: #92400e;
+}
+.company-license-alert.tone-danger {
+  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  border: 1px solid #ef4444;
+  color: #991b1b;
+}
+.company-brbc-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+.company-brbc-pill.br { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.company-brbc-pill.bc { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.company-brbc-pill.unset { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+html.portal-theme-dark .company-license-box {
+  background: var(--portal-surface);
+  border-color: var(--portal-border);
+}
+html.portal-theme-dark .company-license-item {
+  background: var(--portal-surface-muted);
+  border-color: var(--portal-border);
+}
+html.portal-theme-dark .company-license-item .val,
+html.portal-theme-dark .company-license-box__title { color: var(--portal-text); }
 </style>
 
 <main class="portal-space-shell company-profile-page">
@@ -325,13 +434,14 @@ html.portal-theme-dark .company-profile-page .policy-crm-row.is-received td { ba
     </div>
 
     <!-- Header -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.25rem; margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.25rem; margin-bottom: 1.25rem;">
       <div>
         <div class="company-type-badge">🏢 Insurance Company</div>
         <h1 class="company-profile-name">{{ company.name }}</h1>
         <p style="color: var(--muted); margin: 0.25rem 0 0; font-weight: 500; font-size: 0.95rem;">{{ active_org.name }} · Since {{ company.created_at|date:"M d, Y" }}</p>
       </div>
       <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+        <button onclick="document.getElementById('licenseModal').classList.add('active')" class="btn-outline">🪪 License Details</button>
         <button onclick="document.getElementById('depositModal').classList.add('active')" class="btn-primary">💰 Pay/Deposit</button>
         <button onclick="document.getElementById('ledgerModal').classList.add('active')" class="btn-outline">📒 Ledger</button>
         {% if insurance_space_id %}
@@ -339,6 +449,56 @@ html.portal-theme-dark .company-profile-page .policy-crm-row.is-received td { ba
         {% else %}
           <a href="{% url 'spaces-home' %}" class="btn-outline">← Back</a>
         {% endif %}
+      </div>
+    </div>
+
+    {% if license_status.needs_alert %}
+    <div class="company-license-alert tone-{{ license_status.tone }}">
+      <div>
+        <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;opacity:0.85;margin-bottom:0.2rem;">Renewal action required</div>
+        <div>{{ license_status.label }}{% if license_status.expiration_date %} · Expires {{ license_status.expiration_date|date:"M j, Y" }}{% endif %}</div>
+      </div>
+      <button type="button" class="btn-outline" onclick="document.getElementById('licenseModal').classList.add('active')" style="background:#fff;border-color:currentColor;">Update License</button>
+    </div>
+    {% endif %}
+
+    <div class="company-license-box">
+      <div class="company-license-box__head">
+        <div>
+          <h2 class="company-license-box__title">License &amp; Broker Arrangement</h2>
+          <p class="company-license-box__sub">Track license dates, renewal window, and whether broker fees (BR/BC) apply for this company.</p>
+        </div>
+        <span class="company-license-badge tone-{{ license_status.tone }}">{{ license_status.label }}</span>
+      </div>
+      <div class="company-license-grid">
+        <div class="company-license-item">
+          <div class="lbl">License Number</div>
+          <div class="val">{{ company.license_number|default:"—" }}</div>
+        </div>
+        <div class="company-license-item">
+          <div class="lbl">Effective</div>
+          <div class="val">{{ company.license_effective_date|date:"M j, Y"|default:"—" }}</div>
+        </div>
+        <div class="company-license-item">
+          <div class="lbl">Expiration</div>
+          <div class="val">{{ company.license_expiration_date|date:"M j, Y"|default:"—" }}</div>
+        </div>
+        <div class="company-license-item">
+          <div class="lbl">Alert Window</div>
+          <div class="val">{{ company.license_alert_days }} day{{ company.license_alert_days|pluralize }} before</div>
+        </div>
+        <div class="company-license-item">
+          <div class="lbl">BR / BC</div>
+          <div class="val">
+            {% if company.broker_arrangement == 'br' %}
+              <span class="company-brbc-pill br">BR — Take broker fees</span>
+            {% elif company.broker_arrangement == 'bc' %}
+              <span class="company-brbc-pill bc">BC — No broker fees</span>
+            {% else %}
+              <span class="company-brbc-pill unset">Not set</span>
+            {% endif %}
+          </div>
+        </div>
       </div>
     </div>
 
@@ -574,6 +734,49 @@ html.portal-theme-dark .company-profile-page .policy-crm-row.is-received td { ba
 
   </div>
 </main>
+
+<!-- LICENSE DETAILS MODAL -->
+<div class="modal-overlay" id="licenseModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box" style="max-width:640px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <h3 style="margin: 0; font-weight: 800; color: var(--dark); font-size: 1.15rem;">🪪 License &amp; Broker Arrangement</h3>
+      <button type="button" onclick="document.getElementById('licenseModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
+    </div>
+    <form method="POST" action="{% url 'edit-insurance-company-license' company.id %}">
+      {% csrf_token %}
+      <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:0.85rem;">
+        <div style="grid-column:1/-1;">
+          <label class="field-label">License Number</label>
+          <input type="text" name="license_number" class="field-input" value="{{ company.license_number }}" placeholder="e.g. BR-123456">
+        </div>
+        <div>
+          <label class="field-label">License Effective Date</label>
+          <input type="date" name="license_effective_date" class="field-input" value="{% if company.license_effective_date %}{{ company.license_effective_date|date:'Y-m-d' }}{% endif %}">
+        </div>
+        <div>
+          <label class="field-label">License Expiration Date</label>
+          <input type="date" name="license_expiration_date" class="field-input" value="{% if company.license_expiration_date %}{{ company.license_expiration_date|date:'Y-m-d' }}{% endif %}">
+        </div>
+        <div>
+          <label class="field-label">Alert Days Before Expiration</label>
+          <input type="number" name="license_alert_days" class="field-input" min="1" max="365" value="{{ company.license_alert_days|default:5 }}">
+          <p style="margin:0.35rem 0 0;font-size:0.75rem;color:var(--muted);">System alert appears this many days before expiration (1–365).</p>
+        </div>
+        <div>
+          <label class="field-label">BR / BC</label>
+          <select name="broker_arrangement" class="field-input">
+            <option value="">— Not set —</option>
+            {% for value, label in broker_arrangement_choices %}
+            <option value="{{ value }}" {% if company.broker_arrangement == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <p style="margin:0.35rem 0 0;font-size:0.75rem;color:var(--muted);">BR = take broker fees · BC = no broker fees.</p>
+        </div>
+      </div>
+      <button type="submit" class="btn-primary" style="margin-top:1.25rem;width:100%;">Save License Details</button>
+    </form>
+  </div>
+</div>
 
 <!-- PAY/DEPOSIT MODAL -->
 <div class="modal-overlay" id="depositModal" onclick="if(event.target===this)this.classList.remove('active')">

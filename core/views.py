@@ -1006,7 +1006,7 @@ def mark_client_note_done(request, note_id):
 def open_notification(request, notification_id):
     try:
         notif = get_object_or_404(
-            Notification.objects.select_related("client", "note"),
+            Notification.objects.select_related("client", "note", "insurance_company"),
             id=notification_id,
             user=request.user,
         )
@@ -1019,10 +1019,15 @@ def open_notification(request, notification_id):
         notif.is_read = True
         notif.save(update_fields=["is_read"])
 
-    anchor = ""
-    if notif.note_id:
-        anchor = f"#note-{notif.note_id}"
-    return redirect(f"{redirect('client-detail', client_id=notif.client_id).url}{anchor}")
+    if notif.insurance_company_id:
+        return redirect("insurance-company-detail", company_id=notif.insurance_company_id)
+
+    if notif.client_id:
+        anchor = f"#note-{notif.note_id}" if notif.note_id else ""
+        return redirect(f"{redirect('client-detail', client_id=notif.client_id).url}{anchor}")
+
+    messages.info(request, notif.title or "Notification opened.")
+    return redirect("dashboard")
 
 
 @login_required
@@ -6009,6 +6014,16 @@ def inventory_detail(request, inventory_id):
             insurance_companies, inactive_for_unearned
         )
         company_summaries = build_company_summaries(insurance_companies, all_policies)
+        from .insurance_company_license import (
+            companies_needing_license_attention,
+            sync_org_company_license_alerts,
+        )
+
+        try:
+            sync_org_company_license_alerts(active_org)
+        except Exception:
+            pass
+        license_attention = companies_needing_license_attention(active_org)
         total_unearned_commission = sum(
             adjusted_unearned_map.get(p.id, policy_unearned_commission(p))
             for p in inactive_for_unearned
@@ -6142,6 +6157,7 @@ def inventory_detail(request, inventory_id):
             "clients": clients,
             "insurance_companies": insurance_companies,
             "company_summaries": company_summaries,
+            "license_attention": license_attention,
             "policies": crm_policies_page,
             "crm_policies_page": crm_policies_page,
             "bank_accounts": bank_accounts,
@@ -6882,6 +6898,64 @@ def add_insurance_company(request):
 
 
 @login_required
+@require_POST
+def edit_insurance_company_license(request, company_id):
+    """Update license metadata, BR/BC arrangement, and renewal alert window."""
+    from datetime import datetime
+
+    from .insurance_company_license import clamp_alert_days, sync_company_license_alerts
+    from .models import InsuranceCompany
+
+    organizations = _get_user_organizations(request)
+    company = get_object_or_404(InsuranceCompany, id=company_id, organization__in=organizations)
+    org = company.organization
+    membership = membership_for_org(request.user, org)
+    is_owner = is_org_owner(request.user, org, membership)
+    _require_insurance_finance(request, org, membership=membership, is_owner=is_owner)
+
+    def _parse_date(value):
+        value = (value or "").strip()
+        if not value:
+            return None
+        try:
+            return datetime.strptime(value, "%Y-%m-%d").date()
+        except ValueError:
+            return None
+
+    arrangement = (request.POST.get("broker_arrangement") or "").strip().lower()
+    if arrangement not in ("", InsuranceCompany.BrokerArrangement.BR, InsuranceCompany.BrokerArrangement.BC):
+        messages.error(request, "Invalid BR/BC selection.")
+        return redirect("insurance-company-detail", company_id=company.id)
+
+    effective = _parse_date(request.POST.get("license_effective_date"))
+    expiration = _parse_date(request.POST.get("license_expiration_date"))
+    if effective and expiration and expiration < effective:
+        messages.error(request, "License expiration cannot be before the effective date.")
+        return redirect("insurance-company-detail", company_id=company.id)
+
+    company.license_number = (request.POST.get("license_number") or "").strip()[:80]
+    company.license_effective_date = effective
+    company.license_expiration_date = expiration
+    company.license_alert_days = clamp_alert_days(request.POST.get("license_alert_days"), default=5)
+    company.broker_arrangement = arrangement
+    company.save(
+        update_fields=[
+            "license_number",
+            "license_effective_date",
+            "license_expiration_date",
+            "license_alert_days",
+            "broker_arrangement",
+        ]
+    )
+    try:
+        sync_company_license_alerts(company)
+    except Exception:
+        pass
+    messages.success(request, "Company license details saved.")
+    return redirect("insurance-company-detail", company_id=company.id)
+
+
+@login_required
 def delete_insurance_company(request, company_id):
     from .models import InsuranceCompany
     organizations = _get_user_organizations(request)
@@ -7604,6 +7678,14 @@ def insurance_company_detail(request, company_id):
         request.user, active_org, membership=membership, is_owner=is_owner
     )
 
+    from .insurance_company_license import company_license_status, sync_company_license_alerts
+
+    try:
+        sync_company_license_alerts(company)
+    except Exception:
+        pass
+    license_status = company_license_status(company)
+
     return render(request, "core/insurance_company_detail.html", {
         "company": company,
         "active_org": active_org,
@@ -7639,6 +7721,8 @@ def insurance_company_detail(request, company_id):
         "max_premium": max_premium,
         "insurance_source_choices": INSURANCE_SOURCE_CHOICES,
         "can_manage_commission": can_manage_commission,
+        "license_status": license_status,
+        "broker_arrangement_choices": InsuranceCompany.BrokerArrangement.choices,
     })
 
 

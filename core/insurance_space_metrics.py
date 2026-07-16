@@ -13,6 +13,7 @@ from .insurance_commissions import (
     policy_unearned_commission,
     refund_total,
 )
+from .insurance_company_license import company_license_status
 from .models import BankTransaction, InsuranceCompany, InsurancePolicy
 
 
@@ -170,6 +171,12 @@ def build_company_summaries(insurance_companies, all_policies):
             "received_commission": summary["received_commission"],
             "unearned_commission": summary["unearned_commission"],
             "transaction_count": len(company_transactions),
+            "license_status": company_license_status(company),
+            "license_number": company.license_number or "",
+            "broker_arrangement": company.broker_arrangement or "",
+            "broker_arrangement_label": (
+                company.get_broker_arrangement_display() if company.broker_arrangement else ""
+            ),
         })
     return summaries
 

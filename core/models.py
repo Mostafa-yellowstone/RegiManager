@@ -1067,10 +1067,25 @@ class Notification(models.Model):
         blank=True,
         db_index=True,
     )
-    client = models.ForeignKey("Client", on_delete=models.CASCADE, related_name="notifications", db_index=True)
+    client = models.ForeignKey(
+        "Client",
+        on_delete=models.CASCADE,
+        related_name="notifications",
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     note = models.ForeignKey("ClientNote", on_delete=models.CASCADE, related_name="notifications", null=True, blank=True)
     policy = models.ForeignKey(
         "InsurancePolicy",
+        on_delete=models.CASCADE,
+        related_name="notifications",
+        null=True,
+        blank=True,
+        db_index=True,
+    )
+    insurance_company = models.ForeignKey(
+        "InsuranceCompany",
         on_delete=models.CASCADE,
         related_name="notifications",
         null=True,
@@ -1879,8 +1894,26 @@ class UserSession(models.Model):
 
 
 class InsuranceCompany(models.Model):
+    class BrokerArrangement(models.TextChoices):
+        BR = "br", "BR — Take broker fees"
+        BC = "bc", "BC — No broker fees"
+
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="insurance_companies")
     name = models.CharField(max_length=120)
+    license_number = models.CharField(max_length=80, blank=True, default="")
+    license_effective_date = models.DateField(null=True, blank=True)
+    license_expiration_date = models.DateField(null=True, blank=True)
+    license_alert_days = models.PositiveSmallIntegerField(
+        default=5,
+        help_text="Show a renewal alert this many days before the license expires.",
+    )
+    broker_arrangement = models.CharField(
+        max_length=10,
+        choices=BrokerArrangement.choices,
+        blank=True,
+        default="",
+        help_text="BR = take broker fees; BC = do not take broker fees.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -1889,6 +1922,27 @@ class InsuranceCompany(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def takes_broker_fees(self) -> bool:
+        return self.broker_arrangement == self.BrokerArrangement.BR
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        super().clean()
+        if self.license_alert_days is not None and self.license_alert_days < 1:
+            raise ValidationError({"license_alert_days": "Alert days must be at least 1."})
+        if self.license_alert_days is not None and self.license_alert_days > 365:
+            raise ValidationError({"license_alert_days": "Alert days cannot exceed 365."})
+        if (
+            self.license_effective_date
+            and self.license_expiration_date
+            and self.license_expiration_date < self.license_effective_date
+        ):
+            raise ValidationError(
+                {"license_expiration_date": "Expiration date cannot be before the effective date."}
+            )
 
 
 class InsurancePolicy(models.Model):

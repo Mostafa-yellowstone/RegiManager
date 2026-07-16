@@ -334,6 +334,7 @@ class OwnerNotificationsView(OwnerAPIBase):
             "client",
             "organization",
             "policy",
+            "insurance_company",
         )
         event_type = request.query_params.get("event_type", "").strip()
         if event_type:
@@ -363,6 +364,10 @@ class OwnerNotificationsView(OwnerAPIBase):
                     "is_read": note.is_read,
                     "created_at": note.created_at.isoformat(),
                     "client_name": note.client.name if note.client_id else None,
+                    "insurance_company_id": note.insurance_company_id,
+                    "insurance_company_name": (
+                        note.insurance_company.name if note.insurance_company_id else None
+                    ),
                     "organization_id": note.organization_id,
                     "policy_id": note.policy_id,
                 }

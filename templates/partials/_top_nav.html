@@ -53,7 +53,7 @@
                                 <div class="notif-dot {% if n.level == 'warning' %}warning{% else %}info{% endif %}"></div>
                                 <div class="notif-item-body">
                                     <div class="notif-item-title">{{ n.title }}</div>
-                                    <div class="notif-item-msg">{{ n.client.name }}{% if n.message %} • {{ n.message }}{% endif %}</div>
+                                    <div class="notif-item-msg">{% if n.insurance_company %}{{ n.insurance_company.name }}{% elif n.client %}{{ n.client.name }}{% else %}System{% endif %}{% if n.message %} • {{ n.message }}{% endif %}</div>
                                     <div class="notif-item-time">{{ n.created_at|date:"M d, H:i" }}</div>
                                 </div>
                             </div>

@@ -149,5 +149,17 @@ def check_registration_reminders():
         process_vehicle_reminder.delay(vid, -1, "expired_warning")
 
 
+@shared_task
+def check_insurance_company_license_alerts():
+    """Daily sync of insurance company license renewal notifications."""
+    from .insurance_company_license import sync_all_company_license_alerts
+
+    result = sync_all_company_license_alerts()
+    return (
+        f"Company license alerts synced for {result['organizations']} orgs "
+        f"(created={result['created']}, cleared={result['cleared']})"
+    )
+
+
 
 
