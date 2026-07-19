@@ -52,26 +52,7 @@ def _record_amounts(record):
     return (record.payment_method, amount), (None, Decimal("0"))
 
 
-def build_daily_payment_cards(records, organization_ids, target_date):
-    """Today's intake by payment bucket (resets daily via transaction_date)."""
-    totals = {method: Decimal("0.00") for method in PAYMENT_METHOD_META}
-
-    today_records = records.filter(transaction_date=target_date).exclude(status="refund")
-    for record in today_records.iterator():
-        primary, secondary = _record_amounts(record)
-        _add_to_bucket(totals, primary[0], primary[1])
-        if secondary[0]:
-            _add_to_bucket(totals, secondary[0], secondary[1])
-
-    daily_txs = DailyPaymentTransaction.objects.filter(
-        organization_id__in=organization_ids,
-        transaction_date=target_date,
-    )
-
-    for tx in daily_txs.iterator():
-        if tx.payment_method in totals:
-            totals[tx.payment_method] += tx.amount
-
+def _cards_from_totals(totals):
     cards = []
     for method, meta in PAYMENT_METHOD_META.items():
         cards.append({
@@ -82,9 +63,37 @@ def build_daily_payment_cards(records, organization_ids, target_date):
             "accent": meta["accent"],
             "total": totals.get(method, Decimal("0.00")),
         })
-
     grand_total = sum(totals.values(), Decimal("0.00"))
     return cards, grand_total
+
+
+def build_daily_payment_cards(records, target_date):
+    """DMV registration intake by payment bucket (ServiceRecord only)."""
+    totals = {method: Decimal("0.00") for method in PAYMENT_METHOD_META}
+
+    today_records = records.filter(transaction_date=target_date).exclude(status="refund")
+    for record in today_records.iterator():
+        primary, secondary = _record_amounts(record)
+        _add_to_bucket(totals, primary[0], primary[1])
+        if secondary[0]:
+            _add_to_bucket(totals, secondary[0], secondary[1])
+
+    return _cards_from_totals(totals)
+
+
+def build_insurance_daily_payment_cards(organization_ids, target_date):
+    """Insurance Space daily intake by payment method (DailyPaymentTransaction only)."""
+    totals = {method: Decimal("0.00") for method in PAYMENT_METHOD_META}
+
+    daily_txs = DailyPaymentTransaction.objects.filter(
+        organization_id__in=organization_ids,
+        transaction_date=target_date,
+    )
+    for tx in daily_txs.iterator():
+        if tx.payment_method in totals:
+            totals[tx.payment_method] += tx.amount
+
+    return _cards_from_totals(totals)
 
 
 def build_month_goal_forecast(records, target_date):

@@ -2480,10 +2480,43 @@ class FinanceBiTransactionDateTests(TestCase):
             service_fee=Decimal("150.00"),
         )
         scope = ServiceRecord.objects.filter(organization=self.org)
-        cards, total = build_daily_payment_cards(scope, [self.org.id], tx_date)
+        cards, total = build_daily_payment_cards(scope, tx_date)
         cash_card = next(c for c in cards if c["key"] == "cash")
         self.assertEqual(cash_card["total"], Decimal("150.00"))
         self.assertEqual(total, Decimal("150.00"))
+
+    def test_daily_payment_cards_ignore_insurance_daily_transactions(self):
+        from core.finance_hub_metrics import build_insurance_daily_payment_cards
+        from core.models import DailyPaymentTransaction
+
+        tx_date = date(2026, 6, 4)
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_date=tx_date,
+            payment_method="cash",
+            paid_amount=Decimal("100.00"),
+            service_fee=Decimal("100.00"),
+        )
+        DailyPaymentTransaction.objects.create(
+            organization=self.org,
+            client=self.client_obj,
+            transaction_date=tx_date,
+            amount=Decimal("250.00"),
+            payment_type="new_business",
+            payment_method="cash",
+            recorded_by=self.user,
+        )
+        scope = ServiceRecord.objects.filter(organization=self.org)
+        dmv_cards, dmv_total = build_daily_payment_cards(scope, tx_date)
+        self.assertEqual(dmv_total, Decimal("100.00"))
+
+        ins_cards, ins_total = build_insurance_daily_payment_cards([self.org.id], tx_date)
+        self.assertEqual(ins_total, Decimal("250.00"))
+        cash_card = next(c for c in ins_cards if c["key"] == "cash")
+        self.assertEqual(cash_card["total"], Decimal("250.00"))
 
     def test_finance_hub_page_loads_successfully(self):
         response = self.http.get(reverse("finance-hub"))

@@ -393,21 +393,23 @@ GET /api/owner/overview/
 Authorization: Token <token>
 ```
 
-Returns combined profit across:
-- **DMV core** — today / month / year (gross + net after referral)
-- **Insurance** — bound policy commission + broker fees
-- **All spaces** — insurance, motor club, inventory, documents
-- **Combined system profit** — single total for today, month, year
+Returns profit broken out by domain (not a mixed DMV+Spaces ledger):
+- **DMV core** — today / month / year (gross + net after referral). Registration `ServiceRecord` only.
+- **Insurance** — bound policy commission + broker fees (detail; also appears under spaces when accessible)
+- **All spaces** — insurance, motor club, inventory, documents, TLC, etc.
+- **Combined system profit** — DMV + each space once (insurance is not double-counted)
 - **Process counts** — service status, DMV intake, insurance intake, open quotes
 
 ### Finance detail
 
 | Endpoint | Purpose |
 |----------|---------|
-| `GET /api/owner/finance/summary/` | DMV + insurance profit, daily payment buckets, month goal forecast |
-| `GET /api/owner/finance/compare/?compare_a=2026-04&compare_b=2026-05` | Month-over-month revenue, profit, record deltas |
-| `GET /api/owner/finance/compare/?compare_a=2026-04&compare_b=2026-05&mode=quarter` | Quarter comparison |
-| `GET /api/owner/finance/chart/?months=12` | 12-month revenue + gross profit chart series |
+| `GET /api/owner/finance/summary/` | Domain-separated: `dmv` (registration profit + DMV daily intake), `insurance` (policy profit + Insurance Space daily payments), `goal_forecast` (DMV month goal) |
+| `GET /api/owner/finance/compare/?compare_a=2026-04&compare_b=2026-05` | Month-over-month revenue, profit, record deltas (**DMV ServiceRecord only**) |
+| `GET /api/owner/finance/compare/?compare_a=2026-04&compare_b=2026-05&mode=quarter` | Quarter comparison (**DMV only**) |
+| `GET /api/owner/finance/chart/?months=12` | 12-month revenue + gross profit chart series (**DMV only**) |
+
+**Encapsulation:** Web Finance Hub and DMV owner finance fields never include Insurance `DailyPaymentTransaction` or other Space ledgers. Insurance daily payments live under `insurance.daily_payments` (and in Spaces → Insurance in the web app).
 
 **Profit fields explained:**
 - `gross_profit` — sum of `processing_fee` (DMV) or commission+broker (insurance)
@@ -451,7 +453,7 @@ Returns intake queue counts, insurance pipeline stats, service status breakdown,
 **Phase 2 — Finance deep dive**
 1. Month comparison chart from `/api/owner/finance/chart/`
 2. Compare picker → `/api/owner/finance/compare/`
-3. Daily cash intake cards from `/api/owner/finance/summary/`
+3. Daily cash intake cards from `/api/owner/finance/summary/` (`dmv.daily_payments` vs `insurance.daily_payments`)
 
 **Phase 3 — Spaces profit**
 1. Spaces tab from `/api/owner/spaces/`

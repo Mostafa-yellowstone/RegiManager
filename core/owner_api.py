@@ -11,7 +11,11 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .finance_hub_metrics import build_daily_payment_cards, build_month_goal_forecast
+from .finance_hub_metrics import (
+    build_daily_payment_cards,
+    build_insurance_daily_payment_cards,
+    build_month_goal_forecast,
+)
 from .models import (
     InsurancePolicy,
     Notification,
@@ -142,14 +146,22 @@ class OwnerFinanceSummaryView(OwnerAPIBase):
             raise PermissionDenied("Finance access is disabled for your account.")
 
         org_ids = [organization.id]
-        cards, grand_total = build_daily_payment_cards(records, org_ids, today)
+        dmv_cards, dmv_total = build_daily_payment_cards(records, today)
+        insurance_cards, insurance_total = build_insurance_daily_payment_cards(org_ids, today)
         forecast = build_month_goal_forecast(records, today)
+
+        dmv_payload = build_dmv_finance_report(records, today)
+        dmv_payload["daily_payments"] = _serialize_daily_cards(dmv_cards, dmv_total)
+
+        insurance_payload = build_insurance_profit_report(organization.id, today)
+        insurance_payload["daily_payments"] = _serialize_daily_cards(
+            insurance_cards, insurance_total
+        )
 
         return Response(
             {
-                "dmv": build_dmv_finance_report(records, today),
-                "insurance": build_insurance_profit_report(organization.id, today),
-                "daily_payments": _serialize_daily_cards(cards, grand_total),
+                "dmv": dmv_payload,
+                "insurance": insurance_payload,
                 "goal_forecast": _serialize_goal_forecast(forecast),
             }
         )

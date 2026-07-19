@@ -101,14 +101,14 @@ class ServiceRefundTests(TestCase):
     def test_refund_reduces_daily_payment_cards_for_transaction_date(self):
         records = ServiceRecord.objects.filter(organization=self.org, deleted_at__isnull=True)
         cards_before, total_before = build_daily_payment_cards(
-            records, [self.org.id], self.tx_date
+            records, self.tx_date
         )
         self.assertEqual(total_before, Decimal("75.00"))
 
         issue_service_refund(self.record, recorded_by=self.owner)
 
         cards_after, total_after = build_daily_payment_cards(
-            records, [self.org.id], self.tx_date
+            records, self.tx_date
         )
         self.assertEqual(total_after, Decimal("0.00"))
         self.assertLess(total_after, total_before)

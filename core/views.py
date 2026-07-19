@@ -4614,13 +4614,8 @@ def finance_hub(request):
         daily_payment_date = today_date
     daily_is_today = daily_payment_date == today_date
 
-    if org_filter.isdigit():
-        org_ids_for_metrics = [int(org_filter)]
-    else:
-        org_ids_for_metrics = list(organizations.values_list("id", flat=True))
-
     daily_payment_cards, daily_payment_total = build_daily_payment_cards(
-        metrics_records, org_ids_for_metrics, daily_payment_date
+        metrics_records, daily_payment_date
     )
     goal_forecast = build_month_goal_forecast(metrics_records, today_date)
 

@@ -10,7 +10,6 @@ from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
 from .dashboard_metrics import daily_record_q, monthly_record_q, yearly_record_q
-from .finance_hub_metrics import build_daily_payment_cards, build_month_goal_forecast
 from .insurance_space_metrics import (
     period_stats,
     previous_insurance_period_bounds,
@@ -263,32 +262,26 @@ def build_system_profit_summary(
     dmv = build_dmv_finance_report(records, today)
     insurance = build_insurance_profit_report(organization.id, today)
     spaces = []
-    total_today = Decimal("0")
-    total_month = Decimal("0")
-    total_year = Decimal("0")
+    total_today = Decimal(dmv["today"]["gross_profit"])
+    total_month = Decimal(dmv["month"]["gross_profit"])
+    total_year = Decimal(dmv["year"]["gross_profit"])
+    insurance_in_spaces = False
 
+    # Count each space once. Top-level `insurance` is detail only — add it to
+    # combined_profit only when the insurance space was not already included.
     for space in spaces_for_membership(membership, organization):
         space_data = build_space_period_profit(space, today)
         spaces.append(space_data)
-        for period_key, total_key in (
-            ("today", "total_today"),
-            ("month", "total_month"),
-            ("year", "total_year"),
-        ):
-            profit = Decimal(space_data[period_key]["profit"])
-            if period_key == "today":
-                total_today += profit
-            elif period_key == "month":
-                total_month += profit
-            else:
-                total_year += profit
+        if space.key == "insurance":
+            insurance_in_spaces = True
+        total_today += Decimal(space_data["today"]["profit"])
+        total_month += Decimal(space_data["month"]["profit"])
+        total_year += Decimal(space_data["year"]["profit"])
 
-    total_today += Decimal(dmv["today"]["gross_profit"])
-    total_month += Decimal(dmv["month"]["gross_profit"])
-    total_year += Decimal(dmv["year"]["gross_profit"])
-    total_today += Decimal(insurance["today"]["total_profit"])
-    total_month += Decimal(insurance["month"]["total_profit"])
-    total_year += Decimal(insurance["year"]["total_profit"])
+    if not insurance_in_spaces:
+        total_today += Decimal(insurance["today"]["total_profit"])
+        total_month += Decimal(insurance["month"]["total_profit"])
+        total_year += Decimal(insurance["year"]["total_profit"])
 
     return {
         "dmv_core": dmv,

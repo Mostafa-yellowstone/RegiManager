@@ -800,11 +800,11 @@
                     <h1 class="finance-hero-title">Financial <span>Intelligence.</span></h1>
                     <p class="finance-hero-subtitle">
                         {% if daily_is_today %}
-                        Today's collections by payment method — reset daily on transaction date.
+                        Today's DMV / registration intake by payment method — reset daily on transaction date.
                         {% else %}
-                        Collections for {{ daily_payment_date|date:"M j, Y" }} by payment method.
+                        DMV / registration collections for {{ daily_payment_date|date:"M j, Y" }} by payment method.
                         {% endif %}
-                        Month-end forecast helps you hit your revenue target before the calendar closes.
+                        Insurance daily payments live under Spaces → Insurance. Month-end forecast tracks DMV profit pace.
                     </p>
                 </div>
                 <div class="finance-hero-date">
@@ -823,7 +823,7 @@
                         <input type="date" name="daily_date" value="{{ daily_payment_date|date:'Y-m-d' }}" aria-label="Transaction date" onchange="this.form.submit()">
                     </form>
                     <div class="finance-hero-daily-total">
-                        {% if daily_is_today %}Today's{% else %}{{ daily_payment_date|date:"M j" }}{% endif %} intake:
+                        {% if daily_is_today %}Today's{% else %}{{ daily_payment_date|date:"M j" }}{% endif %} DMV intake:
                         <strong>${{ daily_payment_total|floatformat:2 }}</strong>
                     </div>
                 </div>
