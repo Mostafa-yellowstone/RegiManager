@@ -1,0 +1,18 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+{% if show_psb_backup and psb_backup_download_url %}
+<li>
+    <a href="{{ psb_backup_download_url }}" class="historylink" style="background:#0f766e;">
+        Download PSB backup
+    </a>
+</li>
+<li>
+    <a href="{{ psb_backup_import_url }}" class="historylink" style="background:#b45309;">
+        Restore PSB backup…
+    </a>
+</li>
+{% endif %}
+{{ block.super }}
+{% endblock %}

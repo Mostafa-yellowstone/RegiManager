@@ -36,8 +36,14 @@
         <p style="font-size:0.85em;color:#64748b;margin-bottom:12px;line-height:1.4;">
             Bulk import clients and vehicles from CRM export files.
         </p>
-        <a href="{% url 'admin:crm-import' %}" class="button" style="display:block;text-align:center;background:#79aec8;color:white;padding:8px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:0.9em;">
+        <a href="{% url 'admin:crm-import' %}" class="button" style="display:block;text-align:center;background:#79aec8;color:white;padding:8px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:0.9em;margin-bottom:10px;">
             Import CRM Data
+        </a>
+        <p style="font-size:0.85em;color:#64748b;margin:16px 0 12px;line-height:1.4;">
+            Disaster recovery: download a full PSB backup, or restore a zip into a PSB (superuser).
+        </p>
+        <a href="{% url 'admin:psb-backup-import' %}" class="button" style="display:block;text-align:center;background:#b45309;color:white;padding:8px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:0.9em;">
+            Restore PSB Backup
         </a>
     </div>
 </div>

@@ -1,0 +1,126 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .psb-backup-container { max-width: 720px; margin: 20px 0; }
+    .psb-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 24px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        margin-bottom: 24px;
+    }
+    .psb-title { font-size: 1.5em; font-weight: 700; color: #1e293b; margin: 0 0 8px; }
+    .psb-subtitle { color: #64748b; margin-bottom: 20px; line-height: 1.5; }
+    .psb-danger {
+        background: #fff7ed;
+        border: 1px solid #fdba74;
+        color: #9a3412;
+        border-radius: 8px;
+        padding: 14px 16px;
+        margin-bottom: 20px;
+        line-height: 1.45;
+        font-size: 0.95em;
+    }
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; font-weight: 600; margin-bottom: 8px; color: #334155; }
+    .psb-select, .psb-input {
+        width: 100%;
+        max-width: 420px;
+        padding: 10px 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 1em;
+    }
+    .psb-check { display: flex; gap: 10px; align-items: flex-start; margin: 16px 0; }
+    .psb-check input { margin-top: 3px; }
+    .psb-submit {
+        background: #b45309;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 12px 18px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .psb-submit:hover { background: #92400e; }
+    .psb-results {
+        background: #f0fdf4;
+        border: 1px solid #86efac;
+        border-radius: 8px;
+        padding: 16px;
+        font-size: 0.9em;
+    }
+    .psb-results ul { margin: 8px 0 0; padding-left: 18px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="psb-backup-container">
+    <div class="psb-card">
+        <h1 class="psb-title">Restore PSB backup</h1>
+        <p class="psb-subtitle">
+            Upload a <code>.zip</code> previously downloaded from a PSB’s
+            <strong>Download backup</strong> button. This replaces all tenant data
+            inside the target PSB (clients, vehicles, receipts, spaces, insurance, etc.).
+            The PSB row itself stays; invite code and portal token are preserved.
+        </p>
+
+        <div class="psb-danger">
+            <strong>Destructive action.</strong>
+            Existing data in the selected PSB will be permanently wiped, then replaced
+            from the backup. Type the PSB name exactly to confirm. Superuser only.
+        </div>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="id_organization">Target PSB</label>
+                <select name="organization" id="id_organization" class="psb-select" required>
+                    <option value="">— Select PSB —</option>
+                    {% for org in organizations %}
+                    <option value="{{ org.id }}">{{ org.name }}{% if org.city %} ({{ org.city }}){% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="id_backup_file">Backup zip</label>
+                <input type="file" name="backup_file" id="id_backup_file" accept=".zip,application/zip" required>
+            </div>
+
+            <div class="form-group">
+                <label for="id_confirm_name">Type the target PSB name to confirm</label>
+                <input type="text" name="confirm_name" id="id_confirm_name" class="psb-input" autocomplete="off" required placeholder="Exact PSB name">
+            </div>
+
+            <label class="psb-check">
+                <input type="checkbox" name="acknowledge_wipe" required>
+                <span>I understand this will permanently replace all data in the selected PSB.</span>
+            </label>
+
+            <button type="submit" class="psb-submit">Wipe target &amp; restore backup</button>
+        </form>
+    </div>
+
+    {% if result %}
+    <div class="psb-card psb-results">
+        <strong>Restore completed for {{ result.target_organization_name }}</strong>
+        <p style="margin:8px 0 0;">
+            Source backup: {{ result.source_organization_name }} · exported {{ result.exported_at }}
+        </p>
+        <p style="margin:12px 0 4px;"><strong>Restored row counts</strong></p>
+        <ul>
+            {% for model, count in result.restored.items %}
+            <li><code>{{ model }}</code>: {{ count }}</li>
+            {% empty %}
+            <li>No rows restored (empty backup).</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

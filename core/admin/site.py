@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path
 
-from ..admin_views import crm_import_view
+from ..admin_views import crm_import_view, psb_backup_download, psb_backup_import
 from .grouping import group_core_models, split_core_app_entry
 
 
@@ -30,6 +30,16 @@ def patch_admin_site(site=None):
         urls = original_get_urls()
         custom_urls = [
             path("crm-import/", site.admin_view(crm_import_view), name="crm-import"),
+            path(
+                "psb-backup/import/",
+                site.admin_view(psb_backup_import),
+                name="psb-backup-import",
+            ),
+            path(
+                "psb-backup/download/<int:org_id>/",
+                site.admin_view(psb_backup_download),
+                name="psb-backup-download",
+            ),
         ]
         return custom_urls + urls
 

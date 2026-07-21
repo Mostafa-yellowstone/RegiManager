@@ -3,11 +3,19 @@ import io
 import datetime
 from django.shortcuts import render, get_object_or_404
 from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
+from django.http import HttpResponse
 from django.utils.crypto import get_random_string
 from openpyxl import load_workbook
 
 from .models import Organization, Client, Vehicle
+from .psb_backup import (
+    backup_filename,
+    export_organization_zip,
+    restore_organization_from_zip,
+)
 from .tasks import check_registration_reminders
 
 # Define column mapping aliases for flexibility
@@ -377,3 +385,76 @@ def crm_import_view(request):
         'results': results,
         'title': 'CRM Data Import'
     })
+
+
+def _require_superuser(request):
+    if not request.user.is_authenticated or not request.user.is_superuser:
+        raise PermissionDenied("PSB backup and restore are limited to superusers.")
+
+
+@staff_member_required
+def psb_backup_download(request, org_id):
+    """Download a full PSB backup zip for local disaster-recovery storage."""
+    _require_superuser(request)
+    organization = get_object_or_404(Organization, pk=org_id)
+    payload = export_organization_zip(organization)
+    response = HttpResponse(payload, content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="{backup_filename(organization)}"'
+    return response
+
+
+@staff_member_required
+def psb_backup_import(request):
+    """
+    Restore a PSB backup zip into a chosen organization.
+
+    Wipes that PSB's tenant data first, then reloads from the archive.
+    """
+    _require_superuser(request)
+    organizations = Organization.objects.order_by("name")
+    result = None
+
+    if request.method == "POST":
+        org_id = request.POST.get("organization")
+        confirm_name = (request.POST.get("confirm_name") or "").strip()
+        uploaded = request.FILES.get("backup_file")
+        acknowledge = request.POST.get("acknowledge_wipe") == "on"
+
+        if not org_id or not uploaded:
+            messages.error(request, "Select a target PSB and upload a .zip backup file.")
+        elif not acknowledge:
+            messages.error(
+                request,
+                "You must acknowledge that existing data in the target PSB will be permanently replaced.",
+            )
+        elif not uploaded.name.lower().endswith(".zip"):
+            messages.error(request, "Backup must be a .zip file exported from RegiManager.")
+        else:
+            org = get_object_or_404(Organization, pk=org_id)
+            try:
+                zip_bytes = uploaded.read()
+                result = restore_organization_from_zip(
+                    org,
+                    zip_bytes,
+                    confirm_name=confirm_name,
+                )
+                messages.success(
+                    request,
+                    f"Restored backup into “{org.name}”. "
+                    f"Source: {result.get('source_organization_name') or 'unknown'} "
+                    f"({result.get('exported_at') or 'n/a'}).",
+                )
+            except ValueError as exc:
+                messages.error(request, str(exc))
+            except Exception as exc:
+                messages.error(request, f"Restore failed: {exc}")
+
+    return render(
+        request,
+        "admin/psb_backup_import.html",
+        {
+            "organizations": organizations,
+            "result": result,
+            "title": "Restore PSB Backup",
+        },
+    )

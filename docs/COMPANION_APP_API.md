@@ -1,15 +1,35 @@
 # RegiManager Companion App API
 
-Official API reference for building a **mobile companion app** (iOS, Android, React Native, Flutter) against RegiManager.
+Official REST reference for **mobile / desktop companion apps** (iOS, Android, React Native, Flutter, etc.) integrating with RegiManager.
 
-**Production base URL:** `https://regimanager.com`  
-**API prefix:** `/api/`
+| | |
+|--|--|
+| **Production base URL** | `https://regimanager.com` |
+| **API prefix** | `/api/` |
+| **Auth** | DRF Token — `Authorization: Token <key>` |
+| **Format** | JSON (`Accept: application/json`, `Content-Type: application/json`) |
+| **Interactive docs** | `/api/docs/swagger/` · `/api/docs/redoc/` · `/api/schema/` |
+
+---
+
+## Table of contents
+
+1. [Quick start](#quick-start)
+2. [Authentication](#authentication)
+3. [Multi-tenant (PSB) scoping](#multi-tenant-psb-scoping)
+4. [Pagination, filters, errors, rate limits](#pagination-filters-errors-rate-limits)
+5. [CRM API — clients, vehicles, service records](#crm-api)
+6. [Owner API — finance, spaces, processes, notifications](#owner-api)
+7. [Finance domain encapsulation](#finance-domain-encapsulation)
+8. [Endpoint index](#endpoint-index)
+9. [App integration checklist](#app-integration-checklist)
+10. [Roadmap (not in API yet)](#roadmap-not-in-api-yet)
 
 ---
 
 ## Quick start
 
-### 1. Login and get a token
+### 1. Login
 
 ```http
 POST /api/auth/login/
@@ -21,7 +41,7 @@ Content-Type: application/json
 }
 ```
 
-**Response `200`:**
+**`200` response:**
 
 ```json
 {
@@ -39,10 +59,19 @@ Content-Type: application/json
       "name": "Xpress Insurance PSB",
       "city": "Buffalo",
       "state": "NY",
-      "role": "member",
+      "role": "owner",
       "permissions": {
         "can_view_reports": true,
-        "can_manage_email_marketing": false
+        "can_view_net_profit": true,
+        "can_manage_referrals": true,
+        "can_trigger_automation": true,
+        "can_view_banking": true,
+        "can_manage_news": true,
+        "can_manage_knowledge_hub": true,
+        "can_manage_documents": true,
+        "can_manage_email_marketing": false,
+        "can_view_spaces": true,
+        "can_issue_refund": true
       }
     }
   ],
@@ -50,7 +79,7 @@ Content-Type: application/json
 }
 ```
 
-### 2. Authenticated requests
+### 2. Call protected endpoints
 
 ```http
 GET /api/clients/
@@ -58,115 +87,203 @@ Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
 Accept: application/json
 ```
 
-### 3. Sign out (revoke token)
+### 3. Logout (revokes all tokens for the user)
 
 ```http
 POST /api/auth/logout/
 Authorization: Token <token>
 ```
 
+**`200`:** `{ "detail": "Signed out." }`
+
 ---
 
 ## Authentication
 
-| Method | Details |
-|--------|---------|
-| **Type** | DRF Token (`Authorization: Token <key>`) |
-| **Login** | `POST /api/auth/login/` |
-| **Profile** | `GET /api/auth/me/` |
-| **Logout** | `POST /api/auth/logout/` |
+| Item | Detail |
+|------|--------|
+| Scheme | `Authorization: Token <key>` |
+| Login | `POST /api/auth/login/` |
+| Profile | `GET /api/auth/me/` |
+| Logout | `POST /api/auth/logout/` |
 
-**Important for mobile:**
+### Rules for mobile
 
 - Use **Token auth only**. Do not rely on browser session cookies.
-- Token auth does not conflict with the web portal’s single-session rule.
-- Store the token in the device **secure storage** (Keychain / EncryptedSharedPreferences).
-- On `401`, clear token and show login screen.
+- Token auth does **not** conflict with the web portal’s single-session rule.
+- Store the token in **secure storage** (Keychain / EncryptedSharedPreferences / Keystore).
+- On **`401`**, clear the token and show the login screen.
+- Logout deletes **all** API tokens for that user.
+
+### `GET /api/auth/me/`
+
+```json
+{
+  "user": {
+    "id": 3,
+    "username": "agent1",
+    "email": "agent@psb.com",
+    "full_name": "Agent One"
+  },
+  "organizations": [ /* same membership objects as login */ ],
+  "server_time": "2026-07-19T12:00:00.000000-04:00"
+}
+```
+
+Does **not** return `token` or `default_organization_id`.
+
+### Login errors
+
+| Code | Body |
+|------|------|
+| `400` | `{ "detail": "username and password are required." }` |
+| `401` | `{ "detail": "Invalid credentials." }` |
+| `403` | `{ "detail": "No active PSB membership for this account." }` |
+
+### Permission flags (`organizations[].permissions`)
+
+| Flag | Typical use in app |
+|------|--------------------|
+| `can_view_reports` | Owner finance / BI screens |
+| `can_view_net_profit` | Show net profit after referral |
+| `can_view_spaces` | Spaces tab |
+| `can_view_banking` | Insurance banking / clear payments (web; limited on mobile today) |
+| `can_manage_referrals` | Referral management UI |
+| `can_trigger_automation` | Trigger renewal scans |
+| `can_issue_refund` | Refund actions |
+| `can_manage_news` | Site news admin |
+| `can_manage_knowledge_hub` | Knowledge hub admin |
+| `can_manage_documents` | Documents space admin |
+| `can_manage_email_marketing` | Email marketing |
+
+`role` is `"owner"` or `"member"` (agent).
 
 ---
 
-## Rate limits
+## Multi-tenant (PSB) scoping
 
-| Audience | Limit |
-|----------|-------|
-| Anonymous (login) | 60 requests / minute |
-| Authenticated user | 600 requests / minute |
+Every user only sees data for **active organization memberships**.
 
-Exceeded limits return `429 Too Many Requests`.
+### CRM endpoints (`/api/clients/`, `/api/vehicles/`, `/api/service-records/`)
+
+- Lists return a **combined** dataset across **all** of the user’s PSBs.
+- There is **no** `X-Organization-Id` filter on CRM today.
+- Create attaches the user’s **first active membership org** (unordered queryset — prefer single-PSB users, or filter client-side by `organization`).
+- Use `organizations` from login / `/me/` for a PSB picker in the UI.
+
+### Owner endpoints (`/api/owner/...`)
+
+Scope to one PSB with either:
+
+```http
+X-Organization-Id: 1
+```
+
+or:
+
+```http
+GET /api/owner/overview/?organization_id=1
+```
+
+| Behavior | Detail |
+|----------|--------|
+| Header or query present | Must be an org the user belongs to; else `403` |
+| Omitted | Server picks one accessible org (`Organization` filter; typically first by PK) |
+| Login `default_organization_id` | First org ordered by **name** — may differ from owner default if header omitted |
+
+**Always send `X-Organization-Id` in the owner app** after the user picks a PSB.
 
 ---
 
-## Multi-tenant data access
+## Pagination, filters, errors, rate limits
 
-Every authenticated user only sees data for **PSB organizations they belong to** (active membership).
+### Pagination (CRM lists)
 
-- List endpoints automatically filter by the user’s organization IDs.
-- Create endpoints attach the user’s **first active organization** (by name order).
-- Users in multiple PSBs see a **combined** dataset across all their orgs.
-
-Use `organizations` from `/api/auth/me/` to show a PSB picker in the app UI.  
-(Server-side filter by single org via header is planned for a future release.)
-
----
-
-## Pagination
-
-All list endpoints use **page number pagination**:
+Default page size: **20**
 
 ```http
 GET /api/clients/?page=2
 ```
-
-**Default page size:** 20
-
-**Response shape:**
 
 ```json
 {
   "count": 145,
   "next": "https://regimanager.com/api/clients/?page=3",
   "previous": "https://regimanager.com/api/clients/?page=1",
-  "results": [ ... ]
+  "results": []
 }
 ```
 
----
+### Filters (exact match)
 
-## Filtering
-
-Query parameters use exact match (django-filter):
-
-| Resource | Filters |
-|----------|---------|
+| Resource | Query params |
+|----------|----------------|
 | Clients | `first_name`, `last_name`, `email` |
-| Vehicles | `vin`, `plate_number`, `vehicle_type` |
+| Vehicles | `client`, `vin`, `plate_number`, `vehicle_type` |
 | Service records | `status`, `service_type`, `case_id` |
-
-Example:
 
 ```http
 GET /api/clients/?last_name=Smith&page=1
-GET /api/vehicles/?vin=1HGCM82633A123456
-GET /api/service-records/?status=completed&service_type=registration
+GET /api/vehicles/?client=42
+GET /api/service-records/?status=completed
 ```
+
+### Error shapes
+
+| Code | Meaning |
+|------|---------|
+| `400` | Validation — field errors or `{ "detail": "…" }` |
+| `401` | Missing / invalid token — re-login |
+| `403` | No membership or feature permission |
+| `404` | Not found (or not in your orgs) |
+| `429` | Rate limited |
+| `500` | Server error |
+
+Field validation:
+
+```json
+{
+  "first_name": ["This field is required."]
+}
+```
+
+### Rate limits
+
+| Audience | Limit |
+|----------|-------|
+| Anonymous (login) | 60 / minute |
+| Authenticated | 600 / minute |
 
 ---
 
-## REST resources (CRUD)
+## CRM API
+
+All require `Authorization: Token …` and `IsAuthenticated`.
 
 ### Clients — `/api/clients/`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/clients/` | List clients |
-| POST | `/api/clients/` | Create client |
-| GET | `/api/clients/{id}/` | Retrieve |
-| PUT/PATCH | `/api/clients/{id}/` | Update |
-| DELETE | `/api/clients/{id}/` | Delete |
+| `GET` | `/api/clients/` | List (paginated) |
+| `POST` | `/api/clients/` | Create |
+| `GET` | `/api/clients/{id}/` | Retrieve |
+| `PUT` / `PATCH` | `/api/clients/{id}/` | Update |
+| `DELETE` | `/api/clients/{id}/` | Delete |
 
-**Writable fields:** `source`, `referral`, `first_name`, `last_name`, `middle_name`, `driver_license`, `dob`, `phone_number`, address fields, `email`, `gender`, `is_commercial`, `business_name`, `business_ein`
+**Fields:**
 
-**Read-only:** `id`, `organization`, `created_at`
+| Field | Notes |
+|-------|--------|
+| `id`, `created_at` | Read-only |
+| `organization` | Returned on read; create forces membership org |
+| `source`, `referral` | Optional |
+| `first_name`, `last_name`, `middle_name` | |
+| `driver_license`, `dob`, `phone_number`, `email`, `gender` | |
+| Mailing address | `building_no`, `street_address`, `apartment`, `city`, `state`, `zip_code`, `county` |
+| Residence address | `residence_building_no`, `residence_street_address`, `residence_apartment`, `residence_city`, `residence_zip_code`, `residence_county` |
+| Commercial | `is_commercial`, `business_name`, `business_ein` |
+
+Sensitive fields (SSN, files, soft-delete) are **not** exposed.
 
 ---
 
@@ -174,13 +291,15 @@ GET /api/service-records/?status=completed&service_type=registration
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/vehicles/` | List vehicles |
-| POST | `/api/vehicles/` | Create (requires `client` id) |
-| GET | `/api/vehicles/{id}/` | Retrieve |
-| PUT/PATCH | `/api/vehicles/{id}/` | Update |
-| DELETE | `/api/vehicles/{id}/` | Delete |
+| `GET` | `/api/vehicles/` | List |
+| `POST` | `/api/vehicles/` | Create (requires `client`) |
+| `GET` | `/api/vehicles/{id}/` | Retrieve |
+| `PUT` / `PATCH` | `/api/vehicles/{id}/` | Update |
+| `DELETE` | `/api/vehicles/{id}/` | Delete |
 
-**Key fields:** `client`, `vin`, `plate_number`, `year`, `make`, `model`, `vehicle_type`, `registration_expiration_date`, `insurance_expiration_date`
+**Fields:** `id`, `client`, `vehicle_number`, `plate_number`, `vin`, `year`, `make`, `model`, `vehicle_type`, `body_type`, `fuel_type`, `plate_type`, `color`, `registration_expiration_date`, `insurance_expiration_date`, `is_priority`, `is_legacy_vin`, `created_at`
+
+**Read-only:** `id`, `created_at`
 
 ---
 
@@ -188,185 +307,552 @@ GET /api/service-records/?status=completed&service_type=registration
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/service-records/` | List transactions |
-| POST | `/api/service-records/` | Create (sets `handled_by` to current user) |
-| GET | `/api/service-records/{id}/` | Retrieve |
-| PUT/PATCH | `/api/service-records/{id}/` | Update |
-| DELETE | `/api/service-records/{id}/` | Delete |
+| `GET` | `/api/service-records/` | List transactions |
+| `POST` | `/api/service-records/` | Create (`handled_by` = current user) |
+| `GET` | `/api/service-records/{id}/` | Retrieve |
+| `PUT` / `PATCH` | `/api/service-records/{id}/` | Update |
+| `DELETE` | `/api/service-records/{id}/` | Delete |
 
-**Read-only on create/update:** `receipt_number`, `case_id`, `service_fee`, `referral_balance`, `referral_commission`, timestamps
+**Status values:** `pending` · `completed` · `failed` · `refund`
 
----
+**Payment methods:** `cash` · `zelle` · `checks` · `visa` · `mastercard` · `discover` · `diners_club` · `american_express`
 
-## Auxiliary JSON endpoints
+**Read-only on write:** `receipt_number`, `case_id`, `service_fee`, `referral_balance`, `referral_commission`, `created_at`, `updated_at`
 
-These use session auth today; from mobile, send the **Token** header (they accept JSON when `Accept: application/json`).
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/auth/me/` | GET | Profile + organizations |
-| `/api/session-heartbeat/` | GET | Session still valid `{ "status": "active" }` |
-| `/api/get-latest-news/` | GET | Latest unread site news |
-| `/api/mark-site-news-read/` | POST | Mark news read (`news_id` or `mark_all=1`) |
-| `/api/set-portal-timezone/` | POST | JSON body `{ "timezone": "America/New_York" }` |
+**Writable money / ops fields (among others):** `processing_fee`, `dmv_fee`, `sales_tax`, `dmv_sales_tax`, `credit_card_fee`, `other_fees`, `other_dmv_fee`, `paid_amount`, `paid_amount_2`, `payment_method`, `payment_method_2`, `status`, `service_type`, `transaction_date`, `vehicle`, `notes`, `source`, `referral`, client snapshot fields (`client_name`, `phone_no`, …)
 
 ---
 
-## Error responses
+## Owner API
 
-| Code | Meaning |
-|------|---------|
-| 400 | Validation error — check response body |
-| 401 | Missing/invalid token — re-login |
-| 403 | No permission or no active PSB membership |
-| 404 | Object not found (or not in your orgs) |
-| 429 | Rate limited |
-| 500 | Server error |
+For **PSB owners** and agents with finance / spaces permissions. Read-only operational intelligence — not CRM data entry.
 
-DRF validation errors:
+Always send:
+
+```http
+Authorization: Token <token>
+X-Organization-Id: <psb_id>
+```
+
+### Permission matrix
+
+| Endpoint group | Required |
+|----------------|----------|
+| Overview, finance, insurance policies, processes | Owner **or** `can_view_reports` **or** `can_view_net_profit` |
+| Spaces list / detail | Owner **or** `can_view_spaces` |
+| Notifications list | Owner **or** finance permission (same as overview) |
+| Mark notification read | Authenticated owner of that notification row |
+
+---
+
+### `GET /api/owner/overview/`
+
+Combined owner home: profit by domain + process counts (+ multi-location ranks for owners).
 
 ```json
 {
-  "field_name": ["This field is required."]
+  "organization": {
+    "id": 1,
+    "name": "Xpress Insurance PSB",
+    "city": "Buffalo",
+    "state": "NY"
+  },
+  "profit": {
+    "dmv_core": {
+      "today": {
+        "total_records": 12,
+        "total_revenue": "2400.00",
+        "gross_profit": "600.00",
+        "net_profit_after_referral": "520.00",
+        "referral_commission": "80.00",
+        "dmv_fee": "900.00",
+        "sales_tax": "0.00",
+        "credit_card_fee": "12.00",
+        "completed": 10,
+        "pending": 2,
+        "failed": 0,
+        "refund": 0
+      },
+      "month": { },
+      "year": { },
+      "as_of": "2026-07-19"
+    },
+    "insurance": {
+      "today": {
+        "bound_count": 2,
+        "premium": "2400.00",
+        "commission": "240.00",
+        "broker_fee": "50.00",
+        "total_profit": "290.00"
+      },
+      "month": { },
+      "year": { },
+      "pipeline": {
+        "quotes": 8,
+        "bound": 2,
+        "conversion_pct": 25.0,
+        "previous_month": {
+          "quotes": 6,
+          "bound": 1,
+          "conversion_pct": 16.7
+        }
+      },
+      "as_of": "2026-07-19"
+    },
+    "spaces": [
+      {
+        "key": "insurance",
+        "label": "Insurance",
+        "today": { "profit": "290.00", "transactions": 2 },
+        "month": { "profit": "1200.00", "transactions": 18 },
+        "year": { "profit": "9000.00", "transactions": 140 }
+      }
+    ],
+    "combined_profit": {
+      "today": "890.00",
+      "month": "…",
+      "year": "…"
+    }
+  },
+  "processes": { },
+  "locations": [
+    {
+      "id": 1,
+      "name": "Buffalo",
+      "city": "Buffalo",
+      "state": "NY",
+      "daily_profit": "600.00",
+      "monthly_profit": "…",
+      "yearly_profit": "…",
+      "total_records": 12,
+      "rank": 1
+    }
+  ]
+}
+```
+
+- `locations` only appears when `role === "owner"` **and** the user has **more than one** organization.
+- `combined_profit` = DMV gross + each accessible space **once**. Insurance is **not** double-counted when the insurance space is already in `spaces`.
+
+---
+
+### `GET /api/owner/finance/summary/`
+
+Domain-separated finance detail (see [encapsulation](#finance-domain-encapsulation)).
+
+```json
+{
+  "dmv": {
+    "today": { },
+    "month": { },
+    "year": { },
+    "as_of": "2026-07-19",
+    "daily_payments": {
+      "cards": [
+        {
+          "key": "cash",
+          "label": "Cash",
+          "icon": "💵",
+          "gradient": "…",
+          "accent": "…",
+          "total": "150.00"
+        },
+        { "key": "zelle", "label": "Zelle", "total": "0.00" },
+        { "key": "credit_card", "label": "Credit Card", "total": "80.00" },
+        { "key": "checks", "label": "Checks", "total": "0.00" }
+      ],
+      "grand_total": "230.00"
+    }
+  },
+  "insurance": {
+    "today": { },
+    "month": { },
+    "year": { },
+    "pipeline": { },
+    "as_of": "2026-07-19",
+    "daily_payments": {
+      "cards": [ ],
+      "grand_total": "40.00"
+    }
+  },
+  "goal_forecast": {
+    "month_label": "July 2026",
+    "month_key": "2026-07",
+    "days_in_month": 31,
+    "days_elapsed": 19,
+    "days_remaining": 12,
+    "mtd_revenue": "4200.00",
+    "mtd_records": 80,
+    "prev_month_revenue": "6100.00",
+    "suggested_goal": "6405.00",
+    "daily_run_rate": "221.05",
+    "projected_month_end": "6852.63",
+    "required_daily_pace": "183.75",
+    "pace_pct": "107.0",
+    "mtd_pct": "65.6",
+    "status": "on_track",
+    "status_label": "On Track",
+    "status_detail": "Current pace projects meeting your profit target.",
+    "gap_to_goal": "-447.63"
+  }
+}
+```
+
+| Key | Source |
+|-----|--------|
+| `dmv` | Registration `ServiceRecord` profit + **DMV** daily intake cards |
+| `insurance` | Bound policy commission/broker + **Insurance Space** daily payments |
+| `goal_forecast` | DMV `processing_fee` month pace only |
+
+**There is no top-level `daily_payments` key.** Use `dmv.daily_payments` and `insurance.daily_payments`.
+
+**Daily card keys:** `cash` · `zelle` · `credit_card` · `checks`  
+(DMV card brands like visa/mastercard roll up into `credit_card`.)
+
+---
+
+### `GET /api/owner/finance/compare/`
+
+**DMV ServiceRecord only.**
+
+```http
+GET /api/owner/finance/compare/?compare_a=2026-04&compare_b=2026-05
+GET /api/owner/finance/compare/?compare_a=2026-04&compare_b=2026-05&mode=quarter
+```
+
+| Query | Required | Values |
+|-------|----------|--------|
+| `compare_a` | Yes | `YYYY-MM` |
+| `compare_b` | Yes | `YYYY-MM` |
+| `mode` | No | `month` (default) · `quarter` |
+
+```json
+{
+  "mode": "month",
+  "period_a": {
+    "label": "April 2026",
+    "stats": {
+      "revenue": "…",
+      "records": 40,
+      "gross_profit": "…",
+      "net_profit_after_referral": "…"
+    }
+  },
+  "period_b": { },
+  "deltas": {
+    "revenue_pct": 12.5,
+    "records_pct": 8.0,
+    "gross_profit_pct": 10.2,
+    "net_profit_pct": 9.1
+  }
+}
+```
+
+**`400`** if months missing or invalid.
+
+---
+
+### `GET /api/owner/finance/chart/`
+
+**DMV only.**
+
+```http
+GET /api/owner/finance/chart/?months=12
+```
+
+`months`: 1–24 (default 12).
+
+```json
+{
+  "labels": ["Aug 2025", "Sep 2025", "…"],
+  "revenue": ["1200.00", "…"],
+  "gross_profit": ["300.00", "…"]
 }
 ```
 
 ---
 
-## OpenAPI / Swagger (interactive docs)
+### `GET /api/owner/spaces/`
 
-| URL | Access |
+```json
+{
+  "spaces": [
+    {
+      "id": 5,
+      "key": "insurance",
+      "label": "Insurance",
+      "description": "Insurance CRM and Financial space",
+      "profit": {
+        "key": "insurance",
+        "label": "Insurance",
+        "today": { "profit": "290.00", "transactions": 2 },
+        "month": { "profit": "1200.00", "transactions": 18 },
+        "year": { "profit": "9000.00", "transactions": 140 }
+      }
+    }
+  ]
+}
+```
+
+**Default space keys:** `insurance` · `motorclub` · `custom_inventory` · `documents` · `knowledge_hub` · `tlc`
+
+**Extra profit fields by key:**
+
+| Key | Extra |
 |-----|--------|
-| `/api/schema/` | OpenAPI 3 JSON (login required) |
-| `/api/docs/swagger/` | Swagger UI |
-| `/api/docs/redoc/` | ReDoc UI |
-
-Authenticate in Swagger: **Authorize** → `Token <your-api-token>`.
+| `motorclub` | `active_memberships` |
+| `custom_inventory` | `inventory_value` |
+| `documents` | `total_records` |
 
 ---
 
-## Companion app implementation strategy
+### `GET /api/owner/spaces/{id}/`
 
-### Phase 1 — Foundation (week 1–2)
+Same as a list item, plus:
 
-**Goal:** Login, secure token storage, org picker, basic lists.
+- **`insurance`:** `pipeline` (quotes / bound / conversion)
+- **`tlc`:** `tlc_summary` (`total_policies`, `active_policies`, `pending_policies`, `cancelled_policies`, `month_new_policies`, aggregate profit fields, …)
 
-1. **Auth module**
-   - Login screen → `POST /api/auth/login/`
-   - Secure token storage
-   - Auto-attach `Authorization` header on every request
-   - `GET /api/auth/me/` on app launch to refresh permissions
-   - Logout → `POST /api/auth/logout/`
-
-2. **Navigation shell**
-   - Tab bar: Clients | Vehicles | Services | More
-   - Show current PSB name from `organizations[0]` (multi-PSB picker later)
-
-3. **Read-only lists**
-   - Paginated lists with pull-to-refresh
-   - Search via filter query params
-
-**Tech stack suggestions:**
-
-| Layer | Option A | Option B |
-|-------|----------|----------|
-| Mobile | React Native + Expo | Flutter |
-| HTTP | Axios / fetch wrapper | Dio |
-| State | TanStack Query | Riverpod |
-| Auth storage | expo-secure-store | flutter_secure_storage |
+**`404`:** `{ "detail": "Space not found." }`
 
 ---
 
-### Phase 2 — Core CRM (week 3–4)
+### `GET /api/owner/insurance/policies/`
 
-**Goal:** Full client + vehicle workflow.
-
-1. Client detail screen (GET `/api/clients/{id}/`)
-2. Create/edit client (POST/PATCH)
-3. Vehicle list per client (`GET /api/vehicles/?client=<id>` — filter by client if exposed; otherwise filter client-side)
-4. Add vehicle form
-5. Offline-friendly: cache last page of lists locally (SQLite / AsyncStorage)
-
----
-
-### Phase 3 — Service desk (week 5–6)
-
-**Goal:** Agents create and track transactions from the field.
-
-1. Service record list with status filters
-2. Create service record linked to vehicle
-3. Receipt/case ID display (read-only fields from API)
-4. Push notification placeholder for status changes (requires future webhook/FCM API)
-
----
-
-### Phase 4 — Extended portal features (requires new API endpoints)
-
-These **are not in the API yet** — plan server work in parallel:
-
-| Feature | Suggested endpoint |
-|---------|-------------------|
-| Dashboard KPIs | `GET /api/dashboard/summary/` |
-| Document upload | `POST /api/services/{id}/documents/` |
-| PDF receipt | `GET /api/services/{id}/receipt.pdf` |
-| Intake queue | `GET /api/intake/pending/` |
-| Email marketing | `GET /api/email-marketing/lists/` |
-| Notifications | `GET /api/notifications/` |
-| Org switch | Header `X-Organization-Id` on all requests |
-
-Build the mobile UI against **mock data** until endpoints exist, then swap base paths.
-
----
-
-### Architecture diagram
-
-```
-┌─────────────────┐
-│  Companion App  │
-│  (iOS/Android)  │
-└────────┬────────┘
-         │ HTTPS + Token Auth
-         ▼
-┌─────────────────┐
-│  Nginx          │
-└────────┬────────┘
-         ▼
-┌─────────────────┐     ┌──────────┐
-│  Django REST    │────▶│ Postgres │
-│  /api/*         │     └──────────┘
-└─────────────────┘
+```http
+GET /api/owner/insurance/policies/?stage=bound&limit=50
 ```
 
+| Query | Values |
+|-------|--------|
+| `stage` | `quote` · `bound` · `endorsement` |
+| `limit` | 1–200 (default 50) |
+
+```json
+{
+  "policies": [
+    {
+      "id": 99,
+      "policy_number": "POL-100",
+      "stage": "bound",
+      "status": "active",
+      "client_name": "Jane Doe",
+      "insurance_company": "Test Insurance Co",
+      "premium": "1200.00",
+      "commission_amount": "120.00",
+      "broker_fee": "25.00",
+      "bound_date": "2026-07-19",
+      "added_by": "agent1"
+    }
+  ],
+  "as_of": "2026-07-19"
+}
+```
+
+When a policy becomes **bound**, all PSB **owners** get a notification with `event_type: "policy_bound"`.
+
 ---
 
-### Security checklist
+### `GET /api/owner/processes/`
 
-- [ ] HTTPS only in production
-- [ ] Token in secure storage, never in logs
-- [ ] Certificate pinning (optional, recommended for production)
-- [ ] Biometric unlock for app reopen
-- [ ] Clear token on logout / 401
-- [ ] Respect `permissions` flags from `/api/auth/me/` before showing features
+```json
+{
+  "summary": {
+    "service_status": [
+      { "status": "pending", "label": "Pending", "count": 3 }
+    ],
+    "dmv_intake": {
+      "pending": 2,
+      "processing": 0,
+      "approved": 10,
+      "rejected": 1
+    },
+    "insurance_intake": {
+      "pending": 1,
+      "approved": 4,
+      "rejected": 0
+    },
+    "insurance_pipeline": {
+      "quotes_open": 8,
+      "bound_active": 40,
+      "bound_inactive": 3
+    },
+    "as_of": "2026-07-19"
+  },
+  "recent_services": [
+    {
+      "id": 501,
+      "case_id": "…",
+      "service_type": "vehicle_registration",
+      "status": "completed",
+      "client_name": "Jane Doe",
+      "processing_fee": "25.00",
+      "transaction_date": "2026-07-19",
+      "handled_by": "agent1"
+    }
+  ]
+}
+```
+
+`dmv_intake` / `insurance_intake` are `{}` when that public intake portal is disabled for the org.
 
 ---
 
-### Recommended request wrapper (pseudo-code)
+### Notifications
+
+| Method | Path | Notes |
+|--------|------|--------|
+| `GET` | `/api/owner/notifications/` | List |
+| `POST` | `/api/owner/notifications/{id}/read/` | Mark one read |
+| `POST` | `/api/owner/notifications/mark-all-read/` | Mark **all** unread for the user (global) |
+
+**GET query params:**
+
+| Param | Values |
+|-------|--------|
+| `event_type` | e.g. `policy_bound` |
+| `unread` | `1` / `true` / `yes` |
+| `limit` | 1–200 (default 50) |
+
+```json
+{
+  "notifications": [
+    {
+      "id": 12,
+      "event_type": "policy_bound",
+      "title": "Policy bound",
+      "message": "…",
+      "level": "info",
+      "is_read": false,
+      "created_at": "2026-07-19T15:00:00Z",
+      "client_name": "Jane Doe",
+      "insurance_company_id": 3,
+      "insurance_company_name": "Test Insurance Co",
+      "organization_id": 1,
+      "policy_id": 99
+    }
+  ],
+  "unread_count": 4
+}
+```
+
+`unread_count` is the user’s **global** unread total (not limited by the current filter).
+
+**Mark one:** `{ "detail": "Marked read." }`  
+**Mark all:** `{ "detail": "Marked read.", "updated": 4 }`
+
+---
+
+## Finance domain encapsulation
+
+RegiManager keeps **DMV Finance & BI** separate from **Space money**.
+
+| Domain | Data | Owner API location |
+|--------|------|--------------------|
+| DMV / registration | `ServiceRecord` fees & payments | `dmv`, `dmv.daily_payments`, compare, chart, goal forecast |
+| Insurance Space | Bound commissions + `DailyPaymentTransaction` | `insurance`, `insurance.daily_payments`, spaces `key=insurance` |
+| TLC / motorclub / inventory | Space-local ledgers | `/api/owner/spaces/` only — **never** mixed into DMV finance endpoints |
+
+**Do not** add `insurance.daily_payments.grand_total` into DMV intake cards in the app UI. Show two separate “today’s cash” sections (or tabs).
+
+---
+
+## Endpoint index
+
+```
+POST   /api/auth/login/
+POST   /api/auth/logout/
+GET    /api/auth/me/
+
+GET    /api/clients/
+POST   /api/clients/
+GET    /api/clients/{id}/
+PUT    /api/clients/{id}/
+PATCH  /api/clients/{id}/
+DELETE /api/clients/{id}/
+
+GET    /api/vehicles/
+POST   /api/vehicles/
+GET    /api/vehicles/{id}/
+PUT    /api/vehicles/{id}/
+PATCH  /api/vehicles/{id}/
+DELETE /api/vehicles/{id}/
+
+GET    /api/service-records/
+POST   /api/service-records/
+GET    /api/service-records/{id}/
+PUT    /api/service-records/{id}/
+PATCH  /api/service-records/{id}/
+DELETE /api/service-records/{id}/
+
+GET    /api/owner/overview/
+GET    /api/owner/finance/summary/
+GET    /api/owner/finance/compare/
+GET    /api/owner/finance/chart/
+GET    /api/owner/spaces/
+GET    /api/owner/spaces/{id}/
+GET    /api/owner/insurance/policies/
+GET    /api/owner/processes/
+GET    /api/owner/notifications/
+POST   /api/owner/notifications/{id}/read/
+POST   /api/owner/notifications/mark-all-read/
+
+GET    /api/schema/
+GET    /api/docs/swagger/
+GET    /api/docs/redoc/
+```
+
+### Portal-only (session / web — not primary Token companion APIs)
+
+These require a logged-in **browser session** (`@login_required`). Prefer owner/CRM Token APIs for mobile.
+
+| Path | Purpose |
+|------|---------|
+| `/api/session-heartbeat/` | Session still active |
+| `/api/get-latest-news/` | Latest site news |
+| `/api/mark-site-news-read/` | Mark news read |
+| `/api/set-portal-timezone/` | Set portal timezone |
+
+---
+
+## App integration checklist
+
+### Agent / CRM companion
+
+1. Login → store token + `organizations` + permissions  
+2. Tab shell: Clients · Vehicles · Services · More  
+3. Paginated lists + pull-to-refresh  
+4. Client detail → vehicles `?client={id}` → create service record  
+5. Respect `401` → clear token  
+
+### Owner companion
+
+1. Login as owner (or finance-enabled agent)  
+2. Persist selected PSB → send `X-Organization-Id` on every owner call  
+3. Home: `GET /api/owner/overview/` → today/month/year cards + process badges  
+4. Finance: chart + compare + summary with **split** DMV vs Insurance daily cards  
+5. Spaces: list → detail (insurance pipeline / TLC summary)  
+6. Poll notifications `?event_type=policy_bound&unread=1` every ~60s until push exists  
+
+### Recommended request wrapper (JS)
 
 ```javascript
-async function api(path, options = {}) {
+async function api(path, { method = 'GET', body, orgId, headers } = {}) {
   const token = await SecureStore.getItemAsync('api_token');
   const res = await fetch(`${BASE_URL}/api${path}`, {
-    ...options,
+    method,
     headers: {
-      'Accept': 'application/json',
+      Accept: 'application/json',
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Token ${token}` } : {}),
-      ...options.headers,
+      ...(orgId ? { 'X-Organization-Id': String(orgId) } : {}),
+      ...headers,
     },
+    body: body ? JSON.stringify(body) : undefined,
   });
   if (res.status === 401) {
     await SecureStore.deleteItemAsync('api_token');
-    navigation.navigate('Login');
+    // navigate to Login
     throw new Error('Unauthorized');
   }
   if (!res.ok) throw await res.json();
@@ -374,133 +860,39 @@ async function api(path, options = {}) {
 }
 ```
 
----
+### Security
 
-## Owner companion app (finance, spaces, processes)
+- [ ] HTTPS only in production  
+- [ ] Token only in secure storage — never logs  
+- [ ] Clear token on logout / `401`  
+- [ ] Gate screens with `permissions` from `/api/auth/me/`  
+- [ ] Optional: certificate pinning, biometric unlock  
 
-These endpoints are for **PSB owners** (and agents with finance permissions) to track profit, spaces, insurance binding, and operational queues — **not CRM data entry**.
+### Interactive OpenAPI
 
-Pass optional header to scope one PSB:
-
-```http
-X-Organization-Id: 1
-```
-
-### Owner dashboard overview
-
-```http
-GET /api/owner/overview/
-Authorization: Token <token>
-```
-
-Returns profit broken out by domain (not a mixed DMV+Spaces ledger):
-- **DMV core** — today / month / year (gross + net after referral). Registration `ServiceRecord` only.
-- **Insurance** — bound policy commission + broker fees (detail; also appears under spaces when accessible)
-- **All spaces** — insurance, motor club, inventory, documents, TLC, etc.
-- **Combined system profit** — DMV + each space once (insurance is not double-counted)
-- **Process counts** — service status, DMV intake, insurance intake, open quotes
-
-### Finance detail
-
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /api/owner/finance/summary/` | Domain-separated: `dmv` (registration profit + DMV daily intake), `insurance` (policy profit + Insurance Space daily payments), `goal_forecast` (DMV month goal) |
-| `GET /api/owner/finance/compare/?compare_a=2026-04&compare_b=2026-05` | Month-over-month revenue, profit, record deltas (**DMV ServiceRecord only**) |
-| `GET /api/owner/finance/compare/?compare_a=2026-04&compare_b=2026-05&mode=quarter` | Quarter comparison (**DMV only**) |
-| `GET /api/owner/finance/chart/?months=12` | 12-month revenue + gross profit chart series (**DMV only**) |
-
-**Encapsulation:** Web Finance Hub and DMV owner finance fields never include Insurance `DailyPaymentTransaction` or other Space ledgers. Insurance daily payments live under `insurance.daily_payments` (and in Spaces → Insurance in the web app).
-
-**Profit fields explained:**
-- `gross_profit` — sum of `processing_fee` (DMV) or commission+broker (insurance)
-- `net_profit_after_referral` — DMV gross minus referral commission share
-
-### Spaces
-
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /api/owner/spaces/` | All accessible spaces with today/month/year profit |
-| `GET /api/owner/spaces/{id}/` | Single space detail + insurance pipeline (if insurance space) |
-
-Space keys: `insurance`, `motorclub`, `custom_inventory`, `documents`, `knowledge_hub`
-
-### Insurance policies & binding alerts
-
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /api/owner/insurance/policies/?stage=bound&limit=50` | Recent policies list |
-| `GET /api/owner/notifications/?event_type=policy_bound` | Alerts when a policy is bound |
-| `POST /api/owner/notifications/{id}/read/` | Mark one notification read |
-| `POST /api/owner/notifications/mark-all-read/` | Mark all read |
-
-When any policy transitions to **bound**, all PSB owners receive a notification with `event_type: "policy_bound"`.
-
-### Process tracking
-
-```http
-GET /api/owner/processes/
-```
-
-Returns intake queue counts, insurance pipeline stats, service status breakdown, and 10 most recent service records.
-
-### Owner app implementation strategy
-
-**Phase 1 — Owner home screen**
-1. Login as owner → store token
-2. `GET /api/owner/overview/` — show combined profit cards (today / month / year)
-3. Poll `GET /api/owner/notifications/?event_type=policy_bound&unread=1` every 60s (or use push later)
-
-**Phase 2 — Finance deep dive**
-1. Month comparison chart from `/api/owner/finance/chart/`
-2. Compare picker → `/api/owner/finance/compare/`
-3. Daily cash intake cards from `/api/owner/finance/summary/` (`dmv.daily_payments` vs `insurance.daily_payments`)
-
-**Phase 3 — Spaces profit**
-1. Spaces tab from `/api/owner/spaces/`
-2. Tap space → `/api/owner/spaces/{id}/`
-3. Show insurance bound count vs quotes
-
-**Phase 4 — Process monitor**
-1. Processes tab from `/api/owner/processes/`
-2. Badges for pending DMV intake + insurance intake
-3. Tap through to web portal for actions (approve intake) until mobile actions are added
-
-**Phase 5 — Push notifications (future)**
-- Wire FCM/APNs to backend events (`policy_bound`, intake pending, service refund)
-- Requires new `POST /api/devices/register/` endpoint
-
-### Owner permissions
-
-| Access | Required |
-|--------|----------|
-| Overview, finance, insurance policies | Owner **or** `can_view_reports` **or** `can_view_net_profit` |
-| Spaces list | Owner **or** `can_view_spaces` |
-| Notifications | Owner **or** finance permission |
+1. Log in on the web (or obtain a token)  
+2. Open `https://regimanager.com/api/docs/swagger/`  
+3. **Authorize** → `Token <your-api-token>`  
 
 ---
 
-## What exists today vs roadmap
+## Roadmap (not in API yet)
 
-| Area | API today | Roadmap |
-|------|-----------|---------|
-| Login / token | Yes | — |
-| Owner overview (profit + spaces) | Yes | Push notifications |
-| Finance compare / chart | Yes | PDF report download |
-| Policy bound notifications | Yes | FCM/APNs push |
-| Spaces profit by period | Yes | Per-space drill-down actions |
-| Process queues | Yes (counts) | Approve/reject from mobile |
-| Clients CRUD | Yes | Search improvements |
-| Vehicles CRUD | Yes | Link filters |
-| Service records CRUD | Yes | Payments split |
-| Dashboard | No | Phase 4 |
-| Documents / PDFs | No | Phase 4 |
-| Insurance / Spaces | No | Phase 4+ |
-| Push notifications | No | FCM + backend events |
+| Feature | Status |
+|---------|--------|
+| Login / token / CRM CRUD | **Shipped** |
+| Owner overview, finance, spaces, processes, notifications | **Shipped** |
+| Org header on **CRM** lists | Planned |
+| Approve/reject intake from mobile | Planned |
+| PDF receipts / document upload | Planned |
+| Push (FCM / APNs) + `POST /api/devices/register/` | Planned |
+| Online card capture / payment gateway | Not started |
 
 ---
 
 ## Support
 
-- Interactive docs: `/api/docs/swagger/` (after login on server)
-- OpenAPI schema: `/api/schema/`
-- Server must have `DB_NAME`, Redis, and email env configured for production
+- Swagger: `/api/docs/swagger/`  
+- ReDoc: `/api/docs/redoc/`  
+- OpenAPI JSON: `/api/schema/`  
+- This file: `docs/COMPANION_APP_API.md`

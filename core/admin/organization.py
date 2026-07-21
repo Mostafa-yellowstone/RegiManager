@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib import admin
+from django.urls import reverse
 from django.utils.html import format_html
 
 from ..models import Organization, OrganizationMembership, UserSession
@@ -53,6 +54,7 @@ class MembershipInline(admin.TabularInline):
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
     form = OrganizationAdminForm
+    change_form_template = "admin/core/organization/change_form.html"
     list_display = (
         "name",
         "city",
@@ -65,10 +67,11 @@ class OrganizationAdmin(admin.ModelAdmin):
         "is_public_intake_enabled",
         "is_public_insurance_intake_enabled",
         "is_automation_enabled",
+        "backup_download_link",
     )
     list_filter = ("state", "city", "is_public_intake_enabled", "is_public_insurance_intake_enabled", "is_automation_enabled")
     search_fields = ("name", "address_line", "city", "state", "phone_number", "email", "psbc_license")
-    readonly_fields = ("intake_link_display", "insurance_intake_link_display")
+    readonly_fields = ("intake_link_display", "insurance_intake_link_display", "backup_download_link")
     inlines = [MembershipInline]
     fieldsets = (
         ("PSB Profile", {
@@ -139,6 +142,28 @@ class OrganizationAdmin(admin.ModelAdmin):
         return format_html('<a href="{}" target="_blank">Open Insurance Intake Portal</a>', url)
 
     insurance_intake_link_display.short_description = "Insurance Intake Link"
+
+    def backup_download_link(self, obj):
+        if not obj or not obj.pk:
+            return "—"
+        url = reverse("admin:psb-backup-download", args=[obj.pk])
+        return format_html(
+            '<a class="button" href="{}" style="white-space:nowrap;">Download backup</a>',
+            url,
+        )
+
+    backup_download_link.short_description = "Backup"
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["psb_backup_download_url"] = reverse(
+            "admin:psb-backup-download", args=[object_id]
+        )
+        extra_context["psb_backup_import_url"] = reverse("admin:psb-backup-import")
+        extra_context["show_psb_backup"] = request.user.is_superuser
+        return super().change_view(
+            request, object_id, form_url, extra_context=extra_context
+        )
 
     class Media:
         js = ("core/js/admin_automation_toggle.js",)
