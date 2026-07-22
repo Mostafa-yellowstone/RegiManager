@@ -36,6 +36,12 @@ def _add_to_bucket(totals, payment_method, amount):
         totals[bucket] += amount
 
 
+def _count_bucket(counts, payment_method):
+    bucket = _bucket_for_method(payment_method)
+    if bucket:
+        counts[bucket] += 1
+
+
 def _record_amounts(record):
     paid = record.paid_amount or Decimal("0")
     fee = record.service_fee or Decimal("0")
@@ -52,16 +58,19 @@ def _record_amounts(record):
     return (record.payment_method, amount), (None, Decimal("0"))
 
 
-def _cards_from_totals(totals):
+def _cards_from_totals(totals, counts=None):
     cards = []
     for method, meta in PAYMENT_METHOD_META.items():
         cards.append({
             "key": method,
+            "method": method,
             "label": meta["label"],
             "icon": meta["icon"],
             "gradient": meta["gradient"],
             "accent": meta["accent"],
             "total": totals.get(method, Decimal("0.00")),
+            "amount": totals.get(method, Decimal("0.00")),
+            "count": (counts or {}).get(method, 0),
         })
     grand_total = sum(totals.values(), Decimal("0.00"))
     return cards, grand_total
@@ -69,31 +78,50 @@ def _cards_from_totals(totals):
 
 def build_daily_payment_cards(records, target_date):
     """DMV registration intake by payment bucket (ServiceRecord only)."""
-    totals = {method: Decimal("0.00") for method in PAYMENT_METHOD_META}
+    return build_payment_cards_for_range(records, target_date, target_date)
 
-    today_records = records.filter(transaction_date=target_date).exclude(status="refund")
-    for record in today_records.iterator():
+
+def build_payment_cards_for_range(records, from_date, to_date):
+    """DMV registration intake by payment bucket for an inclusive date window."""
+    totals = {method: Decimal("0.00") for method in PAYMENT_METHOD_META}
+    counts = {method: 0 for method in PAYMENT_METHOD_META}
+
+    ranged = records.filter(
+        transaction_date__gte=from_date,
+        transaction_date__lte=to_date,
+    ).exclude(status="refund")
+    for record in ranged.iterator():
         primary, secondary = _record_amounts(record)
         _add_to_bucket(totals, primary[0], primary[1])
+        _count_bucket(counts, primary[0])
         if secondary[0]:
             _add_to_bucket(totals, secondary[0], secondary[1])
+            _count_bucket(counts, secondary[0])
 
-    return _cards_from_totals(totals)
+    return _cards_from_totals(totals, counts=counts)
 
 
 def build_insurance_daily_payment_cards(organization_ids, target_date):
     """Insurance Space daily intake by payment method (DailyPaymentTransaction only)."""
+    return build_insurance_payment_cards_for_range(organization_ids, target_date, target_date)
+
+
+def build_insurance_payment_cards_for_range(organization_ids, from_date, to_date):
+    """Insurance intake by payment method for an inclusive date window."""
     totals = {method: Decimal("0.00") for method in PAYMENT_METHOD_META}
+    counts = {method: 0 for method in PAYMENT_METHOD_META}
 
     daily_txs = DailyPaymentTransaction.objects.filter(
         organization_id__in=organization_ids,
-        transaction_date=target_date,
+        transaction_date__gte=from_date,
+        transaction_date__lte=to_date,
     )
     for tx in daily_txs.iterator():
         if tx.payment_method in totals:
             totals[tx.payment_method] += tx.amount
+            counts[tx.payment_method] += 1
 
-    return _cards_from_totals(totals)
+    return _cards_from_totals(totals, counts=counts)
 
 
 def build_month_goal_forecast(records, target_date):

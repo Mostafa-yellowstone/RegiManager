@@ -232,6 +232,7 @@ from core.companion_api import CompanionLoginView, CompanionLogoutView, Companio
 from core.owner_api import (
     OwnerFinanceChartView,
     OwnerFinanceCompareView,
+    OwnerFinanceRecordsView,
     OwnerFinanceSummaryView,
     OwnerInsurancePoliciesView,
     OwnerNotificationMarkAllReadView,
@@ -272,6 +273,7 @@ urlpatterns = [
     path('api/auth/me/', CompanionMeView.as_view(), name='api-auth-me'),
     path('api/owner/overview/', OwnerOverviewView.as_view(), name='api-owner-overview'),
     path('api/owner/finance/summary/', OwnerFinanceSummaryView.as_view(), name='api-owner-finance-summary'),
+    path('api/owner/finance/records/', OwnerFinanceRecordsView.as_view(), name='api-owner-finance-records'),
     path('api/owner/finance/compare/', OwnerFinanceCompareView.as_view(), name='api-owner-finance-compare'),
     path('api/owner/finance/chart/', OwnerFinanceChartView.as_view(), name='api-owner-finance-chart'),
     path('api/owner/spaces/', OwnerSpacesListView.as_view(), name='api-owner-spaces'),

@@ -67,7 +67,12 @@ def spaces_for_membership(membership: OrganizationMembership, organization: Orga
     return filter_accessible_spaces(membership, organization).order_by("label")
 
 
-def build_dmv_finance_report(records, today: date) -> dict:
+def build_dmv_finance_report(
+    records,
+    today: date,
+    *,
+    custom_range: tuple[date, date] | None = None,
+) -> dict:
     month_start = today.replace(day=1)
     year_start = today.replace(month=1, day=1)
     daily_qs = records.filter(daily_record_q(today))
@@ -101,15 +106,45 @@ def build_dmv_finance_report(records, today: date) -> dict:
             "refund": qs.filter(status="refund").count(),
         }
 
-    return {
+    payload = {
         "today": _aggregate(daily_qs),
         "month": _aggregate(monthly_qs),
         "year": _aggregate(yearly_qs),
         "as_of": today.isoformat(),
     }
+    if custom_range:
+        start, end = custom_range
+        custom_qs = records.filter(transaction_date__gte=start, transaction_date__lte=end)
+        payload["custom"] = _aggregate(custom_qs)
+        payload["range"] = {
+            "from": start.isoformat(),
+            "to": end.isoformat(),
+            "source": "ledger",
+        }
+    else:
+        payload["custom"] = {
+            "total_records": 0,
+            "total_revenue": "0.00",
+            "gross_profit": "0.00",
+            "net_profit_after_referral": "0.00",
+            "referral_commission": "0.00",
+            "dmv_fee": "0.00",
+            "sales_tax": "0.00",
+            "credit_card_fee": "0.00",
+            "completed": 0,
+            "pending": 0,
+            "failed": 0,
+            "refund": 0,
+        }
+    return payload
 
 
-def build_insurance_profit_report(organization_id: int, today: date) -> dict:
+def build_insurance_profit_report(
+    organization_id: int,
+    today: date,
+    *,
+    custom_range: tuple[date, date] | None = None,
+) -> dict:
     month_start, month_end = resolve_insurance_period_bounds("monthly", today=today)
     year_start = today.replace(month=1, day=1)
     day_start, day_end = today, today
@@ -131,18 +166,29 @@ def build_insurance_profit_report(organization_id: int, today: date) -> dict:
         )
         commission = agg["commission"] or Decimal("0")
         broker = agg["broker_fee"] or Decimal("0")
+        quotes = policies.filter(
+            stage="quote",
+            created_at__date__gte=start,
+            created_at__date__lte=end,
+        ).count()
+        bound_count = agg["count"] or 0
+        conversion = "0"
+        if quotes > 0:
+            conversion = f"{(bound_count / quotes) * 100:.1f}"
         return {
-            "bound_count": agg["count"] or 0,
+            "bound_count": bound_count,
             "premium": _money(agg["premium"]),
             "commission": _money(commission),
             "broker_fee": _money(broker),
             "total_profit": _money(commission + broker),
+            "quotes_count": quotes,
+            "conversion_pct": conversion,
         }
 
     current_stats = period_stats(policies, month_start, month_end)
     previous_stats = period_stats(policies, prev_start, prev_end)
 
-    return {
+    payload = {
         "today": _bound_profit(day_start, day_end),
         "month": _bound_profit(month_start, month_end),
         "year": _bound_profit(year_start, today),
@@ -158,12 +204,49 @@ def build_insurance_profit_report(organization_id: int, today: date) -> dict:
         },
         "as_of": today.isoformat(),
     }
+    if custom_range:
+        start, end = custom_range
+        payload["custom"] = _bound_profit(start, end)
+        payload["range"] = {
+            "from": start.isoformat(),
+            "to": end.isoformat(),
+            "source": "ledger",
+        }
+    else:
+        payload["custom"] = {
+            "bound_count": 0,
+            "premium": "0.00",
+            "commission": "0.00",
+            "broker_fee": "0.00",
+            "total_profit": "0.00",
+            "quotes_count": 0,
+            "conversion_pct": "0",
+        }
+    return payload
 
 
-def build_space_period_profit(space: Space, today: date) -> dict:
+def build_space_period_profit(
+    space: Space,
+    today: date,
+    *,
+    custom_range: tuple[date, date] | None = None,
+) -> dict:
     month_start = today.replace(day=1)
     year_start = today.replace(month=1, day=1)
     org_id = space.organization_id
+
+    def _with_custom(base: dict, custom_builder) -> dict:
+        if custom_range:
+            start, end = custom_range
+            base["custom"] = custom_builder(start, end)
+            base["range"] = {
+                "from": start.isoformat(),
+                "to": end.isoformat(),
+                "source": "ledger",
+            }
+        else:
+            base["custom"] = {"profit": "0.00", "revenue": "0.00", "transactions": 0}
+        return base
 
     if space.key == "insurance":
         policies = InsurancePolicy.objects.filter(organization_id=org_id)
@@ -176,81 +259,145 @@ def build_space_period_profit(space: Space, today: date) -> dict:
             ).aggregate(
                 commission=Sum("commission_amount"),
                 broker_fee=Sum("broker_fee"),
+                premium=Sum("premium"),
                 count=Count("id"),
             )
             total = (agg["commission"] or Decimal("0")) + (agg["broker_fee"] or Decimal("0"))
-            return {"profit": _money(total), "transactions": agg["count"] or 0}
+            return {
+                "profit": _money(total),
+                "revenue": _money(agg["premium"]),
+                "transactions": agg["count"] or 0,
+            }
 
-        return {
-            "key": space.key,
-            "label": space.label,
-            "today": _profit(today, today),
-            "month": _profit(month_start, today),
-            "year": _profit(year_start, today),
-        }
+        return _with_custom(
+            {
+                "key": space.key,
+                "label": space.label,
+                "today": _profit(today, today),
+                "month": _profit(month_start, today),
+                "year": _profit(year_start, today),
+            },
+            _profit,
+        )
 
     if space.key == "motorclub":
         stats = motorclub_dashboard_stats(space)
-        return {
+        base = {
             "key": space.key,
             "label": space.label,
-            "today": {"profit": "0.00", "transactions": 0},
+            "today": {"profit": "0.00", "revenue": "0.00", "transactions": 0},
             "month": {
                 "profit": _money(stats["psb_revenue"]),
+                "revenue": _money(stats["psb_revenue"]),
                 "transactions": stats["active_memberships"],
             },
             "year": {
                 "profit": _money(stats["psb_revenue"]),
+                "revenue": _money(stats["psb_revenue"]),
                 "transactions": stats["total_memberships"],
             },
             "active_memberships": stats["active_memberships"],
         }
+        # Motorclub dashboard is snapshot-based; custom mirrors month when range present.
+        if custom_range:
+            base["custom"] = {
+                "profit": _money(stats["psb_revenue"]),
+                "revenue": _money(stats["psb_revenue"]),
+                "transactions": stats["active_memberships"],
+            }
+            start, end = custom_range
+            base["range"] = {
+                "from": start.isoformat(),
+                "to": end.isoformat(),
+                "source": "ledger",
+            }
+        else:
+            base["custom"] = {"profit": "0.00", "revenue": "0.00", "transactions": 0}
+        return base
 
     if space.key == "custom_inventory":
         stats = inventory_dashboard_stats(space)
-        return {
+        base = {
             "key": space.key,
             "label": space.label,
             "today": {
                 "profit": _money(stats["sales_today_total"]),
+                "revenue": _money(stats["sales_today_total"]),
                 "transactions": stats["sales_today_count"],
             },
             "month": {
                 "profit": _money(stats["sales_month_total"]),
+                "revenue": _money(stats["sales_month_total"]),
                 "transactions": stats["sales_month_count"],
             },
             "year": {
                 "profit": _money(stats["sales_month_total"]),
+                "revenue": _money(stats["sales_month_total"]),
                 "transactions": stats["invoice_count"],
             },
             "inventory_value": _money(stats["total_inventory_value"]),
         }
+        if custom_range:
+            # Inventory CRM is snapshot MTD; expose month total as custom until dated sales exist.
+            base["custom"] = {
+                "profit": _money(stats["sales_month_total"]),
+                "revenue": _money(stats["sales_month_total"]),
+                "transactions": stats["sales_month_count"],
+            }
+            start, end = custom_range
+            base["range"] = {
+                "from": start.isoformat(),
+                "to": end.isoformat(),
+                "source": "ledger",
+            }
+        else:
+            base["custom"] = {"profit": "0.00", "revenue": "0.00", "transactions": 0}
+        return base
 
     if space.key == "documents":
         from .models import SpaceDocumentRecord
 
         qs = SpaceDocumentRecord.objects.filter(space=space)
-        return {
-            "key": space.key,
-            "label": space.label,
-            "today": {"profit": "0.00", "transactions": qs.filter(created_at__date=today).count()},
-            "month": {"profit": "0.00", "transactions": qs.filter(created_at__date__gte=month_start).count()},
-            "year": {"profit": "0.00", "transactions": qs.filter(created_at__date__gte=year_start).count()},
-            "total_records": qs.count(),
-        }
+
+        def _docs(start, end):
+            count = qs.filter(created_at__date__gte=start, created_at__date__lte=end).count()
+            return {"profit": "0.00", "revenue": "0.00", "transactions": count}
+
+        return _with_custom(
+            {
+                "key": space.key,
+                "label": space.label,
+                "today": _docs(today, today),
+                "month": {
+                    "profit": "0.00",
+                    "revenue": "0.00",
+                    "transactions": qs.filter(created_at__date__gte=month_start).count(),
+                },
+                "year": {
+                    "profit": "0.00",
+                    "revenue": "0.00",
+                    "transactions": qs.filter(created_at__date__gte=year_start).count(),
+                },
+                "total_records": qs.count(),
+            },
+            _docs,
+        )
 
     if space.key == "tlc":
         from .tlc_profitability import tlc_space_period_profit
 
-        return tlc_space_period_profit(space, today)
+        return tlc_space_period_profit(space, today, custom_range=custom_range)
 
-    return {
-        "key": space.key,
-        "label": space.label,
-        "today": {"profit": "0.00", "transactions": 0},
-        "month": {"profit": "0.00", "transactions": 0},
-        "year": {"profit": "0.00", "transactions": 0},
-    }
+    return _with_custom(
+        {
+            "key": space.key,
+            "label": space.label,
+            "today": {"profit": "0.00", "revenue": "0.00", "transactions": 0},
+            "month": {"profit": "0.00", "revenue": "0.00", "transactions": 0},
+            "year": {"profit": "0.00", "revenue": "0.00", "transactions": 0},
+        },
+        lambda _s, _e: {"profit": "0.00", "revenue": "0.00", "transactions": 0},
+    )
 
 
 def build_system_profit_summary(
@@ -258,41 +405,59 @@ def build_system_profit_summary(
     membership: OrganizationMembership,
     records,
     today: date,
+    *,
+    custom_range: tuple[date, date] | None = None,
 ) -> dict:
-    dmv = build_dmv_finance_report(records, today)
-    insurance = build_insurance_profit_report(organization.id, today)
+    dmv = build_dmv_finance_report(records, today, custom_range=custom_range)
+    insurance = build_insurance_profit_report(organization.id, today, custom_range=custom_range)
     spaces = []
     total_today = Decimal(dmv["today"]["gross_profit"])
     total_month = Decimal(dmv["month"]["gross_profit"])
     total_year = Decimal(dmv["year"]["gross_profit"])
+    total_custom = Decimal(dmv["custom"]["gross_profit"]) if custom_range else Decimal("0")
     insurance_in_spaces = False
 
     # Count each space once. Top-level `insurance` is detail only — add it to
     # combined_profit only when the insurance space was not already included.
     for space in spaces_for_membership(membership, organization):
-        space_data = build_space_period_profit(space, today)
+        space_data = build_space_period_profit(space, today, custom_range=custom_range)
         spaces.append(space_data)
         if space.key == "insurance":
             insurance_in_spaces = True
         total_today += Decimal(space_data["today"]["profit"])
         total_month += Decimal(space_data["month"]["profit"])
         total_year += Decimal(space_data["year"]["profit"])
+        if custom_range:
+            total_custom += Decimal(space_data["custom"]["profit"])
 
     if not insurance_in_spaces:
         total_today += Decimal(insurance["today"]["total_profit"])
         total_month += Decimal(insurance["month"]["total_profit"])
         total_year += Decimal(insurance["year"]["total_profit"])
+        if custom_range:
+            total_custom += Decimal(insurance["custom"]["total_profit"])
 
-    return {
+    combined = {
+        "today": _money(total_today),
+        "month": _money(total_month),
+        "year": _money(total_year),
+        "custom": _money(total_custom) if custom_range else "0.00",
+    }
+    payload = {
         "dmv_core": dmv,
         "insurance": insurance,
         "spaces": spaces,
-        "combined_profit": {
-            "today": _money(total_today),
-            "month": _money(total_month),
-            "year": _money(total_year),
-        },
+        "combined_profit": combined,
     }
+    if custom_range:
+        start, end = custom_range
+        payload["range"] = {
+            "from": start.isoformat(),
+            "to": end.isoformat(),
+            "source": "ledger",
+        }
+    return payload
+
 
 
 def build_month_comparison(records, compare_a: str, compare_b: str, *, mode: str = "month") -> dict | None:

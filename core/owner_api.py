@@ -14,9 +14,12 @@ from rest_framework.views import APIView
 from .finance_hub_metrics import (
     build_daily_payment_cards,
     build_insurance_daily_payment_cards,
+    build_insurance_payment_cards_for_range,
     build_month_goal_forecast,
+    build_payment_cards_for_range,
 )
 from .models import (
+    DailyPaymentTransaction,
     InsurancePolicy,
     Notification,
     Organization,
@@ -34,6 +37,7 @@ from .owner_api_metrics import (
     build_system_profit_summary,
     spaces_for_membership,
 )
+from .owner_date_range import parse_owner_date_range
 from .policies import active_memberships_qs, user_organization_ids
 
 
@@ -59,13 +63,27 @@ def _serialize_goal_forecast(data: dict) -> dict:
 
 
 def _serialize_daily_cards(cards, grand_total):
-  return {
-      "cards": [
-          {**card, "total": str(card["total"].quantize(Decimal("0.01")))}
-          for card in cards
-      ],
-      "grand_total": str(grand_total.quantize(Decimal("0.01"))),
-  }
+    serialized = []
+    for card in cards:
+        total = card.get("total", card.get("amount", Decimal("0")))
+        if isinstance(total, Decimal):
+            total_str = str(total.quantize(Decimal("0.01")))
+        else:
+            total_str = str(total)
+        serialized.append(
+            {
+                **{k: v for k, v in card.items() if k not in {"total", "amount"}},
+                "total": total_str,
+                "amount": total_str,
+                "count": int(card.get("count") or 0),
+                "method": card.get("method") or card.get("key") or "",
+                "key": card.get("key") or card.get("method") or "",
+            }
+        )
+    return {
+        "cards": serialized,
+        "grand_total": str(grand_total.quantize(Decimal("0.01"))),
+    }
 
 
 class OwnerAPIBase(APIView):
@@ -124,6 +142,7 @@ class OwnerOverviewView(OwnerAPIBase):
         if not self.can_view_finance(membership):
             raise PermissionDenied("Finance access is disabled for your account.")
 
+        custom_range = parse_owner_date_range(request.query_params)
         payload = {
             "organization": {
                 "id": organization.id,
@@ -131,9 +150,22 @@ class OwnerOverviewView(OwnerAPIBase):
                 "city": organization.city,
                 "state": organization.state,
             },
-            "profit": build_system_profit_summary(organization, membership, records, today),
+            "profit": build_system_profit_summary(
+                organization,
+                membership,
+                records,
+                today,
+                custom_range=custom_range,
+            ),
             "processes": build_process_summary(organization, today),
         }
+        if custom_range:
+            start, end = custom_range
+            payload["range"] = {
+                "from": start.isoformat(),
+                "to": end.isoformat(),
+                "source": "ledger",
+            }
         if membership.role == OrganizationMembership.Role.OWNER and organizations.count() > 1:
             payload["locations"] = build_location_comparison(organizations, today)
         return Response(payload)
@@ -145,26 +177,42 @@ class OwnerFinanceSummaryView(OwnerAPIBase):
         if not self.can_view_finance(membership):
             raise PermissionDenied("Finance access is disabled for your account.")
 
+        custom_range = parse_owner_date_range(request.query_params)
         org_ids = [organization.id]
-        dmv_cards, dmv_total = build_daily_payment_cards(records, today)
-        insurance_cards, insurance_total = build_insurance_daily_payment_cards(org_ids, today)
+        if custom_range:
+            start, end = custom_range
+            dmv_cards, dmv_total = build_payment_cards_for_range(records, start, end)
+            insurance_cards, insurance_total = build_insurance_payment_cards_for_range(
+                org_ids, start, end
+            )
+        else:
+            dmv_cards, dmv_total = build_daily_payment_cards(records, today)
+            insurance_cards, insurance_total = build_insurance_daily_payment_cards(org_ids, today)
         forecast = build_month_goal_forecast(records, today)
 
-        dmv_payload = build_dmv_finance_report(records, today)
+        dmv_payload = build_dmv_finance_report(records, today, custom_range=custom_range)
         dmv_payload["daily_payments"] = _serialize_daily_cards(dmv_cards, dmv_total)
 
-        insurance_payload = build_insurance_profit_report(organization.id, today)
+        insurance_payload = build_insurance_profit_report(
+            organization.id, today, custom_range=custom_range
+        )
         insurance_payload["daily_payments"] = _serialize_daily_cards(
             insurance_cards, insurance_total
         )
 
-        return Response(
-            {
-                "dmv": dmv_payload,
-                "insurance": insurance_payload,
-                "goal_forecast": _serialize_goal_forecast(forecast),
+        payload = {
+            "dmv": dmv_payload,
+            "insurance": insurance_payload,
+            "goal_forecast": _serialize_goal_forecast(forecast),
+        }
+        if custom_range:
+            start, end = custom_range
+            payload["range"] = {
+                "from": start.isoformat(),
+                "to": end.isoformat(),
+                "source": "ledger",
             }
-        )
+        return Response(payload)
 
 
 class OwnerFinanceCompareView(OwnerAPIBase):
@@ -206,24 +254,160 @@ class OwnerFinanceChartView(OwnerAPIBase):
         return Response(build_revenue_chart(records, today, months=month_count))
 
 
+class OwnerFinanceRecordsView(OwnerAPIBase):
+    """Ledger payment rows for Finance method drill-down."""
+
+    def get(self, request):
+        organization, membership, _orgs, records, today = self.resolve_context(request)
+        if not self.can_view_finance(membership):
+            raise PermissionDenied("Finance access is disabled for your account.")
+
+        category = (request.query_params.get("category") or "dmv").strip().lower()
+        if category not in {"dmv", "insurance"}:
+            return Response(
+                {"detail": "category must be dmv or insurance."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        method = (request.query_params.get("method") or "").strip().lower()
+        method_aliases = {
+            "card": "credit_card",
+            "credit": "credit_card",
+            "credit_card": "credit_card",
+            "cash": "cash",
+            "zelle": "zelle",
+            "checks": "checks",
+            "check": "checks",
+        }
+        method_key = method_aliases.get(method, method) if method else ""
+
+        custom_range = parse_owner_date_range(request.query_params)
+        if custom_range:
+            start, end = custom_range
+        else:
+            timeframe = (request.query_params.get("timeframe") or "daily").strip().lower()
+            if timeframe == "monthly":
+                start, end = today.replace(day=1), today
+            else:
+                start, end = today, today
+
+        limit = request.query_params.get("limit", "100")
+        try:
+            limit_n = max(1, min(int(limit), 500))
+        except (TypeError, ValueError):
+            limit_n = 100
+
+        results = []
+        if category == "dmv":
+            qs = records.filter(
+                transaction_date__gte=start,
+                transaction_date__lte=end,
+            ).exclude(status="refund").order_by("-transaction_date", "-id")
+            for record in qs[: limit_n * 2]:
+                for method_name, amount in (
+                    (record.payment_method, record.paid_amount or record.service_fee),
+                    (record.payment_method_2, record.paid_amount_2),
+                ):
+                    if not method_name or amount is None:
+                        continue
+                    bucket = method_name
+                    if method_name in {"visa", "mastercard", "discover", "diners_club", "american_express"}:
+                        bucket = "credit_card"
+                    if method_key and bucket != method_key and method_name != method_key:
+                        continue
+                    results.append(
+                        {
+                            "id": f"dmv_{record.id}_{method_name}",
+                            "transaction_date": (
+                                record.transaction_date.isoformat()
+                                if record.transaction_date
+                                else ""
+                            ),
+                            "description": record.service_type or "DMV service",
+                            "method": "card" if bucket == "credit_card" else bucket,
+                            "amount": str(Decimal(amount or 0).quantize(Decimal("0.01"))),
+                            "client_name": record.client_name or "",
+                            "reference": record.receipt_number or record.case_id or "",
+                        }
+                    )
+                    if len(results) >= limit_n:
+                        break
+                if len(results) >= limit_n:
+                    break
+        else:
+            qs = DailyPaymentTransaction.objects.filter(
+                organization=organization,
+                transaction_date__gte=start,
+                transaction_date__lte=end,
+            ).select_related("client").order_by("-transaction_date", "-id")
+            if method_key:
+                qs = qs.filter(payment_method=method_key)
+            for tx in qs[:limit_n]:
+                results.append(
+                    {
+                        "id": f"ins_{tx.id}",
+                        "transaction_date": tx.transaction_date.isoformat(),
+                        "description": tx.get_payment_type_display(),
+                        "method": "card" if tx.payment_method == "credit_card" else tx.payment_method,
+                        "amount": str(Decimal(tx.amount or 0).quantize(Decimal("0.01"))),
+                        "client_name": str(tx.client) if tx.client_id else "",
+                        "reference": str(tx.insurance_policy_id or tx.id),
+                    }
+                )
+
+        return Response(
+            {
+                "results": results,
+                "count": len(results),
+                "range": {
+                    "from": start.isoformat(),
+                    "to": end.isoformat(),
+                    "source": "ledger",
+                },
+            }
+        )
+
+
+def _flatten_space_payload(space, profit: dict) -> dict:
+    """Expose period buckets at top-level for companion clients."""
+    return {
+        "id": str(space.id),
+        "key": space.key,
+        "name": space.label,
+        "label": space.label,
+        "description": space.description,
+        "today": profit.get("today", {"profit": "0.00", "revenue": "0.00"}),
+        "month": profit.get("month", {"profit": "0.00", "revenue": "0.00"}),
+        "year": profit.get("year", {"profit": "0.00", "revenue": "0.00"}),
+        "custom": profit.get("custom", {"profit": "0.00", "revenue": "0.00"}),
+        "profit": profit,
+        "active_memberships": profit.get("active_memberships"),
+        "inventory_value": profit.get("inventory_value"),
+        "total_records": profit.get("total_records"),
+        "range": profit.get("range"),
+    }
+
+
 class OwnerSpacesListView(OwnerAPIBase):
     def get(self, request):
         organization, membership, _orgs, _records, today = self.resolve_context(request)
         if not self.can_view_spaces(membership):
             raise PermissionDenied("Spaces access is disabled for your account.")
 
+        custom_range = parse_owner_date_range(request.query_params)
         spaces = []
         for space in spaces_for_membership(membership, organization):
-            spaces.append(
-                {
-                    "id": space.id,
-                    "key": space.key,
-                    "label": space.label,
-                    "description": space.description,
-                    "profit": build_space_period_profit(space, today),
-                }
-            )
-        return Response({"spaces": spaces})
+            profit = build_space_period_profit(space, today, custom_range=custom_range)
+            spaces.append(_flatten_space_payload(space, profit))
+        payload = {"spaces": spaces, "results": spaces}
+        if custom_range:
+            start, end = custom_range
+            payload["range"] = {
+                "from": start.isoformat(),
+                "to": end.isoformat(),
+                "source": "ledger",
+            }
+        return Response(payload)
 
 
 class OwnerSpaceDetailView(OwnerAPIBase):
@@ -236,15 +420,13 @@ class OwnerSpaceDetailView(OwnerAPIBase):
         if not space:
             return Response({"detail": "Space not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        payload = {
-            "id": space.id,
-            "key": space.key,
-            "label": space.label,
-            "description": space.description,
-            "profit": build_space_period_profit(space, today),
-        }
+        custom_range = parse_owner_date_range(request.query_params)
+        profit = build_space_period_profit(space, today, custom_range=custom_range)
+        payload = _flatten_space_payload(space, profit)
         if space.key == "insurance":
-            payload["pipeline"] = build_insurance_profit_report(organization.id, today)["pipeline"]
+            payload["pipeline"] = build_insurance_profit_report(
+                organization.id, today, custom_range=custom_range
+            )["pipeline"]
         if space.key == "tlc":
             from .tlc_profitability import tlc_dashboard_stats
 

@@ -347,6 +347,22 @@ X-Organization-Id: <psb_id>
 
 ### `GET /api/owner/overview/`
 
+Optional **custom date range** (inclusive). When both dates are present, each profit block includes a ledger-backed `custom` bucket and a top-level `range` object.
+
+| Query | Required | Notes |
+|-------|----------|-------|
+| `from_date` | with `to_date` | `YYYY-MM-DD` (aliases: `start_date`, `date_from`, `start`) |
+| `to_date` | with `from_date` | `YYYY-MM-DD` (aliases: `end_date`, `date_to`, `end`) |
+
+- Invalid / inverted / >366-day ranges → **`400`**
+- No dates → presets only (`today` / `month` / `year`); `custom` is zeros
+
+```http
+GET /api/owner/overview/?from_date=2026-07-10&to_date=2026-07-12
+```
+
+`combined_profit.custom` and `dmv_core.custom` / `insurance.custom` / each space `custom` are summed from ledger rows in that window (`source: "ledger"`).
+
 Combined owner home: profit by domain + process counts (+ multi-location ranks for owners).
 
 ```json
@@ -375,6 +391,7 @@ Combined owner home: profit by domain + process counts (+ multi-location ranks f
       },
       "month": { },
       "year": { },
+      "custom": { },
       "as_of": "2026-07-19"
     },
     "insurance": {
@@ -387,6 +404,7 @@ Combined owner home: profit by domain + process counts (+ multi-location ranks f
       },
       "month": { },
       "year": { },
+      "custom": { },
       "pipeline": {
         "quotes": 8,
         "bound": 2,
@@ -405,13 +423,15 @@ Combined owner home: profit by domain + process counts (+ multi-location ranks f
         "label": "Insurance",
         "today": { "profit": "290.00", "transactions": 2 },
         "month": { "profit": "1200.00", "transactions": 18 },
-        "year": { "profit": "9000.00", "transactions": 140 }
+        "year": { "profit": "9000.00", "transactions": 140 },
+        "custom": { "profit": "0.00", "transactions": 0 }
       }
     ],
     "combined_profit": {
       "today": "890.00",
       "month": "…",
-      "year": "…"
+      "year": "…",
+      "custom": "0.00"
     }
   },
   "processes": { },
@@ -506,8 +526,48 @@ Domain-separated finance detail (see [encapsulation](#finance-domain-encapsulati
 
 **There is no top-level `daily_payments` key.** Use `dmv.daily_payments` and `insurance.daily_payments`.
 
+**Custom range:** same `from_date` / `to_date` contract as overview. When set:
+- `dmv.custom` / `insurance.custom` are ledger totals for the window
+- `dmv.daily_payments` / `insurance.daily_payments` are **range** payment-method cards (not “today”)
+- response includes `range: { from, to, source: "ledger" }`
+
 **Daily card keys:** `cash` · `zelle` · `credit_card` · `checks`  
 (DMV card brands like visa/mastercard roll up into `credit_card`.)
+
+---
+
+### `GET /api/owner/finance/records/`
+
+Ledger payment rows for Finance method drill-down (companion `PaymentRecord` shape).
+
+```http
+GET /api/owner/finance/records/?category=dmv&method=cash&from_date=2026-07-10&to_date=2026-07-12
+```
+
+| Query | Required | Notes |
+|-------|----------|-------|
+| `category` | No | `dmv` (default) or `insurance` |
+| `method` | No | `cash` · `zelle` · `card`/`credit_card` · `checks` |
+| `from_date` / `to_date` | No | Inclusive ledger window (same aliases as overview). Without dates: `timeframe=daily` (today) or `monthly` (MTD). |
+| `limit` | No | 1–500 (default 100) |
+
+```json
+{
+  "results": [
+    {
+      "id": "dmv_12_cash",
+      "transaction_date": "2026-07-11",
+      "description": "registration",
+      "method": "cash",
+      "amount": "80.00",
+      "client_name": "Range Cash",
+      "reference": "RCPT-…"
+    }
+  ],
+  "count": 1,
+  "range": { "from": "2026-07-10", "to": "2026-07-12", "source": "ledger" }
+}
+```
 
 ---
 
@@ -787,6 +847,7 @@ DELETE /api/service-records/{id}/
 
 GET    /api/owner/overview/
 GET    /api/owner/finance/summary/
+GET    /api/owner/finance/records/
 GET    /api/owner/finance/compare/
 GET    /api/owner/finance/chart/
 GET    /api/owner/spaces/

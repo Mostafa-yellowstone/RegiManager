@@ -221,3 +221,120 @@ class OwnerAPITests(APITestCase):
             Decimal(summary["combined_profit"]["today"]),
             expected + Decimal(summary["insurance"]["today"]["total_profit"]),
         )
+
+    def test_overview_custom_range_returns_ledger_totals(self):
+        in_range = date(2026, 7, 10)
+        out_of_range = date(2026, 7, 1)
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.agent,
+            client_name="In Range",
+            service_type="registration",
+            status="completed",
+            service_fee=Decimal("200.00"),
+            processing_fee=Decimal("50.00"),
+            payment_method="cash",
+            paid_amount=Decimal("50.00"),
+            transaction_date=in_range,
+            receipt_number="RCPT-RANGE-IN-1",
+            case_id="CASE-RANGE-IN-1",
+        )
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.agent,
+            client_name="Out of Range",
+            service_type="registration",
+            status="completed",
+            service_fee=Decimal("999.00"),
+            processing_fee=Decimal("999.00"),
+            payment_method="zelle",
+            paid_amount=Decimal("999.00"),
+            transaction_date=out_of_range,
+            receipt_number="RCPT-RANGE-OUT-1",
+            case_id="CASE-RANGE-OUT-1",
+        )
+        self._auth(self.owner_token)
+        response = self.client.get(
+            reverse("api-owner-overview"),
+            {"from_date": "2026-07-10", "to_date": "2026-07-12"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        custom = response.data["profit"]["dmv_core"]["custom"]
+        self.assertEqual(custom["total_records"], 1)
+        # service_fee is recomputed from processing_fee on save
+        self.assertEqual(custom["gross_profit"], "50.00")
+        self.assertEqual(custom["total_revenue"], "50.00")
+        self.assertEqual(response.data["range"]["source"], "ledger")
+        self.assertEqual(
+            response.data["profit"]["combined_profit"]["custom"],
+            custom["gross_profit"],
+        )
+
+    def test_finance_summary_custom_range_payment_cards(self):
+        ServiceRecord.objects.filter(organization=self.org).delete()
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.agent,
+            client_name="Range Cash",
+            service_type="registration",
+            status="completed",
+            service_fee=Decimal("80.00"),
+            processing_fee=Decimal("20.00"),
+            payment_method="cash",
+            paid_amount=Decimal("20.00"),
+            transaction_date=date(2026, 7, 11),
+            receipt_number="RCPT-RANGE-CASH-1",
+            case_id="CASE-RANGE-CASH-1",
+        )
+        DailyPaymentTransaction.objects.create(
+            organization=self.org,
+            client=self.client_obj,
+            transaction_date=date(2026, 7, 11),
+            amount=Decimal("35.00"),
+            payment_type="new_business",
+            payment_method="zelle",
+            recorded_by=self.agent,
+        )
+        self._auth(self.owner_token)
+        response = self.client.get(
+            reverse("api-owner-finance-summary"),
+            {"from_date": "2026-07-11", "to_date": "2026-07-11"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["dmv"]["custom"]["gross_profit"], "20.00")
+        self.assertEqual(response.data["dmv"]["custom"]["total_revenue"], "20.00")
+        self.assertEqual(response.data["dmv"]["daily_payments"]["grand_total"], "20.00")
+        self.assertEqual(response.data["insurance"]["daily_payments"]["grand_total"], "35.00")
+
+    def test_invalid_date_range_returns_400(self):
+        self._auth(self.owner_token)
+        response = self.client.get(
+            reverse("api-owner-overview"),
+            {"from_date": "2026-07-20", "to_date": "2026-07-10"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_finance_records_endpoint(self):
+        ServiceRecord.objects.filter(organization=self.org).update(
+            payment_method="cash",
+            paid_amount=Decimal("100.00"),
+            service_fee=Decimal("100.00"),
+        )
+        self._auth(self.owner_token)
+        response = self.client.get(
+            reverse("api-owner-finance-records"),
+            {
+                "category": "dmv",
+                "method": "cash",
+                "from_date": date.today().isoformat(),
+                "to_date": date.today().isoformat(),
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["method"], "cash")
+
+    def test_finance_records_forbidden_for_agent(self):
+        self._auth(self.agent_token)
+        response = self.client.get(reverse("api-owner-finance-records"))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

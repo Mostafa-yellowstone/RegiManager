@@ -329,11 +329,16 @@ def tlc_dashboard_stats(space, *, today: date | None = None) -> dict:
     }
 
 
-def tlc_space_period_profit(space, today: date) -> dict:
+def tlc_space_period_profit(
+    space,
+    today: date,
+    *,
+    custom_range: tuple[date, date] | None = None,
+) -> dict:
     """Owner API profit rollup for the TLC space."""
     from .tlc_models import TLCPolicy
 
-    month_start = today.replace(month=1, day=1)
+    month_start = today.replace(day=1)
     year_start = today.replace(month=1, day=1)
 
     def _profit_for_range(start: date, end: date) -> dict:
@@ -344,12 +349,28 @@ def tlc_space_period_profit(space, today: date) -> dict:
         ):
             snap = build_policy_profitability(policy, today=end)
             net += Decimal(snap["net_profit"])
-        return {"profit": _money(net), "transactions": qs.count()}
+        return {
+            "profit": _money(net),
+            "revenue": _money(net),
+            "transactions": qs.count(),
+        }
 
-    return {
+    payload = {
         "key": space.key,
         "label": space.label,
         "today": _profit_for_range(today, today),
         "month": _profit_for_range(month_start, today),
         "year": _profit_for_range(year_start, today),
     }
+    if custom_range:
+        start, end = custom_range
+        payload["custom"] = _profit_for_range(start, end)
+        payload["range"] = {
+            "from": start.isoformat(),
+            "to": end.isoformat(),
+            "source": "ledger",
+        }
+    else:
+        payload["custom"] = {"profit": "0.00", "revenue": "0.00", "transactions": 0}
+    return payload
+
