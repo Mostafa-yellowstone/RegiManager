@@ -130,9 +130,16 @@ def motorclub_dashboard_stats(space):
         row["tier"]: row["count"]
         for row in active_qs.values("tier").annotate(count=Count("id"))
     }
+    by_status = {
+        row["status"]: row["count"]
+        for row in qs.values("status").annotate(count=Count("id"))
+    }
     return {
         "total_memberships": qs.count(),
         "active_memberships": active_qs.count(),
+        "pending_memberships": by_status.get(MotorclubMembership.StatusChoices.PENDING, 0),
+        "cancelled_memberships": by_status.get(MotorclubMembership.StatusChoices.CANCELLED, 0),
+        "expired_memberships": by_status.get(MotorclubMembership.StatusChoices.EXPIRED, 0),
         "insurance_channel_count": by_channel.get("insurance_client", 0),
         "b2b_channel_count": by_channel.get("b2b", 0),
         "direct_channel_count": by_channel.get("direct", 0),
@@ -147,6 +154,89 @@ def motorclub_dashboard_stats(space):
             is_active=True,
         ).count(),
     }
+
+
+def _money_str(value) -> str:
+    return f"{Decimal(value or 0):.2f}"
+
+
+def serialize_motorclub_membership(membership) -> dict:
+    """Companion-friendly membership row for owner APIs."""
+    client_name = ""
+    if membership.client_id:
+        client_name = membership.client.name
+    added_by = None
+    if membership.added_by_id:
+        added_by = (
+            membership.added_by.get_full_name().strip()
+            or membership.added_by.username
+        )
+    start = membership.start_date.isoformat() if membership.start_date else None
+    end = membership.end_date.isoformat() if membership.end_date else None
+    joined = start
+    if not joined and membership.created_at:
+        joined = membership.created_at.date().isoformat()
+    partner_name = ""
+    if membership.b2b_partner_id:
+        partner_name = membership.b2b_partner.name
+    return {
+        "id": membership.id,
+        "membership_number": membership.membership_number or f"MC-{membership.id}",
+        "client_name": client_name,
+        "status": membership.status,
+        "channel": membership.channel,
+        "channel_label": membership.get_channel_display(),
+        "tier": membership.tier,
+        "plan_type": f"${membership.tier}",
+        "joined_date": joined,
+        "start_date": start,
+        "end_date": end,
+        "provider_profit": _money_str(membership.provider_profit),
+        "psb_profit": _money_str(membership.psb_profit),
+        "added_by": added_by,
+        "b2b_partner_name": partner_name or None,
+    }
+
+
+def build_motorclub_owner_summary(space) -> dict:
+    """Snapshot KPIs for companion Motor Club space detail."""
+    stats = motorclub_dashboard_stats(space)
+    return {
+        "total_memberships": stats["total_memberships"],
+        "active_memberships": stats["active_memberships"],
+        "pending_memberships": stats["pending_memberships"],
+        "cancelled_memberships": stats["cancelled_memberships"],
+        "expired_memberships": stats["expired_memberships"],
+        "insurance_channel_count": stats["insurance_channel_count"],
+        "b2b_channel_count": stats["b2b_channel_count"],
+        "direct_channel_count": stats["direct_channel_count"],
+        "provider_revenue": _money_str(stats["provider_revenue"]),
+        "psb_revenue": _money_str(stats["psb_revenue"]),
+        "tier_35_count": stats["tier_35_count"],
+        "tier_50_count": stats["tier_50_count"],
+        "tier_75_count": stats["tier_75_count"],
+        "tier_100_count": stats["tier_100_count"],
+        "b2b_partner_count": stats["b2b_partner_count"],
+    }
+
+
+def list_motorclub_memberships_for_org(
+    organization,
+    *,
+    status: str | None = None,
+    channel: str | None = None,
+    limit: int = 50,
+):
+    qs = (
+        MotorclubMembership.objects.filter(organization=organization)
+        .select_related("client", "b2b_partner", "added_by")
+        .order_by("-created_at")
+    )
+    if status:
+        qs = qs.filter(status=status)
+    if channel:
+        qs = qs.filter(channel=channel)
+    return [serialize_motorclub_membership(m) for m in qs[:limit]]
 
 
 def clients_with_insurance(organization):

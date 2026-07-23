@@ -660,7 +660,7 @@ GET /api/owner/finance/chart/?months=12
 
 | Key | Extra |
 |-----|--------|
-| `motorclub` | `active_memberships` |
+| `motorclub` | `active_memberships` (list); detail also adds `motorclub_summary` + `motorclub_memberships` |
 | `custom_inventory` | `inventory_value` |
 | `documents` | `total_records` |
 
@@ -672,8 +672,48 @@ Same as a list item, plus:
 
 - **`insurance`:** `pipeline` (quotes / bound / conversion)
 - **`tlc`:** `tlc_summary` (`total_policies`, `active_policies`, `pending_policies`, `cancelled_policies`, `month_new_policies`, aggregate profit fields, …)
+- **`motorclub`:** `motorclub_summary` (active / channel / tier / revenue KPIs) and `motorclub_memberships` (latest active rows)
 
 **`404`:** `{ "detail": "Space not found." }`
+
+---
+
+### `GET /api/owner/motorclub/memberships/`
+
+```http
+GET /api/owner/motorclub/memberships/?status=active&channel=direct&limit=50
+```
+
+| Query | Values |
+|-------|--------|
+| `status` | `active` · `pending` · `cancelled` · `expired` |
+| `channel` | `insurance_client` · `b2b` · `direct` |
+| `limit` | 1–200 (default 50) |
+
+```json
+{
+  "memberships": [
+    {
+      "id": 12,
+      "membership_number": "MC-1-00012",
+      "client_name": "Jane Doe",
+      "status": "active",
+      "channel": "direct",
+      "channel_label": "Direct / Walk-In",
+      "tier": 50,
+      "plan_type": "$50",
+      "joined_date": "2026-03-22",
+      "start_date": "2026-03-22",
+      "end_date": "2027-03-22",
+      "provider_profit": "20.00",
+      "psb_profit": "30.00",
+      "added_by": "agent1",
+      "b2b_partner_name": null
+    }
+  ],
+  "as_of": "2026-07-19"
+}
+```
 
 ---
 
@@ -853,6 +893,7 @@ GET    /api/owner/finance/chart/
 GET    /api/owner/spaces/
 GET    /api/owner/spaces/{id}/
 GET    /api/owner/insurance/policies/
+GET    /api/owner/motorclub/memberships/
 GET    /api/owner/processes/
 GET    /api/owner/notifications/
 POST   /api/owner/notifications/{id}/read/

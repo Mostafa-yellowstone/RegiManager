@@ -21,10 +21,15 @@ from .finance_hub_metrics import (
 from .models import (
     DailyPaymentTransaction,
     InsurancePolicy,
+    MotorclubMembership,
     Notification,
     Organization,
     OrganizationMembership,
     ServiceRecord,
+)
+from .motorclub_crm import (
+    build_motorclub_owner_summary,
+    list_motorclub_memberships_for_org,
 )
 from .owner_api_metrics import (
     build_dmv_finance_report,
@@ -431,7 +436,72 @@ class OwnerSpaceDetailView(OwnerAPIBase):
             from .tlc_profitability import tlc_dashboard_stats
 
             payload["tlc_summary"] = tlc_dashboard_stats(space, today=today)
+        if space.key == "motorclub":
+            summary = build_motorclub_owner_summary(space)
+            payload["motorclub_summary"] = summary
+            payload["motorclub_memberships"] = list_motorclub_memberships_for_org(
+                organization,
+                status="active",
+                limit=50,
+            )
         return Response(payload)
+
+
+class OwnerMotorclubMembershipsView(OwnerAPIBase):
+    """List Motor Club memberships for the companion Motorclub space."""
+
+    VALID_STATUSES = {
+        MotorclubMembership.StatusChoices.ACTIVE,
+        MotorclubMembership.StatusChoices.PENDING,
+        MotorclubMembership.StatusChoices.CANCELLED,
+        MotorclubMembership.StatusChoices.EXPIRED,
+    }
+    VALID_CHANNELS = {
+        MotorclubMembership.ChannelChoices.INSURANCE_CLIENT,
+        MotorclubMembership.ChannelChoices.B2B,
+        MotorclubMembership.ChannelChoices.DIRECT,
+    }
+
+    def get(self, request):
+        organization, membership, _orgs, _records, today = self.resolve_context(request)
+        if not self.can_view_spaces(membership):
+            raise PermissionDenied("Spaces access is disabled for your account.")
+
+        status_filter = request.query_params.get("status", "").strip().lower()
+        if status_filter and status_filter not in self.VALID_STATUSES:
+            return Response(
+                {"detail": "status must be active, pending, cancelled, or expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        channel = request.query_params.get("channel", "").strip().lower()
+        if channel and channel not in self.VALID_CHANNELS:
+            return Response(
+                {
+                    "detail": "channel must be insurance_client, b2b, or direct.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        limit = request.query_params.get("limit", "50")
+        try:
+            limit_n = max(1, min(int(limit), 200))
+        except (TypeError, ValueError):
+            limit_n = 50
+
+        memberships = list_motorclub_memberships_for_org(
+            organization,
+            status=status_filter or None,
+            channel=channel or None,
+            limit=limit_n,
+        )
+        return Response(
+            {
+                "memberships": memberships,
+                "results": memberships,
+                "as_of": today.isoformat(),
+            }
+        )
 
 
 class OwnerInsurancePoliciesView(OwnerAPIBase):
@@ -557,6 +627,7 @@ class OwnerNotificationsView(OwnerAPIBase):
                     "level": note.level,
                     "is_read": note.is_read,
                     "created_at": note.created_at.isoformat(),
+                    "timestamp": note.created_at.isoformat(),
                     "client_name": note.client.name if note.client_id else None,
                     "insurance_company_id": note.insurance_company_id,
                     "insurance_company_name": (

@@ -14,6 +14,7 @@ from core.models import (
     DailyPaymentTransaction,
     InsuranceCompany,
     InsurancePolicy,
+    MotorclubMembership,
     Notification,
     Organization,
     OrganizationMembership,
@@ -338,3 +339,71 @@ class OwnerAPITests(APITestCase):
         self._auth(self.agent_token)
         response = self.client.get(reverse("api-owner-finance-records"))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_motorclub_space_detail_and_memberships(self):
+        mc_space = Space.objects.create(
+            organization=self.org,
+            key="motorclub",
+            label="Motor Club",
+            description="Roadside assistance",
+        )
+        self.owner_mem.accessible_spaces.add(mc_space)
+        MotorclubMembership.objects.create(
+            organization=self.org,
+            space=mc_space,
+            client=self.client_obj,
+            channel=MotorclubMembership.ChannelChoices.DIRECT,
+            tier=50,
+            status=MotorclubMembership.StatusChoices.ACTIVE,
+            start_date=date.today(),
+            provider_profit=Decimal("20.00"),
+            psb_profit=Decimal("30.00"),
+            added_by=self.agent,
+        )
+        MotorclubMembership.objects.create(
+            organization=self.org,
+            space=mc_space,
+            client=self.client_obj,
+            channel=MotorclubMembership.ChannelChoices.B2B,
+            tier=75,
+            status=MotorclubMembership.StatusChoices.PENDING,
+            start_date=date.today(),
+            provider_profit=Decimal("25.00"),
+            psb_profit=Decimal("50.00"),
+            added_by=self.agent,
+        )
+
+        self._auth(self.owner_token)
+        detail = self.client.get(reverse("api-owner-space-detail", args=[mc_space.id]))
+        self.assertEqual(detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail.data["key"], "motorclub")
+        self.assertIn("motorclub_summary", detail.data)
+        self.assertEqual(detail.data["motorclub_summary"]["active_memberships"], 1)
+        self.assertEqual(detail.data["motorclub_summary"]["pending_memberships"], 1)
+        self.assertEqual(detail.data["motorclub_summary"]["psb_revenue"], "30.00")
+        self.assertEqual(detail.data["motorclub_summary"]["tier_50_count"], 1)
+        self.assertEqual(len(detail.data["motorclub_memberships"]), 1)
+        self.assertEqual(detail.data["motorclub_memberships"][0]["plan_type"], "$50")
+
+        active = self.client.get(
+            reverse("api-owner-motorclub-memberships"),
+            {"status": "active"},
+        )
+        self.assertEqual(active.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(active.data["memberships"]), 1)
+        self.assertEqual(active.data["memberships"][0]["status"], "active")
+        self.assertEqual(active.data["memberships"][0]["channel"], "direct")
+
+        pending = self.client.get(
+            reverse("api-owner-motorclub-memberships"),
+            {"status": "pending"},
+        )
+        self.assertEqual(pending.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(pending.data["memberships"]), 1)
+        self.assertEqual(pending.data["memberships"][0]["tier"], 75)
+
+        bad = self.client.get(
+            reverse("api-owner-motorclub-memberships"),
+            {"status": "suspended"},
+        )
+        self.assertEqual(bad.status_code, status.HTTP_400_BAD_REQUEST)
