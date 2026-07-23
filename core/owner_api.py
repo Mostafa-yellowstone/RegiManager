@@ -31,6 +31,16 @@ from .motorclub_crm import (
     build_motorclub_owner_summary,
     list_motorclub_memberships_for_org,
 )
+from .owner_space_companion import (
+    build_documents_owner_summary,
+    build_inventory_owner_summary,
+    build_knowledge_owner_summary,
+    build_tlc_owner_summary,
+    list_document_records_for_org,
+    list_inventory_products_for_org,
+    list_knowledge_materials_for_org,
+    list_tlc_policies_for_org,
+)
 from .owner_api_metrics import (
     build_dmv_finance_report,
     build_insurance_profit_report,
@@ -433,9 +443,10 @@ class OwnerSpaceDetailView(OwnerAPIBase):
                 organization.id, today, custom_range=custom_range
             )["pipeline"]
         if space.key == "tlc":
-            from .tlc_profitability import tlc_dashboard_stats
-
-            payload["tlc_summary"] = tlc_dashboard_stats(space, today=today)
+            payload["tlc_summary"] = build_tlc_owner_summary(space, today=today)
+            payload["tlc_policies"] = list_tlc_policies_for_org(
+                organization, status="active", limit=50
+            )
         if space.key == "motorclub":
             summary = build_motorclub_owner_summary(space)
             payload["motorclub_summary"] = summary
@@ -443,6 +454,21 @@ class OwnerSpaceDetailView(OwnerAPIBase):
                 organization,
                 status="active",
                 limit=50,
+            )
+        if space.key == "custom_inventory":
+            payload["inventory_summary"] = build_inventory_owner_summary(space)
+            payload["inventory_items"] = list_inventory_products_for_org(
+                organization, stock_status=None, limit=50
+            )
+        if space.key == "documents":
+            payload["documents_summary"] = build_documents_owner_summary(space)
+            payload["vault_documents"] = list_document_records_for_org(
+                organization, limit=50
+            )
+        if space.key == "knowledge_hub":
+            payload["knowledge_summary"] = build_knowledge_owner_summary(space)
+            payload["knowledge_articles"] = list_knowledge_materials_for_org(
+                organization, limit=50
             )
         return Response(payload)
 
@@ -502,6 +528,100 @@ class OwnerMotorclubMembershipsView(OwnerAPIBase):
                 "as_of": today.isoformat(),
             }
         )
+
+
+def _parse_limit(request, default: int = 50) -> int:
+    limit = request.query_params.get("limit", str(default))
+    try:
+        return max(1, min(int(limit), 200))
+    except (TypeError, ValueError):
+        return default
+
+
+class OwnerTlcPoliciesView(OwnerAPIBase):
+    def get(self, request):
+        from .tlc_models import TLCPolicy as TLCPolicyModel
+
+        organization, membership, _orgs, _records, today = self.resolve_context(request)
+        if not self.can_view_spaces(membership):
+            raise PermissionDenied("Spaces access is disabled for your account.")
+
+        status_filter = request.query_params.get("status", "").strip().lower()
+        allowed = {
+            TLCPolicyModel.Status.ACTIVE,
+            TLCPolicyModel.Status.PENDING,
+            TLCPolicyModel.Status.CANCELLED,
+            TLCPolicyModel.Status.SUSPENDED,
+            TLCPolicyModel.Status.EXPIRED,
+            TLCPolicyModel.Status.REINSTATED,
+        }
+        if status_filter and status_filter not in allowed:
+            return Response(
+                {
+                    "detail": "status must be active, pending, cancelled, suspended, expired, or reinstated.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        policies = list_tlc_policies_for_org(
+            organization,
+            status=status_filter or None,
+            limit=_parse_limit(request),
+        )
+        return Response({"policies": policies, "results": policies, "as_of": today.isoformat()})
+
+
+class OwnerInventoryProductsView(OwnerAPIBase):
+    VALID_STOCK = {"normal", "low_stock", "out_of_stock"}
+
+    def get(self, request):
+        organization, membership, _orgs, _records, today = self.resolve_context(request)
+        if not self.can_view_spaces(membership):
+            raise PermissionDenied("Spaces access is disabled for your account.")
+
+        stock = request.query_params.get("stock_status", "").strip().lower()
+        if stock and stock not in self.VALID_STOCK:
+            return Response(
+                {"detail": "stock_status must be normal, low_stock, or out_of_stock."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        items = list_inventory_products_for_org(
+            organization,
+            stock_status=stock or None,
+            limit=_parse_limit(request),
+        )
+        return Response({"items": items, "results": items, "as_of": today.isoformat()})
+
+
+class OwnerDocumentRecordsView(OwnerAPIBase):
+    def get(self, request):
+        organization, membership, _orgs, _records, today = self.resolve_context(request)
+        if not self.can_view_spaces(membership):
+            raise PermissionDenied("Spaces access is disabled for your account.")
+
+        doc_type = request.query_params.get("doc_type", "").strip()
+        records = list_document_records_for_org(
+            organization,
+            doc_type=doc_type or None,
+            limit=_parse_limit(request),
+        )
+        return Response({"documents": records, "results": records, "as_of": today.isoformat()})
+
+
+class OwnerKnowledgeMaterialsView(OwnerAPIBase):
+    def get(self, request):
+        organization, membership, _orgs, _records, today = self.resolve_context(request)
+        if not self.can_view_spaces(membership):
+            raise PermissionDenied("Spaces access is disabled for your account.")
+
+        roadmap = request.query_params.get("roadmap", "").strip()
+        materials = list_knowledge_materials_for_org(
+            organization,
+            roadmap=roadmap or None,
+            limit=_parse_limit(request),
+        )
+        return Response({"articles": materials, "results": materials, "as_of": today.isoformat()})
 
 
 class OwnerInsurancePoliciesView(OwnerAPIBase):

@@ -661,8 +661,10 @@ GET /api/owner/finance/chart/?months=12
 | Key | Extra |
 |-----|--------|
 | `motorclub` | `active_memberships` (list); detail also adds `motorclub_summary` + `motorclub_memberships` |
-| `custom_inventory` | `inventory_value` |
-| `documents` | `total_records` |
+| `custom_inventory` | `inventory_value`; detail also adds `inventory_summary` + `inventory_items` |
+| `documents` | `total_records`; detail also adds `documents_summary` + `vault_documents` |
+| `knowledge_hub` | detail adds `knowledge_summary` + `knowledge_articles` |
+| `tlc` | detail adds `tlc_summary` + `tlc_policies` |
 
 ---
 
@@ -671,8 +673,11 @@ GET /api/owner/finance/chart/?months=12
 Same as a list item, plus:
 
 - **`insurance`:** `pipeline` (quotes / bound / conversion)
-- **`tlc`:** `tlc_summary` (`total_policies`, `active_policies`, `pending_policies`, `cancelled_policies`, `month_new_policies`, aggregate profit fields, …)
+- **`tlc`:** `tlc_summary` (policy counts + aggregate profit/revenue) and `tlc_policies` (default active slice)
 - **`motorclub`:** `motorclub_summary` (active / channel / tier / revenue KPIs) and `motorclub_memberships` (latest active rows)
+- **`custom_inventory`:** `inventory_summary` (stock/value/sales KPIs) and `inventory_items`
+- **`documents`:** `documents_summary` (records/folders/types) and `vault_documents`
+- **`knowledge_hub`:** `knowledge_summary` (materials/roadmaps) and `knowledge_articles`
 
 **`404`:** `{ "detail": "Space not found." }`
 
@@ -714,6 +719,66 @@ GET /api/owner/motorclub/memberships/?status=active&channel=direct&limit=50
   "as_of": "2026-07-19"
 }
 ```
+
+---
+
+### `GET /api/owner/tlc/policies/`
+
+```http
+GET /api/owner/tlc/policies/?status=active&limit=50
+```
+
+| Query | Values |
+|-------|--------|
+| `status` | `active` · `pending` · `cancelled` · `suspended` · `expired` · `reinstated` |
+| `limit` | 1–200 (default 50) |
+
+`cancelled` includes suspended policies. Response: `{ "policies": [...], "as_of": "..." }`.
+
+---
+
+### `GET /api/owner/inventory/products/`
+
+```http
+GET /api/owner/inventory/products/?stock_status=low_stock&limit=50
+```
+
+| Query | Values |
+|-------|--------|
+| `stock_status` | `normal` · `low_stock` · `out_of_stock` |
+| `limit` | 1–200 (default 50) |
+
+Response: `{ "items": [...], "as_of": "..." }` with `item_name`, `sku`, `stock_count`, `unit_price`, `reorder_status`, `category`.
+
+---
+
+### `GET /api/owner/documents/records/`
+
+```http
+GET /api/owner/documents/records/?doc_type=Registration&limit=50
+```
+
+| Query | Values |
+|-------|--------|
+| `doc_type` | Document type name (case-insensitive) |
+| `limit` | 1–200 (default 50) |
+
+Response: `{ "documents": [...], "as_of": "..." }`.
+
+---
+
+### `GET /api/owner/knowledge/materials/`
+
+```http
+GET /api/owner/knowledge/materials/?roadmap=DMV%20Rules&limit=50
+```
+
+| Query | Values |
+|-------|--------|
+| `roadmap` | Roadmap name (case-insensitive) |
+| `limit` | 1–200 (default 50) |
+
+Response: `{ "articles": [...], "as_of": "..." }`.
 
 ---
 
@@ -894,6 +959,10 @@ GET    /api/owner/spaces/
 GET    /api/owner/spaces/{id}/
 GET    /api/owner/insurance/policies/
 GET    /api/owner/motorclub/memberships/
+GET    /api/owner/tlc/policies/
+GET    /api/owner/inventory/products/
+GET    /api/owner/documents/records/
+GET    /api/owner/knowledge/materials/
 GET    /api/owner/processes/
 GET    /api/owner/notifications/
 POST   /api/owner/notifications/{id}/read/

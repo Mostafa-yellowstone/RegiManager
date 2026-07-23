@@ -230,11 +230,14 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 from core.api import ClientViewSet, VehicleViewSet, ServiceRecordViewSet
 from core.companion_api import CompanionLoginView, CompanionLogoutView, CompanionMeView
 from core.owner_api import (
+    OwnerDocumentRecordsView,
     OwnerFinanceChartView,
     OwnerFinanceCompareView,
     OwnerFinanceRecordsView,
     OwnerFinanceSummaryView,
     OwnerInsurancePoliciesView,
+    OwnerInventoryProductsView,
+    OwnerKnowledgeMaterialsView,
     OwnerMotorclubMembershipsView,
     OwnerNotificationMarkAllReadView,
     OwnerNotificationReadView,
@@ -243,6 +246,7 @@ from core.owner_api import (
     OwnerProcessesView,
     OwnerSpaceDetailView,
     OwnerSpacesListView,
+    OwnerTlcPoliciesView,
 )
 
 
@@ -281,6 +285,10 @@ urlpatterns = [
     path('api/owner/spaces/<int:space_id>/', OwnerSpaceDetailView.as_view(), name='api-owner-space-detail'),
     path('api/owner/insurance/policies/', OwnerInsurancePoliciesView.as_view(), name='api-owner-insurance-policies'),
     path('api/owner/motorclub/memberships/', OwnerMotorclubMembershipsView.as_view(), name='api-owner-motorclub-memberships'),
+    path('api/owner/tlc/policies/', OwnerTlcPoliciesView.as_view(), name='api-owner-tlc-policies'),
+    path('api/owner/inventory/products/', OwnerInventoryProductsView.as_view(), name='api-owner-inventory-products'),
+    path('api/owner/documents/records/', OwnerDocumentRecordsView.as_view(), name='api-owner-document-records'),
+    path('api/owner/knowledge/materials/', OwnerKnowledgeMaterialsView.as_view(), name='api-owner-knowledge-materials'),
     path('api/owner/processes/', OwnerProcessesView.as_view(), name='api-owner-processes'),
     path('api/owner/notifications/', OwnerNotificationsView.as_view(), name='api-owner-notifications'),
     path('api/owner/notifications/mark-all-read/', OwnerNotificationMarkAllReadView.as_view(), name='api-owner-notifications-mark-all'),

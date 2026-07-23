@@ -407,3 +407,137 @@ class OwnerAPITests(APITestCase):
             {"status": "suspended"},
         )
         self.assertEqual(bad.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_companion_space_books_detail_and_lists(self):
+        from core.models import (
+            InventoryProduct,
+            KnowledgeHubMaterial,
+            SpaceDocumentRecord,
+            SpaceDocumentType,
+        )
+        from core.tlc_models import TLCPolicy
+
+        inv_space = Space.objects.create(
+            organization=self.org,
+            key="custom_inventory",
+            label="Kimo's Bikes",
+            description="Inventory book",
+        )
+        docs_space = Space.objects.create(
+            organization=self.org,
+            key="documents",
+            label="Documents",
+            description="Vault",
+        )
+        kh_space = Space.objects.create(
+            organization=self.org,
+            key="knowledge_hub",
+            label="Knowledge Hub",
+            description="Training",
+        )
+        tlc_space = Space.objects.create(
+            organization=self.org,
+            key="tlc",
+            label="TLC",
+            description="TLC policies",
+        )
+        for space in (inv_space, docs_space, kh_space, tlc_space):
+            self.owner_mem.accessible_spaces.add(space)
+
+        InventoryProduct.objects.create(
+            organization=self.org,
+            space=inv_space,
+            name="City Cruiser",
+            sku="BIKE-01",
+            quantity=3,
+            low_stock_threshold=5,
+            unit_price=Decimal("120.00"),
+        )
+        InventoryProduct.objects.create(
+            organization=self.org,
+            space=inv_space,
+            name="Cargo Kit",
+            sku="BIKE-02",
+            quantity=0,
+            low_stock_threshold=2,
+            unit_price=Decimal("250.00"),
+        )
+        doc_type = SpaceDocumentType.objects.create(
+            space=docs_space,
+            organization=self.org,
+            name="Registration",
+        )
+        SpaceDocumentRecord.objects.create(
+            space=docs_space,
+            organization=self.org,
+            document_type=doc_type,
+            order_number="ORD-1",
+            quantity=1,
+            added_by=self.agent,
+        )
+        KnowledgeHubMaterial.objects.create(
+            space=kh_space,
+            roadmap_name="DMV Rules",
+            title="Plate Filing",
+            description="How to file plates",
+            step_number=1,
+        )
+        TLCPolicy.objects.create(
+            organization=self.org,
+            space=tlc_space,
+            policy_number="TLC-100",
+            named_insured="Midtown Limo",
+            status=TLCPolicy.Status.ACTIVE,
+            carrier="Lancer",
+        )
+        TLCPolicy.objects.create(
+            organization=self.org,
+            space=tlc_space,
+            policy_number="TLC-200",
+            named_insured="Queens Shuttle",
+            status=TLCPolicy.Status.PENDING,
+            carrier="Progressive",
+        )
+
+        self._auth(self.owner_token)
+
+        inv_detail = self.client.get(reverse("api-owner-space-detail", args=[inv_space.id]))
+        self.assertEqual(inv_detail.status_code, status.HTTP_200_OK)
+        self.assertIn("inventory_summary", inv_detail.data)
+        self.assertEqual(inv_detail.data["inventory_summary"]["total_products"], 2)
+        self.assertEqual(len(inv_detail.data["inventory_items"]), 2)
+
+        low = self.client.get(
+            reverse("api-owner-inventory-products"),
+            {"stock_status": "low_stock"},
+        )
+        self.assertEqual(low.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(low.data["items"]), 1)
+        self.assertEqual(low.data["items"][0]["sku"], "BIKE-01")
+
+        docs_detail = self.client.get(reverse("api-owner-space-detail", args=[docs_space.id]))
+        self.assertEqual(docs_detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(docs_detail.data["documents_summary"]["total_records"], 1)
+        self.assertEqual(len(docs_detail.data["vault_documents"]), 1)
+
+        kh_detail = self.client.get(reverse("api-owner-space-detail", args=[kh_space.id]))
+        self.assertEqual(kh_detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(kh_detail.data["knowledge_summary"]["total_materials"], 1)
+        materials = self.client.get(
+            reverse("api-owner-knowledge-materials"),
+            {"roadmap": "DMV Rules"},
+        )
+        self.assertEqual(materials.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(materials.data["articles"]), 1)
+
+        tlc_detail = self.client.get(reverse("api-owner-space-detail", args=[tlc_space.id]))
+        self.assertEqual(tlc_detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(tlc_detail.data["tlc_summary"]["active_policies"], 1)
+        self.assertEqual(len(tlc_detail.data["tlc_policies"]), 1)
+        pending = self.client.get(
+            reverse("api-owner-tlc-policies"),
+            {"status": "pending"},
+        )
+        self.assertEqual(pending.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(pending.data["policies"]), 1)
+        self.assertEqual(pending.data["policies"][0]["policy_number"], "TLC-200")
