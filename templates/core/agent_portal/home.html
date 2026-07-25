@@ -4,7 +4,7 @@
 {% block title %}My Portal | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=2">
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=3">
 {% endblock %}
 
 {% block portal_content %}
@@ -151,7 +151,6 @@
             </ol>
         </section>
     </div>
-</main>
 
 {% if can_view_spaces %}
 <dialog class="agent-spaces-modal" id="spacesPickerModal" aria-labelledby="spacesPickerTitle">
@@ -210,8 +209,9 @@
     </div>
 </dialog>
 {% endif %}
+</main>
 {% endblock %}
 
 {% block portal_scripts %}
-<script src="{% static 'core/js/agent_portal.js' %}?v=2" defer></script>
+<script src="{% static 'core/js/agent_portal.js' %}?v=3" defer></script>
 {% endblock %}

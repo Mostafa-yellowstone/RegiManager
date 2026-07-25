@@ -417,46 +417,62 @@
 /* ── Spaces picker modal ─────────────────────────────────────────── */
 
 .agent-spaces-modal {
-  border: none;
-  border-radius: 28px;
+  /* Own tokens: dialog is top-layer and must not rely on .agent-portal alone */
+  --ap-accent: #0f766e;
+  --ap-accent-soft: rgba(15, 118, 110, 0.12);
+  --ap-ink: #14212b;
+  --ap-muted: #5b6b76;
+  --ap-line: rgba(20, 33, 43, 0.12);
+  --ap-card: #ffffff;
+  --ap-wash: linear-gradient(160deg, #eef7f4 0%, #f8f7f3 55%, #eef2f7 100%);
+
+  border: 0;
   padding: 0;
-  max-width: min(720px, calc(100vw - 1.5rem));
-  width: 100%;
-  background: transparent;
+  margin: auto;
+  max-width: min(680px, calc(100vw - 2rem));
+  width: min(680px, calc(100vw - 2rem));
+  background: transparent !important;
   color: var(--ap-ink);
   box-shadow: none;
+  overflow: visible;
+}
+
+.portal-theme-dark .agent-spaces-modal {
+  --ap-accent: #5eead4;
+  --ap-accent-soft: rgba(94, 234, 212, 0.14);
+  --ap-ink: #ecf3f7;
+  --ap-muted: #9fb0bc;
+  --ap-line: rgba(236, 243, 247, 0.14);
+  --ap-card: #162029;
+  --ap-wash: linear-gradient(160deg, #102018 0%, #121a22 55%, #182230 100%);
+}
+
+.agent-spaces-modal[open] {
+  display: block;
 }
 
 .agent-spaces-modal::backdrop {
-  background:
-    radial-gradient(ellipse at top, rgba(15, 118, 110, 0.22), transparent 55%),
-    rgba(10, 16, 22, 0.52);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .portal-theme-dark .agent-spaces-modal::backdrop {
-  background:
-    radial-gradient(ellipse at top, rgba(94, 234, 212, 0.16), transparent 50%),
-    rgba(2, 8, 14, 0.72);
+  background: rgba(2, 8, 14, 0.55);
 }
 
 .agent-spaces-modal__panel {
   background: var(--ap-card);
   border: 1px solid var(--ap-line);
-  border-radius: 28px;
+  border-radius: 24px;
   overflow: hidden;
-  box-shadow:
-    0 28px 80px rgba(8, 18, 28, 0.28),
-    0 2px 0 rgba(255, 255, 255, 0.35) inset;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18);
   animation: agent-spaces-rise 0.28s ease;
 }
 
 .portal-theme-dark .agent-spaces-modal__panel {
   background: linear-gradient(180deg, #1a2630 0%, #131c24 100%);
-  box-shadow:
-    0 28px 80px rgba(0, 0, 0, 0.55),
-    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
 }
 
 @keyframes agent-spaces-rise {
@@ -487,6 +503,7 @@
   margin: 0;
   font-size: 1.35rem;
   letter-spacing: -0.02em;
+  color: var(--ap-ink);
 }
 
 .agent-spaces-modal__sub {
@@ -520,6 +537,7 @@
   padding: 1.1rem 1.2rem 0.4rem;
   max-height: min(58vh, 520px);
   overflow: auto;
+  background: var(--ap-card);
 }
 
 .agent-spaces-grid {
@@ -527,7 +545,7 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 0.85rem;
 }
 
@@ -677,6 +695,7 @@
   gap: 0.75rem;
   padding: 0.9rem 1.2rem 1.15rem;
   border-top: 1px solid var(--ap-line);
+  background: var(--ap-card);
 }
 
 .agent-spaces-modal__footer a {
