@@ -82,6 +82,14 @@ CORE_ADMIN_GROUPS = (
             "TLCPolicyTimelineEvent",
         ),
     ),
+    (
+        "Agent Portal",
+        (
+            "AgentTask",
+            "AgentAttendanceSession",
+            "AgentActivityEvent",
+        ),
+    ),
 )
 
 CORE_GROUP_ORDER = {name: index for index, (name, _) in enumerate(CORE_ADMIN_GROUPS)}

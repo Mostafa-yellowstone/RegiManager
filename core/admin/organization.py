@@ -278,14 +278,17 @@ class AgentTaskAdmin(admin.ModelAdmin):
         "created_by__username",
     )
     list_editable = ("is_done",)
-    autocomplete_fields = ("organization", "assigned_to", "created_by")
+    # Keep FK pickers simple so tasks can be created even when autocomplete
+    # search wiring for User/Membership is incomplete on some deploys.
+    raw_id_fields = ("assigned_to", "created_by")
+    autocomplete_fields = ("organization",)
     readonly_fields = ("completed_at", "created_at", "updated_at")
     date_hierarchy = "created_at"
     ordering = ("is_done", "-created_at")
     actions = ("mark_tasks_done", "mark_tasks_open")
     fieldsets = (
         (
-            None,
+            "Task",
             {
                 "fields": (
                     "organization",
