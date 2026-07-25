@@ -16,11 +16,32 @@
 
   var spacesBtn = document.getElementById("spacesPickerBtn");
   var spacesModal = document.getElementById("spacesPickerModal");
+  var spacesClose = document.getElementById("spacesPickerClose");
+  var spacesDismiss = document.getElementById("spacesPickerDismiss");
+
+  function openSpacesModal() {
+    if (!spacesModal || typeof spacesModal.showModal !== "function") return;
+    spacesModal.showModal();
+    var first = spacesModal.querySelector(".agent-space-tile, .agent-spaces-close");
+    if (first) first.focus();
+  }
+
+  function closeSpacesModal() {
+    if (!spacesModal || typeof spacesModal.close !== "function") return;
+    spacesModal.close();
+    if (spacesBtn) spacesBtn.focus();
+  }
+
   if (spacesBtn && spacesModal) {
-    spacesBtn.addEventListener("click", function () {
-      if (typeof spacesModal.showModal === "function") {
-        spacesModal.showModal();
-      }
+    spacesBtn.addEventListener("click", openSpacesModal);
+    if (spacesClose) spacesClose.addEventListener("click", closeSpacesModal);
+    if (spacesDismiss) spacesDismiss.addEventListener("click", closeSpacesModal);
+    spacesModal.addEventListener("click", function (event) {
+      if (event.target === spacesModal) closeSpacesModal();
+    });
+    spacesModal.addEventListener("cancel", function (event) {
+      event.preventDefault();
+      closeSpacesModal();
     });
   }
 

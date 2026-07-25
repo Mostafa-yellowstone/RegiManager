@@ -4,7 +4,7 @@
 {% block title %}My Portal | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=1">
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=2">
 {% endblock %}
 
 {% block portal_content %}
@@ -154,36 +154,64 @@
 </main>
 
 {% if can_view_spaces %}
-<dialog class="agent-spaces-modal" id="spacesPickerModal">
-    <form method="dialog" class="agent-spaces-modal__inner">
-        <header>
-            <h2>Open a space</h2>
-            <button type="submit" class="agent-spaces-close" aria-label="Close">×</button>
+<dialog class="agent-spaces-modal" id="spacesPickerModal" aria-labelledby="spacesPickerTitle">
+    <div class="agent-spaces-modal__panel">
+        <header class="agent-spaces-modal__header">
+            <div>
+                <p class="agent-spaces-modal__eyebrow">Your workspaces</p>
+                <h2 id="spacesPickerTitle">Open a space</h2>
+                <p class="agent-spaces-modal__sub">Choose a book to continue working. Only spaces assigned to you are shown.</p>
+            </div>
+            <button type="button" class="agent-spaces-close" id="spacesPickerClose" aria-label="Close spaces picker">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
         </header>
-        <ul class="agent-spaces-list">
-            {% for space in space_cards %}
-            <li>
-                <a href="{% url 'inventory-detail' space.id %}">
-                    {% if space.logo %}
-                    <img src="{{ space.logo.url }}" alt="">
-                    {% else %}
-                    <span class="agent-spaces-fallback">{{ space.label|slice:":1"|upper }}</span>
-                    {% endif %}
-                    <span>
-                        <strong>{{ space.label }}</strong>
-                        <small>{{ space.key }}</small>
-                    </span>
-                </a>
-            </li>
-            {% empty %}
-            <li class="agent-empty">No spaces assigned. Ask an owner to grant Spaces access.</li>
-            {% endfor %}
-        </ul>
-    </form>
+
+        <div class="agent-spaces-modal__body">
+            {% if space_cards %}
+            <ul class="agent-spaces-grid">
+                {% for space in space_cards %}
+                <li>
+                    <a href="{% url 'inventory-detail' space.id %}" class="agent-space-tile agent-space-tile--{{ space.key|default:'generic' }}">
+                        <span class="agent-space-tile__accent" aria-hidden="true"></span>
+                        <span class="agent-space-tile__brand">
+                            {% if space.logo %}
+                            <img src="{{ space.logo.url }}" alt="" class="agent-space-tile__logo">
+                            {% else %}
+                            <span class="agent-space-tile__fallback">{{ space.label|slice:":1"|upper }}</span>
+                            {% endif %}
+                        </span>
+                        <span class="agent-space-tile__copy">
+                            <span class="agent-space-tile__key">{{ space.key }}</span>
+                            <strong class="agent-space-tile__title">{{ space.label }}</strong>
+                            <span class="agent-space-tile__desc">{{ space.description|default:"Open this workspace to continue."|truncatechars:90 }}</span>
+                        </span>
+                        <span class="agent-space-tile__cta">
+                            Open
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+                        </span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="agent-spaces-empty">
+                <strong>No spaces assigned yet</strong>
+                <p>Ask an owner to enable Spaces and attach the books you need.</p>
+                <a href="{% url 'spaces-home' %}" class="btn btn-secondary">Go to Spaces page</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <footer class="agent-spaces-modal__footer">
+            <a href="{% url 'spaces-home' %}">View all Spaces</a>
+            <button type="button" class="agent-spaces-dismiss" id="spacesPickerDismiss">Close</button>
+        </footer>
+    </div>
 </dialog>
 {% endif %}
 {% endblock %}
 
 {% block portal_scripts %}
-<script src="{% static 'core/js/agent_portal.js' %}?v=1" defer></script>
+<script src="{% static 'core/js/agent_portal.js' %}?v=2" defer></script>
 {% endblock %}

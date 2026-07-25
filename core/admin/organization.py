@@ -198,7 +198,13 @@ class OrganizationMembershipAdmin(admin.ModelAdmin):
         "can_manage_referrals",
         "can_trigger_automation",
     )
-    search_fields = ("organization__name", "user__username", "user__email")
+    search_fields = (
+        "organization__name",
+        "user__username",
+        "user__email",
+        "user__first_name",
+        "user__last_name",
+    )
     filter_horizontal = ("accessible_spaces",)
     fieldsets = (
         (None, {"fields": ("organization", "user", "role", "is_active")}),
@@ -252,9 +258,84 @@ class AgentAttendanceSessionAdmin(admin.ModelAdmin):
 
 @admin.register(AgentTask)
 class AgentTaskAdmin(admin.ModelAdmin):
-    list_display = ("title", "organization", "assigned_to", "is_done", "due_date", "created_at")
-    list_filter = ("organization", "is_done")
-    search_fields = ("title", "assigned_to__user__username")
+    list_display = (
+        "title",
+        "organization",
+        "assigned_to_label",
+        "is_done",
+        "due_date",
+        "created_by",
+        "created_at",
+        "completed_at",
+    )
+    list_filter = ("organization", "is_done", "due_date", "created_at")
+    search_fields = (
+        "title",
+        "description",
+        "assigned_to__user__username",
+        "assigned_to__user__first_name",
+        "assigned_to__user__last_name",
+        "created_by__username",
+    )
+    list_editable = ("is_done",)
+    autocomplete_fields = ("organization", "assigned_to", "created_by")
+    readonly_fields = ("completed_at", "created_at", "updated_at")
+    date_hierarchy = "created_at"
+    ordering = ("is_done", "-created_at")
+    actions = ("mark_tasks_done", "mark_tasks_open")
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "organization",
+                    "assigned_to",
+                    "title",
+                    "description",
+                    "due_date",
+                )
+            },
+        ),
+        (
+            "Status",
+            {
+                "fields": ("is_done", "completed_at", "created_by", "created_at", "updated_at"),
+            },
+        ),
+    )
+
+    @admin.display(description="Assigned to", ordering="assigned_to__user__username")
+    def assigned_to_label(self, obj):
+        user = obj.assigned_to.user if obj.assigned_to_id else None
+        if not user:
+            return "—"
+        return user.get_full_name().strip() or user.username
+
+    def save_model(self, request, obj, form, change):
+        from django.utils import timezone
+
+        if obj.is_done and not obj.completed_at:
+            obj.completed_at = timezone.now()
+        if not obj.is_done:
+            obj.completed_at = None
+        if not change and obj.created_by_id is None:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+
+    @admin.action(description="Mark selected tasks as done")
+    def mark_tasks_done(self, request, queryset):
+        from django.utils import timezone
+
+        updated = queryset.filter(is_done=False).update(
+            is_done=True,
+            completed_at=timezone.now(),
+        )
+        self.message_user(request, f"Marked {updated} task(s) done.")
+
+    @admin.action(description="Reopen selected tasks")
+    def mark_tasks_open(self, request, queryset):
+        updated = queryset.filter(is_done=True).update(is_done=False, completed_at=None)
+        self.message_user(request, f"Reopened {updated} task(s).")
 
 
 @admin.register(AgentActivityEvent)
