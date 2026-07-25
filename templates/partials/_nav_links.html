@@ -1,7 +1,13 @@
-<a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" role="menuitem">
-    <span class="nav-label nav-label--full">Dashboard</span>
-    <span class="nav-label nav-label--short" aria-hidden="true">Home</span>
+<a href="{% if show_agent_portal_nav %}{% url 'agent-portal-home' %}{% else %}{% url 'dashboard' %}{% endif %}" class="nav-link {% if request.resolver_match.url_name == 'agent-portal-home' or request.resolver_match.url_name == 'agent-portal-manage-tasks' %}active{% elif not show_agent_portal_nav and request.resolver_match.url_name == 'dashboard' %}active{% endif %}" role="menuitem">
+    <span class="nav-label nav-label--full">{% if show_agent_portal_nav %}My Portal{% else %}Dashboard{% endif %}</span>
+    <span class="nav-label nav-label--short" aria-hidden="true">{% if show_agent_portal_nav %}Portal{% else %}Home{% endif %}</span>
 </a>
+{% if show_agent_portal_nav %}
+<a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" role="menuitem">
+    <span class="nav-label nav-label--full">Ops Dashboard</span>
+    <span class="nav-label nav-label--short" aria-hidden="true">Ops</span>
+</a>
+{% endif %}
 <a href="{% url 'all-clients' %}" class="nav-link {% if 'client' in request.path %}active{% endif %}" role="menuitem">Clients</a>
 {% if automation_enabled %}
 <a href="{% url 'upcoming-expirations' %}" class="nav-link {% if 'automation' in request.path or 'expirations' in request.path %}active{% endif %}" role="menuitem">

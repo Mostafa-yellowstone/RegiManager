@@ -1,0 +1,64 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}Assign Agent Tasks | RegiManager{% endblock %}
+
+{% block portal_head %}
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=1">
+{% endblock %}
+
+{% block portal_content %}
+<main class="agent-portal agent-portal--manage">
+    <header class="agent-manage-head">
+        <div>
+            <p class="agent-portal__eyebrow">Lead tools · {{ organization.name }}</p>
+            <h1>Assign agent tasks</h1>
+            <p class="agent-portal__meta">Tasks stay open until the agent (or you) marks them done.</p>
+        </div>
+        <a class="btn btn-secondary" href="{% url 'agent-portal-home' %}">Back to portal</a>
+    </header>
+
+    <section class="agent-card">
+        <h2>New task</h2>
+        <form method="post" class="agent-assign-inline">
+            {% csrf_token %}
+            <div class="agent-assign-row">
+                {{ form.assigned_to }}
+                {{ form.title }}
+            </div>
+            {{ form.description }}
+            <div class="agent-assign-row">
+                {{ form.due_date }}
+                <button type="submit" class="btn btn-primary">Assign task</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="agent-card">
+        <header class="agent-card__head">
+            <h2>Team checklist</h2>
+        </header>
+        <ul class="agent-task-list agent-task-list--manage">
+            {% for task in tasks %}
+            <li class="agent-task {% if task.is_done %}is-done{% endif %}">
+                <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="toggle" value="1">
+                    <input type="hidden" name="next" value="{% url 'agent-portal-manage-tasks' %}">
+                    <label class="agent-check">
+                        <input type="checkbox" {% if task.is_done %}checked{% endif %} onchange="this.form.submit()">
+                        <span class="agent-check__box" aria-hidden="true"></span>
+                        <span class="agent-check__label">
+                            <strong>{{ task.title }}</strong>
+                            <small>{{ task.assigned_to.user.get_full_name|default:task.assigned_to.user.username }}{% if task.description %} · {{ task.description }}{% endif %}</small>
+                        </span>
+                    </label>
+                </form>
+            </li>
+            {% empty %}
+            <li class="agent-empty">No tasks yet.</li>
+            {% endfor %}
+        </ul>
+    </section>
+</main>
+{% endblock %}

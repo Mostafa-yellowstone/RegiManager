@@ -37,6 +37,23 @@ def _membership_context(request):
     can_manage_email_marketing = is_owner or any(
         m.can_manage_email_marketing for m in active_memberships
     )
+    show_agent_portal_nav = (not is_owner) and any(
+        m.can_deal_with_insurance for m in active_memberships
+    )
+    photo_membership = next(
+        (m for m in active_memberships if getattr(m, "profile_photo", None)),
+        None,
+    )
+    if photo_membership is None:
+        photo_membership = next(
+            (m for m in memberships if getattr(m, "profile_photo", None)),
+            None,
+        )
+    nav_profile_photo_url = (
+        photo_membership.profile_photo.url
+        if photo_membership and photo_membership.profile_photo
+        else ""
+    )
 
     result = {
         "automation_enabled": enabled,
@@ -45,6 +62,8 @@ def _membership_context(request):
         "can_view_finance_bi": can_view_finance_bi,
         "can_view_spaces": can_view_spaces,
         "can_manage_email_marketing": can_manage_email_marketing,
+        "show_agent_portal_nav": show_agent_portal_nav,
+        "nav_profile_photo_url": nav_profile_photo_url,
         "user_organizations": user_organizations,
         "active_organization": active_organization,
     }
@@ -60,6 +79,8 @@ def automation_status(request):
             "can_view_partners": False,
             "can_view_finance_bi": False,
             "can_manage_email_marketing": False,
+            "show_agent_portal_nav": False,
+            "nav_profile_photo_url": "",
             "notif_unread_count": 0,
             "top_notifications": [],
             "user_organizations": [],

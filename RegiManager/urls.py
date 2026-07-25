@@ -20,6 +20,13 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
 
+from core.agent_portal_views import (
+    agent_portal_create_task,
+    agent_portal_home,
+    agent_portal_manage_tasks,
+    agent_portal_toggle_task,
+    agent_portal_upload_photo,
+)
 from core.views import (
     dashboard,
     home,
@@ -305,6 +312,11 @@ urlpatterns = [
     path("auth/logout/", logout_view, name="logout"),
     path("auth/member-signup/", member_signup, name="member-signup"),
     path("dashboard/", dashboard, name="dashboard"),
+    path("dashboard/agent-portal/", agent_portal_home, name="agent-portal-home"),
+    path("dashboard/agent-portal/photo/", agent_portal_upload_photo, name="agent-portal-upload-photo"),
+    path("dashboard/agent-portal/tasks/toggle/<int:task_id>/", agent_portal_toggle_task, name="agent-portal-toggle-task"),
+    path("dashboard/agent-portal/tasks/create/", agent_portal_create_task, name="agent-portal-create-task"),
+    path("dashboard/agent-portal/tasks/manage/", agent_portal_manage_tasks, name="agent-portal-manage-tasks"),
     path("dashboard/psb/license/", edit_psb_license, name="edit-psb-license"),
     path("dashboard/reports/monthly-pdf/", monthly_report_pdf, name="monthly-report-pdf"),
     path("dashboard/reports/daily-pdf/", daily_report_pdf, name="daily-report-pdf"),

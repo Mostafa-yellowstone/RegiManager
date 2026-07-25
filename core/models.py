@@ -199,6 +199,16 @@ class OrganizationMembership(models.Model):
         default=False,
         help_text="Can this member manage TLC policy profitability records?",
     )
+    can_assign_agent_tasks = models.BooleanField(
+        default=False,
+        help_text="Lead agents: can create and assign portal checklist tasks to other agents.",
+    )
+    profile_photo = models.ImageField(
+        upload_to="agent_profiles/",
+        blank=True,
+        null=True,
+        help_text="Agent profile photo shown on the agent portal home.",
+    )
     can_delete_receipt = models.BooleanField(default=False, help_text="Can this agent delete/remove receipt records from the service list?")
     can_issue_refund = models.BooleanField(
         default=False,
@@ -2669,5 +2679,12 @@ from .tlc_models import (  # noqa: E402,F401
     TLCInstallmentReminder,
     TLCCarrierStatement,
     TLCCarrierStatementLine,
+)
+
+# Agent portal (attendance, tasks, activity timeline)
+from .agent_portal_models import (  # noqa: E402,F401
+    AgentActivityEvent,
+    AgentAttendanceSession,
+    AgentTask,
 )
 

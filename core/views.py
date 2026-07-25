@@ -684,7 +684,9 @@ def login_view(request):
     if request.user.is_authenticated:
         if request.user.is_superuser:
             return redirect("/admin/")
-        return redirect("dashboard")
+        from .agent_portal_views import agent_portal_login_redirect
+
+        return redirect(agent_portal_login_redirect(request))
 
     if request.method == "POST":
         form = DMVAuthenticationForm(request, data=request.POST)
@@ -693,7 +695,9 @@ def login_view(request):
             login(request, user)
             if user.is_superuser:
                 return redirect("/admin/")
-            return redirect("dashboard")
+            from .agent_portal_views import agent_portal_login_redirect
+
+            return redirect(agent_portal_login_redirect(request))
     else:
         form = DMVAuthenticationForm(request)
 

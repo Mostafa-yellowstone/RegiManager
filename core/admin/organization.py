@@ -4,6 +4,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 
 from ..models import Organization, OrganizationMembership, UserSession
+from ..agent_portal_models import AgentActivityEvent, AgentAttendanceSession, AgentTask
 from ..us_states import US_STATES, normalize_state_code
 
 
@@ -35,12 +36,14 @@ class MembershipInline(admin.TabularInline):
         "can_trigger_automation",
         "can_view_spaces",
         "can_deal_with_insurance",
+        "can_assign_agent_tasks",
         "can_delete_receipt",
         "can_issue_refund",
         "can_view_banking",
         "can_manage_news",
         "can_manage_knowledge_hub",
         "accessible_spaces",
+        "profile_photo",
         "signature",
     )
     readonly_fields = ("user",)
@@ -210,6 +213,7 @@ class OrganizationMembershipAdmin(admin.ModelAdmin):
                     "can_deal_with_insurance",
                     "can_deal_with_motorclub",
                     "can_deal_with_tlc",
+                    "can_assign_agent_tasks",
                     "can_delete_receipt",
                     "can_issue_refund",
                     "can_view_banking",
@@ -227,7 +231,7 @@ class OrganizationMembershipAdmin(admin.ModelAdmin):
                 "fields": ("can_view_spaces", "accessible_spaces"),
             },
         ),
-        ("Other", {"fields": ("signature",)}),
+        ("Profile", {"fields": ("profile_photo", "signature")}),
     )
 
 
@@ -236,3 +240,26 @@ class UserSessionAdmin(admin.ModelAdmin):
     list_display = ("user", "session_key", "created_at")
     search_fields = ("user__username",)
     readonly_fields = ("user", "session_key", "created_at")
+
+
+@admin.register(AgentAttendanceSession)
+class AgentAttendanceSessionAdmin(admin.ModelAdmin):
+    list_display = ("membership", "organization", "work_date", "opened_at", "closed_at")
+    list_filter = ("organization", "work_date")
+    search_fields = ("membership__user__username", "organization__name")
+    readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(AgentTask)
+class AgentTaskAdmin(admin.ModelAdmin):
+    list_display = ("title", "organization", "assigned_to", "is_done", "due_date", "created_at")
+    list_filter = ("organization", "is_done")
+    search_fields = ("title", "assigned_to__user__username")
+
+
+@admin.register(AgentActivityEvent)
+class AgentActivityEventAdmin(admin.ModelAdmin):
+    list_display = ("title", "domain", "event_type", "organization", "actor", "created_at")
+    list_filter = ("domain", "event_type", "organization")
+    search_fields = ("title", "detail", "actor__username")
+    readonly_fields = ("created_at",)

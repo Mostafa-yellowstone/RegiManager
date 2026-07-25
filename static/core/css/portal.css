@@ -2127,6 +2127,12 @@ html.portal-theme-dark .branch-compare__analytics-btn:hover {
     border: 1px solid var(--portal-border);
 }
 
+.avatar-circle--photo {
+    object-fit: cover;
+    padding: 0;
+    overflow: hidden;
+}
+
 .avatar-circle {
     width: 32px;
     height: 32px;

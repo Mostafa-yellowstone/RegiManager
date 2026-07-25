@@ -1,0 +1,189 @@
+{% extends "base_portal.html" %}
+{% load static tz %}
+
+{% block title %}My Portal | RegiManager{% endblock %}
+
+{% block portal_head %}
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=1">
+{% endblock %}
+
+{% block portal_content %}
+<main class="agent-portal">
+    <section class="agent-portal__hero">
+        <div class="agent-portal__identity">
+            <form method="post" action="{% url 'agent-portal-upload-photo' %}" enctype="multipart/form-data" class="agent-photo-form" id="agentPhotoForm">
+                {% csrf_token %}
+                <label class="agent-photo-frame" for="agent-photo-input" title="Add or change photo">
+                    {% if membership.profile_photo %}
+                    <img src="{{ membership.profile_photo.url }}" alt="Profile photo" class="agent-photo-img">
+                    {% else %}
+                    <span class="agent-photo-initials">{{ request.user.first_name|slice:":1"|upper|default:request.user.username|slice:":1"|upper }}</span>
+                    {% endif %}
+                    <span class="agent-photo-overlay" aria-hidden="true">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    </span>
+                </label>
+                {{ photo_form.profile_photo }}
+            </form>
+            <div class="agent-portal__who">
+                <p class="agent-portal__eyebrow">Agent portal · {{ organization.name }}</p>
+                <h1>{{ request.user.get_full_name|default:request.user.username }}</h1>
+                <p class="agent-portal__meta">{{ user_nav_role }} · Cairo {{ cairo_now|date:"g:i A" }}</p>
+            </div>
+        </div>
+        <div class="agent-portal__quick">
+            {% if can_view_spaces %}
+            <button type="button" class="agent-icon-btn" id="spacesPickerBtn" aria-haspopup="dialog" aria-controls="spacesPickerModal" title="Open a space">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                <span>Spaces</span>
+            </button>
+            {% endif %}
+            {% if can_manage_tasks %}
+            <a class="agent-icon-btn" href="{% url 'agent-portal-manage-tasks' %}" title="Assign tasks">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <span>Assign</span>
+            </a>
+            {% endif %}
+            <a class="agent-icon-btn agent-icon-btn--ghost" href="{% url 'dashboard' %}" title="Operations dashboard">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>
+                <span>Dashboard</span>
+            </a>
+        </div>
+    </section>
+
+    <div class="agent-portal__grid">
+        <section class="agent-card agent-card--attendance">
+            <header class="agent-card__head">
+                <h2>Attendance</h2>
+                <span class="agent-pill {% if attendance.is_open %}agent-pill--live{% else %}agent-pill--done{% endif %}">
+                    {% if attendance.is_open %}On shift{% else %}Closed{% endif %}
+                </span>
+            </header>
+            <p class="agent-card__lead">Shift for <strong>{{ work_date|date:"D, M j, Y" }}</strong> (Egypt). Auto-closes {{ close_at|date:"D M j · g:i A" }} Cairo.</p>
+            <dl class="agent-attendance-stats">
+                <div>
+                    <dt>Opened</dt>
+                    <dd>{{ attendance.opened_at|timezone:"Africa/Cairo"|date:"g:i A" }}</dd>
+                </div>
+                <div>
+                    <dt>Closes</dt>
+                    <dd>{{ close_at|date:"g:i A" }}</dd>
+                </div>
+                <div>
+                    <dt>Status</dt>
+                    <dd>{% if attendance.closed_at %}Ended {{ attendance.closed_at|timezone:"Africa/Cairo"|date:"g:i A" }}{% else %}In progress{% endif %}</dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="agent-card agent-card--tasks">
+            <header class="agent-card__head">
+                <h2>My tasks</h2>
+                <span class="agent-pill">{{ task_progress.done }}/{{ task_progress.total }}</span>
+            </header>
+            <div class="agent-progress" data-percent="{{ task_progress.percent }}" style="--progress: {{ task_progress.percent }};">
+                <div class="agent-progress__ring" aria-hidden="true">
+                    <svg viewBox="0 0 36 36">
+                        <path class="agent-progress__bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                        <path class="agent-progress__fg" stroke-dasharray="{{ task_progress.percent }}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                    </svg>
+                    <strong id="taskProgressPct">{{ task_progress.percent }}%</strong>
+                </div>
+                <p>Persistent checklist — stays until you mark it done.</p>
+            </div>
+            <ul class="agent-task-list" id="agentTaskList">
+                {% for task in task_progress.tasks %}
+                <li class="agent-task {% if task.is_done %}is-done{% endif %}" data-task-id="{{ task.id }}">
+                    <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}" class="agent-task-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="toggle" value="1">
+                        <label class="agent-check">
+                            <input type="checkbox" {% if task.is_done %}checked{% endif %} class="agent-check__input" aria-label="Mark {{ task.title }} done">
+                            <span class="agent-check__box" aria-hidden="true"></span>
+                            <span class="agent-check__label">
+                                <strong>{{ task.title }}</strong>
+                                {% if task.description %}<small>{{ task.description }}</small>{% endif %}
+                                {% if task.due_date %}<em>Due {{ task.due_date|date:"M j" }}</em>{% endif %}
+                            </span>
+                        </label>
+                    </form>
+                </li>
+                {% empty %}
+                <li class="agent-empty">No open tasks assigned yet.</li>
+                {% endfor %}
+            </ul>
+
+            {% if can_manage_tasks and assign_form %}
+            <form method="post" action="{% url 'agent-portal-create-task' %}" class="agent-assign-inline">
+                {% csrf_token %}
+                <h3>Assign a task</h3>
+                <div class="agent-assign-row">
+                    {{ assign_form.assigned_to }}
+                    {{ assign_form.title }}
+                </div>
+                {{ assign_form.description }}
+                <div class="agent-assign-row">
+                    {{ assign_form.due_date }}
+                    <button type="submit" class="btn btn-primary">Assign</button>
+                </div>
+            </form>
+            {% endif %}
+        </section>
+
+        <section class="agent-card agent-card--timeline">
+            <header class="agent-card__head">
+                <h2>Today’s activity</h2>
+                <span class="agent-pill">Insurance · Motor Club · TLC</span>
+            </header>
+            <ol class="agent-timeline">
+                {% for event in activity_events %}
+                <li class="agent-timeline__item agent-timeline__item--{{ event.domain }}">
+                    <time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|timezone:"Africa/Cairo"|date:"g:i A" }}</time>
+                    <div>
+                        <strong>{{ event.title }}</strong>
+                        {% if event.detail %}<span>{{ event.detail }}</span>{% endif %}
+                        <em>{{ event.get_domain_display }}</em>
+                    </div>
+                </li>
+                {% empty %}
+                <li class="agent-empty">No quotes, bounds, or memberships logged yet today.</li>
+                {% endfor %}
+            </ol>
+        </section>
+    </div>
+</main>
+
+{% if can_view_spaces %}
+<dialog class="agent-spaces-modal" id="spacesPickerModal">
+    <form method="dialog" class="agent-spaces-modal__inner">
+        <header>
+            <h2>Open a space</h2>
+            <button type="submit" class="agent-spaces-close" aria-label="Close">×</button>
+        </header>
+        <ul class="agent-spaces-list">
+            {% for space in space_cards %}
+            <li>
+                <a href="{% url 'inventory-detail' space.id %}">
+                    {% if space.logo %}
+                    <img src="{{ space.logo.url }}" alt="">
+                    {% else %}
+                    <span class="agent-spaces-fallback">{{ space.label|slice:":1"|upper }}</span>
+                    {% endif %}
+                    <span>
+                        <strong>{{ space.label }}</strong>
+                        <small>{{ space.key }}</small>
+                    </span>
+                </a>
+            </li>
+            {% empty %}
+            <li class="agent-empty">No spaces assigned. Ask an owner to grant Spaces access.</li>
+            {% endfor %}
+        </ul>
+    </form>
+</dialog>
+{% endif %}
+{% endblock %}
+
+{% block portal_scripts %}
+<script src="{% static 'core/js/agent_portal.js' %}?v=1" defer></script>
+{% endblock %}

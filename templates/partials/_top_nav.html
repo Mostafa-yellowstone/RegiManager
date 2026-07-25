@@ -2,7 +2,7 @@
 <nav class="top-nav" aria-label="Portal navigation">
     <div class="top-nav__bar">
         <div class="top-nav__start">
-            <a href="{% url 'dashboard' %}" class="nav-brand">
+            <a href="{% if show_agent_portal_nav %}{% url 'agent-portal-home' %}{% else %}{% url 'dashboard' %}{% endif %}" class="nav-brand">
                 <img src="{% static 'core/img/regimanager-logo.svg' %}" alt="RegiManager">
             </a>
             <button type="button" class="portal-mobile-nav-btn" id="portalMobileNavBtn" aria-label="Open menu" aria-expanded="false" aria-controls="portalMobileNav">
