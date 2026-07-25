@@ -797,12 +797,17 @@
             <article class="dashboard-panel premium-panel" style="margin-bottom: 2rem;">
                 <h3 class="portal-section-title">
                     PSB Team Management
-                    <a href="{% url 'all-agents-directory' %}" class="btn btn-secondary btn-sm">
-                        Team Directory
-                    </a>
+                    <span style="display:inline-flex;gap:0.5rem;flex-wrap:wrap;">
+                        <a href="{% url 'agent-portal-manage-tasks' %}" class="btn btn-primary btn-sm">
+                            Assign Agent Tasks
+                        </a>
+                        <a href="{% url 'all-agents-directory' %}" class="btn btn-secondary btn-sm">
+                            Team Directory
+                        </a>
+                    </span>
                 </h3>
                 <p class="portal-section-desc">
-                    Premium control center for enabling or restricting agent accounts.
+                    Premium control center for enabling or restricting agent accounts. Use Assign Agent Tasks to give agents checklist work on their portal.
                 </p>
                 <div class="table-responsive">
                     <table class="data-table">

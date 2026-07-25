@@ -8,6 +8,12 @@
     <span class="nav-label nav-label--short" aria-hidden="true">Ops</span>
 </a>
 {% endif %}
+{% if can_assign_agent_tasks_nav %}
+<a href="{% url 'agent-portal-manage-tasks' %}" class="nav-link {% if request.resolver_match.url_name == 'agent-portal-manage-tasks' %}active{% endif %}" role="menuitem">
+    <span class="nav-label nav-label--full">Assign Tasks</span>
+    <span class="nav-label nav-label--short" aria-hidden="true">Tasks</span>
+</a>
+{% endif %}
 <a href="{% url 'all-clients' %}" class="nav-link {% if 'client' in request.path %}active{% endif %}" role="menuitem">Clients</a>
 {% if automation_enabled %}
 <a href="{% url 'upcoming-expirations' %}" class="nav-link {% if 'automation' in request.path or 'expirations' in request.path %}active{% endif %}" role="menuitem">
