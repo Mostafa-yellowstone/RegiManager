@@ -42,12 +42,6 @@
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/><path d="M3 12h4M3 16h4"/></svg>
                 <span>Tasks</span>
             </a>
-            {% if can_manage_tasks %}
-            <a class="agent-icon-btn" href="{% url 'agent-portal-manage-tasks' %}" title="Assign tasks">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                <span>Assign</span>
-            </a>
-            {% endif %}
             <a class="agent-icon-btn agent-icon-btn--ghost" href="{% url 'dashboard' %}" title="Operations dashboard">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg>
                 <span>Dashboard</span>
@@ -116,22 +110,6 @@
                 <li class="agent-empty">No open tasks assigned yet.</li>
                 {% endfor %}
             </ul>
-
-            {% if can_manage_tasks and assign_form %}
-            <form method="post" action="{% url 'agent-portal-create-task' %}" class="agent-assign-inline">
-                {% csrf_token %}
-                <h3>Assign a task</h3>
-                <div class="agent-assign-row">
-                    {{ assign_form.assigned_to }}
-                    {{ assign_form.title }}
-                </div>
-                {{ assign_form.description }}
-                <div class="agent-assign-row">
-                    {{ assign_form.due_date }}
-                    <button type="submit" class="btn btn-primary">Assign</button>
-                </div>
-            </form>
-            {% endif %}
         </section>
 
         <section class="agent-card agent-card--timeline">

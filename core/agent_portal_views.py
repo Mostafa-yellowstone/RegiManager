@@ -1,4 +1,4 @@
-"""Agent portal views: home, photo, tasks, spaces picker."""
+"""Agent portal views: home, photo, tasks, owner review."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from .access import organizations_for_user
@@ -13,10 +14,13 @@ from .agent_portal_forms import AgentProfilePhotoForm, AgentTaskAssignForm
 from .agent_portal_models import AgentTask
 from .agent_portal_services import (
     accessible_space_cards,
+    agent_workboard_payload,
+    can_access_agent_portal,
     can_manage_agent_tasks,
     cairo_now,
     current_work_date,
     ensure_attendance_open,
+    owner_can_review_agent,
     shift_close_at,
     task_progress_for_membership,
     today_activity_for_user,
@@ -42,11 +46,23 @@ def _resolve_portal_membership(request) -> OrganizationMembership | None:
         membership = qs.filter(organization_id=active_org_id).first()
         if membership:
             return membership
-    # Prefer an insurance-capable membership for portal context.
     insurance = qs.filter(can_deal_with_insurance=True).first()
     if insurance:
         return insurance
     return qs.first()
+
+
+def _viewer_owner_membership(request, organization) -> OrganizationMembership | None:
+    return (
+        OrganizationMembership.objects.filter(
+            user=request.user,
+            organization=organization,
+            is_active=True,
+            role=OrganizationMembership.Role.OWNER,
+        )
+        .select_related("organization", "user")
+        .first()
+    )
 
 
 def agent_portal_login_redirect(request):
@@ -63,11 +79,10 @@ def agent_portal_home(request):
         return redirect("/admin/")
 
     membership = _resolve_portal_membership(request)
-    if membership is None:
-        messages.error(request, "Your account is currently disabled for all PSBs. Contact an owner.")
-        return redirect("login")
+    if not can_access_agent_portal(membership):
+        messages.info(request, "The agent portal is only available to insurance agents.")
+        return redirect("dashboard")
 
-    # Insurance agents use this as home; owners/other agents may still open it.
     attendance = ensure_attendance_open(membership)
     progress = task_progress_for_membership(membership)
     activity = today_activity_for_user(
@@ -80,8 +95,6 @@ def agent_portal_home(request):
     close_at = shift_close_at(work_date)
 
     photo_form = AgentProfilePhotoForm(instance=membership)
-    can_manage = can_manage_agent_tasks(membership)
-    assign_form = AgentTaskAssignForm(organization=membership.organization) if can_manage else None
 
     return render(
         request,
@@ -97,8 +110,8 @@ def agent_portal_home(request):
             "activity_events": activity,
             "space_cards": spaces,
             "photo_form": photo_form,
-            "can_manage_tasks": can_manage,
-            "assign_form": assign_form,
+            "can_manage_tasks": False,
+            "assign_form": None,
             "is_agent_portal_home": True,
         },
     )
@@ -108,7 +121,7 @@ def agent_portal_home(request):
 @require_POST
 def agent_portal_upload_photo(request):
     membership = _resolve_portal_membership(request)
-    if membership is None:
+    if not can_access_agent_portal(membership):
         deny_access("Access denied.")
     form = AgentProfilePhotoForm(request.POST, request.FILES, instance=membership)
     if form.is_valid():
@@ -136,7 +149,6 @@ def agent_portal_toggle_task(request, task_id):
         deny_access("You cannot update this task.")
 
     done = request.POST.get("done", "").lower() in {"1", "true", "on", "yes"}
-    # Checkbox posts: if "done" omitted, treat as toggle from current state when toggle=1
     if request.POST.get("toggle") == "1":
         done = not task.is_done
     task.mark_done(done=done)
@@ -159,58 +171,49 @@ def agent_portal_toggle_task(request, task_id):
 
 @login_required
 def agent_portal_manage_tasks(request):
-    membership = _resolve_portal_membership(request)
-    if membership is None or not can_manage_agent_tasks(membership):
-        deny_access("You do not have permission to assign agent tasks.")
-
-    org = membership.organization
-    if request.method == "POST":
-        form = AgentTaskAssignForm(request.POST, organization=org)
-        if form.is_valid():
-            task = form.save(commit=False)
-            task.organization = org
-            task.created_by = request.user
-            task.save()
-            messages.success(request, f"Task assigned to {task.assigned_to.user.get_full_name() or task.assigned_to.user.username}.")
-            return redirect("agent-portal-manage-tasks")
-    else:
-        form = AgentTaskAssignForm(organization=org)
-
-    tasks = (
-        AgentTask.objects.filter(organization=org)
-        .select_related("assigned_to__user", "created_by")
-        .order_by("is_done", "-created_at")[:200]
-    )
-    return render(
+    """Deprecated entry — owners assign from each insurance agent's portal review."""
+    messages.info(
         request,
-        "core/agent_portal/manage_tasks.html",
-        {
-            "membership": membership,
-            "organization": org,
-            "form": form,
-            "tasks": tasks,
-            "can_manage_tasks": True,
-        },
+        "Assign tasks from an insurance agent’s Audit / portal review on the dashboard.",
     )
+    return redirect("dashboard")
 
 
 @login_required
 @require_POST
 def agent_portal_create_task(request):
-    """Inline create from agent home for lead agents / owners."""
+    """Owners assign a task to a specific insurance agent (from portal review)."""
     membership = _resolve_portal_membership(request)
     if membership is None or not can_manage_agent_tasks(membership):
         deny_access("You do not have permission to assign agent tasks.")
-    form = AgentTaskAssignForm(request.POST, organization=membership.organization)
+
+    agent_id = request.POST.get("assigned_membership_id") or request.POST.get("assigned_to")
+    agent = get_object_or_404(
+        OrganizationMembership,
+        id=agent_id,
+        organization=membership.organization,
+        can_deal_with_insurance=True,
+        is_active=True,
+    )
+    if membership.role != OrganizationMembership.Role.OWNER and not membership.can_assign_agent_tasks:
+        deny_access("You do not have permission to assign agent tasks.")
+
+    form = AgentTaskAssignForm(
+        request.POST,
+        organization=membership.organization,
+        fixed_assignee=agent,
+    )
+    fallback = reverse("agent-portal-owner-review", args=[agent.id])
     if form.is_valid():
         task = form.save(commit=False)
         task.organization = membership.organization
+        task.assigned_to = agent
         task.created_by = request.user
         task.save()
         messages.success(request, "Task assigned.")
     else:
-        messages.error(request, "Could not create task. Check the title and assignee.")
-    return redirect("agent-portal-home")
+        messages.error(request, "Could not create task. Check the title.")
+    return redirect_back(request, fallback)
 
 
 @login_required
@@ -220,14 +223,11 @@ def agent_portal_tasks_board(request):
         return redirect("/admin/")
 
     membership = _resolve_portal_membership(request)
-    if membership is None:
-        messages.error(request, "Your account is currently disabled for all PSBs. Contact an owner.")
-        return redirect("login")
+    if not can_access_agent_portal(membership):
+        messages.info(request, "The agent portal is only available to insurance agents.")
+        return redirect("dashboard")
 
-    # Open attendance when agents enter their task board (same as portal home).
-    if uses_agent_portal_home(membership) or membership.can_deal_with_insurance:
-        ensure_attendance_open(membership)
-
+    ensure_attendance_open(membership)
     progress = task_progress_for_membership(membership)
     local_now = cairo_now()
     view_mode = (request.GET.get("view") or "board").lower()
@@ -247,7 +247,45 @@ def agent_portal_tasks_board(request):
             "cairo_now": local_now,
             "view_mode": view_mode,
             "status_filter": status_filter,
-            "can_manage_tasks": can_manage_agent_tasks(membership),
+            "can_manage_tasks": False,
             "is_agent_tasks_board": True,
+        },
+    )
+
+
+@login_required
+def agent_portal_owner_review(request, membership_id):
+    """
+    Owner view of an insurance agent's portal workboard (tasks, progress, timeline).
+    Reached from the dashboard Audit icon when the agent deals with insurance.
+    """
+    agent = get_object_or_404(
+        OrganizationMembership.objects.select_related("organization", "user"),
+        id=membership_id,
+    )
+    viewer = _viewer_owner_membership(request, agent.organization)
+    if not owner_can_review_agent(viewer, agent):
+        if not agent.can_deal_with_insurance:
+            return redirect("agent-audit", membership_id=agent.id)
+        deny_access("Owner access required to review this agent portal.")
+
+    workboard = agent_workboard_payload(agent)
+    assign_form = AgentTaskAssignForm(
+        organization=agent.organization,
+        fixed_assignee=agent,
+    )
+    local_now = cairo_now()
+
+    return render(
+        request,
+        "core/agent_portal/owner_review.html",
+        {
+            "viewer": viewer,
+            "agent_membership": agent,
+            "organization": agent.organization,
+            "portal_workboard": workboard,
+            "assign_form": assign_form,
+            "cairo_now": local_now,
+            "is_owner_portal_review": True,
         },
     )

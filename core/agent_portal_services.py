@@ -183,12 +183,28 @@ def uses_agent_portal_home(membership: OrganizationMembership | None) -> bool:
     return bool(membership.can_deal_with_insurance and membership.is_active)
 
 
+def can_access_agent_portal(membership: OrganizationMembership | None) -> bool:
+    """Portal pages are only for active insurance-capable agents (not owners)."""
+    return uses_agent_portal_home(membership)
+
+
 def can_manage_agent_tasks(membership: OrganizationMembership | None) -> bool:
     if membership is None:
         return False
     if membership.role == OrganizationMembership.Role.OWNER:
         return True
     return bool(membership.can_assign_agent_tasks and membership.is_active)
+
+
+def owner_can_review_agent(viewer: OrganizationMembership | None, agent: OrganizationMembership) -> bool:
+    """Owners may open the portal review for an insurance agent in their PSB."""
+    if viewer is None or agent is None:
+        return False
+    if not agent.can_deal_with_insurance or not agent.is_active:
+        return False
+    if viewer.organization_id != agent.organization_id:
+        return False
+    return viewer.role == OrganizationMembership.Role.OWNER and viewer.is_active
 
 
 def log_agent_activity(

@@ -16,7 +16,7 @@
 
         <section class="service-cards-grid team-directory-grid">
             {% for data in agent_data %}
-                <a href="{% url 'agent-audit' data.membership.id %}" class="service-stat-card-link team-agent-card-link">
+                <a href="{% if data.membership.can_deal_with_insurance %}{% url 'agent-portal-owner-review' data.membership.id %}{% else %}{% url 'agent-audit' data.membership.id %}{% endif %}" class="service-stat-card-link team-agent-card-link">
                     <article class="service-stat-card team-agent-card">
                         <div class="team-agent-card-accent"></div>
                         <div class="team-agent-header">

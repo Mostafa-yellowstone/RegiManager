@@ -1,4 +1,4 @@
-<a href="{% if show_agent_portal_nav %}{% url 'agent-portal-home' %}{% else %}{% url 'dashboard' %}{% endif %}" class="nav-link {% if request.resolver_match.url_name == 'agent-portal-home' or request.resolver_match.url_name == 'agent-portal-manage-tasks' or request.resolver_match.url_name == 'agent-portal-tasks-board' %}active{% elif not show_agent_portal_nav and request.resolver_match.url_name == 'dashboard' %}active{% endif %}" role="menuitem">
+<a href="{% if show_agent_portal_nav %}{% url 'agent-portal-home' %}{% else %}{% url 'dashboard' %}{% endif %}" class="nav-link {% if request.resolver_match.url_name == 'agent-portal-home' or request.resolver_match.url_name == 'agent-portal-tasks-board' or request.resolver_match.url_name == 'agent-portal-owner-review' %}active{% elif not show_agent_portal_nav and request.resolver_match.url_name == 'dashboard' %}active{% endif %}" role="menuitem">
     <span class="nav-label nav-label--full">{% if show_agent_portal_nav %}My Portal{% else %}Dashboard{% endif %}</span>
     <span class="nav-label nav-label--short" aria-hidden="true">{% if show_agent_portal_nav %}Portal{% else %}Home{% endif %}</span>
 </a>
@@ -10,12 +10,6 @@
 <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" role="menuitem">
     <span class="nav-label nav-label--full">Ops Dashboard</span>
     <span class="nav-label nav-label--short" aria-hidden="true">Ops</span>
-</a>
-{% endif %}
-{% if can_assign_agent_tasks_nav %}
-<a href="{% url 'agent-portal-manage-tasks' %}" class="nav-link {% if request.resolver_match.url_name == 'agent-portal-manage-tasks' %}active{% endif %}" role="menuitem">
-    <span class="nav-label nav-label--full">Assign Tasks</span>
-    <span class="nav-label nav-label--short" aria-hidden="true">Assign</span>
 </a>
 {% endif %}
 <a href="{% url 'all-clients' %}" class="nav-link {% if 'client' in request.path %}active{% endif %}" role="menuitem">Clients</a>

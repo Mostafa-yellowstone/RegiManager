@@ -8105,10 +8105,25 @@ def insurance_agent_detail(request, user_id):
         can_deal_with_insurance=True,
     ).select_related("organization", "user").first()
     portal_workboard = None
+    can_owner_assign_tasks = False
+    assign_form = None
     if agent_membership:
-        from .agent_portal_services import agent_workboard_payload
+        from .agent_portal_services import agent_workboard_payload, owner_can_review_agent
+        from .agent_portal_forms import AgentTaskAssignForm
 
         portal_workboard = agent_workboard_payload(agent_membership)
+        viewer = OrganizationMembership.objects.filter(
+            user=request.user,
+            organization=active_org,
+            is_active=True,
+            role=OrganizationMembership.Role.OWNER,
+        ).first()
+        can_owner_assign_tasks = owner_can_review_agent(viewer, agent_membership)
+        if can_owner_assign_tasks:
+            assign_form = AgentTaskAssignForm(
+                organization=active_org,
+                fixed_assignee=agent_membership,
+            )
 
     return render(request, "core/insurance_agent_detail.html", {
         "agent": agent,
@@ -8118,6 +8133,8 @@ def insurance_agent_detail(request, user_id):
         "insurance_companies": insurance_companies,
         "agent_membership": agent_membership,
         "portal_workboard": portal_workboard,
+        "can_owner_assign_tasks": can_owner_assign_tasks,
+        "assign_form": assign_form,
         # Period auditing
         "period": period,
         "audit_start": audit_start,

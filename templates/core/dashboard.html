@@ -798,16 +798,13 @@
                 <h3 class="portal-section-title">
                     PSB Team Management
                     <span style="display:inline-flex;gap:0.5rem;flex-wrap:wrap;">
-                        <a href="{% url 'agent-portal-manage-tasks' %}" class="btn btn-primary btn-sm">
-                            Assign Agent Tasks
-                        </a>
                         <a href="{% url 'all-agents-directory' %}" class="btn btn-secondary btn-sm">
                             Team Directory
                         </a>
                     </span>
                 </h3>
                 <p class="portal-section-desc">
-                    Premium control center for enabling or restricting agent accounts. Use Assign Agent Tasks to give agents checklist work on their portal.
+                    Premium control center for enabling or restricting agent accounts. For insurance agents, use Audit to open their portal and assign tasks.
                 </p>
                 <div class="table-responsive">
                     <table class="data-table">
@@ -924,9 +921,15 @@
                                         </label>
                                     </td>
                                     <td>
+                                        {% if agent_mem.can_deal_with_insurance %}
+                                        <a href="{% url 'agent-portal-owner-review' agent_mem.id %}" class="btn btn-secondary btn-sm" title="Open insurance agent portal">
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                                        </a>
+                                        {% else %}
                                         <a href="{% url 'agent-audit' agent_mem.id %}" class="btn btn-secondary btn-sm" title="Audit Log">
                                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
                                         </a>
+                                        {% endif %}
                                     </td>
                                 </tr>
                             {% endfor %}

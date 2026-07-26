@@ -232,12 +232,17 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #60a
     <section class="section-card agent-audit-workboard" style="margin-bottom: 2rem;">
       <div class="section-header">
         <h2 class="section-title">Portal work · tasks &amp; activity</h2>
-        <span style="font-size: 0.82rem; color: var(--muted); font-weight: 600;">
-          {% if portal_workboard.attendance %}
-            Shift {{ portal_workboard.work_date|date:"M j" }}
-            {% if portal_workboard.attendance.closed_at %}· closed{% else %}· on shift{% endif %}
-          {% else %}
-            No attendance yet
+        <span style="display:inline-flex;align-items:center;gap:0.65rem;flex-wrap:wrap;">
+          <span style="font-size: 0.82rem; color: var(--muted); font-weight: 600;">
+            {% if portal_workboard.attendance %}
+              Shift {{ portal_workboard.work_date|date:"M j" }}
+              {% if portal_workboard.attendance.closed_at %}· closed{% else %}· on shift{% endif %}
+            {% else %}
+              No attendance yet
+            {% endif %}
+          </span>
+          {% if can_owner_assign_tasks and agent_membership %}
+          <a href="{% url 'agent-portal-owner-review' agent_membership.id %}#add-task" class="btn-outline" style="padding:6px 12px;font-size:0.8rem;">Add task</a>
           {% endif %}
         </span>
       </div>
@@ -316,6 +321,24 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #60a
             {% endfor %}
           </ol>
         </div>
+
+        {% if can_owner_assign_tasks and assign_form and agent_membership %}
+        <div style="grid-column: span 12;" id="add-task" class="agent-audit-col">
+          <h3 class="agent-audit-col__title">Add task for this agent</h3>
+          <form method="post" action="{% url 'agent-portal-create-task' %}" style="display:flex;flex-direction:column;gap:0.65rem;">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'insurance-agent-detail' agent.id %}">
+            <input type="hidden" name="assigned_membership_id" value="{{ agent_membership.id }}">
+            {{ assign_form.assigned_to }}
+            {{ assign_form.title }}
+            {{ assign_form.description }}
+            <div style="display:flex;gap:0.65rem;flex-wrap:wrap;align-items:center;">
+              {{ assign_form.due_date }}
+              <button type="submit" class="agent-search-btn" style="padding:8px 16px;">Add task</button>
+            </div>
+          </form>
+        </div>
+        {% endif %}
       </div>
     </section>
     {% endif %}

@@ -1,0 +1,175 @@
+{% extends "base_portal.html" %}
+{% load static tz %}
+
+{% block title %}Portal · {{ agent_membership.user.get_full_name|default:agent_membership.user.username }} | RegiManager{% endblock %}
+
+{% block portal_head %}
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=5">
+{% endblock %}
+
+{% block portal_content %}
+<style>
+.owner-review-page { max-width: 1100px; margin: 0 auto; }
+.owner-review-hero {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 1.25rem; flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+.owner-review-hero h1 { margin: 0.2rem 0 0; font-size: clamp(1.6rem, 3vw, 2.1rem); letter-spacing: -0.02em; }
+.owner-review-badge {
+  display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #4338ca;
+  padding: 3px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
+  border: 1px solid #c7d2fe;
+}
+.owner-review-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+@media (min-width: 900px) {
+  .owner-review-grid { grid-template-columns: 1.1fr 0.9fr; }
+  .owner-review-timeline { grid-column: 1 / -1; }
+}
+.owner-add-task {
+  background: var(--ap-card, #fff); border: 1px solid var(--ap-line, #e2e8f0); border-radius: 20px;
+  padding: 1.15rem 1.2rem;
+}
+.owner-add-task h2 { margin: 0 0 0.85rem; font-size: 1.05rem; }
+.owner-add-task .agent-assign-row { display: flex; flex-wrap: wrap; gap: 0.65rem; margin-bottom: 0.65rem; }
+.owner-add-task input, .owner-add-task textarea {
+  width: 100%; padding: 0.65rem 0.85rem; border-radius: 10px; border: 1px solid var(--ap-line, #e2e8f0);
+  font: inherit;
+}
+.owner-add-task textarea { min-height: 72px; resize: vertical; }
+.owner-task-toggle form { margin: 0; }
+html.portal-theme-dark .owner-review-badge { background: rgba(99,102,241,0.2); color: #a5b4fc; border-color: rgba(99,102,241,0.35); }
+</style>
+
+<main class="agent-portal owner-review-page">
+  <header class="owner-review-hero">
+    <div>
+      <a class="atb-back" href="{% url 'dashboard' %}#ops" style="display:inline-flex;align-items:center;gap:0.25rem;color:var(--ap-muted,#64748b);font-size:0.82rem;font-weight:700;text-decoration:none;margin-bottom:0.55rem;">
+        ← Dashboard
+      </a>
+      <div class="owner-review-badge">Insurance agent portal</div>
+      <h1>{{ agent_membership.user.get_full_name|default:agent_membership.user.username }}</h1>
+      <p class="agent-portal__meta" style="margin-top:0.35rem;">
+        {{ agent_membership.user.email }} · {{ organization.name }}
+        {% if portal_workboard.attendance %}
+          · Shift {{ portal_workboard.work_date|date:"D, M j" }}
+          {% if portal_workboard.attendance.closed_at %}(closed){% else %}(on shift){% endif %}
+        {% endif %}
+      </p>
+    </div>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+      <a class="btn btn-secondary" href="{% url 'agent-audit' agent_membership.id %}">Service audit</a>
+      <a class="btn btn-secondary" href="{% url 'insurance-agent-detail' agent_membership.user_id %}">Insurance profile</a>
+    </div>
+  </header>
+
+  <div class="owner-review-grid">
+    <section class="agent-card">
+      <header class="agent-card__head">
+        <h2>Task progress</h2>
+        <span class="agent-pill">{{ portal_workboard.progress.done }}/{{ portal_workboard.progress.total }}</span>
+      </header>
+      <div class="agent-progress" style="--progress: {{ portal_workboard.progress.percent }};">
+        <div class="agent-progress__ring" aria-hidden="true">
+          <svg viewBox="0 0 36 36">
+            <path class="agent-progress__bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+            <path class="agent-progress__fg" stroke-dasharray="{{ portal_workboard.progress.percent }}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+          </svg>
+          <strong>{{ portal_workboard.progress.percent }}%</strong>
+        </div>
+        <p>{{ portal_workboard.progress.open }} open · {{ portal_workboard.progress.done }} done</p>
+      </div>
+
+      <h3 style="margin:1rem 0 0.5rem;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--ap-muted);">In progress</h3>
+      <ul class="agent-task-list">
+        {% for task in portal_workboard.progress.open_tasks %}
+        <li class="agent-task" data-task-id="{{ task.id }}">
+          <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}" class="agent-task-form owner-task-toggle">
+            {% csrf_token %}
+            <input type="hidden" name="toggle" value="1">
+            <input type="hidden" name="next" value="{% url 'agent-portal-owner-review' agent_membership.id %}">
+            <label class="agent-check">
+              <input type="checkbox" class="agent-check__input" aria-label="Mark {{ task.title }} done">
+              <span class="agent-check__box" aria-hidden="true"></span>
+              <span class="agent-check__label">
+                <strong>{{ task.title }}</strong>
+                {% if task.description %}<small>{{ task.description }}</small>{% endif %}
+                {% if task.due_date %}<em>Due {{ task.due_date|date:"M j" }}</em>{% endif %}
+              </span>
+            </label>
+          </form>
+        </li>
+        {% empty %}
+        <li class="agent-empty">No open tasks.</li>
+        {% endfor %}
+      </ul>
+
+      <h3 style="margin:1rem 0 0.5rem;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--ap-muted);">Completed</h3>
+      <ul class="agent-task-list">
+        {% for task in portal_workboard.progress.done_tasks %}
+        <li class="agent-task is-done" data-task-id="{{ task.id }}">
+          <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}" class="agent-task-form owner-task-toggle">
+            {% csrf_token %}
+            <input type="hidden" name="toggle" value="1">
+            <input type="hidden" name="next" value="{% url 'agent-portal-owner-review' agent_membership.id %}">
+            <label class="agent-check">
+              <input type="checkbox" checked class="agent-check__input" aria-label="Reopen {{ task.title }}">
+              <span class="agent-check__box" aria-hidden="true"></span>
+              <span class="agent-check__label">
+                <strong>{{ task.title }}</strong>
+                {% if task.completed_at %}<small>Done {{ task.completed_at|timezone:"Africa/Cairo"|date:"M j · g:i A" }}</small>{% endif %}
+              </span>
+            </label>
+          </form>
+        </li>
+        {% empty %}
+        <li class="agent-empty">No completed tasks yet.</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="owner-add-task" id="add-task">
+      <h2>Add task for this agent</h2>
+      <p style="margin:0 0 0.85rem;color:var(--ap-muted);font-size:0.9rem;">Assigned only to {{ agent_membership.user.get_full_name|default:agent_membership.user.username }}.</p>
+      <form method="post" action="{% url 'agent-portal-create-task' %}" class="agent-assign-inline">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'agent-portal-owner-review' agent_membership.id %}">
+        <input type="hidden" name="assigned_membership_id" value="{{ agent_membership.id }}">
+        {{ assign_form.assigned_to }}
+        <div class="agent-assign-row">
+          {{ assign_form.title }}
+        </div>
+        {{ assign_form.description }}
+        <div class="agent-assign-row" style="margin-top:0.65rem;">
+          {{ assign_form.due_date }}
+          <button type="submit" class="btn btn-primary">Add task</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="agent-card owner-review-timeline">
+      <header class="agent-card__head">
+        <h2>Activity timeline</h2>
+        <span class="agent-pill">Last 14 days · Insurance · Motor Club · TLC</span>
+      </header>
+      <ol class="agent-timeline">
+        {% for event in portal_workboard.recent_activity %}
+        <li class="agent-timeline__item agent-timeline__item--{{ event.domain }}">
+          <time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|timezone:"Africa/Cairo"|date:"M j · g:i A" }}</time>
+          <div>
+            <strong>{{ event.title }}</strong>
+            {% if event.detail %}<span>{{ event.detail }}</span>{% endif %}
+            <em>{{ event.get_domain_display }} · {{ event.get_event_type_display }}</em>
+          </div>
+        </li>
+        {% empty %}
+        <li class="agent-empty">No activity logged yet for this agent.</li>
+        {% endfor %}
+      </ol>
+    </section>
+  </div>
+</main>
+{% endblock %}
+
+{% block portal_scripts %}
+<script src="{% static 'core/js/agent_portal.js' %}?v=5" defer></script>
+{% endblock %}
