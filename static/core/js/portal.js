@@ -200,6 +200,7 @@
 
             if (mobileBtn && mobileMenu) {
                 mobileBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
                     e.stopPropagation();
                     toggleMobileMenu();
                 });
@@ -235,14 +236,15 @@
 
             const syncNavFit = () => {
                 if (!topNav || !navMenu) return;
-                // Let CSS media rules win when already in drawer mode.
+                const drawerOpen = !!(mobileMenu && mobileMenu.classList.contains('is-open'));
+                // Don't tear down an open drawer while measuring.
+                if (drawerOpen) return;
+
                 topNav.classList.remove('top-nav--force-drawer');
                 const menuStyle = window.getComputedStyle(navMenu);
-                if (menuStyle.display === 'none') {
-                    closeMobileMenu();
-                    return;
-                }
-                // Measure after layout: if links overflow the middle column, collapse to drawer.
+                // CSS already in drawer mode (≤1400px) — leave button/drawer alone.
+                if (menuStyle.display === 'none') return;
+
                 const overflowing = navMenu.scrollWidth > navMenu.clientWidth + 1;
                 const bar = topNav.querySelector('.top-nav__bar');
                 const barOverflow = bar ? bar.scrollWidth > bar.clientWidth + 2 : false;
