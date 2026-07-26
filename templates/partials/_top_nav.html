@@ -107,7 +107,11 @@
     <aside id="portalMobileNav" class="portal-mobile-drawer" aria-label="Mobile navigation" aria-hidden="true">
         <div class="portal-mobile-drawer__header">
             <div class="portal-mobile-drawer__user">
+                {% if nav_profile_photo_url %}
+                <img class="avatar-circle avatar-circle--photo" src="{{ nav_profile_photo_url }}" alt="">
+                {% else %}
                 <div class="avatar-circle">{{ user.first_name|slice:":1"|upper }}</div>
+                {% endif %}
                 <div class="user-info">
                     <span class="user-name">{{ user.get_full_name|default:user.username }}</span>
                     <span class="user-role">{{ user_nav_role }}</span>

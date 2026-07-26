@@ -2341,6 +2341,16 @@ body.portal-nav-open .top-nav {
     min-width: 0;
 }
 
+.portal-mobile-drawer__user .avatar-circle {
+    width: 44px;
+    height: 44px;
+    font-size: 1rem;
+}
+
+.portal-mobile-drawer__user .avatar-circle--photo {
+    display: block;
+}
+
 .portal-mobile-drawer__user .user-name {
     overflow: hidden;
     text-overflow: ellipsis;
