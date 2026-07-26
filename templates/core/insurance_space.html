@@ -568,6 +568,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
           <p style="margin: 0; color: #64748b; font-size: 0.85rem; font-weight: 600;">Showing quote dates in {{ comp_period_label }}</p>
         </div>
         <button onclick="openAddPolicyModal()" style="padding: 8px 18px; background: #093de6; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Add Policy</button>
+        <button type="button" onclick="document.getElementById('importInsDecModal').classList.add('active')" style="padding: 8px 18px; background: #0f766e; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">Import Dec Page</button>
       </div>
       <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
         <table class="spaces-table">
@@ -651,6 +652,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
               </td>
               <td>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
+                  <a href="{% url 'insurance-policy-detail' policy.id %}" title="Open policy detail" style="padding: 5px 8px; border: 1px solid #bbf7d0; border-radius: 6px; background: linear-gradient(135deg, #ecfdf5, #d1fae5); cursor: pointer; font-weight: 700; font-size: 0.8rem; line-height: 1; color: #047857; text-decoration: none;">Detail</a>
                   <button type="button" onclick="viewPolicy({{ policy.id }})" title="View Policy" style="padding: 5px 8px; border: 1px solid #c7d2fe; border-radius: 6px; background: linear-gradient(135deg, #eef2ff, #e0e7ff); cursor: pointer; font-weight: 700; font-size: 0.95rem; line-height: 1; color: #4338ca;">👁️</button>
                   <button onclick="editPolicy({{ policy.id }})" style="padding: 4px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; cursor: pointer; font-weight: 700; font-size: 0.8rem;">Edit</button>
                   <a href="{% url 'delete-insurance-policy' policy.id %}" onclick="return confirm('Delete this policy?')" style="padding: 4px 10px; border: 1px solid #fee2e2; border-radius: 6px; background: #fff5f5; color: #dc2626; text-decoration: none; font-weight: 700; font-size: 0.8rem; text-align: center;">Del</a>
@@ -1180,6 +1182,28 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       <button onclick="document.getElementById('viewPolicyModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
     </div>
     <div id="viewPolicyCardBody"></div>
+  </div>
+</div>
+
+<!-- IMPORT DEC PAGE (Integon / NYAIP) -->
+<div class="modal-overlay" id="importInsDecModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h3 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 1.15rem;">Import Dec Page</h3>
+      <button type="button" onclick="document.getElementById('importInsDecModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
+    </div>
+    <p style="margin: 0 0 1rem; color: #64748b; font-size: 0.9rem; font-weight: 600;">
+      Upload a text-based Integon or NYAIP declaration PDF to create a policy with renewal date, next payment due, and a stored DEC document.
+    </p>
+    <form method="post" action="{% url 'import-insurance-dec-page' card.id %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <label class="field-label">Declaration PDF</label>
+      <input type="file" name="dec_page" accept="application/pdf,.pdf" required class="field-input">
+      <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1.15rem;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('importInsDecModal').classList.remove('active')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Import DEC</button>
+      </div>
+    </form>
   </div>
 </div>
 

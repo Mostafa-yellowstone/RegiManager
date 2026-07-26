@@ -47,7 +47,7 @@ class ClientDuplicateTests(TestCase):
         )
         self.assertIsNotNone(error)
 
-    def test_allows_same_first_last_different_middle(self):
+    def test_blocks_same_first_last_different_middle(self):
         Client.objects.create(
             organization=self.org,
             first_name="John",
@@ -61,7 +61,7 @@ class ClientDuplicateTests(TestCase):
             middle_name="",
             last_name="Smith",
         )
-        self.assertIsNone(duplicate)
+        self.assertIsNotNone(duplicate)
 
     def test_allows_same_name_different_driver_license(self):
         Client.objects.create(
@@ -158,6 +158,24 @@ class ClientDuplicateTests(TestCase):
         self.assertEqual(client.id, existing.id)
         self.assertEqual(Client.objects.filter(organization=self.org).count(), 1)
 
+    def test_insurance_reuses_case_and_middle_variants(self):
+        existing = Client.objects.create(
+            organization=self.org,
+            first_name="Maria",
+            middle_name="Elena",
+            last_name="Garcia",
+            gender="female",
+        )
+        from_add = resolve_client_for_display_name(
+            self.org, "MARIA GARCIA", source="insurance"
+        )
+        from_dec = resolve_client_for_display_name(
+            self.org, "Maria L Garcia", source="insurance"
+        )
+        self.assertEqual(from_add.id, existing.id)
+        self.assertEqual(from_dec.id, existing.id)
+        self.assertEqual(Client.objects.filter(organization=self.org).count(), 1)
+
     def test_insurance_rejects_ambiguous_same_name(self):
         Client.objects.create(
             organization=self.org,
@@ -178,7 +196,7 @@ class ClientDuplicateTests(TestCase):
         with self.assertRaises(DuplicateClientError):
             resolve_client_for_display_name(self.org, "John Smith", source="insurance")
 
-    def test_check_client_name_ajax_respects_middle_name(self):
+    def test_check_client_name_ajax_treats_middle_as_same_person(self):
         Client.objects.create(
             organization=self.org,
             first_name="John",
@@ -197,14 +215,14 @@ class ClientDuplicateTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.json()["exists"])
+        self.assertTrue(response.json()["exists"])
 
         response = self.client.get(
             reverse("check-client-name"),
             {
-                "first_name": "John",
-                "middle_name": "Ann",
-                "last_name": "Smith",
+                "first_name": "john",
+                "middle_name": "B",
+                "last_name": "SMITH",
                 "org_id": self.org.id,
             },
         )

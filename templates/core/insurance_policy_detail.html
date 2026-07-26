@@ -1,0 +1,212 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}{{ policy.policy_number }} — Insurance Policy | RegiManager{% endblock %}
+
+{% block portal_content %}
+<style>
+.ins-detail { max-width: 1100px; margin: 0 auto; }
+.ins-detail__hero {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  border-radius: 20px; padding: 1.5rem 1.75rem; color: #fff; margin-bottom: 1.25rem;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+}
+.ins-detail__chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-top: 1.15rem; }
+.ins-detail__chip {
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 14px; padding: 0.75rem 0.9rem;
+}
+.ins-detail__chip span { display: block; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #93c5fd; margin-bottom: 0.25rem; }
+.ins-detail__chip strong { font-size: 1.05rem; }
+.ins-panel {
+  background: var(--portal-surface); border: 1px solid var(--portal-border); border-radius: 16px;
+  box-shadow: var(--portal-shadow-sm); margin-bottom: 1.15rem; overflow: hidden;
+}
+.ins-panel__head {
+  display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  padding: 1rem 1.25rem; border-bottom: 1px solid var(--portal-border); background: var(--portal-surface-muted);
+}
+.ins-panel__head h2 { margin: 0; font-size: 1.05rem; font-weight: 800; }
+.ins-panel__body { padding: 1.15rem 1.25rem; }
+.ins-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.ins-table th { text-align: left; padding: 0.65rem 0.75rem; font-size: 0.72rem; text-transform: uppercase; color: var(--portal-text-muted); border-bottom: 1px solid var(--portal-border); }
+.ins-table td { padding: 0.7rem 0.75rem; border-bottom: 1px solid var(--portal-border); font-weight: 600; color: var(--portal-text); vertical-align: middle; }
+.ins-table tr:last-child td { border-bottom: none; }
+.ins-doc {
+  display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  padding: 0.75rem 0.85rem; border: 1px solid var(--portal-border); border-radius: 12px; margin-bottom: 0.55rem;
+  background: var(--portal-surface-muted);
+}
+.ins-doc--dec { border-color: #93c5fd; background: #eff6ff; }
+html.portal-theme-dark .ins-doc--dec { background: rgba(37,99,235,0.15); border-color: rgba(96,165,250,0.35); }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.35); backdrop-filter: blur(6px); z-index: 2000; align-items: center; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal-box { background: var(--portal-surface); border-radius: 18px; padding: 1.5rem; width: min(480px, 94vw); border: 1px solid var(--portal-border); box-shadow: var(--portal-shadow-lg); }
+.field-label { display: block; font-size: 0.75rem; font-weight: 800; color: var(--portal-text-muted); margin-bottom: 0.35rem; text-transform: uppercase; }
+.field-input { width: 100%; padding: 0.65rem 0.85rem; border-radius: 10px; border: 1px solid var(--portal-border); background: var(--portal-surface-muted); color: var(--portal-text); box-sizing: border-box; }
+</style>
+
+<main class="portal-space-shell ins-detail">
+  <div class="portal-space-inner">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem;">
+      {% if insurance_space %}
+      <a href="{% url 'inventory-detail' insurance_space.id %}" class="btn btn-secondary btn-sm">← Back to Insurance</a>
+      {% else %}
+      <a href="{% url 'spaces-home' %}" class="btn btn-secondary btn-sm">← Spaces</a>
+      {% endif %}
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('importDecModal').classList.add('active')">Update from Dec Page</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('uploadDocModal').classList.add('active')">Upload document</button>
+      </div>
+    </div>
+
+    <header class="ins-detail__hero">
+      <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:#93c5fd;margin-bottom:0.35rem;">Insurance policy</div>
+          <h1 style="margin:0;font-size:clamp(1.45rem,3vw,2rem);letter-spacing:-0.02em;">{{ policy.policy_number }}</h1>
+          <p style="margin:0.4rem 0 0;color:#cbd5e1;font-weight:600;">
+            {{ policy.client.name }} · {{ policy.insurance_company.name }}
+            · {{ policy.get_status_display }} · {{ policy.get_stage_display }}
+          </p>
+        </div>
+      </div>
+      <div class="ins-detail__chips">
+        <div class="ins-detail__chip">
+          <span>Renewal</span>
+          <strong>{% if policy.renewal_date %}{{ policy.renewal_date|date:"M j, Y" }}{% else %}{{ policy.end_date|date:"M j, Y" }}{% endif %}</strong>
+        </div>
+        <div class="ins-detail__chip">
+          <span>Next payment due</span>
+          <strong>
+            {% if schedule.next_due_date %}
+              {{ schedule.next_due_date|date:"M j, Y" }}
+              {% if schedule.next_due_amount %}<div style="font-size:0.82rem;font-weight:700;opacity:0.9;margin-top:0.15rem;">${{ schedule.next_due_amount }}</div>{% endif %}
+            {% else %}
+              —
+            {% endif %}
+          </strong>
+        </div>
+        <div class="ins-detail__chip">
+          <span>Premium</span>
+          <strong>${{ policy.premium }}</strong>
+        </div>
+        <div class="ins-detail__chip">
+          <span>Term</span>
+          <strong style="font-size:0.95rem;">{{ policy.start_date|date:"M j, Y" }} → {{ policy.end_date|date:"M j, Y" }}</strong>
+        </div>
+      </div>
+    </header>
+
+    <section class="ins-panel">
+      <div class="ins-panel__head">
+        <h2>Documents</h2>
+        <span style="font-size:0.8rem;color:var(--portal-text-muted);font-weight:700;">{{ documents|length }} file(s)</span>
+      </div>
+      <div class="ins-panel__body">
+        {% for doc in documents %}
+        <div class="ins-doc {% if doc.document_type == 'declaration_page' %}ins-doc--dec{% endif %}">
+          <div>
+            <strong>{{ doc.title }}</strong>
+            <div style="font-size:0.78rem;color:var(--portal-text-muted);font-weight:600;margin-top:0.15rem;">
+              {{ doc.get_document_type_display }} · {{ doc.uploaded_at|date:"M j, Y g:i A" }}
+              {% if doc.uploaded_by %} · {{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }}{% endif %}
+            </div>
+          </div>
+          {% if doc.file %}
+          <a href="{{ doc.file.url }}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">View</a>
+          {% endif %}
+        </div>
+        {% empty %}
+        <p style="margin:0;color:var(--portal-text-muted);font-weight:600;">No documents yet. Upload a DEC page to get started.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="ins-panel">
+      <div class="ins-panel__head">
+        <h2>Payment schedule</h2>
+        <span style="font-size:0.8rem;color:var(--portal-text-muted);font-weight:700;">
+          {{ schedule.paid }}/{{ schedule.total }} paid · {{ schedule.open }} open
+        </span>
+      </div>
+      <div class="ins-panel__body" style="padding:0;">
+        <div style="overflow:auto;">
+          <table class="ins-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Due</th>
+                <th>Label</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in installments %}
+              <tr>
+                <td>{{ row.display_number }}</td>
+                <td>{{ row.due_date|date:"M j, Y" }}</td>
+                <td>{{ row.notes|default:"—" }}</td>
+                <td>${{ row.total_due }}</td>
+                <td>{% if row.is_paid %}Paid{% else %}Open{% endif %}</td>
+                <td>
+                  <form method="post" action="{% url 'toggle-insurance-installment-paid' row.id %}" style="margin:0;">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{% url 'insurance-policy-detail' policy.id %}">
+                    <button type="submit" class="btn btn-secondary btn-sm">{% if row.is_paid %}Mark unpaid{% else %}Mark paid{% endif %}</button>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--portal-text-muted);">No installment schedule yet. Import a DEC page to populate due dates.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="modal-overlay" id="importDecModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h3 style="margin:0 0 0.5rem;">Update from Dec Page</h3>
+    <p style="margin:0 0 1rem;color:var(--portal-text-muted);font-size:0.9rem;">Upload an Integon or NYAIP declaration PDF. Fields and payment schedule will refresh when parsing succeeds; the PDF is always stored.</p>
+    <form method="post" action="{% url 'import-insurance-dec-to-policy' policy.id %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <label class="field-label">Declaration PDF</label>
+      <input type="file" name="dec_page" accept="application/pdf,.pdf" class="field-input" required>
+      <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('importDecModal').classList.remove('active')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Import</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="uploadDocModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h3 style="margin:0 0 1rem;">Upload document</h3>
+    <form method="post" action="{% url 'upload-insurance-policy-document' policy.id %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <label class="field-label">Title</label>
+      <input type="text" name="title" class="field-input" placeholder="Optional title" style="margin-bottom:0.75rem;">
+      <label class="field-label">Type</label>
+      <select name="document_type" class="field-input" style="margin-bottom:0.75rem;">
+        <option value="declaration_page">Declaration Page</option>
+        <option value="id_cards">ID Cards</option>
+        <option value="payment_receipt">Payment Receipt</option>
+        <option value="other" selected>Other</option>
+      </select>
+      <label class="field-label">File</label>
+      <input type="file" name="document" class="field-input" required>
+      <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('uploadDocModal').classList.remove('active')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Upload</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

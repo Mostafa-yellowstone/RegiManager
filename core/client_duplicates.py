@@ -70,20 +70,37 @@ def find_clients_by_full_name(
     *,
     exclude_client_id: int | None = None,
 ):
+    """
+    Match individual clients by first + last name (case-insensitive).
+
+    Middle name is ignored so "John Smith", "JOHN SMITH", and "John A Smith"
+    all resolve to the same identity set. Prefer exact middle matches with
+    prefer_exact_middle_match() when choosing among results.
+    """
     first = normalize_name_part(first_name)
-    middle = normalize_name_part(middle_name)
     last = normalize_name_part(last_name)
     if not first or not last:
         return Client.objects.none()
     qs = _client_qs(organization).filter(
         is_commercial=False,
         first_name__iexact=first,
-        middle_name__iexact=middle,
         last_name__iexact=last,
     )
     if exclude_client_id:
         qs = qs.exclude(pk=exclude_client_id)
     return qs
+
+
+def prefer_exact_middle_match(clients, middle_name: str = ""):
+    """Prefer a client whose middle name matches (case-insensitive); else first."""
+    clients = list(clients)
+    if not clients:
+        return None
+    middle = normalize_name_part(middle_name)
+    for client in clients:
+        if normalize_name_part(client.middle_name).casefold() == middle.casefold():
+            return client
+    return clients[0]
 
 
 def _name_identity_matches(existing: Client, *, driver_license: str = "") -> bool:
@@ -135,8 +152,9 @@ def find_duplicate_client(
 
     Individual rules (case-insensitive):
     - Same driver license in the PSB is always a duplicate.
-    - Same first + middle + last is a duplicate unless both profiles have
-      different non-empty driver licenses (different people, same name).
+    - Same first + last is a duplicate (middle name differences ignored)
+      unless both profiles have different non-empty driver licenses
+      (different people, same name).
     """
     if is_commercial:
         return find_duplicate_commercial_client(
@@ -160,16 +178,18 @@ def find_duplicate_client(
     if not first or not last:
         return None
 
-    for candidate in find_clients_by_full_name(
-        organization,
-        first,
-        middle,
-        last,
-        exclude_client_id=exclude_client_id,
-    ):
-        if _name_identity_matches(candidate, driver_license=driver_license):
-            return candidate
-    return None
+    candidates = [
+        candidate
+        for candidate in find_clients_by_full_name(
+            organization,
+            first,
+            middle,
+            last,
+            exclude_client_id=exclude_client_id,
+        )
+        if _name_identity_matches(candidate, driver_license=driver_license)
+    ]
+    return prefer_exact_middle_match(candidates, middle)
 
 
 def duplicate_client_message(client: Client) -> str:

@@ -29,6 +29,13 @@ from core.agent_portal_views import (
     agent_portal_toggle_task,
     agent_portal_upload_photo,
 )
+from core.insurance_policy_views import (
+    import_insurance_dec_page,
+    import_insurance_dec_to_policy,
+    insurance_policy_detail,
+    toggle_insurance_installment_paid,
+    upload_insurance_policy_document,
+)
 from core.views import (
     dashboard,
     home,
@@ -437,6 +444,31 @@ urlpatterns = [
         name="update-insurance-space-branding",
     ),
     path("dashboard/spaces/insurance/policy/add/", add_insurance_policy, name="add-insurance-policy"),
+    path(
+        "dashboard/spaces/insurance/<int:space_id>/policy/import-dec/",
+        import_insurance_dec_page,
+        name="import-insurance-dec-page",
+    ),
+    path(
+        "dashboard/spaces/insurance/policy/<int:policy_id>/import-dec/",
+        import_insurance_dec_to_policy,
+        name="import-insurance-dec-to-policy",
+    ),
+    path(
+        "dashboard/spaces/insurance/policy/<int:policy_id>/",
+        insurance_policy_detail,
+        name="insurance-policy-detail",
+    ),
+    path(
+        "dashboard/spaces/insurance/policy/<int:policy_id>/documents/upload/",
+        upload_insurance_policy_document,
+        name="upload-insurance-policy-document",
+    ),
+    path(
+        "dashboard/spaces/insurance/installment/<int:installment_id>/toggle-paid/",
+        toggle_insurance_installment_paid,
+        name="toggle-insurance-installment-paid",
+    ),
     path("dashboard/spaces/insurance/policy/<int:policy_id>/edit/", edit_insurance_policy, name="edit-insurance-policy"),
     path("dashboard/spaces/insurance/policy/<int:policy_id>/card/", view_insurance_policy_card, name="view-insurance-policy-card"),
     path("dashboard/spaces/insurance/policy/<int:policy_id>/delete/", delete_insurance_policy, name="delete-insurance-policy"),

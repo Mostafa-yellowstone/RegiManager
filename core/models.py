@@ -2051,6 +2051,11 @@ class InsurancePolicy(models.Model):
     
     start_date = models.DateField()
     end_date = models.DateField()
+    renewal_date = models.DateField(
+        blank=True,
+        null=True,
+        help_text="Renewal / next-term date (usually set from DEC expiration).",
+    )
     insurance_period_months = models.IntegerField(default=6, help_text="Total insurance period in months")
     inactive_date = models.DateField(blank=True, null=True, help_text="Date the policy became inactive")
     unearned_commission = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, blank=True)
@@ -2087,6 +2092,9 @@ class InsurancePolicy(models.Model):
         self.start_date = _parse_date(self.start_date)
         self.end_date = _parse_date(self.end_date)
         self.inactive_date = _parse_date(self.inactive_date)
+        self.renewal_date = _parse_date(self.renewal_date)
+        if self.renewal_date is None and self.end_date:
+            self.renewal_date = self.end_date
 
         # Calculate commission_amount
         self.commission_amount = Decimal(str(self.premium)) * (Decimal(str(self.commission_rate)) / Decimal("100.00"))
@@ -2105,6 +2113,91 @@ class InsurancePolicy(models.Model):
             self.unearned_commission = Decimal("0.00")
 
         super().save(*args, **kwargs)
+
+
+def insurance_policy_document_upload_to(instance, filename):
+    return f"insurance_policy_documents/{instance.policy_id}/{filename}"
+
+
+class InsurancePolicyDocument(models.Model):
+    """Document attached to an insurance CRM policy (e.g. declaration page)."""
+
+    class DocumentType(models.TextChoices):
+        DECLARATION_PAGE = "declaration_page", "Declaration Page"
+        ID_CARDS = "id_cards", "ID Cards"
+        PAYMENT_RECEIPT = "payment_receipt", "Payment Receipt"
+        OTHER = "other", "Other"
+
+    policy = models.ForeignKey(
+        InsurancePolicy,
+        on_delete=models.CASCADE,
+        related_name="documents",
+    )
+    document_type = models.CharField(
+        max_length=30,
+        choices=DocumentType.choices,
+        default=DocumentType.OTHER,
+    )
+    title = models.CharField(max_length=200)
+    file = models.FileField(upload_to=insurance_policy_document_upload_to, blank=True, null=True)
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="insurance_policy_documents_uploaded",
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+
+    def __str__(self):
+        return self.title
+
+
+class InsurancePolicyInstallment(models.Model):
+    """Light payment-schedule row for next-due display on insurance policies."""
+
+    policy = models.ForeignKey(
+        InsurancePolicy,
+        on_delete=models.CASCADE,
+        related_name="installments",
+    )
+    installment_number = models.PositiveSmallIntegerField(
+        help_text="0 = deposit / down payment; bills start at 1.",
+    )
+    due_date = models.DateField()
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    installment_fee = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
+    is_paid = models.BooleanField(default=False)
+    notes = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        ordering = ["due_date", "installment_number"]
+        unique_together = ("policy", "installment_number")
+
+    @property
+    def total_due(self):
+        return (self.amount + self.installment_fee).quantize(Decimal("0.01"))
+
+    @property
+    def is_deposit(self) -> bool:
+        if self.installment_number == 0:
+            return True
+        notes = (self.notes or "").strip().lower()
+        return notes in {"deposit", "down payment"} or notes.startswith("deposit")
+
+    @property
+    def display_number(self) -> str:
+        return "Deposit" if self.is_deposit else str(self.installment_number)
+
+    def __str__(self):
+        return f"{self.display_number} — {self.policy.policy_number}"
 
 
 class DailyPaymentTransaction(models.Model):
