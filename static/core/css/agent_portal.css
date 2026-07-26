@@ -132,8 +132,15 @@
   transition: transform 0.15s ease, border-color 0.15s ease;
 }
 
-.agent-icon-btn:hover { transform: translateY(-2px); border-color: var(--ap-accent); }
-.agent-icon-btn--ghost { opacity: 0.85; }
+.agent-icon-btn--tasks {
+  border-color: color-mix(in srgb, #7b68ee 40%, var(--ap-line));
+  background: linear-gradient(160deg, rgba(123, 104, 238, 0.12), var(--ap-card) 70%);
+}
+
+.agent-icon-btn--tasks:hover {
+  border-color: #7b68ee;
+  color: #5b4cdb;
+}
 
 .agent-portal__grid {
   display: grid;
@@ -187,6 +194,20 @@
 
 .agent-pill--live { background: rgba(22, 163, 74, 0.14); color: #15803d; }
 .agent-pill--done { background: rgba(100, 116, 139, 0.16); color: #64748b; }
+
+.agent-pill--link {
+  text-decoration: none;
+  border: 1px solid var(--ap-line);
+  background: linear-gradient(135deg, rgba(123, 104, 238, 0.12), var(--ap-card));
+  color: var(--ap-ink);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.agent-pill--link:hover {
+  transform: translateY(-1px);
+  border-color: #7b68ee;
+  color: #5b4cdb;
+}
 
 .agent-attendance-stats {
   display: grid;

@@ -96,6 +96,35 @@ html.portal-theme-dark .agent-profile-page .src-cold_calling { background: rgba(
 html.portal-theme-dark .agent-profile-page .bt-new_business { background: rgba(99, 102, 241, 0.18); color: #a5b4fc; }
 html.portal-theme-dark .agent-profile-page .bt-renewal { background: rgba(22, 163, 74, 0.18); color: #4ade80; }
 html.portal-theme-dark .agent-profile-page .bt-rewrite { background: rgba(217, 119, 6, 0.18); color: #fb923c; }
+
+/* Portal workboard on audit profile */
+.agent-audit-workboard .agent-progress { display: flex; align-items: center; gap: 1rem; }
+.agent-audit-workboard .agent-progress__ring { position: relative; width: 72px; height: 72px; flex-shrink: 0; }
+.agent-audit-workboard .agent-progress__ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.agent-audit-workboard .agent-progress__bg { fill: none; stroke: var(--border); stroke-width: 3.2; }
+.agent-audit-workboard .agent-progress__fg { fill: none; stroke: var(--blue); stroke-width: 3.2; stroke-linecap: round; transition: stroke-dasharray 0.45s ease; }
+.agent-audit-workboard .agent-progress__ring strong { position: absolute; inset: 0; display: grid; place-items: center; font-size: 0.95rem; font-weight: 800; color: var(--dark); transform: none; }
+.agent-audit-tasks-cols { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+@media (min-width: 800px) { .agent-audit-tasks-cols { grid-template-columns: 1fr 1fr; } }
+.agent-audit-col { background: var(--portal-surface-muted); border: 1px solid var(--border); border-radius: 14px; padding: 1rem 1.1rem; }
+.agent-audit-col__title { margin: 0 0 0.75rem; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.agent-audit-col__title span { background: var(--portal-surface); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; font-size: 0.72rem; color: var(--dark); }
+.agent-audit-task-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.65rem; max-height: 320px; overflow: auto; }
+.agent-audit-task-list li { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.7rem 0.8rem; border-radius: 10px; background: var(--portal-surface); border: 1px solid var(--border); }
+.agent-audit-task-list li strong { font-size: 0.9rem; color: var(--dark); }
+.agent-audit-task-list li small { color: var(--muted); font-size: 0.8rem; font-weight: 500; }
+.agent-audit-task-list li em { font-style: normal; font-size: 0.72rem; color: var(--muted); font-weight: 600; }
+.agent-audit-task-list li.is-done strong { text-decoration: line-through; opacity: 0.75; }
+.agent-audit-empty { border-style: dashed !important; color: var(--muted); font-weight: 600; font-size: 0.88rem; }
+.agent-audit-timeline { margin: 0; padding: 0; list-style: none; max-height: 360px; overflow: auto; }
+.agent-audit-timeline .agent-timeline__item { display: grid; grid-template-columns: 7.5rem 1fr; gap: 0.75rem; padding: 0.65rem 0.85rem; border-left: 3px solid #0f766e; margin-bottom: 0.45rem; background: var(--portal-surface-muted); border-radius: 0 10px 10px 0; }
+.agent-audit-timeline .agent-timeline__item--motorclub { border-left-color: #2563eb; }
+.agent-audit-timeline .agent-timeline__item--tlc { border-left-color: #059669; }
+.agent-audit-timeline .agent-timeline__item time { font-size: 0.75rem; font-weight: 700; color: var(--muted); }
+.agent-audit-timeline .agent-timeline__item strong { display: block; font-size: 0.9rem; color: var(--dark); }
+.agent-audit-timeline .agent-timeline__item span,
+.agent-audit-timeline .agent-timeline__item em { display: block; font-size: 0.78rem; color: var(--muted); font-style: normal; font-weight: 500; }
+html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #60a5fa; }
 </style>
 
 <main class="portal-space-shell agent-profile-page">
@@ -197,6 +226,99 @@ html.portal-theme-dark .agent-profile-page .bt-rewrite { background: rgba(217, 1
       <div class="metric-card"><div class="metric-label">Commission Earned</div><div class="metric-value" style="color: var(--green); font-size: 1.4rem;">${{ total_commission|floatformat:2 }}</div></div>
       <div class="metric-card"><div class="metric-label">Broker Fees</div><div class="metric-value" style="color: #7c3aed; font-size: 1.4rem;">${{ total_broker_fees|floatformat:2 }}</div></div>
     </div>
+
+    {% if portal_workboard %}
+    <!-- Agent portal workboard (tasks · progress · timeline) -->
+    <section class="section-card agent-audit-workboard" style="margin-bottom: 2rem;">
+      <div class="section-header">
+        <h2 class="section-title">Portal work · tasks &amp; activity</h2>
+        <span style="font-size: 0.82rem; color: var(--muted); font-weight: 600;">
+          {% if portal_workboard.attendance %}
+            Shift {{ portal_workboard.work_date|date:"M j" }}
+            {% if portal_workboard.attendance.closed_at %}· closed{% else %}· on shift{% endif %}
+          {% else %}
+            No attendance yet
+          {% endif %}
+        </span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(12, 1fr); gap: 1.25rem; padding: 1.25rem 1.5rem 1.5rem;">
+        <div style="grid-column: span 12;" class="agent-audit-progress-wrap">
+          <div style="display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;">
+            <div class="agent-progress" data-percent="{{ portal_workboard.progress.percent }}" style="--progress: {{ portal_workboard.progress.percent }}; margin: 0;">
+              <div class="agent-progress__ring" aria-hidden="true">
+                <svg viewBox="0 0 36 36">
+                  <path class="agent-progress__bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                  <path class="agent-progress__fg" stroke-dasharray="{{ portal_workboard.progress.percent }}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                </svg>
+                <strong>{{ portal_workboard.progress.percent }}%</strong>
+              </div>
+            </div>
+            <div>
+              <div class="metric-label" style="margin-bottom: 0.25rem;">Task progress</div>
+              <div style="font-size: 1.35rem; font-weight: 800; color: var(--dark);">
+                {{ portal_workboard.progress.done }} done · {{ portal_workboard.progress.open }} open · {{ portal_workboard.progress.total }} total
+              </div>
+              <p style="margin: 0.35rem 0 0; color: var(--muted); font-size: 0.88rem; font-weight: 500;">Tasks stay open until marked done.</p>
+            </div>
+          </div>
+        </div>
+
+        <div style="grid-column: span 12;" class="agent-audit-tasks-cols">
+          <div class="agent-audit-col">
+            <h3 class="agent-audit-col__title">In progress <span>{{ portal_workboard.progress.open }}</span></h3>
+            <ul class="agent-audit-task-list">
+              {% for task in portal_workboard.progress.open_tasks %}
+              <li>
+                <strong>{{ task.title }}</strong>
+                {% if task.description %}<small>{{ task.description|truncatechars:120 }}</small>{% endif %}
+                <em>
+                  {% if task.due_date %}Due {{ task.due_date|date:"M j" }} · {% endif %}
+                  Assigned {{ task.created_at|date:"M j" }}
+                  {% if task.created_by %} by {{ task.created_by.get_full_name|default:task.created_by.username }}{% endif %}
+                </em>
+              </li>
+              {% empty %}
+              <li class="agent-audit-empty">No open tasks.</li>
+              {% endfor %}
+            </ul>
+          </div>
+          <div class="agent-audit-col agent-audit-col--done">
+            <h3 class="agent-audit-col__title">Completed <span>{{ portal_workboard.progress.done }}</span></h3>
+            <ul class="agent-audit-task-list">
+              {% for task in portal_workboard.progress.done_tasks %}
+              <li class="is-done">
+                <strong>{{ task.title }}</strong>
+                <em>
+                  {% if task.completed_at %}Finished {{ task.completed_at|date:"M j · g:i A" }}{% else %}Done{% endif %}
+                </em>
+              </li>
+              {% empty %}
+              <li class="agent-audit-empty">No completed tasks yet.</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+
+        <div style="grid-column: span 12;">
+          <h3 class="agent-audit-col__title" style="margin-bottom: 0.85rem;">Activity timeline <span>last 14 days</span></h3>
+          <ol class="agent-timeline agent-audit-timeline">
+            {% for event in portal_workboard.recent_activity %}
+            <li class="agent-timeline__item agent-timeline__item--{{ event.domain }}">
+              <time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|date:"M j · g:i A" }}</time>
+              <div>
+                <strong>{{ event.title }}</strong>
+                {% if event.detail %}<span>{{ event.detail }}</span>{% endif %}
+                <em>{{ event.get_domain_display }} · {{ event.get_event_type_display }}</em>
+              </div>
+            </li>
+            {% empty %}
+            <li class="agent-audit-empty" style="list-style: none; padding: 0.75rem 0;">No insurance, motor club, or TLC activity logged yet.</li>
+            {% endfor %}
+          </ol>
+        </div>
+      </div>
+    </section>
+    {% endif %}
 
     <!-- Policies Section -->
     <div class="section-card">

@@ -77,7 +77,9 @@ def ensure_attendance_open(membership: OrganizationMembership, *, now: datetime 
 
 
 def task_progress_for_membership(membership: OrganizationMembership) -> dict:
-    qs = AgentTask.objects.filter(assigned_to=membership)
+    qs = AgentTask.objects.filter(assigned_to=membership).select_related(
+        "created_by", "assigned_to__user"
+    )
     totals = qs.aggregate(
         total=Count("id"),
         done=Count("id", filter=Q(is_done=True)),
@@ -85,29 +87,85 @@ def task_progress_for_membership(membership: OrganizationMembership) -> dict:
     total = totals["total"] or 0
     done = totals["done"] or 0
     pct = int(round((done / total) * 100)) if total else 0
+    tasks = list(qs.order_by("is_done", "-created_at")[:200])
     return {
         "total": total,
         "done": done,
         "open": max(total - done, 0),
         "percent": pct,
-        "tasks": list(qs.select_related("created_by")[:100]),
+        "tasks": tasks,
+        "open_tasks": [t for t in tasks if not t.is_done],
+        "done_tasks": [t for t in tasks if t.is_done],
     }
+
+
+def activity_for_user(
+    user,
+    organization,
+    *,
+    start=None,
+    end=None,
+    limit: int = 80,
+    now: datetime | None = None,
+):
+    """Activity events for an actor; defaults to current Cairo work-date window."""
+    qs = AgentActivityEvent.objects.filter(organization=organization, actor=user)
+    if start is None and end is None:
+        local_now = (now or cairo_now()).astimezone(CAIRO_TZ)
+        work_date = current_work_date(local_now)
+        start_dt = datetime.combine(work_date, time(0, 0), tzinfo=CAIRO_TZ)
+        end_dt = shift_close_at(work_date)
+        qs = qs.filter(created_at__gte=start_dt, created_at__lt=end_dt)
+    else:
+        if start is not None:
+            start_dt = datetime.combine(start, time(0, 0), tzinfo=CAIRO_TZ)
+            qs = qs.filter(created_at__gte=start_dt)
+        if end is not None:
+            end_dt = datetime.combine(end + timedelta(days=1), time(0, 0), tzinfo=CAIRO_TZ)
+            qs = qs.filter(created_at__lt=end_dt)
+    return list(qs.order_by("-created_at")[:limit])
 
 
 def today_activity_for_user(user, organization, *, now: datetime | None = None):
     """Activity events for the current Cairo work-date window for this actor."""
-    local_now = (now or cairo_now()).astimezone(CAIRO_TZ)
-    work_date = current_work_date(local_now)
-    start = datetime.combine(work_date, time(0, 0), tzinfo=CAIRO_TZ)
-    end = shift_close_at(work_date)
-    return list(
-        AgentActivityEvent.objects.filter(
-            organization=organization,
-            actor=user,
-            created_at__gte=start,
-            created_at__lt=end,
-        ).order_by("-created_at")[:80]
+    return activity_for_user(user, organization, now=now)
+
+
+def latest_attendance_for_membership(membership: OrganizationMembership):
+    return (
+        AgentAttendanceSession.objects.filter(membership=membership)
+        .order_by("-work_date", "-opened_at")
+        .first()
     )
+
+
+def agent_workboard_payload(membership: OrganizationMembership, *, activity_limit: int = 60):
+    """Bundle tasks, progress, attendance, and recent activity for audit/board UIs."""
+    progress = task_progress_for_membership(membership)
+    activity = activity_for_user(
+        membership.user,
+        membership.organization,
+        start=None,
+        end=None,
+        limit=activity_limit,
+    )
+    # Also pull a longer recent trail (last 14 Cairo days) for audit profiles.
+    local_now = cairo_now()
+    recent_start = (local_now - timedelta(days=14)).date()
+    recent_activity = activity_for_user(
+        membership.user,
+        membership.organization,
+        start=recent_start,
+        end=local_now.date(),
+        limit=activity_limit,
+    )
+    return {
+        "progress": progress,
+        "today_activity": activity,
+        "recent_activity": recent_activity,
+        "attendance": latest_attendance_for_membership(membership),
+        "work_date": current_work_date(local_now),
+    }
 
 
 def accessible_space_cards(membership: OrganizationMembership):

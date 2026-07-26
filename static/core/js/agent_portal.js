@@ -70,10 +70,16 @@
           if (pct) pct.textContent = (data.percent || 0) + "%";
           var ring = document.querySelector(".agent-progress__fg");
           if (ring) ring.setAttribute("stroke-dasharray", (data.percent || 0) + ", 100");
+          var ringAtb = document.getElementById("atbProgressFg");
+          if (ringAtb) ringAtb.setAttribute("stroke-dasharray", (data.percent || 0) + ", 100");
           var pill = document.querySelector(".agent-card--tasks .agent-pill");
           if (pill && typeof data.done !== "undefined") {
             pill.textContent = data.done + "/" + data.total;
           }
+          if (typeof data.open === "undefined" && typeof data.total !== "undefined") {
+            data.open = Math.max((data.total || 0) - (data.done || 0), 0);
+          }
+          form.dispatchEvent(new CustomEvent("atb:toggled", { detail: data }));
         })
         .catch(function () {
           form.submit();

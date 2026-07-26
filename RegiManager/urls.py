@@ -24,6 +24,7 @@ from core.agent_portal_views import (
     agent_portal_create_task,
     agent_portal_home,
     agent_portal_manage_tasks,
+    agent_portal_tasks_board,
     agent_portal_toggle_task,
     agent_portal_upload_photo,
 )
@@ -314,6 +315,7 @@ urlpatterns = [
     path("dashboard/", dashboard, name="dashboard"),
     path("dashboard/agent-portal/", agent_portal_home, name="agent-portal-home"),
     path("dashboard/agent-portal/photo/", agent_portal_upload_photo, name="agent-portal-upload-photo"),
+    path("dashboard/agent-portal/tasks/", agent_portal_tasks_board, name="agent-portal-tasks-board"),
     path("dashboard/agent-portal/tasks/toggle/<int:task_id>/", agent_portal_toggle_task, name="agent-portal-toggle-task"),
     path("dashboard/agent-portal/tasks/create/", agent_portal_create_task, name="agent-portal-create-task"),
     path("dashboard/agent-portal/tasks/manage/", agent_portal_manage_tasks, name="agent-portal-manage-tasks"),

@@ -1,0 +1,165 @@
+{% extends "base_portal.html" %}
+{% load static tz %}
+
+{% block title %}My Tasks | RegiManager{% endblock %}
+
+{% block portal_head %}
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=4">
+<link rel="stylesheet" href="{% static 'core/css/agent_tasks_board.css' %}?v=1">
+{% endblock %}
+
+{% block portal_content %}
+<main class="agent-portal atb" data-view="{{ view_mode }}" data-status="{{ status_filter }}">
+    <header class="atb-hero">
+        <div class="atb-hero__copy">
+            <a class="atb-back" href="{% url 'agent-portal-home' %}">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                Portal
+            </a>
+            <p class="agent-portal__eyebrow">Task workspace · {{ organization.name }}</p>
+            <h1>My tasks</h1>
+            <p class="atb-hero__lead">Plan, track, and close work — ClickUp-style board for your assigned checklist.</p>
+        </div>
+        <div class="atb-hero__stats">
+            <div class="agent-progress atb-progress" data-percent="{{ task_progress.percent }}" style="--progress: {{ task_progress.percent }};">
+                <div class="agent-progress__ring" aria-hidden="true">
+                    <svg viewBox="0 0 36 36">
+                        <path class="agent-progress__bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                        <path class="agent-progress__fg" id="atbProgressFg" stroke-dasharray="{{ task_progress.percent }}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                    </svg>
+                    <strong id="taskProgressPct">{{ task_progress.percent }}%</strong>
+                </div>
+                <div class="atb-progress__meta">
+                    <span id="atbProgressCounts">{{ task_progress.done }}/{{ task_progress.total }} done</span>
+                    <small>{{ task_progress.open }} open</small>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="atb-toolbar">
+        <div class="atb-tabs" role="tablist" aria-label="Status filter">
+            <a class="atb-tab {% if status_filter == 'all' %}is-active{% endif %}" href="?view={{ view_mode }}&status=all">All</a>
+            <a class="atb-tab {% if status_filter == 'open' %}is-active{% endif %}" href="?view={{ view_mode }}&status=open">Open</a>
+            <a class="atb-tab {% if status_filter == 'done' %}is-active{% endif %}" href="?view={{ view_mode }}&status=done">Done</a>
+        </div>
+        <div class="atb-view-toggle" role="group" aria-label="View mode">
+            <a class="atb-view-btn {% if view_mode == 'board' %}is-active{% endif %}" href="?view=board&status={{ status_filter }}" title="Board view">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>
+                Board
+            </a>
+            <a class="atb-view-btn {% if view_mode == 'list' %}is-active{% endif %}" href="?view=list&status={{ status_filter }}" title="List view">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+                List
+            </a>
+        </div>
+    </div>
+
+    {% if view_mode == 'board' %}
+    <div class="atb-board" id="atbBoard">
+        {% if status_filter != 'done' %}
+        <section class="atb-column" data-column="open">
+            <header class="atb-column__head">
+                <span class="atb-dot atb-dot--open"></span>
+                <h2>To do</h2>
+                <span class="atb-count" data-count-open>{{ task_progress.open }}</span>
+            </header>
+            <ul class="atb-cards" id="atbOpenCards">
+                {% for task in task_progress.open_tasks %}
+                <li class="atb-card agent-task" data-task-id="{{ task.id }}" style="--i: {{ forloop.counter0 }}">
+                    <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}" class="agent-task-form atb-card__form">
+                        {% csrf_token %}
+                        <input type="hidden" name="toggle" value="1">
+                        <input type="hidden" name="next" value="{% url 'agent-portal-tasks-board' %}?view=board&status={{ status_filter }}">
+                        <label class="agent-check">
+                            <input type="checkbox" class="agent-check__input" aria-label="Mark {{ task.title }} done">
+                            <span class="agent-check__box" aria-hidden="true"></span>
+                            <span class="agent-check__label">
+                                <strong>{{ task.title }}</strong>
+                                {% if task.description %}<small>{{ task.description|truncatechars:140 }}</small>{% endif %}
+                                <span class="atb-card__meta">
+                                    {% if task.due_date %}<em class="atb-due">Due {{ task.due_date|date:"M j" }}</em>{% endif %}
+                                    {% if task.created_by %}<em>From {{ task.created_by.get_full_name|default:task.created_by.username }}</em>{% endif %}
+                                </span>
+                            </span>
+                        </label>
+                    </form>
+                </li>
+                {% empty %}
+                <li class="atb-empty">All clear — no open tasks.</li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+
+        {% if status_filter != 'open' %}
+        <section class="atb-column atb-column--done" data-column="done">
+            <header class="atb-column__head">
+                <span class="atb-dot atb-dot--done"></span>
+                <h2>Complete</h2>
+                <span class="atb-count" data-count-done>{{ task_progress.done }}</span>
+            </header>
+            <ul class="atb-cards" id="atbDoneCards">
+                {% for task in task_progress.done_tasks %}
+                <li class="atb-card agent-task is-done" data-task-id="{{ task.id }}" style="--i: {{ forloop.counter0 }}">
+                    <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}" class="agent-task-form atb-card__form">
+                        {% csrf_token %}
+                        <input type="hidden" name="toggle" value="1">
+                        <input type="hidden" name="next" value="{% url 'agent-portal-tasks-board' %}?view=board&status={{ status_filter }}">
+                        <label class="agent-check">
+                            <input type="checkbox" checked class="agent-check__input" aria-label="Reopen {{ task.title }}">
+                            <span class="agent-check__box" aria-hidden="true"></span>
+                            <span class="agent-check__label">
+                                <strong>{{ task.title }}</strong>
+                                {% if task.completed_at %}
+                                <span class="atb-card__meta"><em>Done {{ task.completed_at|timezone:"Africa/Cairo"|date:"M j · g:i A" }}</em></span>
+                                {% endif %}
+                            </span>
+                        </label>
+                    </form>
+                </li>
+                {% empty %}
+                <li class="atb-empty">Nothing completed yet.</li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+    </div>
+    {% else %}
+    <section class="atb-list-panel">
+        <ul class="atb-list" id="atbList">
+            {% for task in task_progress.tasks %}
+                {% if status_filter == 'all' or status_filter == 'open' and not task.is_done or status_filter == 'done' and task.is_done %}
+                <li class="atb-list-row agent-task {% if task.is_done %}is-done{% endif %}" data-task-id="{{ task.id }}" style="--i: {{ forloop.counter0 }}">
+                    <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}" class="agent-task-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="toggle" value="1">
+                        <input type="hidden" name="next" value="{% url 'agent-portal-tasks-board' %}?view=list&status={{ status_filter }}">
+                        <label class="agent-check">
+                            <input type="checkbox" {% if task.is_done %}checked{% endif %} class="agent-check__input" aria-label="Toggle {{ task.title }}">
+                            <span class="agent-check__box" aria-hidden="true"></span>
+                            <span class="agent-check__label">
+                                <strong>{{ task.title }}</strong>
+                                {% if task.description %}<small>{{ task.description|truncatechars:160 }}</small>{% endif %}
+                            </span>
+                        </label>
+                        <div class="atb-list-row__side">
+                            {% if task.due_date %}<span class="atb-due">{{ task.due_date|date:"M j" }}</span>{% endif %}
+                            <span class="atb-status-chip {% if task.is_done %}is-done{% else %}is-open{% endif %}">{% if task.is_done %}Done{% else %}Open{% endif %}</span>
+                        </div>
+                    </form>
+                </li>
+                {% endif %}
+            {% empty %}
+            <li class="atb-empty">No tasks assigned yet.</li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+</main>
+{% endblock %}
+
+{% block portal_scripts %}
+<script src="{% static 'core/js/agent_portal.js' %}?v=4" defer></script>
+<script src="{% static 'core/js/agent_tasks_board.js' %}?v=1" defer></script>
+{% endblock %}

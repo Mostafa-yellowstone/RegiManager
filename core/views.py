@@ -8097,12 +8097,27 @@ def insurance_agent_detail(request, user_id):
     insurance_companies = InsuranceCompany.objects.filter(organization=active_org)
     insurance_space_id = _get_insurance_space_id(active_org)
 
+    # Portal workboard: tasks + progress + activity for insurance agents
+    agent_membership = OrganizationMembership.objects.filter(
+        user=agent,
+        organization=active_org,
+        is_active=True,
+        can_deal_with_insurance=True,
+    ).select_related("organization", "user").first()
+    portal_workboard = None
+    if agent_membership:
+        from .agent_portal_services import agent_workboard_payload
+
+        portal_workboard = agent_workboard_payload(agent_membership)
+
     return render(request, "core/insurance_agent_detail.html", {
         "agent": agent,
         "active_org": active_org,
         "insurance_space_id": insurance_space_id,
         "policies_page": policies_page,
         "insurance_companies": insurance_companies,
+        "agent_membership": agent_membership,
+        "portal_workboard": portal_workboard,
         # Period auditing
         "period": period,
         "audit_start": audit_start,

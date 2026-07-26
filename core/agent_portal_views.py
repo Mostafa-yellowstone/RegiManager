@@ -150,6 +150,7 @@ def agent_portal_toggle_task(request, task_id):
                 "is_done": task.is_done,
                 "percent": progress["percent"],
                 "done": progress["done"],
+                "open": progress["open"],
                 "total": progress["total"],
             }
         )
@@ -210,3 +211,43 @@ def agent_portal_create_task(request):
     else:
         messages.error(request, "Could not create task. Check the title and assignee.")
     return redirect("agent-portal-home")
+
+
+@login_required
+def agent_portal_tasks_board(request):
+    """ClickUp-style personal tasks board for insurance agents."""
+    if request.user.is_superuser:
+        return redirect("/admin/")
+
+    membership = _resolve_portal_membership(request)
+    if membership is None:
+        messages.error(request, "Your account is currently disabled for all PSBs. Contact an owner.")
+        return redirect("login")
+
+    # Open attendance when agents enter their task board (same as portal home).
+    if uses_agent_portal_home(membership) or membership.can_deal_with_insurance:
+        ensure_attendance_open(membership)
+
+    progress = task_progress_for_membership(membership)
+    local_now = cairo_now()
+    view_mode = (request.GET.get("view") or "board").lower()
+    if view_mode not in {"board", "list"}:
+        view_mode = "board"
+    status_filter = (request.GET.get("status") or "all").lower()
+    if status_filter not in {"all", "open", "done"}:
+        status_filter = "all"
+
+    return render(
+        request,
+        "core/agent_portal/tasks_board.html",
+        {
+            "membership": membership,
+            "organization": membership.organization,
+            "task_progress": progress,
+            "cairo_now": local_now,
+            "view_mode": view_mode,
+            "status_filter": status_filter,
+            "can_manage_tasks": can_manage_agent_tasks(membership),
+            "is_agent_tasks_board": True,
+        },
+    )
