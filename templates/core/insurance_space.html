@@ -567,8 +567,10 @@ html.portal-theme-dark .ins-license-crm-alert__row {
           <h3 class="ins-section-title" style="margin-bottom: 0.2rem;">Client Insurance Policies</h3>
           <p style="margin: 0; color: #64748b; font-size: 0.85rem; font-weight: 600;">Showing quote dates in {{ comp_period_label }}</p>
         </div>
-        <button onclick="openAddPolicyModal()" style="padding: 8px 18px; background: #093de6; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Add Policy</button>
-        <button type="button" onclick="document.getElementById('importInsDecModal').classList.add('active')" style="padding: 8px 18px; background: #0f766e; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">Import Dec Page</button>
+        <div style="display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap;">
+          <button type="button" onclick="openAddPolicyModal()" style="padding: 8px 18px; background: #093de6; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Add Policy</button>
+          <button type="button" onclick="document.getElementById('importInsDecModal').classList.add('active')" style="padding: 8px 18px; background: #0f766e; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">Import Dec Page</button>
+        </div>
       </div>
       <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
         <table class="spaces-table">

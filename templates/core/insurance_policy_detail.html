@@ -5,7 +5,7 @@
 
 {% block portal_content %}
 <style>
-.ins-detail { max-width: 1100px; margin: 0 auto; }
+.ins-detail { width: 100%; max-width: none; }
 .ins-detail__hero {
   background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
   border-radius: 20px; padding: 1.5rem 1.75rem; color: #fff; margin-bottom: 1.25rem;
@@ -47,7 +47,7 @@ html.portal-theme-dark .ins-doc--dec { background: rgba(37,99,235,0.15); border-
 </style>
 
 <main class="portal-space-shell ins-detail">
-  <div class="portal-space-inner">
+  <div class="portal-space-inner portal-space-inner--wide">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem;">
       {% if insurance_space %}
       <a href="{% url 'inventory-detail' insurance_space.id %}" class="btn btn-secondary btn-sm">← Back to Insurance</a>
