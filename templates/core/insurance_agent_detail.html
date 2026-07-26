@@ -3,6 +3,10 @@
 
 {% block title %}{{ agent.get_full_name|default:agent.username }} — Agent Profile | RegiManager{% endblock %}
 
+{% block portal_head %}
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=6">
+{% endblock %}
+
 {% block portal_content %}
 
 <style>
@@ -116,14 +120,14 @@ html.portal-theme-dark .agent-profile-page .bt-rewrite { background: rgba(217, 1
 .agent-audit-task-list li em { font-style: normal; font-size: 0.72rem; color: var(--muted); font-weight: 600; }
 .agent-audit-task-list li.is-done strong { text-decoration: line-through; opacity: 0.75; }
 .agent-audit-empty { border-style: dashed !important; color: var(--muted); font-weight: 600; font-size: 0.88rem; }
-.agent-audit-timeline { margin: 0; padding: 0; list-style: none; max-height: 360px; overflow: auto; }
-.agent-audit-timeline .agent-timeline__item { display: grid; grid-template-columns: 7.5rem 1fr; gap: 0.75rem; padding: 0.65rem 0.85rem; border-left: 3px solid #0f766e; margin-bottom: 0.45rem; background: var(--portal-surface-muted); border-radius: 0 10px 10px 0; }
-.agent-audit-timeline .agent-timeline__item--motorclub { border-left-color: #2563eb; }
-.agent-audit-timeline .agent-timeline__item--tlc { border-left-color: #059669; }
-.agent-audit-timeline .agent-timeline__item time { font-size: 0.75rem; font-weight: 700; color: var(--muted); }
-.agent-audit-timeline .agent-timeline__item strong { display: block; font-size: 0.9rem; color: var(--dark); }
-.agent-audit-timeline .agent-timeline__item span,
-.agent-audit-timeline .agent-timeline__item em { display: block; font-size: 0.78rem; color: var(--muted); font-style: normal; font-weight: 500; }
+.agent-audit-workboard .agent-timeline {
+  --ap-ink: var(--dark);
+  --ap-muted: var(--muted);
+  --ap-line: var(--border);
+  --ap-card: var(--portal-surface);
+  max-height: 420px;
+  padding-top: 0.15rem;
+}
 html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #60a5fa; }
 </style>
 
@@ -306,14 +310,20 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #60a
 
         <div style="grid-column: span 12;">
           <h3 class="agent-audit-col__title" style="margin-bottom: 0.85rem;">Activity timeline <span>last 14 days</span></h3>
-          <ol class="agent-timeline agent-audit-timeline">
+          <ol class="agent-timeline">
             {% for event in portal_workboard.recent_activity %}
             <li class="agent-timeline__item agent-timeline__item--{{ event.domain }}">
-              <time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|date:"M j · g:i A" }}</time>
-              <div>
+              <div class="agent-timeline__rail" aria-hidden="true">
+                <span class="agent-timeline__dot"></span>
+              </div>
+              <div class="agent-timeline__card">
+                <div class="agent-timeline__meta">
+                  <time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|date:"M j · g:i A" }}</time>
+                  <span class="agent-timeline__domain">{{ event.get_domain_display }}</span>
+                </div>
                 <strong>{{ event.title }}</strong>
                 {% if event.detail %}<span>{{ event.detail }}</span>{% endif %}
-                <em>{{ event.get_domain_display }} · {{ event.get_event_type_display }}</em>
+                <em>{{ event.get_event_type_display }}</em>
               </div>
             </li>
             {% empty %}

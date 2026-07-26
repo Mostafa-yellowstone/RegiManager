@@ -229,9 +229,46 @@
                 link.addEventListener('click', closeMobileMenu);
             });
 
+            const topNav = document.querySelector('.top-nav');
+            const navMenu = topNav ? topNav.querySelector('.nav-menu') : null;
+            let navFitFrame = 0;
+
+            const syncNavFit = () => {
+                if (!topNav || !navMenu) return;
+                // Let CSS media rules win when already in drawer mode.
+                topNav.classList.remove('top-nav--force-drawer');
+                const menuStyle = window.getComputedStyle(navMenu);
+                if (menuStyle.display === 'none') {
+                    closeMobileMenu();
+                    return;
+                }
+                // Measure after layout: if links overflow the middle column, collapse to drawer.
+                const overflowing = navMenu.scrollWidth > navMenu.clientWidth + 1;
+                const bar = topNav.querySelector('.top-nav__bar');
+                const barOverflow = bar ? bar.scrollWidth > bar.clientWidth + 2 : false;
+                if (overflowing || barOverflow) {
+                    topNav.classList.add('top-nav--force-drawer');
+                }
+            };
+
+            const scheduleNavFit = () => {
+                if (navFitFrame) window.cancelAnimationFrame(navFitFrame);
+                navFitFrame = window.requestAnimationFrame(() => {
+                    navFitFrame = 0;
+                    syncNavFit();
+                });
+            };
+
+            scheduleNavFit();
             window.addEventListener('resize', () => {
-                if (window.innerWidth > 1200) closeMobileMenu();
+                scheduleNavFit();
+                if (window.innerWidth > 1400 && !topNav?.classList.contains('top-nav--force-drawer')) {
+                    closeMobileMenu();
+                }
             });
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', scheduleNavFit);
+            }
 
             document.addEventListener('click', (e) => {
                 if (e.target.closest('#notifBtn, #notifDropdown, #locBtn, #locDropdown, #locBtnDrawer, #locDropdownDrawer, #portalMobileNavBtn, .portal-mobile-drawer, #portalNavBackdrop')) {

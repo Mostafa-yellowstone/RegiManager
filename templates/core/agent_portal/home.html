@@ -4,7 +4,7 @@
 {% block title %}My Portal | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=4">
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=6">
 {% endblock %}
 
 {% block portal_content %}
@@ -120,11 +120,16 @@
             <ol class="agent-timeline">
                 {% for event in activity_events %}
                 <li class="agent-timeline__item agent-timeline__item--{{ event.domain }}">
-                    <time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|timezone:"Africa/Cairo"|date:"g:i A" }}</time>
-                    <div>
+                    <div class="agent-timeline__rail" aria-hidden="true">
+                        <span class="agent-timeline__dot"></span>
+                    </div>
+                    <div class="agent-timeline__card">
+                        <div class="agent-timeline__meta">
+                            <time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|timezone:"Africa/Cairo"|date:"g:i A" }}</time>
+                            <span class="agent-timeline__domain">{{ event.get_domain_display }}</span>
+                        </div>
                         <strong>{{ event.title }}</strong>
                         {% if event.detail %}<span>{{ event.detail }}</span>{% endif %}
-                        <em>{{ event.get_domain_display }}</em>
                     </div>
                 </li>
                 {% empty %}
