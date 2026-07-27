@@ -112,7 +112,7 @@
                             <span class="agent-check__label">
                                 <strong>{{ task.title }}</strong>
                                 {% if task.completed_at %}
-                                <span class="atb-card__meta"><em>Done {{ task.completed_at|timezone:"Africa/Cairo"|date:"M j · g:i A" }}</em></span>
+                                <span class="atb-card__meta"><em>Done {{ task.completed_at|timezone:"America/New_York"|date:"M j · g:i A" }}</em></span>
                                 {% endif %}
                             </span>
                         </label>

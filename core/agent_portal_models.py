@@ -9,10 +9,10 @@ from django.utils import timezone
 
 class AgentAttendanceSession(models.Model):
     """
-    One attendance shift per agent membership per Cairo work-date.
+    One attendance shift per agent membership per America/New_York work-date.
 
-    A shift for work_date D opens when the agent hits the portal and
-    auto-closes at 01:00 Africa/Cairo on D+1.
+    A shift for work_date D opens when the agent logs into the system
+    (website or companion app) and auto-closes at 18:00 America/New_York on D.
     """
 
     membership = models.ForeignKey(
@@ -27,7 +27,7 @@ class AgentAttendanceSession(models.Model):
     )
     work_date = models.DateField(
         db_index=True,
-        help_text="Cairo calendar date this shift belongs to.",
+        help_text="America/New_York calendar date this shift belongs to.",
     )
     opened_at = models.DateTimeField()
     closed_at = models.DateTimeField(null=True, blank=True)

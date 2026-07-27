@@ -103,6 +103,9 @@ class CompanionLoginView(APIView):
             )
 
         token, _ = Token.objects.get_or_create(user=user)
+        from .agent_portal_services import start_attendance_on_login
+
+        start_attendance_on_login(user)
         organizations = [_membership_payload(m, request) for m in memberships]
         return Response(
             {

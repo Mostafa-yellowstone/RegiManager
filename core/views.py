@@ -656,6 +656,9 @@ def member_signup(request):
                 role=OrganizationMembership.Role.MEMBER,
             )
             login(request, user)
+            from .agent_portal_services import start_attendance_on_login
+
+            start_attendance_on_login(user)
             messages.success(request, "Your agent account was created successfully.")
             return redirect("dashboard")
     else:
@@ -693,6 +696,9 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+            from .agent_portal_services import start_attendance_on_login
+
+            start_attendance_on_login(user)
             if user.is_superuser:
                 return redirect("/admin/")
             from .agent_portal_views import agent_portal_login_redirect

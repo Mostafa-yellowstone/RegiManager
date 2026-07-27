@@ -1,4 +1,4 @@
-"""Cairo-aware attendance, task progress, and activity timeline services."""
+"""New York–aware attendance, task progress, and activity timeline services."""
 
 from __future__ import annotations
 
@@ -12,35 +12,39 @@ from .agent_portal_models import AgentActivityEvent, AgentAttendanceSession, Age
 from .models import Organization, OrganizationMembership
 from .space_access import filter_accessible_spaces
 
-CAIRO_TZ = ZoneInfo("Africa/Cairo")
+# Business clock for agent attendance / portal shifts (USA — New York).
+PORTAL_TZ = ZoneInfo("America/New_York")
+# Backward-compatible alias used by older imports/tests.
+CAIRO_TZ = PORTAL_TZ
+
+
+def portal_now() -> datetime:
+    return timezone.now().astimezone(PORTAL_TZ)
 
 
 def cairo_now() -> datetime:
-    return timezone.now().astimezone(CAIRO_TZ)
+    """Legacy name — returns America/New_York local time."""
+    return portal_now()
 
 
 def current_work_date(now: datetime | None = None):
     """
-    Work-date for attendance shifts.
+    Work-date for attendance shifts = America/New_York calendar date.
 
-    Before 01:00 Cairo, the previous calendar day is still the active shift
-    (Monday 09:00 → Monday; Tuesday 00:30 → Monday; Tuesday 01:30 → Tuesday).
+    Shifts auto-close at 18:00 (6 PM) New York on that same date.
     """
-    local = (now or cairo_now()).astimezone(CAIRO_TZ)
-    if local.hour < 1:
-        return (local - timedelta(days=1)).date()
+    local = (now or portal_now()).astimezone(PORTAL_TZ)
     return local.date()
 
 
 def shift_close_at(work_date) -> datetime:
-    """01:00 Cairo on the calendar day after work_date."""
-    close_local = datetime.combine(work_date + timedelta(days=1), time(1, 0), tzinfo=CAIRO_TZ)
-    return close_local
+    """18:00 (6 PM) America/New_York on work_date."""
+    return datetime.combine(work_date, time(18, 0), tzinfo=PORTAL_TZ)
 
 
 def close_stale_attendance_sessions(*, now: datetime | None = None) -> int:
-    """Close any open sessions whose 01:00 Cairo deadline has passed."""
-    local_now = (now or cairo_now()).astimezone(CAIRO_TZ)
+    """Close any open sessions whose 6 PM New York deadline has passed."""
+    local_now = (now or portal_now()).astimezone(PORTAL_TZ)
     closed = 0
     open_sessions = AgentAttendanceSession.objects.filter(closed_at__isnull=True).only(
         "id", "work_date", "closed_at"
@@ -55,25 +59,69 @@ def close_stale_attendance_sessions(*, now: datetime | None = None) -> int:
 
 
 def ensure_attendance_open(membership: OrganizationMembership, *, now: datetime | None = None):
-    """Open (or reuse) today's attendance session for this membership."""
+    """
+    Open (or reuse) today's attendance session for this membership.
+
+    After 6 PM New York the shift is over — existing sessions are returned as-is
+    and no new open session is created.
+    """
+    if membership is None or not membership.is_active:
+        return None
+    if membership.role == OrganizationMembership.Role.OWNER:
+        return None
+
     close_stale_attendance_sessions(now=now)
-    local_now = (now or cairo_now()).astimezone(CAIRO_TZ)
+    local_now = (now or portal_now()).astimezone(PORTAL_TZ)
     work_date = current_work_date(local_now)
-    session, created = AgentAttendanceSession.objects.get_or_create(
-        membership=membership,
-        work_date=work_date,
-        defaults={
-            "organization": membership.organization,
-            "opened_at": local_now,
-        },
+    deadline = shift_close_at(work_date)
+
+    existing = (
+        AgentAttendanceSession.objects.filter(membership=membership, work_date=work_date)
+        .order_by("-opened_at")
+        .first()
     )
-    if not created and session.closed_at is not None and local_now < shift_close_at(work_date):
+    if local_now >= deadline:
+        return existing
+
+    if existing is None:
+        return AgentAttendanceSession.objects.create(
+            membership=membership,
+            organization=membership.organization,
+            work_date=work_date,
+            opened_at=local_now,
+        )
+
+    if existing.closed_at is not None and local_now < deadline:
         # Re-open only if somehow closed early during the same shift window.
-        session.closed_at = None
-        if session.opened_at is None:
-            session.opened_at = local_now
-        session.save(update_fields=["closed_at", "opened_at", "updated_at"])
-    return session
+        existing.closed_at = None
+        if existing.opened_at is None:
+            existing.opened_at = local_now
+        existing.save(update_fields=["closed_at", "opened_at", "updated_at"])
+    return existing
+
+
+def start_attendance_on_login(user, *, now: datetime | None = None) -> list:
+    """
+    Start attendance for every active non-owner membership when the user signs in
+    (website or companion app). No-op after 6 PM New York.
+    """
+    if user is None or not getattr(user, "is_active", False):
+        return []
+    memberships = (
+        OrganizationMembership.objects.filter(
+            user=user,
+            is_active=True,
+            organization__is_active=True,
+        )
+        .exclude(role=OrganizationMembership.Role.OWNER)
+        .select_related("organization")
+    )
+    sessions = []
+    for membership in memberships:
+        session = ensure_attendance_open(membership, now=now)
+        if session is not None:
+            sessions.append(session)
+    return sessions
 
 
 def task_progress_for_membership(membership: OrganizationMembership) -> dict:
@@ -108,26 +156,26 @@ def activity_for_user(
     limit: int = 80,
     now: datetime | None = None,
 ):
-    """Activity events for an actor; defaults to current Cairo work-date window."""
+    """Activity events for an actor; defaults to current New York work-date window."""
     qs = AgentActivityEvent.objects.filter(organization=organization, actor=user)
     if start is None and end is None:
-        local_now = (now or cairo_now()).astimezone(CAIRO_TZ)
+        local_now = (now or portal_now()).astimezone(PORTAL_TZ)
         work_date = current_work_date(local_now)
-        start_dt = datetime.combine(work_date, time(0, 0), tzinfo=CAIRO_TZ)
+        start_dt = datetime.combine(work_date, time(0, 0), tzinfo=PORTAL_TZ)
         end_dt = shift_close_at(work_date)
         qs = qs.filter(created_at__gte=start_dt, created_at__lt=end_dt)
     else:
         if start is not None:
-            start_dt = datetime.combine(start, time(0, 0), tzinfo=CAIRO_TZ)
+            start_dt = datetime.combine(start, time(0, 0), tzinfo=PORTAL_TZ)
             qs = qs.filter(created_at__gte=start_dt)
         if end is not None:
-            end_dt = datetime.combine(end + timedelta(days=1), time(0, 0), tzinfo=CAIRO_TZ)
+            end_dt = datetime.combine(end + timedelta(days=1), time(0, 0), tzinfo=PORTAL_TZ)
             qs = qs.filter(created_at__lt=end_dt)
     return list(qs.order_by("-created_at")[:limit])
 
 
 def today_activity_for_user(user, organization, *, now: datetime | None = None):
-    """Activity events for the current Cairo work-date window for this actor."""
+    """Activity events for the current New York work-date window for this actor."""
     return activity_for_user(user, organization, now=now)
 
 
@@ -149,8 +197,8 @@ def agent_workboard_payload(membership: OrganizationMembership, *, activity_limi
         end=None,
         limit=activity_limit,
     )
-    # Also pull a longer recent trail (last 14 Cairo days) for audit profiles.
-    local_now = cairo_now()
+    # Also pull a longer recent trail (last 14 New York days) for audit profiles.
+    local_now = portal_now()
     recent_start = (local_now - timedelta(days=14)).date()
     recent_activity = activity_for_user(
         membership.user,
@@ -210,7 +258,7 @@ def owner_can_review_agent(viewer: OrganizationMembership | None, agent: Organiz
 def attendance_roster_for_owner(owner_user, *, work_date=None, organization_id=None) -> dict:
     """Owner-facing attendance tracker for all agents across owned PSBs."""
     close_stale_attendance_sessions()
-    local_now = cairo_now()
+    local_now = portal_now()
     selected_date = work_date or current_work_date(local_now)
 
     owned_orgs = Organization.objects.filter(
@@ -268,6 +316,7 @@ def attendance_roster_for_owner(owner_user, *, work_date=None, organization_id=N
     return {
         "work_date": selected_date,
         "cairo_now": local_now,
+        "local_now": local_now,
         "close_at": shift_close_at(selected_date),
         "organizations": list(owned_orgs.order_by("name")),
         "rows": rows,

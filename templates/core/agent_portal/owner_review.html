@@ -116,7 +116,7 @@ html.portal-theme-dark .owner-review-badge { background: rgba(99,102,241,0.2); c
               <span class="agent-check__box" aria-hidden="true"></span>
               <span class="agent-check__label">
                 <strong>{{ task.title }}</strong>
-                {% if task.completed_at %}<small>Done {{ task.completed_at|timezone:"Africa/Cairo"|date:"M j · g:i A" }}</small>{% endif %}
+                {% if task.completed_at %}<small>Done {{ task.completed_at|timezone:"America/New_York"|date:"M j · g:i A" }}</small>{% endif %}
               </span>
             </label>
           </form>
@@ -159,7 +159,7 @@ html.portal-theme-dark .owner-review-badge { background: rgba(99,102,241,0.2); c
           </div>
           <div class="agent-timeline__card">
             <div class="agent-timeline__meta">
-              <time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|timezone:"Africa/Cairo"|date:"M j · g:i A" }}</time>
+              <time datetime="{{ event.created_at|date:'c' }}">{{ event.created_at|timezone:"America/New_York"|date:"M j · g:i A" }}</time>
               <span class="agent-timeline__domain">{{ event.get_domain_display }}</span>
             </div>
             <strong>{{ event.title }}</strong>

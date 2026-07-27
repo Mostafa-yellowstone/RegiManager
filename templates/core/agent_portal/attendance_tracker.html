@@ -12,12 +12,12 @@
     <section class="attendance-tracker__hero">
         <div class="attendance-tracker__intro">
             <a href="{% url 'dashboard' %}#ops" class="attendance-back">&larr; Back to Ops</a>
-            <p class="attendance-eyebrow">Team pulse · Cairo shift</p>
+            <p class="attendance-eyebrow">Team pulse · New York shift</p>
             <h1>Attendance Tracker</h1>
             <p class="attendance-lead">
                 Live view of every agent for
                 <strong>{{ roster.work_date|date:"D, M j, Y" }}</strong>.
-                Shifts auto-close {{ roster.close_at|date:"g:i A" }} Cairo.
+                Attendance starts at login and auto-closes {{ roster.close_at|date:"g:i A" }} New York.
             </p>
         </div>
         <form method="get" class="attendance-filters" action="{% url 'agent-attendance-tracker' %}">
@@ -64,7 +64,7 @@
     <section class="attendance-board">
         <header class="attendance-board__head">
             <h2>Agent roster</h2>
-            <span class="attendance-clock">Cairo {{ roster.cairo_now|date:"g:i A" }}</span>
+            <span class="attendance-clock">New York {{ roster.cairo_now|date:"g:i A" }}</span>
         </header>
 
         {% if roster.rows %}
@@ -95,7 +95,7 @@
                         <dt>Opened</dt>
                         <dd>
                             {% if row.session and row.session.opened_at %}
-                            {{ row.session.opened_at|timezone:"Africa/Cairo"|date:"g:i A" }}
+                            {{ row.session.opened_at|timezone:"America/New_York"|date:"g:i A" }}
                             {% else %}—{% endif %}
                         </dd>
                     </div>
@@ -103,7 +103,7 @@
                         <dt>Closed</dt>
                         <dd>
                             {% if row.session and row.session.closed_at %}
-                            {{ row.session.closed_at|timezone:"Africa/Cairo"|date:"g:i A" }}
+                            {{ row.session.closed_at|timezone:"America/New_York"|date:"g:i A" }}
                             {% elif row.status == "on_shift" %}
                             In progress
                             {% else %}—{% endif %}

@@ -19,6 +19,7 @@ from .agent_portal_services import (
     current_work_date,
     ensure_attendance_open,
     owner_can_review_agent,
+    portal_now,
     shift_close_at,
     task_progress_for_membership,
     today_activity_for_user,
@@ -175,7 +176,8 @@ class OwnerAgentsListView(OwnerAPIBase):
                     "name": organization.name,
                 },
                 "work_date": current_work_date(cairo_now()).isoformat(),
-                "cairo_now": cairo_now().isoformat(),
+                "cairo_now": portal_now().isoformat(),
+                "local_now": portal_now().isoformat(),
                 "agents": agents,
             }
         )
@@ -221,7 +223,8 @@ class OwnerAgentWorkboardView(OwnerAPIBase):
             {
                 "agent": _serialize_agent_summary(request, agent),
                 "work_date": workboard["work_date"].isoformat(),
-                "cairo_now": cairo_now().isoformat(),
+                "cairo_now": portal_now().isoformat(),
+                "local_now": portal_now().isoformat(),
                 "task_progress": _serialize_task_progress(progress),
                 "today_activity": [
                     _serialize_activity(e) for e in workboard["today_activity"]
@@ -319,7 +322,8 @@ class AgentPortalHomeView(AgentAPIBase):
                 },
                 "profile_photo_url": _absolute_media_url(request, membership.profile_photo),
                 "work_date": work_date.isoformat(),
-                "cairo_now": cairo_now().isoformat(),
+                "cairo_now": portal_now().isoformat(),
+                "local_now": portal_now().isoformat(),
                 "attendance": _serialize_attendance(session, work_date=work_date),
                 "task_progress": _serialize_task_progress(progress),
                 "today_activity": [_serialize_activity(e) for e in today_events],
@@ -408,7 +412,8 @@ class AgentAttendanceView(AgentAPIBase):
         return Response(
             {
                 "work_date": work_date.isoformat(),
-                "cairo_now": cairo_now().isoformat(),
+                "cairo_now": portal_now().isoformat(),
+                "local_now": portal_now().isoformat(),
                 "current": _serialize_attendance(session, work_date=work_date),
                 "history": [_serialize_attendance(s) for s in history if s],
             }
