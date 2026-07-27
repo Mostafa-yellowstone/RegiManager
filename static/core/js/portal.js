@@ -148,8 +148,11 @@
 
             const closeDropdowns = () => {
                 if (notifDropdown) notifDropdown.classList.remove('is-open');
+                if (notifBtn) notifBtn.setAttribute('aria-expanded', 'false');
                 if (locDropdown) locDropdown.classList.remove('is-open');
+                if (locBtn) locBtn.setAttribute('aria-expanded', 'false');
                 if (locDropdownDrawer) locDropdownDrawer.classList.remove('is-open');
+                if (locBtnDrawer) locBtnDrawer.setAttribute('aria-expanded', 'false');
             };
 
             const closeAll = () => {
@@ -162,7 +165,12 @@
                 const open = !panel.classList.contains('is-open');
                 closeDropdowns();
                 if (closesMobile) closeMobileMenu();
-                if (open) panel.classList.add('is-open');
+                if (open) {
+                    panel.classList.add('is-open');
+                }
+                if (btn.hasAttribute('aria-expanded')) {
+                    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                }
             };
 
             const toggleMobileMenu = () => {
@@ -194,7 +202,10 @@
                     e.stopPropagation();
                     const open = !locDropdownDrawer.classList.contains('is-open');
                     closeDropdowns();
-                    if (open) locDropdownDrawer.classList.add('is-open');
+                    if (open) {
+                        locDropdownDrawer.classList.add('is-open');
+                        locBtnDrawer.setAttribute('aria-expanded', 'true');
+                    }
                 });
             }
 

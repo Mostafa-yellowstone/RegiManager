@@ -1642,7 +1642,7 @@ html.portal-theme-dark .branch-compare__analytics-btn:hover {
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     border-bottom: 1px solid rgba(226, 232, 240, 0.8);
     box-shadow: var(--portal-shadow-nav);
-    overflow: hidden;
+    overflow: visible;
 }
 
 .top-nav__start {
@@ -1851,6 +1851,11 @@ html.portal-theme-dark .branch-compare__analytics-btn:hover {
 
 .notif-wrap {
     position: relative;
+    z-index: 3;
+}
+
+.notif-wrap:has(.portal-dropdown.is-open) {
+    z-index: 1200;
 }
 
 .notif-btn {

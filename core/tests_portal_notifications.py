@@ -59,3 +59,28 @@ class PortalNotificationTests(TestCase):
         self.assertEqual(all_resp.status_code, 200)
         self.assertEqual(all_resp.json()["unread_count"], 0)
         self.assertEqual(Notification.objects.filter(user=self.user, is_read=False).count(), 0)
+
+    def test_open_agent_task_notification_redirects_to_tasks_board(self):
+        agent_user = User.objects.create_user(username="task_agent", password="pass")
+        OrganizationMembership.objects.create(
+            user=agent_user,
+            organization=self.org,
+            role=OrganizationMembership.Role.MEMBER,
+            is_active=True,
+            can_deal_with_insurance=True,
+        )
+        notif = Notification.objects.create(
+            user=agent_user,
+            organization=self.org,
+            event_type="agent_task_assigned",
+            title="New task assigned",
+            message="Follow up with client",
+            level=Notification.Level.INFO,
+            is_read=False,
+        )
+        self.client.login(username="task_agent", password="pass")
+        resp = self.client.get(reverse("open-notification", args=[notif.id]))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/dashboard/agent-portal/tasks/", resp.url)
+        notif.refresh_from_db()
+        self.assertTrue(notif.is_read)

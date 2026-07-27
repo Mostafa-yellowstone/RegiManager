@@ -959,7 +959,7 @@ def mark_client_note_done(request, note_id):
 def open_notification(request, notification_id):
     try:
         notif = get_object_or_404(
-            Notification.objects.select_related("client", "note", "insurance_company"),
+            Notification.objects.select_related("client", "note", "insurance_company", "policy"),
             id=notification_id,
             user=request.user,
         )
@@ -974,9 +974,15 @@ def open_notification(request, notification_id):
     if notif.insurance_company_id:
         return redirect("insurance-company-detail", company_id=notif.insurance_company_id)
 
+    if notif.policy_id and not notif.client_id:
+        return redirect("insurance-policy-detail", policy_id=notif.policy_id)
+
     if notif.client_id:
         anchor = f"#note-{notif.note_id}" if notif.note_id else ""
         return redirect(f"{redirect('client-detail', client_id=notif.client_id).url}{anchor}")
+
+    if notif.event_type == "agent_task_assigned":
+        return redirect("agent-portal-tasks-board")
 
     messages.info(request, notif.title or "Notification opened.")
     return redirect("dashboard")
