@@ -164,6 +164,10 @@ class PortalTimezoneMiddleware:
         from .models import Organization, OrganizationMembership
         from .timezone_utils import is_valid_timezone, resolve_portal_timezone_name
 
+        # Open NY attendance for any active agent on first authenticated hit today.
+        # Covers agents already signed in (website/app) who never re-login.
+        self._ensure_agent_attendance(request)
+
         tz_name = None
         session_tz = request.session.get("portal_timezone")
         if session_tz and is_valid_timezone(session_tz):
@@ -195,3 +199,24 @@ class PortalTimezoneMiddleware:
             return self.get_response(request)
         finally:
             timezone.deactivate()
+
+    @staticmethod
+    def _ensure_agent_attendance(request):
+        user = getattr(request, "user", None)
+        if user is None or not getattr(user, "is_authenticated", False):
+            return
+        if getattr(user, "is_superuser", False):
+            return
+        # Once per NY work-date per session (website). Token API uses CompanionMeView.
+        session = getattr(request, "session", None)
+        try:
+            from .agent_portal_services import current_work_date, portal_now, start_attendance_on_login
+
+            work_key = f"attendance_opened_{current_work_date(portal_now()).isoformat()}"
+            if session is not None and session.get(work_key):
+                return
+            start_attendance_on_login(user)
+            if session is not None:
+                session[work_key] = True
+        except Exception:
+            logger.exception("Failed to open agent attendance for user_id=%s", getattr(user, "id", None))

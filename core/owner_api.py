@@ -630,6 +630,9 @@ class OwnerInsurancePoliciesView(OwnerAPIBase):
         if not self.can_view_finance(membership):
             raise PermissionDenied("Finance access is disabled for your account.")
 
+        from .insurance_space_metrics import filter_policies_by_quote_period
+        from .owner_date_range import parse_owner_date_range
+
         qs = InsurancePolicy.objects.filter(organization=organization).select_related(
             "client",
             "insurance_company",
@@ -639,11 +642,16 @@ class OwnerInsurancePoliciesView(OwnerAPIBase):
         if stage in {"quote", "bound", "endorsement"}:
             qs = qs.filter(stage=stage)
 
-        limit = request.query_params.get("limit", "50")
+        custom_range = parse_owner_date_range(request.query_params)
+        if custom_range:
+            start, end = custom_range
+            qs = filter_policies_by_quote_period(qs, start, end)
+
+        limit = request.query_params.get("limit", "200")
         try:
-            limit_n = max(1, min(int(limit), 200))
+            limit_n = max(1, min(int(limit), 500))
         except (TypeError, ValueError):
-            limit_n = 50
+            limit_n = 200
 
         policies = []
         for policy in qs.order_by("-bound_date", "-created_at")[:limit_n]:
@@ -666,7 +674,13 @@ class OwnerInsurancePoliciesView(OwnerAPIBase):
                     ),
                 }
             )
-        return Response({"policies": policies, "as_of": today.isoformat()})
+        return Response(
+            {
+                "policies": policies,
+                "count": len(policies),
+                "as_of": today.isoformat(),
+            }
+        )
 
 
 class OwnerProcessesView(OwnerAPIBase):

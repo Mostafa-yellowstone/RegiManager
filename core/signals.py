@@ -21,6 +21,16 @@ def on_user_logged_in(sender, request, user, **kwargs):
             pass
 
     new_session_key = request.session.session_key
+
+    # Attendance for every active PSB agent (DMV + insurance), NY clock.
+    # Runs even when there is no Django session key (API / token logins).
+    try:
+        from .agent_portal_services import start_attendance_on_login
+
+        start_attendance_on_login(user)
+    except Exception:
+        pass
+
     if not new_session_key:
         # If there's still no session key (e.g. in tests or custom API logins),
         # do not save/create UserSession as session_key cannot be NULL.

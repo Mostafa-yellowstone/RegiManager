@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from .dashboard_metrics import daily_record_q, monthly_record_q, yearly_record_q
 from .insurance_space_metrics import (
+    filter_policies_by_quote_period,
     period_stats,
     previous_insurance_period_bounds,
     resolve_insurance_period_bounds,
@@ -20,6 +21,7 @@ from .models import (
     ClientIntake,
     InsuranceIntake,
     InsurancePolicy,
+    MotorclubMembership,
     Organization,
     OrganizationMembership,
     ServiceRecord,
@@ -145,6 +147,7 @@ def build_insurance_profit_report(
     *,
     custom_range: tuple[date, date] | None = None,
 ) -> dict:
+    """Insurance metrics aligned with website Insurance Space CRM (`period_stats`)."""
     month_start, month_end = resolve_insurance_period_bounds("monthly", today=today)
     year_start = today.replace(month=1, day=1)
     day_start, day_end = today, today
@@ -153,11 +156,11 @@ def build_insurance_profit_report(
     policies = InsurancePolicy.objects.filter(organization_id=organization_id)
 
     def _bound_profit(start, end):
-        bound_qs = policies.filter(
-            stage__in=InsurancePolicy.BOUND_STAGES,
-            bound_date__gte=start,
-            bound_date__lte=end,
-        )
+        # Same period membership as website CRM: bound_date in range OR
+        # (bound_date null and created_at.date in range).
+        period_qs = filter_policies_by_quote_period(policies, start, end)
+        bound_qs = period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES)
+        quote_qs = period_qs.filter(stage__in=InsurancePolicy.QUOTE_STAGES)
         agg = bound_qs.aggregate(
             count=Count("id"),
             premium=Sum("premium"),
@@ -166,15 +169,12 @@ def build_insurance_profit_report(
         )
         commission = agg["commission"] or Decimal("0")
         broker = agg["broker_fee"] or Decimal("0")
-        quotes = policies.filter(
-            stage="quote",
-            created_at__date__gte=start,
-            created_at__date__lte=end,
-        ).count()
+        quotes = quote_qs.count()
         bound_count = agg["count"] or 0
+        total = quotes + bound_count
         conversion = "0"
-        if quotes > 0:
-            conversion = f"{(bound_count / quotes) * 100:.1f}"
+        if total > 0:
+            conversion = f"{(bound_count / total) * 100:.1f}"
         return {
             "bound_count": bound_count,
             "premium": _money(agg["premium"]),
@@ -185,7 +185,14 @@ def build_insurance_profit_report(
             "conversion_pct": conversion,
         }
 
-    current_stats = period_stats(policies, month_start, month_end)
+    pipeline_start, pipeline_end = month_start, month_end
+    if custom_range:
+        pipeline_start, pipeline_end = custom_range
+        prev_duration = (pipeline_end - pipeline_start).days
+        prev_end = pipeline_start - timedelta(days=1)
+        prev_start = prev_end - timedelta(days=prev_duration)
+
+    current_stats = period_stats(policies, pipeline_start, pipeline_end)
     previous_stats = period_stats(policies, prev_start, prev_end)
 
     payload = {
@@ -225,13 +232,53 @@ def build_insurance_profit_report(
     return payload
 
 
+def _motorclub_period_stats(space: Space, start: date, end: date) -> dict:
+    """Memberships started (or created) within an inclusive date range."""
+    qs = MotorclubMembership.objects.filter(space=space).filter(
+        Q(start_date__gte=start, start_date__lte=end)
+        | Q(
+            start_date__isnull=True,
+            created_at__date__gte=start,
+            created_at__date__lte=end,
+        )
+    )
+    agg = qs.aggregate(
+        psb_total=Sum("psb_profit"),
+        count=Count("id"),
+    )
+    return {
+        "profit": _money(agg["psb_total"]),
+        "revenue": _money(agg["psb_total"]),
+        "transactions": agg["count"] or 0,
+    }
+
+
+def _inventory_period_stats(space: Space, start: date, end: date) -> dict:
+    from .models import InventoryInvoice
+
+    agg = InventoryInvoice.objects.filter(
+        space=space,
+        status=InventoryInvoice.Status.COMPLETED,
+        invoice_date__gte=start,
+        invoice_date__lte=end,
+    ).aggregate(
+        total=Sum("total"),
+        count=Count("id"),
+    )
+    return {
+        "profit": _money(agg["total"]),
+        "revenue": _money(agg["total"]),
+        "transactions": agg["count"] or 0,
+    }
+
+
 def build_space_period_profit(
     space: Space,
     today: date,
     *,
     custom_range: tuple[date, date] | None = None,
 ) -> dict:
-    month_start = today.replace(day=1)
+    month_start, month_end = resolve_insurance_period_bounds("monthly", today=today)
     year_start = today.replace(month=1, day=1)
     org_id = space.organization_id
 
@@ -252,11 +299,8 @@ def build_space_period_profit(
         policies = InsurancePolicy.objects.filter(organization_id=org_id)
 
         def _profit(start, end):
-            agg = policies.filter(
-                stage__in=InsurancePolicy.BOUND_STAGES,
-                bound_date__gte=start,
-                bound_date__lte=end,
-            ).aggregate(
+            period_qs = filter_policies_by_quote_period(policies, start, end)
+            agg = period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES).aggregate(
                 commission=Sum("commission_amount"),
                 broker_fee=Sum("broker_fee"),
                 premium=Sum("premium"),
@@ -274,7 +318,8 @@ def build_space_period_profit(
                 "key": space.key,
                 "label": space.label,
                 "today": _profit(today, today),
-                "month": _profit(month_start, today),
+                # Full calendar month — matches website Insurance Space CRM.
+                "month": _profit(month_start, month_end),
                 "year": _profit(year_start, today),
             },
             _profit,
@@ -282,77 +327,33 @@ def build_space_period_profit(
 
     if space.key == "motorclub":
         stats = motorclub_dashboard_stats(space)
-        base = {
-            "key": space.key,
-            "label": space.label,
-            "today": {"profit": "0.00", "revenue": "0.00", "transactions": 0},
-            "month": {
-                "profit": _money(stats["psb_revenue"]),
-                "revenue": _money(stats["psb_revenue"]),
-                "transactions": stats["active_memberships"],
+        # Period buckets = memberships sold/started in that window.
+        # Snapshot active book stays on active_memberships only.
+        return _with_custom(
+            {
+                "key": space.key,
+                "label": space.label,
+                "today": _motorclub_period_stats(space, today, today),
+                "month": _motorclub_period_stats(space, month_start, month_end),
+                "year": _motorclub_period_stats(space, year_start, today),
+                "active_memberships": stats["active_memberships"],
             },
-            "year": {
-                "profit": _money(stats["psb_revenue"]),
-                "revenue": _money(stats["psb_revenue"]),
-                "transactions": stats["total_memberships"],
-            },
-            "active_memberships": stats["active_memberships"],
-        }
-        # Motorclub dashboard is snapshot-based; custom mirrors month when range present.
-        if custom_range:
-            base["custom"] = {
-                "profit": _money(stats["psb_revenue"]),
-                "revenue": _money(stats["psb_revenue"]),
-                "transactions": stats["active_memberships"],
-            }
-            start, end = custom_range
-            base["range"] = {
-                "from": start.isoformat(),
-                "to": end.isoformat(),
-                "source": "ledger",
-            }
-        else:
-            base["custom"] = {"profit": "0.00", "revenue": "0.00", "transactions": 0}
-        return base
+            lambda start, end: _motorclub_period_stats(space, start, end),
+        )
 
     if space.key == "custom_inventory":
         stats = inventory_dashboard_stats(space)
-        base = {
-            "key": space.key,
-            "label": space.label,
-            "today": {
-                "profit": _money(stats["sales_today_total"]),
-                "revenue": _money(stats["sales_today_total"]),
-                "transactions": stats["sales_today_count"],
+        return _with_custom(
+            {
+                "key": space.key,
+                "label": space.label,
+                "today": _inventory_period_stats(space, today, today),
+                "month": _inventory_period_stats(space, month_start, month_end),
+                "year": _inventory_period_stats(space, year_start, today),
+                "inventory_value": _money(stats["total_inventory_value"]),
             },
-            "month": {
-                "profit": _money(stats["sales_month_total"]),
-                "revenue": _money(stats["sales_month_total"]),
-                "transactions": stats["sales_month_count"],
-            },
-            "year": {
-                "profit": _money(stats["sales_month_total"]),
-                "revenue": _money(stats["sales_month_total"]),
-                "transactions": stats["invoice_count"],
-            },
-            "inventory_value": _money(stats["total_inventory_value"]),
-        }
-        if custom_range:
-            # Inventory CRM is snapshot MTD; expose month total as custom until dated sales exist.
-            base["custom"] = {
-                "profit": _money(stats["sales_month_total"]),
-                "revenue": _money(stats["sales_month_total"]),
-                "transactions": stats["sales_month_count"],
-            }
-            start, end = custom_range
-            base["range"] = {
-                "from": start.isoformat(),
-                "to": end.isoformat(),
-                "source": "ledger",
-            }
-        else:
-            base["custom"] = {"profit": "0.00", "revenue": "0.00", "transactions": 0}
-        return base
+            lambda start, end: _inventory_period_stats(space, start, end),
+        )
 
     if space.key == "documents":
         from .models import SpaceDocumentRecord
@@ -371,7 +372,10 @@ def build_space_period_profit(
                 "month": {
                     "profit": "0.00",
                     "revenue": "0.00",
-                    "transactions": qs.filter(created_at__date__gte=month_start).count(),
+                    "transactions": qs.filter(
+                        created_at__date__gte=month_start,
+                        created_at__date__lte=month_end,
+                    ).count(),
                 },
                 "year": {
                     "profit": "0.00",

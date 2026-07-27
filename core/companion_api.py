@@ -128,6 +128,9 @@ class CompanionMeView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        from .agent_portal_services import start_attendance_on_login
+
+        start_attendance_on_login(request.user)
         memberships = list(
             active_memberships_qs(request.user).select_related("organization").order_by("organization__name")
         )

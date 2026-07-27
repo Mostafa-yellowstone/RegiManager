@@ -109,6 +109,7 @@ def _serialize_task_progress(progress: dict) -> dict:
 
 
 def _agent_membership_queryset(organization):
+    """Every active non-owner agent in the PSB (DMV, insurance, or both)."""
     return (
         OrganizationMembership.objects.filter(
             organization=organization,
@@ -124,6 +125,7 @@ def _serialize_agent_summary(request, membership: OrganizationMembership) -> dic
     user = membership.user
     progress = task_progress_for_membership(membership)
     work_date = current_work_date(portal_now())
+    # Prefer today's session; never fall back to an older day (that looked like a false check-in).
     session = AgentAttendanceSession.objects.filter(
         membership=membership,
         work_date=work_date,
@@ -138,6 +140,7 @@ def _serialize_agent_summary(request, membership: OrganizationMembership) -> dic
         total_records=Count("id"),
         total_revenue=Sum("service_fee"),
     )
+    photo_url = _absolute_media_url(request, membership.profile_photo)
     return {
         "membership_id": membership.id,
         "user_id": user.id,
@@ -147,7 +150,7 @@ def _serialize_agent_summary(request, membership: OrganizationMembership) -> dic
         "role": membership.role,
         "is_active": membership.is_active,
         "can_deal_with_insurance": membership.can_deal_with_insurance,
-        "profile_photo_url": _absolute_media_url(request, membership.profile_photo),
+        "profile_photo_url": photo_url,
         "task_progress": {
             "total": progress["total"],
             "done": progress["done"],
@@ -162,12 +165,19 @@ def _serialize_agent_summary(request, membership: OrganizationMembership) -> dic
 
 
 class OwnerAgentsListView(OwnerAPIBase):
-    """Owner roster with live task + attendance snapshot."""
+    """Owner roster with live task + attendance snapshot for all PSB agents."""
 
     def get(self, request):
         organization, membership, _orgs, _records, _today = self.resolve_context(
             request, require_owner=True
         )
+        close_stale = True
+        if close_stale:
+            from .agent_portal_services import close_stale_attendance_sessions
+
+            close_stale_attendance_sessions()
+        # insurance_only is accepted for backwards compatibility but defaults off —
+        # attendance/team is for the whole PSB.
         insurance_only = request.query_params.get("insurance_only", "").lower() in {
             "1",
             "true",
@@ -187,6 +197,7 @@ class OwnerAgentsListView(OwnerAPIBase):
                 "cairo_now": portal_now().isoformat(),
                 "local_now": portal_now().isoformat(),
                 "agents": agents,
+                "agent_count": len(agents),
             }
         )
 
