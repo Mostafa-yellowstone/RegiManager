@@ -62,9 +62,20 @@ def insurance_policy_detail(request, policy_id):
 
     schedule = summarize_insurance_schedule(policy)
     documents = list(policy.documents.all()[:50])
+    policy_vehicles = list(policy.policy_vehicles.all())
+    policy_drivers = list(policy.policy_drivers.all())
     space = _insurance_space_for_org(policy.organization)
     membership = membership_for_org(request.user, policy.organization)
     is_owner = is_org_owner(request.user, policy.organization, membership)
+
+    overview_named_insured = (
+        policy.named_insured
+        or (policy.client.name if policy.client_id else "")
+        or "—"
+    )
+    overview_address = policy.insured_address or (
+        getattr(policy.client, "full_address", "") if policy.client_id else ""
+    ) or "—"
 
     return render(
         request,
@@ -76,6 +87,10 @@ def insurance_policy_detail(request, policy_id):
             "schedule": schedule,
             "installments": schedule["installments"],
             "documents": documents,
+            "policy_vehicles": policy_vehicles,
+            "policy_drivers": policy_drivers,
+            "overview_named_insured": overview_named_insured,
+            "overview_address": overview_address,
             "is_owner": is_owner,
             "can_manage_finance": can_manage_insurance_finance(
                 request.user,

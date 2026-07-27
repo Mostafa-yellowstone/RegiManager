@@ -17,15 +17,38 @@ from .models import (
     InsuranceCompany,
     InsurancePolicy,
     InsurancePolicyDocument,
+    InsurancePolicyDriver,
     InsurancePolicyInstallment,
+    InsurancePolicyVehicle,
 )
 
 ZERO = Decimal("0.00")
 _DATE_MDY = re.compile(r"(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})")
 _MONEY = re.compile(r"\$?\s*([\d,]+\.\d{2})")
-_POLICY_NUMBER = re.compile(
-    r"(?:Policy\s*(?:Number|No\.?#?|#)|POL(?:ICY)?\s*(?:NO\.?|#))\s*[:#]?\s*([A-Z0-9][A-Z0-9\-/]{4,})",
-    re.I,
+_VIN = re.compile(r"\b([A-HJ-NPR-Z0-9]{17})\b")
+_VEHICLE_ROW = re.compile(
+    r"^\s*(\d+)\s+(\d{4})\s+([A-Z][A-Z0-9-]*)\s+([A-HJ-NPR-Z0-9]{17})\s",
+    re.M,
+)
+_SINGLE_CAR_VEHICLE_ROW = re.compile(
+    r"^([A-Z][A-Z0-9-]*)\s+(\d{4})\s+([A-Z0-9-]+)\s+([A-HJ-NPR-Z0-9]{17})(?:\s+\S+\s+\d+\s+(\S+))?",
+    re.M,
+)
+_LOOSE_VEHICLE_ROW = re.compile(
+    r"(?im)(?:Vehicle|Auto|Veh\.?)\s*#?\s*(\d+)?\s*[:\-]?\s*"
+    r"(?:(\d{4})\s+)?([A-Za-z][A-Za-z0-9 \-]{1,20})?\s*"
+    r"(?:VIN[:\s#]*)?([A-HJ-NPR-Z0-9]{17})",
+)
+_DRIVER_ROW = re.compile(
+    r"^([A-Z][A-Z'-]+,[A-Z][A-Z\s'-]+?)\s+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})",
+    re.M,
+)
+_SINGLE_CAR_DRIVER_ROW = re.compile(
+    r"DRIVER\s+(\d+)\.\s+([A-Z][A-Z\s'-]+?)(?=\s+DRIVER\s+\d+\.|\s*$)",
+    re.M,
+)
+_LABELED_DRIVER = re.compile(
+    r"(?im)(?:Driver|Operator)\s*#?\s*\d*\s*[:\-]\s*([A-Z][A-Za-z'\-]+(?:\s+[A-Z][A-Za-z'\-]+){0,4})",
 )
 _PAYMENT_ROW = re.compile(
     r"(?im)^\s*(DEPOSIT|DOWN\s*PAYMENT|INSTALLMENT\s*#?\s*\d+|Bill\s*#\s*\d+|PMT\s*#?\s*\d+|"
@@ -37,6 +60,22 @@ _PAYMENT_ROW = re.compile(
 
 class DecPageParseError(Exception):
     """Raised when a declaration page cannot be parsed."""
+
+
+@dataclass
+class DecVehicle:
+    auto_number: int
+    year: int | None = None
+    make: str = ""
+    vin: str = ""
+    plate: str = ""
+
+
+@dataclass
+class DecDriver:
+    name: str
+    effective_date: date | None = None
+    expiry_date: date | None = None
 
 
 @dataclass
@@ -53,10 +92,13 @@ class ParsedInsuranceDec:
     carrier_key: str = ""  # integon | nyaip
     policy_number: str = ""
     named_insured: str = ""
+    insured_address: str = ""
     effective_date: date | None = None
     expiration_date: date | None = None
     premium: Decimal | None = None
     down_payment: Decimal | None = None
+    vehicles: list[DecVehicle] = field(default_factory=list)
+    drivers: list[DecDriver] = field(default_factory=list)
     payments: list[DecPayment] = field(default_factory=list)
     parse_warnings: list[str] = field(default_factory=list)
 
@@ -87,39 +129,130 @@ def _first_match(pattern: str, text: str, flags=0) -> str:
     return match.group(1).strip() if match else ""
 
 
-def _extract_pdf_text(upload: BinaryIO) -> str:
-    try:
-        reader = PdfReader(upload)
-    except (PdfReadError, PdfStreamError, TypeError, ValueError) as exc:
-        raise DecPageParseError(f"Could not read PDF: {exc}") from exc
-    chunks: list[str] = []
-    for page in reader.pages:
-        try:
-            chunks.append(page.extract_text() or "")
-        except Exception:
-            continue
-    text = "\n".join(chunks).strip()
-    if not text:
-        raise DecPageParseError(
-            "This PDF has no readable text. Scanned declaration pages are not supported — "
-            "upload a text-based Integon or NYAIP DEC PDF."
+def _normalize_person_name(name: str) -> str:
+    cleaned = re.sub(r"\s+", " ", (name or "").strip())
+    if "," in cleaned and ", " not in cleaned:
+        cleaned = cleaned.replace(",", ", ")
+    return cleaned
+
+
+def _parse_insured_address(text: str, result: ParsedInsuranceDec) -> None:
+    address = _first_match(
+        r"(?:Insured\s+Address|Mailing\s+Address|Garage\s+Address|Address)\s*[:\n]\s*([^\n]{8,120})",
+        text,
+        re.I,
+    )
+    if address and not re.search(r"policy|premium|effective|named insured", address, re.I):
+        result.insured_address = re.sub(r"\s+", " ", address).strip(" ,")
+        return
+    # Named Insured block: name then following address-ish line
+    block = re.search(
+        r"(?:Named\s+Insured|Name\s+of\s+Insured)\s*[:\n]\s*[^\n]+\n\s*([A-Z0-9][^\n]{8,120})",
+        text,
+        re.I,
+    )
+    if block:
+        line = re.sub(r"\s+", " ", block.group(1)).strip(" ,")
+        if re.search(r"\d", line) and not re.search(r"policy|premium|effective", line, re.I):
+            result.insured_address = line
+
+
+def _parse_vehicles(text: str, result: ParsedInsuranceDec) -> None:
+    for match in _VEHICLE_ROW.finditer(text):
+        result.vehicles.append(
+            DecVehicle(
+                auto_number=int(match.group(1)),
+                year=int(match.group(2)),
+                make=match.group(3).title(),
+                vin=match.group(4).upper(),
+            )
         )
-    return text.replace("\r\n", "\n")
+    if result.vehicles:
+        return
+
+    for index, match in enumerate(_SINGLE_CAR_VEHICLE_ROW.finditer(text), start=1):
+        result.vehicles.append(
+            DecVehicle(
+                auto_number=index,
+                year=int(match.group(2)),
+                make=match.group(1).title(),
+                vin=match.group(4).upper(),
+                plate=(match.group(5) or "").strip().upper(),
+            )
+        )
+    if result.vehicles:
+        return
+
+    seen: set[str] = set()
+    for index, match in enumerate(_LOOSE_VEHICLE_ROW.finditer(text), start=1):
+        vin = (match.group(4) or "").upper()
+        if not vin or vin in seen:
+            continue
+        seen.add(vin)
+        year_raw = match.group(2)
+        make = (match.group(3) or "").strip()
+        auto_no = int(match.group(1)) if match.group(1) else index
+        result.vehicles.append(
+            DecVehicle(
+                auto_number=auto_no,
+                year=int(year_raw) if year_raw else None,
+                make=make.title() if make else "",
+                vin=vin,
+            )
+        )
+    if result.vehicles:
+        return
+
+    # Last resort: bare VIN tokens
+    for index, match in enumerate(_VIN.finditer(text), start=1):
+        vin = match.group(1).upper()
+        if vin in seen:
+            continue
+        seen.add(vin)
+        result.vehicles.append(DecVehicle(auto_number=index, vin=vin))
 
 
-def _detect_carrier(text: str) -> str:
-    upper = text.upper()
-    if "INTEGON" in upper or "GMAC INSURANCE" in upper:
-        return "integon"
-    if (
-        "NYAIP" in upper
-        or "N.Y.A.I.P" in upper
-        or "NEW YORK AUTOMOBILE INSURANCE PLAN" in upper
-        or "NY AUTOMOBILE INSURANCE PLAN" in upper
-        or ("ASSIGNED RISK" in upper and "NEW YORK" in upper)
-    ):
-        return "nyaip"
-    return ""
+def _parse_drivers(text: str, result: ParsedInsuranceDec) -> None:
+    for match in _DRIVER_ROW.finditer(text):
+        name = _normalize_person_name(match.group(1))
+        result.drivers.append(
+            DecDriver(
+                name=name,
+                effective_date=_parse_date(match.group(2)),
+                expiry_date=_parse_date(match.group(3)),
+            )
+        )
+    if result.drivers:
+        return
+
+    for match in _SINGLE_CAR_DRIVER_ROW.finditer(text):
+        name = re.sub(r"\s+", " ", match.group(2)).strip(" .")
+        if len(name) < 3:
+            continue
+        result.drivers.append(
+            DecDriver(
+                name=name.title(),
+                effective_date=result.effective_date,
+                expiry_date=result.expiration_date,
+            )
+        )
+    if result.drivers:
+        return
+
+    seen: set[str] = set()
+    for match in _LABELED_DRIVER.finditer(text):
+        name = _normalize_person_name(match.group(1)).title()
+        key = name.casefold()
+        if len(name) < 3 or key in seen:
+            continue
+        seen.add(key)
+        result.drivers.append(
+            DecDriver(
+                name=name,
+                effective_date=result.effective_date,
+                expiry_date=result.expiration_date,
+            )
+        )
 
 
 def _parse_common_fields(text: str, result: ParsedInsuranceDec) -> None:
@@ -140,6 +273,7 @@ def _parse_common_fields(text: str, result: ParsedInsuranceDec) -> None:
         re.I,
     )
     result.named_insured = re.sub(r"\s+", " ", insured).strip(" ,")
+    _parse_insured_address(text, result)
 
     eff = (
         _first_match(r"(?:Effective|Eff\.?)\s*Date\s*[:#]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", text, re.I)
@@ -182,6 +316,48 @@ def _parse_common_fields(text: str, result: ParsedInsuranceDec) -> None:
                 amount=_parse_money(match.group(3)),
             )
         )
+
+    _parse_vehicles(text, result)
+    _parse_drivers(text, result)
+    if not result.vehicles:
+        result.parse_warnings.append("No vehicles detected on this DEC — add them after import if needed.")
+    if not result.drivers:
+        result.parse_warnings.append("No drivers detected on this DEC — add them after import if needed.")
+
+
+def _extract_pdf_text(upload: BinaryIO) -> str:
+    try:
+        reader = PdfReader(upload)
+    except (PdfReadError, PdfStreamError, TypeError, ValueError) as exc:
+        raise DecPageParseError(f"Could not read PDF: {exc}") from exc
+    chunks: list[str] = []
+    for page in reader.pages:
+        try:
+            chunks.append(page.extract_text() or "")
+        except Exception:
+            continue
+    text = "\n".join(chunks).strip()
+    if not text:
+        raise DecPageParseError(
+            "This PDF has no readable text. Scanned declaration pages are not supported — "
+            "upload a text-based Integon or NYAIP DEC PDF."
+        )
+    return text.replace("\r\n", "\n")
+
+
+def _detect_carrier(text: str) -> str:
+    upper = text.upper()
+    if "INTEGON" in upper or "GMAC INSURANCE" in upper:
+        return "integon"
+    if (
+        "NYAIP" in upper
+        or "N.Y.A.I.P" in upper
+        or "NEW YORK AUTOMOBILE INSURANCE PLAN" in upper
+        or "NY AUTOMOBILE INSURANCE PLAN" in upper
+        or ("ASSIGNED RISK" in upper and "NEW YORK" in upper)
+    ):
+        return "nyaip"
+    return ""
 
 
 def parse_integon_dec_text(text: str) -> ParsedInsuranceDec:
@@ -305,6 +481,12 @@ def apply_parsed_dec_to_insurance_policy(
     if parsed.policy_number:
         policy.policy_number = parsed.policy_number[:100]
         update_fields.append("policy_number")
+    if parsed.named_insured:
+        policy.named_insured = parsed.named_insured[:255]
+        update_fields.append("named_insured")
+    if parsed.insured_address:
+        policy.insured_address = parsed.insured_address[:500]
+        update_fields.append("insured_address")
     if parsed.effective_date:
         policy.start_date = parsed.effective_date
         update_fields.append("start_date")
@@ -316,6 +498,18 @@ def apply_parsed_dec_to_insurance_policy(
         policy.premium = parsed.premium
         update_fields.append("premium")
 
+    if parsed.vehicles:
+        first = parsed.vehicles[0]
+        if first.vin:
+            policy.vin = first.vin[:17]
+            update_fields.append("vin")
+        if first.plate:
+            policy.plate_number = first.plate[:50]
+            update_fields.append("plate_number")
+    if parsed.drivers:
+        policy.driver_name = parsed.drivers[0].name[:200]
+        update_fields.append("driver_name")
+
     if parsed.carrier:
         company = _resolve_or_create_company(policy.organization, parsed.carrier)
         if policy.insurance_company_id != company.id:
@@ -323,6 +517,30 @@ def apply_parsed_dec_to_insurance_policy(
             update_fields.append("insurance_company")
 
     policy.save(update_fields=list(dict.fromkeys(update_fields)))
+
+    if parsed.vehicles:
+        policy.policy_vehicles.all().delete()
+        for vehicle in parsed.vehicles:
+            InsurancePolicyVehicle.objects.create(
+                policy=policy,
+                auto_number=vehicle.auto_number,
+                year=vehicle.year,
+                make=(vehicle.make or "")[:60],
+                vin=(vehicle.vin or "")[:17],
+                plate_number=(vehicle.plate or "")[:50],
+                effective_date=parsed.effective_date,
+                expiration_date=parsed.expiration_date,
+            )
+
+    if parsed.drivers:
+        policy.policy_drivers.all().delete()
+        for driver in parsed.drivers:
+            InsurancePolicyDriver.objects.create(
+                policy=policy,
+                name=driver.name[:200],
+                effective_date=driver.effective_date or parsed.effective_date,
+                expiry_date=driver.expiry_date or parsed.expiration_date,
+            )
 
     if replace_schedule:
         _replace_installments(policy, parsed)
@@ -380,6 +598,8 @@ def create_policy_from_parsed_dec(
         start_date=parsed.effective_date,
         end_date=parsed.expiration_date,
         renewal_date=parsed.expiration_date,
+        named_insured=(parsed.named_insured or "")[:255],
+        insured_address=(parsed.insured_address or "")[:500],
         added_by=user,
     )
     policy.save()

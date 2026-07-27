@@ -39,6 +39,72 @@
 }
 .ins-doc--dec { border-color: #93c5fd; background: #eff6ff; }
 html.portal-theme-dark .ins-doc--dec { background: rgba(37,99,235,0.15); border-color: rgba(96,165,250,0.35); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.ins-overview-card {
+  background: var(--portal-surface);
+  border: 1.5px solid #000;
+  border-radius: 14px;
+  padding: 1.25rem;
+  color: #000;
+}
+.ins-overview-card h3 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #000;
+}
+.ins-overview-card h3.ins-overview-title--tight { margin-bottom: 0.75rem; }
+.ins-overview-dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.4rem 1rem;
+  font-size: 0.88rem;
+  margin: 0;
+}
+.ins-overview-dl dt,
+.ins-overview-dl dd {
+  color: #000;
+  margin: 0;
+}
+.ins-overview-dl dt { font-weight: 700; }
+.ins-overview-grid { gap: 1.5rem; margin-bottom: 1.15rem; }
+.ins-overview-subgrid {
+  margin-top: 0;
+  margin-bottom: 1.15rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+.ins-overview-table.ins-table th,
+.ins-overview-table.ins-table td {
+  color: #000;
+  border-bottom-color: #000;
+}
+.ins-overview-table.ins-table th {
+  color: #000;
+  background: var(--portal-surface-muted);
+}
+html.portal-theme-dark .ins-overview-card {
+  border-color: rgba(241, 245, 249, 0.55);
+  color: var(--portal-text);
+}
+html.portal-theme-dark .ins-overview-card h3,
+html.portal-theme-dark .ins-overview-dl dt,
+html.portal-theme-dark .ins-overview-dl dd {
+  color: var(--portal-text);
+}
+html.portal-theme-dark .ins-overview-table.ins-table th {
+  color: var(--portal-text-secondary);
+  background: var(--portal-surface-muted);
+  border-bottom-color: rgba(241, 245, 249, 0.35);
+}
+html.portal-theme-dark .ins-overview-table.ins-table td {
+  color: var(--portal-text);
+  border-bottom-color: rgba(241, 245, 249, 0.28);
+}
+@media (max-width: 900px) {
+  .grid-2 { grid-template-columns: 1fr; }
+}
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.35); backdrop-filter: blur(6px); z-index: 2000; align-items: center; justify-content: center; }
 .modal-overlay.active { display: flex; }
 .modal-box { background: var(--portal-surface); border-radius: 18px; padding: 1.5rem; width: min(480px, 94vw); border: 1px solid var(--portal-border); box-shadow: var(--portal-shadow-lg); }
@@ -66,7 +132,7 @@ html.portal-theme-dark .ins-doc--dec { background: rgba(37,99,235,0.15); border-
           <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:#93c5fd;margin-bottom:0.35rem;">Insurance policy</div>
           <h1 style="margin:0;font-size:clamp(1.45rem,3vw,2rem);letter-spacing:-0.02em;">{{ policy.policy_number }}</h1>
           <p style="margin:0.4rem 0 0;color:#cbd5e1;font-weight:600;">
-            {{ policy.client.name }} · {{ policy.insurance_company.name }}
+            {{ overview_named_insured }} · {{ policy.insurance_company.name }}
             · {{ policy.get_status_display }} · {{ policy.get_stage_display }}
           </p>
         </div>
@@ -97,6 +163,95 @@ html.portal-theme-dark .ins-doc--dec { background: rgba(37,99,235,0.15); border-
         </div>
       </div>
     </header>
+
+    <div class="grid-2 ins-overview-grid">
+      <div class="ins-overview-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;gap:0.75rem;flex-wrap:wrap;">
+          <h3 class="ins-overview-title--tight" style="margin:0;">Policy Overview</h3>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('importDecModal').classList.add('active')">Update from Dec Page</button>
+        </div>
+        <dl class="ins-overview-dl">
+          <dt>Type</dt><dd>{% if policy.insurance_type %}{{ policy.get_insurance_type_display }}{% else %}—{% endif %}</dd>
+          <dt>Business Type</dt><dd>{{ policy.get_business_type_display }}</dd>
+          <dt>Named Insured</dt><dd>{{ overview_named_insured }}</dd>
+          <dt>Insured Address</dt><dd>{{ overview_address }}</dd>
+          <dt>Company</dt><dd>{{ policy.insurance_company.name }}</dd>
+          <dt>Source</dt><dd>{{ policy.get_source_display }}</dd>
+          <dt>Bound Date</dt><dd>{{ policy.bound_date|date:"M j, Y"|default:"—" }}</dd>
+          <dt>VIN / Plate</dt><dd>{{ policy.vin|default:"—" }} / {{ policy.plate_number|default:"—" }}</dd>
+          <dt>Driver</dt><dd>{{ policy.driver_name|default:"—" }}</dd>
+          <dt>Effective</dt><dd>{{ policy.start_date|date:"M j, Y"|default:"—" }}</dd>
+          <dt>Expiration</dt><dd>{{ policy.end_date|date:"M j, Y"|default:"—" }}</dd>
+          <dt>Renewal</dt><dd>{% if policy.renewal_date %}{{ policy.renewal_date|date:"M j, Y" }}{% else %}{{ policy.end_date|date:"M j, Y"|default:"—" }}{% endif %}</dd>
+        </dl>
+      </div>
+      <div class="ins-overview-card">
+        <h3>Policy Snapshot</h3>
+        <dl class="ins-overview-dl">
+          <dt>Status</dt><dd>{{ policy.get_status_display }}</dd>
+          <dt>Stage</dt><dd>{{ policy.get_stage_display }}</dd>
+          <dt>Premium</dt><dd>${{ policy.premium }}</dd>
+          <dt>Broker Fee</dt><dd>${{ policy.broker_fee }}</dd>
+          <dt>Commission Rate</dt><dd>{{ policy.commission_rate }}%</dd>
+          <dt>Commission</dt><dd>${{ policy.commission_amount }}</dd>
+          <dt>Next Due</dt>
+          <dd>
+            {% if schedule.next_due_date %}
+              {{ schedule.next_due_date|date:"M j, Y" }}{% if schedule.next_due_amount %} · ${{ schedule.next_due_amount }}{% endif %}
+            {% else %}
+              —
+            {% endif %}
+          </dd>
+          <dt>Payments</dt><dd>{{ schedule.paid }}/{{ schedule.total }} paid · {{ schedule.open }} open</dd>
+          {% if policy.added_by %}
+          <dt>Added By</dt><dd>{{ policy.added_by.get_full_name|default:policy.added_by.username }}</dd>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+
+    <div class="ins-overview-subgrid">
+      <div class="ins-overview-card">
+        <h3 class="ins-overview-title--tight">Vehicles on Dec Page</h3>
+        {% if policy_vehicles %}
+        <table class="ins-table ins-overview-table">
+          <thead><tr><th>#</th><th>Year</th><th>Make</th><th>VIN</th><th>Plate</th></tr></thead>
+          <tbody>
+            {% for v in policy_vehicles %}
+            <tr>
+              <td>{{ v.auto_number }}</td>
+              <td>{{ v.year|default:"—" }}</td>
+              <td>{{ v.make|default:"—" }}</td>
+              <td style="font-family:monospace;font-size:0.8rem;">{{ v.vin|default:"—" }}</td>
+              <td>{{ v.plate_number|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p style="margin:0;color:var(--portal-text-muted);font-weight:600;font-size:0.88rem;">No vehicles on file yet. Import a DEC page to populate insured vehicles.</p>
+        {% endif %}
+      </div>
+      <div class="ins-overview-card">
+        <h3 class="ins-overview-title--tight">Drivers on Dec Page</h3>
+        {% if policy_drivers %}
+        <table class="ins-table ins-overview-table">
+          <thead><tr><th>Name</th><th>Effective</th><th>Expires</th></tr></thead>
+          <tbody>
+            {% for d in policy_drivers %}
+            <tr>
+              <td>{{ d.name }}</td>
+              <td>{{ d.effective_date|date:"M j, Y"|default:"—" }}</td>
+              <td>{{ d.expiry_date|date:"M j, Y"|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p style="margin:0;color:var(--portal-text-muted);font-weight:600;font-size:0.88rem;">No drivers on file yet. Import a DEC page to populate drivers.</p>
+        {% endif %}
+      </div>
+    </div>
 
     <section class="ins-panel">
       <div class="ins-panel__head">
@@ -173,7 +328,7 @@ html.portal-theme-dark .ins-doc--dec { background: rgba(37,99,235,0.15); border-
 <div class="modal-overlay" id="importDecModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box">
     <h3 style="margin:0 0 0.5rem;">Update from Dec Page</h3>
-    <p style="margin:0 0 1rem;color:var(--portal-text-muted);font-size:0.9rem;">Upload an Integon or NYAIP declaration PDF. Fields and payment schedule will refresh when parsing succeeds; the PDF is always stored.</p>
+    <p style="margin:0 0 1rem;color:var(--portal-text-muted);font-size:0.9rem;">Upload an Integon or NYAIP declaration PDF. Overview fields, vehicles, drivers, and payment schedule refresh when parsing succeeds; the PDF is always stored.</p>
     <form method="post" action="{% url 'import-insurance-dec-to-policy' policy.id %}" enctype="multipart/form-data">
       {% csrf_token %}
       <label class="field-label">Declaration PDF</label>

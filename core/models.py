@@ -2056,6 +2056,16 @@ class InsurancePolicy(models.Model):
         null=True,
         help_text="Renewal / next-term date (usually set from DEC expiration).",
     )
+    named_insured = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Named insured from DEC (falls back to client name in overview).",
+    )
+    insured_address = models.CharField(max_length=500, blank=True, default="")
+    vin = models.CharField(max_length=17, blank=True, default="")
+    plate_number = models.CharField(max_length=50, blank=True, default="")
+    driver_name = models.CharField(max_length=200, blank=True, default="")
     insurance_period_months = models.IntegerField(default=6, help_text="Total insurance period in months")
     inactive_date = models.DateField(blank=True, null=True, help_text="Date the policy became inactive")
     unearned_commission = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, blank=True)
@@ -2198,6 +2208,49 @@ class InsurancePolicyInstallment(models.Model):
 
     def __str__(self):
         return f"{self.display_number} — {self.policy.policy_number}"
+
+
+class InsurancePolicyVehicle(models.Model):
+    """Vehicle listed on an insurance policy declaration schedule."""
+
+    policy = models.ForeignKey(
+        InsurancePolicy,
+        on_delete=models.CASCADE,
+        related_name="policy_vehicles",
+    )
+    auto_number = models.PositiveSmallIntegerField(default=1)
+    year = models.PositiveSmallIntegerField(null=True, blank=True)
+    make = models.CharField(max_length=60, blank=True, default="")
+    vin = models.CharField(max_length=17, blank=True, default="")
+    plate_number = models.CharField(max_length=50, blank=True, default="")
+    effective_date = models.DateField(null=True, blank=True)
+    expiration_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["auto_number"]
+        unique_together = ("policy", "auto_number")
+
+    def __str__(self):
+        return f"#{self.auto_number} {self.year or ''} {self.make} — {self.policy.policy_number}".strip()
+
+
+class InsurancePolicyDriver(models.Model):
+    """Driver listed on an insurance policy declaration schedule."""
+
+    policy = models.ForeignKey(
+        InsurancePolicy,
+        on_delete=models.CASCADE,
+        related_name="policy_drivers",
+    )
+    name = models.CharField(max_length=200)
+    effective_date = models.DateField(null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.name} — {self.policy.policy_number}"
 
 
 class DailyPaymentTransaction(models.Model):
