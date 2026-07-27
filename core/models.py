@@ -2806,6 +2806,42 @@ class EmailCampaignRecipient(models.Model):
         ordering = ["-sent_at", "-id"]
 
 
+class MobilePushDevice(models.Model):
+    """FCM/APNs device token for Pulse background work alerts."""
+
+    class Platform(models.TextChoices):
+        ANDROID = "android", "Android"
+        IOS = "ios", "iOS"
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="mobile_push_devices",
+    )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="mobile_push_devices",
+    )
+    token = models.CharField(max_length=512, unique=True)
+    platform = models.CharField(
+        max_length=16,
+        choices=Platform.choices,
+        default=Platform.ANDROID,
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"{self.platform}:{self.user_id}"
+
+
 # TLC Policy Profitability Engine (imported so migrations discover models)
 from .tlc_models import (  # noqa: E402,F401
     TLCPolicyCancellation,

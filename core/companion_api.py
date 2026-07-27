@@ -15,14 +15,22 @@ from .models import OrganizationMembership
 from .policies import active_memberships_qs
 
 
-def _membership_payload(membership: OrganizationMembership) -> dict:
+def _membership_payload(membership: OrganizationMembership, request=None) -> dict:
     org = membership.organization
+    photo_url = None
+    if request and membership.profile_photo:
+        try:
+            photo_url = request.build_absolute_uri(membership.profile_photo.url)
+        except Exception:
+            photo_url = None
     return {
         "id": org.id,
+        "membership_id": membership.id,
         "name": org.name,
         "city": org.city,
         "state": org.state,
         "role": membership.role,
+        "profile_photo_url": photo_url,
         "permissions": {
             "can_view_reports": membership.can_view_reports,
             "can_view_net_profit": membership.can_view_net_profit,
@@ -35,6 +43,13 @@ def _membership_payload(membership: OrganizationMembership) -> dict:
             "can_manage_email_marketing": membership.can_manage_email_marketing,
             "can_view_spaces": membership.can_view_spaces,
             "can_issue_refund": membership.can_issue_refund,
+            "can_deal_with_insurance": membership.can_deal_with_insurance,
+            "can_assign_agent_tasks": membership.can_assign_agent_tasks,
+            "uses_agent_portal": (
+                membership.is_active
+                and membership.role != OrganizationMembership.Role.OWNER
+                and membership.can_deal_with_insurance
+            ),
         },
     }
 
@@ -88,7 +103,7 @@ class CompanionLoginView(APIView):
             )
 
         token, _ = Token.objects.get_or_create(user=user)
-        organizations = [_membership_payload(m) for m in memberships]
+        organizations = [_membership_payload(m, request) for m in memberships]
         return Response(
             {
                 "token": token.key,
@@ -109,7 +124,7 @@ class CompanionMeView(APIView):
         memberships = list(
             active_memberships_qs(request.user).select_related("organization").order_by("organization__name")
         )
-        organizations = [_membership_payload(m) for m in memberships]
+        organizations = [_membership_payload(m, request) for m in memberships]
         return Response(
             {
                 "user": _user_payload(request.user),

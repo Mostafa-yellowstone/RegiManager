@@ -245,6 +245,17 @@ from core.email_marketing_views import (
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from core.api import ClientViewSet, VehicleViewSet, ServiceRecordViewSet
 from core.companion_api import CompanionLoginView, CompanionLogoutView, CompanionMeView
+from core.agent_api import (
+    AgentActivityView,
+    AgentAttendanceView,
+    AgentPortalHomeView,
+    AgentTasksView,
+    AgentToggleTaskView,
+    MobilePushDeviceRegisterView,
+    OwnerAgentCreateTaskView,
+    OwnerAgentWorkboardView,
+    OwnerAgentsListView,
+)
 from core.owner_api import (
     OwnerDocumentRecordsView,
     OwnerFinanceChartView,
@@ -309,6 +320,15 @@ urlpatterns = [
     path('api/owner/notifications/', OwnerNotificationsView.as_view(), name='api-owner-notifications'),
     path('api/owner/notifications/mark-all-read/', OwnerNotificationMarkAllReadView.as_view(), name='api-owner-notifications-mark-all'),
     path('api/owner/notifications/<int:notification_id>/read/', OwnerNotificationReadView.as_view(), name='api-owner-notification-read'),
+    path('api/owner/agents/', OwnerAgentsListView.as_view(), name='api-owner-agents'),
+    path('api/owner/agents/<int:membership_id>/workboard/', OwnerAgentWorkboardView.as_view(), name='api-owner-agent-workboard'),
+    path('api/owner/agents/<int:membership_id>/tasks/', OwnerAgentCreateTaskView.as_view(), name='api-owner-agent-create-task'),
+    path('api/agent/portal/home/', AgentPortalHomeView.as_view(), name='api-agent-portal-home'),
+    path('api/agent/tasks/', AgentTasksView.as_view(), name='api-agent-tasks'),
+    path('api/agent/tasks/<int:task_id>/toggle/', AgentToggleTaskView.as_view(), name='api-agent-toggle-task'),
+    path('api/agent/activity/', AgentActivityView.as_view(), name='api-agent-activity'),
+    path('api/agent/attendance/', AgentAttendanceView.as_view(), name='api-agent-attendance'),
+    path('api/push/register/', MobilePushDeviceRegisterView.as_view(), name='api-push-register'),
     path('api/schema/', AuthenticatedSpectacularAPIView.as_view(), name='schema'),
     path('api/docs/swagger/', AuthenticatedSpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/docs/redoc/', AuthenticatedSpectacularRedocView.as_view(url_name='schema'), name='redoc'),
