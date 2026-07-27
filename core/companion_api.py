@@ -50,6 +50,10 @@ def _membership_payload(membership: OrganizationMembership, request=None) -> dic
                 and membership.role != OrganizationMembership.Role.OWNER
                 and membership.can_deal_with_insurance
             ),
+            "tracks_attendance": (
+                membership.is_active
+                and membership.role != OrganizationMembership.Role.OWNER
+            ),
         },
     }
 

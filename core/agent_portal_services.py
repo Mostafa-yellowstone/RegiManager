@@ -245,10 +245,12 @@ def can_manage_agent_tasks(membership: OrganizationMembership | None) -> bool:
 
 
 def owner_can_review_agent(viewer: OrganizationMembership | None, agent: OrganizationMembership) -> bool:
-    """Owners may open the portal review for an insurance agent in their PSB."""
+    """Owners may open the workboard for any active agent in their PSB."""
     if viewer is None or agent is None:
         return False
-    if not agent.can_deal_with_insurance or not agent.is_active:
+    if not agent.is_active:
+        return False
+    if agent.role == OrganizationMembership.Role.OWNER:
         return False
     if viewer.organization_id != agent.organization_id:
         return False

@@ -268,9 +268,7 @@ def agent_portal_owner_review(request, membership_id):
     )
     viewer = _viewer_owner_membership(request, agent.organization)
     if not owner_can_review_agent(viewer, agent):
-        if not agent.can_deal_with_insurance:
-            return redirect("agent-audit", membership_id=agent.id)
-        deny_access("Owner access required to review this agent portal.")
+        deny_access("Owner access required to review this agent.")
 
     workboard = agent_workboard_payload(agent)
     assign_form = AgentTaskAssignForm(

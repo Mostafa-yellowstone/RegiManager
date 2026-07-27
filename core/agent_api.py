@@ -23,6 +23,7 @@ from .agent_portal_services import (
     shift_close_at,
     task_progress_for_membership,
     today_activity_for_user,
+    PORTAL_TZ,
 )
 from .models import OrganizationMembership, ServiceRecord, Notification
 from .owner_api import ORG_HEADER, OwnerAPIBase
@@ -35,6 +36,13 @@ def _absolute_media_url(request, file_field) -> str | None:
         return request.build_absolute_uri(file_field.url)
     except Exception:
         return None
+
+
+def _portal_iso(dt) -> str | None:
+    """Serialize datetimes in America/New_York for companion clients."""
+    if dt is None:
+        return None
+    return dt.astimezone(PORTAL_TZ).isoformat()
 
 
 def _serialize_user_brief(user) -> dict:
@@ -55,8 +63,8 @@ def _serialize_task(task: AgentTask) -> dict:
         "description": task.description or "",
         "is_done": task.is_done,
         "due_date": task.due_date.isoformat() if task.due_date else None,
-        "completed_at": task.completed_at.isoformat() if task.completed_at else None,
-        "created_at": task.created_at.isoformat(),
+        "completed_at": _portal_iso(task.completed_at),
+        "created_at": _portal_iso(task.created_at),
         "created_by": _serialize_user_brief(task.created_by),
     }
 
@@ -69,7 +77,7 @@ def _serialize_activity(event: AgentActivityEvent) -> dict:
         "title": event.title,
         "detail": event.detail or "",
         "object_id": event.object_id,
-        "created_at": event.created_at.isoformat(),
+        "created_at": _portal_iso(event.created_at),
     }
 
 
@@ -80,10 +88,10 @@ def _serialize_attendance(session: AgentAttendanceSession | None, *, work_date=N
     close_at = shift_close_at(wd)
     return {
         "work_date": session.work_date.isoformat(),
-        "opened_at": session.opened_at.isoformat() if session.opened_at else None,
-        "closed_at": session.closed_at.isoformat() if session.closed_at else None,
+        "opened_at": _portal_iso(session.opened_at),
+        "closed_at": _portal_iso(session.closed_at),
         "is_open": session.is_open,
-        "shift_close_at": close_at.isoformat(),
+        "shift_close_at": _portal_iso(close_at),
     }
 
 
@@ -115,11 +123,11 @@ def _agent_membership_queryset(organization):
 def _serialize_agent_summary(request, membership: OrganizationMembership) -> dict:
     user = membership.user
     progress = task_progress_for_membership(membership)
-    session = (
-        AgentAttendanceSession.objects.filter(membership=membership)
-        .order_by("-work_date")
-        .first()
-    )
+    work_date = current_work_date(portal_now())
+    session = AgentAttendanceSession.objects.filter(
+        membership=membership,
+        work_date=work_date,
+    ).first()
     today_events = today_activity_for_user(user, membership.organization)
     records = ServiceRecord.objects.filter(
         organization=membership.organization,
@@ -146,7 +154,7 @@ def _serialize_agent_summary(request, membership: OrganizationMembership) -> dic
             "open": progress["open"],
             "percent": progress["percent"],
         },
-        "attendance": _serialize_attendance(session),
+        "attendance": _serialize_attendance(session, work_date=work_date),
         "activity_today_count": len(today_events),
         "service_records_total": totals["total_records"] or 0,
         "service_revenue_total": str(totals["total_revenue"] or 0),
@@ -201,7 +209,7 @@ class OwnerAgentWorkboardView(OwnerAPIBase):
         )
         if not agent:
             raise NotFound("Agent not found.")
-        if not owner_can_review_agent(viewer, agent) and not agent.can_deal_with_insurance:
+        if not owner_can_review_agent(viewer, agent):
             raise PermissionDenied("You cannot review this agent.")
 
         workboard = agent_workboard_payload(agent, activity_limit=120)
@@ -293,6 +301,18 @@ class OwnerAgentCreateTaskView(OwnerAPIBase):
             message=title[:200],
         )
         return Response({"task": _serialize_task(task)}, status=status.HTTP_201_CREATED)
+
+
+class MemberAPIBase(OwnerAPIBase):
+    """Resolve org context for any active PSB agent (insurance or DMV)."""
+
+    def resolve_active_member(self, request):
+        organization, membership, _orgs, _records, _today = self.resolve_context(request)
+        if membership.role == OrganizationMembership.Role.OWNER:
+            raise PermissionDenied("This endpoint is for PSB agents, not owners.")
+        if not membership.is_active:
+            raise PermissionDenied("Inactive membership.")
+        return organization, membership
 
 
 class AgentAPIBase(OwnerAPIBase):
@@ -400,9 +420,9 @@ class AgentActivityView(AgentAPIBase):
         return Response({"events": [_serialize_activity(e) for e in events]})
 
 
-class AgentAttendanceView(AgentAPIBase):
+class AgentAttendanceView(MemberAPIBase):
     def get(self, request):
-        _organization, membership = self.resolve_agent_membership(request)
+        _organization, membership = self.resolve_active_member(request)
         session = ensure_attendance_open(membership)
         history = list(
             AgentAttendanceSession.objects.filter(membership=membership)
