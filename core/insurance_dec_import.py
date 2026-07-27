@@ -1,4 +1,13 @@
-"""Parse Integon / NYAIP declaration page PDFs and apply data to insurance policies."""
+"""Parse insurance declaration page PDFs and apply data to policies.
+
+Supported text-based carriers:
+  - Integon / National General / GMAC
+  - NYAIP / NY Automobile Insurance Plan / 21st Century AIP
+  - Maya Assurance (business auto)
+  - Progressive (text-layer PDFs)
+
+Scanned image-only Progressive/DEC PDFs need a text-based export or OCR.
+"""
 
 from __future__ import annotations
 
@@ -39,6 +48,15 @@ _LOOSE_VEHICLE_ROW = re.compile(
     r"(?:(\d{4})\s+)?([A-Za-z][A-Za-z0-9 \-]{1,20})?\s*"
     r"(?:VIN[:\s#]*)?([A-HJ-NPR-Z0-9]{17})",
 )
+# Maya: "2024, TOYOTA, HIGHLANDER, 5TDKDRBH0RS564584"
+_MAYA_VEHICLE_ROW = re.compile(
+    r"(?im)(\d{4})\s*,\s*([A-Za-z][A-Za-z0-9 \-]{1,24})\s*,\s*([A-Za-z0-9 \-/]{1,30})\s*,\s*"
+    r"([A-HJ-NPR-Z0-9]{17})",
+)
+# AIP: "1 55 35 32 7 20 TOYOTA SIENNA" then VIN on a later line
+_AIP_VEHICLE_ROW = re.compile(
+    r"(?im)^\s*(\d+)\s+\d+\s+\d+\s+\d+\s+\d+\s+(\d{2,4})\s+([A-Z][A-Z0-9 \-]{2,40})\s*$",
+)
 _DRIVER_ROW = re.compile(
     r"^([A-Z][A-Z'-]+,[A-Z][A-Z\s'-]+?)\s+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})",
     re.M,
@@ -50,11 +68,22 @@ _SINGLE_CAR_DRIVER_ROW = re.compile(
 _LABELED_DRIVER = re.compile(
     r"(?im)(?:Driver|Operator)\s*#?\s*\d*\s*[:\-]\s*([A-Z][A-Za-z'\-]+(?:\s+[A-Z][A-Za-z'\-]+){0,4})",
 )
+_AIP_DRIVER_ROW = re.compile(
+    r"(?im)^\s*(\d+)\)\s+([A-Z][A-Z\s'\-]{2,60})\s*$",
+)
+_MAYA_DRIVER_BLOCK = re.compile(
+    r"(?is)DRIVERS?\s+SCHEDULE\s*(.*?)(?:COVERAGE-|ITEM\s+FOUR|TOTAL\s+PREMIUM|$)",
+)
 _PAYMENT_ROW = re.compile(
     r"(?im)^\s*(DEPOSIT|DOWN\s*PAYMENT|INSTALLMENT\s*#?\s*\d+|Bill\s*#\s*\d+|PMT\s*#?\s*\d+|"
     r"Payment\s*\d+)\s+"
     r"(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s+"
     r"\$?\s*([\d,]+\.\d{2})",
+)
+_SUPPORTED_CARRIERS_MSG = (
+    "Supported text-based declaration PDFs: Progressive, Integon/National General, "
+    "NYAIP / NY Automobile Insurance Plan (incl. 21st Century AIP), and Maya Assurance. "
+    "Scanned image-only PDFs cannot be read — export/print as a text PDF or use a searchable DEC."
 )
 
 
@@ -89,7 +118,7 @@ class DecPayment:
 @dataclass
 class ParsedInsuranceDec:
     carrier: str = ""
-    carrier_key: str = ""  # integon | nyaip
+    carrier_key: str = ""  # integon | nyaip | maya | progressive | generic
     policy_number: str = ""
     named_insured: str = ""
     insured_address: str = ""
@@ -107,7 +136,9 @@ def _parse_money(raw: str | None) -> Decimal:
     if not raw:
         return ZERO
     try:
-        return Decimal(str(raw).replace(",", "").replace("$", "").strip()).quantize(Decimal("0.01"))
+        return Decimal(str(raw).replace(",", "").replace("$", "").replace("S", "").strip()).quantize(
+            Decimal("0.01")
+        )
     except (InvalidOperation, ValueError):
         return ZERO
 
@@ -136,6 +167,28 @@ def _normalize_person_name(name: str) -> str:
     return cleaned
 
 
+def _normalize_policy_number(raw: str) -> str:
+    cleaned = re.sub(r"\s+", " ", (raw or "").strip(" :#."))
+    # Keep readable spacing for AIP ("CAR 5007 97 71") but trim junk tails.
+    cleaned = re.sub(r"[^\w\-/\s]", "", cleaned).strip()
+    return cleaned[:100]
+
+
+def _year_from_short(raw: str | int | None) -> int | None:
+    if raw is None or raw == "":
+        return None
+    try:
+        value = int(str(raw).strip())
+    except ValueError:
+        return None
+    if value < 100:
+        # AIP often prints model year as 2 digits ("20" → 2020).
+        return 2000 + value if value < 80 else 1900 + value
+    if 1900 <= value <= 2100:
+        return value
+    return None
+
+
 def _parse_insured_address(text: str, result: ParsedInsuranceDec) -> None:
     address = _first_match(
         r"(?:Insured\s+Address|Mailing\s+Address|Garage\s+Address|Address)\s*[:\n]\s*([^\n]{8,120})",
@@ -145,16 +198,24 @@ def _parse_insured_address(text: str, result: ParsedInsuranceDec) -> None:
     if address and not re.search(r"policy|premium|effective|named insured", address, re.I):
         result.insured_address = re.sub(r"\s+", " ", address).strip(" ,")
         return
-    # Named Insured block: name then following address-ish line
+    # Named Insured block: name then following address-ish line(s)
     block = re.search(
-        r"(?:Named\s+Insured|Name\s+of\s+Insured)\s*[:\n]\s*[^\n]+\n\s*([A-Z0-9][^\n]{8,120})",
+        r"(?:Named\s+Insured|Name\s+of\s+Insured|NAMED\s+INSURED\s*&\s*ADDRESS)\s*[:\n]\s*"
+        r"([^\n]+)\n\s*([A-Z0-9][^\n]{5,120})(?:\n\s*([A-Z][^\n]{5,80}))?",
         text,
         re.I,
     )
     if block:
-        line = re.sub(r"\s+", " ", block.group(1)).strip(" ,")
-        if re.search(r"\d", line) and not re.search(r"policy|premium|effective", line, re.I):
-            result.insured_address = line
+        lines = [re.sub(r"\s+", " ", g).strip(" ,") for g in block.groups() if g]
+        # Skip the name line; prefer lines with digits (street / city zip).
+        for line in lines[1:]:
+            if re.search(r"\d", line) and not re.search(r"policy|premium|effective", line, re.I):
+                if result.insured_address:
+                    result.insured_address = f"{result.insured_address}, {line}"[:500]
+                else:
+                    result.insured_address = line
+        if not result.named_insured and lines:
+            result.named_insured = lines[0]
 
 
 def _parse_vehicles(text: str, result: ParsedInsuranceDec) -> None:
@@ -166,6 +227,33 @@ def _parse_vehicles(text: str, result: ParsedInsuranceDec) -> None:
                 make=match.group(3).title(),
                 vin=match.group(4).upper(),
             )
+        )
+    if result.vehicles:
+        return
+
+    for index, match in enumerate(_MAYA_VEHICLE_ROW.finditer(text), start=1):
+        make_model = f"{match.group(2).strip()} {match.group(3).strip()}".strip()
+        result.vehicles.append(
+            DecVehicle(
+                auto_number=index,
+                year=int(match.group(1)),
+                make=make_model.title()[:60],
+                vin=match.group(4).upper(),
+            )
+        )
+    if result.vehicles:
+        return
+
+    for match in _AIP_VEHICLE_ROW.finditer(text):
+        auto_no = int(match.group(1))
+        year = _year_from_short(match.group(2))
+        make = re.sub(r"\s+", " ", match.group(3)).strip().title()
+        # Find the next VIN after this row.
+        tail = text[match.end() : match.end() + 400]
+        vin_match = _VIN.search(tail)
+        vin = vin_match.group(1).upper() if vin_match else ""
+        result.vehicles.append(
+            DecVehicle(auto_number=auto_no, year=year, make=make, vin=vin)
         )
     if result.vehicles:
         return
@@ -239,6 +327,41 @@ def _parse_drivers(text: str, result: ParsedInsuranceDec) -> None:
     if result.drivers:
         return
 
+    # AIP: "DRIVER NAME" then "1) FATEH ZINDANI"
+    aip_block = re.search(r"(?is)DRIVER\s+NAME\s*(.*?)(?:ENDORSEMENTS:|DISCOUNTS:|PREMIUM\s+FINANCE|$)", text)
+    scan = aip_block.group(1) if aip_block else text
+    for match in _AIP_DRIVER_ROW.finditer(scan):
+        name = re.sub(r"\s+", " ", match.group(2)).strip(" .")
+        if len(name) < 3 or re.search(r"LICENSE|BIRTH|ENDORSEMENT", name, re.I):
+            continue
+        result.drivers.append(
+            DecDriver(
+                name=name.title(),
+                effective_date=result.effective_date,
+                expiry_date=result.expiration_date,
+            )
+        )
+    if result.drivers:
+        return
+
+    maya_block = _MAYA_DRIVER_BLOCK.search(text)
+    if maya_block:
+        for line in maya_block.group(1).splitlines():
+            cleaned = re.sub(r"^\s*\d+\s*", "", line).strip()
+            if not cleaned or len(cleaned) < 3:
+                continue
+            if not re.match(r"^[A-Z][A-Z'\-]+,\s*[A-Z]", cleaned):
+                continue
+            result.drivers.append(
+                DecDriver(
+                    name=_normalize_person_name(cleaned).title(),
+                    effective_date=result.effective_date,
+                    expiry_date=result.expiration_date,
+                )
+            )
+        if result.drivers:
+            return
+
     seen: set[str] = set()
     for match in _LABELED_DRIVER.finditer(text):
         name = _normalize_person_name(match.group(1)).title()
@@ -255,28 +378,64 @@ def _parse_drivers(text: str, result: ParsedInsuranceDec) -> None:
         )
 
 
-def _parse_common_fields(text: str, result: ParsedInsuranceDec) -> None:
-    result.policy_number = _first_match(
-        r"(?:Policy\s*(?:Number|No\.?#?|#)|POL(?:ICY)?\s*(?:NO\.?|#))\s*[:#]?\s*([A-Z0-9][A-Z0-9\-/]{4,})",
+def _parse_policy_period(text: str, result: ParsedInsuranceDec) -> None:
+    period = re.search(
+        r"(?is)(?:Policy\s+Period|Policy\s+Term|Standard\s+Time|POLICY\s+PERIOD)"
+        r"(?:\s*Begins\s+and\s+Ends[^\n]*\n[^\n]*?)?"
+        r"[\s:]*"
+        r"(?:FROM[\s:]*)?"
+        r"(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s*(?:TO|THROUGH|–|-)\s*"
+        r"(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})",
         text,
-        re.I,
     )
-    if not result.policy_number:
-        # Fallback: long alphanumeric token near "POLICY"
-        alt = re.search(r"POLICY[^\n]{0,40}?([A-Z0-9]{6,}[A-Z0-9\-/]*)", text, re.I)
-        if alt:
-            result.policy_number = alt.group(1).strip()
+    if period:
+        result.effective_date = result.effective_date or _parse_date(period.group(1))
+        result.expiration_date = result.expiration_date or _parse_date(period.group(2))
+
+
+def _looks_like_policy_number(raw: str) -> bool:
+    cleaned = _normalize_policy_number(raw)
+    if len(cleaned) < 5:
+        return False
+    if re.search(r"[A-Za-z]{4,}\s+[A-Za-z]{4,}", cleaned):
+        # Reject phrases like "BUSINESS AUTO DECLARATIONS"
+        return False
+    return bool(re.search(r"[0-9]", cleaned))
+
+
+def _parse_common_fields(text: str, result: ParsedInsuranceDec) -> None:
+    policy_raw = (
+        _first_match(
+            r"(?:Policy\s*(?:Number|No\.?#?|#)|POL(?:ICY)?\s*(?:NO\.?|#))\s*[:#]?\s*"
+            r"([A-Z0-9][A-Z0-9\-/ ]{4,})",
+            text,
+            re.I,
+        )
+        or _first_match(
+            r"POLICY\s+NUMBER\s*(?:\n\s*[A-Z][A-Z ]{0,40})?\n\s*([A-Z0-9][A-Z0-9\-/]{4,})",
+            text,
+            re.I,
+        )
+    )
+    if not policy_raw:
+        alt = re.search(r"POLICY[^\n]{0,40}?([A-Z0-9]{6,}[A-Z0-9\-/ ]*)", text, re.I)
+        if alt and _looks_like_policy_number(alt.group(1)):
+            policy_raw = alt.group(1)
+    if policy_raw and _looks_like_policy_number(policy_raw):
+        result.policy_number = _normalize_policy_number(policy_raw)
 
     insured = _first_match(
-        r"(?:Named\s+Insured|Insured(?:'s)?\s+Name|Name\s+of\s+Insured)\s*[:\n]\s*([A-Z0-9][^\n]{2,80})",
+        r"(?:Named\s+Insured|Insured(?:'s)?\s+Name|Name\s+of\s+Insured|NAMED\s+INSURED\s*&\s*ADDRESS)"
+        r"\s*[:\n]\s*([A-Z0-9][^\n]{2,80})",
         text,
         re.I,
     )
-    result.named_insured = re.sub(r"\s+", " ", insured).strip(" ,")
+    if insured:
+        result.named_insured = re.sub(r"\s+", " ", insured).strip(" ,")
     _parse_insured_address(text, result)
 
     eff = (
-        _first_match(r"(?:Effective|Eff\.?)\s*Date\s*[:#]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", text, re.I)
+        _first_match(r"(?:Effective|Eff\.?)\s*Date(?:\s+of\s+Change)?\s*[:#]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", text, re.I)
         or _first_match(r"Policy\s+Period\s*[:#]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", text, re.I)
     )
     exp = (
@@ -289,11 +448,15 @@ def _parse_common_fields(text: str, result: ParsedInsuranceDec) -> None:
     )
     result.effective_date = _parse_date(eff)
     result.expiration_date = _parse_date(exp)
+    _parse_policy_period(text, result)
 
     premium_raw = (
-        _first_match(r"(?:Total\s+)?(?:Written\s+)?Premium\s*[:#]?\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
+        _first_match(r"TOTAL\s+FULL\s+TERM\s+PREMIUM\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
+        or _first_match(r"ESTIMATED\s+TOTAL\s+ANNUAL\s+PREMIUM[^\n]*\n?\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
+        or _first_match(r"(?:Total\s+(?:Written\s+)?Premium|Written\s+Premium)\s*[:#]?\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
         or _first_match(r"Annual\s+Premium\s*[:#]?\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
         or _first_match(r"Total\s+Amount\s+Due\s*[:#]?\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
+        or _first_match(r"Total\s+Premium\s+Per\s+Auto\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
     )
     if premium_raw:
         result.premium = _parse_money(premium_raw)
@@ -301,6 +464,7 @@ def _parse_common_fields(text: str, result: ParsedInsuranceDec) -> None:
     down_raw = (
         _first_match(r"Down\s*Payment\s*[:#]?\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
         or _first_match(r"Deposit\s*[:#]?\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
+        or _first_match(r"Minimum\s+Earned\s+Premium\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
     )
     if down_raw:
         result.down_payment = _parse_money(down_raw)
@@ -339,22 +503,30 @@ def _extract_pdf_text(upload: BinaryIO) -> str:
     text = "\n".join(chunks).strip()
     if not text:
         raise DecPageParseError(
-            "This PDF has no readable text. Scanned declaration pages are not supported — "
-            "upload a text-based Integon or NYAIP DEC PDF."
+            "This PDF has no readable text (likely a scanned image). "
+            + _SUPPORTED_CARRIERS_MSG
         )
     return text.replace("\r\n", "\n")
 
 
 def _detect_carrier(text: str) -> str:
     upper = text.upper()
-    if "INTEGON" in upper or "GMAC INSURANCE" in upper:
+    if "PROGRESSIVE" in upper:
+        return "progressive"
+    if "MAYA ASSURANCE" in upper:
+        return "maya"
+    if "INTEGON" in upper or "GMAC INSURANCE" in upper or "NATIONAL GENERAL" in upper:
         return "integon"
     if (
         "NYAIP" in upper
         or "N.Y.A.I.P" in upper
         or "NEW YORK AUTOMOBILE INSURANCE PLAN" in upper
         or "NY AUTOMOBILE INSURANCE PLAN" in upper
-        or ("ASSIGNED RISK" in upper and "NEW YORK" in upper)
+        or "AUTOMOBILE INSURANCE PLAN DEPARTMENT" in upper
+        or ("ASSIGNED RISK" in upper and ("NEW YORK" in upper or "AIP" in upper or "NY" in upper))
+        or ("21ST CENTURY" in upper and "AIP" in upper)
+        or "ACCOUNT AIP" in upper
+        or "ACCOUNT. AIP" in upper
     ):
         return "nyaip"
     return ""
@@ -365,7 +537,7 @@ def parse_integon_dec_text(text: str) -> ParsedInsuranceDec:
     result = ParsedInsuranceDec(carrier="Integon", carrier_key="integon")
     _parse_common_fields(text, result)
     if not result.carrier or result.carrier == "Integon":
-        carrier_line = _first_match(r"(Integon[^\n]{0,60})", text, re.I)
+        carrier_line = _first_match(r"((?:Integon|National General)[^\n]{0,60})", text, re.I)
         if carrier_line:
             result.carrier = re.sub(r"\s+", " ", carrier_line).strip(" ,")
     if not result.policy_number:
@@ -380,11 +552,19 @@ def parse_integon_dec_text(text: str) -> ParsedInsuranceDec:
 
 
 def parse_nyaip_dec_text(text: str) -> ParsedInsuranceDec:
-    """Parse NYAIP / New York Automobile Insurance Plan declaration text."""
+    """Parse NYAIP / New York Automobile Insurance Plan / 21st Century AIP declaration text."""
     result = ParsedInsuranceDec(carrier="NYAIP", carrier_key="nyaip")
     _parse_common_fields(text, result)
-    if "NEW YORK AUTOMOBILE INSURANCE PLAN" in text.upper():
+    insurer = _first_match(r"Insurer\s*:\s*([^\n]{4,80})", text, re.I)
+    if insurer:
+        result.carrier = re.sub(r"\s+", " ", insurer).strip(" ,")
+    elif "NEW YORK AUTOMOBILE INSURANCE PLAN" in text.upper() or "NY AUTOMOBILE INSURANCE PLAN" in text.upper():
         result.carrier = "New York Automobile Insurance Plan (NYAIP)"
+    if not result.named_insured:
+        # Cover letter "RE:\nNAME"
+        re_name = _first_match(r"(?im)^RE:\s*\n\s*([A-Z][A-Z\s'\-]{2,60})\s*$", text)
+        if re_name:
+            result.named_insured = re.sub(r"\s+", " ", re_name).strip()
     if not result.policy_number:
         raise DecPageParseError("Could not find a policy number on this NYAIP declaration page.")
     if not result.effective_date or not result.expiration_date:
@@ -396,17 +576,92 @@ def parse_nyaip_dec_text(text: str) -> ParsedInsuranceDec:
     return result
 
 
+def parse_maya_dec_text(text: str) -> ParsedInsuranceDec:
+    """Parse Maya Assurance business-auto declarations."""
+    result = ParsedInsuranceDec(carrier="Maya Assurance Company", carrier_key="maya")
+    _parse_common_fields(text, result)
+    maya_pol = _first_match(
+        r"POLICY\s+NUMBER\s*(?:BUSINESS\s+AUTO\s+DECLARATIONS\s*)?\n?\s*([0-9A-Z][0-9A-Z\-/]{4,})",
+        text,
+        re.I,
+    )
+    if maya_pol and _looks_like_policy_number(maya_pol):
+        result.policy_number = _normalize_policy_number(maya_pol)
+    if not result.policy_number:
+        # Bare number/code sitting under the declarations header.
+        bare = re.search(
+            r"BUSINESS\s+AUTO\s+DECLARATIONS\s*\n\s*([0-9A-Z][0-9A-Z\-/]{4,})",
+            text,
+            re.I,
+        )
+        if bare:
+            result.policy_number = _normalize_policy_number(bare.group(1))
+    if not result.named_insured:
+        block = re.search(
+            r"NAMED\s+INSURED\s*&\s*ADDRESS\s*\n\s*([^\n]+)\n\s*([^\n]+)\n\s*([^\n]+)",
+            text,
+            re.I,
+        )
+        if block:
+            result.named_insured = re.sub(r"\s+", " ", block.group(1)).strip(" ,")
+            addr = f"{block.group(2).strip()}, {block.group(3).strip()}"
+            result.insured_address = re.sub(r"\s+", " ", addr)[:500]
+    if not result.policy_number:
+        raise DecPageParseError("Could not find a policy number on this Maya Assurance DEC.")
+    if not result.effective_date or not result.expiration_date:
+        result.parse_warnings.append("Could not fully read policy period dates from Maya DEC.")
+    return result
+
+
+def parse_progressive_dec_text(text: str) -> ParsedInsuranceDec:
+    """Parse Progressive personal-auto declaration text (text-layer PDFs)."""
+    result = ParsedInsuranceDec(carrier="Progressive", carrier_key="progressive")
+    _parse_common_fields(text, result)
+    if not result.policy_number:
+        prog = _first_match(
+            r"(?:Policy\s*(?:number|no\.?|#)|Progressive\s+policy)\s*[:#]?\s*([A-Z0-9][A-Z0-9\-]{5,})",
+            text,
+            re.I,
+        )
+        result.policy_number = _normalize_policy_number(prog)
+    if not result.policy_number:
+        raise DecPageParseError(
+            "Could not find a Progressive policy number. If this is a scanned DEC image, "
+            "re-export it as a searchable/text PDF and try again."
+        )
+    if not result.effective_date or not result.expiration_date:
+        result.parse_warnings.append("Could not fully read policy period dates from Progressive DEC.")
+    if not result.payments:
+        result.parse_warnings.append(
+            "No installment schedule rows detected — you can add payments manually on the detail page later."
+        )
+    return result
+
+
 def parse_insurance_dec_page(upload: BinaryIO) -> ParsedInsuranceDec:
-    """Router: extract PDF text, detect Integon/NYAIP, run carrier parser."""
+    """Router: extract PDF text, detect carrier, run carrier parser."""
     text = _extract_pdf_text(upload)
     key = _detect_carrier(text)
     if key == "integon":
         return parse_integon_dec_text(text)
     if key == "nyaip":
         return parse_nyaip_dec_text(text)
+    if key == "maya":
+        return parse_maya_dec_text(text)
+    if key == "progressive":
+        return parse_progressive_dec_text(text)
+
+    # Last-chance generic parse when policy number + period are obvious.
+    generic = ParsedInsuranceDec(carrier="Unknown Carrier", carrier_key="generic")
+    _parse_common_fields(text, generic)
+    if generic.policy_number and generic.effective_date and generic.expiration_date:
+        generic.parse_warnings.append(
+            "Carrier was not recognized — fields were imported with generic heuristics. Verify details."
+        )
+        return generic
+
     raise DecPageParseError(
-        "Unsupported declaration page. Currently supported carriers: Integon and NYAIP "
-        "(New York Automobile Insurance Plan). Upload a text-based PDF from one of those carriers."
+        "Unsupported or unreadable declaration page. " + _SUPPORTED_CARRIERS_MSG
     )
 
 

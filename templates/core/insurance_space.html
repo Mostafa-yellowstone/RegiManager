@@ -1195,7 +1195,8 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       <button type="button" onclick="document.getElementById('importInsDecModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
     </div>
     <p style="margin: 0 0 1rem; color: #64748b; font-size: 0.9rem; font-weight: 600;">
-      Upload a text-based Integon or NYAIP declaration PDF to create a policy with renewal date, next payment due, and a stored DEC document.
+      Upload a text-based declaration PDF (Progressive, Integon/National General, NYAIP / 21st Century AIP, or Maya Assurance).
+      Creates the policy with insured, vehicles, drivers, premium, and stores the DEC. Scanned image-only PDFs cannot be read.
     </p>
     <form method="post" action="{% url 'import-insurance-dec-page' card.id %}" enctype="multipart/form-data">
       {% csrf_token %}

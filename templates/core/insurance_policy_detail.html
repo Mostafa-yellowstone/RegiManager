@@ -328,7 +328,7 @@ html.portal-theme-dark .ins-overview-table.ins-table td {
 <div class="modal-overlay" id="importDecModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box">
     <h3 style="margin:0 0 0.5rem;">Update from Dec Page</h3>
-    <p style="margin:0 0 1rem;color:var(--portal-text-muted);font-size:0.9rem;">Upload an Integon or NYAIP declaration PDF. Overview fields, vehicles, drivers, and payment schedule refresh when parsing succeeds; the PDF is always stored.</p>
+    <p style="margin:0 0 1rem;color:var(--portal-text-muted);font-size:0.9rem;">Upload a Progressive, Integon/National General, NYAIP / 21st Century AIP, or Maya Assurance declaration PDF. Overview fields, vehicles, drivers, and payment schedule refresh when parsing succeeds; the PDF is always stored. Scanned image-only PDFs cannot be read.</p>
     <form method="post" action="{% url 'import-insurance-dec-to-policy' policy.id %}" enctype="multipart/form-data">
       {% csrf_token %}
       <label class="field-label">Declaration PDF</label>

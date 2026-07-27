@@ -1,0 +1,136 @@
+{% extends "base_portal.html" %}
+{% load static tz %}
+
+{% block title %}Attendance Tracker | RegiManager{% endblock %}
+
+{% block portal_head %}
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=7">
+{% endblock %}
+
+{% block portal_content %}
+<main class="attendance-tracker">
+    <section class="attendance-tracker__hero">
+        <div class="attendance-tracker__intro">
+            <a href="{% url 'dashboard' %}#ops" class="attendance-back">&larr; Back to Ops</a>
+            <p class="attendance-eyebrow">Team pulse · Cairo shift</p>
+            <h1>Attendance Tracker</h1>
+            <p class="attendance-lead">
+                Live view of every agent for
+                <strong>{{ roster.work_date|date:"D, M j, Y" }}</strong>.
+                Shifts auto-close {{ roster.close_at|date:"g:i A" }} Cairo.
+            </p>
+        </div>
+        <form method="get" class="attendance-filters" action="{% url 'agent-attendance-tracker' %}">
+            <label>
+                <span>Work date</span>
+                <input type="date" name="work_date" value="{{ roster.work_date|date:'Y-m-d' }}">
+            </label>
+            <label>
+                <span>Location</span>
+                <select name="organization_id">
+                    <option value="">All PSBs</option>
+                    {% for org in roster.organizations %}
+                    <option value="{{ org.id }}" {% if selected_org_id == org.id %}selected{% endif %}>{{ org.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button type="submit" class="attendance-filter-btn">Apply</button>
+        </form>
+    </section>
+
+    <section class="attendance-stats">
+        <article class="attendance-stat attendance-stat--total">
+            <span>Team</span>
+            <strong>{{ roster.counts.total }}</strong>
+            <small>agents</small>
+        </article>
+        <article class="attendance-stat attendance-stat--live">
+            <span>On shift</span>
+            <strong>{{ roster.counts.on_shift }}</strong>
+            <small>live now</small>
+        </article>
+        <article class="attendance-stat attendance-stat--closed">
+            <span>Closed</span>
+            <strong>{{ roster.counts.closed }}</strong>
+            <small>ended shift</small>
+        </article>
+        <article class="attendance-stat attendance-stat--absent">
+            <span>No check-in</span>
+            <strong>{{ roster.counts.absent }}</strong>
+            <small>not opened</small>
+        </article>
+    </section>
+
+    <section class="attendance-board">
+        <header class="attendance-board__head">
+            <h2>Agent roster</h2>
+            <span class="attendance-clock">Cairo {{ roster.cairo_now|date:"g:i A" }}</span>
+        </header>
+
+        {% if roster.rows %}
+        <div class="attendance-grid">
+            {% for row in roster.rows %}
+            <article class="attendance-card attendance-card--{{ row.status }}">
+                <div class="attendance-card__top">
+                    <div class="attendance-avatar" aria-hidden="true">
+                        {% if row.membership.profile_photo %}
+                        <img src="{{ row.membership.profile_photo.url }}" alt="">
+                        {% else %}
+                        {{ row.membership.user.get_full_name|default:row.membership.user.username|make_list|first|upper }}
+                        {% endif %}
+                    </div>
+                    <div class="attendance-card__who">
+                        <h3>{{ row.membership.user.get_full_name|default:row.membership.user.username }}</h3>
+                        <p>{{ row.membership.organization.name }}{% if row.membership.can_deal_with_insurance %} · Insurance{% else %} · DMV{% endif %}</p>
+                    </div>
+                    <span class="attendance-status attendance-status--{{ row.status }}">
+                        {% if row.status == "on_shift" %}On shift
+                        {% elif row.status == "closed" %}Closed
+                        {% else %}No check-in{% endif %}
+                    </span>
+                </div>
+
+                <dl class="attendance-card__meta">
+                    <div>
+                        <dt>Opened</dt>
+                        <dd>
+                            {% if row.session and row.session.opened_at %}
+                            {{ row.session.opened_at|timezone:"Africa/Cairo"|date:"g:i A" }}
+                            {% else %}—{% endif %}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>Closed</dt>
+                        <dd>
+                            {% if row.session and row.session.closed_at %}
+                            {{ row.session.closed_at|timezone:"Africa/Cairo"|date:"g:i A" }}
+                            {% elif row.status == "on_shift" %}
+                            In progress
+                            {% else %}—{% endif %}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>Closes</dt>
+                        <dd>{{ row.close_at|date:"g:i A" }}</dd>
+                    </div>
+                </dl>
+
+                <div class="attendance-card__actions">
+                    {% if row.membership.can_deal_with_insurance %}
+                    <a href="{% url 'agent-portal-owner-review' row.membership.id %}">Open portal</a>
+                    {% else %}
+                    <a href="{% url 'agent-audit' row.membership.id %}">Open audit</a>
+                    {% endif %}
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="attendance-empty">
+            <h3>No agents found</h3>
+            <p>There are no active agents for this location filter yet.</p>
+        </div>
+        {% endif %}
+    </section>
+</main>
+{% endblock %}

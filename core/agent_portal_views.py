@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
@@ -15,6 +17,7 @@ from .agent_portal_models import AgentTask
 from .agent_portal_services import (
     accessible_space_cards,
     agent_workboard_payload,
+    attendance_roster_for_owner,
     can_access_agent_portal,
     can_manage_agent_tasks,
     cairo_now,
@@ -287,5 +290,53 @@ def agent_portal_owner_review(request, membership_id):
             "assign_form": assign_form,
             "cairo_now": local_now,
             "is_owner_portal_review": True,
+        },
+    )
+
+
+@login_required
+def agent_attendance_tracker(request):
+    """Owner attendance board — live on-shift / closed / absent for all agents."""
+    if request.user.is_superuser:
+        return redirect("/admin/")
+
+    owned = OrganizationMembership.objects.filter(
+        user=request.user,
+        role=OrganizationMembership.Role.OWNER,
+        is_active=True,
+        organization__is_active=True,
+    )
+    if not owned.exists():
+        deny_access("Owner access required.")
+
+    work_date_raw = (request.GET.get("work_date") or "").strip()
+    org_raw = (request.GET.get("organization_id") or "").strip()
+    work_date = None
+    if work_date_raw:
+        try:
+            work_date = datetime.strptime(work_date_raw, "%Y-%m-%d").date()
+        except ValueError:
+            messages.error(request, "Invalid work date. Use YYYY-MM-DD.")
+            return redirect("agent-attendance-tracker")
+
+    organization_id = None
+    if org_raw:
+        try:
+            organization_id = int(org_raw)
+        except ValueError:
+            organization_id = None
+
+    roster = attendance_roster_for_owner(
+        request.user,
+        work_date=work_date,
+        organization_id=organization_id,
+    )
+    return render(
+        request,
+        "core/agent_portal/attendance_tracker.html",
+        {
+            "roster": roster,
+            "selected_org_id": organization_id,
+            "is_attendance_tracker": True,
         },
     )

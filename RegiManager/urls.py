@@ -21,6 +21,7 @@ from django.conf.urls.static import static
 from django.urls import path, include
 
 from core.agent_portal_views import (
+    agent_attendance_tracker,
     agent_portal_create_task,
     agent_portal_home,
     agent_portal_manage_tasks,
@@ -358,6 +359,11 @@ urlpatterns = [
     path("dashboard/agent/permissions/", update_agent_permissions, name="update-agent-permissions"),
     path("dashboard/agent/role/", update_agent_role, name="update-agent-role"),
     path("dashboard/agents/", all_agents_directory, name="all-agents-directory"),
+    path(
+        "dashboard/agents/attendance/",
+        agent_attendance_tracker,
+        name="agent-attendance-tracker",
+    ),
     path("dashboard/agents/<int:membership_id>/audit/", agent_audit_view, name="agent-audit"),
     path("dashboard/mv82-interactive/<int:service_id>/", mv82_interactive, name="mv82-interactive"),
     path("dashboard/receipts/<int:service_id>/", service_receipt_pdf, name="service-receipt-pdf"),

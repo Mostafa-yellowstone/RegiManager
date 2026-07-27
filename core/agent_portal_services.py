@@ -9,7 +9,7 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 from .agent_portal_models import AgentActivityEvent, AgentAttendanceSession, AgentTask
-from .models import OrganizationMembership
+from .models import Organization, OrganizationMembership
 from .space_access import filter_accessible_spaces
 
 CAIRO_TZ = ZoneInfo("Africa/Cairo")
@@ -205,6 +205,79 @@ def owner_can_review_agent(viewer: OrganizationMembership | None, agent: Organiz
     if viewer.organization_id != agent.organization_id:
         return False
     return viewer.role == OrganizationMembership.Role.OWNER and viewer.is_active
+
+
+def attendance_roster_for_owner(owner_user, *, work_date=None, organization_id=None) -> dict:
+    """Owner-facing attendance tracker for all agents across owned PSBs."""
+    close_stale_attendance_sessions()
+    local_now = cairo_now()
+    selected_date = work_date or current_work_date(local_now)
+
+    owned_orgs = Organization.objects.filter(
+        memberships__user=owner_user,
+        memberships__role=OrganizationMembership.Role.OWNER,
+        memberships__is_active=True,
+        is_active=True,
+    ).distinct()
+    if organization_id:
+        owned_orgs = owned_orgs.filter(id=organization_id)
+
+    agents = (
+        OrganizationMembership.objects.filter(
+            organization__in=owned_orgs,
+            is_active=True,
+        )
+        .exclude(user=owner_user)
+        .exclude(role=OrganizationMembership.Role.OWNER)
+        .select_related("user", "organization")
+        .order_by("organization__name", "user__first_name", "user__last_name", "user__username")
+    )
+
+    sessions_by_membership = {
+        s.membership_id: s
+        for s in AgentAttendanceSession.objects.filter(
+            membership__in=agents,
+            work_date=selected_date,
+        )
+    }
+
+    rows = []
+    on_shift = 0
+    closed = 0
+    absent = 0
+    for membership in agents:
+        session = sessions_by_membership.get(membership.id)
+        if session is None:
+            status = "absent"
+            absent += 1
+        elif session.is_open:
+            status = "on_shift"
+            on_shift += 1
+        else:
+            status = "closed"
+            closed += 1
+        rows.append(
+            {
+                "membership": membership,
+                "session": session,
+                "status": status,
+                "close_at": shift_close_at(selected_date),
+            }
+        )
+
+    return {
+        "work_date": selected_date,
+        "cairo_now": local_now,
+        "close_at": shift_close_at(selected_date),
+        "organizations": list(owned_orgs.order_by("name")),
+        "rows": rows,
+        "counts": {
+            "total": len(rows),
+            "on_shift": on_shift,
+            "closed": closed,
+            "absent": absent,
+        },
+    }
 
 
 def log_agent_activity(
