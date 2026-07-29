@@ -354,7 +354,7 @@ class OwnerFinanceRecordsView(OwnerAPIBase):
                 organization=organization,
                 transaction_date__gte=start,
                 transaction_date__lte=end,
-            ).select_related("client", "recorded_by").order_by("-transaction_date", "-id")
+            ).select_related("client", "recorded_by", "insurance_company").order_by("-transaction_date", "-id")
             if method_key:
                 qs = qs.filter(payment_method=method_key)
 
@@ -377,6 +377,7 @@ class OwnerFinanceRecordsView(OwnerAPIBase):
                     | Q(recorded_by__username__icontains=search_q)
                     | Q(recorded_by__first_name__icontains=search_q)
                     | Q(recorded_by__last_name__icontains=search_q)
+                    | Q(insurance_company__name__icontains=search_q)
                 )
             if min_amount:
                 try:
@@ -410,6 +411,8 @@ class OwnerFinanceRecordsView(OwnerAPIBase):
                         "notes": tx.notes or "",
                         "agent_name": agent,
                         "agent_id": tx.recorded_by_id or 0,
+                        "company_name": tx.insurance_company.name if tx.insurance_company_id else "",
+                        "company_id": tx.insurance_company_id or 0,
                     }
                 )
 

@@ -1734,6 +1734,7 @@ function handleCompanySelect(sel) {
   if (sel.value === '__add_new__') {
     sel.value = '';
     const modal = document.getElementById('quickAddCompanyModal');
+    modal.dataset.targetSelectId = sel.id || 'policyCompany';
     modal.style.display = 'flex';
     setTimeout(() => document.getElementById('quickCompanyName').focus(), 50);
   }
@@ -1837,16 +1838,21 @@ function submitQuickAddCompany() {
         if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Company'; }
         return;
       }
-      const sel = document.getElementById('policyCompany');
-      let existing = Array.from(sel.options).find(o => o.value == data.id);
-      if (!existing) {
-        const newOpt = document.createElement('option');
-        newOpt.value = data.id;
-        newOpt.textContent = data.name;
-        const addNewOpt = Array.from(sel.options).find(o => o.value === '__add_new__');
-        sel.insertBefore(newOpt, addNewOpt || null);
-      }
-      sel.value = data.id;
+      const targetId = document.getElementById('quickAddCompanyModal').dataset.targetSelectId || 'policyCompany';
+      const companySelectIds = ['policyCompany', 'dailyPaymentCompany', 'editDailyPaymentCompany'];
+      companySelectIds.forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        let existing = Array.from(sel.options).find(o => o.value == data.id);
+        if (!existing) {
+          const newOpt = document.createElement('option');
+          newOpt.value = data.id;
+          newOpt.textContent = data.name;
+          const addNewOpt = Array.from(sel.options).find(o => o.value === '__add_new__');
+          sel.insertBefore(newOpt, addNewOpt || null);
+        }
+        if (id === targetId) sel.value = data.id;
+      });
       closeQuickAddCompany();
     })
     .catch(() => {

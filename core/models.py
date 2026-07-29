@@ -2276,6 +2276,13 @@ class DailyPaymentTransaction(models.Model):
         blank=True,
         related_name="daily_payment_transactions",
     )
+    insurance_company = models.ForeignKey(
+        "InsuranceCompany",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="daily_payment_transactions",
+    )
     transaction_date = models.DateField(db_index=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     payment_type = models.CharField(max_length=30, choices=PaymentType.choices)

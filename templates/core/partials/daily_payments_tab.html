@@ -210,6 +210,7 @@
         <tr>
           <th>Date</th>
           <th>Client</th>
+          <th>Company</th>
           <th>Payment Type</th>
           <th>Method</th>
           <th style="text-align: right;">Amount</th>
@@ -225,6 +226,7 @@
             data-tx-id="{{ tx.id }}"
             data-amount="{{ tx.amount }}"
             data-client-name="{{ tx.client.name|escapejs }}"
+            data-company-id="{% if tx.insurance_company_id %}{{ tx.insurance_company_id }}{% endif %}"
             data-payment-type="{{ tx.payment_type }}"
             data-payment-method="{{ tx.payment_method }}"
             data-transaction-date="{{ tx.transaction_date|date:'Y-m-d' }}"
@@ -234,6 +236,13 @@
           <td style="font-size: 0.82rem; color: #64748b; white-space: nowrap;">{{ tx.transaction_date|date:"M j, Y" }}</td>
           <td>
             <a href="{% url 'client-detail' tx.client.id %}" style="color: #093de6; font-weight: 800; text-decoration: none;">{{ tx.client.name }}</a>
+          </td>
+          <td>
+            {% if tx.insurance_company %}
+              <span style="font-size: 0.78rem; font-weight: 700; color: #334155;">{{ tx.insurance_company.name }}</span>
+            {% else %}
+              <span style="color: #94a3b8;">—</span>
+            {% endif %}
           </td>
           <td><span style="font-size: 0.78rem; font-weight: 700; color: #334155;">{{ tx.get_payment_type_display }}</span></td>
           <td><span style="font-size: 0.78rem; font-weight: 700; color: #475569;">{{ tx.get_payment_method_display }}</span></td>
@@ -278,7 +287,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="{% if user_can_clear_daily_payments %}11{% else %}8{% endif %}" style="text-align: center; padding: 3rem; color: #94a3b8; font-weight: 600;">
+          <td colspan="{% if user_can_clear_daily_payments %}12{% else %}9{% endif %}" style="text-align: center; padding: 3rem; color: #94a3b8; font-weight: 600;">
             No payments recorded for this day yet.
           </td>
         </tr>
@@ -338,6 +347,16 @@
           {% for c in clients %}<option value="{{ c.name }}"></option>{% endfor %}
         </datalist>
       </div>
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Company Name</label>
+        <select name="insurance_company" id="dailyPaymentCompany" required class="field-input" onchange="handleCompanySelect(this)">
+          <option value="">-- Select Company --</option>
+          {% for comp in insurance_companies %}
+          <option value="{{ comp.id }}">{{ comp.name }}</option>
+          {% endfor %}
+          <option value="__add_new__" style="color:#2563eb; font-weight:700;">➕ Add New Company</option>
+        </select>
+      </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
         <div>
           <label class="field-label">Payment Type</label>
@@ -396,6 +415,16 @@
       <div style="margin-bottom: 1rem;">
         <label class="field-label">Client Name</label>
         <input type="text" name="client_name" id="editDailyPaymentClient" required class="field-input" list="dailyClientList" placeholder="e.g. John Doe">
+      </div>
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Company Name</label>
+        <select name="insurance_company" id="editDailyPaymentCompany" required class="field-input" onchange="handleCompanySelect(this)">
+          <option value="">-- Select Company --</option>
+          {% for comp in insurance_companies %}
+          <option value="{{ comp.id }}">{{ comp.name }}</option>
+          {% endfor %}
+          <option value="__add_new__" style="color:#2563eb; font-weight:700;">➕ Add New Company</option>
+        </select>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
         <div>
@@ -480,6 +509,8 @@ function openEditDailyPayment(button) {
   form.action = '{% url "edit-daily-payment" 0 %}'.replace('/0/', '/' + txId + '/');
   document.getElementById('editDailyPaymentDate').value = row.dataset.transactionDate || '';
   document.getElementById('editDailyPaymentClient').value = row.dataset.clientName || '';
+  const companySel = document.getElementById('editDailyPaymentCompany');
+  if (companySel) companySel.value = row.dataset.companyId || '';
   document.getElementById('editDailyPaymentType').value = row.dataset.paymentType || 'misc';
   document.getElementById('editDailyPaymentMethod').value = row.dataset.paymentMethod || 'cash';
   document.getElementById('editDailyPaymentAmount').value = row.dataset.amount || '';

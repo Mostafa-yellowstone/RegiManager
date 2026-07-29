@@ -6190,7 +6190,7 @@ def inventory_detail(request, inventory_id):
         daily_tx_qs = DailyPaymentTransaction.objects.filter(
             organization=active_org,
             transaction_date=daily_payment_date,
-        ).select_related("client", "recorded_by", "updated_by", "insurance_policy")
+        ).select_related("client", "recorded_by", "updated_by", "insurance_policy", "insurance_company")
         if daily_method_filter in {"cash", "zelle", "credit_card", "checks"}:
             daily_tx_qs = daily_tx_qs.filter(payment_method=daily_method_filter)
         if daily_type_filter:
@@ -6206,6 +6206,7 @@ def inventory_detail(request, inventory_id):
                 | Q(recorded_by__username__icontains=daily_search)
                 | Q(recorded_by__first_name__icontains=daily_search)
                 | Q(recorded_by__last_name__icontains=daily_search)
+                | Q(insurance_company__name__icontains=daily_search)
             )
         if daily_min_amount:
             try:
@@ -7150,7 +7151,7 @@ def delete_insurance_company(request, company_id):
 @require_POST
 def add_daily_payment(request):
     from datetime import datetime as dt_parse
-    from .models import DailyPaymentTransaction, Client
+    from .models import DailyPaymentTransaction, Client, InsuranceCompany
     from .daily_payments import VALID_PAYMENT_METHODS, VALID_PAYMENT_TYPES
 
     org_id = request.POST.get("organization")
@@ -7168,9 +7169,17 @@ def add_daily_payment(request):
     payment_method = request.POST.get("payment_method", "").strip()
     transaction_date = request.POST.get("transaction_date", "").strip()
     notes = request.POST.get("notes", "").strip()
+    company_id = request.POST.get("insurance_company", "").strip()
 
     if not client_name:
         messages.error(request, "Client name is required.")
+        return _redirect_to_insurance_detail(org, tab="daily-payments", request=request)
+
+    company = None
+    if company_id.isdigit():
+        company = InsuranceCompany.objects.filter(organization=org, id=int(company_id)).first()
+    if not company:
+        messages.error(request, "Company name is required.")
         return _redirect_to_insurance_detail(org, tab="daily-payments", request=request)
 
     from .client_matching import DuplicateClientError, resolve_client_for_display_name
@@ -7213,6 +7222,7 @@ def add_daily_payment(request):
         DailyPaymentTransaction.objects.create(
             organization=org,
             client=client,
+            insurance_company=company,
             transaction_date=tx_date,
             amount=Decimal(amount or "0.00"),
             payment_type=payment_type,
@@ -7235,7 +7245,7 @@ def add_daily_payment(request):
 @require_POST
 def edit_daily_payment(request, transaction_id):
     from datetime import datetime as dt_parse
-    from .models import DailyPaymentTransaction
+    from .models import DailyPaymentTransaction, InsuranceCompany
     from .daily_payments import VALID_PAYMENT_METHODS, VALID_PAYMENT_TYPES
 
     organizations = _get_user_organizations(request)
@@ -7261,9 +7271,19 @@ def edit_daily_payment(request, transaction_id):
     payment_method = request.POST.get("payment_method", "").strip()
     transaction_date = request.POST.get("transaction_date", "").strip()
     notes = request.POST.get("notes", "").strip()
+    company_id = request.POST.get("insurance_company", "").strip()
 
     if not client_name:
         messages.error(request, "Client name is required.")
+        return _redirect_to_insurance_detail(org,
+            tab="daily-payments",
+            query_params=[f"daily_date={tx.transaction_date}"], request=request)
+
+    company = None
+    if company_id.isdigit():
+        company = InsuranceCompany.objects.filter(organization=org, id=int(company_id)).first()
+    if not company:
+        messages.error(request, "Company name is required.")
         return _redirect_to_insurance_detail(org,
             tab="daily-payments",
             query_params=[f"daily_date={tx.transaction_date}"], request=request)
@@ -7313,6 +7333,7 @@ def edit_daily_payment(request, transaction_id):
 
     try:
         tx.client = client
+        tx.insurance_company = company
         tx.transaction_date = tx_date
         tx.amount = Decimal(amount or "0.00")
         tx.payment_type = payment_type
