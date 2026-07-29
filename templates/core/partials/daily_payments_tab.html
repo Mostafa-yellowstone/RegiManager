@@ -144,7 +144,7 @@
 <form method="GET" style="margin-bottom: 1.25rem; background: var(--portal-surface, white); border: 1px solid var(--portal-border, #e2e8f0); border-radius: 16px; padding: 1rem 1.15rem;">
   <input type="hidden" name="tab" value="daily-payments">
   <input type="hidden" name="daily_date" value="{{ daily_payment_date|date:'Y-m-d' }}">
-  <details {% if daily_method_filter or daily_type_filter or daily_search or daily_min_amount or daily_max_amount %}open{% endif %}>
+  <details {% if daily_method_filter or daily_type_filter or daily_agent_filter or daily_search or daily_min_amount or daily_max_amount %}open{% endif %}>
     <summary style="cursor: pointer; font-size: 0.85rem; font-weight: 800; color: #093de6; outline: none; user-select: none;">🔍 Advanced Filters</summary>
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.85rem; margin-top: 0.85rem;">
       <div style="display: flex; flex-direction: column; gap: 0.3rem;">
@@ -170,6 +170,17 @@
           <option value="monthly_payment" {% if daily_type_filter == "monthly_payment" %}selected{% endif %}>Monthly Payment</option>
           <option value="endorsement" {% if daily_type_filter == "endorsement" %}selected{% endif %}>Endorsement</option>
           <option value="misc" {% if daily_type_filter == "misc" %}selected{% endif %}>Misc</option>
+        </select>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+        <label style="font-size: 0.78rem; font-weight: 700; color: #475569;">Agent</label>
+        <select name="daily_agent" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
+          <option value="">All Agents</option>
+          {% for member in insurance_agents %}
+          <option value="{{ member.user.id }}" {% if daily_agent_filter == member.user.id|stringformat:"s" %}selected{% endif %}>
+            {{ member.user.get_full_name|default:member.user.username }}
+          </option>
+          {% endfor %}
         </select>
       </div>
       <div style="display: flex; flex-direction: column; gap: 0.3rem;">

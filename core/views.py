@@ -6182,6 +6182,7 @@ def inventory_detail(request, inventory_id):
 
         daily_method_filter = request.GET.get("daily_method", "").strip()
         daily_type_filter = request.GET.get("daily_type", "").strip()
+        daily_agent_filter = request.GET.get("daily_agent", "").strip()
         daily_search = request.GET.get("daily_q", "").strip()
         daily_min_amount = request.GET.get("daily_min", "").strip()
         daily_max_amount = request.GET.get("daily_max", "").strip()
@@ -6194,6 +6195,8 @@ def inventory_detail(request, inventory_id):
             daily_tx_qs = daily_tx_qs.filter(payment_method=daily_method_filter)
         if daily_type_filter:
             daily_tx_qs = daily_tx_qs.filter(payment_type=daily_type_filter)
+        if daily_agent_filter.isdigit():
+            daily_tx_qs = daily_tx_qs.filter(recorded_by_id=int(daily_agent_filter))
         if daily_search:
             from django.db.models import Q
 
@@ -6329,6 +6332,7 @@ def inventory_detail(request, inventory_id):
             "daily_available_dates": daily_available_dates,
             "daily_method_filter": daily_method_filter,
             "daily_type_filter": daily_type_filter,
+            "daily_agent_filter": daily_agent_filter,
             "daily_search": daily_search,
             "daily_min_amount": daily_min_amount,
             "daily_max_amount": daily_max_amount,

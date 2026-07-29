@@ -363,8 +363,11 @@ class OwnerFinanceRecordsView(OwnerAPIBase):
             search_q = (request.query_params.get("q") or "").strip()
             min_amount = (request.query_params.get("min_amount") or "").strip()
             max_amount = (request.query_params.get("max_amount") or "").strip()
+            agent_id = (request.query_params.get("agent") or request.query_params.get("agent_id") or "").strip()
             if payment_type:
                 qs = qs.filter(payment_type=payment_type)
+            if agent_id.isdigit():
+                qs = qs.filter(recorded_by_id=int(agent_id))
             if search_q:
                 from django.db.models import Q
 
@@ -406,6 +409,7 @@ class OwnerFinanceRecordsView(OwnerAPIBase):
                         "reference": str(tx.insurance_policy_id or tx.id),
                         "notes": tx.notes or "",
                         "agent_name": agent,
+                        "agent_id": tx.recorded_by_id or 0,
                     }
                 )
 
