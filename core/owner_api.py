@@ -354,19 +354,58 @@ class OwnerFinanceRecordsView(OwnerAPIBase):
                 organization=organization,
                 transaction_date__gte=start,
                 transaction_date__lte=end,
-            ).select_related("client").order_by("-transaction_date", "-id")
+            ).select_related("client", "recorded_by").order_by("-transaction_date", "-id")
             if method_key:
                 qs = qs.filter(payment_method=method_key)
+
+            # Advanced filters for Insurance Space daily payments ledger.
+            payment_type = (request.query_params.get("payment_type") or "").strip().lower()
+            search_q = (request.query_params.get("q") or "").strip()
+            min_amount = (request.query_params.get("min_amount") or "").strip()
+            max_amount = (request.query_params.get("max_amount") or "").strip()
+            if payment_type:
+                qs = qs.filter(payment_type=payment_type)
+            if search_q:
+                from django.db.models import Q
+
+                qs = qs.filter(
+                    Q(client__name__icontains=search_q)
+                    | Q(notes__icontains=search_q)
+                    | Q(recorded_by__username__icontains=search_q)
+                    | Q(recorded_by__first_name__icontains=search_q)
+                    | Q(recorded_by__last_name__icontains=search_q)
+                )
+            if min_amount:
+                try:
+                    qs = qs.filter(amount__gte=Decimal(min_amount))
+                except Exception:
+                    pass
+            if max_amount:
+                try:
+                    qs = qs.filter(amount__lte=Decimal(max_amount))
+                except Exception:
+                    pass
+
             for tx in qs[:limit_n]:
+                agent = ""
+                if tx.recorded_by_id:
+                    agent = (
+                        tx.recorded_by.get_full_name().strip()
+                        or tx.recorded_by.username
+                        or ""
+                    )
                 results.append(
                     {
                         "id": f"ins_{tx.id}",
                         "transaction_date": tx.transaction_date.isoformat(),
                         "description": tx.get_payment_type_display(),
+                        "payment_type": tx.payment_type,
                         "method": "card" if tx.payment_method == "credit_card" else tx.payment_method,
                         "amount": str(Decimal(tx.amount or 0).quantize(Decimal("0.01"))),
                         "client_name": str(tx.client) if tx.client_id else "",
                         "reference": str(tx.insurance_policy_id or tx.id),
+                        "notes": tx.notes or "",
+                        "agent_name": agent,
                     }
                 )
 

@@ -6180,10 +6180,40 @@ def inventory_detail(request, inventory_id):
         except ValueError:
             daily_payment_date = timezone.localdate()
 
+        daily_method_filter = request.GET.get("daily_method", "").strip()
+        daily_type_filter = request.GET.get("daily_type", "").strip()
+        daily_search = request.GET.get("daily_q", "").strip()
+        daily_min_amount = request.GET.get("daily_min", "").strip()
+        daily_max_amount = request.GET.get("daily_max", "").strip()
+
         daily_tx_qs = DailyPaymentTransaction.objects.filter(
             organization=active_org,
             transaction_date=daily_payment_date,
         ).select_related("client", "recorded_by", "updated_by", "insurance_policy")
+        if daily_method_filter in {"cash", "zelle", "credit_card", "checks"}:
+            daily_tx_qs = daily_tx_qs.filter(payment_method=daily_method_filter)
+        if daily_type_filter:
+            daily_tx_qs = daily_tx_qs.filter(payment_type=daily_type_filter)
+        if daily_search:
+            from django.db.models import Q
+
+            daily_tx_qs = daily_tx_qs.filter(
+                Q(client__name__icontains=daily_search)
+                | Q(notes__icontains=daily_search)
+                | Q(recorded_by__username__icontains=daily_search)
+                | Q(recorded_by__first_name__icontains=daily_search)
+                | Q(recorded_by__last_name__icontains=daily_search)
+            )
+        if daily_min_amount:
+            try:
+                daily_tx_qs = daily_tx_qs.filter(amount__gte=Decimal(daily_min_amount))
+            except Exception:
+                pass
+        if daily_max_amount:
+            try:
+                daily_tx_qs = daily_tx_qs.filter(amount__lte=Decimal(daily_max_amount))
+            except Exception:
+                pass
         daily_transactions = enrich_daily_transactions(list(daily_tx_qs))
         daily_method_cards, daily_grand_total = summarize_daily_payments(daily_transactions)
         daily_payable_total = compute_payable_total(active_org)
@@ -6297,6 +6327,11 @@ def inventory_detail(request, inventory_id):
             "daily_grand_total": daily_grand_total,
             "daily_payable_total": daily_payable_total,
             "daily_available_dates": daily_available_dates,
+            "daily_method_filter": daily_method_filter,
+            "daily_type_filter": daily_type_filter,
+            "daily_search": daily_search,
+            "daily_min_amount": daily_min_amount,
+            "daily_max_amount": daily_max_amount,
             "insurance_type_options": _insurance_type_options_for_org(active_org),
             "user_can_manage_insurance_intake": user_can_manage_insurance_intake,
             "pending_insurance_intakes": pending_insurance_intakes,
