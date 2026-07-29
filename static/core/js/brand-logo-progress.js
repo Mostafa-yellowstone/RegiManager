@@ -45,6 +45,7 @@
       document.body.appendChild(root);
     }
     labelEl = root.querySelector('.rm-brand-loader__label');
+    wireLogo(root.querySelector('.rm-brand-loader__logo'));
     return root;
   }
 
@@ -54,6 +55,30 @@
       return el.getAttribute('data-rm-brand-logo');
     }
     return '/static/core/img/logo_regimanager.png';
+  }
+
+  function logoFallback() {
+    var el = document.querySelector('[data-rm-brand-logo-fallback]');
+    if (el && el.getAttribute('data-rm-brand-logo-fallback')) {
+      return el.getAttribute('data-rm-brand-logo-fallback');
+    }
+    return '/static/core/img/regimanager-logo-premium.png';
+  }
+
+  function wireLogo(img) {
+    if (!img || img.dataset.rmLogoWired) return;
+    img.dataset.rmLogoWired = '1';
+    var primary = logoSrc();
+    var fallback = logoFallback();
+    img.setAttribute('data-fallback', fallback);
+    img.addEventListener('error', function onLogoError() {
+      if (fallback && img.src.indexOf(fallback) === -1) {
+        img.src = fallback;
+      }
+    });
+    if (!img.getAttribute('src')) {
+      img.src = primary;
+    }
   }
 
   function shouldIgnoreUrl(url) {

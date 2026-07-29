@@ -15,7 +15,7 @@
 })();
 </script>
 <link rel="stylesheet" href="{% static 'core/css/portal.css' %}?v=portal-38">
-<link rel="stylesheet" href="{% static 'core/css/brand-logo-progress.css' %}?v=brand-loader-1">
+<link rel="stylesheet" href="{% static 'core/css/brand-logo-progress.css' %}?v=brand-loader-2">
 {% block portal_head %}{% endblock %}
 {% endblock %}
 
@@ -23,7 +23,11 @@
 {% block portal_top_nav %}
 {% include "partials/_top_nav.html" %}
 {% endblock %}
-<div class="portal-main" data-rm-brand-logo="{% static 'core/img/logo_regimanager.png' %}">
+<div
+  class="portal-main"
+  data-rm-brand-logo="{% static 'core/img/logo_regimanager.png' %}"
+  data-rm-brand-logo-fallback="{% static 'core/img/regimanager-logo-premium.png' %}"
+>
 {% block portal_content %}{% endblock %}
 </div>
 {% include "partials/_site_news_alert.html" %}
@@ -37,13 +41,19 @@
         <circle class="rm-brand-loader__track" cx="50" cy="50" r="40"></circle>
         <circle class="rm-brand-loader__arc" cx="50" cy="50" r="40"></circle>
       </svg>
-      <img class="rm-brand-loader__logo" alt="RegiManager" src="{% static 'core/img/logo_regimanager.png' %}">
+      <img
+        class="rm-brand-loader__logo"
+        alt="RegiManager"
+        src="{% static 'core/img/logo_regimanager.png' %}"
+        data-fallback="{% static 'core/img/regimanager-logo-premium.png' %}"
+        onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;this.onerror=null;}"
+      >
     </div>
     <p class="rm-brand-loader__label">Loading</p>
   </div>
 </div>
 
-<script src="{% static 'core/js/brand-logo-progress.js' %}?v=brand-loader-1"></script>
+<script src="{% static 'core/js/brand-logo-progress.js' %}?v=brand-loader-2"></script>
 <script src="{% static 'core/js/portal.js' %}?v=portal-31" defer></script>
 {% block portal_scripts %}{% endblock %}
 {% endblock %}
