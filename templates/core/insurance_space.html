@@ -6,23 +6,189 @@
 {% block portal_content %}
 
 <style>
-.tab-btn { transition: all 0.2s; }
-.tab-btn.active { color: #093de6 !important; border-bottom: 2px solid #093de6 !important; }
+.ins-tab-nav {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  padding: 0.4rem;
+  margin-bottom: 1.5rem;
+  background: var(--portal-surface);
+  border: 1px solid #c7d2fe;
+  border-radius: 14px;
+  box-shadow: var(--portal-shadow-sm);
+  overflow-x: auto;
+}
+.ins-tab-nav .tab-btn {
+  padding: 0.7rem 1.2rem;
+  border: none !important;
+  background: transparent;
+  font-weight: 800;
+  font-size: 0.88rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border-radius: 10px;
+  color: #334155;
+  margin-bottom: 0 !important;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+}
+.ins-tab-nav .tab-btn:hover {
+  background: #eef2ff;
+  color: #1e1b4b;
+}
+.ins-tab-nav .tab-btn.active {
+  color: #fff !important;
+  background: linear-gradient(135deg, #3730a3, #6366f1 55%, #818cf8) !important;
+  box-shadow: 0 2px 12px rgba(79, 70, 229, 0.4);
+  border-bottom: none !important;
+}
+html.portal-theme-dark .ins-tab-nav {
+  background: var(--portal-surface-muted);
+  border-color: var(--portal-border-strong);
+}
+html.portal-theme-dark .ins-tab-nav .tab-btn {
+  color: #cbd5e1;
+}
+html.portal-theme-dark .ins-tab-nav .tab-btn:hover {
+  background: rgba(129, 140, 248, 0.12);
+  color: #f8fafc;
+}
+html.portal-theme-dark .ins-tab-nav .tab-btn.active {
+  color: #1e1b4b !important;
+  background: linear-gradient(135deg, #a5b4fc, #c7d2fe) !important;
+  box-shadow: 0 2px 12px rgba(165, 180, 252, 0.28);
+}
+.ins-hero {
+  background:
+    radial-gradient(900px 220px at 10% 0%, rgba(99, 102, 241, 0.35), transparent 55%),
+    radial-gradient(700px 200px at 95% 100%, rgba(14, 165, 233, 0.22), transparent 50%),
+    linear-gradient(135deg, #1e1b4b 0%, #312e81 42%, #4338ca 100%);
+  border-radius: 22px;
+  padding: 1.5rem 1.75rem;
+  color: white;
+  margin-bottom: 1.25rem;
+  border: 1px solid rgba(165, 180, 252, 0.35);
+  box-shadow: 0 16px 40px rgba(49, 46, 129, 0.28);
+}
+.ins-hero-kicker {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #c7d2fe;
+  margin-bottom: 0.35rem;
+}
+.ins-hero-title {
+  font-size: 1.15rem;
+  font-weight: 850;
+  margin: 0 0 1rem;
+  color: #fff;
+}
+.ins-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.85rem;
+}
+.ins-metric-card {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  padding: 1rem 1.15rem;
+  backdrop-filter: blur(6px);
+}
+.ins-metric-card-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #c7d2fe;
+  margin-bottom: 0.4rem;
+}
+.ins-metric-card-value {
+  font-size: 1.7rem;
+  font-weight: 900;
+  line-height: 1.1;
+  color: #fff;
+}
+.ins-metric-card.is-premium .ins-metric-card-value { color: #93c5fd; }
+.ins-metric-card.is-earned .ins-metric-card-value { color: #86efac; }
+.ins-metric-card.is-unearned .ins-metric-card-value { color: #fda4af; }
 .spaces-metric { background: var(--portal-surface); border-radius: 16px; padding: 1.5rem; border: 1px solid var(--portal-border); box-shadow: var(--portal-shadow-sm); }
 .spaces-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
 .spaces-table th { padding: 1rem 1.25rem; background: var(--portal-surface-muted); border-bottom: 1px solid var(--portal-border); color: var(--portal-text-muted); font-weight: 700; font-size: 0.78rem; text-transform: uppercase; }
 .spaces-table td { padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--portal-border); font-weight: 600; color: var(--portal-text-secondary); }
 .spaces-table tr:hover td { background: var(--portal-surface-muted); }
+.ins-pager {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #eef2ff, #f5f3ff);
+  border: 1px solid #c7d2fe;
+}
+.ins-pager-meta {
+  padding: 0.45rem 0.9rem;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #4338ca;
+}
+.ins-pager-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid #a5b4fc;
+  background: #fff;
+  color: #3730a3;
+  font-weight: 800;
+  font-size: 0.8rem;
+  text-decoration: none;
+  box-shadow: 0 1px 4px rgba(79, 70, 229, 0.12);
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.ins-pager-btn:hover {
+  background: #4338ca;
+  border-color: #4338ca;
+  color: #fff;
+  transform: translateY(-1px);
+}
+.ins-pager-btn.is-current {
+  background: linear-gradient(135deg, #4338ca, #6366f1);
+  border-color: transparent;
+  color: #fff;
+  pointer-events: none;
+}
+html.portal-theme-dark .ins-pager {
+  background: linear-gradient(135deg, rgba(67, 56, 202, 0.22), rgba(99, 102, 241, 0.12));
+  border-color: rgba(165, 180, 252, 0.35);
+}
+html.portal-theme-dark .ins-pager-meta { color: #c7d2fe; }
+html.portal-theme-dark .ins-pager-btn {
+  background: #1e1b4b;
+  border-color: #6366f1;
+  color: #e0e7ff;
+}
+html.portal-theme-dark .ins-pager-btn:hover,
+html.portal-theme-dark .ins-pager-btn.is-current {
+  background: linear-gradient(135deg, #6366f1, #818cf8);
+  color: #1e1b4b;
+}
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.3); backdrop-filter: blur(8px); z-index: 2000; align-items: center; justify-content: center; }
 .modal-overlay.active { display: flex; }
 .modal-box { background: var(--portal-surface); border-radius: 20px; padding: 2rem; max-width: 520px; width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: var(--portal-shadow-lg); border: 1px solid var(--portal-border); animation: modalIn 0.25s ease; }
 @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: none; } }
 .field-label { display: block; font-size: 0.78rem; font-weight: 800; color: var(--portal-text-muted); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.04em; }
 .field-input { width: 100%; padding: 0.7rem 1rem; border-radius: 8px; border: 1px solid var(--portal-border); background: var(--portal-surface-muted); color: var(--portal-text); font-size: 0.9rem; outline: none; transition: border 0.2s; box-sizing: border-box; }
-.field-input:focus { border-color: #093de6; }
+.field-input:focus { border-color: #6366f1; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-.btn-submit { width: 100%; padding: 0.8rem; background: linear-gradient(135deg, #093de6, #4f46e5); border: none; border-radius: 10px; color: white; font-weight: 700; cursor: pointer; font-size: 1rem; transition: background 0.2s; }
-.btn-submit:hover { background: #0836cc; }
+.btn-submit { width: 100%; padding: 0.8rem; background: linear-gradient(135deg, #4338ca, #6366f1); border: none; border-radius: 10px; color: white; font-weight: 700; cursor: pointer; font-size: 1rem; transition: background 0.2s; }
+.btn-submit:hover { background: #3730a3; }
 .chip-active { display: inline-flex; align-items: center; gap: 5px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; color: #166534; background: #dcfce7; }
 .chip-inactive { display: inline-flex; align-items: center; gap: 5px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; color: #9f1239; background: #ffe4e6; }
 .chip-pending { display: inline-flex; align-items: center; gap: 5px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; color: #854d0e; background: #fef9c3; }
@@ -313,15 +479,15 @@ html.portal-theme-dark .ins-license-crm-alert__row {
     </div>
 
     <!-- Tabs -->
-    <div style="display: flex; gap: 0; border-bottom: 2px solid #e2e8f0; margin-bottom: 2rem; flex-wrap: wrap;">
-      <button class="tab-btn active" id="tab-insurance-btn" onclick="switchTab('insurance')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid #093de6; color: #093de6; margin-bottom: -2px;">🛡️ Insurance CRM</button>
-      {% if user_can_manage_insurance_intake %}<button class="tab-btn" id="tab-intake-queue-btn" onclick="switchTab('intake-queue')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px; position: relative;">📥 Intake Queue{% if pending_insurance_intake_count %}<span style="margin-left: 6px; background: #ef4444; color: white; font-size: 0.68rem; padding: 2px 7px; border-radius: 999px;">{{ pending_insurance_intake_count }}</span>{% endif %}</button>{% endif %}
-      {% if user_can_view_banking %}<button class="tab-btn" id="tab-companies-btn" onclick="switchTab('companies')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🏢 Companies</button>{% endif %}
-      {% if user_can_view_banking %}<button class="tab-btn" id="tab-banking-btn" onclick="switchTab('banking')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🏦 Banking</button>{% endif %}
-      <button class="tab-btn" id="tab-reporting-btn" onclick="switchTab('reporting')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">📊 Reports</button>
-      <button class="tab-btn" id="tab-daily-payments-btn" onclick="switchTab('daily-payments')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">💳 Daily Payments</button>
-      <button class="tab-btn" id="tab-agents-btn" onclick="switchTab('agents')" style="padding: 0.75rem 1.5rem; border: none; background: transparent; font-weight: 700; font-size: 0.92rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">👥 Agent Auditing</button>
-    </div>
+    <nav class="ins-tab-nav" aria-label="Insurance space sections">
+      <button type="button" class="tab-btn active" id="tab-insurance-btn" onclick="switchTab('insurance')">🛡️ Insurance CRM</button>
+      {% if user_can_manage_insurance_intake %}<button type="button" class="tab-btn" id="tab-intake-queue-btn" onclick="switchTab('intake-queue')">📥 Intake Queue{% if pending_insurance_intake_count %}<span style="margin-left: 6px; background: #ef4444; color: white; font-size: 0.68rem; padding: 2px 7px; border-radius: 999px;">{{ pending_insurance_intake_count }}</span>{% endif %}</button>{% endif %}
+      {% if user_can_view_banking %}<button type="button" class="tab-btn" id="tab-companies-btn" onclick="switchTab('companies')">🏢 Companies</button>{% endif %}
+      {% if user_can_view_banking %}<button type="button" class="tab-btn" id="tab-banking-btn" onclick="switchTab('banking')">🏦 Banking</button>{% endif %}
+      <button type="button" class="tab-btn" id="tab-reporting-btn" onclick="switchTab('reporting')">📊 Reports</button>
+      <button type="button" class="tab-btn" id="tab-daily-payments-btn" onclick="switchTab('daily-payments')">💳 Daily Payments</button>
+      <button type="button" class="tab-btn" id="tab-agents-btn" onclick="switchTab('agents')">👥 Agent Auditing</button>
+    </nav>
 
     <!-- INSURANCE CRM TAB -->
     <div id="tab-insurance" class="tab-panel">
@@ -333,6 +499,32 @@ html.portal-theme-dark .ins-license-crm-alert__row {
         <button type="button" onclick="switchTab('intake-queue')" style="padding: 0.55rem 1rem; border-radius: 10px; border: none; background: #2563eb; color: white; font-weight: 700; font-size: 0.85rem; cursor: pointer;">Open Intake Queue</button>
       </div>
       {% endif %}
+      <!-- Top snapshot metrics -->
+      <div class="ins-hero">
+        <div class="ins-hero-kicker">Insurance book snapshot</div>
+        <h3 class="ins-hero-title">Active policies, premium volume &amp; earned commission</h3>
+        <div class="ins-metric-grid">
+          <div class="ins-metric-card">
+            <div class="ins-metric-card-label">Active Policies</div>
+            <div class="ins-metric-card-value">{{ active_policies_count }}</div>
+          </div>
+          <div class="ins-metric-card is-premium">
+            <div class="ins-metric-card-label">Total Premiums</div>
+            <div class="ins-metric-card-value">${{ total_premium|floatformat:2 }}</div>
+          </div>
+          {% if user_can_view_banking %}
+          <div class="ins-metric-card is-earned">
+            <div class="ins-metric-card-label">Earned Commissions</div>
+            <div class="ins-metric-card-value">${{ total_commission|floatformat:2 }}</div>
+          </div>
+          <div class="ins-metric-card is-unearned">
+            <div class="ins-metric-card-label">Unearned (to Return)</div>
+            <div class="ins-metric-card-value">${{ total_unearned_commission|floatformat:2 }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
       <!-- CRM COMPARISON SECTION -->
       <div id="crmComparisonBlock" style="margin-bottom: 2rem;">
         <div style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); border-radius: 20px; padding: 1.75rem 2rem;">
@@ -353,7 +545,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
               <input type="date" name="comp_from" value="{{ comp_custom_from }}" style="padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.12); color: white; font-size: 0.8rem;">
               <span style="color: #94a3b8; font-size: 0.78rem;">to</span>
               <input type="date" name="comp_to" value="{{ comp_custom_to }}" style="padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.12); color: white; font-size: 0.8rem;">
-              <button type="submit" style="padding: 6px 12px; border-radius: 8px; background: #093de6; border: none; color: white; font-weight: 700; font-size: 0.82rem; cursor: pointer;">Apply</button>
+              <button type="submit" style="padding: 6px 12px; border-radius: 8px; background: #6366f1; border: none; color: white; font-weight: 700; font-size: 0.82rem; cursor: pointer;">Apply</button>
               {% else %}
               <input type="hidden" name="comp_month_offset" value="{{ comp_month_offset }}">
               <a href="?{{ insurance_month_prev_query_string }}" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.16); color: #f8fafc; font-weight: 700; font-size: 0.9rem; text-decoration: none;">‹</a>
@@ -383,32 +575,17 @@ html.portal-theme-dark .ins-license-crm-alert__row {
               <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 0.25rem;">Prev: ${{ comp_previous.premium|floatformat:2 }}</div>
             </div>
             <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.1);">
+              <div style="color: #86efac; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Earned Commission</div>
+              <div style="font-size: 1.5rem; font-weight: 900; color: white;">${{ comp_current.earned_commission|floatformat:2 }}</div>
+              <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 0.25rem;">Prev: ${{ comp_previous.earned_commission|floatformat:2 }}</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.25rem; border: 1px solid rgba(255,255,255,0.1);">
               <div style="color: #a78bfa; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Broker Fee</div>
               <div style="font-size: 1.5rem; font-weight: 900; color: white;">${{ comp_current.broker_fee|floatformat:2 }}</div>
               <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 0.25rem;">Prev: ${{ comp_previous.broker_fee|floatformat:2 }}</div>
             </div>
           </div>
         </div>
-      </div>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
-        <div class="spaces-metric">
-          <div style="color: #64748b; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.3rem;">Active Policies</div>
-          <div style="font-size: 2rem; font-weight: 800; color: #0f172a;">{{ active_policies_count }}</div>
-        </div>
-        <div class="spaces-metric">
-          <div style="color: #64748b; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.3rem;">Total Premiums</div>
-          <div style="font-size: 2rem; font-weight: 800; color: #093de6;">${{ total_premium|floatformat:2 }}</div>
-        </div>
-        {% if user_can_view_banking %}
-        <div class="spaces-metric">
-          <div style="color: #64748b; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.3rem;">Earned Commissions</div>
-          <div style="font-size: 2rem; font-weight: 800; color: #16a34a;">${{ total_commission|floatformat:2 }}</div>
-        </div>
-        <div class="spaces-metric">
-          <div style="color: #64748b; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.3rem;">Unearned (to Return)</div>
-          <div style="font-size: 2rem; font-weight: 800; color: #dc2626;">${{ total_unearned_commission|floatformat:2 }}</div>
-        </div>
-        {% endif %}
       </div>
       <!-- Search & Filters -->
       <div style="background: #f8fafc; border-radius: 16px; padding: 1.25rem; border: 1px solid #e2e8f0; margin-bottom: 1.5rem;">
@@ -669,23 +846,21 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       </div>
       <!-- Policies Pagination -->
       {% if crm_policies_page.has_other_pages %}
-      <div style="padding: 1rem 1.25rem; border-top: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
-        <span style="font-size: 0.82rem; color: #64748b; font-weight: 600;">Showing {{ crm_policies_page.start_index }}–{{ crm_policies_page.end_index }} of {{ crm_policies_page.paginator.count }} policies</span>
-        <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
-          {% if crm_policies_page.has_previous %}
-          <a href="?page={{ crm_policies_page.previous_page_number }}&{{ insurance_policies_query_string }}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">← Prev</a>
+      <div class="ins-pager">
+        {% if crm_policies_page.has_previous %}
+        <a href="?page={{ crm_policies_page.previous_page_number }}&{{ insurance_policies_query_string }}" class="ins-pager-btn">← Previous</a>
+        {% endif %}
+        <span class="ins-pager-meta">Page {{ crm_policies_page.number }} of {{ crm_policies_page.paginator.num_pages }}</span>
+        {% for i in crm_policies_page.paginator.page_range %}
+          {% if crm_policies_page.number == i %}
+            <span class="ins-pager-btn is-current">{{ i }}</span>
+          {% elif i > crm_policies_page.number|add:"-3" and i < crm_policies_page.number|add:"3" %}
+            <a href="?page={{ i }}&{{ insurance_policies_query_string }}" class="ins-pager-btn">{{ i }}</a>
           {% endif %}
-          {% for i in crm_policies_page.paginator.page_range %}
-            {% if crm_policies_page.number == i %}
-              <span style="padding: 5px 11px; border-radius: 6px; background: #093de6; color: white; font-weight: 700; font-size: 0.8rem;">{{ i }}</span>
-            {% elif i > crm_policies_page.number|add:"-3" and i < crm_policies_page.number|add:"3" %}
-              <a href="?page={{ i }}&{{ insurance_policies_query_string }}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">{{ i }}</a>
-            {% endif %}
-          {% endfor %}
-          {% if crm_policies_page.has_next %}
-          <a href="?page={{ crm_policies_page.next_page_number }}&{{ insurance_policies_query_string }}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">Next →</a>
-          {% endif %}
-        </div>
+        {% endfor %}
+        {% if crm_policies_page.has_next %}
+        <a href="?page={{ crm_policies_page.next_page_number }}&{{ insurance_policies_query_string }}" class="ins-pager-btn">Next →</a>
+        {% endif %}
       </div>
       {% endif %}
     </div><!-- end tab-insurance -->
@@ -881,23 +1056,21 @@ html.portal-theme-dark .ins-license-crm-alert__row {
 
       <!-- Banking Pagination -->
       {% if bank_transactions_page.has_other_pages %}
-      <div style="padding: 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.5rem;">
-        <span style="font-size: 0.82rem; color: #64748b; font-weight: 600;">Showing {{ bank_transactions_page.start_index }}–{{ bank_transactions_page.end_index }} of {{ bank_transactions_page.paginator.count }} transactions</span>
-        <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
-          {% if bank_transactions_page.has_previous %}
-          <a href="?bank_page={{ bank_transactions_page.previous_page_number }}&{{ bank_transactions_query_string }}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">← Prev</a>
+      <div class="ins-pager">
+        {% if bank_transactions_page.has_previous %}
+        <a href="?bank_page={{ bank_transactions_page.previous_page_number }}&{{ bank_transactions_query_string }}" class="ins-pager-btn">← Previous</a>
+        {% endif %}
+        <span class="ins-pager-meta">Page {{ bank_transactions_page.number }} of {{ bank_transactions_page.paginator.num_pages }}</span>
+        {% for i in bank_transactions_page.paginator.page_range %}
+          {% if bank_transactions_page.number == i %}
+            <span class="ins-pager-btn is-current">{{ i }}</span>
+          {% elif i > bank_transactions_page.number|add:"-3" and i < bank_transactions_page.number|add:"3" %}
+            <a href="?bank_page={{ i }}&{{ bank_transactions_query_string }}" class="ins-pager-btn">{{ i }}</a>
           {% endif %}
-          {% for i in bank_transactions_page.paginator.page_range %}
-            {% if bank_transactions_page.number == i %}
-              <span style="padding: 5px 11px; border-radius: 6px; background: #093de6; color: white; font-weight: 700; font-size: 0.8rem;">{{ i }}</span>
-            {% elif i > bank_transactions_page.number|add:"-3" and i < bank_transactions_page.number|add:"3" %}
-              <a href="?bank_page={{ i }}&{{ bank_transactions_query_string }}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">{{ i }}</a>
-            {% endif %}
-          {% endfor %}
-          {% if bank_transactions_page.has_next %}
-          <a href="?bank_page={{ bank_transactions_page.next_page_number }}&{{ bank_transactions_query_string }}" style="padding: 5px 11px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; color: #64748b; font-weight: 700; font-size: 0.8rem; text-decoration: none;">Next →</a>
-          {% endif %}
-        </div>
+        {% endfor %}
+        {% if bank_transactions_page.has_next %}
+        <a href="?bank_page={{ bank_transactions_page.next_page_number }}&{{ bank_transactions_query_string }}" class="ins-pager-btn">Next →</a>
+        {% endif %}
       </div>
       {% endif %}
 
@@ -1559,8 +1732,9 @@ function switchTab(name) {
     if (el) el.style.display = (t===name) ? 'block' : 'none';
     const btn = document.getElementById('tab-'+t+'-btn');
     if (btn) {
-      if (t===name) { btn.style.color='#093de6'; btn.style.borderBottomColor='#093de6'; }
-      else { btn.style.color='#64748b'; btn.style.borderBottomColor='transparent'; }
+      btn.classList.toggle('active', t === name);
+      btn.style.color = '';
+      btn.style.borderBottomColor = '';
     }
   });
   if (name === 'agents') {

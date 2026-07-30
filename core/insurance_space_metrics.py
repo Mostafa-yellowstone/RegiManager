@@ -112,12 +112,14 @@ def period_stats(policy_qs, start, end):
     bound_stats = period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="active").aggregate(
         premium=Sum("premium"),
         broker_fee=Sum("broker_fee"),
+        earned_commission=Sum("commission_amount"),
     )
     return {
         "quotes": quotes,
         "bound": bound,
         "conversion": round(conversion, 1),
         "premium": float(bound_stats["premium"] or 0),
+        "earned_commission": float(bound_stats["earned_commission"] or 0),
         "broker_fee": float(bound_stats["broker_fee"] or 0),
     }
 
