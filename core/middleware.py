@@ -210,9 +210,19 @@ class PortalTimezoneMiddleware:
         # Once per NY work-date per session (website). Token API uses CompanionMeView.
         session = getattr(request, "session", None)
         try:
-            from .agent_portal_services import current_work_date, portal_now, start_attendance_on_login
+            from .agent_portal_services import (
+                current_work_date,
+                portal_now,
+                shift_open_at,
+                start_attendance_on_login,
+            )
 
-            work_key = f"attendance_opened_{current_work_date(portal_now()).isoformat()}"
+            now = portal_now()
+            work_date = current_work_date(now)
+            # Before 9 AM New York: do not mark the day done — retry after shift opens.
+            if now < shift_open_at(work_date):
+                return
+            work_key = f"attendance_opened_{work_date.isoformat()}"
             if session is not None and session.get(work_key):
                 return
             start_attendance_on_login(user)

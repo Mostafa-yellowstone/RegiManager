@@ -21,6 +21,7 @@ from .agent_portal_services import (
     owner_can_review_agent,
     portal_now,
     shift_close_at,
+    shift_open_at,
     task_progress_for_membership,
     today_activity_for_user,
     PORTAL_TZ,
@@ -85,12 +86,14 @@ def _serialize_attendance(session: AgentAttendanceSession | None, *, work_date=N
     if session is None:
         return None
     wd = work_date or session.work_date
+    open_at = shift_open_at(wd)
     close_at = shift_close_at(wd)
     return {
         "work_date": session.work_date.isoformat(),
         "opened_at": _portal_iso(session.opened_at),
         "closed_at": _portal_iso(session.closed_at),
         "is_open": session.is_open,
+        "shift_open_at": _portal_iso(open_at),
         "shift_close_at": _portal_iso(close_at),
     }
 

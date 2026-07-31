@@ -4,25 +4,27 @@
 {% block title %}Attendance Tracker | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=7">
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=9">
 {% endblock %}
 
 {% block portal_content %}
-<main class="attendance-tracker">
+<main class="attendance-tracker attendance-tracker--wide">
     <section class="attendance-tracker__hero">
         <div class="attendance-tracker__intro">
             <a href="{% url 'dashboard' %}#ops" class="attendance-back">&larr; Back to Ops</a>
-            <p class="attendance-eyebrow">Team pulse · New York shift</p>
+            <p class="attendance-eyebrow">Team pulse · New York shift only</p>
             <h1>Attendance Tracker</h1>
             <p class="attendance-lead">
-                Live view of every agent for
+                Live roster for
                 <strong>{{ roster.work_date|date:"D, M j, Y" }}</strong>.
-                Attendance starts at login and auto-closes {{ roster.close_at|date:"g:i A" }} New York.
+                Every clock below is <strong>America/New_York</strong> —
+                shift window <strong>{{ roster.open_display }} – {{ roster.close_display }} NY</strong>.
+                Check-in starts at login during that window and auto-closes at {{ roster.close_display }} NY.
             </p>
         </div>
         <form method="get" class="attendance-filters" action="{% url 'agent-attendance-tracker' %}">
             <label>
-                <span>Work date</span>
+                <span>Work date (NY)</span>
                 <input type="date" name="work_date" value="{{ roster.work_date|date:'Y-m-d' }}">
             </label>
             <label>
@@ -36,6 +38,19 @@
             </label>
             <button type="submit" class="attendance-filter-btn">Apply</button>
         </form>
+    </section>
+
+    <section class="attendance-window-banner" aria-label="New York shift window">
+        <div>
+            <span class="attendance-window-banner__label">Shift window</span>
+            <strong>{{ roster.open_display }} – {{ roster.close_display }}</strong>
+            <em>New York time</em>
+        </div>
+        <div>
+            <span class="attendance-window-banner__label">Now in New York</span>
+            <strong>{{ roster.ny_now_display }}</strong>
+            <em>{{ roster.work_date|date:"D, M j" }}</em>
+        </div>
     </section>
 
     <section class="attendance-stats">
@@ -64,7 +79,7 @@
     <section class="attendance-board">
         <header class="attendance-board__head">
             <h2>Agent roster</h2>
-            <span class="attendance-clock">New York {{ roster.cairo_now|date:"g:i A" }}</span>
+            <span class="attendance-clock">New York {{ roster.ny_now_display }}</span>
         </header>
 
         {% if roster.rows %}
@@ -92,26 +107,26 @@
 
                 <dl class="attendance-card__meta">
                     <div>
-                        <dt>Opened</dt>
+                        <dt>Check-in (NY)</dt>
                         <dd>
                             {% if row.session and row.session.opened_at %}
-                            {{ row.session.opened_at|timezone:"America/New_York"|date:"g:i A" }}
+                            {{ row.opened_display }}
                             {% else %}—{% endif %}
                         </dd>
                     </div>
                     <div>
-                        <dt>Closed</dt>
+                        <dt>Check-out (NY)</dt>
                         <dd>
                             {% if row.session and row.session.closed_at %}
-                            {{ row.session.closed_at|timezone:"America/New_York"|date:"g:i A" }}
+                            {{ row.closed_display }}
                             {% elif row.status == "on_shift" %}
                             In progress
                             {% else %}—{% endif %}
                         </dd>
                     </div>
                     <div>
-                        <dt>Closes</dt>
-                        <dd>{{ row.close_at|date:"g:i A" }}</dd>
+                        <dt>Shift ends (NY)</dt>
+                        <dd>{{ row.close_display }}</dd>
                     </div>
                 </dl>
 

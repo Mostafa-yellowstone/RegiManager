@@ -27,19 +27,46 @@ def cairo_now() -> datetime:
     return portal_now()
 
 
+# Standard agent shift in America/New_York (wall clock).
+SHIFT_OPEN_HOUR = 9   # 9:00 AM
+SHIFT_CLOSE_HOUR = 18  # 6:00 PM
+
+
 def current_work_date(now: datetime | None = None):
     """
     Work-date for attendance shifts = America/New_York calendar date.
 
-    Shifts auto-close at 18:00 (6 PM) New York on that same date.
+    Shifts run 09:00–18:00 New York on that same date.
     """
     local = (now or portal_now()).astimezone(PORTAL_TZ)
     return local.date()
 
 
+def shift_open_at(work_date) -> datetime:
+    """09:00 (9 AM) America/New_York on work_date."""
+    return datetime.combine(work_date, time(SHIFT_OPEN_HOUR, 0), tzinfo=PORTAL_TZ)
+
+
 def shift_close_at(work_date) -> datetime:
     """18:00 (6 PM) America/New_York on work_date."""
-    return datetime.combine(work_date, time(18, 0), tzinfo=PORTAL_TZ)
+    return datetime.combine(work_date, time(SHIFT_CLOSE_HOUR, 0), tzinfo=PORTAL_TZ)
+
+
+def format_ny_time(dt: datetime | None) -> str:
+    """Always render a datetime as New York wall-clock (e.g. '9:05 AM')."""
+    if dt is None:
+        return "—"
+    local = dt.astimezone(PORTAL_TZ)
+    hour12 = local.hour % 12 or 12
+    suffix = "AM" if local.hour < 12 else "PM"
+    return f"{hour12}:{local.minute:02d} {suffix}"
+
+
+def is_within_shift_window(now: datetime | None = None) -> bool:
+    """True when New York local time is inside [9:00 AM, 6:00 PM)."""
+    local_now = (now or portal_now()).astimezone(PORTAL_TZ)
+    work_date = current_work_date(local_now)
+    return shift_open_at(work_date) <= local_now < shift_close_at(work_date)
 
 
 def close_stale_attendance_sessions(*, now: datetime | None = None) -> int:
@@ -62,8 +89,8 @@ def ensure_attendance_open(membership: OrganizationMembership, *, now: datetime 
     """
     Open (or reuse) today's attendance session for this membership.
 
-    After 6 PM New York the shift is over — existing sessions are returned as-is
-    and no new open session is created.
+    Shift window is 9:00 AM–6:00 PM America/New_York only.
+    Before 9 AM / after 6 PM New York: no new session is created.
     """
     if membership is None or not membership.is_active:
         return None
@@ -73,6 +100,7 @@ def ensure_attendance_open(membership: OrganizationMembership, *, now: datetime 
     close_stale_attendance_sessions(now=now)
     local_now = (now or portal_now()).astimezone(PORTAL_TZ)
     work_date = current_work_date(local_now)
+    open_at = shift_open_at(work_date)
     deadline = shift_close_at(work_date)
 
     existing = (
@@ -80,7 +108,8 @@ def ensure_attendance_open(membership: OrganizationMembership, *, now: datetime 
         .order_by("-opened_at")
         .first()
     )
-    if local_now >= deadline:
+    # Outside the 9 AM–6 PM NY window: return whatever exists, never open new.
+    if local_now < open_at or local_now >= deadline:
         return existing
 
     if existing is None:
@@ -103,7 +132,7 @@ def ensure_attendance_open(membership: OrganizationMembership, *, now: datetime 
 def start_attendance_on_login(user, *, now: datetime | None = None) -> list:
     """
     Start attendance for every active non-owner membership when the user signs in
-    (website or companion app). No-op after 6 PM New York.
+    (website or companion app). Only during 9 AM–6 PM New York.
     """
     if user is None or not getattr(user, "is_active", False):
         return []
@@ -306,20 +335,33 @@ def attendance_roster_for_owner(owner_user, *, work_date=None, organization_id=N
         else:
             status = "closed"
             closed += 1
+        open_at = shift_open_at(selected_date)
+        close_at = shift_close_at(selected_date)
         rows.append(
             {
                 "membership": membership,
                 "session": session,
                 "status": status,
-                "close_at": shift_close_at(selected_date),
+                "open_at": open_at,
+                "close_at": close_at,
+                "opened_display": format_ny_time(session.opened_at if session else None),
+                "closed_display": format_ny_time(session.closed_at if session else None),
+                "open_display": format_ny_time(open_at),
+                "close_display": format_ny_time(close_at),
             }
         )
 
+    open_at = shift_open_at(selected_date)
+    close_at = shift_close_at(selected_date)
     return {
         "work_date": selected_date,
         "cairo_now": local_now,
         "local_now": local_now,
-        "close_at": shift_close_at(selected_date),
+        "ny_now_display": format_ny_time(local_now),
+        "open_at": open_at,
+        "close_at": close_at,
+        "open_display": format_ny_time(open_at),
+        "close_display": format_ny_time(close_at),
         "organizations": list(owned_orgs.order_by("name")),
         "rows": rows,
         "counts": {

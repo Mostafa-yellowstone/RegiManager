@@ -23,8 +23,10 @@ from .agent_portal_services import (
     cairo_now,
     current_work_date,
     ensure_attendance_open,
+    format_ny_time,
     owner_can_review_agent,
     shift_close_at,
+    shift_open_at,
     task_progress_for_membership,
     today_activity_for_user,
     uses_agent_portal_home,
@@ -95,6 +97,7 @@ def agent_portal_home(request):
     spaces = accessible_space_cards(membership)
     local_now = cairo_now()
     work_date = current_work_date(local_now)
+    open_at = shift_open_at(work_date)
     close_at = shift_close_at(work_date)
 
     photo_form = AgentProfilePhotoForm(instance=membership)
@@ -107,7 +110,13 @@ def agent_portal_home(request):
             "organization": membership.organization,
             "attendance": attendance,
             "work_date": work_date,
+            "open_at": open_at,
             "close_at": close_at,
+            "open_display": format_ny_time(open_at),
+            "close_display": format_ny_time(close_at),
+            "ny_now_display": format_ny_time(local_now),
+            "opened_display": format_ny_time(attendance.opened_at if attendance else None),
+            "closed_display": format_ny_time(attendance.closed_at if attendance else None),
             "cairo_now": local_now,
             "task_progress": progress,
             "activity_events": activity,

@@ -4,7 +4,7 @@
 {% block title %}My Portal | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=6">
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=9">
 {% endblock %}
 
 {% block portal_content %}
@@ -28,7 +28,7 @@
             <div class="agent-portal__who">
                 <p class="agent-portal__eyebrow">Agent portal · {{ organization.name }}</p>
                 <h1>{{ request.user.get_full_name|default:request.user.username }}</h1>
-                <p class="agent-portal__meta">{{ user_nav_role }} · New York {{ cairo_now|date:"g:i A" }}</p>
+                <p class="agent-portal__meta">{{ user_nav_role }} · New York {{ ny_now_display }}</p>
             </div>
         </div>
         <div class="agent-portal__quick">
@@ -61,19 +61,23 @@
                 <span class="agent-pill agent-pill--done">Off shift</span>
                 {% endif %}
             </header>
-            <p class="agent-card__lead">Starts when you sign in. Shift for <strong>{{ work_date|date:"D, M j, Y" }}</strong> (New York). Auto-closes {{ close_at|date:"g:i A" }} New York.</p>
+            <p class="agent-card__lead">
+                New York shift only: <strong>{{ open_display }} – {{ close_display }} NY</strong>
+                on <strong>{{ work_date|date:"D, M j, Y" }}</strong>.
+                Check-in starts at login inside that window and auto-closes at {{ close_display }} NY.
+            </p>
             <dl class="agent-attendance-stats">
                 <div>
-                    <dt>Opened</dt>
-                    <dd>{% if attendance %}{{ attendance.opened_at|timezone:"America/New_York"|date:"g:i A" }}{% else %}—{% endif %}</dd>
+                    <dt>Check-in (NY)</dt>
+                    <dd>{{ opened_display }}</dd>
                 </div>
                 <div>
-                    <dt>Closes</dt>
-                    <dd>{{ close_at|date:"g:i A" }}</dd>
+                    <dt>Shift ends (NY)</dt>
+                    <dd>{{ close_display }}</dd>
                 </div>
                 <div>
                     <dt>Status</dt>
-                    <dd>{% if not attendance %}No session yet{% elif attendance.closed_at %}Ended {{ attendance.closed_at|timezone:"America/New_York"|date:"g:i A" }}{% else %}In progress{% endif %}</dd>
+                    <dd>{% if not attendance %}No session yet{% elif attendance.closed_at %}Ended {{ closed_display }}{% else %}In progress{% endif %}</dd>
                 </div>
             </dl>
         </section>
