@@ -91,9 +91,41 @@ def has_follow_up_balance_payments(record) -> bool:
     ).exclude(notes=INITIAL_PAYMENT_NOTE).exists()
 
 
+def record_has_split_payment(record) -> bool:
+    """True when the DMV receipt was paid with two methods (split amount)."""
+    return bool(
+        record.payment_method_2
+        and (record.paid_amount_2 or Decimal("0")) > Decimal("0")
+    )
+
+
+def opening_split_amounts(record, opening_paid: Decimal) -> list[tuple[str, Decimal]]:
+    """
+    Break opening paid amount into per-method parts for receipt display.
+
+    Returns [(method_key, amount), ...] — 1 item for single pay, 2 for split.
+    """
+    paid = opening_paid or Decimal("0")
+    if paid <= Decimal("0"):
+        return []
+    if not record_has_split_payment(record):
+        return [(normalize_payment_method(record.payment_method), paid)]
+
+    amt2 = record.paid_amount_2 or Decimal("0")
+    if amt2 > paid:
+        amt2 = paid
+    amt1 = paid - amt2
+    parts: list[tuple[str, Decimal]] = []
+    if amt1 > Decimal("0"):
+        parts.append((normalize_payment_method(record.payment_method), amt1))
+    if amt2 > Decimal("0"):
+        parts.append((normalize_payment_method(record.payment_method_2), amt2))
+    return parts or [(normalize_payment_method(record.payment_method), paid)]
+
+
 def receipt_should_show_ledger(record) -> bool:
-    """Detailed ledger rows (opening + follow-ups) appear after hub/referral balance payments."""
-    return has_follow_up_balance_payments(record)
+    """Detailed ledger rows for follow-up payments or split payment breakdowns."""
+    return has_follow_up_balance_payments(record) or record_has_split_payment(record)
 
 
 def receipt_outstanding_balance(record) -> Decimal:
@@ -117,6 +149,9 @@ def reset_ledger_after_edit(record) -> bool:
 def _needs_opening_row(record):
     total = _total_due(record)
     paid = record.paid_amount or Decimal("0")
+    # Split payments always get an opening row so the receipt can break down methods.
+    if record_has_split_payment(record):
+        return True
     return (
         record.transaction_type == "transmittal"
         or paid != total
@@ -274,22 +309,43 @@ def compute_ledger_rows(record) -> list[LedgerDisplayRow]:
         method_label = entry.get_payment_method_display()
         if entry.entry_type == ServiceRecordPayment.ENTRY_OPENING:
             opening_paid = entry.line_paid or Decimal("0")
-            cumulative_paid = opening_paid
-            balance = total_due - cumulative_paid
-            rows.append(
-                LedgerDisplayRow(
-                    entry=entry,
-                    is_opening=True,
-                    payment_date=entry.payment_date,
-                    description=format_receipt_row_description(
-                        method_label, OPENING_DESCRIPTION
-                    ),
-                    line_total=entry.line_total or total_due,
-                    line_paid=opening_paid,
-                    balance_after=balance,
-                    payment_method_label=method_label,
+            split_parts = opening_split_amounts(record, opening_paid)
+            if len(split_parts) > 1:
+                for idx, (method_key, part_amt) in enumerate(split_parts):
+                    cumulative_paid += part_amt
+                    balance = total_due - cumulative_paid
+                    part_label = payment_method_label(method_key)
+                    rows.append(
+                        LedgerDisplayRow(
+                            entry=entry,
+                            is_opening=(idx == 0),
+                            payment_date=entry.payment_date,
+                            description=format_receipt_row_description(
+                                part_label, OPENING_DESCRIPTION
+                            ),
+                            line_total=(entry.line_total or total_due) if idx == 0 else None,
+                            line_paid=part_amt,
+                            balance_after=balance,
+                            payment_method_label=part_label,
+                        )
+                    )
+            else:
+                cumulative_paid = opening_paid
+                balance = total_due - cumulative_paid
+                rows.append(
+                    LedgerDisplayRow(
+                        entry=entry,
+                        is_opening=True,
+                        payment_date=entry.payment_date,
+                        description=format_receipt_row_description(
+                            method_label, OPENING_DESCRIPTION
+                        ),
+                        line_total=entry.line_total or total_due,
+                        line_paid=opening_paid,
+                        balance_after=balance,
+                        payment_method_label=method_label,
+                    )
                 )
-            )
         else:
             amt = entry.amount or Decimal("0")
             if entry.entry_type == ServiceRecordPayment.ENTRY_REFUND:

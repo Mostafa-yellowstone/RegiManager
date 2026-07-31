@@ -2197,7 +2197,7 @@ def _draw_receipt_payment_history(pdf, service_record, margin_x):
     )
 
     rows = compute_ledger_rows(service_record)
-    row_h = 14
+    row_h = 16 if len(rows) > 1 else 14
     header_h = 28
     table_w = 530
     n_rows = max(len(rows), 1)
@@ -2237,14 +2237,14 @@ def _draw_receipt_payment_history(pdf, service_record, margin_x):
             row_y = header_y - (idx + 1) * row_h
             pdf.line(margin_x, row_y, margin_x + table_w, row_y)
             when_label = row.payment_date.strftime("%b %d, %Y")
-            pdf.drawString(margin_x + 4, row_y + 4, when_label[:14])
-            pdf.drawString(col1 + 4, row_y + 4, row.description[:30])
-            if row.is_opening:
-                pdf.drawRightString(col2 + 76, row_y + 4, _currency(row.line_total or Decimal("0")))
+            pdf.drawString(margin_x + 4, row_y + 5, when_label[:14])
+            pdf.drawString(col1 + 4, row_y + 5, row.description[:30])
+            if row.line_total is not None:
+                pdf.drawRightString(col2 + 76, row_y + 5, _currency(row.line_total or Decimal("0")))
             else:
-                pdf.drawRightString(col2 + 76, row_y + 4, "—")
-            pdf.drawRightString(col3 + 66, row_y + 4, _currency(row.line_paid))
-            pdf.drawRightString(margin_x + table_w - 4, row_y + 4, _currency(row.balance_after))
+                pdf.drawRightString(col2 + 76, row_y + 5, "—")
+            pdf.drawRightString(col3 + 66, row_y + 5, _currency(row.line_paid))
+            pdf.drawRightString(margin_x + table_w - 4, row_y + 5, _currency(row.balance_after))
     else:
         row_y = header_y - row_h
         pdf.line(margin_x, row_y, margin_x + table_w, row_y)
@@ -2252,15 +2252,15 @@ def _draw_receipt_payment_history(pdf, service_record, margin_x):
         summary_total = service_record.service_fee or Decimal("0")
         summary_paid = total_paid_for_receipt(service_record)
         summary_outstanding = receipt_outstanding_balance(service_record)
-        pdf.drawString(margin_x + 4, row_y + 4, summary_date.strftime("%b %d, %Y")[:14])
+        pdf.drawString(margin_x + 4, row_y + 5, summary_date.strftime("%b %d, %Y")[:14])
         pdf.drawString(
             col1 + 4,
-            row_y + 4,
+            row_y + 5,
             receipt_summary_description(service_record)[:30],
         )
-        pdf.drawRightString(col2 + 76, row_y + 4, _currency(summary_total))
-        pdf.drawRightString(col3 + 66, row_y + 4, _currency(summary_paid))
-        pdf.drawRightString(margin_x + table_w - 4, row_y + 4, _currency(summary_outstanding))
+        pdf.drawRightString(col2 + 76, row_y + 5, _currency(summary_total))
+        pdf.drawRightString(col3 + 66, row_y + 5, _currency(summary_paid))
+        pdf.drawRightString(margin_x + table_w - 4, row_y + 5, _currency(summary_outstanding))
 
     entries = list(service_record.payment_entries.all())
     from .models import ServiceRecordPayment

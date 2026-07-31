@@ -84,11 +84,6 @@
         <strong>{% if bank_cashflow.net >= 0 %}+{% endif %}${{ bank_cashflow.net|floatformat:2 }}</strong>
         <em>Income − expenses</em>
       </article>
-      <article class="ifx-metric ifx-metric--balance">
-        <span>All balances</span>
-        <strong>${{ total_bank_balance|floatformat:2 }}</strong>
-        <em>Across {{ bank_accounts|length }} account{{ bank_accounts|length|pluralize }}</em>
-      </article>
     </div>
   </section>
 
@@ -182,7 +177,7 @@
               <span class="ifx-muted">—</span>
               {% endif %}
             </td>
-            <td class="ifx-amt {% if tx.transaction_type == 'income' %}is-pos{% else %}is-neg{% endif %}">
+            <td class="{% if tx.transaction_type == 'income' %}ifx-amt is-pos{% else %}ifx-amt is-neg{% endif %}" style="color:{% if tx.transaction_type == 'income' %}#16a34a{% else %}#dc2626{% endif %};font-weight:900;">
               {% if tx.transaction_type == 'income' %}+{% else %}−{% endif %}${{ tx.amount }}
             </td>
             <td>

@@ -416,11 +416,11 @@ html.portal-theme-dark .ins-pager-btn.is-current {
 }
 .ifx-metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
 }
 @media (max-width: 980px) {
-  .ifx-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ifx-metrics { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
   .ifx-metrics { grid-template-columns: 1fr; }
@@ -544,8 +544,10 @@ html.portal-theme-dark .ins-pager-btn.is-current {
 .ifx-muted { color: #64748b; font-size: 0.85rem; }
 .ifx-strong { font-weight: 750; }
 .ifx-amt { font-weight: 900; white-space: nowrap; }
-.ifx-amt.is-pos { color: #16a34a; }
-.ifx-amt.is-neg { color: #dc2626; }
+.ifx-amt.is-pos,
+.spaces-table td.ifx-amt.is-pos { color: #16a34a !important; }
+.ifx-amt.is-neg,
+.spaces-table td.ifx-amt.is-neg { color: #dc2626 !important; }
 .ifx-doc-dot {
   display: inline-flex;
   align-items: center;

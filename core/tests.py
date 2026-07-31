@@ -3264,6 +3264,33 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
             ).exists()
         )
 
+    def test_split_payment_breaks_opening_into_method_rows(self):
+        from core.service_payments import compute_ledger_rows
+
+        record = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_type="walk_in",
+            processing_fee=Decimal("100.00"),
+            service_fee=Decimal("100.00"),
+            paid_amount=Decimal("100.00"),
+            payment_method="cash",
+            payment_method_2="zelle",
+            paid_amount_2=Decimal("40.00"),
+        )
+        rows = compute_ledger_rows(record)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0].description, "Cash — Initial payment")
+        self.assertEqual(rows[0].line_total, Decimal("100.00"))
+        self.assertEqual(rows[0].line_paid, Decimal("60.00"))
+        self.assertEqual(rows[0].balance_after, Decimal("40.00"))
+        self.assertEqual(rows[1].description, "Zelle — Initial payment")
+        self.assertIsNone(rows[1].line_total)
+        self.assertEqual(rows[1].line_paid, Decimal("40.00"))
+        self.assertEqual(rows[1].balance_after, Decimal("0.00"))
+
     def test_overpayment_shows_negative_outstanding_on_receipt(self):
         from core.service_payments import receipt_outstanding_balance
 
