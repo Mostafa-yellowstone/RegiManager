@@ -11,21 +11,304 @@
 
 <style>
 :root {
-  --blue: var(--portal-primary, #093de6);
+  --blue: var(--portal-primary, #4338ca);
   --dark: var(--portal-text, #0f172a);
   --muted: var(--portal-text-muted, #64748b);
   --border: var(--portal-border, #e2e8f0);
   --bg: var(--portal-bg, #f8fafc);
   --green: #16a34a;
   --red: #dc2626;
-  --card-radius: 16px;
+  --card-radius: 18px;
 }
-.metric-card { background: var(--portal-surface); border-radius: var(--card-radius); padding: 1.25rem 1.5rem; border: 1px solid var(--border); box-shadow: var(--portal-shadow-sm); }
-.metric-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--muted); margin-bottom: 0.35rem; letter-spacing: 0.04em; }
-.metric-value { font-size: 1.8rem; font-weight: 800; color: var(--dark); line-height: 1; }
-.section-card { background: var(--portal-surface); border-radius: var(--card-radius); border: 1px solid var(--border); box-shadow: var(--portal-shadow-sm); overflow: hidden; }
-.section-header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); background: var(--portal-surface-muted); }
-.section-title { font-size: 1.05rem; font-weight: 800; color: var(--dark); margin: 0; }
+.agent-profile-page .portal-space-inner--wide {
+  max-width: 100%;
+  width: 100%;
+  padding: 1.5rem 2rem 3rem;
+}
+@media (min-width: 1400px) {
+  .agent-profile-page .portal-space-inner--wide {
+    padding-left: 2.75rem;
+    padding-right: 2.75rem;
+  }
+}
+.iap-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+  flex-wrap: wrap;
+}
+.iap-breadcrumb a { color: #4f46e5; text-decoration: none; font-weight: 700; }
+.iap-breadcrumb a:hover { text-decoration: underline; }
+.iap-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  padding: 1.6rem 1.75rem 1.4rem;
+  margin-bottom: 1.25rem;
+  color: #fff;
+  border: 1px solid rgba(165, 180, 252, 0.35);
+  background:
+    radial-gradient(900px 240px at 8% 0%, rgba(99, 102, 241, 0.45), transparent 55%),
+    radial-gradient(700px 220px at 100% 100%, rgba(14, 165, 233, 0.25), transparent 50%),
+    linear-gradient(135deg, #1e1b4b 0%, #312e81 42%, #4338ca 100%);
+  box-shadow: 0 18px 44px rgba(49, 46, 129, 0.28);
+}
+.iap-hero__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.35rem;
+}
+.iap-hero__identity {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+}
+.iap-avatar {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(255,255,255,0.85);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);
+  flex-shrink: 0;
+}
+.iap-avatar--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.85rem;
+  font-weight: 850;
+  color: #fff;
+  background: linear-gradient(135deg, #6366f1, #2563eb);
+}
+.agent-profile-name {
+  color: #fff;
+  font-weight: 900;
+  font-size: clamp(1.55rem, 2.2vw, 2.15rem);
+  margin: 0;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+.iap-hero__meta {
+  color: #c7d2fe;
+  margin: 0.35rem 0 0;
+  font-weight: 550;
+  font-size: 0.95rem;
+}
+.iap-back {
+  background: rgba(255,255,255,0.12) !important;
+  border-color: rgba(255,255,255,0.28) !important;
+  color: #e0e7ff !important;
+  backdrop-filter: blur(6px);
+}
+.iap-back:hover {
+  background: rgba(255,255,255,0.2) !important;
+  border-color: rgba(255,255,255,0.45) !important;
+  color: #fff !important;
+}
+.iap-conversion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  padding: 1.1rem 1.25rem;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.28);
+  border: 1px solid rgba(255,255,255,0.14);
+}
+.iap-conversion__label {
+  color: #c7d2fe;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+.iap-period-chip {
+  background: rgba(255,255,255,0.12);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  color: #e0e7ff;
+}
+.iap-conversion__rate {
+  font-size: clamp(2.2rem, 4vw, 3rem);
+  font-weight: 950;
+  color: #fff;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.iap-conversion__stats {
+  display: flex;
+  gap: 1.75rem;
+  flex-wrap: wrap;
+}
+.iap-conversion__stat {
+  text-align: center;
+  min-width: 88px;
+}
+.iap-conversion__stat span {
+  display: block;
+  color: #93c5fd;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+.iap-conversion__stat.is-bound span { color: #6ee7b7; }
+.iap-conversion__stat.is-profit span { color: #fde68a; }
+.iap-conversion__stat strong {
+  display: block;
+  font-size: 1.65rem;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1.1;
+}
+.iap-audit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.iap-audit-kicker {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  margin-bottom: 0.45rem;
+}
+.iap-period-pills { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.iap-audit-range {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.iap-audit-range strong { color: var(--dark); }
+.iap-custom-range {
+  gap: 0.75rem;
+  margin-top: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.iap-custom-form {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.iap-apply-btn {
+  padding: 7px 18px;
+  background: linear-gradient(135deg, #4338ca, #6366f1);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.iap-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.metric-card {
+  background: var(--portal-surface);
+  border-radius: var(--card-radius);
+  padding: 1.15rem 1.3rem;
+  border: 1px solid var(--border);
+  box-shadow: var(--portal-shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+.metric-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #cbd5e1;
+}
+.metric-card.is-active::before { background: linear-gradient(180deg, #22c55e, #16a34a); }
+.metric-card.is-pending::before { background: linear-gradient(180deg, #fbbf24, #d97706); }
+.metric-card.is-rejected::before { background: linear-gradient(180deg, #f87171, #dc2626); }
+.metric-card.is-premium::before { background: linear-gradient(180deg, #60a5fa, #2563eb); }
+.metric-card.is-commission::before { background: linear-gradient(180deg, #4ade80, #16a34a); }
+.metric-card.is-broker::before { background: linear-gradient(180deg, #a78bfa, #7c3aed); }
+.metric-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--muted); margin-bottom: 0.4rem; letter-spacing: 0.04em; }
+.metric-value { font-size: 1.75rem; font-weight: 900; color: var(--dark); line-height: 1; letter-spacing: -0.02em; }
+.metric-value.is-muted { color: var(--muted); }
+.metric-card.is-active .metric-value { color: var(--green); }
+.metric-card.is-pending .metric-value { color: #b45309; }
+.metric-card.is-rejected .metric-value { color: var(--red); }
+.metric-card.is-premium .metric-value { color: #2563eb; }
+.metric-card.is-commission .metric-value { color: var(--green); }
+.metric-card.is-broker .metric-value { color: #7c3aed; }
+.metric-value.is-money { font-size: 1.35rem; }
+.section-card {
+  background: var(--portal-surface);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+}
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.15rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background:
+    linear-gradient(90deg, rgba(99, 102, 241, 0.08), transparent 55%),
+    var(--portal-surface-muted);
+}
+.section-title { font-size: 1.05rem; font-weight: 850; color: var(--dark); margin: 0; }
+.iap-workboard { margin-bottom: 1.5rem; }
+.iap-workboard-body { display: flex; flex-direction: column; gap: 1.25rem; padding: 1.25rem 1.5rem 1.5rem; }
+.iap-workboard-actions { display: inline-flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; }
+.iap-workboard-shift { font-size: 0.82rem; color: var(--muted); font-weight: 600; }
+.iap-mini-btn { padding: 6px 12px !important; font-size: 0.8rem !important; }
+.iap-progress-row { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+.iap-progress-copy { font-size: 1.35rem; font-weight: 850; color: var(--dark); }
+.iap-progress-hint { margin: 0.35rem 0 0; color: var(--muted); font-size: 0.88rem; font-weight: 500; }
+.iap-assign-form { display: flex; flex-direction: column; gap: 0.65rem; }
+.iap-assign-actions { display: flex; gap: 0.65rem; flex-wrap: wrap; align-items: center; }
+.iap-policies { margin-bottom: 1rem; }
+.iap-policy-count {
+  font-size: 0.8rem;
+  color: #4338ca;
+  font-weight: 800;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+}
+.iap-pager {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, #eef2ff, #f8fafc);
+}
 .tbl { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 .tbl th { padding: 0.75rem 1rem; background: var(--portal-surface-muted); border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 700; font-size: 0.72rem; text-transform: uppercase; text-align: left; white-space: nowrap; }
 .tbl td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--dark); vertical-align: middle; }
@@ -54,24 +337,30 @@
 .bt-rewrite { background:#fff7ed; color:#9a3412; }
 .field-label { display: block; font-size: 0.73rem; font-weight: 800; color: var(--muted); margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
 .field-input { width: 100%; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid var(--border); background: var(--portal-surface-muted); color: var(--dark); font-size: 0.88rem; outline: none; box-sizing: border-box; transition: border 0.2s; }
-.field-input:focus { border-color: var(--blue); }
-.page-btn { padding: 5px 11px; border-radius: 6px; border: 1px solid var(--border); background: var(--portal-surface); color: var(--muted); font-weight: 700; font-size: 0.8rem; text-decoration: none; }
-.page-btn.active { background: var(--blue); color: white; border-color: var(--blue); }
-.page-btn:hover:not(.active) { border-color: #93c5fd; color: var(--blue); }
+.field-input:focus { border-color: #6366f1; }
+.page-btn { padding: 5px 11px; border-radius: 999px; border: 1px solid #c7d2fe; background: #fff; color: #4338ca; font-weight: 700; font-size: 0.8rem; text-decoration: none; }
+.page-btn.active { background: linear-gradient(135deg, #4338ca, #6366f1); color: white; border-color: transparent; }
+.page-btn:hover:not(.active) { border-color: #818cf8; color: #312e81; background: #eef2ff; }
 .btn-outline { padding: 8px 16px; background: var(--portal-surface); border: 1px solid var(--border); border-radius: 10px; font-weight: 700; color: var(--muted); font-size: 0.88rem; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; transition: all 0.15s; }
-.btn-outline:hover { border-color: #93c5fd; color: var(--blue); }
-.agent-profile-name { color: var(--dark); font-weight: 850; font-size: 1.9rem; margin: 0; letter-spacing: -0.5px; }
-.agent-type-badge { display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #4338ca; padding: 3px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.4rem; border: 1px solid #c7d2fe; }
+.btn-outline:hover { border-color: #a5b4fc; color: #4338ca; }
+.agent-type-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(224, 231, 255, 0.92); color: #3730a3; padding: 3px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.45rem; border: 1px solid #c7d2fe; }
 .agent-breadcrumb-current { color: var(--dark); }
-.agent-policy-filters { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); background: #fafafa; }
+.agent-policy-filters { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); background: linear-gradient(180deg, #fafbff, #f8fafc); }
 .agent-search-input { padding: 7px 10px; }
-.agent-search-btn { padding: 7px 16px; background: var(--dark); color: white; border: none; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+.agent-search-btn { padding: 7px 16px; background: linear-gradient(135deg, #312e81, #4338ca); color: white; border: none; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
 .agent-clear-btn { padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--muted); background: white; font-weight: 700; font-size: 0.85rem; }
-.agent-filter-apply-btn { margin-top: 0.75rem; padding: 6px 16px; background: var(--dark); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.83rem; }
-.agent-audit-bar { background: var(--portal-surface); border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--portal-shadow-sm); padding: 1.25rem 1.5rem; margin-bottom: 1.75rem; }
+.agent-filter-apply-btn { margin-top: 0.75rem; padding: 6px 16px; background: linear-gradient(135deg, #312e81, #4338ca); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.83rem; }
+.agent-audit-bar {
+  background: var(--portal-surface);
+  border-radius: 18px;
+  border: 1px solid #c7d2fe;
+  box-shadow: var(--portal-shadow-sm);
+  padding: 1.2rem 1.45rem;
+  margin-bottom: 1.25rem;
+}
 .period-pill { display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; border: 1.5px solid var(--border); background: var(--portal-surface); color: var(--muted); cursor: pointer; text-decoration: none; transition: all 0.15s; }
-.period-pill:hover { border-color: var(--blue); color: var(--blue); }
-.period-pill.selected { background: var(--blue); border-color: var(--blue); color: white; }
+.period-pill:hover { border-color: #818cf8; color: #4338ca; }
+.period-pill.selected { background: linear-gradient(135deg, #4338ca, #6366f1); border-color: transparent; color: white; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.28); }
 html.portal-theme-dark .agent-profile-page { --dark: #f1f5f9; --muted: #94a3b8; --border: #2d3a4d; --bg: #0b1220; }
 html.portal-theme-dark .agent-profile-page .agent-type-badge { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border-color: rgba(99, 102, 241, 0.35); }
 html.portal-theme-dark .agent-profile-page .agent-policy-filters { background: var(--portal-surface-muted); }
@@ -86,7 +375,7 @@ html.portal-theme-dark .agent-profile-page .chip-endorsement { background: rgba(
 html.portal-theme-dark .agent-profile-page .chip-pending { background: rgba(217, 119, 6, 0.18); color: #fbbf24; }
 html.portal-theme-dark .agent-profile-page .chip-rejected { background: rgba(220, 38, 38, 0.18); color: #f87171; }
 html.portal-theme-dark .agent-profile-page .period-pill { background: var(--portal-surface-muted); border-color: var(--portal-border); color: var(--portal-text-muted); }
-html.portal-theme-dark .agent-profile-page .period-pill.selected { background: var(--portal-primary); border-color: var(--portal-primary); color: #fff; }
+html.portal-theme-dark .agent-profile-page .period-pill.selected { background: linear-gradient(135deg, #6366f1, #818cf8); border-color: transparent; color: #1e1b4b; }
 html.portal-theme-dark .agent-profile-page .field-input { color-scheme: dark; }
 html.portal-theme-dark .agent-profile-page .agent-filter-apply-btn { background: var(--portal-primary) !important; color: #fff !important; }
 html.portal-theme-dark .agent-profile-page .src-walk_in { background: rgba(14, 165, 233, 0.18); color: #7dd3fc; }
@@ -100,13 +389,16 @@ html.portal-theme-dark .agent-profile-page .src-cold_calling { background: rgba(
 html.portal-theme-dark .agent-profile-page .bt-new_business { background: rgba(99, 102, 241, 0.18); color: #a5b4fc; }
 html.portal-theme-dark .agent-profile-page .bt-renewal { background: rgba(22, 163, 74, 0.18); color: #4ade80; }
 html.portal-theme-dark .agent-profile-page .bt-rewrite { background: rgba(217, 119, 6, 0.18); color: #fb923c; }
+html.portal-theme-dark .agent-profile-page .iap-policy-count { background: rgba(99,102,241,0.18); color: #c7d2fe; border-color: rgba(165,180,252,0.35); }
+html.portal-theme-dark .agent-profile-page .iap-pager { background: rgba(30, 27, 75, 0.45); }
+html.portal-theme-dark .agent-profile-page .agent-audit-bar { border-color: rgba(165, 180, 252, 0.28); }
 
 /* Portal workboard on audit profile */
 .agent-audit-workboard .agent-progress { display: flex; align-items: center; gap: 1rem; }
 .agent-audit-workboard .agent-progress__ring { position: relative; width: 72px; height: 72px; flex-shrink: 0; }
 .agent-audit-workboard .agent-progress__ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
 .agent-audit-workboard .agent-progress__bg { fill: none; stroke: var(--border); stroke-width: 3.2; }
-.agent-audit-workboard .agent-progress__fg { fill: none; stroke: var(--blue); stroke-width: 3.2; stroke-linecap: round; transition: stroke-dasharray 0.45s ease; }
+.agent-audit-workboard .agent-progress__fg { fill: none; stroke: #6366f1; stroke-width: 3.2; stroke-linecap: round; transition: stroke-dasharray 0.45s ease; }
 .agent-audit-workboard .agent-progress__ring strong { position: absolute; inset: 0; display: grid; place-items: center; font-size: 0.95rem; font-weight: 800; color: var(--dark); transform: none; }
 .agent-audit-tasks-cols { display: grid; grid-template-columns: 1fr; gap: 1rem; }
 @media (min-width: 800px) { .agent-audit-tasks-cols { grid-template-columns: 1fr 1fr; } }
@@ -128,48 +420,80 @@ html.portal-theme-dark .agent-profile-page .bt-rewrite { background: rgba(217, 1
   max-height: 420px;
   padding-top: 0.15rem;
 }
-html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #60a5fa; }
+html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #a5b4fc; }
 </style>
 
 <main class="portal-space-shell agent-profile-page">
-  <div class="portal-space-inner">
+  <div class="portal-space-inner portal-space-inner--wide">
 
     <!-- Breadcrumb -->
-    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: var(--muted); font-weight: 600; flex-wrap: wrap;">
+    <div class="iap-breadcrumb">
       {% if insurance_space_id %}
-        <a href="{% url 'inventory-detail' insurance_space_id %}" style="color: var(--blue); text-decoration: none;">🛡️ Insurance Space</a>
+        <a href="{% url 'inventory-detail' insurance_space_id %}">🛡️ Insurance Space</a>
       {% else %}
-        <a href="{% url 'spaces-home' %}" style="color: var(--blue); text-decoration: none;">🛡️ Insurance Space</a>
+        <a href="{% url 'spaces-home' %}">🛡️ Insurance Space</a>
       {% endif %}
       <span>›</span><span>Agents</span><span>›</span>
       <span class="agent-breadcrumb-current">{{ agent.get_full_name|default:agent.username }}</span>
     </div>
 
-    <!-- Header -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.25rem; margin-bottom: 2rem;">
-      <div style="display: flex; align-items: center; gap: 1.25rem;">
-        <div style="width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #4f46e5, #093de6); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; color: white; border: 3px solid white; box-shadow: 0 4px 12px rgba(9,61,230,0.25);">
-          {{ agent.first_name|slice:":1"|upper }}{{ agent.last_name|slice:":1"|upper }}
+    <!-- Hero header -->
+    <section class="iap-hero">
+      <div class="iap-hero__top">
+        <div class="iap-hero__identity">
+          {% if agent_membership and agent_membership.profile_photo %}
+          <img class="iap-avatar" src="{{ agent_membership.profile_photo.url }}" alt="{{ agent.get_full_name|default:agent.username }}">
+          {% else %}
+          <div class="iap-avatar iap-avatar--fallback">
+            {{ agent.first_name|slice:":1"|upper }}{{ agent.last_name|slice:":1"|upper }}
+          </div>
+          {% endif %}
+          <div>
+            <div class="agent-type-badge">👤 Insurance Agent</div>
+            <h1 class="agent-profile-name">{{ agent.get_full_name|default:agent.username }}</h1>
+            <p class="iap-hero__meta">{{ agent.email }} · {{ active_org.name }}</p>
+          </div>
         </div>
+        {% if insurance_space_id %}
+          <a href="{% url 'inventory-detail' insurance_space_id %}" class="btn-outline iap-back">← Back to Insurance</a>
+        {% else %}
+          <a href="{% url 'spaces-home' %}" class="btn-outline iap-back">← Back</a>
+        {% endif %}
+      </div>
+
+      <div class="iap-conversion">
         <div>
-          <div class="agent-type-badge">👤 Insurance Agent</div>
-          <h1 class="agent-profile-name">{{ agent.get_full_name|default:agent.username }}</h1>
-          <p style="color: var(--muted); margin: 0.2rem 0 0; font-weight: 500; font-size: 0.92rem;">{{ agent.email }} · {{ active_org.name }}</p>
+          <div class="iap-conversion__label">
+            Quote-to-Bind Conversion
+            <span class="iap-period-chip">
+              {% if period == 'today' %}Today{% elif period == 'month' %}This Month{% elif period == 'year' %}This Year{% elif period == 'custom' %}Custom{% else %}All Time{% endif %}
+            </span>
+          </div>
+          <div class="iap-conversion__rate">{{ conversion_rate|floatformat:1 }}%</div>
+        </div>
+        <div class="iap-conversion__stats">
+          <div class="iap-conversion__stat">
+            <span>Quotes</span>
+            <strong>{{ quote_count }}</strong>
+          </div>
+          <div class="iap-conversion__stat is-bound">
+            <span>Bound</span>
+            <strong>{{ bound_count }}</strong>
+          </div>
+          <div class="iap-conversion__stat is-profit">
+            <span>Total Profit</span>
+            <strong>${{ total_profit|floatformat:2 }}</strong>
+          </div>
         </div>
       </div>
-      {% if insurance_space_id %}
-        <a href="{% url 'inventory-detail' insurance_space_id %}" class="btn-outline">← Back to Insurance</a>
-      {% else %}
-        <a href="{% url 'spaces-home' %}" class="btn-outline">← Back</a>
-      {% endif %}
-    </div>
+    </section>
 
     <!-- ── Period Auditing Bar ──────────────────────────────────────────────── -->
     <div class="agent-audit-bar">
-      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+      <div class="iap-audit-row">
         <div>
-          <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: 0.04em; margin-bottom: 0.4rem;">📅 Audit Period</div>
-          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <div class="iap-audit-kicker">📅 Audit Period</div>
+          <div class="iap-period-pills">
             <a href="?period=today" class="period-pill {% if period == 'today' %}selected{% endif %}">Today</a>
             <a href="?period=month" class="period-pill {% if period == 'month' %}selected{% endif %}">This Month</a>
             <a href="?period=year" class="period-pill {% if period == 'year' %}selected{% endif %}">This Year</a>
@@ -177,17 +501,17 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #60a
             <a href="#" onclick="toggleCustomRange(event)" class="period-pill {% if period == 'custom' %}selected{% endif %}">Custom Range</a>
           </div>
         </div>
-        <div style="font-size: 0.85rem; color: var(--muted); font-weight: 600;">
-          {% if period == 'today' %}Showing data for <strong style="color:var(--dark);">today ({{ audit_start }})</strong>
-          {% elif period == 'month' %}Showing <strong style="color:var(--dark);">{{ audit_start }} → {{ audit_end }}</strong>
-          {% elif period == 'year' %}Showing <strong style="color:var(--dark);">{{ audit_start }} → {{ audit_end }}</strong>
-          {% elif period == 'custom' and audit_start %}Showing <strong style="color:var(--dark);">{{ audit_start }} → {{ audit_end }}</strong>
-          {% else %}Showing <strong style="color:var(--dark);">all time</strong>{% endif %}
+        <div class="iap-audit-range">
+          {% if period == 'today' %}Showing data for <strong>today ({{ audit_start }})</strong>
+          {% elif period == 'month' %}Showing <strong>{{ audit_start }} → {{ audit_end }}</strong>
+          {% elif period == 'year' %}Showing <strong>{{ audit_start }} → {{ audit_end }}</strong>
+          {% elif period == 'custom' and audit_start %}Showing <strong>{{ audit_start }} → {{ audit_end }}</strong>
+          {% else %}Showing <strong>all time</strong>{% endif %}
         </div>
       </div>
       <!-- Custom range row -->
-      <div id="customRangeRow" style="display:{% if period == 'custom' %}flex{% else %}none{% endif %}; gap:0.75rem; margin-top:1rem; align-items:flex-end; flex-wrap:wrap;">
-        <form method="GET" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
+      <div id="customRangeRow" class="iap-custom-range" style="display:{% if period == 'custom' %}flex{% else %}none{% endif %};">
+        <form method="GET" class="iap-custom-form">
           <input type="hidden" name="period" value="custom">
           <div>
             <label class="field-label">From</label>
@@ -197,47 +521,29 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #60a
             <label class="field-label">To</label>
             <input type="date" name="date_to" value="{{ custom_to_str }}" class="field-input" style="width:160px; padding:6px 10px;">
           </div>
-          <button type="submit" style="padding:7px 18px; background: var(--blue); color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">Apply</button>
+          <button type="submit" class="iap-apply-btn">Apply</button>
         </form>
       </div>
     </div>
 
-    <!-- Conversion Rate Banner -->
-    <div style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); border-radius: 16px; padding: 1.5rem 2rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
-      <div>
-        <div style="color: #93c5fd; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
-          Quote-to-Bind Conversion Rate
-          <span style="background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:6px; margin-left:0.5rem; font-size:0.68rem;">
-            {% if period == 'today' %}Today{% elif period == 'month' %}This Month{% elif period == 'year' %}This Year{% elif period == 'custom' %}Custom{% else %}All Time{% endif %}
-          </span>
-        </div>
-        <div style="font-size: 2.5rem; font-weight: 900; color: white; line-height: 1;">{{ conversion_rate|floatformat:1 }}%</div>
-      </div>
-      <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
-        <div style="text-align: center;"><div style="color: #60a5fa; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.2rem;">Quotes</div><div style="font-size: 1.8rem; font-weight: 800; color: white;">{{ quote_count }}</div></div>
-        <div style="text-align: center;"><div style="color: #34d399; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.2rem;">Bound</div><div style="font-size: 1.8rem; font-weight: 800; color: white;">{{ bound_count }}</div></div>
-        <div style="text-align: center;"><div style="color: #fbbf24; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.2rem;">Total Profit</div><div style="font-size: 1.5rem; font-weight: 800; color: white;">${{ total_profit|floatformat:2 }}</div></div>
-      </div>
-    </div>
-
     <!-- Metrics Grid -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
-      <div class="metric-card"><div class="metric-label">Active Policies</div><div class="metric-value" style="color: var(--green);">{{ active_count }}</div></div>
-      <div class="metric-card"><div class="metric-label">Inactive</div><div class="metric-value" style="color: var(--muted);">{{ inactive_count }}</div></div>
-      <div class="metric-card"><div class="metric-label">Pending</div><div class="metric-value" style="color: #b45309;">{{ pending_count }}</div></div>
-      <div class="metric-card"><div class="metric-label">Rejected</div><div class="metric-value" style="color: var(--red);">{{ rejected_count }}</div></div>
-      <div class="metric-card"><div class="metric-label">Total Premium</div><div class="metric-value" style="color: var(--blue); font-size: 1.4rem;">${{ total_premium|floatformat:2 }}</div></div>
-      <div class="metric-card"><div class="metric-label">Commission Earned</div><div class="metric-value" style="color: var(--green); font-size: 1.4rem;">${{ total_commission|floatformat:2 }}</div></div>
-      <div class="metric-card"><div class="metric-label">Broker Fees</div><div class="metric-value" style="color: #7c3aed; font-size: 1.4rem;">${{ total_broker_fees|floatformat:2 }}</div></div>
+    <div class="iap-metrics">
+      <div class="metric-card is-active"><div class="metric-label">Active Policies</div><div class="metric-value">{{ active_count }}</div></div>
+      <div class="metric-card"><div class="metric-label">Inactive</div><div class="metric-value is-muted">{{ inactive_count }}</div></div>
+      <div class="metric-card is-pending"><div class="metric-label">Pending</div><div class="metric-value">{{ pending_count }}</div></div>
+      <div class="metric-card is-rejected"><div class="metric-label">Rejected</div><div class="metric-value">{{ rejected_count }}</div></div>
+      <div class="metric-card is-premium"><div class="metric-label">Total Premium</div><div class="metric-value is-money">${{ total_premium|floatformat:2 }}</div></div>
+      <div class="metric-card is-commission"><div class="metric-label">Commission Earned</div><div class="metric-value is-money">${{ total_commission|floatformat:2 }}</div></div>
+      <div class="metric-card is-broker"><div class="metric-label">Broker Fees</div><div class="metric-value is-money">${{ total_broker_fees|floatformat:2 }}</div></div>
     </div>
 
     {% if portal_workboard %}
     <!-- Agent portal workboard (tasks · progress · timeline) -->
-    <section class="section-card agent-audit-workboard" style="margin-bottom: 2rem;">
+    <section class="section-card agent-audit-workboard iap-workboard">
       <div class="section-header">
         <h2 class="section-title">Portal work · tasks &amp; activity</h2>
-        <span style="display:inline-flex;align-items:center;gap:0.65rem;flex-wrap:wrap;">
-          <span style="font-size: 0.82rem; color: var(--muted); font-weight: 600;">
+        <span class="iap-workboard-actions">
+          <span class="iap-workboard-shift">
             {% if portal_workboard.attendance %}
               Shift {{ portal_workboard.work_date|date:"M j" }}
               {% if portal_workboard.attendance.closed_at %}· closed{% else %}· on shift{% endif %}
@@ -246,13 +552,13 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #60a
             {% endif %}
           </span>
           {% if can_owner_assign_tasks and agent_membership %}
-          <a href="{% url 'agent-portal-owner-review' agent_membership.id %}#add-task" class="btn-outline" style="padding:6px 12px;font-size:0.8rem;">Add task</a>
+          <a href="{% url 'agent-portal-owner-review' agent_membership.id %}#add-task" class="btn-outline iap-mini-btn">Add task</a>
           {% endif %}
         </span>
       </div>
-      <div style="display: grid; grid-template-columns: repeat(12, 1fr); gap: 1.25rem; padding: 1.25rem 1.5rem 1.5rem;">
-        <div style="grid-column: span 12;" class="agent-audit-progress-wrap">
-          <div style="display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;">
+      <div class="iap-workboard-body">
+        <div class="agent-audit-progress-wrap">
+          <div class="iap-progress-row">
             <div class="agent-progress" data-percent="{{ portal_workboard.progress.percent }}" style="--progress: {{ portal_workboard.progress.percent }}; margin: 0;">
               <div class="agent-progress__ring" aria-hidden="true">
                 <svg viewBox="0 0 36 36">
@@ -264,15 +570,15 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #60a
             </div>
             <div>
               <div class="metric-label" style="margin-bottom: 0.25rem;">Task progress</div>
-              <div style="font-size: 1.35rem; font-weight: 800; color: var(--dark);">
+              <div class="iap-progress-copy">
                 {{ portal_workboard.progress.done }} done · {{ portal_workboard.progress.open }} open · {{ portal_workboard.progress.total }} total
               </div>
-              <p style="margin: 0.35rem 0 0; color: var(--muted); font-size: 0.88rem; font-weight: 500;">Tasks stay open until marked done.</p>
+              <p class="iap-progress-hint">Tasks stay open until marked done.</p>
             </div>
           </div>
         </div>
 
-        <div style="grid-column: span 12;" class="agent-audit-tasks-cols">
+        <div class="agent-audit-tasks-cols">
           <div class="agent-audit-col">
             <h3 class="agent-audit-col__title">In progress <span>{{ portal_workboard.progress.open }}</span></h3>
             <ul class="agent-audit-task-list">
@@ -308,7 +614,7 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #60a
           </div>
         </div>
 
-        <div style="grid-column: span 12;">
+        <div>
           <h3 class="agent-audit-col__title" style="margin-bottom: 0.85rem;">Activity timeline <span>last 14 days</span></h3>
           <ol class="agent-timeline">
             {% for event in portal_workboard.recent_activity %}
@@ -333,16 +639,16 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #60a
         </div>
 
         {% if can_owner_assign_tasks and assign_form and agent_membership %}
-        <div style="grid-column: span 12;" id="add-task" class="agent-audit-col">
+        <div id="add-task" class="agent-audit-col">
           <h3 class="agent-audit-col__title">Add task for this agent</h3>
-          <form method="post" action="{% url 'agent-portal-create-task' %}" style="display:flex;flex-direction:column;gap:0.65rem;">
+          <form method="post" action="{% url 'agent-portal-create-task' %}" class="iap-assign-form">
             {% csrf_token %}
             <input type="hidden" name="next" value="{% url 'insurance-agent-detail' agent.id %}">
             <input type="hidden" name="assigned_membership_id" value="{{ agent_membership.id }}">
             {{ assign_form.assigned_to }}
             {{ assign_form.title }}
             {{ assign_form.description }}
-            <div style="display:flex;gap:0.65rem;flex-wrap:wrap;align-items:center;">
+            <div class="iap-assign-actions">
               {{ assign_form.due_date }}
               <button type="submit" class="agent-search-btn" style="padding:8px 16px;">Add task</button>
             </div>
@@ -354,10 +660,10 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #60a
     {% endif %}
 
     <!-- Policies Section -->
-    <div class="section-card">
+    <div class="section-card iap-policies">
       <div class="section-header">
         <h2 class="section-title">📋 Agent Policies</h2>
-        <span style="font-size: 0.82rem; color: var(--muted); font-weight: 600;">{{ policies_page.paginator.count }} total</span>
+        <span class="iap-policy-count">{{ policies_page.paginator.count }} total</span>
       </div>
 
       <!-- Filters -->
@@ -494,7 +800,7 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #60a
 
       <!-- Pagination -->
       {% if policies_page.has_other_pages %}
-      <div style="padding: 1rem 1.5rem; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+      <div class="iap-pager">
         <span style="font-size: 0.82rem; color: var(--muted); font-weight: 600;">Showing {{ policies_page.start_index }}–{{ policies_page.end_index }} of {{ policies_page.paginator.count }}</span>
         <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
           {% if policies_page.has_previous %}<a href="?page={{ policies_page.previous_page_number }}&period={{ period }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">← Prev</a>{% endif %}

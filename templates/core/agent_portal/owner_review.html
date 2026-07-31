@@ -4,152 +4,552 @@
 {% block title %}Portal · {{ agent_membership.user.get_full_name|default:agent_membership.user.username }} | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=6">
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=8">
 {% endblock %}
 
 {% block portal_content %}
 <style>
-.owner-review-page { max-width: 1100px; margin: 0 auto; }
-.owner-review-hero {
-  display: flex; justify-content: space-between; align-items: flex-start; gap: 1.25rem; flex-wrap: wrap;
-  margin-bottom: 1.5rem;
+:root {
+  --ior-blue: #4338ca;
+  --ior-ink: var(--portal-text, #0f172a);
+  --ior-muted: var(--portal-text-muted, #64748b);
+  --ior-border: var(--portal-border, #e2e8f0);
+  --ior-green: #16a34a;
+  --ior-amber: #d97706;
 }
-.owner-review-hero h1 { margin: 0.2rem 0 0; font-size: clamp(1.6rem, 3vw, 2.1rem); letter-spacing: -0.02em; }
-.owner-review-badge {
-  display: inline-flex; align-items: center; gap: 6px; background: #e0e7ff; color: #4338ca;
-  padding: 3px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
+.ior-page .portal-space-inner--wide {
+  max-width: 100%;
+  width: 100%;
+  padding: 1.5rem 2rem 3rem;
+}
+@media (min-width: 1400px) {
+  .ior-page .portal-space-inner--wide {
+    padding-left: 2.75rem;
+    padding-right: 2.75rem;
+  }
+}
+.ior-crumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.15rem;
+  font-size: 0.85rem;
+  color: var(--ior-muted);
+  font-weight: 600;
+  flex-wrap: wrap;
+}
+.ior-crumb a { color: #4f46e5; text-decoration: none; font-weight: 700; }
+.ior-crumb a:hover { text-decoration: underline; }
+
+.ior-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  padding: 1.6rem 1.75rem 1.4rem;
+  margin-bottom: 1.25rem;
+  color: #fff;
+  border: 1px solid rgba(165, 180, 252, 0.35);
+  background:
+    radial-gradient(900px 240px at 8% 0%, rgba(99, 102, 241, 0.45), transparent 55%),
+    radial-gradient(700px 220px at 100% 100%, rgba(14, 165, 233, 0.22), transparent 50%),
+    linear-gradient(135deg, #1e1b4b 0%, #312e81 42%, #4338ca 100%);
+  box-shadow: 0 18px 44px rgba(49, 46, 129, 0.28);
+}
+.ior-hero__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.35rem;
+}
+.ior-hero__identity {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+}
+.ior-avatar {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(255,255,255,0.85);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);
+  flex-shrink: 0;
+}
+.ior-avatar--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.85rem;
+  font-weight: 850;
+  color: #fff;
+  background: linear-gradient(135deg, #6366f1, #2563eb);
+}
+.ior-hero__name {
+  color: #fff;
+  font-weight: 900;
+  font-size: clamp(1.55rem, 2.2vw, 2.15rem);
+  margin: 0;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+.ior-hero__meta {
+  color: #c7d2fe;
+  margin: 0.35rem 0 0;
+  font-weight: 550;
+  font-size: 0.95rem;
+}
+.ior-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0.55rem;
+  background: rgba(255,255,255,0.14);
+  color: #e0e7ff;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid rgba(255,255,255,0.22);
+}
+.ior-hero__actions {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+.ior-btn-ghost {
+  background: rgba(255,255,255,0.12) !important;
+  border-color: rgba(255,255,255,0.28) !important;
+  color: #e0e7ff !important;
+  backdrop-filter: blur(6px);
+}
+.ior-btn-ghost:hover {
+  background: rgba(255,255,255,0.22) !important;
+  border-color: rgba(255,255,255,0.45) !important;
+  color: #fff !important;
+}
+.ior-btn-solid {
+  background: #fff !important;
+  border-color: #fff !important;
+  color: #312e81 !important;
+  font-weight: 800 !important;
+}
+.ior-btn-solid:hover {
+  background: #e0e7ff !important;
+  border-color: #e0e7ff !important;
+}
+
+.ior-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+@media (max-width: 900px) {
+  .ior-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .ior-strip { grid-template-columns: 1fr; }
+}
+.ior-strip__card {
+  padding: 1rem 1.1rem;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.28);
+  border: 1px solid rgba(255,255,255,0.14);
+}
+.ior-strip__label {
+  display: block;
+  color: #c7d2fe;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.35rem;
+}
+.ior-strip__value {
+  display: block;
+  font-size: clamp(1.45rem, 2.4vw, 1.9rem);
+  font-weight: 950;
+  color: #fff;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+.ior-strip__sub {
+  display: block;
+  margin-top: 0.3rem;
+  color: #a5b4fc;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.ior-strip__card.is-live .ior-strip__value { color: #86efac; }
+.ior-strip__card.is-closed .ior-strip__value { color: #fdba74; }
+.ior-strip__card.is-progress .ior-strip__value { color: #93c5fd; }
+
+.ior-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 1.15rem;
+  margin-bottom: 1.15rem;
+}
+@media (max-width: 980px) {
+  .ior-grid { grid-template-columns: 1fr; }
+}
+.ior-panel {
+  background: var(--portal-surface, #fff);
+  border: 1px solid var(--ior-border);
+  border-radius: 20px;
+  padding: 1.2rem 1.3rem 1.3rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+.ior-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.ior-panel__head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 850;
+  color: var(--ior-ink);
+  letter-spacing: -0.02em;
+}
+.ior-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #eef2ff;
+  color: #4338ca;
   border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
 }
-.owner-review-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
-@media (min-width: 900px) {
-  .owner-review-grid { grid-template-columns: 1.1fr 0.9fr; }
-  .owner-review-timeline { grid-column: 1 / -1; }
+.ior-progress {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+  padding: 1rem 1.1rem;
+  border-radius: 16px;
+  background:
+    radial-gradient(420px 120px at 0% 0%, rgba(99,102,241,0.12), transparent 60%),
+    var(--portal-surface-muted, #f8fafc);
+  border: 1px solid var(--ior-border);
+  margin-bottom: 1.1rem;
 }
-.owner-add-task {
-  background: var(--ap-card, #fff); border: 1px solid var(--ap-line, #e2e8f0); border-radius: 20px;
-  padding: 1.15rem 1.2rem;
+.ior-progress .agent-progress__ring { width: 84px; height: 84px; }
+.ior-progress .agent-progress__fg { stroke: #6366f1; }
+.ior-progress .agent-progress__ring strong { color: var(--ior-ink); font-size: 1.05rem; }
+.ior-progress__copy p {
+  margin: 0;
+  color: var(--ior-muted);
+  font-weight: 600;
+  font-size: 0.92rem;
 }
-.owner-add-task h2 { margin: 0 0 0.85rem; font-size: 1.05rem; }
-.owner-add-task .agent-assign-row { display: flex; flex-wrap: wrap; gap: 0.65rem; margin-bottom: 0.65rem; }
-.owner-add-task input, .owner-add-task textarea {
-  width: 100%; padding: 0.65rem 0.85rem; border-radius: 10px; border: 1px solid var(--ap-line, #e2e8f0);
+.ior-progress__copy strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--ior-ink);
+  font-size: 1.05rem;
+}
+
+.ior-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.9rem;
+}
+@media (max-width: 720px) {
+  .ior-cols { grid-template-columns: 1fr; }
+}
+.ior-col {
+  background: var(--portal-surface-muted, #f8fafc);
+  border: 1px solid var(--ior-border);
+  border-radius: 14px;
+  padding: 0.95rem 1rem;
+}
+.ior-col__title {
+  margin: 0 0 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ior-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ior-col__title span {
+  background: var(--portal-surface, #fff);
+  border: 1px solid var(--ior-border);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  color: var(--ior-ink);
+}
+.ior-page .agent-task-list { gap: 0.55rem; max-height: 340px; overflow: auto; }
+.ior-page .agent-task {
+  border-radius: 12px;
+  border-color: var(--ior-border);
+  background: var(--portal-surface, #fff);
+  box-shadow: none;
+}
+.ior-page .agent-task.is-done { opacity: 0.82; }
+.ior-page .agent-empty {
+  border: 1px dashed var(--ior-border);
+  border-radius: 12px;
+  padding: 0.85rem;
+  color: var(--ior-muted);
+  font-weight: 600;
+  font-size: 0.88rem;
+  background: transparent;
+}
+
+.ior-add h2 { margin: 0 0 0.35rem; font-size: 1.05rem; font-weight: 850; }
+.ior-add__lead {
+  margin: 0 0 0.95rem;
+  color: var(--ior-muted);
+  font-size: 0.9rem;
+  font-weight: 550;
+}
+.ior-add input,
+.ior-add textarea {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid var(--ior-border);
   font: inherit;
+  background: var(--portal-surface, #fff);
+  color: var(--ior-ink);
 }
-.owner-add-task textarea { min-height: 72px; resize: vertical; }
-.owner-task-toggle form { margin: 0; }
-html.portal-theme-dark .owner-review-badge { background: rgba(99,102,241,0.2); color: #a5b4fc; border-color: rgba(99,102,241,0.35); }
+.ior-add textarea { min-height: 88px; resize: vertical; }
+.ior-add .agent-assign-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+.ior-add .btn-primary {
+  background: linear-gradient(135deg, #4f46e5, #4338ca) !important;
+  border: none !important;
+  font-weight: 800;
+}
+
+.ior-timeline-wrap { margin-top: 0.15rem; }
+.ior-page .agent-timeline {
+  max-height: none;
+  padding-top: 0.35rem;
+}
+.ior-page .agent-timeline__card {
+  border-radius: 14px;
+  border-color: var(--ior-border);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.03);
+}
+.ior-page .agent-timeline__item--insurance .agent-timeline__dot {
+  background: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18);
+}
+.ior-page .agent-timeline__domain {
+  background: #eef2ff;
+  color: #4338ca;
+  border-color: #c7d2fe;
+}
+
+html.portal-theme-dark .ior-panel {
+  background: rgba(30, 27, 75, 0.35);
+  border-color: rgba(165, 180, 252, 0.22);
+}
+html.portal-theme-dark .ior-chip {
+  background: rgba(99, 102, 241, 0.18);
+  color: #c7d2fe;
+  border-color: rgba(165, 180, 252, 0.3);
+}
+html.portal-theme-dark .ior-progress,
+html.portal-theme-dark .ior-col {
+  background: rgba(15, 23, 42, 0.35);
+  border-color: rgba(165, 180, 252, 0.2);
+}
+html.portal-theme-dark .ior-page .agent-task,
+html.portal-theme-dark .ior-add input,
+html.portal-theme-dark .ior-add textarea {
+  background: rgba(15, 23, 42, 0.45);
+  border-color: rgba(165, 180, 252, 0.22);
+  color: #e2e8f0;
+}
+html.portal-theme-dark .ior-page .agent-timeline__card {
+  background: rgba(15, 23, 42, 0.4);
+  border-color: rgba(165, 180, 252, 0.2);
+}
+html.portal-theme-dark .ior-page .agent-timeline__domain {
+  background: rgba(99, 102, 241, 0.2);
+  color: #c7d2fe;
+  border-color: rgba(165, 180, 252, 0.28);
+}
 </style>
 
-<main class="agent-portal owner-review-page">
-  <header class="owner-review-hero">
-    <div>
-      <a class="atb-back" href="{% url 'dashboard' %}#ops" style="display:inline-flex;align-items:center;gap:0.25rem;color:var(--ap-muted,#64748b);font-size:0.82rem;font-weight:700;text-decoration:none;margin-bottom:0.55rem;">
-        ← Dashboard
-      </a>
-      <div class="owner-review-badge">Insurance agent portal</div>
-      <h1>{{ agent_membership.user.get_full_name|default:agent_membership.user.username }}</h1>
-      <p class="agent-portal__meta" style="margin-top:0.35rem;">
-        {{ agent_membership.user.email }} · {{ organization.name }}
-        {% if portal_workboard.attendance %}
-          · Shift {{ portal_workboard.work_date|date:"D, M j" }}
-          {% if portal_workboard.attendance.closed_at %}(closed){% else %}(on shift){% endif %}
-        {% endif %}
-      </p>
-    </div>
-    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-      <a class="btn btn-secondary" href="{% url 'agent-audit' agent_membership.id %}">Service audit</a>
-      <a class="btn btn-secondary" href="{% url 'insurance-agent-detail' agent_membership.user_id %}">Insurance profile</a>
-    </div>
-  </header>
+<main class="portal-space-shell ior-page">
+  <div class="portal-space-inner portal-space-inner--wide">
+    <nav class="ior-crumb" aria-label="Breadcrumb">
+      <a href="{% url 'dashboard' %}#ops">← Dashboard</a>
+      <span aria-hidden="true">/</span>
+      <span>Insurance agent portal</span>
+    </nav>
 
-  <div class="owner-review-grid">
-    <section class="agent-card">
-      <header class="agent-card__head">
-        <h2>Task progress</h2>
-        <span class="agent-pill">{{ portal_workboard.progress.done }}/{{ portal_workboard.progress.total }}</span>
-      </header>
-      <div class="agent-progress" style="--progress: {{ portal_workboard.progress.percent }};">
-        <div class="agent-progress__ring" aria-hidden="true">
-          <svg viewBox="0 0 36 36">
-            <path class="agent-progress__bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
-            <path class="agent-progress__fg" stroke-dasharray="{{ portal_workboard.progress.percent }}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
-          </svg>
-          <strong>{{ portal_workboard.progress.percent }}%</strong>
+    <section class="ior-hero">
+      <div class="ior-hero__top">
+        <div class="ior-hero__identity">
+          {% if agent_membership.profile_photo %}
+            <img class="ior-avatar" src="{{ agent_membership.profile_photo.url }}" alt="">
+          {% else %}
+            <div class="ior-avatar ior-avatar--fallback" aria-hidden="true">
+              {{ agent_membership.user.get_full_name|default:agent_membership.user.username|slice:":1"|upper }}
+            </div>
+          {% endif %}
+          <div>
+            <h1 class="ior-hero__name">{{ agent_membership.user.get_full_name|default:agent_membership.user.username }}</h1>
+            <p class="ior-hero__meta">{{ agent_membership.user.email }} · {{ organization.name }}</p>
+            <div class="ior-badge">Insurance agent portal</div>
+          </div>
         </div>
-        <p>{{ portal_workboard.progress.open }} open · {{ portal_workboard.progress.done }} done</p>
+        <div class="ior-hero__actions">
+          <a class="btn btn-secondary ior-btn-ghost" href="{% url 'agent-audit' agent_membership.id %}">Service audit</a>
+          <a class="btn btn-secondary ior-btn-solid" href="{% url 'insurance-agent-detail' agent_membership.user_id %}">Insurance profile</a>
+        </div>
       </div>
 
-      <h3 style="margin:1rem 0 0.5rem;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--ap-muted);">In progress</h3>
-      <ul class="agent-task-list">
-        {% for task in portal_workboard.progress.open_tasks %}
-        <li class="agent-task" data-task-id="{{ task.id }}">
-          <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}" class="agent-task-form owner-task-toggle">
-            {% csrf_token %}
-            <input type="hidden" name="toggle" value="1">
-            <input type="hidden" name="next" value="{% url 'agent-portal-owner-review' agent_membership.id %}">
-            <label class="agent-check">
-              <input type="checkbox" class="agent-check__input" aria-label="Mark {{ task.title }} done">
-              <span class="agent-check__box" aria-hidden="true"></span>
-              <span class="agent-check__label">
-                <strong>{{ task.title }}</strong>
-                {% if task.description %}<small>{{ task.description }}</small>{% endif %}
-                {% if task.due_date %}<em>Due {{ task.due_date|date:"M j" }}</em>{% endif %}
-              </span>
-            </label>
-          </form>
-        </li>
-        {% empty %}
-        <li class="agent-empty">No open tasks.</li>
-        {% endfor %}
-      </ul>
-
-      <h3 style="margin:1rem 0 0.5rem;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--ap-muted);">Completed</h3>
-      <ul class="agent-task-list">
-        {% for task in portal_workboard.progress.done_tasks %}
-        <li class="agent-task is-done" data-task-id="{{ task.id }}">
-          <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}" class="agent-task-form owner-task-toggle">
-            {% csrf_token %}
-            <input type="hidden" name="toggle" value="1">
-            <input type="hidden" name="next" value="{% url 'agent-portal-owner-review' agent_membership.id %}">
-            <label class="agent-check">
-              <input type="checkbox" checked class="agent-check__input" aria-label="Reopen {{ task.title }}">
-              <span class="agent-check__box" aria-hidden="true"></span>
-              <span class="agent-check__label">
-                <strong>{{ task.title }}</strong>
-                {% if task.completed_at %}<small>Done {{ task.completed_at|timezone:"America/New_York"|date:"M j · g:i A" }}</small>{% endif %}
-              </span>
-            </label>
-          </form>
-        </li>
-        {% empty %}
-        <li class="agent-empty">No completed tasks yet.</li>
-        {% endfor %}
-      </ul>
+      <div class="ior-strip">
+        <div class="ior-strip__card is-progress">
+          <span class="ior-strip__label">Task progress</span>
+          <span class="ior-strip__value">{{ portal_workboard.progress.percent }}%</span>
+          <span class="ior-strip__sub">{{ portal_workboard.progress.done }}/{{ portal_workboard.progress.total }} complete</span>
+        </div>
+        <div class="ior-strip__card">
+          <span class="ior-strip__label">Open tasks</span>
+          <span class="ior-strip__value">{{ portal_workboard.progress.open }}</span>
+          <span class="ior-strip__sub">Still in progress</span>
+        </div>
+        <div class="ior-strip__card">
+          <span class="ior-strip__label">Completed</span>
+          <span class="ior-strip__value">{{ portal_workboard.progress.done }}</span>
+          <span class="ior-strip__sub">Marked complete</span>
+        </div>
+        <div class="ior-strip__card {% if portal_workboard.attendance and not portal_workboard.attendance.closed_at %}is-live{% elif portal_workboard.attendance %}is-closed{% endif %}">
+          <span class="ior-strip__label">Shift status</span>
+          {% if portal_workboard.attendance %}
+            <span class="ior-strip__value">{% if portal_workboard.attendance.closed_at %}Closed{% else %}On shift{% endif %}</span>
+            <span class="ior-strip__sub">{{ portal_workboard.work_date|date:"D, M j" }}</span>
+          {% else %}
+            <span class="ior-strip__value">—</span>
+            <span class="ior-strip__sub">No session yet</span>
+          {% endif %}
+        </div>
+      </div>
     </section>
 
-    <section class="owner-add-task" id="add-task">
-      <h2>Add task for this agent</h2>
-      <p style="margin:0 0 0.85rem;color:var(--ap-muted);font-size:0.9rem;">Assigned only to {{ agent_membership.user.get_full_name|default:agent_membership.user.username }}.</p>
-      <form method="post" action="{% url 'agent-portal-create-task' %}" class="agent-assign-inline">
-        {% csrf_token %}
-        <input type="hidden" name="next" value="{% url 'agent-portal-owner-review' agent_membership.id %}">
-        <input type="hidden" name="assigned_membership_id" value="{{ agent_membership.id }}">
-        {{ assign_form.assigned_to }}
-        <div class="agent-assign-row">
-          {{ assign_form.title }}
-        </div>
-        {{ assign_form.description }}
-        <div class="agent-assign-row" style="margin-top:0.65rem;">
-          {{ assign_form.due_date }}
-          <button type="submit" class="btn btn-primary">Add task</button>
-        </div>
-      </form>
-    </section>
+    <div class="ior-grid">
+      <section class="ior-panel">
+        <header class="ior-panel__head">
+          <h2>Task progress</h2>
+          <span class="ior-chip">{{ portal_workboard.progress.done }}/{{ portal_workboard.progress.total }}</span>
+        </header>
 
-    <section class="agent-card owner-review-timeline">
-      <header class="agent-card__head">
+        <div class="agent-progress ior-progress" style="--progress: {{ portal_workboard.progress.percent }};">
+          <div class="agent-progress__ring" aria-hidden="true">
+            <svg viewBox="0 0 36 36">
+              <path class="agent-progress__bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+              <path class="agent-progress__fg" stroke-dasharray="{{ portal_workboard.progress.percent }}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+            </svg>
+            <strong>{{ portal_workboard.progress.percent }}%</strong>
+          </div>
+          <div class="ior-progress__copy">
+            <strong>Workday checklist</strong>
+            <p>{{ portal_workboard.progress.open }} open · {{ portal_workboard.progress.done }} done</p>
+          </div>
+        </div>
+
+        <div class="ior-cols">
+          <div class="ior-col">
+            <h3 class="ior-col__title">In progress <span>{{ portal_workboard.progress.open }}</span></h3>
+            <ul class="agent-task-list">
+              {% for task in portal_workboard.progress.open_tasks %}
+              <li class="agent-task" data-task-id="{{ task.id }}">
+                <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}" class="agent-task-form owner-task-toggle">
+                  {% csrf_token %}
+                  <input type="hidden" name="toggle" value="1">
+                  <input type="hidden" name="next" value="{% url 'agent-portal-owner-review' agent_membership.id %}">
+                  <label class="agent-check">
+                    <input type="checkbox" class="agent-check__input" aria-label="Mark {{ task.title }} done">
+                    <span class="agent-check__box" aria-hidden="true"></span>
+                    <span class="agent-check__label">
+                      <strong>{{ task.title }}</strong>
+                      {% if task.description %}<small>{{ task.description }}</small>{% endif %}
+                      {% if task.due_date %}<em>Due {{ task.due_date|date:"M j" }}</em>{% endif %}
+                    </span>
+                  </label>
+                </form>
+              </li>
+              {% empty %}
+              <li class="agent-empty">No open tasks.</li>
+              {% endfor %}
+            </ul>
+          </div>
+
+          <div class="ior-col">
+            <h3 class="ior-col__title">Completed <span>{{ portal_workboard.progress.done }}</span></h3>
+            <ul class="agent-task-list">
+              {% for task in portal_workboard.progress.done_tasks %}
+              <li class="agent-task is-done" data-task-id="{{ task.id }}">
+                <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}" class="agent-task-form owner-task-toggle">
+                  {% csrf_token %}
+                  <input type="hidden" name="toggle" value="1">
+                  <input type="hidden" name="next" value="{% url 'agent-portal-owner-review' agent_membership.id %}">
+                  <label class="agent-check">
+                    <input type="checkbox" checked class="agent-check__input" aria-label="Reopen {{ task.title }}">
+                    <span class="agent-check__box" aria-hidden="true"></span>
+                    <span class="agent-check__label">
+                      <strong>{{ task.title }}</strong>
+                      {% if task.completed_at %}<small>Done {{ task.completed_at|timezone:"America/New_York"|date:"M j · g:i A" }}</small>{% endif %}
+                    </span>
+                  </label>
+                </form>
+              </li>
+              {% empty %}
+              <li class="agent-empty">No completed tasks yet.</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="ior-panel ior-add" id="add-task">
+        <h2>Add task for this agent</h2>
+        <p class="ior-add__lead">Assigned only to {{ agent_membership.user.get_full_name|default:agent_membership.user.username }}.</p>
+        <form method="post" action="{% url 'agent-portal-create-task' %}" class="agent-assign-inline">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{% url 'agent-portal-owner-review' agent_membership.id %}">
+          <input type="hidden" name="assigned_membership_id" value="{{ agent_membership.id }}">
+          {{ assign_form.assigned_to }}
+          <div class="agent-assign-row">
+            {{ assign_form.title }}
+          </div>
+          {{ assign_form.description }}
+          <div class="agent-assign-row" style="margin-top:0.65rem;">
+            {{ assign_form.due_date }}
+            <button type="submit" class="btn btn-primary">Add task</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <section class="ior-panel ior-timeline-wrap">
+      <header class="ior-panel__head">
         <h2>Activity timeline</h2>
-        <span class="agent-pill">Last 14 days · Insurance · Motor Club · TLC</span>
+        <span class="ior-chip">Last 14 days · Insurance · Motor Club · TLC</span>
       </header>
       <ol class="agent-timeline">
         {% for event in portal_workboard.recent_activity %}
