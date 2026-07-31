@@ -78,6 +78,7 @@ from .insurance_commissions import (
 from .finance_hub_metrics import build_daily_payment_cards, build_month_goal_forecast
 from .dashboard_metrics import build_service_cards, daily_record_q, monthly_record_q, yearly_record_q
 from .insurance_space_metrics import (
+    bank_cashflow_metrics,
     build_adjusted_unearned_for_org,
     build_agent_stats,
     build_company_summaries,
@@ -87,6 +88,7 @@ from .insurance_space_metrics import (
     prefetch_insurance_companies,
     previous_insurance_period_bounds,
     quote_period_ordering,
+    resolve_bank_period_bounds,
     resolve_insurance_period_bounds,
 )
 from .dmv_documents import (
@@ -5996,7 +5998,8 @@ def inventory_detail(request, inventory_id):
             except Exception:
                 pass
 
-        # ── Banking advanced filters ──────────────────────────────────────────
+        # ── Banking period hero + advanced filters ────────────────────────────
+        bank_period_raw = request.GET.get("bank_period", "month").strip()
         bank_search = request.GET.get("bq", "").strip()
         bank_account_filter = request.GET.get("bank_account", "").strip()
         bank_type_filter = request.GET.get("bank_type", "").strip()
@@ -6006,6 +6009,22 @@ def inventory_detail(request, inventory_id):
         bank_date_to = request.GET.get("bank_date_to", "").strip()
         bank_min_amount = request.GET.get("bank_min_amount", "").strip()
         bank_max_amount = request.GET.get("bank_max_amount", "").strip()
+
+        bank_period_start, bank_period_end, bank_period = resolve_bank_period_bounds(
+            bank_period_raw, bank_date_from, bank_date_to, today=timezone.localdate()
+        )
+        # Keep date inputs in sync with selected period pills (except custom/all).
+        if bank_period not in ("custom", "all"):
+            bank_date_from = bank_period_start.isoformat() if bank_period_start else ""
+            bank_date_to = bank_period_end.isoformat() if bank_period_end else ""
+        elif bank_period == "all":
+            bank_date_from = ""
+            bank_date_to = ""
+
+        bank_cashflow = bank_cashflow_metrics(
+            all_bank_transactions, bank_period_start, bank_period_end
+        )
+        total_bank_balance = bank_accounts.aggregate(total=Sum("balance"))["total"] or Decimal("0.00")
 
         bank_transactions = all_bank_transactions
         if bank_search:
@@ -6263,6 +6282,11 @@ def inventory_detail(request, inventory_id):
             "bank_accounts": bank_accounts,
             "bank_transactions": bank_transactions_page,
             "bank_transactions_page": bank_transactions_page,
+            "bank_period": bank_period,
+            "bank_period_start": bank_period_start,
+            "bank_period_end": bank_period_end,
+            "bank_cashflow": bank_cashflow,
+            "total_bank_balance": total_bank_balance,
             "total_premium": total_premium,
             "total_commission": total_commission,
             "total_unearned_commission": total_unearned_commission,
@@ -7522,20 +7546,96 @@ def add_bank_transaction(request):
         company = get_object_or_404(InsuranceCompany, id=company_id, organization=org)
     
     try:
-        BankTransaction.objects.create(
+        tx = BankTransaction(
             bank_account=account,
             transaction_type=transaction_type,
             amount=Decimal(amount or "0.00"),
             category=category,
             description=description,
             date=date or timezone.now().date(),
-            insurance_company=company
+            insurance_company=company,
         )
+        uploaded = request.FILES.get("attachment")
+        if uploaded:
+            tx.attachment = uploaded
+        tx.save()
         messages.success(request, "Transaction recorded.")
     except Exception as e:
         messages.error(request, f"Error: {e}")
         
-    return _redirect_to_insurance_detail(org, request=request)
+    return _redirect_to_insurance_detail(org, tab="banking", request=request)
+
+
+@login_required
+@require_POST
+def edit_bank_transaction(request, transaction_id):
+    from .models import BankTransaction, BankAccount, InsuranceCompany
+    organizations = _get_user_organizations(request)
+    transaction = get_object_or_404(
+        BankTransaction,
+        id=transaction_id,
+        bank_account__organization__in=organizations,
+    )
+    org = transaction.bank_account.organization
+    membership = membership_for_org(request.user, org)
+    is_owner = is_org_owner(request.user, org, membership)
+    _require_insurance_finance(request, org, membership=membership, is_owner=is_owner)
+
+    account_id = request.POST.get("bank_account")
+    if account_id:
+        account = get_object_or_404(BankAccount, id=account_id, organization=org)
+        transaction.bank_account = account
+
+    transaction_type = request.POST.get("transaction_type", "").strip()
+    if transaction_type in {
+        BankTransaction.TransactionType.INCOME,
+        BankTransaction.TransactionType.EXPENSE,
+    }:
+        transaction.transaction_type = transaction_type
+
+    amount = request.POST.get("amount", "").strip()
+    if amount:
+        try:
+            transaction.amount = Decimal(amount)
+        except Exception:
+            messages.error(request, "Invalid amount.")
+            return _redirect_to_insurance_detail(org, tab="banking", request=request)
+
+    category = request.POST.get("category", "").strip()
+    if category:
+        transaction.category = category
+
+    if "description" in request.POST:
+        transaction.description = request.POST.get("description", "").strip()
+
+    date = request.POST.get("date", "").strip()
+    if date:
+        transaction.date = date
+
+    company_id = request.POST.get("insurance_company", "").strip()
+    if company_id:
+        transaction.insurance_company = get_object_or_404(
+            InsuranceCompany, id=company_id, organization=org
+        )
+    elif "insurance_company" in request.POST:
+        transaction.insurance_company = None
+
+    if request.POST.get("clear_attachment") == "1":
+        if transaction.attachment:
+            transaction.attachment.delete(save=False)
+        transaction.attachment = None
+    uploaded = request.FILES.get("attachment")
+    if uploaded:
+        if transaction.attachment:
+            transaction.attachment.delete(save=False)
+        transaction.attachment = uploaded
+
+    try:
+        transaction.save()
+        messages.success(request, "Transaction updated.")
+    except Exception as e:
+        messages.error(request, f"Error: {e}")
+    return _redirect_to_insurance_detail(org, tab="banking", request=request)
 
 
 @login_required
@@ -7554,7 +7654,7 @@ def delete_bank_transaction(request, transaction_id):
     org = transaction.bank_account.organization
     transaction.delete()
     messages.success(request, "Transaction deleted.")
-    return _redirect_to_insurance_detail(org, request=request)
+    return _redirect_to_insurance_detail(org, tab="banking", request=request)
 
 
 @login_required

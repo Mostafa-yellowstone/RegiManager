@@ -1,0 +1,244 @@
+{# Insurance Space · Banking / Finance tab #}
+<div id="tab-banking" class="tab-panel ifx-banking" style="display: none;">
+
+  {# ── Compact accounts strip ───────────────────────────────────────── #}
+  <section class="ifx-accounts">
+    <div class="ifx-accounts__head">
+      <div>
+        <p class="ifx-kicker">Treasury</p>
+        <h3 class="ifx-accounts__title">Bank accounts</h3>
+      </div>
+      <button type="button" class="ifx-btn ifx-btn--primary" onclick="document.getElementById('addAccountModal').classList.add('active')">+ Add account</button>
+    </div>
+    <div class="ifx-accounts__rail" role="list">
+      {% for acc in bank_accounts %}
+      <article class="ifx-account-chip" role="listitem">
+        <div class="ifx-account-chip__top">
+          <strong>{{ acc.account_name }}</strong>
+          <div class="ifx-account-chip__actions">
+            <button type="button" onclick="openEditAccountModal({{ acc.id }}, '{{ acc.account_name|escapejs }}', '{{ acc.bank_name|escapejs }}', '{{ acc.account_number|escapejs }}', '{{ acc.balance }}')">Edit</button>
+            <a href="{% url 'delete-bank-account' acc.id %}" onclick="return confirm('Delete account and all transactions?')">Delete</a>
+          </div>
+        </div>
+        <p class="ifx-account-chip__meta">{{ acc.bank_name|default:"Bank" }}{% if acc.account_number %} · ****{{ acc.account_number|slice:"-4:" }}{% endif %}</p>
+        <div class="ifx-account-chip__bal {% if acc.balance >= 0 %}is-pos{% else %}is-neg{% endif %}">${{ acc.balance }}</div>
+      </article>
+      {% empty %}
+      <div class="ifx-accounts__empty">No bank accounts yet — add one to start logging cashflow.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  {# ── Cashflow hero ────────────────────────────────────────────────── #}
+  <section class="ifx-hero">
+    <div class="ifx-hero__top">
+      <div>
+        <p class="ifx-hero__kicker">Cashflow pulse</p>
+        <h3 class="ifx-hero__title">Income &amp; expenses</h3>
+        <p class="ifx-hero__sub">
+          {% if bank_period == "all" %}
+            All-time ledger
+          {% elif bank_period_start and bank_period_end %}
+            {{ bank_period_start|date:"M j, Y" }} – {{ bank_period_end|date:"M j, Y" }}
+          {% else %}
+            Selected period
+          {% endif %}
+        </p>
+      </div>
+      <div class="ifx-hero__actions">
+        <button type="button" class="ifx-btn ifx-btn--ghost" onclick="document.getElementById('addTransactionModal').classList.add('active')">+ Log transaction</button>
+      </div>
+    </div>
+
+    <form method="GET" class="ifx-period" id="bankPeriodForm">
+      <input type="hidden" name="tab" value="banking">
+      <div class="ifx-period__pills" role="group" aria-label="Cashflow period">
+        <a class="ifx-pill {% if bank_period == 'today' %}is-active{% endif %}" href="?tab=banking&amp;bank_period=today">Today</a>
+        <a class="ifx-pill {% if bank_period == 'week' %}is-active{% endif %}" href="?tab=banking&amp;bank_period=week">This week</a>
+        <a class="ifx-pill {% if bank_period == 'month' %}is-active{% endif %}" href="?tab=banking&amp;bank_period=month">This month</a>
+        <a class="ifx-pill {% if bank_period == 'year' %}is-active{% endif %}" href="?tab=banking&amp;bank_period=year">This year</a>
+        <a class="ifx-pill {% if bank_period == 'all' %}is-active{% endif %}" href="?tab=banking&amp;bank_period=all">All time</a>
+        <button type="button" class="ifx-pill {% if bank_period == 'custom' %}is-active{% endif %}" onclick="document.getElementById('ifxCustomRange').classList.toggle('is-open')">Custom</button>
+      </div>
+      <div class="ifx-period__custom {% if bank_period == 'custom' %}is-open{% endif %}" id="ifxCustomRange">
+        <input type="hidden" name="bank_period" value="custom">
+        <label>From <input type="date" name="bank_date_from" value="{{ bank_date_from }}"></label>
+        <label>To <input type="date" name="bank_date_to" value="{{ bank_date_to }}"></label>
+        <button type="submit" class="ifx-btn ifx-btn--primary ifx-btn--sm">Apply</button>
+      </div>
+    </form>
+
+    <div class="ifx-metrics">
+      <article class="ifx-metric ifx-metric--income">
+        <span>Income</span>
+        <strong>+${{ bank_cashflow.income|floatformat:2 }}</strong>
+        <em>{{ bank_cashflow.count }} txs in window</em>
+      </article>
+      <article class="ifx-metric ifx-metric--expense">
+        <span>Expenses</span>
+        <strong>−${{ bank_cashflow.expense|floatformat:2 }}</strong>
+        <em>Outbound cash</em>
+      </article>
+      <article class="ifx-metric ifx-metric--net {% if bank_cashflow.net >= 0 %}is-pos{% else %}is-neg{% endif %}">
+        <span>Net cashflow</span>
+        <strong>{% if bank_cashflow.net >= 0 %}+{% endif %}${{ bank_cashflow.net|floatformat:2 }}</strong>
+        <em>Income − expenses</em>
+      </article>
+      <article class="ifx-metric ifx-metric--balance">
+        <span>All balances</span>
+        <strong>${{ total_bank_balance|floatformat:2 }}</strong>
+        <em>Across {{ bank_accounts|length }} account{{ bank_accounts|length|pluralize }}</em>
+      </article>
+    </div>
+  </section>
+
+  {# ── Ledger ───────────────────────────────────────────────────────── #}
+  <section class="ifx-ledger">
+    <div class="ifx-ledger__head">
+      <div>
+        <p class="ifx-kicker">Ledger CRM</p>
+        <h3 class="ifx-ledger__title">Financial transactions</h3>
+      </div>
+      <button type="button" class="ifx-btn ifx-btn--primary" onclick="document.getElementById('addTransactionModal').classList.add('active')">+ Log transaction</button>
+    </div>
+
+    <div class="ifx-filters">
+      <form method="GET" class="ifx-filters__form">
+        <input type="hidden" name="tab" value="banking">
+        <input type="hidden" name="bank_period" value="{{ bank_period }}">
+        <div class="ifx-filters__row">
+          <input type="text" name="bq" value="{{ bank_search }}" placeholder="Search description, category, account…">
+          <button type="submit" class="ifx-btn ifx-btn--dark">Search</button>
+          <a href="?tab=banking&amp;bank_period={{ bank_period }}" class="ifx-btn ifx-btn--ghost">Clear</a>
+        </div>
+        <details {% if bank_account_filter or bank_type_filter or bank_category_filter or bank_company_filter or bank_min_amount or bank_max_amount %}open{% endif %}>
+          <summary>Advanced filters</summary>
+          <div class="ifx-filters__grid">
+            <label>Account
+              <select name="bank_account">
+                <option value="">All accounts</option>
+                {% for acc in bank_accounts %}<option value="{{ acc.id }}" {% if bank_account_filter == acc.id|stringformat:"s" %}selected{% endif %}>{{ acc.account_name }}</option>{% endfor %}
+              </select>
+            </label>
+            <label>Type
+              <select name="bank_type">
+                <option value="">All types</option>
+                <option value="income" {% if bank_type_filter == 'income' %}selected{% endif %}>Income</option>
+                <option value="expense" {% if bank_type_filter == 'expense' %}selected{% endif %}>Expense</option>
+              </select>
+            </label>
+            <label>Category
+              <input type="text" name="bank_category" value="{{ bank_category_filter }}" placeholder="e.g. Commission">
+            </label>
+            <label>Insurance co.
+              <select name="bank_company">
+                <option value="">All companies</option>
+                {% for comp in insurance_companies %}<option value="{{ comp.id }}" {% if bank_company_filter == comp.id|stringformat:"s" %}selected{% endif %}>{{ comp.name }}</option>{% endfor %}
+              </select>
+            </label>
+            <label>From
+              <input type="date" name="bank_date_from" value="{{ bank_date_from }}">
+            </label>
+            <label>To
+              <input type="date" name="bank_date_to" value="{{ bank_date_to }}">
+            </label>
+            <label>Min $
+              <input type="number" step="0.01" name="bank_min_amount" value="{{ bank_min_amount }}" placeholder="0.00">
+            </label>
+            <label>Max $
+              <input type="number" step="0.01" name="bank_max_amount" value="{{ bank_max_amount }}" placeholder="9999.00">
+            </label>
+          </div>
+        </details>
+      </form>
+    </div>
+
+    <div class="ifx-table-wrap">
+      <table class="spaces-table ifx-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Account</th>
+            <th>Type</th>
+            <th>Category</th>
+            <th>Description</th>
+            <th>Doc</th>
+            <th>Amount</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for tx in bank_transactions %}
+          <tr class="ifx-row">
+            <td class="ifx-muted">{{ tx.date|date:"M j, Y" }}</td>
+            <td class="ifx-strong">{{ tx.bank_account.account_name }}</td>
+            <td>{% if tx.transaction_type == 'income' %}<span class="chip-active">Income</span>{% else %}<span class="chip-inactive">Expense</span>{% endif %}</td>
+            <td>{{ tx.category }}</td>
+            <td class="ifx-muted">{{ tx.description|default:"—"|truncatechars:42 }}</td>
+            <td>
+              {% if tx.attachment %}
+              <span class="ifx-doc-dot" title="{{ tx.attachment_name }}">File</span>
+              {% else %}
+              <span class="ifx-muted">—</span>
+              {% endif %}
+            </td>
+            <td class="ifx-amt {% if tx.transaction_type == 'income' %}is-pos{% else %}is-neg{% endif %}">
+              {% if tx.transaction_type == 'income' %}+{% else %}−{% endif %}${{ tx.amount }}
+            </td>
+            <td>
+              <div class="ifx-actions">
+                <button type="button" class="ifx-act ifx-act--view"
+                  data-id="{{ tx.id }}"
+                  data-date="{{ tx.date|date:'Y-m-d' }}"
+                  data-account="{{ tx.bank_account.account_name|escapejs }}"
+                  data-type="{{ tx.transaction_type }}"
+                  data-category="{{ tx.category|escapejs }}"
+                  data-description="{{ tx.description|escapejs }}"
+                  data-amount="{{ tx.amount }}"
+                  data-company="{% if tx.insurance_company %}{{ tx.insurance_company.name|escapejs }}{% endif %}"
+                  data-file="{% if tx.attachment %}{{ tx.attachment.url }}{% endif %}"
+                  data-filename="{% if tx.attachment %}{{ tx.attachment_name|escapejs }}{% endif %}"
+                  onclick="openViewTransactionModal(this)">View</button>
+                <button type="button" class="ifx-act ifx-act--edit"
+                  data-id="{{ tx.id }}"
+                  data-account-id="{{ tx.bank_account_id }}"
+                  data-date="{{ tx.date|date:'Y-m-d' }}"
+                  data-type="{{ tx.transaction_type }}"
+                  data-category="{{ tx.category|escapejs }}"
+                  data-description="{{ tx.description|escapejs }}"
+                  data-amount="{{ tx.amount }}"
+                  data-company-id="{% if tx.insurance_company_id %}{{ tx.insurance_company_id }}{% endif %}"
+                  data-file="{% if tx.attachment %}{{ tx.attachment.url }}{% endif %}"
+                  data-filename="{% if tx.attachment %}{{ tx.attachment_name|escapejs }}{% endif %}"
+                  onclick="openEditTransactionModal(this)">Edit</button>
+                <a class="ifx-act ifx-act--del" href="{% url 'delete-bank-transaction' tx.id %}" onclick="return confirm('Delete and revert this transaction?')">Delete</a>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="ifx-empty">No transactions for this filter set.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if bank_transactions_page.has_other_pages %}
+    <div class="ins-pager">
+      {% if bank_transactions_page.has_previous %}
+      <a href="?bank_page={{ bank_transactions_page.previous_page_number }}&{{ bank_transactions_query_string }}" class="ins-pager-btn">← Previous</a>
+      {% endif %}
+      <span class="ins-pager-meta">Page {{ bank_transactions_page.number }} of {{ bank_transactions_page.paginator.num_pages }}</span>
+      {% for i in bank_transactions_page.paginator.page_range %}
+        {% if bank_transactions_page.number == i %}
+          <span class="ins-pager-btn is-current">{{ i }}</span>
+        {% elif i > bank_transactions_page.number|add:"-3" and i < bank_transactions_page.number|add:"3" %}
+          <a href="?bank_page={{ i }}&{{ bank_transactions_query_string }}" class="ins-pager-btn">{{ i }}</a>
+        {% endif %}
+      {% endfor %}
+      {% if bank_transactions_page.has_next %}
+      <a href="?bank_page={{ bank_transactions_page.next_page_number }}&{{ bank_transactions_query_string }}" class="ins-pager-btn">Next →</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </section>
+</div>

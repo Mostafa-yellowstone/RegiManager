@@ -179,6 +179,453 @@ html.portal-theme-dark .ins-pager-btn.is-current {
   background: linear-gradient(135deg, #6366f1, #818cf8);
   color: #1e1b4b;
 }
+/* ── Insurance Finance / Banking ───────────────────────────────── */
+.ifx-banking { animation: ifxFadeUp 0.45s ease both; }
+@keyframes ifxFadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+.ifx-kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6366f1;
+}
+.ifx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 0.84rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.ifx-btn:hover { transform: translateY(-1px); }
+.ifx-btn--primary {
+  background: linear-gradient(135deg, #4338ca, #6366f1);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.28);
+}
+.ifx-btn--dark { background: #0f172a; color: #fff; }
+.ifx-btn--ghost {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.28);
+  color: #e0e7ff;
+}
+.ifx-filters .ifx-btn--ghost,
+.ifx-accounts .ifx-btn--ghost,
+.ifx-ledger .ifx-btn--ghost {
+  background: #fff;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+.ifx-btn--sm { padding: 0.4rem 0.8rem; font-size: 0.78rem; }
+.ifx-accounts {
+  margin-bottom: 1.15rem;
+  padding: 1rem 1.15rem;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  background: var(--portal-surface, #fff);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+}
+.ifx-accounts__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+.ifx-accounts__title { margin: 0; font-size: 1.05rem; font-weight: 850; letter-spacing: -0.02em; }
+.ifx-accounts__rail {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scroll-snap-type: x mandatory;
+}
+.ifx-account-chip {
+  flex: 0 0 auto;
+  min-width: 210px;
+  max-width: 240px;
+  scroll-snap-align: start;
+  padding: 0.85rem 0.95rem;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background:
+    radial-gradient(180px 80px at 100% 0%, rgba(99,102,241,0.1), transparent 70%),
+    var(--portal-surface-muted, #f8fafc);
+  animation: ifxChipIn 0.4s ease both;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.ifx-account-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(67, 56, 202, 0.12);
+}
+@keyframes ifxChipIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.ifx-account-chip:nth-child(2) { animation-delay: 0.04s; }
+.ifx-account-chip:nth-child(3) { animation-delay: 0.08s; }
+.ifx-account-chip:nth-child(4) { animation-delay: 0.12s; }
+.ifx-account-chip__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+.ifx-account-chip__top strong { font-size: 0.92rem; color: var(--portal-text, #0f172a); }
+.ifx-account-chip__actions { display: flex; gap: 0.3rem; }
+.ifx-account-chip__actions button,
+.ifx-account-chip__actions a {
+  font-size: 0.68rem;
+  font-weight: 800;
+  border-radius: 6px;
+  padding: 2px 7px;
+  text-decoration: none;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #4338ca;
+  cursor: pointer;
+}
+.ifx-account-chip__actions a { border-color: #fecaca; background: #fff1f2; color: #dc2626; }
+.ifx-account-chip__meta {
+  margin: 0.35rem 0 0.65rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 600;
+}
+.ifx-account-chip__bal {
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+.ifx-account-chip__bal.is-pos { color: #16a34a; }
+.ifx-account-chip__bal.is-neg { color: #dc2626; }
+.ifx-accounts__empty {
+  flex: 1;
+  padding: 1.25rem;
+  text-align: center;
+  color: #64748b;
+  font-weight: 650;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+}
+.ifx-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  padding: 1.35rem 1.45rem 1.25rem;
+  margin-bottom: 1.15rem;
+  color: #fff;
+  border: 1px solid rgba(165, 180, 252, 0.35);
+  background:
+    radial-gradient(800px 220px at 8% 0%, rgba(99,102,241,0.45), transparent 55%),
+    radial-gradient(600px 200px at 100% 100%, rgba(14,165,233,0.22), transparent 50%),
+    linear-gradient(135deg, #1e1b4b 0%, #312e81 42%, #4338ca 100%);
+  box-shadow: 0 18px 40px rgba(49, 46, 129, 0.28);
+}
+.ifx-hero__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.ifx-hero__kicker {
+  margin: 0 0 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #c7d2fe;
+}
+.ifx-hero__title {
+  margin: 0;
+  font-size: clamp(1.25rem, 2vw, 1.55rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+.ifx-hero__sub {
+  margin: 0.35rem 0 0;
+  color: #a5b4fc;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+.ifx-period { margin-bottom: 1rem; }
+.ifx-period__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.ifx-pill {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(15, 23, 42, 0.22);
+  color: #e0e7ff;
+  border-radius: 999px;
+  padding: 0.38rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+.ifx-pill:hover { background: rgba(255,255,255,0.14); transform: translateY(-1px); }
+.ifx-pill.is-active {
+  background: #fff;
+  color: #312e81;
+  border-color: #fff;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+}
+.ifx-period__custom {
+  display: none;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  align-items: end;
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.28);
+  border: 1px solid rgba(255,255,255,0.14);
+}
+.ifx-period__custom.is-open { display: flex; }
+.ifx-period__custom label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #c7d2fe;
+}
+.ifx-period__custom input {
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  padding: 0.45rem 0.6rem;
+}
+.ifx-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+@media (max-width: 980px) {
+  .ifx-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .ifx-metrics { grid-template-columns: 1fr; }
+}
+.ifx-metric {
+  padding: 0.95rem 1rem;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.28);
+  border: 1px solid rgba(255,255,255,0.14);
+  animation: ifxMetricIn 0.45s ease both;
+}
+.ifx-metric:nth-child(2) { animation-delay: 0.05s; }
+.ifx-metric:nth-child(3) { animation-delay: 0.1s; }
+.ifx-metric:nth-child(4) { animation-delay: 0.15s; }
+@keyframes ifxMetricIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.ifx-metric span {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #c7d2fe;
+  margin-bottom: 0.3rem;
+}
+.ifx-metric strong {
+  display: block;
+  font-size: clamp(1.25rem, 2.2vw, 1.65rem);
+  font-weight: 950;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.ifx-metric em {
+  display: block;
+  margin-top: 0.3rem;
+  font-style: normal;
+  font-size: 0.75rem;
+  color: #a5b4fc;
+  font-weight: 600;
+}
+.ifx-metric--income strong { color: #86efac; }
+.ifx-metric--expense strong { color: #fda4af; }
+.ifx-metric--net.is-pos strong { color: #93c5fd; }
+.ifx-metric--net.is-neg strong { color: #fdba74; }
+.ifx-metric--balance strong { color: #e0e7ff; }
+.ifx-ledger {
+  background: var(--portal-surface, #fff);
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 1.15rem 1.2rem 1.25rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+.ifx-ledger__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.ifx-ledger__title { margin: 0; font-size: 1.05rem; font-weight: 850; }
+.ifx-filters {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+}
+.ifx-filters__row {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.ifx-filters__row input[type="text"] {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+}
+.ifx-filters details { margin-top: 0.65rem; }
+.ifx-filters summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #4338ca;
+  user-select: none;
+}
+.ifx-filters__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.7rem;
+}
+.ifx-filters__grid label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+.ifx-filters__grid input,
+.ifx-filters__grid select {
+  padding: 0.45rem 0.55rem;
+  border-radius: 7px;
+  border: 1px solid #cbd5e1;
+  font-size: 0.85rem;
+}
+.ifx-table-wrap {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+}
+.ifx-row { transition: background 0.15s ease; }
+.ifx-row:hover { background: #f8fafc; }
+.ifx-muted { color: #64748b; font-size: 0.85rem; }
+.ifx-strong { font-weight: 750; }
+.ifx-amt { font-weight: 900; white-space: nowrap; }
+.ifx-amt.is-pos { color: #16a34a; }
+.ifx-amt.is-neg { color: #dc2626; }
+.ifx-doc-dot {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+.ifx-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.ifx-act {
+  appearance: none;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.28rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.ifx-act:hover { transform: translateY(-1px); }
+.ifx-act--view { color: #1d4ed8; border-color: #bfdbfe; background: #eff6ff; }
+.ifx-act--edit { color: #4338ca; border-color: #c7d2fe; background: #eef2ff; }
+.ifx-act--del { color: #dc2626; border-color: #fecaca; background: #fff1f2; }
+.ifx-empty { text-align: center; padding: 2.5rem 1rem; color: #64748b; font-weight: 650; }
+.ifx-view-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+.ifx-view-item span {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin-bottom: 0.2rem;
+}
+.ifx-view-item strong { color: var(--portal-text, #0f172a); font-size: 0.95rem; }
+.ifx-file-box {
+  margin-top: 0.75rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  border: 1px dashed #c7d2fe;
+  background: #f8fafc;
+}
+.ifx-file-box a {
+  color: #4338ca;
+  font-weight: 800;
+  text-decoration: none;
+}
+.ifx-file-box a:hover { text-decoration: underline; }
+.modal-box--wide { max-width: 640px; }
+.ifx-upload {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem;
+  border-radius: 12px;
+  border: 1px dashed #c7d2fe;
+  background: #f8fafc;
+  margin-bottom: 1rem;
+}
+html.portal-theme-dark .ifx-accounts,
+html.portal-theme-dark .ifx-ledger,
+html.portal-theme-dark .ifx-account-chip,
+html.portal-theme-dark .ifx-filters,
+html.portal-theme-dark .ifx-table-wrap,
+html.portal-theme-dark .ifx-file-box,
+html.portal-theme-dark .ifx-upload {
+  background: rgba(30, 27, 75, 0.35);
+  border-color: rgba(165, 180, 252, 0.22);
+}
+html.portal-theme-dark .ifx-row:hover { background: rgba(99, 102, 241, 0.08); }
+
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.3); backdrop-filter: blur(8px); z-index: 2000; align-items: center; justify-content: center; }
 .modal-overlay.active { display: flex; }
 .modal-box { background: var(--portal-surface); border-radius: 20px; padding: 2rem; max-width: 520px; width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: var(--portal-shadow-lg); border: 1px solid var(--portal-border); animation: modalIn 0.25s ease; }
@@ -483,7 +930,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       <button type="button" class="tab-btn active" id="tab-insurance-btn" onclick="switchTab('insurance')">🛡️ Insurance CRM</button>
       {% if user_can_manage_insurance_intake %}<button type="button" class="tab-btn" id="tab-intake-queue-btn" onclick="switchTab('intake-queue')">📥 Intake Queue{% if pending_insurance_intake_count %}<span style="margin-left: 6px; background: #ef4444; color: white; font-size: 0.68rem; padding: 2px 7px; border-radius: 999px;">{{ pending_insurance_intake_count }}</span>{% endif %}</button>{% endif %}
       {% if user_can_view_banking %}<button type="button" class="tab-btn" id="tab-companies-btn" onclick="switchTab('companies')">🏢 Companies</button>{% endif %}
-      {% if user_can_view_banking %}<button type="button" class="tab-btn" id="tab-banking-btn" onclick="switchTab('banking')">🏦 Banking</button>{% endif %}
+      {% if user_can_view_banking %}<button type="button" class="tab-btn" id="tab-banking-btn" onclick="switchTab('banking')">💳 Finance</button>{% endif %}
       <button type="button" class="tab-btn" id="tab-reporting-btn" onclick="switchTab('reporting')">📊 Reports</button>
       <button type="button" class="tab-btn" id="tab-daily-payments-btn" onclick="switchTab('daily-payments')">💳 Daily Payments</button>
       <button type="button" class="tab-btn" id="tab-agents-btn" onclick="switchTab('agents')">👥 Agent Auditing</button>
@@ -939,142 +1386,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
     {% endif %}
 
     {% if user_can_view_banking %}
-    <!-- BANKING TAB -->
-    <div id="tab-banking" class="tab-panel" style="display: none;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-        <h3 class="ins-section-title">Bank Accounts</h3>
-        <button onclick="document.getElementById('addAccountModal').classList.add('active')" style="padding: 8px 18px; background: #093de6; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Add Account</button>
-      </div>
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem; margin-bottom: 2.5rem;">
-        {% for acc in bank_accounts %}
-        <div class="ins-surface-card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-            <strong class="ins-bank-name">{{ acc.account_name }}</strong>
-            <div style="display: flex; gap: 0.35rem;">
-              <button type="button" onclick="openEditAccountModal({{ acc.id }}, '{{ acc.account_name|escapejs }}', '{{ acc.bank_name|escapejs }}', '{{ acc.account_number|escapejs }}', '{{ acc.balance }}')" style="color: #093de6; font-size: 0.78rem; font-weight: 700; background: #eff6ff; padding: 2px 8px; border-radius: 6px; border: 1px solid #bfdbfe; cursor: pointer;">Edit</button>
-              <a href="{% url 'delete-bank-account' acc.id %}" onclick="return confirm('Delete account and all transactions?')" style="color: #dc2626; font-size: 0.78rem; text-decoration: none; font-weight: 700; background: #fff5f5; padding: 2px 8px; border-radius: 6px; border: 1px solid #fee2e2;">Delete</a>
-            </div>
-          </div>
-          <div class="ins-bank-meta" style="margin-bottom: 1rem;">{{ acc.bank_name }}{% if acc.account_number %} · ****{{ acc.account_number }}{% endif %}</div>
-          <div style="border-top: 1px solid #f1f5f9; padding-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 0.78rem; color: #64748b; font-weight: 600;">Balance</span>
-            <span style="font-weight: 800; color: {% if acc.balance >= 0 %}#16a34a{% else %}#dc2626{% endif %}; font-size: 1.2rem;">${{ acc.balance }}</span>
-          </div>
-        </div>
-        {% empty %}
-        <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #64748b; font-weight: 600; background: white; border-radius: 16px; border: 1px solid #e2e8f0;">No bank accounts yet.</div>
-        {% endfor %}
-      </div>
-
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-        <h3 class="ins-section-title">Financial Ledger</h3>
-        <button onclick="document.getElementById('addTransactionModal').classList.add('active')" style="padding: 8px 18px; background: #093de6; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Log Transaction</button>
-      </div>
-
-      <!-- Banking Advanced Filters -->
-      <div style="background: #f8fafc; border-radius: 14px; padding: 1rem 1.25rem; border: 1px solid #e2e8f0; margin-bottom: 1.25rem;">
-        <form method="GET" style="display: flex; flex-direction: column; gap: 0.8rem;">
-          <input type="hidden" name="tab" value="banking">
-          <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 220px;">
-              <input type="text" name="bq" value="{{ bank_search }}" placeholder="Search description, category, account..." style="width: 100%; padding: 7px 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none; box-sizing: border-box;">
-            </div>
-            <button type="submit" style="padding: 7px 16px; background: #0f172a; color: white; border: none; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.85rem;">Search</button>
-            <a href="?tab=banking" style="padding: 7px 14px; border: 1px solid #e2e8f0; border-radius: 8px; text-decoration: none; color: #64748b; background: white; font-weight: 700; font-size: 0.85rem;">Clear</a>
-          </div>
-          <details {% if bank_account_filter or bank_type_filter or bank_category_filter or bank_company_filter or bank_date_from or bank_date_to or bank_min_amount or bank_max_amount %}open{% endif %}>
-            <summary style="cursor: pointer; font-size: 0.83rem; font-weight: 700; color: #093de6; outline: none; user-select: none;">🔍 Advanced Filters</summary>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 0.7rem; margin-top: 0.75rem;">
-              <div>
-                <label style="display: block; font-size: 0.71rem; font-weight: 800; color: #64748b; margin-bottom: 0.25rem; text-transform: uppercase;">Account</label>
-                <select name="bank_account" style="width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none;">
-                  <option value="">All Accounts</option>
-                  {% for acc in bank_accounts %}<option value="{{ acc.id }}" {% if bank_account_filter == acc.id|stringformat:"s" %}selected{% endif %}>{{ acc.account_name }}</option>{% endfor %}
-                </select>
-              </div>
-              <div>
-                <label style="display: block; font-size: 0.71rem; font-weight: 800; color: #64748b; margin-bottom: 0.25rem; text-transform: uppercase;">Type</label>
-                <select name="bank_type" style="width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none;">
-                  <option value="">All Types</option>
-                  <option value="income" {% if bank_type_filter == 'income' %}selected{% endif %}>Income</option>
-                  <option value="expense" {% if bank_type_filter == 'expense' %}selected{% endif %}>Expense</option>
-                </select>
-              </div>
-              <div>
-                <label style="display: block; font-size: 0.71rem; font-weight: 800; color: #64748b; margin-bottom: 0.25rem; text-transform: uppercase;">Category</label>
-                <input type="text" name="bank_category" value="{{ bank_category_filter }}" placeholder="e.g. Commission" style="width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none; box-sizing: border-box;">
-              </div>
-              <div>
-                <label style="display: block; font-size: 0.71rem; font-weight: 800; color: #64748b; margin-bottom: 0.25rem; text-transform: uppercase;">Insurance Co.</label>
-                <select name="bank_company" style="width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none;">
-                  <option value="">All Companies</option>
-                  {% for comp in insurance_companies %}<option value="{{ comp.id }}" {% if bank_company_filter == comp.id|stringformat:"s" %}selected{% endif %}>{{ comp.name }}</option>{% endfor %}
-                </select>
-              </div>
-              <div>
-                <label style="display: block; font-size: 0.71rem; font-weight: 800; color: #64748b; margin-bottom: 0.25rem; text-transform: uppercase;">From Date</label>
-                <input type="date" name="bank_date_from" value="{{ bank_date_from }}" style="width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none; box-sizing: border-box;">
-              </div>
-              <div>
-                <label style="display: block; font-size: 0.71rem; font-weight: 800; color: #64748b; margin-bottom: 0.25rem; text-transform: uppercase;">To Date</label>
-                <input type="date" name="bank_date_to" value="{{ bank_date_to }}" style="width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none; box-sizing: border-box;">
-              </div>
-              <div>
-                <label style="display: block; font-size: 0.71rem; font-weight: 800; color: #64748b; margin-bottom: 0.25rem; text-transform: uppercase;">Min Amount ($)</label>
-                <input type="number" step="0.01" name="bank_min_amount" value="{{ bank_min_amount }}" placeholder="0.00" style="width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none; box-sizing: border-box;">
-              </div>
-              <div>
-                <label style="display: block; font-size: 0.71rem; font-weight: 800; color: #64748b; margin-bottom: 0.25rem; text-transform: uppercase;">Max Amount ($)</label>
-                <input type="number" step="0.01" name="bank_max_amount" value="{{ bank_max_amount }}" placeholder="9999.00" style="width: 100%; padding: 6px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 0.85rem; outline: none; box-sizing: border-box;">
-              </div>
-            </div>
-          </details>
-        </form>
-      </div>
-      <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; overflow-x: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
-        <table class="spaces-table">
-          <thead>
-            <tr><th>Date</th><th>Account</th><th>Type</th><th>Category</th><th>Description</th><th>Amount</th><th>Action</th></tr>
-          </thead>
-          <tbody>
-            {% for tx in bank_transactions %}
-            <tr>
-              <td style="font-size: 0.85rem; color: #64748b;">{{ tx.date }}</td>
-              <td style="font-weight: 700;">{{ tx.bank_account.account_name }}</td>
-              <td>{% if tx.transaction_type == 'income' %}<span class="chip-active">Income</span>{% else %}<span class="chip-inactive">Expense</span>{% endif %}</td>
-              <td style="font-size: 0.85rem;">{{ tx.category }}</td>
-              <td style="font-size: 0.85rem; color: #64748b;">{{ tx.description|default:"—"|truncatechars:40 }}</td>
-              <td style="font-weight: 800; color: {% if tx.transaction_type == 'income' %}#16a34a{% else %}#dc2626{% endif %};">{% if tx.transaction_type == 'income' %}+{% else %}−{% endif %}${{ tx.amount }}</td>
-              <td><a href="{% url 'delete-bank-transaction' tx.id %}" onclick="return confirm('Delete and revert this transaction?')" style="color: #dc2626; text-decoration: none; font-size: 0.82rem; font-weight: 700;">Delete</a></td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="7" style="text-align: center; padding: 3rem; color: #64748b; font-weight: 600;">No transactions recorded yet.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Banking Pagination -->
-      {% if bank_transactions_page.has_other_pages %}
-      <div class="ins-pager">
-        {% if bank_transactions_page.has_previous %}
-        <a href="?bank_page={{ bank_transactions_page.previous_page_number }}&{{ bank_transactions_query_string }}" class="ins-pager-btn">← Previous</a>
-        {% endif %}
-        <span class="ins-pager-meta">Page {{ bank_transactions_page.number }} of {{ bank_transactions_page.paginator.num_pages }}</span>
-        {% for i in bank_transactions_page.paginator.page_range %}
-          {% if bank_transactions_page.number == i %}
-            <span class="ins-pager-btn is-current">{{ i }}</span>
-          {% elif i > bank_transactions_page.number|add:"-3" and i < bank_transactions_page.number|add:"3" %}
-            <a href="?bank_page={{ i }}&{{ bank_transactions_query_string }}" class="ins-pager-btn">{{ i }}</a>
-          {% endif %}
-        {% endfor %}
-        {% if bank_transactions_page.has_next %}
-        <a href="?bank_page={{ bank_transactions_page.next_page_number }}&{{ bank_transactions_query_string }}" class="ins-pager-btn">Next →</a>
-        {% endif %}
-      </div>
-      {% endif %}
-
-    </div><!-- end tab-banking -->
+    {% include "core/partials/insurance_banking_tab.html" %}
     {% endif %}
 
     <!-- REPORTING TAB -->
@@ -1528,12 +1840,12 @@ html.portal-theme-dark .ins-license-crm-alert__row {
 
 <!-- LOG TRANSACTION MODAL -->
 <div class="modal-overlay" id="addTransactionModal" onclick="if(event.target===this)this.classList.remove('active')">
-  <div class="modal-box">
+  <div class="modal-box modal-box--wide">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-      <h3 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 1.2rem;">💳 Log Transaction</h3>
+      <h3 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 1.2rem;">Log transaction</h3>
       <button onclick="document.getElementById('addTransactionModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
     </div>
-    <form method="POST" action="{% url 'add-bank-transaction' %}">
+    <form method="POST" action="{% url 'add-bank-transaction' %}" enctype="multipart/form-data">
       {% csrf_token %}
       <input type="hidden" name="organization" value="{{ active_org.id }}">
       <div style="margin-bottom: 1rem;"><label class="field-label">Bank Account</label>
@@ -1555,8 +1867,83 @@ html.portal-theme-dark .ins-license-crm-alert__row {
         <select name="category" id="txCategory" required class="field-input"></select>
       </div>
       <div style="margin-bottom: 1rem;"><label class="field-label">Date</label><input type="date" name="date" class="field-input"></div>
-      <div style="margin-bottom: 1.5rem;"><label class="field-label">Description (optional)</label><input type="text" name="description" class="field-input" placeholder="Additional details..."></div>
+      <div style="margin-bottom: 1rem;"><label class="field-label">Description (optional)</label><input type="text" name="description" class="field-input" placeholder="Additional details..."></div>
+      <div class="ifx-upload">
+        <label class="field-label" style="margin:0;">Supporting document</label>
+        <input type="file" name="attachment" class="field-input" accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv">
+        <small style="color:#64748b;font-size:0.78rem;font-weight:600;">Optional receipt, invoice, or statement.</small>
+      </div>
       <button type="submit" class="btn-submit">Record Transaction</button>
+    </form>
+  </div>
+</div>
+
+<!-- VIEW TRANSACTION MODAL -->
+<div class="modal-overlay" id="viewTransactionModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box modal-box--wide">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <h3 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 1.2rem;">Transaction detail</h3>
+      <button onclick="document.getElementById('viewTransactionModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
+    </div>
+    <div class="ifx-view-grid">
+      <div class="ifx-view-item"><span>Date</span><strong id="viewTxDate">—</strong></div>
+      <div class="ifx-view-item"><span>Account</span><strong id="viewTxAccount">—</strong></div>
+      <div class="ifx-view-item"><span>Type</span><strong id="viewTxType">—</strong></div>
+      <div class="ifx-view-item"><span>Amount</span><strong id="viewTxAmount">—</strong></div>
+      <div class="ifx-view-item"><span>Category</span><strong id="viewTxCategory">—</strong></div>
+      <div class="ifx-view-item"><span>Company</span><strong id="viewTxCompany">—</strong></div>
+    </div>
+    <div class="ifx-view-item" style="margin-bottom:1rem;"><span>Description</span><strong id="viewTxDescription">—</strong></div>
+    <div class="ifx-file-box" id="viewTxFileBox">
+      <span class="field-label" style="margin:0 0 0.35rem;">Attached document</span>
+      <div id="viewTxFile">No file attached.</div>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT TRANSACTION MODAL -->
+<div class="modal-overlay" id="editTransactionModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box modal-box--wide">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <h3 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 1.2rem;">Edit transaction</h3>
+      <button onclick="document.getElementById('editTransactionModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
+    </div>
+    <form method="POST" id="editTransactionForm" action="" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div style="margin-bottom: 1rem;"><label class="field-label">Bank Account</label>
+        <select name="bank_account" id="editTxAccount" required class="field-input">
+          {% for acc in bank_accounts %}<option value="{{ acc.id }}">{{ acc.account_name }} (${{ acc.balance }})</option>{% endfor %}
+        </select>
+      </div>
+      <div class="grid-2" style="margin-bottom: 1rem;">
+        <div><label class="field-label">Type</label>
+          <select name="transaction_type" id="editTxType" required class="field-input" onchange="updateEditCategories()">
+            <option value="income">Income (+)</option>
+            <option value="expense">Expense (−)</option>
+          </select>
+        </div>
+        <div><label class="field-label">Amount ($)</label><input type="number" step="0.01" name="amount" id="editTxAmount" required class="field-input"></div>
+      </div>
+      <div style="margin-bottom: 1rem;"><label class="field-label">Category</label>
+        <select name="category" id="editTxCategory" required class="field-input"></select>
+      </div>
+      <div style="margin-bottom: 1rem;"><label class="field-label">Date</label><input type="date" name="date" id="editTxDate" class="field-input"></div>
+      <div style="margin-bottom: 1rem;"><label class="field-label">Insurance company</label>
+        <select name="insurance_company" id="editTxCompany" class="field-input">
+          <option value="">— None —</option>
+          {% for comp in insurance_companies %}<option value="{{ comp.id }}">{{ comp.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div style="margin-bottom: 1rem;"><label class="field-label">Description</label><input type="text" name="description" id="editTxDescription" class="field-input"></div>
+      <div class="ifx-upload">
+        <label class="field-label" style="margin:0;">Replace document</label>
+        <input type="file" name="attachment" class="field-input" accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv">
+        <div id="editTxCurrentFile" style="font-size:0.8rem;color:#64748b;font-weight:600;"></div>
+        <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;font-weight:700;color:#64748b;">
+          <input type="checkbox" name="clear_attachment" value="1" id="editTxClearFile"> Remove current file
+        </label>
+      </div>
+      <button type="submit" class="btn-submit">Save changes</button>
     </form>
   </div>
 </div>
@@ -1568,18 +1955,18 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       <h3 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 1.2rem;" id="companyDepositTitle">💰 Deposit/Pay Company</h3>
       <button onclick="document.getElementById('companyDepositModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
     </div>
-    <form method="POST" action="{% url 'add-bank-transaction' %}">
+    <form method="POST" action="{% url 'add-bank-transaction' %}" enctype="multipart/form-data">
       {% csrf_token %}
       <input type="hidden" name="organization" value="{{ active_org.id }}">
       <input type="hidden" name="insurance_company" id="depositCompanyId" value="">
-      
+
       <div style="margin-bottom: 1rem;"><label class="field-label">Bank Account</label>
         <select name="bank_account" required class="field-input">
           <option value="">-- Select Account --</option>
           {% for acc in bank_accounts %}<option value="{{ acc.id }}">{{ acc.account_name }} (${{ acc.balance }})</option>{% endfor %}
         </select>
       </div>
-      
+
       <div class="grid-2" style="margin-bottom: 1rem; display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
         <div><label class="field-label">Type</label>
           <select name="transaction_type" id="depositTxType" required class="field-input">
@@ -1589,13 +1976,17 @@ html.portal-theme-dark .ins-license-crm-alert__row {
         </div>
         <div><label class="field-label">Amount ($)</label><input type="number" step="0.01" name="amount" id="depositAmount" required class="field-input" placeholder="0.00"></div>
       </div>
-      
+
       <div style="margin-bottom: 1rem;"><label class="field-label">Category</label>
         <input type="text" name="category" id="depositCategory" required class="field-input" value="Commission Refund">
       </div>
-      
+
       <div style="margin-bottom: 1rem;"><label class="field-label">Date</label><input type="date" name="date" id="depositDate" class="field-input"></div>
-      <div style="margin-bottom: 1.5rem;"><label class="field-label">Description</label><input type="text" name="description" id="depositDescription" class="field-input" placeholder="Refund of unearned commission..."></div>
+      <div style="margin-bottom: 1rem;"><label class="field-label">Description</label><input type="text" name="description" id="depositDescription" class="field-input" placeholder="Refund of unearned commission..."></div>
+      <div class="ifx-upload">
+        <label class="field-label" style="margin:0;">Supporting document</label>
+        <input type="file" name="attachment" class="field-input" accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx,.csv">
+      </div>
       <button type="submit" class="btn-submit">Record Transaction</button>
     </form>
   </div>
@@ -1901,6 +2292,67 @@ function updateCategories() {
   });
 }
 updateCategories();
+
+function fillCategorySelect(selectEl, type, preferred) {
+  if (!selectEl) return;
+  selectEl.innerHTML = '';
+  (type === 'income' ? incomeCats : expenseCats).forEach(c => {
+    const o = document.createElement('option');
+    o.value = c;
+    o.textContent = c;
+    if (preferred && preferred === c) o.selected = true;
+    selectEl.appendChild(o);
+  });
+  if (preferred && ![...selectEl.options].some(o => o.value === preferred)) {
+    const o = document.createElement('option');
+    o.value = preferred;
+    o.textContent = preferred;
+    o.selected = true;
+    selectEl.appendChild(o);
+  }
+}
+
+function updateEditCategories() {
+  const type = document.getElementById('editTxType').value;
+  fillCategorySelect(document.getElementById('editTxCategory'), type);
+}
+
+function openViewTransactionModal(btn) {
+  document.getElementById('viewTxDate').textContent = btn.dataset.date || '—';
+  document.getElementById('viewTxAccount').textContent = btn.dataset.account || '—';
+  document.getElementById('viewTxType').textContent = (btn.dataset.type || '—').toUpperCase();
+  document.getElementById('viewTxAmount').textContent = (btn.dataset.type === 'income' ? '+' : '−') + '$' + (btn.dataset.amount || '0');
+  document.getElementById('viewTxCategory').textContent = btn.dataset.category || '—';
+  document.getElementById('viewTxCompany').textContent = btn.dataset.company || '—';
+  document.getElementById('viewTxDescription').textContent = btn.dataset.description || '—';
+  const fileBox = document.getElementById('viewTxFile');
+  if (btn.dataset.file) {
+    fileBox.innerHTML = '<a href="' + btn.dataset.file + '" target="_blank" rel="noopener">' + (btn.dataset.filename || 'Open document') + '</a>';
+  } else {
+    fileBox.textContent = 'No file attached.';
+  }
+  document.getElementById('viewTransactionModal').classList.add('active');
+}
+
+function openEditTransactionModal(btn) {
+  const form = document.getElementById('editTransactionForm');
+  form.action = '/dashboard/spaces/banking/transaction/' + btn.dataset.id + '/edit/';
+  document.getElementById('editTxAccount').value = btn.dataset.accountId || '';
+  document.getElementById('editTxType').value = btn.dataset.type || 'income';
+  document.getElementById('editTxAmount').value = btn.dataset.amount || '';
+  document.getElementById('editTxDate').value = btn.dataset.date || '';
+  document.getElementById('editTxDescription').value = btn.dataset.description || '';
+  document.getElementById('editTxCompany').value = btn.dataset.companyId || '';
+  fillCategorySelect(document.getElementById('editTxCategory'), btn.dataset.type || 'income', btn.dataset.category || '');
+  const current = document.getElementById('editTxCurrentFile');
+  if (btn.dataset.file) {
+    current.innerHTML = 'Current: <a href="' + btn.dataset.file + '" target="_blank" rel="noopener">' + (btn.dataset.filename || 'file') + '</a>';
+  } else {
+    current.textContent = 'No file attached yet.';
+  }
+  document.getElementById('editTxClearFile').checked = false;
+  document.getElementById('editTransactionModal').classList.add('active');
+}
 </script>
 
 <script>

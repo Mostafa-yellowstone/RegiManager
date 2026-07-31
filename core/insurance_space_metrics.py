@@ -237,3 +237,56 @@ def prefetch_insurance_companies(active_org):
     return InsuranceCompany.objects.filter(organization=active_org).prefetch_related(
         Prefetch("transactions", queryset=tx_qs)
     )
+
+
+def resolve_bank_period_bounds(period="month", date_from="", date_to="", *, today=None):
+    """
+    Inclusive New York / local calendar bounds for Banking cashflow hero.
+
+    period: today | week | month | year | all | custom
+    """
+    today = today or date.today()
+    period = (period or "month").strip().lower()
+
+    if period == "custom" and date_from and date_to:
+        try:
+            return (
+                datetime.strptime(date_from, "%Y-%m-%d").date(),
+                datetime.strptime(date_to, "%Y-%m-%d").date(),
+                "custom",
+            )
+        except ValueError:
+            period = "month"
+
+    if period == "today":
+        return today, today, "today"
+    if period == "week":
+        start = today - timedelta(days=today.weekday())
+        return start, today, "week"
+    if period == "year":
+        return date(today.year, 1, 1), today, "year"
+    if period == "all":
+        return None, None, "all"
+    # default month
+    return date(today.year, today.month, 1), today, "month"
+
+
+def bank_cashflow_metrics(transactions_qs, start=None, end=None):
+    """Income / expense / net for an optional inclusive date window."""
+    qs = transactions_qs
+    if start is not None:
+        qs = qs.filter(date__gte=start)
+    if end is not None:
+        qs = qs.filter(date__lte=end)
+    income = qs.filter(transaction_type=BankTransaction.TransactionType.INCOME).aggregate(
+        total=Sum("amount")
+    )["total"] or Decimal("0.00")
+    expense = qs.filter(transaction_type=BankTransaction.TransactionType.EXPENSE).aggregate(
+        total=Sum("amount")
+    )["total"] or Decimal("0.00")
+    return {
+        "income": income,
+        "expense": expense,
+        "net": income - expense,
+        "count": qs.count(),
+    }

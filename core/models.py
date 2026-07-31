@@ -2341,6 +2341,12 @@ class BankTransaction(models.Model):
     category = models.CharField(max_length=100)
     description = models.TextField(blank=True, default="")
     date = models.DateField(default=timezone.now)
+    attachment = models.FileField(
+        upload_to="bank_transactions/%Y/%m/",
+        blank=True,
+        null=True,
+        help_text="Optional receipt, invoice, or supporting document.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -2349,36 +2355,41 @@ class BankTransaction(models.Model):
     def __str__(self):
         return f"{self.transaction_type.upper()}: ${self.amount} ({self.category})"
 
+    @property
+    def attachment_name(self):
+        if not self.attachment:
+            return ""
+        return self.attachment.name.rsplit("/", 1)[-1]
+
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         old_amount = Decimal("0.00")
         old_type = ""
+        old_account_id = None
         if not is_new:
-            old_obj = BankTransaction.objects.get(pk=self.pk)
+            old_obj = BankTransaction.objects.select_related("bank_account").get(pk=self.pk)
             old_amount = old_obj.amount
             old_type = old_obj.transaction_type
+            old_account_id = old_obj.bank_account_id
+            # Revert previous balance effect on the original account.
+            old_account = old_obj.bank_account
+            if old_type == self.TransactionType.INCOME:
+                old_account.balance -= old_amount
+            else:
+                old_account.balance += old_amount
+            old_account.save(update_fields=["balance"])
 
         super().save(*args, **kwargs)
 
-        # Update balance
         account = self.bank_account
-        if is_new:
-            if self.transaction_type == self.TransactionType.INCOME:
-                account.balance += self.amount
-            else:
-                account.balance -= self.amount
+        if old_account_id and old_account_id == account.id:
+            # Reload after revert so we apply against the reverted balance.
+            account.refresh_from_db(fields=["balance"])
+        if self.transaction_type == self.TransactionType.INCOME:
+            account.balance += self.amount
         else:
-            # Revert old transaction effect
-            if old_type == self.TransactionType.INCOME:
-                account.balance -= old_amount
-            else:
-                account.balance += old_amount
-            # Apply new transaction effect
-            if self.transaction_type == self.TransactionType.INCOME:
-                account.balance += self.amount
-            else:
-                account.balance -= self.amount
-        account.save()
+            account.balance -= self.amount
+        account.save(update_fields=["balance"])
 
     def delete(self, *args, **kwargs):
         account = self.bank_account
@@ -2386,7 +2397,7 @@ class BankTransaction(models.Model):
             account.balance -= self.amount
         else:
             account.balance += self.amount
-        account.save()
+        account.save(update_fields=["balance"])
         super().delete(*args, **kwargs)
 
 
