@@ -68,6 +68,7 @@ class AgentTaskAssignForm(forms.ModelForm):
             self.fields["assigned_to"].widget = forms.HiddenInput()
         else:
             self.fields["assigned_to"].queryset = qs
+            self.fields["assigned_to"].empty_label = "Select insurance agent…"
             self.fields["assigned_to"].label_from_instance = (
                 lambda m: m.user.get_full_name().strip() or m.user.username
             )

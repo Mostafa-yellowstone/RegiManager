@@ -102,6 +102,84 @@
         });
     });
 
+    function resetAssignTaskModal() {
+        var form = document.getElementById("em-assign-task-form");
+        if (!form) return;
+        form.reset();
+        var cid = document.getElementById("assign_contact_id");
+        var clabel = document.getElementById("assign_contact_label");
+        var ctx = document.getElementById("em-assign-context");
+        if (cid) cid.value = "";
+        if (clabel) clabel.value = "";
+        if (ctx) {
+            ctx.textContent = "";
+            ctx.hidden = true;
+        }
+        var titleEl = document.getElementById("em-assign-task-modal-title");
+        if (titleEl) titleEl.textContent = "Assign task to agent";
+    }
+
+    function openAssignTaskModal(fromContactBtn) {
+        resetAssignTaskModal();
+        var titleInput = document.getElementById("assign_task_title");
+        var noteInput = document.getElementById("assign_task_note");
+        var cid = document.getElementById("assign_contact_id");
+        var clabel = document.getElementById("assign_contact_label");
+        var ctx = document.getElementById("em-assign-context");
+        var modalTitle = document.getElementById("em-assign-task-modal-title");
+
+        if (fromContactBtn) {
+            var d = fromContactBtn.dataset;
+            var name = d.name || "Contact";
+            if (cid) cid.value = d.id || "";
+            if (clabel) clabel.value = name;
+            if (titleInput) titleInput.value = "Follow up: " + name;
+            var noteParts = [];
+            if (d.email) noteParts.push("Email: " + d.email);
+            if (d.phone) noteParts.push("Phone: " + d.phone);
+            if (d.city || d.state) {
+                noteParts.push("Location: " + [d.city, d.state].filter(Boolean).join(", "));
+            }
+            if (noteInput) {
+                noteInput.value = noteParts.length
+                    ? "Please take action on this CRM lead.\n" + noteParts.join("\n")
+                    : "Please take action on this CRM lead.";
+            }
+            if (ctx) {
+                ctx.textContent = "Linked contact: " + name;
+                ctx.hidden = false;
+            }
+            if (modalTitle) modalTitle.textContent = "Assign task · " + name;
+        }
+        openModal("em-assign-task-modal");
+    }
+
+    var assignBtn = document.getElementById("em-assign-task-btn");
+    if (assignBtn) {
+        assignBtn.addEventListener("click", function () {
+            openAssignTaskModal(null);
+        });
+    }
+    qsa(".em-assign-contact").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            openAssignTaskModal(btn);
+        });
+    });
+    var assignForm = document.getElementById("em-assign-task-form");
+    if (assignForm) {
+        assignForm.addEventListener("submit", function () {
+            var btn = document.getElementById("em-assign-task-submit");
+            if (!btn || btn.disabled) return;
+            btn.disabled = true;
+            btn.textContent = "Assigning…";
+        });
+        var agentSelect = assignForm.querySelector('select[name="assigned_to"]');
+        if (agentSelect) {
+            agentSelect.classList.add("em-assign-select");
+            agentSelect.required = true;
+        }
+    }
+
     qsa(".em-token").forEach(function (btn) {
         btn.addEventListener("click", function () {
             var token = "{{" + btn.dataset.token + "}}";

@@ -808,6 +808,54 @@ body.em-modal-open {
 
 .em-crm-actions {
     margin-bottom: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    align-items: center;
+}
+
+.em-btn--accent {
+    background: linear-gradient(135deg, #4f46e5, #6366f1);
+    color: #fff;
+    border: 1px solid transparent;
+    box-shadow: 0 8px 18px rgba(79, 70, 229, 0.22);
+}
+.em-btn--accent:hover {
+    filter: brightness(1.05);
+}
+.em-assign-context {
+    margin: 0.35rem 0 0;
+    padding: 0.65rem 0.8rem;
+    border-radius: 10px;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    color: #3730a3;
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+.em-assign-select,
+#em-assign-task-form select,
+#em-assign-task-form input,
+#em-assign-task-form textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.65rem 0.8rem;
+    border-radius: 10px;
+    border: 1px solid var(--em-border, #e2e8f0);
+    font: inherit;
+    background: #fff;
+}
+html.portal-theme-dark .em-assign-context {
+    background: rgba(99, 102, 241, 0.16);
+    border-color: rgba(165, 180, 252, 0.3);
+    color: #c7d2fe;
+}
+html.portal-theme-dark #em-assign-task-form select,
+html.portal-theme-dark #em-assign-task-form input,
+html.portal-theme-dark #em-assign-task-form textarea {
+    background: rgba(15, 23, 42, 0.45);
+    border-color: rgba(165, 180, 252, 0.22);
+    color: #e2e8f0;
 }
 
 .em-import-card {

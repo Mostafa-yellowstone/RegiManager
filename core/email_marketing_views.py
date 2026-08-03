@@ -13,6 +13,9 @@ from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from .access import organizations_for_user
+from .agent_portal_forms import AgentTaskAssignForm
+from .agent_portal_models import AgentTask
+from .agent_portal_services import can_manage_agent_tasks
 from .email_marketing_import import parse_contact_import_file
 from .email_marketing_permissions import can_manage_email_marketing
 from .email_marketing_personalize import render_campaign_html
@@ -25,6 +28,7 @@ from .models import (
     EmailMarketingAsset,
     EmailMarketingContact,
     EmailMarketingList,
+    Notification,
     OrganizationMembership,
 )
 from .us_states import US_STATES
@@ -166,6 +170,12 @@ def email_marketing_workspace(request, list_id):
             sample_contact,
         )
 
+    membership = _membership(request.user, org)
+    can_assign_tasks = can_manage_agent_tasks(membership)
+    assign_task_form = None
+    if can_assign_tasks:
+        assign_task_form = AgentTaskAssignForm(organization=org)
+
     return render(
         request,
         "core/email_marketing/workspace.html",
@@ -187,8 +197,72 @@ def email_marketing_workspace(request, list_id):
             "filter_city": request.GET.get("city", ""),
             "filter_zip": request.GET.get("zip_code", ""),
             "filter_has_email": request.GET.get("has_email", ""),
+            "can_assign_agent_tasks": can_assign_tasks,
+            "assign_task_form": assign_task_form,
         },
     )
+
+
+@login_required
+@require_POST
+def email_marketing_assign_task(request, list_id):
+    """Assign an insurance-agent portal task from the Email Marketing CRM."""
+    org, _ = _resolve_org(request)
+    membership = _require_marketing_access(request, org)
+    marketing_list = get_object_or_404(EmailMarketingList, pk=list_id, organization=org)
+
+    if not can_manage_agent_tasks(membership):
+        deny_access("You do not have permission to assign agent tasks.")
+
+    form = AgentTaskAssignForm(request.POST, organization=org)
+    redirect_url = f"{reverse('email-marketing-workspace', args=[list_id])}?tab=crm"
+    if not form.is_valid():
+        messages.error(request, "Could not assign task. Pick an agent and add a title.")
+        return redirect(redirect_url)
+
+    agent = form.cleaned_data["assigned_to"]
+    if agent.organization_id != org.id:
+        deny_access("Invalid agent for this organization.")
+
+    task = form.save(commit=False)
+    task.organization = org
+    task.assigned_to = agent
+    task.created_by = request.user
+    task.save()
+
+    contact_id = (request.POST.get("contact_id") or "").strip()
+    contact_label = (request.POST.get("contact_label") or "").strip()
+    if contact_id and not contact_label:
+        contact = EmailMarketingContact.objects.filter(
+            pk=contact_id, marketing_list=marketing_list
+        ).first()
+        if contact:
+            contact_label = contact.name
+
+    note_bits = []
+    if contact_label:
+        note_bits.append(f"CRM contact: {contact_label}")
+    if marketing_list.name:
+        note_bits.append(f"List: {marketing_list.name}")
+    if note_bits:
+        context_line = f"— {' · '.join(note_bits)}"
+        if task.description:
+            task.description = f"{task.description.strip()}\n\n{context_line}"
+        else:
+            task.description = context_line
+        task.save(update_fields=["description", "updated_at"])
+
+    Notification.objects.create(
+        user=agent.user,
+        organization=org,
+        event_type="agent_task_assigned",
+        level=Notification.Level.INFO,
+        title="New task assigned",
+        message=task.title[:200],
+    )
+    agent_name = agent.user.get_full_name().strip() or agent.user.username
+    messages.success(request, f"Task assigned to {agent_name}. It will show in their agent portal.")
+    return redirect(redirect_url)
 
 
 @login_required
