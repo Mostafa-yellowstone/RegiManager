@@ -6,13 +6,14 @@ from datetime import datetime
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from .access import organizations_for_user
-from .agent_portal_forms import AgentProfilePhotoForm, AgentTaskAssignForm
+from .agent_portal_forms import AgentProfilePhotoForm, AgentTaskAssignForm, AgentTaskEditForm
 from .agent_portal_models import AgentTask
 from .agent_portal_services import (
     accessible_space_cards,
@@ -32,8 +33,39 @@ from .agent_portal_services import (
     uses_agent_portal_home,
 )
 from .http import deny_access
-from .models import OrganizationMembership
+from .models import Notification, OrganizationMembership
 from .policies import redirect_back
+
+
+def _notify_task_assigned(task: AgentTask):
+    if not task.assigned_to_id or not task.assigned_to.user_id:
+        return
+    Notification.objects.create(
+        user=task.assigned_to.user,
+        organization=task.organization,
+        event_type="agent_task_assigned",
+        level=Notification.Level.INFO,
+        title="New task assigned",
+        message=task.title[:200],
+    )
+
+
+def _task_progress_payload(progress: dict, task: AgentTask) -> dict:
+    return {
+        "ok": True,
+        "task_id": task.id,
+        "status": task.status,
+        "status_label": task.get_status_display(),
+        "is_done": task.is_done,
+        "completion_note": task.completion_note or "",
+        "percent": progress["percent"],
+        "done": progress["done"],
+        "open": progress["open"],
+        "todo": progress.get("todo", 0),
+        "in_progress": progress.get("in_progress", 0),
+        "waiting": progress.get("waiting", 0),
+        "total": progress["total"],
+    }
 
 
 def _resolve_portal_membership(request) -> OrganizationMembership | None:
@@ -151,7 +183,7 @@ def agent_portal_toggle_task(request, task_id):
     if membership is None:
         deny_access("Access denied.")
     task = get_object_or_404(
-        AgentTask,
+        AgentTask.objects.select_related("assigned_to__user"),
         id=task_id,
         organization=membership.organization,
     )
@@ -160,77 +192,272 @@ def agent_portal_toggle_task(request, task_id):
     if not (is_assignee or is_manager):
         deny_access("You cannot update this task.")
 
-    done = request.POST.get("done", "").lower() in {"1", "true", "on", "yes"}
-    if request.POST.get("toggle") == "1":
-        done = not task.is_done
-    task.mark_done(done=done)
+    status_raw = (request.POST.get("status") or "").strip().lower()
+    note = request.POST.get("completion_note")
+    if note is None:
+        note = request.POST.get("note")
+
+    require_note = is_assignee and not is_manager
+
+    try:
+        if status_raw:
+            if status_raw == AgentTask.Status.DONE and require_note:
+                if not (note or "").strip() and not (task.completion_note or "").strip():
+                    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                        return JsonResponse(
+                            {"ok": False, "error": "A completion note is required."},
+                            status=400,
+                        )
+                    messages.error(request, "Add a completion note before marking done.")
+                    return redirect_back(request, "agent-portal-tasks-board")
+            task.set_status(status_raw, note=note if note is not None else None)
+        elif request.POST.get("toggle") == "1":
+            target_done = not task.is_done
+            if target_done and require_note and not (note or task.completion_note or "").strip():
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return JsonResponse(
+                        {
+                            "ok": False,
+                            "error": "A completion note is required.",
+                            "requires_note": True,
+                            "task_id": task.id,
+                        },
+                        status=400,
+                    )
+                messages.error(request, "Add a completion note before marking done.")
+                return redirect_back(request, "agent-portal-tasks-board")
+            task.mark_done(
+                done=target_done,
+                note=note if note is not None else None,
+            )
+        else:
+            done = request.POST.get("done", "").lower() in {"1", "true", "on", "yes"}
+            if done and require_note and not (note or task.completion_note or "").strip():
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return JsonResponse(
+                        {
+                            "ok": False,
+                            "error": "A completion note is required.",
+                            "requires_note": True,
+                            "task_id": task.id,
+                        },
+                        status=400,
+                    )
+                messages.error(request, "Add a completion note before marking done.")
+                return redirect_back(request, "agent-portal-tasks-board")
+            task.mark_done(done=done, note=note if note is not None else None)
+    except ValueError as exc:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+        messages.error(request, str(exc))
+        return redirect_back(request, "agent-portal-tasks-board")
 
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         progress = task_progress_for_membership(task.assigned_to)
-        return JsonResponse(
-            {
-                "ok": True,
-                "task_id": task.id,
-                "is_done": task.is_done,
-                "percent": progress["percent"],
-                "done": progress["done"],
-                "open": progress["open"],
-                "total": progress["total"],
-            }
-        )
+        return JsonResponse(_task_progress_payload(progress, task))
     return redirect_back(request, "agent-portal-home")
 
 
 @login_required
 def agent_portal_manage_tasks(request):
-    """Deprecated entry — owners assign from each insurance agent's portal review."""
-    messages.info(
-        request,
-        "Assign tasks from an insurance agent’s Audit / portal review on the dashboard.",
+    """Org-wide staged Tasks CRM for owners and lead agents."""
+    membership = _resolve_portal_membership(request)
+    if membership is None or not can_manage_agent_tasks(membership):
+        deny_access("You do not have permission to manage agent tasks.")
+
+    organization = membership.organization
+    agents = (
+        OrganizationMembership.objects.filter(
+            organization=organization,
+            is_active=True,
+            can_deal_with_insurance=True,
+        )
+        .exclude(role=OrganizationMembership.Role.OWNER)
+        .select_related("user")
+        .order_by("user__first_name", "user__username")
     )
-    return redirect("dashboard")
+
+    selected_agent = (request.GET.get("agent") or "").strip()
+    selected_status = (request.GET.get("status") or "all").strip().lower()
+    search_query = (request.GET.get("q") or "").strip()
+    view_mode = (request.GET.get("view") or "board").strip().lower()
+    if view_mode not in {"board", "list"}:
+        view_mode = "board"
+    valid_statuses = {c.value for c in AgentTask.Status} | {"all", "open"}
+    if selected_status not in valid_statuses:
+        selected_status = "all"
+
+    tasks = (
+        AgentTask.objects.filter(organization=organization)
+        .select_related("assigned_to__user", "created_by")
+        .order_by("-created_at")
+    )
+    if selected_agent.isdigit():
+        tasks = tasks.filter(assigned_to_id=int(selected_agent))
+    if selected_status == "open":
+        tasks = tasks.exclude(status=AgentTask.Status.DONE)
+    elif selected_status in {c.value for c in AgentTask.Status}:
+        tasks = tasks.filter(status=selected_status)
+    if search_query:
+        tasks = tasks.filter(
+            Q(title__icontains=search_query)
+            | Q(description__icontains=search_query)
+            | Q(completion_note__icontains=search_query)
+            | Q(assigned_to__user__first_name__icontains=search_query)
+            | Q(assigned_to__user__last_name__icontains=search_query)
+            | Q(assigned_to__user__username__icontains=search_query)
+        )
+
+    task_list = list(tasks[:300])
+    by_status = {key: [] for key in AgentTask.STATUS_PIPELINE}
+    for task in task_list:
+        key = task.status if task.status in by_status else AgentTask.Status.TODO
+        by_status[key].append(task)
+
+    stages = [
+        {
+            "key": key,
+            "label": label,
+            "count": len(by_status[key]),
+            "tasks": by_status[key],
+        }
+        for key, label in AgentTask.Status.choices
+    ]
+
+    totals = AgentTask.objects.filter(organization=organization).aggregate(
+        total=Count("id"),
+        done=Count("id", filter=Q(status=AgentTask.Status.DONE)),
+        open=Count("id", filter=~Q(status=AgentTask.Status.DONE)),
+    )
+
+    assign_form = AgentTaskAssignForm(organization=organization)
+
+    return render(
+        request,
+        "core/agent_portal/manage_tasks.html",
+        {
+            "membership": membership,
+            "organization": organization,
+            "agents": agents,
+            "assign_form": assign_form,
+            "stages": stages,
+            "tasks": task_list,
+            "selected_agent": selected_agent,
+            "selected_status": selected_status,
+            "search_query": search_query,
+            "view_mode": view_mode,
+            "status_choices": AgentTask.Status.choices,
+            "crm_totals": {
+                "total": totals["total"] or 0,
+                "done": totals["done"] or 0,
+                "open": totals["open"] or 0,
+            },
+            "can_manage_tasks": True,
+            "is_agent_tasks_crm": True,
+        },
+    )
 
 
 @login_required
 @require_POST
 def agent_portal_create_task(request):
-    """Owners assign a task to a specific insurance agent (from portal review)."""
+    """Owners/leads assign a task to an insurance agent."""
     membership = _resolve_portal_membership(request)
     if membership is None or not can_manage_agent_tasks(membership):
         deny_access("You do not have permission to assign agent tasks.")
 
     agent_id = request.POST.get("assigned_membership_id") or request.POST.get("assigned_to")
-    agent = get_object_or_404(
-        OrganizationMembership,
-        id=agent_id,
-        organization=membership.organization,
-        can_deal_with_insurance=True,
-        is_active=True,
-    )
-    if membership.role != OrganizationMembership.Role.OWNER and not membership.can_assign_agent_tasks:
-        deny_access("You do not have permission to assign agent tasks.")
+    fixed_assignee = None
+    if agent_id:
+        fixed_assignee = get_object_or_404(
+            OrganizationMembership,
+            id=agent_id,
+            organization=membership.organization,
+            can_deal_with_insurance=True,
+            is_active=True,
+        )
 
     form = AgentTaskAssignForm(
         request.POST,
         organization=membership.organization,
-        fixed_assignee=agent,
+        fixed_assignee=fixed_assignee,
     )
-    fallback = reverse("agent-portal-owner-review", args=[agent.id])
+    fallback = (
+        reverse("agent-portal-owner-review", args=[fixed_assignee.id])
+        if fixed_assignee
+        else reverse("agent-portal-manage-tasks")
+    )
     if form.is_valid():
         task = form.save(commit=False)
         task.organization = membership.organization
-        task.assigned_to = agent
         task.created_by = request.user
+        task.status = AgentTask.Status.TODO
+        task.is_done = False
         task.save()
+        _notify_task_assigned(task)
         messages.success(request, "Task assigned.")
     else:
-        messages.error(request, "Could not create task. Check the title.")
+        messages.error(request, "Could not create task. Check the title and agent.")
     return redirect_back(request, fallback)
 
 
 @login_required
+@require_POST
+def agent_portal_update_task(request, task_id):
+    """Owner/lead edit, reassign, or move stage for a task."""
+    membership = _resolve_portal_membership(request)
+    if membership is None or not can_manage_agent_tasks(membership):
+        deny_access("You do not have permission to manage agent tasks.")
+
+    task = get_object_or_404(
+        AgentTask.objects.select_related("assigned_to__user"),
+        id=task_id,
+        organization=membership.organization,
+    )
+    previous_assignee_id = task.assigned_to_id
+    form = AgentTaskEditForm(
+        request.POST,
+        instance=task,
+        organization=membership.organization,
+    )
+    if form.is_valid():
+        updated = form.save(commit=False)
+        status_raw = (request.POST.get("status") or updated.status or "").strip().lower()
+        note = request.POST.get("completion_note")
+        try:
+            updated.set_status(status_raw, note=note if note is not None else None, save=False)
+        except ValueError:
+            messages.error(request, "Invalid task status.")
+            return redirect_back(request, "agent-portal-manage-tasks")
+        updated.save()
+        if updated.assigned_to_id != previous_assignee_id:
+            _notify_task_assigned(updated)
+        messages.success(request, "Task updated.")
+    else:
+        messages.error(request, "Could not update task.")
+    return redirect_back(request, "agent-portal-manage-tasks")
+
+
+@login_required
+@require_POST
+def agent_portal_delete_task(request, task_id):
+    membership = _resolve_portal_membership(request)
+    if membership is None or not can_manage_agent_tasks(membership):
+        deny_access("You do not have permission to manage agent tasks.")
+
+    task = get_object_or_404(
+        AgentTask,
+        id=task_id,
+        organization=membership.organization,
+    )
+    task.delete()
+    messages.success(request, "Task deleted.")
+    return redirect_back(request, "agent-portal-manage-tasks")
+
+
+@login_required
 def agent_portal_tasks_board(request):
-    """ClickUp-style personal tasks board for insurance agents."""
+    """Staged personal tasks board for insurance agents."""
     if request.user.is_superuser:
         return redirect("/admin/")
 
@@ -246,7 +473,8 @@ def agent_portal_tasks_board(request):
     if view_mode not in {"board", "list"}:
         view_mode = "board"
     status_filter = (request.GET.get("status") or "all").lower()
-    if status_filter not in {"all", "open", "done"}:
+    valid = {"all", "open", "todo", "in_progress", "waiting", "done"}
+    if status_filter not in valid:
         status_filter = "all"
 
     return render(
@@ -259,6 +487,7 @@ def agent_portal_tasks_board(request):
             "cairo_now": local_now,
             "view_mode": view_mode,
             "status_filter": status_filter,
+            "status_choices": AgentTask.Status.choices,
             "can_manage_tasks": False,
             "is_agent_tasks_board": True,
         },

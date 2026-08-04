@@ -55,7 +55,20 @@ class AgentAttendanceSession(models.Model):
 
 
 class AgentTask(models.Model):
-    """Persistent checklist item assigned to an agent until marked done."""
+    """Staged work item assigned to an insurance agent until completed."""
+
+    class Status(models.TextChoices):
+        TODO = "todo", "To do"
+        IN_PROGRESS = "in_progress", "In progress"
+        WAITING = "waiting", "Waiting"
+        DONE = "done", "Done"
+
+    STATUS_PIPELINE = (
+        Status.TODO,
+        Status.IN_PROGRESS,
+        Status.WAITING,
+        Status.DONE,
+    )
 
     organization = models.ForeignKey(
         "Organization",
@@ -76,7 +89,14 @@ class AgentTask(models.Model):
     )
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True, default="")
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.TODO,
+        db_index=True,
+    )
     is_done = models.BooleanField(default=False, db_index=True)
+    completion_note = models.TextField(blank=True, default="")
     completed_at = models.DateTimeField(null=True, blank=True)
     due_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -90,10 +110,50 @@ class AgentTask(models.Model):
     def __str__(self):
         return self.title
 
-    def mark_done(self, *, done: bool = True):
-        self.is_done = done
-        self.completed_at = timezone.now() if done else None
-        self.save(update_fields=["is_done", "completed_at", "updated_at"])
+    @property
+    def status_label(self) -> str:
+        return self.get_status_display()
+
+    def set_status(self, status: str, *, note: str | None = None, save: bool = True):
+        """
+        Move the task through the stage pipeline and keep is_done/completed_at in sync.
+        Passing note=None leaves completion_note unchanged; note="" clears it.
+        """
+        status = (status or "").strip().lower()
+        valid = {choice.value for choice in self.Status}
+        if status not in valid:
+            raise ValueError(f"Invalid task status: {status}")
+
+        self.status = status
+        if status == self.Status.DONE:
+            self.is_done = True
+            if self.completed_at is None:
+                self.completed_at = timezone.now()
+            if note is not None:
+                self.completion_note = (note or "").strip()
+        else:
+            self.is_done = False
+            self.completed_at = None
+            if note is not None and note.strip():
+                self.completion_note = note.strip()
+
+        if save:
+            self.save(
+                update_fields=[
+                    "status",
+                    "is_done",
+                    "completed_at",
+                    "completion_note",
+                    "updated_at",
+                ]
+            )
+        return self
+
+    def mark_done(self, *, done: bool = True, note: str | None = None):
+        """Backward-compatible open/done toggle."""
+        if done:
+            return self.set_status(self.Status.DONE, note=note)
+        return self.set_status(self.Status.TODO, note=None)
 
 
 class AgentActivityEvent(models.Model):

@@ -263,8 +263,15 @@
   grid-template-columns: 1fr 1fr;
   gap: 0.9rem;
 }
+.ior-cols--stages {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 1100px) {
+  .ior-cols--stages { grid-template-columns: 1fr 1fr; }
+}
 @media (max-width: 720px) {
-  .ior-cols { grid-template-columns: 1fr; }
+  .ior-cols,
+  .ior-cols--stages { grid-template-columns: 1fr; }
 }
 .ior-col {
   background: var(--portal-surface-muted, #f8fafc);
@@ -467,63 +474,42 @@ html.portal-theme-dark .ior-page .agent-timeline__domain {
             <strong>{{ portal_workboard.progress.percent }}%</strong>
           </div>
           <div class="ior-progress__copy">
-            <strong>Workday checklist</strong>
-            <p>{{ portal_workboard.progress.open }} open · {{ portal_workboard.progress.done }} done</p>
+            <strong>Staged workboard</strong>
+            <p>{{ portal_workboard.progress.todo }} to do · {{ portal_workboard.progress.in_progress }} in progress · {{ portal_workboard.progress.waiting }} waiting · {{ portal_workboard.progress.done }} done</p>
           </div>
         </div>
 
-        <div class="ior-cols">
+        <div class="ior-cols ior-cols--stages">
+          {% for stage in portal_workboard.progress.stages %}
           <div class="ior-col">
-            <h3 class="ior-col__title">In progress <span>{{ portal_workboard.progress.open }}</span></h3>
+            <h3 class="ior-col__title">{{ stage.label }} <span>{{ stage.count }}</span></h3>
             <ul class="agent-task-list">
-              {% for task in portal_workboard.progress.open_tasks %}
-              <li class="agent-task" data-task-id="{{ task.id }}">
-                <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}" class="agent-task-form owner-task-toggle">
+              {% for task in stage.tasks %}
+              <li class="agent-task {% if task.is_done %}is-done{% endif %}" data-task-id="{{ task.id }}">
+                <div class="agent-check__label" style="padding:0.55rem 0.35rem;">
+                  <strong>{{ task.title }}</strong>
+                  {% if task.description %}<small>{{ task.description }}</small>{% endif %}
+                  {% if task.completion_note %}<small style="color:#047857;font-weight:700;">Note: {{ task.completion_note }}</small>{% endif %}
+                  {% if task.due_date %}<em>Due {{ task.due_date|date:"M j" }}</em>{% endif %}
+                  {% if task.completed_at %}<em>Done {{ task.completed_at|timezone:"America/New_York"|date:"M j · g:i A" }}</em>{% endif %}
+                </div>
+                <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}" style="display:flex;flex-wrap:wrap;gap:0.3rem;padding:0 0.35rem 0.55rem;">
                   {% csrf_token %}
-                  <input type="hidden" name="toggle" value="1">
                   <input type="hidden" name="next" value="{% url 'agent-portal-owner-review' agent_membership.id %}">
-                  <label class="agent-check">
-                    <input type="checkbox" class="agent-check__input" aria-label="Mark {{ task.title }} done">
-                    <span class="agent-check__box" aria-hidden="true"></span>
-                    <span class="agent-check__label">
-                      <strong>{{ task.title }}</strong>
-                      {% if task.description %}<small>{{ task.description }}</small>{% endif %}
-                      {% if task.due_date %}<em>Due {{ task.due_date|date:"M j" }}</em>{% endif %}
-                    </span>
-                  </label>
+                  {% if task.status != 'todo' %}<button type="submit" class="btn btn-secondary btn-sm" name="status" value="todo">To do</button>{% endif %}
+                  {% if task.status != 'in_progress' %}<button type="submit" class="btn btn-secondary btn-sm" name="status" value="in_progress">In progress</button>{% endif %}
+                  {% if task.status != 'waiting' %}<button type="submit" class="btn btn-secondary btn-sm" name="status" value="waiting">Waiting</button>{% endif %}
+                  {% if task.status != 'done' %}<button type="submit" class="btn btn-primary btn-sm" name="status" value="done">Done</button>{% endif %}
                 </form>
               </li>
               {% empty %}
-              <li class="agent-empty">No open tasks.</li>
+              <li class="agent-empty">No tasks.</li>
               {% endfor %}
             </ul>
           </div>
-
-          <div class="ior-col">
-            <h3 class="ior-col__title">Completed <span>{{ portal_workboard.progress.done }}</span></h3>
-            <ul class="agent-task-list">
-              {% for task in portal_workboard.progress.done_tasks %}
-              <li class="agent-task is-done" data-task-id="{{ task.id }}">
-                <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}" class="agent-task-form owner-task-toggle">
-                  {% csrf_token %}
-                  <input type="hidden" name="toggle" value="1">
-                  <input type="hidden" name="next" value="{% url 'agent-portal-owner-review' agent_membership.id %}">
-                  <label class="agent-check">
-                    <input type="checkbox" checked class="agent-check__input" aria-label="Reopen {{ task.title }}">
-                    <span class="agent-check__box" aria-hidden="true"></span>
-                    <span class="agent-check__label">
-                      <strong>{{ task.title }}</strong>
-                      {% if task.completed_at %}<small>Done {{ task.completed_at|timezone:"America/New_York"|date:"M j · g:i A" }}</small>{% endif %}
-                    </span>
-                  </label>
-                </form>
-              </li>
-              {% empty %}
-              <li class="agent-empty">No completed tasks yet.</li>
-              {% endfor %}
-            </ul>
-          </div>
+          {% endfor %}
         </div>
+        <p style="margin:0.85rem 0 0;"><a class="btn btn-secondary btn-sm" href="{% url 'agent-portal-manage-tasks' %}?agent={{ agent_membership.id }}">Open Tasks CRM</a></p>
       </section>
 
       <section class="ior-panel ior-add" id="add-task">

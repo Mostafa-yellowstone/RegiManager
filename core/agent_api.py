@@ -62,11 +62,45 @@ def _serialize_task(task: AgentTask) -> dict:
         "id": task.id,
         "title": task.title,
         "description": task.description or "",
+        "status": task.status,
+        "status_label": task.get_status_display(),
         "is_done": task.is_done,
+        "completion_note": task.completion_note or "",
         "due_date": task.due_date.isoformat() if task.due_date else None,
         "completed_at": _portal_iso(task.completed_at),
         "created_at": _portal_iso(task.created_at),
         "created_by": _serialize_user_brief(task.created_by),
+        "assigned_to_id": task.assigned_to_id,
+    }
+
+
+def _serialize_task_progress(progress: dict) -> dict:
+    tasks = progress.get("tasks") or []
+    return {
+        "total": progress.get("total", 0),
+        "done": progress.get("done", 0),
+        "open": progress.get("open", 0),
+        "todo": progress.get("todo", 0),
+        "in_progress": progress.get("in_progress", 0),
+        "waiting": progress.get("waiting", 0),
+        "percent": progress.get("percent", 0),
+        "tasks": [_serialize_task(t) for t in tasks],
+        "open_tasks": [_serialize_task(t) for t in progress.get("open_tasks", [])],
+        "done_tasks": [_serialize_task(t) for t in progress.get("done_tasks", [])],
+        "todo_tasks": [_serialize_task(t) for t in progress.get("todo_tasks", [])],
+        "in_progress_tasks": [
+            _serialize_task(t) for t in progress.get("in_progress_tasks", [])
+        ],
+        "waiting_tasks": [_serialize_task(t) for t in progress.get("waiting_tasks", [])],
+        "stages": [
+            {
+                "key": stage["key"],
+                "label": stage["label"],
+                "count": stage["count"],
+                "tasks": [_serialize_task(t) for t in stage.get("tasks", [])],
+            }
+            for stage in progress.get("stages", [])
+        ],
     }
 
 
@@ -95,19 +129,6 @@ def _serialize_attendance(session: AgentAttendanceSession | None, *, work_date=N
         "is_open": session.is_open,
         "shift_open_at": _portal_iso(open_at),
         "shift_close_at": _portal_iso(close_at),
-    }
-
-
-def _serialize_task_progress(progress: dict) -> dict:
-    tasks = progress.get("tasks") or []
-    return {
-        "total": progress.get("total", 0),
-        "done": progress.get("done", 0),
-        "open": progress.get("open", 0),
-        "percent": progress.get("percent", 0),
-        "tasks": [_serialize_task(t) for t in tasks],
-        "open_tasks": [_serialize_task(t) for t in progress.get("open_tasks", [])],
-        "done_tasks": [_serialize_task(t) for t in progress.get("done_tasks", [])],
     }
 
 
@@ -392,11 +413,41 @@ class AgentToggleTaskView(AgentAPIBase):
         ).first()
         if not task:
             raise NotFound("Task not found.")
-        done = request.data.get("is_done")
-        if done is None:
-            task.mark_done(not task.is_done)
+
+        status_raw = (request.data.get("status") or "").strip().lower()
+        note = request.data.get("completion_note")
+        if note is None:
+            note = request.data.get("note")
+
+        if status_raw:
+            if status_raw == AgentTask.Status.DONE and not (note or "").strip():
+                if not (task.completion_note or "").strip():
+                    return Response(
+                        {"detail": "completion_note is required when marking done."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            try:
+                task.set_status(
+                    status_raw,
+                    note=(note if note is not None else None),
+                )
+            except ValueError as exc:
+                return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            task.mark_done(bool(done))
+            done = request.data.get("is_done")
+            if done is None:
+                done = request.data.get("done")
+            if done is None:
+                target_done = not task.is_done
+            else:
+                target_done = bool(done)
+            if target_done and not (note or task.completion_note or "").strip():
+                return Response(
+                    {"detail": "completion_note is required when marking done."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            task.mark_done(done=target_done, note=note if note is not None else None)
+
         progress = task_progress_for_membership(membership)
         return Response(
             {
@@ -406,6 +457,9 @@ class AgentToggleTaskView(AgentAPIBase):
                     "total": progress["total"],
                     "done": progress["done"],
                     "open": progress["open"],
+                    "todo": progress.get("todo", 0),
+                    "in_progress": progress.get("in_progress", 0),
+                    "waiting": progress.get("waiting", 0),
                     "percent": progress["percent"],
                 },
             }

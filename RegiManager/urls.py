@@ -23,11 +23,13 @@ from django.urls import path, include
 from core.agent_portal_views import (
     agent_attendance_tracker,
     agent_portal_create_task,
+    agent_portal_delete_task,
     agent_portal_home,
     agent_portal_manage_tasks,
     agent_portal_owner_review,
     agent_portal_tasks_board,
     agent_portal_toggle_task,
+    agent_portal_update_task,
     agent_portal_upload_photo,
 )
 from core.insurance_policy_views import (
@@ -349,6 +351,8 @@ urlpatterns = [
     path("dashboard/agent-portal/tasks/", agent_portal_tasks_board, name="agent-portal-tasks-board"),
     path("dashboard/agent-portal/tasks/toggle/<int:task_id>/", agent_portal_toggle_task, name="agent-portal-toggle-task"),
     path("dashboard/agent-portal/tasks/create/", agent_portal_create_task, name="agent-portal-create-task"),
+    path("dashboard/agent-portal/tasks/<int:task_id>/update/", agent_portal_update_task, name="agent-portal-update-task"),
+    path("dashboard/agent-portal/tasks/<int:task_id>/delete/", agent_portal_delete_task, name="agent-portal-delete-task"),
     path("dashboard/agent-portal/tasks/manage/", agent_portal_manage_tasks, name="agent-portal-manage-tasks"),
     path(
         "dashboard/agent-portal/agent/<int:membership_id>/",

@@ -95,27 +95,22 @@
                     </svg>
                     <strong id="taskProgressPct">{{ task_progress.percent }}%</strong>
                 </div>
-                <p>Persistent checklist — stays until you mark it done.</p>
+                <p>Staged checklist — open the board to move stages and leave a completion note.</p>
             </div>
             <ul class="agent-task-list" id="agentTaskList">
-                {% for task in task_progress.tasks %}
-                <li class="agent-task {% if task.is_done %}is-done{% endif %}" data-task-id="{{ task.id }}">
-                    <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}" class="agent-task-form">
-                        {% csrf_token %}
-                        <input type="hidden" name="toggle" value="1">
-                        <label class="agent-check">
-                            <input type="checkbox" {% if task.is_done %}checked{% endif %} class="agent-check__input" aria-label="Mark {{ task.title }} done">
-                            <span class="agent-check__box" aria-hidden="true"></span>
-                            <span class="agent-check__label">
-                                <strong>{{ task.title }}</strong>
-                                {% if task.description %}<small>{{ task.description }}</small>{% endif %}
-                                {% if task.due_date %}<em>Due {{ task.due_date|date:"M j" }}</em>{% endif %}
-                            </span>
-                        </label>
-                    </form>
+                {% for task in task_progress.open_tasks %}
+                <li class="agent-task" data-task-id="{{ task.id }}">
+                    <a href="{% url 'agent-portal-tasks-board' %}" class="agent-check" style="text-decoration:none;color:inherit;">
+                        <span class="agent-check__box" aria-hidden="true" style="border-radius:999px;font-size:0.55rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center;width:auto;min-width:4.5rem;padding:0.2rem 0.45rem;">{{ task.get_status_display }}</span>
+                        <span class="agent-check__label">
+                            <strong>{{ task.title }}</strong>
+                            {% if task.description %}<small>{{ task.description }}</small>{% endif %}
+                            {% if task.due_date %}<em>Due {{ task.due_date|date:"M j" }}</em>{% endif %}
+                        </span>
+                    </a>
                 </li>
                 {% empty %}
-                <li class="agent-empty">No open tasks assigned yet.</li>
+                <li class="agent-empty">No open tasks — nice work. <a href="{% url 'agent-portal-tasks-board' %}">View board</a></li>
                 {% endfor %}
             </ul>
         </section>

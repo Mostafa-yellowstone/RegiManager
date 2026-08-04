@@ -3,8 +3,11 @@
 .atb {
   --atb-accent: #7b68ee;
   --atb-accent-soft: rgba(123, 104, 238, 0.14);
-  --atb-open: #f59e0b;
+  --atb-todo: #64748b;
+  --atb-progress: #3b82f6;
+  --atb-waiting: #f59e0b;
   --atb-done: #10b981;
+  --atb-open: #f59e0b;
   --atb-surface: color-mix(in srgb, var(--ap-card, #fff) 92%, #eef2ff);
   position: relative;
   overflow: hidden;
@@ -158,7 +161,15 @@
 }
 
 @media (min-width: 860px) {
-  .atb-board { grid-template-columns: 1fr 1fr; }
+  .atb-board:not(.atb-board--stages) { grid-template-columns: 1fr 1fr; }
+}
+
+@media (min-width: 720px) {
+  .atb-board--stages { grid-template-columns: 1fr 1fr; }
+}
+
+@media (min-width: 1180px) {
+  .atb-board--stages { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 .atb-column {
@@ -195,6 +206,18 @@
 }
 
 .atb-dot--open { background: var(--atb-open); }
+.atb-dot--todo {
+  background: var(--atb-todo);
+  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.18);
+}
+.atb-dot--in_progress {
+  background: var(--atb-progress);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+.atb-dot--waiting {
+  background: var(--atb-waiting);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+}
 .atb-dot--done {
   background: var(--atb-done);
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
@@ -379,4 +402,231 @@
   .atb-list-panel {
     animation: none !important;
   }
+}
+
+.atb-column--todo { border-top: 3px solid var(--atb-todo); }
+.atb-column--in_progress { border-top: 3px solid var(--atb-progress); }
+.atb-column--waiting { border-top: 3px solid var(--atb-waiting); }
+.atb-column--done { border-top: 3px solid var(--atb-done); }
+
+.atb-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.85rem 0.9rem;
+}
+
+.atb-card__title {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--ap-ink);
+  line-height: 1.3;
+}
+
+.atb-card__desc,
+.atb-card__note {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--ap-muted);
+  line-height: 1.4;
+}
+
+.atb-card__note {
+  padding: 0.45rem 0.55rem;
+  border-radius: 10px;
+  background: rgba(16, 185, 129, 0.1);
+  color: #047857;
+  font-weight: 600;
+}
+
+.atb-card__note span {
+  display: block;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.15rem;
+  opacity: 0.8;
+}
+
+.atb-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.atb-stage-btn {
+  appearance: none;
+  border: 1px solid var(--ap-line);
+  background: var(--ap-card);
+  color: var(--ap-muted);
+  border-radius: 999px;
+  padding: 0.28rem 0.65rem;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 750;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.atb-stage-btn:hover {
+  color: var(--ap-ink);
+  border-color: color-mix(in srgb, var(--atb-accent) 40%, var(--ap-line));
+  background: var(--atb-accent-soft);
+}
+
+.atb-stage-btn--done {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #047857;
+}
+
+.atb-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.1rem;
+}
+
+.atb-list-row__main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.atb-list-row__main strong { font-size: 0.95rem; }
+.atb-list-row__main small { color: var(--ap-muted); font-weight: 600; }
+.atb-list-note { color: #047857 !important; }
+
+.atb-status-chip.is-todo { background: rgba(100, 116, 139, 0.14); color: #475569; }
+.atb-status-chip.is-in_progress { background: rgba(59, 130, 246, 0.14); color: #1d4ed8; }
+.atb-status-chip.is-waiting { background: rgba(245, 158, 11, 0.14); color: #b45309; }
+
+.atb-modal {
+  border: none;
+  padding: 0;
+  background: transparent;
+  max-width: calc(100vw - 2rem);
+}
+
+.atb-modal::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+}
+
+.atb-modal__card {
+  width: min(420px, 100%);
+  margin: auto;
+  padding: 1.25rem 1.35rem;
+  border-radius: 18px;
+  border: 1px solid var(--ap-line);
+  background: var(--ap-card, #fff);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+}
+
+.atb-modal__card h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+}
+
+.atb-modal__lead {
+  margin: 0 0 0.75rem;
+  color: var(--ap-muted);
+  font-size: 0.88rem;
+}
+
+.atb-modal__task {
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: var(--atb-accent-soft);
+  font-weight: 750;
+}
+
+.atb-modal__label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ap-muted);
+}
+
+.atb-modal__card textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 12px;
+  border: 1px solid var(--ap-line);
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+  resize: vertical;
+  min-height: 96px;
+}
+
+.atb-modal__error {
+  margin: 0.55rem 0 0;
+  color: #b91c1c;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.atb-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+/* Owner Tasks CRM */
+.atc-crm .atb-hero__lead { max-width: 42rem; }
+.atc-assign {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1.2rem;
+  padding: 1rem 1.1rem;
+  border-radius: 18px;
+  border: 1px solid var(--ap-line);
+  background: var(--ap-card);
+}
+.atc-assign__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.65rem;
+  align-items: end;
+}
+.atc-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+  align-items: end;
+}
+.atc-filters .form-control,
+.atc-assign .form-control {
+  width: 100%;
+}
+.atc-card-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 750;
+  color: var(--atb-accent);
+}
+.atc-edit-details {
+  margin-top: 0.35rem;
+}
+.atc-edit-details summary {
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 750;
+  color: var(--ap-muted);
+}
+.atc-edit-panel {
+  margin-top: 0.55rem;
+  display: grid;
+  gap: 0.45rem;
 }

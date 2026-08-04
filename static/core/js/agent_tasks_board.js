@@ -2,70 +2,134 @@
   var root = document.querySelector(".atb");
   if (!root) return;
 
-  function updateBoardCounts(data) {
-    var openEl = document.querySelector("[data-count-open]");
-    var doneEl = document.querySelector("[data-count-done]");
+  function getCookie(name) {
+    var match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+    return match ? decodeURIComponent(match[2]) : "";
+  }
+
+  function toggleUrl(taskId) {
+    var template = root.getAttribute("data-toggle-url-template") || "";
+    return template.replace(/0\/?$/, taskId + "/").replace("/0/", "/" + taskId + "/");
+  }
+
+  function updateCounts(data) {
+    ["todo", "in_progress", "waiting", "done"].forEach(function (key) {
+      var el = document.querySelector("[data-count-" + key + "]");
+      if (el && typeof data[key] !== "undefined") el.textContent = data[key];
+    });
     var counts = document.getElementById("atbProgressCounts");
-    var openCount =
-      typeof data.open !== "undefined"
-        ? data.open
-        : Math.max((data.total || 0) - (data.done || 0), 0);
-    if (openEl) openEl.textContent = openCount;
-    if (doneEl && typeof data.done !== "undefined") doneEl.textContent = data.done;
     if (counts && typeof data.done !== "undefined") {
       counts.textContent = data.done + "/" + data.total + " done";
     }
-    var metaSmall = document.querySelector(".atb-progress__meta small");
-    if (metaSmall) metaSmall.textContent = openCount + " open";
+    var openMeta = document.getElementById("atbProgressOpen");
+    if (openMeta) {
+      openMeta.textContent =
+        (data.open || 0) + " open · " + (data.in_progress || 0) + " in progress";
+    }
+    var pct = document.getElementById("taskProgressPct");
+    if (pct && typeof data.percent !== "undefined") pct.textContent = data.percent + "%";
+    var ring = document.getElementById("atbProgressFg");
+    if (ring && typeof data.percent !== "undefined") {
+      ring.setAttribute("stroke-dasharray", data.percent + ", 100");
+    }
   }
 
-  function moveCard(item, isDone) {
-    if (!item || !item.classList.contains("atb-card")) return;
-    var openList = document.getElementById("atbOpenCards");
-    var doneList = document.getElementById("atbDoneCards");
-    if (!openList || !doneList) return;
+  function postStatus(taskId, status, note) {
+    var body = new FormData();
+    body.append("csrfmiddlewaretoken", getCookie("csrftoken"));
+    body.append("status", status);
+    if (typeof note === "string") body.append("completion_note", note);
 
-    item.classList.add("is-flying");
-    window.setTimeout(function () {
-      item.classList.remove("is-flying");
-      item.classList.toggle("is-done", !!isDone);
-      var checkbox = item.querySelector(".agent-check__input");
-      if (checkbox) checkbox.checked = !!isDone;
-
-      var emptyOpen = openList.querySelector(".atb-empty");
-      var emptyDone = doneList.querySelector(".atb-empty");
-      if (isDone) {
-        if (emptyDone) emptyDone.remove();
-        doneList.prepend(item);
-        if (!openList.querySelector(".atb-card")) {
-          openList.innerHTML = '<li class="atb-empty">All clear — no open tasks.</li>';
-        }
-      } else {
-        if (emptyOpen) emptyOpen.remove();
-        openList.prepend(item);
-        if (!doneList.querySelector(".atb-card")) {
-          doneList.innerHTML = '<li class="atb-empty">Nothing completed yet.</li>';
-        }
-      }
-    }, 280);
+    return fetch(toggleUrl(taskId), {
+      method: "POST",
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+      body: body,
+      credentials: "same-origin",
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        return { ok: r.ok && data && data.ok, status: r.status, data: data || {} };
+      });
+    });
   }
 
-  document.querySelectorAll(".atb .agent-task-form").forEach(function (form) {
-    form.addEventListener("atb:toggled", function (event) {
-      var data = event.detail || {};
-      var item = form.closest(".agent-task");
-      updateBoardCounts(data);
-      if (item && item.classList.contains("atb-card")) {
-        moveCard(item, !!data.is_done);
-      } else if (item && item.classList.contains("atb-list-row")) {
-        item.classList.toggle("is-done", !!data.is_done);
-        var chip = item.querySelector(".atb-status-chip");
-        if (chip) {
-          chip.classList.toggle("is-done", !!data.is_done);
-          chip.classList.toggle("is-open", !data.is_done);
-          chip.textContent = data.is_done ? "Done" : "Open";
+  var modal = document.getElementById("atbCompleteModal");
+  var noteInput = document.getElementById("atbCompleteNote");
+  var titleEl = document.getElementById("atbCompleteTaskTitle");
+  var errorEl = document.getElementById("atbCompleteError");
+  var cancelBtn = document.getElementById("atbCompleteCancel");
+  var completeForm = document.getElementById("atbCompleteForm");
+  var pendingTaskId = null;
+
+  function openCompleteModal(taskId, title) {
+    pendingTaskId = taskId;
+    if (titleEl) titleEl.textContent = title || "Task #" + taskId;
+    if (noteInput) noteInput.value = "";
+    if (errorEl) {
+      errorEl.hidden = true;
+      errorEl.textContent = "";
+    }
+    if (modal && typeof modal.showModal === "function") modal.showModal();
+    if (noteInput) noteInput.focus();
+  }
+
+  function closeCompleteModal() {
+    pendingTaskId = null;
+    if (modal && typeof modal.close === "function") modal.close();
+  }
+
+  if (cancelBtn) cancelBtn.addEventListener("click", closeCompleteModal);
+  if (completeForm) {
+    completeForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      if (!pendingTaskId) return;
+      var note = noteInput ? noteInput.value.trim() : "";
+      if (!note) {
+        if (errorEl) {
+          errorEl.hidden = false;
+          errorEl.textContent = "Please leave a completion note.";
         }
+        return;
       }
+      postStatus(pendingTaskId, "done", note).then(function (result) {
+        if (!result.ok) {
+          if (errorEl) {
+            errorEl.hidden = false;
+            errorEl.textContent =
+              (result.data && result.data.error) || "Could not complete task.";
+          }
+          return;
+        }
+        closeCompleteModal();
+        window.location.reload();
+      });
+    });
+  }
+
+  root.addEventListener("click", function (event) {
+    var completeBtn = event.target.closest("[data-complete-task]");
+    if (completeBtn) {
+      event.preventDefault();
+      openCompleteModal(
+        completeBtn.getAttribute("data-task-id"),
+        completeBtn.getAttribute("data-task-title")
+      );
+      return;
+    }
+    var stageBtn = event.target.closest("[data-set-status]");
+    if (!stageBtn) return;
+    event.preventDefault();
+    var taskId = stageBtn.getAttribute("data-task-id");
+    var status = stageBtn.getAttribute("data-set-status");
+    if (!taskId || !status) return;
+    stageBtn.disabled = true;
+    postStatus(taskId, status).then(function (result) {
+      stageBtn.disabled = false;
+      if (!result.ok) {
+        window.alert((result.data && result.data.error) || "Could not update task.");
+        return;
+      }
+      updateCounts(result.data);
+      window.location.reload();
     });
   });
 })();

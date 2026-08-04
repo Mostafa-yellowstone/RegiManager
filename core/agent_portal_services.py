@@ -159,20 +159,72 @@ def task_progress_for_membership(membership: OrganizationMembership) -> dict:
     )
     totals = qs.aggregate(
         total=Count("id"),
-        done=Count("id", filter=Q(is_done=True)),
+        done=Count("id", filter=Q(status=AgentTask.Status.DONE) | Q(is_done=True)),
+        todo=Count("id", filter=Q(status=AgentTask.Status.TODO, is_done=False)),
+        in_progress=Count(
+            "id", filter=Q(status=AgentTask.Status.IN_PROGRESS, is_done=False)
+        ),
+        waiting=Count("id", filter=Q(status=AgentTask.Status.WAITING, is_done=False)),
     )
     total = totals["total"] or 0
     done = totals["done"] or 0
+    todo = totals["todo"] or 0
+    in_progress = totals["in_progress"] or 0
+    waiting = totals["waiting"] or 0
+    open_count = max(total - done, 0)
     pct = int(round((done / total) * 100)) if total else 0
-    tasks = list(qs.order_by("is_done", "-created_at")[:200])
+
+    pipeline_order = {key: idx for idx, key in enumerate(AgentTask.STATUS_PIPELINE)}
+    tasks = list(qs.order_by("-created_at")[:200])
+    tasks.sort(key=lambda t: (pipeline_order.get(t.status, 99), -t.created_at.timestamp()))
+
+    by_status = {key: [] for key in AgentTask.STATUS_PIPELINE}
+    for task in tasks:
+        key = task.status if task.status in by_status else (
+            AgentTask.Status.DONE if task.is_done else AgentTask.Status.TODO
+        )
+        by_status[key].append(task)
+
     return {
         "total": total,
         "done": done,
-        "open": max(total - done, 0),
+        "open": open_count,
+        "todo": todo,
+        "in_progress": in_progress,
+        "waiting": waiting,
         "percent": pct,
         "tasks": tasks,
         "open_tasks": [t for t in tasks if not t.is_done],
         "done_tasks": [t for t in tasks if t.is_done],
+        "todo_tasks": by_status[AgentTask.Status.TODO],
+        "in_progress_tasks": by_status[AgentTask.Status.IN_PROGRESS],
+        "waiting_tasks": by_status[AgentTask.Status.WAITING],
+        "stages": [
+            {
+                "key": AgentTask.Status.TODO,
+                "label": "To do",
+                "count": todo,
+                "tasks": by_status[AgentTask.Status.TODO],
+            },
+            {
+                "key": AgentTask.Status.IN_PROGRESS,
+                "label": "In progress",
+                "count": in_progress,
+                "tasks": by_status[AgentTask.Status.IN_PROGRESS],
+            },
+            {
+                "key": AgentTask.Status.WAITING,
+                "label": "Waiting",
+                "count": waiting,
+                "tasks": by_status[AgentTask.Status.WAITING],
+            },
+            {
+                "key": AgentTask.Status.DONE,
+                "label": "Done",
+                "count": done,
+                "tasks": by_status[AgentTask.Status.DONE],
+            },
+        ],
     }
 
 

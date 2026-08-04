@@ -1,64 +1,182 @@
 {% extends "base_portal.html" %}
-{% load static %}
+{% load static tz %}
 
-{% block title %}Assign Agent Tasks | RegiManager{% endblock %}
+{% block title %}Tasks CRM | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=3">
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=10">
+<link rel="stylesheet" href="{% static 'core/css/agent_tasks_board.css' %}?v=2">
 {% endblock %}
 
 {% block portal_content %}
-<main class="agent-portal agent-portal--manage">
-    <header class="agent-manage-head">
-        <div>
-            <p class="agent-portal__eyebrow">Lead tools · {{ organization.name }}</p>
-            <h1>Assign agent tasks</h1>
-            <p class="agent-portal__meta">Tasks stay open until the agent (or you) marks them done.</p>
+<main class="agent-portal atb atc-crm">
+    <header class="atb-hero">
+        <div class="atb-hero__copy">
+            <a class="atb-back" href="{% url 'dashboard' %}">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                Dashboard
+            </a>
+            <p class="agent-portal__eyebrow">Owner tools · {{ organization.name }}</p>
+            <h1>Tasks CRM</h1>
+            <p class="atb-hero__lead">Assign work to insurance agents, track stages across the team, and review completion notes.</p>
         </div>
-        <a class="btn btn-secondary" href="{% url 'agent-portal-home' %}">Back to portal</a>
+        <div class="atb-hero__stats">
+            <div class="atb-progress">
+                <div class="atb-progress__meta">
+                    <span>{{ crm_totals.done }}/{{ crm_totals.total }} done</span>
+                    <small>{{ crm_totals.open }} still open</small>
+                </div>
+            </div>
+        </div>
     </header>
 
-    <section class="agent-card">
-        <h2>New task</h2>
-        <form method="post" class="agent-assign-inline">
+    <section class="atc-assign">
+        <h2 style="margin:0;font-size:1rem;">Assign new task</h2>
+        <form method="post" action="{% url 'agent-portal-create-task' %}">
             {% csrf_token %}
-            <div class="agent-assign-row">
-                {{ form.assigned_to }}
-                {{ form.title }}
+            <input type="hidden" name="next" value="{% url 'agent-portal-manage-tasks' %}">
+            <div class="atc-assign__row">
+                <div>{{ assign_form.assigned_to }}</div>
+                <div>{{ assign_form.title }}</div>
+                <div>{{ assign_form.due_date }}</div>
             </div>
-            {{ form.description }}
-            <div class="agent-assign-row">
-                {{ form.due_date }}
+            {{ assign_form.description }}
+            <div style="margin-top:0.65rem;">
                 <button type="submit" class="btn btn-primary">Assign task</button>
             </div>
         </form>
     </section>
 
-    <section class="agent-card">
-        <header class="agent-card__head">
-            <h2>Team checklist</h2>
-        </header>
-        <ul class="agent-task-list agent-task-list--manage">
-            {% for task in tasks %}
-            <li class="agent-task {% if task.is_done %}is-done{% endif %}">
-                <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="toggle" value="1">
-                    <input type="hidden" name="next" value="{% url 'agent-portal-manage-tasks' %}">
-                    <label class="agent-check">
-                        <input type="checkbox" {% if task.is_done %}checked{% endif %} onchange="this.form.submit()">
-                        <span class="agent-check__box" aria-hidden="true"></span>
-                        <span class="agent-check__label">
-                            <strong>{{ task.title }}</strong>
-                            <small>{{ task.assigned_to.user.get_full_name|default:task.assigned_to.user.username }}{% if task.description %} · {{ task.description }}{% endif %}</small>
-                        </span>
-                    </label>
-                </form>
+    <form method="get" class="atc-filters">
+        <div>
+            <label class="atb-modal__label" for="crm-q">Search</label>
+            <input class="form-control" id="crm-q" type="search" name="q" value="{{ search_query }}" placeholder="Title, note, agent…">
+        </div>
+        <div>
+            <label class="atb-modal__label" for="crm-agent">Agent</label>
+            <select class="form-control" id="crm-agent" name="agent">
+                <option value="">All agents</option>
+                {% for agent in agents %}
+                <option value="{{ agent.id }}" {% if selected_agent == agent.id|stringformat:"s" %}selected{% endif %}>{{ agent.user.get_full_name|default:agent.user.username }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="atb-modal__label" for="crm-status">Stage</label>
+            <select class="form-control" id="crm-status" name="status">
+                <option value="all" {% if selected_status == 'all' %}selected{% endif %}>All stages</option>
+                <option value="open" {% if selected_status == 'open' %}selected{% endif %}>Open only</option>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <input type="hidden" name="view" value="{{ view_mode }}">
+        <button type="submit" class="btn btn-secondary">Filter</button>
+        <a class="btn btn-secondary" href="{% url 'agent-portal-manage-tasks' %}">Clear</a>
+    </form>
+
+    <div class="atb-toolbar">
+        <div class="atb-view-toggle" role="group" aria-label="View mode">
+            <a class="atb-view-btn {% if view_mode == 'board' %}is-active{% endif %}" href="?view=board&status={{ selected_status|urlencode }}&agent={{ selected_agent|urlencode }}&q={{ search_query|urlencode }}">Board</a>
+            <a class="atb-view-btn {% if view_mode == 'list' %}is-active{% endif %}" href="?view=list&status={{ selected_status|urlencode }}&agent={{ selected_agent|urlencode }}&q={{ search_query|urlencode }}">By agent</a>
+        </div>
+    </div>
+
+    {% if view_mode == 'board' %}
+    <div class="atb-board atb-board--stages">
+        {% for stage in stages %}
+        <section class="atb-column atb-column--{{ stage.key }}">
+            <header class="atb-column__head">
+                <span class="atb-dot atb-dot--{{ stage.key }}"></span>
+                <h2>{{ stage.label }}</h2>
+                <span class="atb-count">{{ stage.count }}</span>
+            </header>
+            <ul class="atb-cards">
+                {% for task in stage.tasks %}
+                <li class="atb-card {% if task.is_done %}is-done{% endif %}">
+                    <div class="atb-card__body">
+                        <span class="atc-card-agent">{{ task.assigned_to.user.get_full_name|default:task.assigned_to.user.username }}</span>
+                        <strong class="atb-card__title">{{ task.title }}</strong>
+                        {% if task.description %}<p class="atb-card__desc">{{ task.description|truncatechars:120 }}</p>{% endif %}
+                        {% if task.completion_note %}
+                        <p class="atb-card__note"><span>Completion note</span>{{ task.completion_note|truncatechars:160 }}</p>
+                        {% endif %}
+                        <div class="atb-card__meta">
+                            {% if task.due_date %}<em class="atb-due">Due {{ task.due_date|date:"M j" }}</em>{% endif %}
+                            {% if task.completed_at %}<em>Done {{ task.completed_at|timezone:"America/New_York"|date:"M j · g:i A" }}</em>{% endif %}
+                        </div>
+                    </div>
+                    <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}" class="atb-card__actions">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{% url 'agent-portal-manage-tasks' %}?view=board&status={{ selected_status|urlencode }}&agent={{ selected_agent|urlencode }}&q={{ search_query|urlencode }}">
+                        {% for value, label in status_choices %}
+                            {% if task.status != value %}
+                            <button type="submit" class="atb-stage-btn {% if value == 'done' %}atb-stage-btn--done{% endif %}" name="status" value="{{ value }}">{{ label }}</button>
+                            {% endif %}
+                        {% endfor %}
+                    </form>
+                    <details class="atc-edit-details">
+                        <summary>Edit / reassign / delete</summary>
+                        <form method="post" action="{% url 'agent-portal-update-task' task.id %}" class="atc-edit-panel">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{% url 'agent-portal-manage-tasks' %}?view={{ view_mode }}&status={{ selected_status|urlencode }}&agent={{ selected_agent|urlencode }}&q={{ search_query|urlencode }}">
+                            <select class="form-control" name="assigned_to" required>
+                                {% for agent in agents %}
+                                <option value="{{ agent.id }}" {% if task.assigned_to_id == agent.id %}selected{% endif %}>{{ agent.user.get_full_name|default:agent.user.username }}</option>
+                                {% endfor %}
+                            </select>
+                            <input class="form-control" type="text" name="title" value="{{ task.title }}" maxlength="200" required>
+                            <textarea class="form-control" name="description" rows="2">{{ task.description }}</textarea>
+                            <input class="form-control" type="date" name="due_date" value="{% if task.due_date %}{{ task.due_date|date:'Y-m-d' }}{% endif %}">
+                            <select class="form-control" name="status">
+                                {% for value, label in status_choices %}
+                                <option value="{{ value }}" {% if task.status == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <textarea class="form-control" name="completion_note" rows="2" placeholder="Completion note">{{ task.completion_note }}</textarea>
+                            <button type="submit" class="btn btn-primary btn-sm">Save changes</button>
+                        </form>
+                        <form method="post" action="{% url 'agent-portal-delete-task' task.id %}" onsubmit="return confirm('Delete this task?');" style="margin-top:0.45rem;">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{% url 'agent-portal-manage-tasks' %}">
+                            <button type="submit" class="btn btn-secondary btn-sm">Delete task</button>
+                        </form>
+                    </details>
+                </li>
+                {% empty %}
+                <li class="atb-empty">No tasks in this stage.</li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endfor %}
+    </div>
+    {% else %}
+    <section class="atb-list-panel">
+        <ul class="atb-list">
+            {% regroup tasks by assigned_to as agent_groups %}
+            {% for group in agent_groups %}
+            <li class="atb-list-row" style="background:var(--atb-accent-soft);font-weight:800;">
+                {{ group.grouper.user.get_full_name|default:group.grouper.user.username }}
+                <a class="btn btn-secondary btn-sm" href="{% url 'agent-portal-owner-review' group.grouper.id %}">Agent board</a>
             </li>
+            {% for task in group.list %}
+            <li class="atb-list-row {% if task.is_done %}is-done{% endif %}">
+                <div class="atb-list-row__main">
+                    <strong>{{ task.title }}</strong>
+                    {% if task.description %}<small>{{ task.description|truncatechars:120 }}</small>{% endif %}
+                    {% if task.completion_note %}<small class="atb-list-note">{{ task.completion_note|truncatechars:140 }}</small>{% endif %}
+                </div>
+                <div class="atb-list-row__side">
+                    <span class="atb-status-chip is-{{ task.status }}">{{ task.get_status_display }}</span>
+                </div>
+            </li>
+            {% endfor %}
             {% empty %}
-            <li class="agent-empty">No tasks yet.</li>
+            <li class="atb-empty">No tasks match these filters.</li>
             {% endfor %}
         </ul>
     </section>
+    {% endif %}
 </main>
 {% endblock %}

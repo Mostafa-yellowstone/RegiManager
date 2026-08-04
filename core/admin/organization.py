@@ -262,22 +262,24 @@ class AgentTaskAdmin(admin.ModelAdmin):
         "title",
         "organization",
         "assigned_to_label",
+        "status",
         "is_done",
         "due_date",
         "created_by",
         "created_at",
         "completed_at",
     )
-    list_filter = ("organization", "is_done", "due_date", "created_at")
+    list_filter = ("organization", "status", "is_done", "due_date", "created_at")
     search_fields = (
         "title",
         "description",
+        "completion_note",
         "assigned_to__user__username",
         "assigned_to__user__first_name",
         "assigned_to__user__last_name",
         "created_by__username",
     )
-    list_editable = ("is_done",)
+    list_editable = ("status", "is_done")
     # Keep FK pickers simple so tasks can be created even when autocomplete
     # search wiring for User/Membership is incomplete on some deploys.
     raw_id_fields = ("assigned_to", "created_by")
@@ -302,7 +304,15 @@ class AgentTaskAdmin(admin.ModelAdmin):
         (
             "Status",
             {
-                "fields": ("is_done", "completed_at", "created_by", "created_at", "updated_at"),
+                "fields": (
+                    "status",
+                    "is_done",
+                    "completion_note",
+                    "completed_at",
+                    "created_by",
+                    "created_at",
+                    "updated_at",
+                ),
             },
         ),
     )
@@ -317,10 +327,16 @@ class AgentTaskAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         from django.utils import timezone
 
-        if obj.is_done and not obj.completed_at:
-            obj.completed_at = timezone.now()
-        if not obj.is_done:
+        if obj.status == AgentTask.Status.DONE or obj.is_done:
+            obj.status = AgentTask.Status.DONE
+            obj.is_done = True
+            if not obj.completed_at:
+                obj.completed_at = timezone.now()
+        else:
+            obj.is_done = False
             obj.completed_at = None
+            if not obj.status:
+                obj.status = AgentTask.Status.TODO
         if not change and obj.created_by_id is None:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
@@ -329,7 +345,8 @@ class AgentTaskAdmin(admin.ModelAdmin):
     def mark_tasks_done(self, request, queryset):
         from django.utils import timezone
 
-        updated = queryset.filter(is_done=False).update(
+        updated = queryset.exclude(status=AgentTask.Status.DONE).update(
+            status=AgentTask.Status.DONE,
             is_done=True,
             completed_at=timezone.now(),
         )
@@ -337,7 +354,11 @@ class AgentTaskAdmin(admin.ModelAdmin):
 
     @admin.action(description="Reopen selected tasks")
     def mark_tasks_open(self, request, queryset):
-        updated = queryset.filter(is_done=True).update(is_done=False, completed_at=None)
+        updated = queryset.filter(is_done=True).update(
+            status=AgentTask.Status.TODO,
+            is_done=False,
+            completed_at=None,
+        )
         self.message_user(request, f"Reopened {updated} task(s).")
 
 

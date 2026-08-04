@@ -82,3 +82,50 @@ class AgentTaskAssignForm(forms.ModelForm):
         if assignee and not assignee.can_deal_with_insurance:
             raise forms.ValidationError("Tasks can only be assigned to insurance agents.")
         return assignee
+
+
+class AgentTaskEditForm(forms.ModelForm):
+    class Meta:
+        model = AgentTask
+        fields = ("assigned_to", "title", "description", "due_date", "completion_note")
+        widgets = {
+            "assigned_to": forms.Select(attrs={"class": "form-control"}),
+            "title": forms.TextInput(attrs={"class": "form-control", "placeholder": "Task title", "maxlength": 200}),
+            "description": forms.Textarea(
+                attrs={"class": "form-control", "rows": 3, "placeholder": "Instructions / details"}
+            ),
+            "due_date": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "completion_note": forms.Textarea(
+                attrs={"class": "form-control", "rows": 2, "placeholder": "Agent completion note"}
+            ),
+        }
+
+    def __init__(self, *args, organization=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.organization = organization
+        qs = OrganizationMembership.objects.none()
+        if organization is not None:
+            qs = (
+                OrganizationMembership.objects.filter(
+                    organization=organization,
+                    is_active=True,
+                    user__is_active=True,
+                    can_deal_with_insurance=True,
+                )
+                .exclude(role=OrganizationMembership.Role.OWNER)
+                .select_related("user")
+                .order_by("user__first_name", "user__username")
+            )
+        self.fields["assigned_to"].queryset = qs
+        self.fields["assigned_to"].label_from_instance = (
+            lambda m: m.user.get_full_name().strip() or m.user.username
+        )
+        self.fields["due_date"].required = False
+        self.fields["description"].required = False
+        self.fields["completion_note"].required = False
+
+    def clean_assigned_to(self):
+        assignee = self.cleaned_data.get("assigned_to")
+        if assignee and not assignee.can_deal_with_insurance:
+            raise forms.ValidationError("Tasks can only be assigned to insurance agents.")
+        return assignee
