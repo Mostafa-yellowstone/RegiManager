@@ -1881,11 +1881,34 @@ class PortalIntakeListTests(TestCase):
         self.http.login(username="intakeowner", password="password123")
         response = self.http.get(
             reverse("portal-intake-list"),
-            {"date_from": "2026-06-01", "date_to": "2026-06-30"},
+            {
+                "profit_period": "custom",
+                "profit_date_from": "2026-06-01",
+                "profit_date_to": "2026-06-30",
+            },
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Net Profit by Acquisition Source")
+        self.assertContains(response, "Filtered by service transaction date")
         self.assertContains(response, "$80.00")
+
+        outside_range = self.http.get(
+            reverse("portal-intake-list"),
+            {
+                "profit_period": "custom",
+                "profit_date_from": "2026-07-01",
+                "profit_date_to": "2026-07-31",
+            },
+        )
+        self.assertEqual(outside_range.status_code, 200)
+        self.assertNotContains(outside_range, "$80.00")
+
+        all_time = self.http.get(
+            reverse("portal-intake-list"),
+            {"profit_period": "all"},
+        )
+        self.assertEqual(all_time.status_code, 200)
+        self.assertContains(all_time, "$80.00")
 
     def test_agent_does_not_see_intake_source_profit_cards(self):
         self.http.login(username="intakeagent", password="password123")

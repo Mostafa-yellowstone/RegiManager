@@ -5278,6 +5278,9 @@ def portal_intake_list(request):
     selected_org = request.GET.get("organization", "").strip()
     date_from = request.GET.get("date_from", "").strip()
     date_to = request.GET.get("date_to", "").strip()
+    profit_period_raw = request.GET.get("profit_period", "month").strip() or "month"
+    profit_date_from = request.GET.get("profit_date_from", "").strip()
+    profit_date_to = request.GET.get("profit_date_to", "").strip()
 
     if query:
         intakes = intakes.filter(
@@ -5353,8 +5356,28 @@ def portal_intake_list(request):
 
     intake_source_profit_cards = []
     intake_profit_grand_total = Decimal("0.00")
+    profit_period = "month"
+    profit_period_start = None
+    profit_period_end = None
     if show_intake_profit:
         from .intake_profit_metrics import build_intake_source_profit_cards
+
+        profit_period_start, profit_period_end, profit_period = resolve_bank_period_bounds(
+            profit_period_raw,
+            profit_date_from,
+            profit_date_to,
+            today=timezone.localdate(),
+        )
+        if profit_period == "custom":
+            profit_date_from = (
+                profit_period_start.isoformat() if profit_period_start else profit_date_from
+            )
+            profit_date_to = (
+                profit_period_end.isoformat() if profit_period_end else profit_date_to
+            )
+        else:
+            profit_date_from = ""
+            profit_date_to = ""
 
         profit_org_ids = intake_org_ids
         if selected_org and selected_org.isdigit():
@@ -5371,10 +5394,14 @@ def portal_intake_list(request):
             "vehicle__client__referral",
         )
 
-        if date_from:
-            profit_records = profit_records.filter(transaction_date__gte=date_from)
-        if date_to:
-            profit_records = profit_records.filter(transaction_date__lte=date_to)
+        if profit_period_start is not None:
+            profit_records = profit_records.filter(
+                transaction_date__gte=profit_period_start
+            )
+        if profit_period_end is not None:
+            profit_records = profit_records.filter(
+                transaction_date__lte=profit_period_end
+            )
 
         profit_db_sources = set(
             Client.objects.filter(organization_id__in=profit_org_ids).values_list(
@@ -5396,6 +5423,39 @@ def portal_intake_list(request):
             profit_source_choices,
             selected_source=selected_source,
         )
+
+    def _intake_list_query(**overrides):
+        from urllib.parse import urlencode
+
+        params = {
+            "q": query,
+            "status": selected_status,
+            "source": selected_source,
+            "referral": selected_referral,
+            "processed_by": selected_processor,
+            "organization": selected_org,
+            "date_from": date_from,
+            "date_to": date_to,
+            "profit_period": profit_period if show_intake_profit else "",
+            "profit_date_from": profit_date_from if show_intake_profit else "",
+            "profit_date_to": profit_date_to if show_intake_profit else "",
+        }
+        params.update(overrides)
+        return urlencode(
+            [(key, value) for key, value in params.items() if value not in (None, "")]
+        )
+
+    profit_period_urls = {}
+    if show_intake_profit:
+        for key in ("today", "week", "month", "year", "all"):
+            qs = _intake_list_query(
+                profit_period=key,
+                profit_date_from="",
+                profit_date_to="",
+            )
+            profit_period_urls[key] = f"?{qs}" if qs else "?"
+
+    intake_query_string = _intake_list_query()
 
     paginator = Paginator(intakes, 20)
     page_obj = paginator.get_page(request.GET.get("page"))
@@ -5425,6 +5485,13 @@ def portal_intake_list(request):
             "show_intake_profit": show_intake_profit,
             "intake_source_profit_cards": intake_source_profit_cards,
             "intake_profit_grand_total": intake_profit_grand_total,
+            "profit_period": profit_period,
+            "profit_period_start": profit_period_start,
+            "profit_period_end": profit_period_end,
+            "profit_date_from": profit_date_from,
+            "profit_date_to": profit_date_to,
+            "profit_period_urls": profit_period_urls,
+            "intake_query_string": intake_query_string,
         },
     )
 

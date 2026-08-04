@@ -38,11 +38,11 @@
                 <div>
                     <h3>Net Profit by Acquisition Source</h3>
                     <p class="portal-intake-profit-subtitle">
-                        Based on service transaction date
-                        {% if date_from or date_to %}
-                            {% if date_from and date_to %}from {{ date_from }} to {{ date_to }}{% elif date_from %}from {{ date_from }}{% else %}through {{ date_to }}{% endif %}
-                        {% else %}
-                            (all dates)
+                        Filtered by service transaction date
+                        {% if profit_period == "all" %}
+                            · all time
+                        {% elif profit_period_start and profit_period_end %}
+                            · {{ profit_period_start|date:"M j, Y" }} – {{ profit_period_end|date:"M j, Y" }}
                         {% endif %}
                     </p>
                 </div>
@@ -51,6 +51,37 @@
                     <strong class="portal-intake-profit-total__value">${{ intake_profit_grand_total|floatformat:2 }}</strong>
                 </div>
             </div>
+
+            <form method="get" class="portal-intake-profit-period" id="intake-profit-period-form">
+                {% if search_query %}<input type="hidden" name="q" value="{{ search_query }}">{% endif %}
+                {% if selected_status %}<input type="hidden" name="status" value="{{ selected_status }}">{% endif %}
+                {% if selected_source %}<input type="hidden" name="source" value="{{ selected_source }}">{% endif %}
+                {% if selected_referral %}<input type="hidden" name="referral" value="{{ selected_referral }}">{% endif %}
+                {% if selected_processor %}<input type="hidden" name="processed_by" value="{{ selected_processor }}">{% endif %}
+                {% if selected_org %}<input type="hidden" name="organization" value="{{ selected_org }}">{% endif %}
+                {% if date_from %}<input type="hidden" name="date_from" value="{{ date_from }}">{% endif %}
+                {% if date_to %}<input type="hidden" name="date_to" value="{{ date_to }}">{% endif %}
+
+                <div class="portal-intake-profit-pills" role="group" aria-label="Net profit transaction date period">
+                    <a class="portal-intake-profit-pill{% if profit_period == 'today' %} is-active{% endif %}" href="{{ profit_period_urls.today }}">Today</a>
+                    <a class="portal-intake-profit-pill{% if profit_period == 'week' %} is-active{% endif %}" href="{{ profit_period_urls.week }}">This week</a>
+                    <a class="portal-intake-profit-pill{% if profit_period == 'month' %} is-active{% endif %}" href="{{ profit_period_urls.month }}">This month</a>
+                    <a class="portal-intake-profit-pill{% if profit_period == 'year' %} is-active{% endif %}" href="{{ profit_period_urls.year }}">This year</a>
+                    <a class="portal-intake-profit-pill{% if profit_period == 'all' %} is-active{% endif %}" href="{{ profit_period_urls.all }}">All time</a>
+                    <button type="button" class="portal-intake-profit-pill{% if profit_period == 'custom' %} is-active{% endif %}" onclick="document.getElementById('intake-profit-custom').classList.toggle('is-open')">Custom</button>
+                </div>
+                <div class="portal-intake-profit-custom{% if profit_period == 'custom' %} is-open{% endif %}" id="intake-profit-custom">
+                    <input type="hidden" name="profit_period" value="custom">
+                    <label for="profit-date-from">From
+                        <input type="date" id="profit-date-from" name="profit_date_from" value="{{ profit_date_from }}">
+                    </label>
+                    <label for="profit-date-to">To
+                        <input type="date" id="profit-date-to" name="profit_date_to" value="{{ profit_date_to }}">
+                    </label>
+                    <button type="submit" class="portal-btn portal-btn-primary">Apply</button>
+                </div>
+            </form>
+
             <div class="portal-intake-profit-grid">
                 {% for card in intake_source_profit_cards %}
                 <article class="portal-intake-profit-card portal-intake-profit-card--{% if card.key == 'other' %}other{% else %}{{ card.key }}{% endif %}{% if card.is_selected %} is-selected{% endif %}{% if card.transaction_count == 0 %} is-empty{% endif %}">
@@ -69,6 +100,11 @@
             <article class="dashboard-panel full-width-panel portal-intake-crm-panel">
                 <div class="list-controls portal-intake-crm-controls">
                     <form method="get" id="filter-form" class="portal-filter-form">
+                        {% if show_intake_profit %}
+                        <input type="hidden" name="profit_period" value="{{ profit_period }}">
+                        {% if profit_date_from %}<input type="hidden" name="profit_date_from" value="{{ profit_date_from }}">{% endif %}
+                        {% if profit_date_to %}<input type="hidden" name="profit_date_to" value="{{ profit_date_to }}">{% endif %}
+                        {% endif %}
                         <div class="portal-filter-row">
                             <div class="form-group search-group portal-intake-search">
                                 <label for="search-input">Search Intakes</label>
@@ -140,7 +176,6 @@
                             <div class="form-group">
                                 <label for="filter-date-from">Submitted From</label>
                                 <input type="date" id="filter-date-from" name="date_from" value="{{ date_from }}">
-                                <small class="portal-filter-hint">Also drives net profit cards (by transaction date).</small>
                             </div>
                             <div class="form-group">
                                 <label for="filter-date-to">Submitted To</label>
@@ -273,11 +308,11 @@
                 {% if page_obj.has_other_pages %}
                 <div class="portal-intake-pagination">
                     {% if page_obj.has_previous %}
-                        <a href="?page={{ page_obj.previous_page_number }}&q={{ search_query|urlencode }}&status={{ selected_status|urlencode }}&source={{ selected_source|urlencode }}&referral={{ selected_referral|urlencode }}&processed_by={{ selected_processor|urlencode }}&organization={{ selected_org|urlencode }}&date_from={{ date_from|urlencode }}&date_to={{ date_to|urlencode }}" class="portal-btn portal-btn-secondary">Previous</a>
+                        <a href="?page={{ page_obj.previous_page_number }}{% if intake_query_string %}&amp;{{ intake_query_string }}{% endif %}" class="portal-btn portal-btn-secondary">Previous</a>
                     {% endif %}
                     <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
                     {% if page_obj.has_next %}
-                        <a href="?page={{ page_obj.next_page_number }}&q={{ search_query|urlencode }}&status={{ selected_status|urlencode }}&source={{ selected_source|urlencode }}&referral={{ selected_referral|urlencode }}&processed_by={{ selected_processor|urlencode }}&organization={{ selected_org|urlencode }}&date_from={{ date_from|urlencode }}&date_to={{ date_to|urlencode }}" class="portal-btn portal-btn-secondary">Next</a>
+                        <a href="?page={{ page_obj.next_page_number }}{% if intake_query_string %}&amp;{{ intake_query_string }}{% endif %}" class="portal-btn portal-btn-secondary">Next</a>
                     {% endif %}
                 </div>
                 {% endif %}
