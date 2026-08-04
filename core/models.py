@@ -2660,6 +2660,23 @@ class EmailMarketingContact(models.Model):
     email = models.EmailField(blank=True, default="")
     website = models.URLField(max_length=500, blank=True, default="")
     notes = models.TextField(blank=True, default="")
+    assigned_agent = models.ForeignKey(
+        "OrganizationMembership",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_email_leads",
+        help_text="Insurance agent this CRM lead was assigned to.",
+    )
+    assigned_at = models.DateTimeField(null=True, blank=True)
+    assigned_task = models.ForeignKey(
+        "AgentTask",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="email_marketing_contacts",
+        help_text="Latest portal task created from this CRM lead.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -2668,6 +2685,17 @@ class EmailMarketingContact(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def is_assigned(self):
+        return self.assigned_agent_id is not None
+
+    @property
+    def assigned_agent_name(self):
+        if not self.assigned_agent_id or not self.assigned_agent:
+            return ""
+        user = self.assigned_agent.user
+        return user.get_full_name().strip() or user.username
 
     @property
     def full_address(self):

@@ -4,7 +4,7 @@
 {% block title %}{{ marketing_list.name }} | Email Marketing{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=6">
+<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=7">
 {% endblock %}
 
 {% block portal_content %}
@@ -108,6 +108,7 @@
                     <thead>
                         <tr>
                             <th>Name</th>
+                            <th>Assigned</th>
                             <th>Address</th>
                             <th>City</th>
                             <th>State</th>
@@ -119,8 +120,30 @@
                     </thead>
                     <tbody>
                         {% for contact in contacts_page %}
-                        <tr>
-                            <td><strong>{{ contact.name }}</strong></td>
+                        <tr class="{% if contact.is_assigned %}em-row--assigned{% endif %}">
+                            <td>
+                                <div class="em-contact-name">
+                                    <strong>{{ contact.name }}</strong>
+                                    {% if contact.is_assigned %}
+                                    <span class="em-lead-dot" title="Assigned to {{ contact.assigned_agent_name }}" aria-hidden="true"></span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                {% if contact.is_assigned %}
+                                <span class="em-lead-badge" title="{% if contact.assigned_at %}Assigned {{ contact.assigned_at|date:'M j, Y g:i A' }}{% endif %}">
+                                    <span class="em-lead-badge__mark" aria-hidden="true"></span>
+                                    <span class="em-lead-badge__text">
+                                        <em>Assigned</em>
+                                        <strong>{{ contact.assigned_agent_name }}</strong>
+                                    </span>
+                                </span>
+                                {% else %}
+                                <span class="em-lead-badge em-lead-badge--open">
+                                    <span class="em-lead-badge__text"><em>Open lead</em></span>
+                                </span>
+                                {% endif %}
+                            </td>
                             <td>
                                 {{ contact.address_line1 }}
                                 {% if contact.address_line2 %}<br>{{ contact.address_line2 }}{% endif %}
@@ -163,7 +186,7 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="8">No contacts yet. Add manually or import a spreadsheet.</td></tr>
+                        <tr><td colspan="9">No contacts yet. Add manually or import a spreadsheet.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>

@@ -384,6 +384,98 @@
     background: var(--em-muted);
 }
 
+.em-row--assigned td {
+    background: linear-gradient(90deg, rgba(238, 242, 255, 0.7), transparent 46%);
+}
+.em-table tr.em-row--assigned:hover td {
+    background: linear-gradient(90deg, rgba(224, 231, 255, 0.85), var(--em-muted) 46%);
+}
+.em-contact-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+.em-lead-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+    flex-shrink: 0;
+}
+.em-lead-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    max-width: 12rem;
+    padding: 0.35rem 0.55rem 0.35rem 0.4rem;
+    border-radius: 999px;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    color: #3730a3;
+    vertical-align: middle;
+}
+.em-lead-badge__mark {
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    background: #4338ca;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 800;
+}
+.em-lead-badge__mark::before {
+    content: "✓";
+}
+.em-lead-badge__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.15;
+}
+.em-lead-badge__text em {
+    font-style: normal;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6366f1;
+}
+.em-lead-badge__text strong {
+    font-size: 0.78rem;
+    font-weight: 750;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.em-lead-badge--open {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #64748b;
+    padding-left: 0.65rem;
+}
+.em-lead-badge--open em {
+    color: #94a3b8;
+}
+
+html.portal-theme-dark .em-row--assigned td {
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.14), transparent 46%);
+}
+html.portal-theme-dark .em-lead-badge {
+    background: rgba(99, 102, 241, 0.16);
+    border-color: rgba(165, 180, 252, 0.3);
+    color: #e0e7ff;
+}
+html.portal-theme-dark .em-lead-badge__text em { color: #a5b4fc; }
+html.portal-theme-dark .em-lead-badge--open {
+    background: rgba(15, 23, 42, 0.35);
+    border-color: rgba(148, 163, 184, 0.25);
+    color: #94a3b8;
+}
+
 .em-pagination {
     display: flex;
     gap: 0.5rem;

@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from .access import organizations_for_user
@@ -142,7 +143,10 @@ def email_marketing_workspace(request, list_id):
     tab = (request.GET.get("tab") or "crm").strip()
     campaign_id = request.GET.get("campaign")
 
-    contacts_qs = _filter_contacts(marketing_list.contacts.all(), request)
+    contacts_qs = _filter_contacts(
+        marketing_list.contacts.select_related("assigned_agent__user"),
+        request,
+    )
     paginator = Paginator(contacts_qs, 15)
     contacts_page = paginator.get_page(request.GET.get("page"))
 
@@ -232,11 +236,12 @@ def email_marketing_assign_task(request, list_id):
 
     contact_id = (request.POST.get("contact_id") or "").strip()
     contact_label = (request.POST.get("contact_label") or "").strip()
-    if contact_id and not contact_label:
+    contact = None
+    if contact_id:
         contact = EmailMarketingContact.objects.filter(
             pk=contact_id, marketing_list=marketing_list
         ).first()
-        if contact:
+        if contact and not contact_label:
             contact_label = contact.name
 
     note_bits = []
@@ -251,6 +256,12 @@ def email_marketing_assign_task(request, list_id):
         else:
             task.description = context_line
         task.save(update_fields=["description", "updated_at"])
+
+    if contact is not None:
+        contact.assigned_agent = agent
+        contact.assigned_at = timezone.now()
+        contact.assigned_task = task
+        contact.save(update_fields=["assigned_agent", "assigned_at", "assigned_task", "updated_at"])
 
     Notification.objects.create(
         user=agent.user,
