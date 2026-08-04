@@ -4,7 +4,7 @@
 {% block title %}{{ marketing_list.name }} | Email Marketing{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=5">
+<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=6">
 {% endblock %}
 
 {% block portal_content %}
@@ -64,7 +64,7 @@
             <div class="em-crm-actions">
                 <button type="button" class="em-btn em-btn--primary" id="em-add-contact-btn">+ Add contact</button>
                 {% if can_assign_agent_tasks %}
-                <button type="button" class="em-btn em-btn--accent" id="em-assign-task-btn">Assign task</button>
+                <button type="button" class="em-btn em-btn--soft" id="em-assign-task-btn">Assign task</button>
                 {% endif %}
             </div>
 
@@ -131,33 +131,35 @@
                             <td>{{ contact.phone }}</td>
                             <td>{{ contact.email }}</td>
                             <td>{% if contact.website %}<a href="{{ contact.website }}" target="_blank" rel="noopener">Link</a>{% endif %}</td>
-                            <td>
-                                {% if can_assign_agent_tasks %}
-                                <button type="button" class="em-btn em-btn--accent em-assign-contact"
-                                    data-id="{{ contact.id }}"
-                                    data-name="{{ contact.name|escape }}"
-                                    data-email="{{ contact.email|escape }}"
-                                    data-phone="{{ contact.phone|escape }}"
-                                    data-city="{{ contact.city|escape }}"
-                                    data-state="{{ contact.state|escape }}">Assign</button>
-                                {% endif %}
-                                <button type="button" class="em-btn em-btn--ghost em-edit-contact"
-                                    data-id="{{ contact.id }}"
-                                    data-name="{{ contact.name|escape }}"
-                                    data-address_line1="{{ contact.address_line1|escape }}"
-                                    data-address_line2="{{ contact.address_line2|escape }}"
-                                    data-address_line3="{{ contact.address_line3|escape }}"
-                                    data-city="{{ contact.city|escape }}"
-                                    data-state="{{ contact.state|escape }}"
-                                    data-zip_code="{{ contact.zip_code|escape }}"
-                                    data-phone="{{ contact.phone|escape }}"
-                                    data-email="{{ contact.email|escape }}"
-                                    data-website="{{ contact.website|escape }}"
-                                    data-notes="{{ contact.notes|escape }}">Edit</button>
-                                <form method="post" action="{% url 'email-marketing-delete-contact' marketing_list.id contact.id %}" style="display:inline;" onsubmit="return confirm('Delete this contact?');">
-                                    {% csrf_token %}
-                                    <button type="submit" class="em-btn em-btn--danger">Delete</button>
-                                </form>
+                            <td class="em-actions-cell">
+                                <div class="em-row-actions">
+                                    {% if can_assign_agent_tasks %}
+                                    <button type="button" class="em-action em-action--assign em-assign-contact"
+                                        data-id="{{ contact.id }}"
+                                        data-name="{{ contact.name|escape }}"
+                                        data-email="{{ contact.email|escape }}"
+                                        data-phone="{{ contact.phone|escape }}"
+                                        data-city="{{ contact.city|escape }}"
+                                        data-state="{{ contact.state|escape }}">Assign</button>
+                                    {% endif %}
+                                    <button type="button" class="em-action em-action--edit em-edit-contact"
+                                        data-id="{{ contact.id }}"
+                                        data-name="{{ contact.name|escape }}"
+                                        data-address_line1="{{ contact.address_line1|escape }}"
+                                        data-address_line2="{{ contact.address_line2|escape }}"
+                                        data-address_line3="{{ contact.address_line3|escape }}"
+                                        data-city="{{ contact.city|escape }}"
+                                        data-state="{{ contact.state|escape }}"
+                                        data-zip_code="{{ contact.zip_code|escape }}"
+                                        data-phone="{{ contact.phone|escape }}"
+                                        data-email="{{ contact.email|escape }}"
+                                        data-website="{{ contact.website|escape }}"
+                                        data-notes="{{ contact.notes|escape }}">Edit</button>
+                                    <form method="post" action="{% url 'email-marketing-delete-contact' marketing_list.id contact.id %}" class="em-row-actions__form" onsubmit="return confirm('Delete this contact?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="em-action em-action--delete">Delete</button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         {% empty %}
@@ -460,38 +462,48 @@
 {% if can_assign_agent_tasks and assign_task_form %}
 <div class="em-modal" id="em-assign-task-modal" hidden>
     <div class="em-modal-backdrop" data-close-modal></div>
-    <div class="em-modal-panel" role="dialog" aria-modal="true" aria-labelledby="em-assign-task-modal-title">
-        <div class="em-modal-header">
-            <div class="em-modal-icon" aria-hidden="true">✅</div>
-            <div>
-                <h3 id="em-assign-task-modal-title">Assign task to agent</h3>
-                <p class="em-modal-subtitle">Creates a portal task the insurance agent can open and complete.</p>
+    <div class="em-modal-panel em-modal-panel--assign" role="dialog" aria-modal="true" aria-labelledby="em-assign-task-modal-title">
+        <div class="em-assign-hero">
+            <div class="em-assign-hero__icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
             </div>
+            <div>
+                <p class="em-assign-hero__kicker">Agent portal</p>
+                <h3 id="em-assign-task-modal-title">Assign task</h3>
+                <p class="em-modal-subtitle">Send a clear action to an insurance agent — they’ll see it in their portal with your note.</p>
+            </div>
+            <button type="button" class="em-assign-close" data-close-modal aria-label="Close">&times;</button>
         </div>
-        <form method="post" action="{% url 'email-marketing-assign-task' marketing_list.id %}" id="em-assign-task-form">
+        <form method="post" action="{% url 'email-marketing-assign-task' marketing_list.id %}" id="em-assign-task-form" class="em-assign-form">
             {% csrf_token %}
             <input type="hidden" name="contact_id" id="assign_contact_id" value="">
             <input type="hidden" name="contact_label" id="assign_contact_label" value="">
-            <label class="em-field em-field--modal">
-                <span>Insurance agent</span>
-                {{ assign_task_form.assigned_to }}
-            </label>
-            <label class="em-field em-field--modal">
-                <span>Task title</span>
-                <input type="text" name="title" id="assign_task_title" maxlength="200" required placeholder="e.g. Follow up with this lead">
-            </label>
-            <label class="em-field em-field--modal">
-                <span>Note for the agent</span>
-                <textarea name="description" id="assign_task_note" rows="4" placeholder="Leave instructions, context, or a note the agent should act on…"></textarea>
-            </label>
-            <label class="em-field em-field--modal">
-                <span>Due date (optional)</span>
-                <input type="date" name="due_date" id="assign_task_due">
-            </label>
             <p class="em-assign-context" id="em-assign-context" hidden></p>
-            <div class="em-modal-actions">
+            <div class="em-assign-grid">
+                <label class="em-field em-field--modal em-assign-span-2">
+                    <span>Insurance agent</span>
+                    {{ assign_task_form.assigned_to }}
+                </label>
+                <label class="em-field em-field--modal em-assign-span-2">
+                    <span>Task title</span>
+                    <input type="text" name="title" id="assign_task_title" maxlength="200" required placeholder="e.g. Follow up with this lead">
+                </label>
+                <label class="em-field em-field--modal em-assign-span-2">
+                    <span>Note for the agent</span>
+                    <textarea name="description" id="assign_task_note" rows="4" placeholder="Leave calm, clear instructions the agent should act on…"></textarea>
+                </label>
+                <label class="em-field em-field--modal">
+                    <span>Due date <em>(optional)</em></span>
+                    <input type="date" name="due_date" id="assign_task_due">
+                </label>
+                <div class="em-assign-tip">
+                    <strong>Tip</strong>
+                    <span>Keep the note short and actionable. The agent can mark it done from their portal.</span>
+                </div>
+            </div>
+            <div class="em-modal-actions em-assign-actions">
                 <button type="button" class="em-btn em-btn--ghost em-btn--modal-cancel" data-close-modal>Cancel</button>
-                <button type="submit" class="em-btn em-btn--primary em-btn--modal-submit" id="em-assign-task-submit">Assign task</button>
+                <button type="submit" class="em-btn em-btn--soft em-btn--modal-submit" id="em-assign-task-submit">Assign to agent</button>
             </div>
         </form>
     </div>
@@ -510,5 +522,5 @@ window.EM_CONFIG = {
     csrfToken: "{{ csrf_token }}"
 };
 </script>
-<script src="{% static 'core/js/email_marketing.js' %}?v=5" defer></script>
+<script src="{% static 'core/js/email_marketing.js' %}?v=6" defer></script>
 {% endblock %}

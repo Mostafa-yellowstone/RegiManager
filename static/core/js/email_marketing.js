@@ -116,7 +116,7 @@
             ctx.hidden = true;
         }
         var titleEl = document.getElementById("em-assign-task-modal-title");
-        if (titleEl) titleEl.textContent = "Assign task to agent";
+        if (titleEl) titleEl.textContent = "Assign task";
     }
 
     function openAssignTaskModal(fromContactBtn) {
@@ -149,7 +149,7 @@
                 ctx.textContent = "Linked contact: " + name;
                 ctx.hidden = false;
             }
-            if (modalTitle) modalTitle.textContent = "Assign task · " + name;
+            if (modalTitle) modalTitle.textContent = "Assign · " + name;
         }
         openModal("em-assign-task-modal");
     }
