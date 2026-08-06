@@ -9,6 +9,7 @@ SOURCE_LABELS = {
     "meta_platform": "📘 Meta Platform",
     "google_campaigns": "📢 Google Campaigns",
     "existing_client": "🤝 Existing Client",
+    "lost_client": "📉 Lost Client",
     "dealer": "🏪 Dealer",
     "referral": "💬 Referral",
     "cold_calling": "📞 Cold Calling",
@@ -18,7 +19,7 @@ SOURCE_LABELS = {
 
 STANDARD_SOURCE_KEYS = [
     "google_search", "walk_in", "website", "meta_platform",
-    "google_campaigns", "existing_client", "dealer", "referral",
+    "google_campaigns", "existing_client", "lost_client", "dealer", "referral",
     "cold_calling", "insurance", "other",
 ]
 
@@ -26,7 +27,7 @@ INSURANCE_SOURCE_CHOICES = [
     {"key": key, "label": SOURCE_LABELS[key]}
     for key in [
         "walk_in", "google_search", "meta_platform", "google_campaigns",
-        "existing_client", "dealer", "referral", "cold_calling",
+        "existing_client", "lost_client", "dealer", "referral", "cold_calling",
     ]
 ]
 

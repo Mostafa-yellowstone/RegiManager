@@ -328,6 +328,7 @@
 .src-meta_platform { background:#ede9fe; color:#5b21b6; }
 .src-google_campaigns { background:#fef3c7; color:#92400e; }
 .src-existing_client { background:#dcfce7; color:#166534; }
+.src-lost_client { background:#fee2e2; color:#991b1b; }
 .src-dealer { background:#f0fdf4; color:#15803d; }
 .src-referral { background:#ffe4e6; color:#9f1239; }
 .src-cold_calling { background:#f1f5f9; color:#475569; }
@@ -383,6 +384,7 @@ html.portal-theme-dark .agent-profile-page .src-google_search { background: rgba
 html.portal-theme-dark .agent-profile-page .src-meta_platform { background: rgba(124, 58, 237, 0.18); color: #c4b5fd; }
 html.portal-theme-dark .agent-profile-page .src-google_campaigns { background: rgba(217, 119, 6, 0.18); color: #fbbf24; }
 html.portal-theme-dark .agent-profile-page .src-existing_client { background: rgba(22, 163, 74, 0.18); color: #4ade80; }
+html.portal-theme-dark .agent-profile-page .src-lost_client { background: rgba(220, 38, 38, 0.18); color: #fca5a5; }
 html.portal-theme-dark .agent-profile-page .src-dealer { background: rgba(22, 163, 74, 0.18); color: #4ade80; }
 html.portal-theme-dark .agent-profile-page .src-referral { background: rgba(220, 38, 38, 0.15); color: #f87171; }
 html.portal-theme-dark .agent-profile-page .src-cold_calling { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; }
@@ -758,6 +760,7 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #a5b
                   {% elif policy.source == 'meta_platform' %}📘 Meta
                   {% elif policy.source == 'google_campaigns' %}📢 G. Campaigns
                   {% elif policy.source == 'existing_client' %}🤝 Existing
+                  {% elif policy.source == 'lost_client' %}📉 Lost Client
                   {% elif policy.source == 'dealer' %}🏪 Dealer
                   {% elif policy.source == 'referral' %}💬 Referral
                   {% elif policy.source == 'cold_calling' %}📞 Cold Call

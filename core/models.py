@@ -1990,6 +1990,7 @@ class InsurancePolicy(models.Model):
         META_PLATFORM = "meta_platform", "Meta Platform"
         GOOGLE_CAMPAIGNS = "google_campaigns", "Google Campaigns"
         EXISTING_CLIENT = "existing_client", "Existing Client"
+        LOST_CLIENT = "lost_client", "Lost Client"
         DEALER = "dealer", "Dealer"
         REFERRAL = "referral", "Referral"
         COLD_CALLING = "cold_calling", "Cold Calling"
