@@ -782,7 +782,45 @@ Response: `{ "articles": [...], "as_of": "..." }`.
 
 ---
 
-### `GET /api/owner/insurance/policies/`
+### `GET /api/owner/insurance/targets/`
+
+Monthly premium/commission targets by line of business, pace forecast, and deterministic planner playbook.
+
+```http
+GET /api/owner/insurance/targets/?month=2026-08
+Authorization: Token <key>
+```
+
+Query: `month` or `target_month` as `YYYY-MM` (defaults to current month).
+
+Returns hero totals, `line_cards`, `planner.plays`, `trends`, and `can_edit`.
+
+### `POST /api/owner/insurance/targets/`
+
+Owner / banking / reports roles may save targets.
+
+```json
+{
+  "month": "2026-08",
+  "premium_target": "50000",
+  "commission_target": "6000",
+  "notes": "Push personal auto",
+  "lines": [
+    {
+      "insurance_type": "auto_personal",
+      "premium_target": "20000",
+      "commission_target": "2400",
+      "market_avg_premium": "1800",
+      "is_active": true
+    }
+  ],
+  "market_assumptions": [
+    { "insurance_type": "commercial_auto", "avg_premium": "4500" }
+  ]
+}
+```
+
+Returns the refreshed dashboard payload.
 
 ```http
 GET /api/owner/insurance/policies/?stage=bound&limit=50
@@ -958,6 +996,8 @@ GET    /api/owner/finance/chart/
 GET    /api/owner/spaces/
 GET    /api/owner/spaces/{id}/
 GET    /api/owner/insurance/policies/
+GET    /api/owner/insurance/targets/
+POST   /api/owner/insurance/targets/
 GET    /api/owner/motorclub/memberships/
 GET    /api/owner/tlc/policies/
 GET    /api/owner/inventory/products/

@@ -6335,6 +6335,33 @@ def inventory_detail(request, inventory_id):
             if active_org.is_public_insurance_intake_enabled and active_org.portal_token:
                 insurance_intake_portal_url = f"/insurance-intake/{active_org.portal_token}/"
 
+        from .insurance_targets_metrics import (
+            build_insurance_targets_dashboard,
+            resolve_target_month,
+        )
+
+        target_year, target_month = resolve_target_month(
+            request.GET.get("target_month", ""),
+            today=timezone.localdate(),
+        )
+        insurance_targets = build_insurance_targets_dashboard(
+            active_org,
+            all_policies,
+            year=target_year,
+            month=target_month,
+            today=timezone.localdate(),
+            type_options=_insurance_type_options_for_org(active_org),
+        )
+        from .insurance_targets_metrics import serialize_targets_dashboard
+        import json as _json
+
+        insurance_targets["trends_json"] = _json.dumps(
+            serialize_targets_dashboard(insurance_targets)["trends"]
+        )
+        can_edit_insurance_targets = bool(
+            is_owner or user_can_view_banking
+        )
+
         context = {
             "card": card,
             "is_owner": is_owner,
@@ -6433,6 +6460,8 @@ def inventory_detail(request, inventory_id):
             "pending_insurance_intakes": pending_insurance_intakes,
             "pending_insurance_intake_count": pending_insurance_intake_count,
             "insurance_intake_portal_url": insurance_intake_portal_url,
+            "insurance_targets": insurance_targets,
+            "can_edit_insurance_targets": can_edit_insurance_targets,
         }
         return render(request, "core/insurance_space.html", context)
 

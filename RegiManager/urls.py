@@ -261,6 +261,11 @@ from core.agent_api import (
     OwnerAgentWorkboardView,
     OwnerAgentsListView,
 )
+from core.insurance_targets_views import (
+    save_insurance_line_target,
+    save_insurance_market_assumption,
+    save_insurance_monthly_target,
+)
 from core.owner_api import (
     OwnerDocumentRecordsView,
     OwnerFinanceChartView,
@@ -268,6 +273,7 @@ from core.owner_api import (
     OwnerFinanceRecordsView,
     OwnerFinanceSummaryView,
     OwnerInsurancePoliciesView,
+    OwnerInsuranceTargetsView,
     OwnerInventoryProductsView,
     OwnerKnowledgeMaterialsView,
     OwnerMotorclubMembershipsView,
@@ -316,6 +322,7 @@ urlpatterns = [
     path('api/owner/spaces/', OwnerSpacesListView.as_view(), name='api-owner-spaces'),
     path('api/owner/spaces/<int:space_id>/', OwnerSpaceDetailView.as_view(), name='api-owner-space-detail'),
     path('api/owner/insurance/policies/', OwnerInsurancePoliciesView.as_view(), name='api-owner-insurance-policies'),
+    path('api/owner/insurance/targets/', OwnerInsuranceTargetsView.as_view(), name='api-owner-insurance-targets'),
     path('api/owner/motorclub/memberships/', OwnerMotorclubMembershipsView.as_view(), name='api-owner-motorclub-memberships'),
     path('api/owner/tlc/policies/', OwnerTlcPoliciesView.as_view(), name='api-owner-tlc-policies'),
     path('api/owner/inventory/products/', OwnerInventoryProductsView.as_view(), name='api-owner-inventory-products'),
@@ -523,6 +530,21 @@ urlpatterns = [
     path("dashboard/spaces/banking/transaction/<int:transaction_id>/edit/", edit_bank_transaction, name="edit-bank-transaction"),
     path("dashboard/spaces/banking/transaction/<int:transaction_id>/delete/", delete_bank_transaction, name="delete-bank-transaction"),
     path("dashboard/spaces/insurance/report/pdf/", export_insurance_report_pdf, name="export-insurance-report-pdf"),
+    path(
+        "dashboard/spaces/insurance/targets/monthly/",
+        save_insurance_monthly_target,
+        name="save-insurance-monthly-target",
+    ),
+    path(
+        "dashboard/spaces/insurance/targets/line/",
+        save_insurance_line_target,
+        name="save-insurance-line-target",
+    ),
+    path(
+        "dashboard/spaces/insurance/targets/market/",
+        save_insurance_market_assumption,
+        name="save-insurance-market-assumption",
+    ),
     path("dashboard/spaces/insurance/company/<int:company_id>/", insurance_company_detail, name="insurance-company-detail"),
     path("dashboard/spaces/insurance/policy/<int:policy_id>/toggle-commission-received/", toggle_policy_commission_received, name="toggle-policy-commission-received"),
     path("dashboard/spaces/insurance/company/<int:company_id>/upload/", insurance_company_upload_document, name="insurance-company-upload-doc"),

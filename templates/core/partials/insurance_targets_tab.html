@@ -1,0 +1,280 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'core/css/insurance_targets.css' %}?v=1">
+
+<section class="ift" id="insuranceTargetsRoot" data-month="{{ insurance_targets.month_key }}">
+  <header class="ift-hero">
+    <div class="ift-hero__copy">
+      <p class="ift-kicker">Targets &amp; Forecast</p>
+      <h2>How we hit the month</h2>
+      <p class="ift-lead">Premium is the north star; commission rides shotgun. Track every line of business, then let the planner suggest the bind mix.</p>
+    </div>
+    <form method="get" class="ift-month-form">
+      <input type="hidden" name="tab" value="targets">
+      <label>
+        Month
+        <input type="month" name="target_month" value="{{ insurance_targets.month_key }}" onchange="this.form.submit()">
+      </label>
+    </form>
+  </header>
+
+  <div class="ift-scoreboard">
+    <article class="ift-score ift-score--premium ift-score--{{ insurance_targets.premium_pace.status }}">
+      <span class="ift-score__label">Premium target</span>
+      <strong class="ift-score__value">${{ insurance_targets.premium_pace.target|floatformat:2 }}</strong>
+      <div class="ift-score__row">
+        <span>MTD ${{ insurance_targets.premium_pace.mtd|floatformat:2 }}</span>
+        <span>{{ insurance_targets.premium_pace.mtd_pct }}%</span>
+      </div>
+      <div class="ift-progress"><i style="width: {{ insurance_targets.premium_pace.mtd_pct|floatformat:0 }}%"></i></div>
+      <p class="ift-score__meta">
+        Forecast ${{ insurance_targets.premium_pace.projected_month_end|floatformat:2 }}
+        · need ${{ insurance_targets.premium_pace.required_daily_pace|floatformat:2 }}/day
+      </p>
+      <em class="ift-badge">{{ insurance_targets.premium_pace.status_label }}</em>
+      <small>{{ insurance_targets.premium_pace.status_detail }}</small>
+    </article>
+
+    <article class="ift-score ift-score--commission">
+      <span class="ift-score__label">Commission target</span>
+      <strong class="ift-score__value">${{ insurance_targets.commission_pace.target|floatformat:2 }}</strong>
+      <div class="ift-score__row">
+        <span>MTD ${{ insurance_targets.commission_pace.mtd|floatformat:2 }}</span>
+        <span>{{ insurance_targets.commission_pace.mtd_pct }}%</span>
+      </div>
+      <div class="ift-progress ift-progress--green"><i style="width: {{ insurance_targets.commission_pace.mtd_pct|floatformat:0 }}%"></i></div>
+      <p class="ift-score__meta">
+        Forecast ${{ insurance_targets.commission_pace.projected_month_end|floatformat:2 }}
+        · {{ insurance_targets.totals.binds }} binds / {{ insurance_targets.totals.quotes }} quotes
+      </p>
+    </article>
+
+    <article class="ift-score ift-score--planner">
+      <span class="ift-score__label">AI-style planner</span>
+      <strong class="ift-score__headline">{{ insurance_targets.planner.headline }}</strong>
+      <p class="ift-score__meta">
+        Est. commission from playbook
+        <b>${{ insurance_targets.planner.estimated_commission_from_plays|floatformat:2 }}</b>
+      </p>
+      {% if can_edit_insurance_targets %}
+      <button type="button" class="ift-btn" onclick="document.getElementById('iftTargetsModal').classList.add('active')">Set targets</button>
+      {% endif %}
+    </article>
+  </div>
+
+  {% if insurance_targets.insights %}
+  <ul class="ift-insights">
+    {% for tip in insurance_targets.insights %}
+    <li>{{ tip }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <div class="ift-section-head">
+    <h3>Lines of business</h3>
+    <p>Personal auto, commercial, GL, workers comp — and every type you configured.</p>
+  </div>
+
+  <div class="ift-lob-grid">
+    {% for card in insurance_targets.line_cards %}
+    {% if card.is_active or card.binds or card.quotes or card.premium_target %}
+    <article class="ift-lob {% if card.premium_gap > 0 %}is-gap{% elif card.premium_target > 0 %}is-hit{% endif %}">
+      <header>
+        <h4>{{ card.label }}</h4>
+        <span class="ift-lob__pct">{{ card.progress_pct }}%</span>
+      </header>
+      <div class="ift-lob__money">
+        <div>
+          <span>Premium</span>
+          <strong>${{ card.premium_actual|floatformat:0 }} / ${{ card.premium_target|floatformat:0 }}</strong>
+        </div>
+        <div>
+          <span>Commission</span>
+          <strong>${{ card.commission_actual|floatformat:0 }} / ${{ card.commission_target|floatformat:0 }}</strong>
+        </div>
+      </div>
+      <div class="ift-progress"><i style="width: {{ card.progress_pct|floatformat:0 }}%"></i></div>
+      <div class="ift-lob__meta">
+        <span>{{ card.binds }} bound · {{ card.quotes }} quotes · {{ card.conversion }}% conv</span>
+        <span>Assumed ${{ card.assumed_premium|floatformat:0 }}</span>
+      </div>
+      {% if card.premium_gap > 0 %}
+      <p class="ift-lob__need">Gap ${{ card.premium_gap|floatformat:0 }} · ~{{ card.binds_needed }} binds to close</p>
+      {% else %}
+      <p class="ift-lob__need is-ok">Line looking healthy — keep feeding quality quotes.</p>
+      {% endif %}
+    </article>
+    {% endif %}
+    {% empty %}
+    <p class="ift-empty">No lines yet — set targets to unlock the board.</p>
+    {% endfor %}
+  </div>
+
+  <div class="ift-split">
+    <section class="ift-panel">
+      <header class="ift-panel__head">
+        <h3>How we hit it</h3>
+        <span>Bind playbook</span>
+      </header>
+      <ol class="ift-plays">
+        {% for play in insurance_targets.planner.plays %}
+        <li>
+          <span class="ift-plays__rank">{{ play.rank }}</span>
+          <div>
+            <strong>{{ play.label }}</strong>
+            <p>{{ play.message }}</p>
+            <small>+${{ play.premium_impact|floatformat:0 }} premium · ~${{ play.estimated_commission|floatformat:0 }} commission</small>
+          </div>
+        </li>
+        {% empty %}
+        <li class="ift-empty">No gaps to chase — or set market premiums so the planner can count binds.</li>
+        {% endfor %}
+      </ol>
+    </section>
+
+    <section class="ift-panel">
+      <header class="ift-panel__head">
+        <h3>6-month trend</h3>
+        <span>Premium &amp; commission</span>
+      </header>
+      <canvas id="iftTrendChart" height="180"></canvas>
+    </section>
+  </div>
+
+  {% if can_edit_insurance_targets %}
+  <section class="ift-panel ift-assumptions">
+    <header class="ift-panel__head">
+      <h3>Market premium assumptions</h3>
+      <span>Planner fuel</span>
+    </header>
+    <div class="ift-assume-grid">
+      {% for opt in insurance_targets.type_options %}
+      <form method="post" action="{% url 'save-insurance-market-assumption' %}" class="ift-assume-card">
+        {% csrf_token %}
+        <input type="hidden" name="organization_id" value="{{ active_org.id }}">
+        <input type="hidden" name="insurance_type" value="{{ opt.key }}">
+        <input type="hidden" name="next" value="?tab=targets&target_month={{ insurance_targets.month_key }}">
+        <label>{{ opt.label }}
+          <input type="number" step="0.01" min="0" name="avg_premium" placeholder="Avg premium"
+            value="{% for a in insurance_targets.market_assumptions %}{% if a.insurance_type == opt.key %}{{ a.avg_premium }}{% endif %}{% endfor %}">
+        </label>
+        <button type="submit" class="ift-btn ift-btn--ghost">Save</button>
+      </form>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</section>
+
+{% if can_edit_insurance_targets %}
+<div class="modal-overlay" id="iftTargetsModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box" style="max-width: 720px; max-height: 90vh; overflow: auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <h3 style="margin:0;">Set {{ insurance_targets.month_label }} targets</h3>
+      <button type="button" onclick="document.getElementById('iftTargetsModal').classList.remove('active')" style="border:none;background:transparent;font-size:1.4rem;cursor:pointer;">&times;</button>
+    </div>
+    <form method="post" action="{% url 'save-insurance-monthly-target' %}">
+      {% csrf_token %}
+      <input type="hidden" name="organization_id" value="{{ active_org.id }}">
+      <input type="hidden" name="year" value="{{ insurance_targets.year }}">
+      <input type="hidden" name="month" value="{{ insurance_targets.month }}">
+      <input type="hidden" name="next" value="?tab=targets&target_month={{ insurance_targets.month_key }}">
+      <div class="ift-form-grid">
+        <label>Premium target
+          <input class="field-input" type="number" step="0.01" name="premium_target" value="{{ insurance_targets.monthly_target.premium_target }}">
+        </label>
+        <label>Commission target
+          <input class="field-input" type="number" step="0.01" name="commission_target" value="{{ insurance_targets.monthly_target.commission_target }}">
+        </label>
+      </div>
+      <label class="ift-notes">Notes
+        <textarea class="field-input" name="notes" rows="2">{{ insurance_targets.monthly_target.notes }}</textarea>
+      </label>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:1rem 0 0.5rem;gap:0.75rem;flex-wrap:wrap;">
+        <h4 style="margin:0;">By line</h4>
+        <button type="button" class="ift-btn ift-btn--ghost" onclick="iftDistributeRemaining()">Distribute remaining</button>
+      </div>
+      <div class="ift-line-edit">
+        {% for card in insurance_targets.line_cards %}
+        {% if card.insurance_type %}
+        <div class="ift-line-edit__row">
+          <strong>{{ card.label }}</strong>
+          <input type="number" step="0.01" name="line_premium_{{ card.insurance_type }}" value="{{ card.premium_target }}" placeholder="Premium">
+          <input type="number" step="0.01" name="line_commission_{{ card.insurance_type }}" value="{{ card.commission_target }}" placeholder="Commission">
+          <input type="number" step="0.01" name="line_market_{{ card.insurance_type }}" value="{% if card.market_avg_premium %}{{ card.market_avg_premium }}{% endif %}" placeholder="Market $">
+          <label class="ift-check"><input type="checkbox" name="line_active_{{ card.insurance_type }}" value="1" {% if card.is_active %}checked{% endif %}> Active</label>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      <button type="submit" class="btn-submit" style="margin-top:1rem;">Save targets</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<script>
+function iftDistributeRemaining() {
+  var modal = document.getElementById('iftTargetsModal');
+  if (!modal) return;
+  var total = parseFloat(modal.querySelector('[name="premium_target"]').value) || 0;
+  var inputs = Array.prototype.slice.call(
+    modal.querySelectorAll('input[name^="line_premium_"]')
+  );
+  var sum = inputs.reduce(function (acc, el) {
+    return acc + (parseFloat(el.value) || 0);
+  }, 0);
+  var remaining = Math.max(0, Math.round((total - sum) * 100) / 100);
+  var empties = inputs.filter(function (el) {
+    var type = el.name.slice('line_premium_'.length);
+    var cb = modal.querySelector('[name="line_active_' + type + '"]');
+    var val = parseFloat(el.value);
+    return (!val || val === 0) && (!cb || cb.checked);
+  });
+  if (!empties.length || remaining <= 0) return;
+  var each = Math.floor((remaining / empties.length) * 100) / 100;
+  var allocated = 0;
+  empties.forEach(function (el, i) {
+    if (i === empties.length - 1) {
+      el.value = (remaining - allocated).toFixed(2);
+    } else {
+      el.value = each.toFixed(2);
+      allocated = Math.round((allocated + each) * 100) / 100;
+    }
+  });
+}
+
+(function () {
+  var canvas = document.getElementById('iftTrendChart');
+  if (!canvas || typeof Chart === 'undefined') return;
+  var trends = {{ insurance_targets.trends_json|safe }};
+  if (!Array.isArray(trends) || !trends.length) return;
+  new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: trends.map(function (t) { return t.label; }),
+      datasets: [
+        {
+          label: 'Premium',
+          data: trends.map(function (t) { return Number(t.premium); }),
+          borderColor: '#4f46e5',
+          backgroundColor: 'rgba(79,70,229,0.12)',
+          tension: 0.35,
+          fill: true
+        },
+        {
+          label: 'Commission',
+          data: trends.map(function (t) { return Number(t.commission); }),
+          borderColor: '#059669',
+          backgroundColor: 'rgba(5,150,105,0.08)',
+          tension: 0.35,
+          fill: true
+        }
+      ]
+    },
+    options: {
+      plugins: { legend: { position: 'bottom' } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+})();
+</script>

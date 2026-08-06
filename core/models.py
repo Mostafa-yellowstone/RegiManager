@@ -2917,3 +2917,10 @@ from .agent_portal_models import (  # noqa: E402,F401
     AgentTask,
 )
 
+# Insurance Targets & Forecast planner
+from .insurance_targets_models import (  # noqa: E402,F401
+    InsuranceLineTarget,
+    InsuranceMarketPremiumAssumption,
+    InsuranceMonthlyTarget,
+)
+

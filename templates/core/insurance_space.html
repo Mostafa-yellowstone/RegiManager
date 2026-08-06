@@ -935,6 +935,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       {% if user_can_view_banking %}<button type="button" class="tab-btn" id="tab-companies-btn" onclick="switchTab('companies')">🏢 Companies</button>{% endif %}
       {% if user_can_view_banking %}<button type="button" class="tab-btn" id="tab-banking-btn" onclick="switchTab('banking')">💳 Finance</button>{% endif %}
       <button type="button" class="tab-btn" id="tab-reporting-btn" onclick="switchTab('reporting')">📊 Reports</button>
+      <button type="button" class="tab-btn" id="tab-targets-btn" onclick="switchTab('targets')">🎯 Targets &amp; Forecast</button>
       <button type="button" class="tab-btn" id="tab-daily-payments-btn" onclick="switchTab('daily-payments')">💳 Daily Payments</button>
       <button type="button" class="tab-btn" id="tab-agents-btn" onclick="switchTab('agents')">👥 Agent Auditing</button>
     </nav>
@@ -1418,6 +1419,11 @@ html.portal-theme-dark .ins-license-crm-alert__row {
           </ul>
         </div>
       </div>
+    </div>
+
+    <!-- TARGETS & FORECAST TAB -->
+    <div id="tab-targets" class="tab-panel" style="display: none;">
+      {% include "core/partials/insurance_targets_tab.html" %}
     </div>
 
     <!-- DAILY PAYMENTS TAB -->
@@ -2034,7 +2040,7 @@ function openRejectInsuranceIntake(intakeId, name) {
   document.getElementById('rejectInsuranceIntakeModal').classList.add('active');
 }
 
-const tabs = ['insurance'{% if user_can_manage_insurance_intake %}, 'intake-queue'{% endif %}{% if user_can_view_banking %}, 'companies', 'banking'{% endif %}, 'reporting', 'daily-payments', 'agents'];
+const tabs = ['insurance'{% if user_can_manage_insurance_intake %}, 'intake-queue'{% endif %}{% if user_can_view_banking %}, 'companies', 'banking'{% endif %}, 'reporting', 'targets', 'daily-payments', 'agents'];
 let premiumChart = null;
 let profitChart = null;
 
@@ -2135,6 +2141,11 @@ function switchTab(name) {
   });
   if (name === 'agents') {
     setTimeout(renderAgentCharts, 50);
+  }
+  if (name === 'targets') {
+    setTimeout(function () {
+      window.dispatchEvent(new Event('resize'));
+    }, 50);
   }
 }
 

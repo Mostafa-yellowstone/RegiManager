@@ -835,3 +835,128 @@ class OwnerNotificationMarkAllReadView(OwnerAPIBase):
     def post(self, request):
         updated = Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
         return Response({"detail": "Marked read.", "updated": updated})
+
+
+class OwnerInsuranceTargetsView(OwnerAPIBase):
+    """Monthly insurance targets dashboard + save endpoints for Companion/Pulse."""
+
+    def _can_edit(self, membership: OrganizationMembership) -> bool:
+        return (
+            membership.role == OrganizationMembership.Role.OWNER
+            or bool(getattr(membership, "can_view_banking", False))
+            or bool(getattr(membership, "can_view_reports", False))
+        )
+
+    def get(self, request):
+        organization, membership, _orgs, _records, today = self.resolve_context(request)
+        if not self.can_view_spaces(membership):
+            raise PermissionDenied("Spaces access is disabled for your account.")
+
+        from .insurance_targets_metrics import (
+            build_insurance_targets_dashboard,
+            resolve_target_month,
+            serialize_targets_dashboard,
+        )
+        from .models import InsurancePolicy
+
+        year, month = resolve_target_month(
+            request.query_params.get("month") or request.query_params.get("target_month") or "",
+            today=today,
+        )
+        policies = InsurancePolicy.objects.filter(organization=organization)
+        dashboard = build_insurance_targets_dashboard(
+            organization,
+            policies,
+            year=year,
+            month=month,
+            today=today,
+        )
+        payload = serialize_targets_dashboard(dashboard)
+        payload["can_edit"] = self._can_edit(membership)
+        payload["as_of"] = today.isoformat()
+        return Response(payload)
+
+    def post(self, request):
+        organization, membership, _orgs, _records, today = self.resolve_context(request)
+        if not self._can_edit(membership):
+            raise PermissionDenied("You do not have permission to edit insurance targets.")
+
+        from .insurance_targets_metrics import (
+            build_insurance_targets_dashboard,
+            get_or_init_monthly_target,
+            resolve_target_month,
+            serialize_targets_dashboard,
+        )
+        from .insurance_targets_models import (
+            InsuranceLineTarget,
+            InsuranceMarketPremiumAssumption,
+        )
+        from .models import InsurancePolicy
+
+        data = request.data if hasattr(request, "data") else {}
+        year, month = resolve_target_month(
+            data.get("month") or data.get("target_month") or "",
+            today=today,
+        )
+        if data.get("year") and data.get("month"):
+            try:
+                year = int(data.get("year"))
+                month = int(data.get("month"))
+            except (TypeError, ValueError):
+                pass
+
+        monthly = get_or_init_monthly_target(organization, year, month)
+        if "premium_target" in data:
+            monthly.premium_target = Decimal(str(data.get("premium_target") or 0))
+        if "commission_target" in data:
+            monthly.commission_target = Decimal(str(data.get("commission_target") or 0))
+        if "notes" in data:
+            monthly.notes = str(data.get("notes") or "")[:2000]
+        monthly.save()
+
+        for line in data.get("lines") or []:
+            itype = (line.get("insurance_type") or "").strip()
+            if not itype:
+                continue
+            lt, _ = InsuranceLineTarget.objects.get_or_create(
+                monthly_target=monthly,
+                insurance_type=itype,
+                defaults={"premium_target": Decimal("0"), "commission_target": Decimal("0")},
+            )
+            if "premium_target" in line:
+                lt.premium_target = Decimal(str(line.get("premium_target") or 0))
+            if "commission_target" in line:
+                lt.commission_target = Decimal(str(line.get("commission_target") or 0))
+            if "market_avg_premium" in line:
+                raw = line.get("market_avg_premium")
+                lt.market_avg_premium = (
+                    None if raw in (None, "") else Decimal(str(raw))
+                )
+            if "is_active" in line:
+                lt.is_active = bool(line.get("is_active"))
+            lt.save()
+
+        for assumption in data.get("market_assumptions") or []:
+            itype = (assumption.get("insurance_type") or "").strip()
+            if not itype:
+                continue
+            InsuranceMarketPremiumAssumption.objects.update_or_create(
+                organization=organization,
+                insurance_type=itype,
+                defaults={
+                    "avg_premium": Decimal(str(assumption.get("avg_premium") or 0))
+                },
+            )
+
+        policies = InsurancePolicy.objects.filter(organization=organization)
+        dashboard = build_insurance_targets_dashboard(
+            organization,
+            policies,
+            year=year,
+            month=month,
+            today=today,
+        )
+        payload = serialize_targets_dashboard(dashboard)
+        payload["can_edit"] = True
+        payload["as_of"] = today.isoformat()
+        return Response(payload)
