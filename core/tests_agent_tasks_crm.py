@@ -108,6 +108,32 @@ class AgentTaskStagesTests(TestCase):
         self.assertTrue(task.is_done)
         self.assertEqual(task.status, AgentTask.Status.DONE)
 
+    def test_progress_stages_require_note(self):
+        task = AgentTask.objects.create(
+            organization=self.org,
+            assigned_to=self.agent_mem,
+            created_by=self.owner,
+            title="Need notes",
+        )
+        self.http.login(username="taskagent", password="password123")
+        for status_value in ("in_progress", "waiting", "done"):
+            denied = self.http.post(
+                reverse("agent-portal-toggle-task", args=[task.id]),
+                {"status": status_value},
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+            self.assertEqual(denied.status_code, 400, status_value)
+
+        moved = self.http.post(
+            reverse("agent-portal-toggle-task", args=[task.id]),
+            {"status": "in_progress", "completion_note": "Started outreach."},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(moved.status_code, 200)
+        task.refresh_from_db()
+        self.assertEqual(task.status, AgentTask.Status.IN_PROGRESS)
+        self.assertIn("Started outreach", task.completion_note)
+
     def test_owner_tasks_crm_access(self):
         AgentTask.objects.create(
             organization=self.org,

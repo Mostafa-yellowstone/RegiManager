@@ -1,18 +1,23 @@
-"""Owner notifications for the companion app."""
+"""Leadership notifications for the companion app and portal."""
 
 from __future__ import annotations
 
 from .models import Notification, OrganizationMembership
+from .role_permissions import Role, normalize_role
 
 
 def notify_owners_policy_bound(policy) -> int:
-    """Notify all active PSB owners when a policy is bound. Returns count sent."""
-    owners = OrganizationMembership.objects.filter(
+    """Notify active PSB owners and managers when a policy is bound. Returns count sent."""
+    memberships = OrganizationMembership.objects.filter(
         organization=policy.organization,
-        role=OrganizationMembership.Role.OWNER,
         is_active=True,
         organization__is_active=True,
     ).select_related("user")
+    recipients = [
+        membership
+        for membership in memberships
+        if normalize_role(membership.role) in {Role.OWNER, Role.MANAGER}
+    ]
     client = policy.client
     agent_name = (
         policy.added_by.get_full_name() or policy.added_by.username
@@ -25,7 +30,7 @@ def notify_owners_policy_bound(policy) -> int:
         f"by {agent_name}. Premium ${policy.premium}, commission ${policy.commission_amount or 0}."
     )
     created = 0
-    for membership in owners:
+    for membership in recipients:
         Notification.objects.create(
             user=membership.user,
             client=client,

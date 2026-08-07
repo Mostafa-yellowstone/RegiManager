@@ -419,13 +419,20 @@ class AgentToggleTaskView(AgentAPIBase):
         if note is None:
             note = request.data.get("note")
 
+        note_required = {
+            AgentTask.Status.IN_PROGRESS,
+            AgentTask.Status.WAITING,
+            AgentTask.Status.DONE,
+        }
+
         if status_raw:
-            if status_raw == AgentTask.Status.DONE and not (note or "").strip():
-                if not (task.completion_note or "").strip():
-                    return Response(
-                        {"detail": "completion_note is required when marking done."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+            if status_raw in note_required and not (note or "").strip():
+                return Response(
+                    {
+                        "detail": "completion_note is required for in_progress, waiting, and done."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             try:
                 task.set_status(
                     status_raw,
@@ -441,7 +448,7 @@ class AgentToggleTaskView(AgentAPIBase):
                 target_done = not task.is_done
             else:
                 target_done = bool(done)
-            if target_done and not (note or task.completion_note or "").strip():
+            if target_done and not (note or "").strip():
                 return Response(
                     {"detail": "completion_note is required when marking done."},
                     status=status.HTTP_400_BAD_REQUEST,

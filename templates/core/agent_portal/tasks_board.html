@@ -5,7 +5,7 @@
 
 {% block portal_head %}
 <link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=10">
-<link rel="stylesheet" href="{% static 'core/css/agent_tasks_board.css' %}?v=3">
+<link rel="stylesheet" href="{% static 'core/css/agent_tasks_board.css' %}?v=4">
 {% endblock %}
 
 {% block portal_content %}
@@ -18,7 +18,7 @@
             </a>
             <p class="agent-portal__eyebrow">Task workspace · {{ organization.name }}</p>
             <h1>My tasks</h1>
-            <p class="atb-hero__lead">Move work through stages and leave a completion note when you close a task.</p>
+            <p class="atb-hero__lead">Move work through stages and leave a progress note on In progress, Waiting, and Complete.</p>
         </div>
         <div class="atb-hero__stats">
             <div class="agent-progress atb-progress" data-percent="{{ task_progress.percent }}" style="--progress: {{ task_progress.percent }};">
@@ -81,8 +81,8 @@
                         <div class="atb-card__body">
                             <strong class="atb-card__title">{{ task.title }}</strong>
                             {% if task.description %}<p class="atb-card__desc">{{ task.description|truncatechars:140 }}</p>{% endif %}
-                            {% if task.completion_note and task.is_done %}
-                            <p class="atb-card__note"><span>Note</span>{{ task.completion_note|truncatechars:180 }}</p>
+                            {% if task.completion_note %}
+                            <p class="atb-card__note"><span>Progress note</span>{{ task.completion_note|truncatechars:180 }}</p>
                             {% endif %}
                             <div class="atb-card__meta">
                                 {% if task.due_date %}<em class="atb-due">Due {{ task.due_date|date:"M j" }}</em>{% endif %}
@@ -92,18 +92,18 @@
                         </div>
                         <div class="atb-card__actions">
                             {% if task.status != 'todo' %}
-                            <button type="button" class="atb-stage-btn" data-set-status="todo" data-task-id="{{ task.id }}">To do</button>
+                            <button type="button" class="atb-stage-btn" data-set-status="todo" data-task-id="{{ task.id }}" data-task-title="{{ task.title|escape }}">To do</button>
                             {% endif %}
                             {% if task.status != 'in_progress' %}
-                            <button type="button" class="atb-stage-btn" data-set-status="in_progress" data-task-id="{{ task.id }}">In progress</button>
+                            <button type="button" class="atb-stage-btn" data-set-status="in_progress" data-task-id="{{ task.id }}" data-task-title="{{ task.title|escape }}">In progress</button>
                             {% endif %}
                             {% if task.status != 'waiting' %}
-                            <button type="button" class="atb-stage-btn" data-set-status="waiting" data-task-id="{{ task.id }}">Waiting</button>
+                            <button type="button" class="atb-stage-btn" data-set-status="waiting" data-task-id="{{ task.id }}" data-task-title="{{ task.title|escape }}">Waiting</button>
                             {% endif %}
                             {% if task.status != 'done' %}
                             <button type="button" class="atb-stage-btn atb-stage-btn--done" data-complete-task data-task-id="{{ task.id }}" data-task-title="{{ task.title|escape }}">Complete</button>
                             {% else %}
-                            <button type="button" class="atb-stage-btn" data-set-status="todo" data-task-id="{{ task.id }}">Reopen</button>
+                            <button type="button" class="atb-stage-btn" data-set-status="todo" data-task-id="{{ task.id }}" data-task-title="{{ task.title|escape }}">Reopen</button>
                             {% endif %}
                         </div>
                     </li>
@@ -124,15 +124,21 @@
                     <div class="atb-list-row__main">
                         <strong>{{ task.title }}</strong>
                         {% if task.description %}<small>{{ task.description|truncatechars:160 }}</small>{% endif %}
-                        {% if task.completion_note and task.is_done %}<small class="atb-list-note">{{ task.completion_note|truncatechars:140 }}</small>{% endif %}
+                        {% if task.completion_note %}<small class="atb-list-note">{{ task.completion_note|truncatechars:140 }}</small>{% endif %}
                     </div>
                     <div class="atb-list-row__side">
                         {% if task.due_date %}<span class="atb-due">{{ task.due_date|date:"M j" }}</span>{% endif %}
                         <span class="atb-status-chip is-{{ task.status }}">{{ task.get_status_display }}</span>
+                        {% if task.status != 'in_progress' %}
+                        <button type="button" class="atb-stage-btn" data-set-status="in_progress" data-task-id="{{ task.id }}" data-task-title="{{ task.title|escape }}">In progress</button>
+                        {% endif %}
+                        {% if task.status != 'waiting' %}
+                        <button type="button" class="atb-stage-btn" data-set-status="waiting" data-task-id="{{ task.id }}" data-task-title="{{ task.title|escape }}">Waiting</button>
+                        {% endif %}
                         {% if not task.is_done %}
                         <button type="button" class="atb-stage-btn atb-stage-btn--done" data-complete-task data-task-id="{{ task.id }}" data-task-title="{{ task.title|escape }}">Complete</button>
                         {% else %}
-                        <button type="button" class="atb-stage-btn" data-set-status="todo" data-task-id="{{ task.id }}">Reopen</button>
+                        <button type="button" class="atb-stage-btn" data-set-status="todo" data-task-id="{{ task.id }}" data-task-title="{{ task.title|escape }}">Reopen</button>
                         {% endif %}
                     </div>
                 </li>
@@ -147,15 +153,15 @@
 
 <dialog class="atb-modal" id="atbCompleteModal">
     <form method="dialog" class="atb-modal__card" id="atbCompleteForm">
-        <h3>Complete task</h3>
-        <p class="atb-modal__lead">Leave a short note for the owner about what you finished.</p>
+        <h3 id="atbCompleteHeading">Update task</h3>
+        <p class="atb-modal__lead" id="atbCompleteLead">Add a progress note for this stage.</p>
         <p class="atb-modal__task" id="atbCompleteTaskTitle"></p>
-        <label class="atb-modal__label" for="atbCompleteNote">Completion note</label>
-        <textarea id="atbCompleteNote" name="completion_note" rows="4" required placeholder="What did you do? Any follow-up?"></textarea>
+        <label class="atb-modal__label" for="atbCompleteNote" id="atbCompleteLabel">Progress note</label>
+        <textarea id="atbCompleteNote" name="completion_note" rows="4" required placeholder="What is happening at this stage?"></textarea>
         <p class="atb-modal__error" id="atbCompleteError" hidden></p>
         <div class="atb-modal__actions">
             <button type="button" class="btn btn-secondary" id="atbCompleteCancel">Cancel</button>
-            <button type="submit" class="btn btn-primary">Mark done</button>
+            <button type="submit" class="btn btn-primary" id="atbCompleteSubmit">Save</button>
         </div>
     </form>
 </dialog>
@@ -163,5 +169,5 @@
 
 {% block portal_scripts %}
 <script src="{% static 'core/js/agent_portal.js' %}?v=5" defer></script>
-<script src="{% static 'core/js/agent_tasks_board.js' %}?v=2" defer></script>
+<script src="{% static 'core/js/agent_tasks_board.js' %}?v=3" defer></script>
 {% endblock %}

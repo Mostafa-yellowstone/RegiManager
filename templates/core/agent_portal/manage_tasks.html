@@ -113,7 +113,7 @@
                         <strong class="atb-card__title">{{ task.title }}</strong>
                         {% if task.description %}<p class="atb-card__desc">{{ task.description|truncatechars:120 }}</p>{% endif %}
                         {% if task.completion_note %}
-                        <p class="atb-card__note"><span>Completion note</span>{{ task.completion_note|truncatechars:160 }}</p>
+                        <p class="atb-card__note"><span>Progress note</span>{{ task.completion_note|truncatechars:160 }}</p>
                         {% endif %}
                         <div class="atb-card__meta">
                             {% if task.due_date %}<em class="atb-due">Due {{ task.due_date|date:"M j" }}</em>{% endif %}
@@ -123,6 +123,7 @@
                     <form method="post" action="{% url 'agent-portal-toggle-task' task.id %}" class="atb-card__actions">
                         {% csrf_token %}
                         <input type="hidden" name="next" value="{% url 'agent-portal-manage-tasks' %}?view=board&status={{ selected_status|urlencode }}&agent={{ selected_agent|urlencode }}&q={{ search_query|urlencode }}">
+                        <textarea class="form-control" name="completion_note" rows="2" placeholder="Progress note (required for In progress, Waiting, Complete)"></textarea>
                         {% for value, label in status_choices %}
                             {% if task.status != value %}
                             <button type="submit" class="atb-stage-btn {% if value == 'done' %}atb-stage-btn--done{% endif %}" name="status" value="{{ value }}">{{ label }}</button>

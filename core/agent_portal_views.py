@@ -233,34 +233,41 @@ def agent_portal_toggle_task(request, task_id):
     if note is None:
         note = request.POST.get("note")
 
-    require_note = is_assignee and not is_manager
+    note_required_statuses = {
+        AgentTask.Status.IN_PROGRESS,
+        AgentTask.Status.WAITING,
+        AgentTask.Status.DONE,
+    }
+
+    def _missing_progress_note(status_value: str) -> bool:
+        return status_value in note_required_statuses and not (note or "").strip()
 
     try:
         if status_raw:
-            if status_raw == AgentTask.Status.DONE and require_note:
-                if not (note or "").strip() and not (task.completion_note or "").strip():
-                    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                        return JsonResponse(
-                            {"ok": False, "error": "A completion note is required."},
-                            status=400,
-                        )
-                    messages.error(request, "Add a completion note before marking done.")
-                    return redirect_back(request, "agent-portal-tasks-board")
+            if _missing_progress_note(status_raw):
+                error = "Add a progress note for In progress, Waiting, or Complete."
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return JsonResponse(
+                        {"ok": False, "error": error, "requires_note": True, "task_id": task.id},
+                        status=400,
+                    )
+                messages.error(request, error)
+                return redirect_back(request, "agent-portal-tasks-board")
             task.set_status(status_raw, note=note if note is not None else None)
         elif request.POST.get("toggle") == "1":
             target_done = not task.is_done
-            if target_done and require_note and not (note or task.completion_note or "").strip():
+            if target_done and not (note or "").strip():
                 if request.headers.get("X-Requested-With") == "XMLHttpRequest":
                     return JsonResponse(
                         {
                             "ok": False,
-                            "error": "A completion note is required.",
+                            "error": "A progress note is required.",
                             "requires_note": True,
                             "task_id": task.id,
                         },
                         status=400,
                     )
-                messages.error(request, "Add a completion note before marking done.")
+                messages.error(request, "Add a progress note before marking done.")
                 return redirect_back(request, "agent-portal-tasks-board")
             task.mark_done(
                 done=target_done,
@@ -268,18 +275,18 @@ def agent_portal_toggle_task(request, task_id):
             )
         else:
             done = request.POST.get("done", "").lower() in {"1", "true", "on", "yes"}
-            if done and require_note and not (note or task.completion_note or "").strip():
+            if done and not (note or "").strip():
                 if request.headers.get("X-Requested-With") == "XMLHttpRequest":
                     return JsonResponse(
                         {
                             "ok": False,
-                            "error": "A completion note is required.",
+                            "error": "A progress note is required.",
                             "requires_note": True,
                             "task_id": task.id,
                         },
                         status=400,
                     )
-                messages.error(request, "Add a completion note before marking done.")
+                messages.error(request, "Add a progress note before marking done.")
                 return redirect_back(request, "agent-portal-tasks-board")
             task.mark_done(done=done, note=note if note is not None else None)
     except ValueError as exc:

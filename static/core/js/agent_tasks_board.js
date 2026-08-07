@@ -2,6 +2,14 @@
   var root = document.querySelector(".atb");
   if (!root) return;
 
+  var NOTE_STATUSES = { in_progress: true, waiting: true, done: true };
+  var STATUS_LABELS = {
+    todo: "To do",
+    in_progress: "In progress",
+    waiting: "Waiting",
+    done: "Done",
+  };
+
   function getCookie(name) {
     var match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
     return match ? decodeURIComponent(match[2]) : "";
@@ -55,15 +63,41 @@
   var modal = document.getElementById("atbCompleteModal");
   var noteInput = document.getElementById("atbCompleteNote");
   var titleEl = document.getElementById("atbCompleteTaskTitle");
+  var headingEl = document.getElementById("atbCompleteHeading");
+  var leadEl = document.getElementById("atbCompleteLead");
+  var labelEl = document.getElementById("atbCompleteLabel");
+  var submitBtn = document.getElementById("atbCompleteSubmit");
   var errorEl = document.getElementById("atbCompleteError");
   var cancelBtn = document.getElementById("atbCompleteCancel");
   var completeForm = document.getElementById("atbCompleteForm");
   var pendingTaskId = null;
+  var pendingStatus = "done";
 
-  function openCompleteModal(taskId, title) {
+  function openStageNoteModal(taskId, title, status) {
     pendingTaskId = taskId;
+    pendingStatus = status || "done";
+    var label = STATUS_LABELS[pendingStatus] || "Update";
+    if (headingEl) headingEl.textContent = label + " task";
+    if (leadEl) {
+      leadEl.textContent =
+        pendingStatus === "done"
+          ? "Leave a short note about what you finished."
+          : "Add a progress note for this stage.";
+    }
+    if (labelEl) labelEl.textContent = label + " note";
+    if (submitBtn) {
+      submitBtn.textContent =
+        pendingStatus === "done" ? "Mark done" : "Save & move to " + label.toLowerCase();
+    }
     if (titleEl) titleEl.textContent = title || "Task #" + taskId;
-    if (noteInput) noteInput.value = "";
+    if (noteInput) {
+      noteInput.value = "";
+      noteInput.placeholder =
+        pendingStatus === "done"
+          ? "What did you do? Any follow-up?"
+          : "What is happening at this stage?";
+      noteInput.required = true;
+    }
     if (errorEl) {
       errorEl.hidden = true;
       errorEl.textContent = "";
@@ -72,34 +106,35 @@
     if (noteInput) noteInput.focus();
   }
 
-  function closeCompleteModal() {
+  function closeStageNoteModal() {
     pendingTaskId = null;
+    pendingStatus = "done";
     if (modal && typeof modal.close === "function") modal.close();
   }
 
-  if (cancelBtn) cancelBtn.addEventListener("click", closeCompleteModal);
+  if (cancelBtn) cancelBtn.addEventListener("click", closeStageNoteModal);
   if (completeForm) {
     completeForm.addEventListener("submit", function (event) {
       event.preventDefault();
-      if (!pendingTaskId) return;
+      if (!pendingTaskId || !pendingStatus) return;
       var note = noteInput ? noteInput.value.trim() : "";
       if (!note) {
         if (errorEl) {
           errorEl.hidden = false;
-          errorEl.textContent = "Please leave a completion note.";
+          errorEl.textContent = "Please leave a progress note.";
         }
         return;
       }
-      postStatus(pendingTaskId, "done", note).then(function (result) {
+      postStatus(pendingTaskId, pendingStatus, note).then(function (result) {
         if (!result.ok) {
           if (errorEl) {
             errorEl.hidden = false;
             errorEl.textContent =
-              (result.data && result.data.error) || "Could not complete task.";
+              (result.data && result.data.error) || "Could not update task.";
           }
           return;
         }
-        closeCompleteModal();
+        closeStageNoteModal();
         window.location.reload();
       });
     });
@@ -109,9 +144,10 @@
     var completeBtn = event.target.closest("[data-complete-task]");
     if (completeBtn) {
       event.preventDefault();
-      openCompleteModal(
+      openStageNoteModal(
         completeBtn.getAttribute("data-task-id"),
-        completeBtn.getAttribute("data-task-title")
+        completeBtn.getAttribute("data-task-title"),
+        "done"
       );
       return;
     }
@@ -120,7 +156,18 @@
     event.preventDefault();
     var taskId = stageBtn.getAttribute("data-task-id");
     var status = stageBtn.getAttribute("data-set-status");
+    var title =
+      stageBtn.getAttribute("data-task-title") ||
+      (stageBtn.closest("[data-task-id]") &&
+        stageBtn.closest("[data-task-id]").querySelector(".atb-card__title, .atb-list-row__main strong") &&
+        stageBtn.closest("[data-task-id]").querySelector(".atb-card__title, .atb-list-row__main strong")
+          .textContent) ||
+      "";
     if (!taskId || !status) return;
+    if (NOTE_STATUSES[status]) {
+      openStageNoteModal(taskId, title.trim(), status);
+      return;
+    }
     stageBtn.disabled = true;
     postStatus(taskId, status).then(function (result) {
       stageBtn.disabled = false;

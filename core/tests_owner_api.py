@@ -104,6 +104,13 @@ class OwnerAPITests(APITestCase):
         self.assertIn("deltas", response.data)
 
     def test_policy_bound_notifies_owner(self):
+        manager = User.objects.create_user(username="mgr1", password="pass12345")
+        OrganizationMembership.objects.create(
+            organization=self.org,
+            user=manager,
+            role=OrganizationMembership.Role.MANAGER,
+            is_active=True,
+        )
         policy = InsurancePolicy.objects.create(
             organization=self.org,
             client=self.client_obj,
@@ -125,6 +132,13 @@ class OwnerAPITests(APITestCase):
         self.assertTrue(
             Notification.objects.filter(
                 user=self.owner,
+                event_type="policy_bound",
+                policy=policy,
+            ).exists()
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                user=manager,
                 event_type="policy_bound",
                 policy=policy,
             ).exists()
