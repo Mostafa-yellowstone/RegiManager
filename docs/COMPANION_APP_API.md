@@ -156,7 +156,7 @@ Does **not** return `token` or `default_organization_id`.
 | `can_manage_documents` | Documents space admin |
 | `can_manage_email_marketing` | Email marketing |
 
-`role` is `"owner"` or `"member"` (agent).
+`role` is one of `"owner"`, `"manager"`, `"accountant"`, `"insurance_agent"`, or `"agent"`.
 
 ---
 

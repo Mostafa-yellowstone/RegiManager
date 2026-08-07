@@ -1152,7 +1152,7 @@ class NewsPermissionTests(TestCase):
         # Owner membership
         OrganizationMembership.objects.create(user=self.owner, organization=self.org, is_active=True, role="owner")
         # Agent membership
-        self.membership = OrganizationMembership.objects.create(user=self.agent, organization=self.org, is_active=True, role="member")
+        self.membership = OrganizationMembership.objects.create(user=self.agent, organization=self.org, is_active=True, role="agent")
         
         self.client = TestClient()
 
@@ -1223,10 +1223,10 @@ class SiteNewsAlertTests(TestCase):
             user=self.owner, organization=self.org_a, is_active=True, role="owner"
         )
         OrganizationMembership.objects.create(
-            user=self.agent, organization=self.org_a, is_active=True, role="member"
+            user=self.agent, organization=self.org_a, is_active=True, role="agent"
         )
         OrganizationMembership.objects.create(
-            user=self.other_agent, organization=self.org_b, is_active=True, role="member"
+            user=self.other_agent, organization=self.org_b, is_active=True, role="agent"
         )
         self.client = TestClient()
 
@@ -1346,7 +1346,7 @@ class KnowledgeHubTests(TestCase):
             user=self.owner, organization=self.org, is_active=True, role="owner"
         )
         self.agent_membership = OrganizationMembership.objects.create(
-            user=self.agent, organization=self.org, is_active=True, role="member"
+            user=self.agent, organization=self.org, is_active=True, role="agent"
         )
         
         self.client = TestClient()
@@ -1720,7 +1720,7 @@ class PortalIntakeListTests(TestCase):
             user=self.agent,
             organization=self.org,
             is_active=True,
-            role="member",
+            role="agent",
         )
         self.http = TestClient()
 
@@ -1934,7 +1934,7 @@ class AgentServiceAuditTests(TestCase):
             user=self.agent,
             organization=self.org,
             is_active=True,
-            role="member",
+            role="agent",
         )
         self.http = TestClient()
         self.today = date.today()
@@ -2941,7 +2941,7 @@ class ReferralFeeProfitTests(TestCase):
             user=agent,
             organization=self.org,
             is_active=True,
-            role="member",
+            role="agent",
             can_manage_referrals=True,
         )
         agent_client = TestClient()

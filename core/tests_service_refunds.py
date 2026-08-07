@@ -26,7 +26,7 @@ class ServiceRefundTests(TestCase):
             user=self.agent,
             organization=self.org,
             is_active=True,
-            role="member",
+            role="agent",
             can_issue_refund=False,
         )
         self.client_obj = Client.objects.create(

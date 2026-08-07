@@ -39,7 +39,7 @@ class InsuranceTargetsPlannerTests(TestCase):
         self.agent_mem = OrganizationMembership.objects.create(
             user=self.agent,
             organization=self.org,
-            role=OrganizationMembership.Role.MEMBER,
+            role=OrganizationMembership.Role.AGENT,
             is_active=True,
             can_deal_with_insurance=True,
             can_view_spaces=True,

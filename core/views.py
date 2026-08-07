@@ -18,6 +18,7 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 from django.utils.crypto import get_random_string
@@ -632,8 +633,8 @@ def member_signup(request):
             organization = form.cleaned_data["invite_code"]
             
             current_agents = OrganizationMembership.objects.filter(
-                organization=organization, role=OrganizationMembership.Role.MEMBER
-            ).count()
+                organization=organization
+            ).exclude(role=OrganizationMembership.Role.OWNER).count()
             
             if current_agents >= organization.max_agents:
                 messages.error(request, f"Cannot register: PSB '{organization.name}' has reached its maximum limit of {organization.max_agents} agents.")
@@ -655,7 +656,7 @@ def member_signup(request):
             OrganizationMembership.objects.create(
                 organization=organization,
                 user=user,
-                role=OrganizationMembership.Role.MEMBER,
+                role=OrganizationMembership.Role.AGENT,
             )
             login(request, user)
             from .agent_portal_services import start_attendance_on_login
@@ -803,7 +804,8 @@ def client_detail(request, client_id):
     assignable_agents = User.objects.filter(
         organization_memberships__organization=client.organization,
         organization_memberships__is_active=True,
-        organization_memberships__role=OrganizationMembership.Role.MEMBER,
+    ).exclude(
+        organization_memberships__role=OrganizationMembership.Role.OWNER,
     ).distinct().order_by("first_name", "last_name", "username")
     
     record_totals = records_qs.aggregate(total_spend=Sum("service_fee"), total_services=Count("id"))
@@ -887,7 +889,8 @@ def add_client_note(request, client_id):
                 id=int(assigned_to_raw),
                 organization_memberships__organization=client.organization,
                 organization_memberships__is_active=True,
-                organization_memberships__role=OrganizationMembership.Role.MEMBER,
+            ).exclude(
+                organization_memberships__role=OrganizationMembership.Role.OWNER,
             ).first()
 
         note = ClientNote.objects.create(
@@ -3270,8 +3273,10 @@ def upload_document_ajax_vehicle(request, vehicle_id):
 def update_agent_role(request):
     membership_id = request.POST.get("membership_id")
     new_role = request.POST.get("role")
-    
-    if new_role not in dict(OrganizationMembership.Role.choices):
+    from .role_permissions import ASSIGNABLE_ROLES, apply_role_permission_pack, normalize_role
+
+    new_role = normalize_role(new_role)
+    if new_role not in ASSIGNABLE_ROLES:
         return JsonResponse({"status": "error", "message": "Invalid role"})
 
     try:
@@ -3292,8 +3297,8 @@ def update_agent_role(request):
                 return JsonResponse({"status": "error", "message": "Cannot demote the last owner of the PSB."})
 
         membership.role = new_role
-        membership.save()
-        return JsonResponse({"status": "success"})
+        apply_role_permission_pack(membership, save=True)
+        return JsonResponse({"status": "success", "role": membership.role})
     except OrganizationMembership.DoesNotExist:
         return JsonResponse({"status": "error", "message": "Membership not found"})
 
@@ -3508,23 +3513,54 @@ def all_agents_directory(request):
 
 
 @login_required
-def agent_audit_view(request, membership_id):
-    membership = get_object_or_404(OrganizationMembership, id=membership_id)
+def agent_profile(request, membership_id):
+    """Unified agent/manager/accountant profile: workboard + day audit + service audit."""
+    from .agent_portal_forms import AgentTaskAssignForm
+    from .agent_portal_services import (
+        agent_workboard_payload,
+        can_create_personal_tasks,
+        current_work_date,
+        owner_can_review_agent,
+        portal_now,
+        staff_day_audit_trail,
+    )
+    from .role_permissions import is_insurance_agent_role, normalize_role, role_label
 
-    memberships = OrganizationMembership.objects.filter(
+    membership = get_object_or_404(
+        OrganizationMembership.objects.select_related("organization", "user"),
+        id=membership_id,
+    )
+    viewer = OrganizationMembership.objects.filter(
         user=request.user,
-        is_active=True,
-        organization__is_active=True,
-    ).select_related("organization")
-
-    is_owner = memberships.filter(
         organization=membership.organization,
-        role=OrganizationMembership.Role.OWNER
-    ).exists()
+        is_active=True,
+    ).first()
+    is_self = viewer is not None and viewer.id == membership.id
+    if (
+        not owner_can_review_agent(viewer, membership)
+        and not is_self
+        and not request.user.is_superuser
+    ):
+        deny_access("Owner or manager access required.")
 
-    if not is_owner:
-        deny_access("Owner access required.")
+    tab = (request.GET.get("tab") or "overview").strip()
+    if tab not in {"overview", "workboard", "day", "audit", "insurance"}:
+        tab = "overview"
 
+    activity_date_raw = (request.GET.get("activity_date") or "").strip()
+    activity_date = current_work_date(portal_now())
+    if activity_date_raw:
+        try:
+            activity_date = timezone.datetime.strptime(activity_date_raw, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+    day_audit = staff_day_audit_trail(
+        membership.user,
+        membership.organization,
+        work_date=activity_date,
+    )
+
+    # Service audit metrics (DMV / receipts)
     today = timezone.localdate()
     period = request.GET.get("period", "today").strip()
     start_date_str = request.GET.get("start_date", "").strip()
@@ -3543,6 +3579,9 @@ def agent_audit_view(request, membership_id):
     elif period == "all":
         start_date = None
         end_date = None
+    elif period == "day":
+        start_date = activity_date
+        end_date = activity_date
     else:
         period = "today"
         start_date = today
@@ -3563,27 +3602,26 @@ def agent_audit_view(request, membership_id):
     total_records = records_qs.count()
     failed_records = records_qs.filter(status="failed").count()
     error_rate = round((failed_records / total_records * 100), 2) if total_records > 0 else 0
-
-    total_profit = round(records_qs.aggregate(prof=Sum("processing_fee"))["prof"] or Decimal("0"), 2)
+    total_profit = round(
+        records_qs.aggregate(prof=Sum("processing_fee"))["prof"] or Decimal("0"), 2
+    )
 
     badges = []
     if error_rate > 10:
-        badges.append({"label": "Needs Improvement", "type": "danger", "icon": "⚠️"})
+        badges.append({"label": "Needs Improvement", "type": "danger", "icon": "!"})
     elif total_records > 50 and error_rate < 2:
-        badges.append({"label": "Top Performer", "type": "success", "icon": "🏆"})
-
+        badges.append({"label": "Top Performer", "type": "success", "icon": "*"})
     if total_profit > 1000:
-        badges.append({"label": "High Earner", "type": "warning", "icon": "💎"})
+        badges.append({"label": "High Earner", "type": "warning", "icon": "$"})
 
     instructions = None
     if error_rate > 10:
         instructions = (
-            "High Error Rate Detected: This agent's failed/voided rate is negatively "
-            "impacting processing efficiency. Please review their recent failed transactions "
-            "and ensure they are properly verifying client documents before submission."
+            "High error rate detected. Review recent failed transactions and "
+            "verify document checks before submission."
         )
     elif total_records == 0:
-        instructions = "No Activity: This agent has not processed any records in this period."
+        instructions = "No service activity in this period."
 
     daily_volume = (
         records_qs.values("transaction_date")
@@ -3597,42 +3635,79 @@ def agent_audit_view(request, membership_id):
     ]
     chart_counts = [row["count"] for row in daily_volume]
 
-    type_distribution = (
-        records_qs.values('service_type')
-        .annotate(count=Count('id'))
-    )
-
+    type_distribution = records_qs.values("service_type").annotate(count=Count("id"))
     service_map = dict(ServiceRecord.SERVICE_TYPES)
     for ct in CustomServiceType.objects.filter(organization=membership.organization):
         service_map[ct.key] = ct.label
+    pie_labels = [
+        service_map.get(d["service_type"], d["service_type"]) for d in type_distribution
+    ]
+    pie_counts = [d["count"] for d in type_distribution]
 
-    pie_labels = [service_map.get(d['service_type'], d['service_type']) for d in type_distribution] if type_distribution else []
-    pie_counts = [d['count'] for d in type_distribution] if type_distribution else []
+    page_obj = Paginator(
+        records_qs.order_by("-transaction_date", "-created_at"), 10
+    ).get_page(request.GET.get("page"))
 
-    from django.core.paginator import Paginator
-    paginator = Paginator(records_qs.order_by("-transaction_date", "-created_at"), 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    workboard = agent_workboard_payload(membership)
+    can_assign = (not is_self and owner_can_review_agent(viewer, membership)) or (
+        is_self and can_create_personal_tasks(membership)
+    )
+    assign_form = None
+    if can_assign:
+        assign_form = AgentTaskAssignForm(
+            organization=membership.organization,
+            fixed_assignee=membership,
+            allow_staff=True,
+        )
+    show_insurance = is_insurance_agent_role(membership)
+    role_key = normalize_role(membership.role)
 
-    context = {
-        "is_owner": is_owner,
-        "memberships": memberships,
-        "agent_membership": membership,
-        "period": period,
-        "start_date": start_date.strftime("%Y-%m-%d") if start_date else "",
-        "end_date": end_date.strftime("%Y-%m-%d") if end_date else "",
-        "total_records": total_records,
-        "error_rate": round(error_rate, 1),
-        "total_profit": total_profit,
-        "badges": badges,
-        "instructions": instructions,
-        "chart_dates": json.dumps(chart_dates),
-        "chart_counts": json.dumps(chart_counts),
-        "pie_labels": json.dumps(pie_labels),
-        "pie_counts": json.dumps(pie_counts),
-        "page_obj": page_obj,
-    }
-    return render(request, "core/agent_audit.html", context)
+    insurance_url = ""
+    if show_insurance:
+        insurance_url = (
+            reverse("insurance-agent-detail", args=[membership.user_id])
+            + "?from_profile=1"
+        )
+
+    return render(
+        request,
+        "core/agent_profile.html",
+        {
+            "agent_membership": membership,
+            "viewer": viewer,
+            "is_self_profile": is_self,
+            "tab": tab,
+            "role_label": role_label(role_key),
+            "show_insurance": show_insurance,
+            "insurance_url": insurance_url,
+            "portal_workboard": workboard,
+            "assign_form": assign_form,
+            "can_owner_assign_tasks": can_assign,
+            "activity_date": activity_date,
+            "day_audit": day_audit,
+            "period": period,
+            "start_date": start_date.strftime("%Y-%m-%d") if start_date else "",
+            "end_date": end_date.strftime("%Y-%m-%d") if end_date else "",
+            "total_records": total_records,
+            "error_rate": round(error_rate, 1),
+            "total_profit": total_profit,
+            "badges": badges,
+            "instructions": instructions,
+            "chart_dates": json.dumps(chart_dates),
+            "chart_counts": json.dumps(chart_counts),
+            "pie_labels": json.dumps(pie_labels),
+            "pie_counts": json.dumps(pie_counts),
+            "page_obj": page_obj,
+        },
+    )
+
+
+@login_required
+def agent_audit_view(request, membership_id):
+    """Legacy URL — redirect into the unified agent profile."""
+    qs = request.GET.copy()
+    qs["tab"] = qs.get("tab") or "audit"
+    return redirect(f"{reverse('agent-profile', args=[membership_id])}?{qs.urlencode()}")
 
 
 @login_required
@@ -3743,9 +3818,7 @@ def all_referrals(request):
             return redirect("all-referrals")
 
     primary_org = organizations[0]
-    referrals_qs = Referral.objects.filter(organization__in=organizations).annotate(
-        record_count=Count('service_records')
-    ).order_by('name')
+    referrals_qs = Referral.objects.filter(organization__in=organizations).order_by("name")
 
     category_options = _referral_category_options_for_org(primary_org)
 
@@ -3936,9 +4009,15 @@ def referral_profile(request, referral_id):
                 messages.success(request, f"Bulk payment of ${payment_amount:.2f} applied to outstanding invoices.")
             return redirect("referral-profile", referral_id=referral.id)
 
-    records = ServiceRecord.objects.filter(
-        Q(referral=referral) | Q(vehicle__client__referral=referral)
-    ).select_related("vehicle__client").distinct().order_by("-created_at")
+    from .referral_profit import (
+        effective_commission_for_record,
+        profit_totals_for_records,
+        records_for_referral,
+    )
+
+    records = records_for_referral(referral).select_related(
+        "vehicle__client"
+    ).order_by("-transaction_date", "-created_at")
 
     outstanding_balance = records.filter(is_referral_paid=False).aggregate(
         total=Sum('referral_balance')
@@ -3946,8 +4025,6 @@ def referral_profile(request, referral_id):
     outstanding_balance += referral.initial_balance
     
     total_revenue = records.aggregate(total=Sum('service_fee'))['total'] or Decimal('0')
-
-    from .referral_profit import effective_commission_for_record, profit_totals_for_records
 
     profit_totals = profit_totals_for_records(records)
 
@@ -3962,10 +4039,17 @@ def referral_profile(request, referral_id):
             "net_profit": proc - commission,
         })
     
-    # Analytics
-    thirty_days_ago = timezone.now() - timezone.timedelta(days=30)
-    monthly_volume = records.filter(created_at__gte=thirty_days_ago).count()
-    
+    # Analytics — volume by transaction_date (fallback created_at date)
+    from django.db.models.functions import Coalesce, TruncDate
+
+    thirty_days_ago = timezone.localdate() - timezone.timedelta(days=30)
+    monthly_volume = (
+        records.annotate(
+            effective_date=Coalesce("transaction_date", TruncDate("created_at"))
+        )
+        .filter(effective_date__gte=thirty_days_ago)
+        .count()
+    )    
     # Service distribution
     service_distribution = list(records.values('service_type').annotate(count=Count('id')).order_by('-count')[:5])
     service_map = dict(ServiceRecord.SERVICE_TYPES)
@@ -5044,7 +5128,9 @@ def branch_analytics(request, org_id):
 
     # --- BI INSIGHTS ---
     # 1. Capacity
-    agent_count = OrganizationMembership.objects.filter(organization=org, role='member', is_active=True).count() or 1
+    agent_count = OrganizationMembership.objects.filter(
+        organization=org, is_active=True
+    ).exclude(role=OrganizationMembership.Role.OWNER).count() or 1
     # Assume 1 agent can comfortably handle 15 records a day
     monthly_capacity = agent_count * 15 * 22 # 22 working days
     current_monthly_count = records.filter(monthly_record_q(month_start, today)).count()
@@ -8275,6 +8361,16 @@ def insurance_agent_detail(request, user_id):
         ).first()
     if not active_org:
         deny_access("No organization context found.")
+
+    # Prefer unified agent profile unless explicitly staying on CRM table view
+    if request.GET.get("from_profile") != "1" and request.GET.get("crm") != "1":
+        mem = OrganizationMembership.objects.filter(
+            user=agent, organization=active_org, is_active=True
+        ).first()
+        if mem:
+            qs = request.GET.copy()
+            qs["tab"] = "insurance"
+            return redirect(f"{reverse('agent-profile', args=[mem.id])}?{qs.urlencode()}")
 
     # Permission check
     if not request.user.is_superuser:

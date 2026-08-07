@@ -8,9 +8,9 @@
   --ap-line: rgba(20, 33, 43, 0.1);
   --ap-card: #ffffff;
   --ap-wash: linear-gradient(160deg, #e8f4f1 0%, #f7f5f0 48%, #eef2f7 100%);
-  max-width: 1120px;
+  max-width: none;
   margin: 0 auto;
-  padding: 1.25rem 1rem 3rem;
+  padding: 1.25rem 1.25rem 3rem;
   color: var(--ap-ink);
 }
 
@@ -944,9 +944,9 @@
   --at-closed: #0f766e;
   --at-absent: #b45309;
   --at-wash: linear-gradient(145deg, #ecfdf5 0%, #f8fafc 42%, #eef2ff 100%);
-  max-width: 1180px;
+  max-width: none;
   margin: 0 auto;
-  padding: 1.25rem 1rem 3rem;
+  padding: 1.25rem 1.25rem 3rem;
   color: var(--at-ink);
 }
 

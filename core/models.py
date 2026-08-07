@@ -167,7 +167,10 @@ class Organization(models.Model):
 class OrganizationMembership(models.Model):
     class Role(models.TextChoices):
         OWNER = "owner", "Owner"
-        MEMBER = "member", "Agent"
+        MANAGER = "manager", "Manager"
+        ACCOUNTANT = "accountant", "Accountant"
+        INSURANCE_AGENT = "insurance_agent", "Insurance Agent"
+        AGENT = "agent", "Agent"
 
     organization = models.ForeignKey(
         Organization,
@@ -179,7 +182,7 @@ class OrganizationMembership(models.Model):
         on_delete=models.CASCADE,
         related_name="organization_memberships",
     )
-    role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER)
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.AGENT)
     can_view_reports = models.BooleanField(default=False, help_text="Can this agent view PSB reports?")
     can_view_net_profit = models.BooleanField(default=False, help_text="Can this agent view net profit?")
     can_manage_referrals = models.BooleanField(default=False, help_text="Can this agent manage referral partners?")

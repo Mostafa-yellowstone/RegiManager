@@ -45,10 +45,11 @@ class AgentTaskAssignForm(forms.ModelForm):
             "due_date": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
         }
 
-    def __init__(self, *args, organization=None, fixed_assignee=None, **kwargs):
+    def __init__(self, *args, organization=None, fixed_assignee=None, allow_staff=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.organization = organization
         self.fixed_assignee = fixed_assignee
+        self.allow_staff = allow_staff
         qs = OrganizationMembership.objects.none()
         if organization is not None:
             qs = (
@@ -56,19 +57,21 @@ class AgentTaskAssignForm(forms.ModelForm):
                     organization=organization,
                     is_active=True,
                     user__is_active=True,
-                    can_deal_with_insurance=True,
                 )
+                .exclude(role=OrganizationMembership.Role.OWNER)
                 .select_related("user")
                 .order_by("user__first_name", "user__username")
             )
+            if not allow_staff and fixed_assignee is None:
+                qs = qs.filter(can_deal_with_insurance=True)
         if fixed_assignee is not None:
-            qs = qs.filter(pk=fixed_assignee.pk)
+            qs = OrganizationMembership.objects.filter(pk=fixed_assignee.pk)
             self.fields["assigned_to"].queryset = qs
             self.fields["assigned_to"].initial = fixed_assignee.pk
             self.fields["assigned_to"].widget = forms.HiddenInput()
         else:
             self.fields["assigned_to"].queryset = qs
-            self.fields["assigned_to"].empty_label = "Select insurance agent…"
+            self.fields["assigned_to"].empty_label = "Select teammate…"
             self.fields["assigned_to"].label_from_instance = (
                 lambda m: m.user.get_full_name().strip() or m.user.username
             )
@@ -79,7 +82,12 @@ class AgentTaskAssignForm(forms.ModelForm):
         assignee = self.cleaned_data.get("assigned_to")
         if self.fixed_assignee is not None and assignee and assignee.pk != self.fixed_assignee.pk:
             raise forms.ValidationError("Invalid assignee for this agent.")
-        if assignee and not assignee.can_deal_with_insurance:
+        if (
+            assignee
+            and not self.allow_staff
+            and self.fixed_assignee is None
+            and not assignee.can_deal_with_insurance
+        ):
             raise forms.ValidationError("Tasks can only be assigned to insurance agents.")
         return assignee
 

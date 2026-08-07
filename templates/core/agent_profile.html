@@ -1,0 +1,249 @@
+{% extends "base_portal.html" %}
+{% load static tz %}
+
+{% block title %}{{ agent_membership.user.get_full_name|default:agent_membership.user.username }} | Agent Profile{% endblock %}
+
+{% block portal_head %}
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=11">
+<style>
+.uap { max-width: none; margin: 0; padding: 1.25rem 1.5rem 3rem; }
+.uap-hero {
+  display: flex; justify-content: space-between; gap: 1.25rem; flex-wrap: wrap;
+  padding: 1.5rem 1.6rem; border-radius: 24px; border: 1px solid var(--border, #e2e8f0);
+  background:
+    radial-gradient(ellipse 70% 120% at 0% 0%, rgba(79,70,229,.14), transparent 55%),
+    radial-gradient(ellipse 50% 80% at 100% 0%, rgba(13,148,136,.12), transparent 50%),
+    #fff;
+  margin-bottom: 1.25rem;
+}
+.uap-hero h1 { margin: .25rem 0 .35rem; font-size: clamp(1.5rem, 2.5vw, 2rem); letter-spacing: -.03em; }
+.uap-role {
+  display: inline-flex; padding: .28rem .7rem; border-radius: 999px;
+  background: rgba(79,70,229,.12); color: #4338ca; font-size: .72rem; font-weight: 800;
+  letter-spacing: .04em; text-transform: uppercase;
+}
+.uap-tabs {
+  display: flex; gap: .45rem; flex-wrap: wrap; margin-bottom: 1.15rem;
+  padding: .35rem; border-radius: 16px; background: #f8fafc; border: 1px solid #e2e8f0;
+}
+.uap-tab {
+  padding: .55rem 1rem; border-radius: 12px; text-decoration: none; font-weight: 750;
+  font-size: .88rem; color: #64748b;
+}
+.uap-tab.is-active { background: linear-gradient(135deg,#4f46e5,#6366f1); color: #fff; }
+.uap-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: .85rem; margin-bottom: 1.15rem; }
+.uap-metric {
+  padding: 1rem 1.1rem; border-radius: 16px; border: 1px solid #e2e8f0; background: #fff;
+}
+.uap-metric span { display:block; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:#64748b; }
+.uap-metric strong { font-size: 1.35rem; letter-spacing: -.02em; }
+.uap-panel {
+  padding: 1.15rem 1.25rem; border-radius: 20px; border: 1px solid #e2e8f0; background: #fff; margin-bottom: 1rem;
+}
+.uap-panel h2 { margin: 0 0 .85rem; font-size: 1.05rem; }
+.uap-task { list-style:none; margin:0; padding:0; display:grid; gap:.55rem; }
+.uap-task li { padding:.75rem .85rem; border-radius:12px; background:#f8fafc; border:1px solid #e2e8f0; }
+.uap-task li.is-done strong { text-decoration: line-through; opacity:.75; }
+</style>
+{% endblock %}
+
+{% block portal_content %}
+<main class="dashboard-shell uap">
+  <header class="uap-hero">
+    <div>
+      {% if is_self_profile %}
+      <a href="{% url 'agent-portal-home' %}" style="font-weight:700;color:#64748b;text-decoration:none;">← My portal</a>
+      {% else %}
+      <a href="{% url 'all-agents-directory' %}" style="font-weight:700;color:#64748b;text-decoration:none;">← Team directory</a>
+      {% endif %}
+      <p class="uap-role" style="margin:.65rem 0 0;">{{ role_label }}{% if is_self_profile %} · You{% endif %}</p>
+      <h1>{{ agent_membership.user.get_full_name|default:agent_membership.user.username }}</h1>
+      <p style="margin:0;color:#64748b;font-weight:600;">
+        {{ agent_membership.user.email }} · {{ agent_membership.organization.name }}
+      </p>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-start;">
+      {% for badge in badges %}
+      <span class="badge-pill {{ badge.type }}" style="padding:.35rem .7rem;border-radius:999px;font-weight:700;font-size:.8rem;background:#f1f5f9;">{{ badge.label }}</span>
+      {% endfor %}
+    </div>
+  </header>
+
+  <nav class="uap-tabs" aria-label="Profile sections">
+    <a class="uap-tab {% if tab == 'overview' %}is-active{% endif %}" href="?tab=overview&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ period }}">Overview</a>
+    <a class="uap-tab {% if tab == 'workboard' %}is-active{% endif %}" href="?tab=workboard&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ period }}">Workboard</a>
+    <a class="uap-tab {% if tab == 'day' %}is-active{% endif %}" href="?tab=day&activity_date={{ activity_date|date:'Y-m-d' }}">Day trail</a>
+    <a class="uap-tab {% if tab == 'audit' %}is-active{% endif %}" href="?tab=audit&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ period }}">Service audit</a>
+    {% if show_insurance %}
+    <a class="uap-tab {% if tab == 'insurance' %}is-active{% endif %}" href="?tab=insurance&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ period }}">Insurance CRM</a>
+    {% endif %}
+  </nav>
+
+  {% if tab == 'overview' or tab == 'workboard' %}
+  <section class="uap-panel" id="workboard">
+    <h2>Tasks &amp; progress</h2>
+    <div class="uap-grid">
+      <div class="uap-metric"><span>Progress</span><strong>{{ portal_workboard.progress.percent }}%</strong></div>
+      <div class="uap-metric"><span>Done</span><strong>{{ portal_workboard.progress.done }}/{{ portal_workboard.progress.total }}</strong></div>
+      <div class="uap-metric"><span>Open</span><strong>{{ portal_workboard.progress.open }}</strong></div>
+      <div class="uap-metric"><span>In progress</span><strong>{{ portal_workboard.progress.in_progress }}</strong></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div>
+        <h3 style="font-size:.85rem;color:#64748b;margin:0 0 .5rem;">Open</h3>
+        <ul class="uap-task">
+          {% for task in portal_workboard.progress.open_tasks %}
+          <li><strong>{{ task.title }}</strong>{% if task.description %}<div style="color:#64748b;font-size:.82rem;margin-top:.2rem;">{{ task.description|truncatechars:120 }}</div>{% endif %}</li>
+          {% empty %}<li style="color:#64748b;">No open tasks.</li>{% endfor %}
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size:.85rem;color:#64748b;margin:0 0 .5rem;">Completed</h3>
+        <ul class="uap-task">
+          {% for task in portal_workboard.progress.done_tasks %}
+          <li class="is-done"><strong>{{ task.title }}</strong></li>
+          {% empty %}<li style="color:#64748b;">No completed tasks yet.</li>{% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% if assign_form %}
+    <form method="post" action="{% url 'agent-portal-create-task' %}" style="margin-top:1rem;display:grid;gap:.55rem;max-width:640px;">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{% url 'agent-profile' agent_membership.id %}?tab=workboard">
+      <input type="hidden" name="assigned_to" value="{{ agent_membership.id }}">
+      <strong style="font-size:.88rem;">{% if is_self_profile %}Add a personal task{% else %}Assign a task{% endif %}</strong>
+      <label style="font-weight:700;font-size:.82rem;">Task title
+        {{ assign_form.title }}
+      </label>
+      {{ assign_form.description }}
+      <label style="font-weight:700;font-size:.82rem;">Due date (optional)
+        {{ assign_form.due_date }}
+      </label>
+      <button type="submit" class="btn btn-primary" style="width:fit-content;">{% if is_self_profile %}Add task{% else %}Assign task{% endif %}</button>
+    </form>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if tab == 'overview' or tab == 'day' %}
+  <section class="uap-panel" id="day-trail">
+    <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:center;margin-bottom:.85rem;">
+      <h2 style="margin:0;">Day audit trail</h2>
+      <form method="get" style="display:flex;gap:.45rem;flex-wrap:wrap;align-items:end;">
+        <input type="hidden" name="tab" value="{% if tab == 'overview' %}overview{% else %}day{% endif %}">
+        <label style="font-size:.72rem;font-weight:800;text-transform:uppercase;color:#64748b;">Day
+          <input type="date" name="activity_date" value="{{ activity_date|date:'Y-m-d' }}" onchange="this.form.submit()" class="form-control" style="margin-top:.25rem;">
+        </label>
+      </form>
+    </div>
+    <p style="margin:0 0 .85rem;color:#64748b;font-weight:600;">
+      {{ activity_date|date:"D, M j, Y" }} · {{ day_audit.total_events }} event{{ day_audit.total_events|pluralize }}.
+    </p>
+    <ul class="uap-task">
+      {% for event in day_audit.activity_events %}
+      <li>
+        <div style="display:flex;justify-content:space-between;gap:.75rem;flex-wrap:wrap;">
+          <strong>{{ event.title }}</strong>
+          <span style="color:#64748b;font-size:.78rem;font-weight:700;">{{ event.created_at|timezone:"America/New_York"|date:"g:i A" }} · {{ event.get_domain_display }}</span>
+        </div>
+        {% if event.detail %}<div style="color:#64748b;font-size:.82rem;margin-top:.2rem;">{{ event.detail }}</div>{% endif %}
+      </li>
+      {% endfor %}
+      {% for record in day_audit.service_records %}
+      <li>
+        <div style="display:flex;justify-content:space-between;gap:.75rem;flex-wrap:wrap;">
+          <strong>{{ record.get_service_type_display|default:record.service_type }}</strong>
+          <span style="color:#64748b;font-size:.78rem;font-weight:700;">Service</span>
+        </div>
+        <div style="color:#64748b;font-size:.82rem;margin-top:.2rem;">Receipt {{ record.receipt_number|default:"—" }} · ${{ record.service_fee }} · {{ record.status }}</div>
+      </li>
+      {% endfor %}
+      {% for task in day_audit.task_updates %}
+      <li>
+        <div style="display:flex;justify-content:space-between;gap:.75rem;flex-wrap:wrap;">
+          <strong>{{ task.title }}</strong>
+          <span style="color:#64748b;font-size:.78rem;font-weight:700;">{{ task.updated_at|timezone:"America/New_York"|date:"g:i A" }} · Task</span>
+        </div>
+        <div style="color:#64748b;font-size:.82rem;margin-top:.2rem;">{{ task.get_status_display }}{% if task.completion_note %} · {{ task.completion_note|truncatechars:80 }}{% endif %}</div>
+      </li>
+      {% endfor %}
+      {% if not day_audit.activity_events and not day_audit.service_records and not day_audit.task_updates %}
+      <li style="color:#64748b;">No activity logged for this day yet.</li>
+      {% endif %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if tab == 'overview' or tab == 'audit' %}
+  <section class="uap-panel" id="audit">
+    <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:center;margin-bottom:.85rem;">
+      <h2 style="margin:0;">Service audit</h2>
+      <form method="get" style="display:flex;gap:.45rem;flex-wrap:wrap;align-items:end;">
+        <input type="hidden" name="tab" value="{{ tab }}">
+        <input type="hidden" name="activity_date" value="{{ activity_date|date:'Y-m-d' }}">
+        <label style="font-size:.72rem;font-weight:800;text-transform:uppercase;color:#64748b;">Period
+          <select name="period" onchange="this.form.submit()" class="form-control" style="margin-top:.25rem;">
+            <option value="today" {% if period == 'today' %}selected{% endif %}>Today</option>
+            <option value="day" {% if period == 'day' %}selected{% endif %}>Selected day</option>
+            <option value="month" {% if period == 'month' %}selected{% endif %}>This month</option>
+            <option value="year" {% if period == 'year' %}selected{% endif %}>This year</option>
+            <option value="all" {% if period == 'all' %}selected{% endif %}>All time</option>
+          </select>
+        </label>
+      </form>
+    </div>
+    {% if instructions %}<p style="color:#9f1239;font-weight:650;">{{ instructions }}</p>{% endif %}
+    <div class="uap-grid">
+      <div class="uap-metric"><span>Records</span><strong>{{ total_records }}</strong></div>
+      <div class="uap-metric"><span>Error rate</span><strong>{{ error_rate }}%</strong></div>
+      <div class="uap-metric"><span>Processing profit</span><strong>${{ total_profit }}</strong></div>
+    </div>
+    <div style="overflow:auto;">
+      <table class="em-table" style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:.55rem;border-bottom:1px solid #e2e8f0;">Date</th>
+            <th style="text-align:left;padding:.55rem;border-bottom:1px solid #e2e8f0;">Receipt</th>
+            <th style="text-align:left;padding:.55rem;border-bottom:1px solid #e2e8f0;">Service</th>
+            <th style="text-align:left;padding:.55rem;border-bottom:1px solid #e2e8f0;">Status</th>
+            <th style="text-align:right;padding:.55rem;border-bottom:1px solid #e2e8f0;">Fee</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for record in page_obj %}
+          <tr>
+            <td style="padding:.55rem;border-bottom:1px solid #f1f5f9;">{{ record.transaction_date|date:"M j, Y" }}</td>
+            <td style="padding:.55rem;border-bottom:1px solid #f1f5f9;">{{ record.receipt_number }}</td>
+            <td style="padding:.55rem;border-bottom:1px solid #f1f5f9;">{{ record.get_service_type_display|default:record.service_type }}</td>
+            <td style="padding:.55rem;border-bottom:1px solid #f1f5f9;">{{ record.status }}</td>
+            <td style="padding:.55rem;border-bottom:1px solid #f1f5f9;text-align:right;">${{ record.service_fee }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" style="padding:1rem;color:#64748b;">No records in this period.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if tab == 'insurance' and show_insurance %}
+  <section class="uap-panel">
+    <h2>Insurance CRM</h2>
+    <p style="color:#64748b;font-weight:600;max-width:40rem;">
+      Open the full insurance policy CRM for this agent — quotes, binds, premiums, and period auditing live there.
+      Workboard and service audit stay on this unified profile.
+    </p>
+    <a class="btn btn-primary" href="{% url 'insurance-agent-detail' agent_membership.user_id %}?crm=1">Open insurance policy CRM</a>
+  </section>
+  {% endif %}
+
+  {% if tab == 'overview' and show_insurance %}
+  <section class="uap-panel">
+    <h2>Insurance</h2>
+    <p style="color:#64748b;font-weight:600;">This teammate is an insurance agent. Jump to their policy CRM when you need line-level detail.</p>
+    <a class="btn btn-secondary" href="?tab=insurance">Insurance CRM</a>
+  </section>
+  {% endif %}
+</main>
+{% endblock %}

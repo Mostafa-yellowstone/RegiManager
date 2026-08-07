@@ -248,14 +248,14 @@ class InsuranceIntakeQueueTests(TestCase):
         OrganizationMembership.objects.create(
             user=self.agent,
             organization=self.org,
-            role=OrganizationMembership.Role.MEMBER,
+            role=OrganizationMembership.Role.AGENT,
             can_view_spaces=True,
             can_deal_with_insurance=True,
         )
         OrganizationMembership.objects.create(
             user=self.other,
             organization=self.org,
-            role=OrganizationMembership.Role.MEMBER,
+            role=OrganizationMembership.Role.AGENT,
             can_view_spaces=True,
             can_deal_with_insurance=False,
         )

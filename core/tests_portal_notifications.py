@@ -65,7 +65,7 @@ class PortalNotificationTests(TestCase):
         OrganizationMembership.objects.create(
             user=agent_user,
             organization=self.org,
-            role=OrganizationMembership.Role.MEMBER,
+            role=OrganizationMembership.Role.AGENT,
             is_active=True,
             can_deal_with_insurance=True,
         )

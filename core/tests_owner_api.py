@@ -41,7 +41,7 @@ class OwnerAPITests(APITestCase):
         OrganizationMembership.objects.create(
             organization=self.org,
             user=self.agent,
-            role=OrganizationMembership.Role.MEMBER,
+            role=OrganizationMembership.Role.AGENT,
             is_active=True,
         )
         self.insurance_space = Space.objects.create(

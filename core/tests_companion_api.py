@@ -18,7 +18,7 @@ class CompanionAuthAPITests(APITestCase):
         OrganizationMembership.objects.create(
             organization=self.org,
             user=self.user,
-            role=OrganizationMembership.Role.MEMBER,
+            role=OrganizationMembership.Role.AGENT,
             is_active=True,
             can_manage_email_marketing=True,
         )

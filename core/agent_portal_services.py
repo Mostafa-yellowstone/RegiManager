@@ -255,6 +255,50 @@ def activity_for_user(
     return list(qs.order_by("-created_at")[:limit])
 
 
+def staff_day_audit_trail(user, organization, *, work_date, limit: int = 80) -> dict:
+    """
+    Day-scoped audit for a staff profile: activity events + service records handled.
+    Used by managers, accountants, and insurance agents on portal/profile.
+    """
+    from .models import ServiceRecord
+
+    events = activity_for_user(
+        user,
+        organization,
+        start=work_date,
+        end=work_date,
+        limit=limit,
+    )
+    services = list(
+        ServiceRecord.objects.filter(
+            organization=organization,
+            handled_by=user,
+            transaction_date=work_date,
+            deleted_at__isnull=True,
+        )
+        .order_by("-created_at")[:limit]
+    )
+    task_updates = list(
+        AgentTask.objects.filter(
+            organization=organization,
+            assigned_to__user=user,
+            updated_at__gte=datetime.combine(work_date, time(0, 0), tzinfo=PORTAL_TZ),
+            updated_at__lt=datetime.combine(
+                work_date + timedelta(days=1), time(0, 0), tzinfo=PORTAL_TZ
+            ),
+        )
+        .select_related("assigned_to__user")
+        .order_by("-updated_at")[:limit]
+    )
+    return {
+        "work_date": work_date,
+        "activity_events": events,
+        "service_records": services,
+        "task_updates": task_updates,
+        "total_events": len(events) + len(services) + len(task_updates),
+    }
+
+
 def today_activity_for_user(user, organization, *, now: datetime | None = None):
     """Activity events for the current New York work-date window for this actor."""
     return activity_for_user(user, organization, now=now)
@@ -304,17 +348,31 @@ def accessible_space_cards(membership: OrganizationMembership):
 
 
 def uses_agent_portal_home(membership: OrganizationMembership | None) -> bool:
-    """Insurance agents (non-owner) land on the agent portal home."""
-    if membership is None:
+    """Insurance agents, managers, and accountants land on the personal portal home."""
+    if membership is None or not membership.is_active:
         return False
     if membership.role == OrganizationMembership.Role.OWNER:
         return False
-    return bool(membership.can_deal_with_insurance and membership.is_active)
+    from .role_permissions import normalize_role
+
+    role = normalize_role(membership.role)
+    if role in {
+        OrganizationMembership.Role.INSURANCE_AGENT,
+        OrganizationMembership.Role.MANAGER,
+        OrganizationMembership.Role.ACCOUNTANT,
+    }:
+        return True
+    return bool(membership.can_deal_with_insurance)
 
 
 def can_access_agent_portal(membership: OrganizationMembership | None) -> bool:
-    """Portal pages are only for active insurance-capable agents (not owners)."""
+    """Personal portal (tasks + day audit) for insurance agents, managers, accountants."""
     return uses_agent_portal_home(membership)
+
+
+def can_create_personal_tasks(membership: OrganizationMembership | None) -> bool:
+    """Staff roles may create and manage tasks assigned to themselves."""
+    return can_access_agent_portal(membership)
 
 
 def can_manage_agent_tasks(membership: OrganizationMembership | None) -> bool:
@@ -322,11 +380,13 @@ def can_manage_agent_tasks(membership: OrganizationMembership | None) -> bool:
         return False
     if membership.role == OrganizationMembership.Role.OWNER:
         return True
+    if membership.role == OrganizationMembership.Role.MANAGER:
+        return bool(membership.is_active)
     return bool(membership.can_assign_agent_tasks and membership.is_active)
 
 
 def owner_can_review_agent(viewer: OrganizationMembership | None, agent: OrganizationMembership) -> bool:
-    """Owners may open the workboard for any active agent in their PSB."""
+    """Owners and managers may open the workboard for any active non-owner in their PSB."""
     if viewer is None or agent is None:
         return False
     if not agent.is_active:
@@ -335,7 +395,12 @@ def owner_can_review_agent(viewer: OrganizationMembership | None, agent: Organiz
         return False
     if viewer.organization_id != agent.organization_id:
         return False
-    return viewer.role == OrganizationMembership.Role.OWNER and viewer.is_active
+    if not viewer.is_active:
+        return False
+    return viewer.role in {
+        OrganizationMembership.Role.OWNER,
+        OrganizationMembership.Role.MANAGER,
+    }
 
 
 def attendance_roster_for_owner(owner_user, *, work_date=None, organization_id=None) -> dict:

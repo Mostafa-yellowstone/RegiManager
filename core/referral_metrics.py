@@ -2,15 +2,15 @@
 
 from decimal import Decimal
 
-from django.db.models import Q, Sum
+from django.db.models import Count, Sum
 
-from .models import Referral, ServiceRecord
+from .models import ServiceRecord
 
 
 def attach_referral_list_metrics(referrals):
     """
-    Set `outstanding`, `display_category` is set by caller.
-    Adds outstanding balance in two aggregate queries instead of N.
+    Set `outstanding` and accurate `record_count` (direct FK + via client.referral).
+    Uses a few aggregate queries instead of N.
     """
     referral_list = list(referrals)
     if not referral_list:
@@ -36,8 +36,26 @@ def attach_referral_list_metrics(referrals):
         .values("vehicle__client__referral_id")
         .annotate(total=Sum("referral_balance"))
     }
+    direct_counts = {
+        row["referral_id"]: row["n"] or 0
+        for row in ServiceRecord.objects.filter(referral_id__in=ref_ids)
+        .values("referral_id")
+        .annotate(n=Count("id"))
+    }
+    via_counts = {
+        row["vehicle__client__referral_id"]: row["n"] or 0
+        for row in ServiceRecord.objects.filter(
+            vehicle__client__referral_id__in=ref_ids,
+        )
+        .exclude(referral_id__in=ref_ids)
+        .values("vehicle__client__referral_id")
+        .annotate(n=Count("id"))
+    }
 
     for ref in referral_list:
-        service_outstanding = direct.get(ref.id, Decimal("0")) + via_client.get(ref.id, Decimal("0"))
+        service_outstanding = direct.get(ref.id, Decimal("0")) + via_client.get(
+            ref.id, Decimal("0")
+        )
         ref.outstanding = service_outstanding + (ref.initial_balance or Decimal("0"))
+        ref.record_count = direct_counts.get(ref.id, 0) + via_counts.get(ref.id, 0)
     return referral_list

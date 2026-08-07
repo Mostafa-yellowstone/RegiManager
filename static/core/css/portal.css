@@ -48,7 +48,7 @@
     --portal-shadow-nav: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
 
     --portal-font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-    --portal-max-width: 1440px;
+    --portal-max-width: none;
     --portal-nav-height: 64px;
     --portal-transition: 0.2s ease;
 
@@ -3246,7 +3246,7 @@ body.portal-body .data-table .agent-psb-city {
 }
 
 .portal-space-inner {
-    max-width: 1300px;
+    max-width: 100%;
     margin: 0 auto;
     padding: 2rem 1.5rem;
 }

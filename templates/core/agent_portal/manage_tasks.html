@@ -171,7 +171,7 @@
             {% for group in agent_groups %}
             <li class="atb-list-row" style="background:var(--atb-accent-soft);font-weight:800;">
                 {{ group.grouper.user.get_full_name|default:group.grouper.user.username }}
-                <a class="btn btn-secondary btn-sm" href="{% url 'agent-portal-owner-review' group.grouper.id %}">Agent board</a>
+                <a class="btn btn-secondary btn-sm" href="{% url 'agent-profile' group.grouper.id %}">Agent profile</a>
             </li>
             {% for task in group.list %}
             <li class="atb-list-row {% if task.is_done %}is-done{% endif %}">

@@ -28,7 +28,9 @@ def _membership_context(request):
 
     enabled = any(m.organization.is_automation_enabled for m in active_memberships)
     is_owner = any(m.role == OrganizationMembership.Role.OWNER for m in active_memberships)
-    user_nav_role = "PSB Owner" if is_owner else "PSB Agent"
+    from .role_permissions import Role, nav_role_label, normalize_role
+
+    user_nav_role = nav_role_label(active_memberships)
     can_view_partners = is_owner or any(m.can_manage_referrals for m in active_memberships)
     can_view_finance_bi = is_owner or any(m.can_view_reports for m in active_memberships)
     can_view_spaces = request.user.is_superuser or any(
@@ -38,7 +40,14 @@ def _membership_context(request):
         m.can_manage_email_marketing for m in active_memberships
     )
     show_agent_portal_nav = (not is_owner) and any(
-        m.can_deal_with_insurance for m in active_memberships
+        normalize_role(m.role)
+        in {
+            Role.INSURANCE_AGENT,
+            Role.MANAGER,
+            Role.ACCOUNTANT,
+        }
+        or m.can_deal_with_insurance
+        for m in active_memberships
     )
     photo_membership = next(
         (m for m in active_memberships if getattr(m, "profile_photo", None)),

@@ -20,6 +20,7 @@ from .agent_portal_services import (
     agent_workboard_payload,
     attendance_roster_for_owner,
     can_access_agent_portal,
+    can_create_personal_tasks,
     can_manage_agent_tasks,
     cairo_now,
     current_work_date,
@@ -28,6 +29,7 @@ from .agent_portal_services import (
     owner_can_review_agent,
     shift_close_at,
     shift_open_at,
+    staff_day_audit_trail,
     task_progress_for_membership,
     today_activity_for_user,
     uses_agent_portal_home,
@@ -86,6 +88,12 @@ def _resolve_portal_membership(request) -> OrganizationMembership | None:
     insurance = qs.filter(can_deal_with_insurance=True).first()
     if insurance:
         return insurance
+    from .role_permissions import Role, normalize_role
+
+    for preferred in (Role.MANAGER, Role.ACCOUNTANT, Role.INSURANCE_AGENT, Role.AGENT):
+        match = next((m for m in qs if normalize_role(m.role) == preferred), None)
+        if match:
+            return match
     return qs.first()
 
 
@@ -117,22 +125,44 @@ def agent_portal_home(request):
 
     membership = _resolve_portal_membership(request)
     if not can_access_agent_portal(membership):
-        messages.info(request, "The agent portal is only available to insurance agents.")
+        messages.info(
+            request,
+            "Your workspace portal is available to managers, accountants, and insurance agents.",
+        )
         return redirect("dashboard")
 
     attendance = ensure_attendance_open(membership)
     progress = task_progress_for_membership(membership)
-    activity = today_activity_for_user(
-        request.user,
-        membership.organization,
-    )
-    spaces = accessible_space_cards(membership)
     local_now = cairo_now()
     work_date = current_work_date(local_now)
+    activity_date_raw = (request.GET.get("activity_date") or "").strip()
+    activity_date = work_date
+    if activity_date_raw:
+        try:
+            activity_date = datetime.strptime(activity_date_raw, "%Y-%m-%d").date()
+        except ValueError:
+            activity_date = work_date
+
+    day_audit = staff_day_audit_trail(
+        request.user,
+        membership.organization,
+        work_date=activity_date,
+    )
+    spaces = accessible_space_cards(membership)
     open_at = shift_open_at(work_date)
     close_at = shift_close_at(work_date)
 
     photo_form = AgentProfilePhotoForm(instance=membership)
+    can_add_own = can_create_personal_tasks(membership)
+    assign_form = None
+    if can_add_own:
+        assign_form = AgentTaskAssignForm(
+            organization=membership.organization,
+            fixed_assignee=membership,
+            allow_staff=True,
+        )
+
+    from .role_permissions import normalize_role, role_label
 
     return render(
         request,
@@ -142,6 +172,7 @@ def agent_portal_home(request):
             "organization": membership.organization,
             "attendance": attendance,
             "work_date": work_date,
+            "activity_date": activity_date,
             "open_at": open_at,
             "close_at": close_at,
             "open_display": format_ny_time(open_at),
@@ -151,11 +182,16 @@ def agent_portal_home(request):
             "closed_display": format_ny_time(attendance.closed_at if attendance else None),
             "cairo_now": local_now,
             "task_progress": progress,
-            "activity_events": activity,
+            "activity_events": day_audit["activity_events"],
+            "service_audit_records": day_audit["service_records"],
+            "task_audit_updates": day_audit["task_updates"],
+            "day_audit_total": day_audit["total_events"],
             "space_cards": spaces,
             "photo_form": photo_form,
-            "can_manage_tasks": False,
-            "assign_form": None,
+            "can_manage_tasks": can_manage_agent_tasks(membership),
+            "can_add_own_tasks": can_add_own,
+            "assign_form": assign_form,
+            "portal_role_label": role_label(normalize_role(membership.role)),
             "is_agent_portal_home": True,
         },
     )
@@ -361,10 +397,10 @@ def agent_portal_manage_tasks(request):
 @login_required
 @require_POST
 def agent_portal_create_task(request):
-    """Owners/leads assign a task to an insurance agent."""
+    """Owners/leads assign tasks; managers/accountants/agents may also add personal tasks."""
     membership = _resolve_portal_membership(request)
-    if membership is None or not can_manage_agent_tasks(membership):
-        deny_access("You do not have permission to assign agent tasks.")
+    if membership is None:
+        deny_access("Access denied.")
 
     agent_id = request.POST.get("assigned_membership_id") or request.POST.get("assigned_to")
     fixed_assignee = None
@@ -373,20 +409,40 @@ def agent_portal_create_task(request):
             OrganizationMembership,
             id=agent_id,
             organization=membership.organization,
-            can_deal_with_insurance=True,
             is_active=True,
         )
+
+    assigning_to_self = fixed_assignee is not None and fixed_assignee.id == membership.id
+    if assigning_to_self:
+        if not can_create_personal_tasks(membership):
+            deny_access("You do not have permission to create personal tasks.")
+    elif not can_manage_agent_tasks(membership):
+        deny_access("You do not have permission to assign agent tasks.")
+    elif fixed_assignee and not (
+        fixed_assignee.can_deal_with_insurance
+        or fixed_assignee.role
+        in {
+            OrganizationMembership.Role.MANAGER,
+            OrganizationMembership.Role.ACCOUNTANT,
+            OrganizationMembership.Role.INSURANCE_AGENT,
+            OrganizationMembership.Role.AGENT,
+        }
+    ):
+        deny_access("Invalid assignee.")
 
     form = AgentTaskAssignForm(
         request.POST,
         organization=membership.organization,
         fixed_assignee=fixed_assignee,
+        allow_staff=assigning_to_self or can_manage_agent_tasks(membership),
     )
-    fallback = (
-        reverse("agent-portal-owner-review", args=[fixed_assignee.id])
-        if fixed_assignee
-        else reverse("agent-portal-manage-tasks")
-    )
+    if assigning_to_self:
+        fallback = reverse("agent-portal-home")
+    elif fixed_assignee:
+        fallback = reverse("agent-profile", args=[fixed_assignee.id]) + "?tab=workboard"
+    else:
+        fallback = reverse("agent-portal-manage-tasks")
+
     if form.is_valid():
         task = form.save(commit=False)
         task.organization = membership.organization
@@ -394,10 +450,14 @@ def agent_portal_create_task(request):
         task.status = AgentTask.Status.TODO
         task.is_done = False
         task.save()
-        _notify_task_assigned(task)
-        messages.success(request, "Task assigned.")
+        if not assigning_to_self:
+            _notify_task_assigned(task)
+        messages.success(
+            request,
+            "Task added to your list." if assigning_to_self else "Task assigned.",
+        )
     else:
-        messages.error(request, "Could not create task. Check the title and agent.")
+        messages.error(request, "Could not create task. Check the title and assignee.")
     return redirect_back(request, fallback)
 
 
@@ -496,38 +556,13 @@ def agent_portal_tasks_board(request):
 
 @login_required
 def agent_portal_owner_review(request, membership_id):
-    """
-    Owner view of an insurance agent's portal workboard (tasks, progress, timeline).
-    Reached from the dashboard Audit icon when the agent deals with insurance.
-    """
-    agent = get_object_or_404(
-        OrganizationMembership.objects.select_related("organization", "user"),
-        id=membership_id,
-    )
-    viewer = _viewer_owner_membership(request, agent.organization)
-    if not owner_can_review_agent(viewer, agent):
-        deny_access("Owner access required to review this agent.")
+    """Legacy URL — redirect into the unified agent profile workboard tab."""
+    from django.urls import reverse
+    from django.shortcuts import redirect
 
-    workboard = agent_workboard_payload(agent)
-    assign_form = AgentTaskAssignForm(
-        organization=agent.organization,
-        fixed_assignee=agent,
-    )
-    local_now = cairo_now()
-
-    return render(
-        request,
-        "core/agent_portal/owner_review.html",
-        {
-            "viewer": viewer,
-            "agent_membership": agent,
-            "organization": agent.organization,
-            "portal_workboard": workboard,
-            "assign_form": assign_form,
-            "cairo_now": local_now,
-            "is_owner_portal_review": True,
-        },
-    )
+    qs = request.GET.copy()
+    qs["tab"] = "workboard"
+    return redirect(f"{reverse('agent-profile', args=[membership_id])}?{qs.urlencode()}")
 
 
 @login_required

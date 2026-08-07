@@ -27,7 +27,7 @@ class PsbLicenseTests(TestCase):
         OrganizationMembership.objects.create(
             user=self.agent,
             organization=self.org,
-            role=OrganizationMembership.Role.MEMBER,
+            role=OrganizationMembership.Role.AGENT,
             is_active=True,
         )
         self.today = date(2026, 7, 16)

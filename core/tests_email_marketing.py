@@ -50,7 +50,7 @@ class EmailMarketingAccessTests(TestCase):
         self.agent_mem = OrganizationMembership.objects.create(
             organization=self.org,
             user=self.agent,
-            role=OrganizationMembership.Role.MEMBER,
+            role=OrganizationMembership.Role.AGENT,
             is_active=True,
             can_manage_email_marketing=True,
         )

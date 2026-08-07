@@ -4,7 +4,7 @@
 {% block title %}My Portal | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=9">
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=12">
 {% endblock %}
 
 {% block portal_content %}
@@ -26,7 +26,7 @@
                 {{ photo_form.profile_photo }}
             </form>
             <div class="agent-portal__who">
-                <p class="agent-portal__eyebrow">Agent portal · {{ organization.name }}</p>
+                <p class="agent-portal__eyebrow">{{ portal_role_label|default:"Staff" }} portal · {{ organization.name }}</p>
                 <h1>{{ request.user.get_full_name|default:request.user.username }}</h1>
                 <p class="agent-portal__meta">{{ user_nav_role }} · New York {{ ny_now_display }}</p>
             </div>
@@ -87,6 +87,20 @@
                 <h2>My tasks</h2>
                 <a class="agent-pill agent-pill--link" href="{% url 'agent-portal-tasks-board' %}">{{ task_progress.done }}/{{ task_progress.total }} · Board</a>
             </header>
+            {% if can_add_own_tasks and assign_form %}
+            <form method="post" action="{% url 'agent-portal-create-task' %}" class="agent-self-task-form" style="display:grid;gap:0.55rem;margin-bottom:0.9rem;padding:0.85rem;border-radius:14px;background:var(--ap-accent-soft,rgba(15,118,110,0.08));border:1px solid var(--ap-line,rgba(20,33,43,0.1));">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'agent-portal-home' %}">
+                <input type="hidden" name="assigned_to" value="{{ membership.id }}">
+                <strong style="font-size:0.82rem;">Add a personal task</strong>
+                {{ assign_form.title }}
+                {{ assign_form.description }}
+                <div style="display:flex;gap:0.55rem;flex-wrap:wrap;align-items:end;">
+                    <label style="flex:1;min-width:140px;font-size:0.72rem;font-weight:700;">Due (optional){{ assign_form.due_date }}</label>
+                    <button type="submit" class="btn btn-primary" style="height:fit-content;">Add task</button>
+                </div>
+            </form>
+            {% endif %}
             <div class="agent-progress" data-percent="{{ task_progress.percent }}" style="--progress: {{ task_progress.percent }};">
                 <div class="agent-progress__ring" aria-hidden="true">
                     <svg viewBox="0 0 36 36">
@@ -110,16 +124,25 @@
                     </a>
                 </li>
                 {% empty %}
-                <li class="agent-empty">No open tasks — nice work. <a href="{% url 'agent-portal-tasks-board' %}">View board</a></li>
+                <li class="agent-empty">No open tasks — add one above or open the board.</li>
                 {% endfor %}
             </ul>
         </section>
 
         <section class="agent-card agent-card--timeline">
             <header class="agent-card__head">
-                <h2>Today’s activity</h2>
-                <span class="agent-pill">Insurance · Motor Club · TLC</span>
+                <h2>Day audit trail</h2>
+                <form method="get" style="display:flex;align-items:center;gap:0.45rem;">
+                    <label style="font-size:0.72rem;font-weight:800;color:var(--ap-muted);">
+                        Day
+                        <input type="date" name="activity_date" value="{{ activity_date|date:'Y-m-d' }}" onchange="this.form.submit()" style="display:block;margin-top:0.2rem;padding:0.35rem 0.45rem;border-radius:8px;border:1px solid var(--ap-line);">
+                    </label>
+                </form>
             </header>
+            <p class="agent-card__lead" style="margin-top:0;">
+                Showing <strong>{{ activity_date|date:"D, M j, Y" }}</strong>
+                · {{ day_audit_total }} event{{ day_audit_total|pluralize }}.
+            </p>
             <ol class="agent-timeline">
                 {% for event in activity_events %}
                 <li class="agent-timeline__item agent-timeline__item--{{ event.domain }}">
@@ -135,9 +158,36 @@
                         {% if event.detail %}<span>{{ event.detail }}</span>{% endif %}
                     </div>
                 </li>
-                {% empty %}
-                <li class="agent-empty">No quotes, bounds, or memberships logged yet today.</li>
                 {% endfor %}
+                {% for record in service_audit_records %}
+                <li class="agent-timeline__item">
+                    <div class="agent-timeline__rail" aria-hidden="true"><span class="agent-timeline__dot"></span></div>
+                    <div class="agent-timeline__card">
+                        <div class="agent-timeline__meta">
+                            <time>{{ record.transaction_date|date:"M j" }}</time>
+                            <span class="agent-timeline__domain">Service</span>
+                        </div>
+                        <strong>{{ record.get_service_type_display|default:record.service_type }}</strong>
+                        <span>Receipt {{ record.receipt_number|default:"—" }} · ${{ record.service_fee }} · {{ record.status }}</span>
+                    </div>
+                </li>
+                {% endfor %}
+                {% for task in task_audit_updates %}
+                <li class="agent-timeline__item">
+                    <div class="agent-timeline__rail" aria-hidden="true"><span class="agent-timeline__dot"></span></div>
+                    <div class="agent-timeline__card">
+                        <div class="agent-timeline__meta">
+                            <time datetime="{{ task.updated_at|date:'c' }}">{{ task.updated_at|timezone:"America/New_York"|date:"g:i A" }}</time>
+                            <span class="agent-timeline__domain">Task</span>
+                        </div>
+                        <strong>{{ task.title }}</strong>
+                        <span>{{ task.get_status_display }}{% if task.completion_note %} · {{ task.completion_note|truncatechars:80 }}{% endif %}</span>
+                    </div>
+                </li>
+                {% endfor %}
+                {% if not activity_events and not service_audit_records and not task_audit_updates %}
+                <li class="agent-empty">No activity logged for this day yet.</li>
+                {% endif %}
             </ol>
         </section>
     </div>

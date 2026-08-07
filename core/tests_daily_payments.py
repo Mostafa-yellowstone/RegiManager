@@ -38,7 +38,7 @@ class DailyPaymentEditTests(TestCase):
             user=self.agent,
             organization=self.org,
             is_active=True,
-            role="member",
+            role="agent",
             can_deal_with_insurance=True,
             can_view_spaces=True,
             can_view_banking=False,

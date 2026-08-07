@@ -131,11 +131,7 @@
                 </dl>
 
                 <div class="attendance-card__actions">
-                    {% if row.membership.can_deal_with_insurance %}
-                    <a href="{% url 'agent-portal-owner-review' row.membership.id %}">Open portal</a>
-                    {% else %}
-                    <a href="{% url 'agent-audit' row.membership.id %}">Open audit</a>
-                    {% endif %}
+                    <a href="{% url 'agent-profile' row.membership.id %}">Open profile</a>
                 </div>
             </article>
             {% endfor %}

@@ -22,7 +22,7 @@ class AgentTaskStagesTests(TestCase):
         self.agent_mem = OrganizationMembership.objects.create(
             user=self.agent_user,
             organization=self.org,
-            role=OrganizationMembership.Role.MEMBER,
+            role=OrganizationMembership.Role.AGENT,
             is_active=True,
             can_deal_with_insurance=True,
         )

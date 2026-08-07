@@ -45,7 +45,7 @@ class APISecurityTests(TestCase):
             user=inactive_user,
             organization=self.org,
             is_active=False,
-            role="member",
+            role="agent",
         )
         self.client.login(username="inactive", password="password123")
         response = self.client.get("/api/clients/")
@@ -129,7 +129,7 @@ class DeleteReceiptPermissionTests(TestCase):
             user=self.agent,
             organization=self.org,
             is_active=True,
-            role="member",
+            role="agent",
             can_delete_receipt=False,
         )
         client = Client.objects.create(
