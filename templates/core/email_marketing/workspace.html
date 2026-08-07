@@ -4,7 +4,7 @@
 {% block title %}{{ marketing_list.name }} | Email Marketing{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=7">
+<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=8">
 {% endblock %}
 
 {% block portal_content %}
@@ -65,8 +65,20 @@
                 <button type="button" class="em-btn em-btn--primary" id="em-add-contact-btn">+ Add contact</button>
                 {% if can_assign_agent_tasks %}
                 <button type="button" class="em-btn em-btn--soft" id="em-assign-task-btn">Assign task</button>
+                <button type="button" class="em-btn em-btn--ghost" id="em-bulk-assign-btn" hidden>Bulk assign (<span id="em-bulk-count">0</span>)</button>
                 {% endif %}
             </div>
+
+            {% if can_assign_agent_tasks %}
+            <div class="em-bulk-bar" id="em-bulk-bar" hidden>
+                <div class="em-bulk-bar__copy">
+                    <strong id="em-bulk-bar-label">0 selected</strong>
+                    <span>Assign selected CRM records to one agent without losing your page or filters.</span>
+                </div>
+                <button type="button" class="em-btn em-btn--soft" id="em-bulk-assign-open">Assign selected…</button>
+                <button type="button" class="em-btn em-btn--ghost" id="em-bulk-clear">Clear</button>
+            </div>
+            {% endif %}
 
             <section class="em-import-card" aria-labelledby="em-import-title">
                 <div class="em-import-card-header">
@@ -107,6 +119,11 @@
                 <table class="em-table">
                     <thead>
                         <tr>
+                            {% if can_assign_agent_tasks %}
+                            <th class="em-th-check">
+                                <input type="checkbox" id="em-select-all" title="Select all on this page" aria-label="Select all on this page">
+                            </th>
+                            {% endif %}
                             <th>Name</th>
                             <th>Assigned</th>
                             <th>Address</th>
@@ -121,6 +138,13 @@
                     <tbody>
                         {% for contact in contacts_page %}
                         <tr class="{% if contact.is_assigned %}em-row--assigned{% endif %}">
+                            {% if can_assign_agent_tasks %}
+                            <td class="em-td-check">
+                                <input type="checkbox" class="em-contact-check" value="{{ contact.id }}"
+                                    data-name="{{ contact.name|escape }}"
+                                    aria-label="Select {{ contact.name }}">
+                            </td>
+                            {% endif %}
                             <td>
                                 <div class="em-contact-name">
                                     <strong>{{ contact.name }}</strong>
@@ -186,7 +210,7 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="9">No contacts yet. Add manually or import a spreadsheet.</td></tr>
+                        <tr><td colspan="{% if can_assign_agent_tasks %}10{% else %}9{% endif %}">No contacts yet. Add manually or import a spreadsheet.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -500,7 +524,14 @@
         <form method="post" action="{% url 'email-marketing-assign-task' marketing_list.id %}" id="em-assign-task-form" class="em-assign-form">
             {% csrf_token %}
             <input type="hidden" name="contact_id" id="assign_contact_id" value="">
+            <input type="hidden" name="contact_ids" id="assign_contact_ids" value="">
             <input type="hidden" name="contact_label" id="assign_contact_label" value="">
+            <input type="hidden" name="page" value="{{ contacts_page.number }}">
+            <input type="hidden" name="q" value="{{ filter_q }}">
+            <input type="hidden" name="state" value="{{ filter_state }}">
+            <input type="hidden" name="city" value="{{ filter_city }}">
+            <input type="hidden" name="zip_code" value="{{ filter_zip }}">
+            <input type="hidden" name="has_email" value="{{ filter_has_email }}">
             <p class="em-assign-context" id="em-assign-context" hidden></p>
             <div class="em-assign-grid">
                 <label class="em-field em-field--modal em-assign-span-2">
@@ -545,5 +576,5 @@ window.EM_CONFIG = {
     csrfToken: "{{ csrf_token }}"
 };
 </script>
-<script src="{% static 'core/js/email_marketing.js' %}?v=6" defer></script>
+<script src="{% static 'core/js/email_marketing.js' %}?v=7" defer></script>
 {% endblock %}

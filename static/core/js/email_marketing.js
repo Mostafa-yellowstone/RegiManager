@@ -107,9 +107,11 @@
         if (!form) return;
         form.reset();
         var cid = document.getElementById("assign_contact_id");
+        var cids = document.getElementById("assign_contact_ids");
         var clabel = document.getElementById("assign_contact_label");
         var ctx = document.getElementById("em-assign-context");
         if (cid) cid.value = "";
+        if (cids) cids.value = "";
         if (clabel) clabel.value = "";
         if (ctx) {
             ctx.textContent = "";
@@ -117,21 +119,66 @@
         }
         var titleEl = document.getElementById("em-assign-task-modal-title");
         if (titleEl) titleEl.textContent = "Assign task";
+        var submitBtn = document.getElementById("em-assign-task-submit");
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Assign to agent";
+        }
     }
 
-    function openAssignTaskModal(fromContactBtn) {
+    function selectedContactChecks() {
+        return qsa(".em-contact-check:checked");
+    }
+
+    function syncBulkSelection() {
+        var checks = selectedContactChecks();
+        var count = checks.length;
+        var bar = document.getElementById("em-bulk-bar");
+        var bulkBtn = document.getElementById("em-bulk-assign-btn");
+        var countEl = document.getElementById("em-bulk-count");
+        var label = document.getElementById("em-bulk-bar-label");
+        if (countEl) countEl.textContent = String(count);
+        if (label) label.textContent = count === 1 ? "1 selected" : count + " selected";
+        if (bar) bar.hidden = count === 0;
+        if (bulkBtn) bulkBtn.hidden = count === 0;
+        var all = document.getElementById("em-select-all");
+        var pageChecks = qsa(".em-contact-check");
+        if (all && pageChecks.length) {
+            all.checked = pageChecks.every(function (c) { return c.checked; });
+            all.indeterminate = !all.checked && pageChecks.some(function (c) { return c.checked; });
+        }
+    }
+
+    function openAssignTaskModal(fromContactBtn, bulkIds, bulkNames) {
         resetAssignTaskModal();
         var titleInput = document.getElementById("assign_task_title");
         var noteInput = document.getElementById("assign_task_note");
         var cid = document.getElementById("assign_contact_id");
+        var cids = document.getElementById("assign_contact_ids");
         var clabel = document.getElementById("assign_contact_label");
         var ctx = document.getElementById("em-assign-context");
         var modalTitle = document.getElementById("em-assign-task-modal-title");
 
-        if (fromContactBtn) {
+        if (bulkIds && bulkIds.length > 1) {
+            if (cids) cids.value = bulkIds.join(",");
+            if (cid) cid.value = "";
+            if (clabel) clabel.value = bulkIds.length + " CRM contacts";
+            if (titleInput) titleInput.value = "Follow up · " + bulkIds.length + " CRM leads";
+            if (noteInput) {
+                noteInput.value = "Please work these CRM leads from Email Marketing.\n" +
+                    (bulkNames || []).slice(0, 12).map(function (n) { return "• " + n; }).join("\n") +
+                    (bulkNames && bulkNames.length > 12 ? "\n• …and " + (bulkNames.length - 12) + " more" : "");
+            }
+            if (ctx) {
+                ctx.textContent = "Bulk assign: " + bulkIds.length + " selected contacts on this page.";
+                ctx.hidden = false;
+            }
+            if (modalTitle) modalTitle.textContent = "Bulk assign · " + bulkIds.length + " contacts";
+        } else if (fromContactBtn) {
             var d = fromContactBtn.dataset;
             var name = d.name || "Contact";
             if (cid) cid.value = d.id || "";
+            if (cids) cids.value = d.id || "";
             if (clabel) clabel.value = name;
             if (titleInput) titleInput.value = "Follow up: " + name;
             var noteParts = [];
@@ -165,6 +212,45 @@
             openAssignTaskModal(btn);
         });
     });
+
+    var selectAll = document.getElementById("em-select-all");
+    if (selectAll) {
+        selectAll.addEventListener("change", function () {
+            qsa(".em-contact-check").forEach(function (c) {
+                c.checked = selectAll.checked;
+            });
+            syncBulkSelection();
+        });
+    }
+    qsa(".em-contact-check").forEach(function (c) {
+        c.addEventListener("change", syncBulkSelection);
+    });
+    function openBulkAssign() {
+        var checks = selectedContactChecks();
+        if (!checks.length) return;
+        openAssignTaskModal(
+            null,
+            checks.map(function (c) { return c.value; }),
+            checks.map(function (c) { return c.dataset.name || ("#" + c.value); })
+        );
+    }
+    var bulkOpen = document.getElementById("em-bulk-assign-open");
+    var bulkBtn = document.getElementById("em-bulk-assign-btn");
+    if (bulkOpen) bulkOpen.addEventListener("click", openBulkAssign);
+    if (bulkBtn) bulkBtn.addEventListener("click", openBulkAssign);
+    var bulkClear = document.getElementById("em-bulk-clear");
+    if (bulkClear) {
+        bulkClear.addEventListener("click", function () {
+            qsa(".em-contact-check").forEach(function (c) { c.checked = false; });
+            if (selectAll) {
+                selectAll.checked = false;
+                selectAll.indeterminate = false;
+            }
+            syncBulkSelection();
+        });
+    }
+    syncBulkSelection();
+
     var assignForm = document.getElementById("em-assign-task-form");
     if (assignForm) {
         assignForm.addEventListener("submit", function () {

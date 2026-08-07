@@ -906,6 +906,54 @@ body.em-modal-open {
     align-items: center;
 }
 
+.em-bulk-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin: -0.35rem 0 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: 16px;
+    border: 1px solid #c7d2fe;
+    background:
+        radial-gradient(ellipse 70% 120% at 0% 50%, rgba(79, 70, 229, 0.1), transparent 55%),
+        linear-gradient(135deg, #eef2ff, #f8fafc);
+    box-shadow: 0 10px 24px rgba(79, 70, 229, 0.08);
+}
+
+.em-bulk-bar__copy {
+    flex: 1;
+    min-width: 200px;
+    display: grid;
+    gap: 0.15rem;
+}
+
+.em-bulk-bar__copy strong {
+    font-size: 0.92rem;
+    color: #312e81;
+}
+
+.em-bulk-bar__copy span {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.em-th-check,
+.em-td-check {
+    width: 2.2rem;
+    text-align: center;
+    vertical-align: middle !important;
+}
+
+.em-th-check input,
+.em-td-check input {
+    width: 1rem;
+    height: 1rem;
+    accent-color: #4f46e5;
+    cursor: pointer;
+}
+
 .em-btn--soft {
     background: #eef2ff;
     color: #4338ca;

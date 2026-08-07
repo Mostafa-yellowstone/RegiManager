@@ -6355,8 +6355,33 @@ def inventory_detail(request, inventory_id):
         from .insurance_targets_metrics import serialize_targets_dashboard
         import json as _json
 
-        insurance_targets["trends_json"] = _json.dumps(
-            serialize_targets_dashboard(insurance_targets)["trends"]
+        _dash_json = serialize_targets_dashboard(insurance_targets)
+        insurance_targets["trends_json"] = _json.dumps(_dash_json["trends"])
+        insurance_targets["charts_json"] = _json.dumps(
+            {
+                "trends": _dash_json["trends"],
+                "lines": [
+                    {
+                        "label": c["label"],
+                        "premium_actual": c["premium_actual"],
+                        "premium_target": c["premium_target"],
+                        "commission_actual": c["commission_actual"],
+                        "binds": c["binds"],
+                        "quotes": c["quotes"],
+                        "conversion": c["conversion"],
+                        "progress_pct": c["progress_pct"],
+                    }
+                    for c in _dash_json["line_cards"]
+                    if c.get("is_active")
+                    or float(c.get("premium_actual") or 0)
+                    or float(c.get("premium_target") or 0)
+                    or c.get("binds")
+                    or c.get("quotes")
+                ],
+                "premium_pace": _dash_json["premium_pace"],
+                "commission_pace": _dash_json["commission_pace"],
+                "totals": _dash_json["totals"],
+            }
         )
         can_edit_insurance_targets = bool(
             is_owner or user_can_view_banking

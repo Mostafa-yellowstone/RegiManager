@@ -499,6 +499,9 @@ def build_insurance_targets_dashboard(
         progress = (
             float((prem_actual / prem_target) * 100) if prem_target > 0 else 0.0
         )
+        commission_progress = (
+            float((comm_actual / comm_target) * 100) if comm_target > 0 else 0.0
+        )
 
         line_cards.append(
             {
@@ -521,6 +524,7 @@ def build_insurance_targets_dashboard(
                 "avg_commission_rate": hist_rate.get(key, ZERO),
                 "binds_needed": binds_needed,
                 "progress_pct": round(min(progress, 999.0), 1),
+                "commission_progress_pct": round(min(commission_progress, 999.0), 1),
                 "line_target_id": lt.id if lt else None,
             }
         )

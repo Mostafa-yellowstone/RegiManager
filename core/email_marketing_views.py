@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlencode
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -41,6 +43,21 @@ def _membership(user, organization):
         organization=organization,
         is_active=True,
     ).first()
+
+
+def _crm_workspace_url(list_id, request=None, **extra):
+    """Preserve CRM tab + pagination/filters after assign redirects."""
+    params = {"tab": "crm"}
+    source = {}
+    if request is not None:
+        source = request.POST if request.method == "POST" else request.GET
+    for key in ("page", "q", "state", "city", "zip_code", "has_email"):
+        val = (extra.get(key) if key in extra else None)
+        if val is None and source:
+            val = source.get(key)
+        if val not in (None, ""):
+            params[key] = val
+    return f"{reverse('email-marketing-workspace', args=[list_id])}?{urlencode(params)}"
 
 
 def _resolve_org(request):
@@ -219,7 +236,7 @@ def email_marketing_assign_task(request, list_id):
         deny_access("You do not have permission to assign agent tasks.")
 
     form = AgentTaskAssignForm(request.POST, organization=org)
-    redirect_url = f"{reverse('email-marketing-workspace', args=[list_id])}?tab=crm"
+    redirect_url = _crm_workspace_url(list_id, request)
     if not form.is_valid():
         messages.error(request, "Could not assign task. Pick an agent and add a title.")
         return redirect(redirect_url)
@@ -228,21 +245,85 @@ def email_marketing_assign_task(request, list_id):
     if agent.organization_id != org.id:
         deny_access("Invalid agent for this organization.")
 
+    raw_ids = request.POST.getlist("contact_ids") or []
+    if not raw_ids:
+        single = (request.POST.get("contact_id") or "").strip()
+        if single:
+            raw_ids = [single]
+    contact_ids = []
+    for raw in raw_ids:
+        for piece in str(raw).split(","):
+            piece = piece.strip()
+            if piece.isdigit():
+                contact_ids.append(int(piece))
+    contact_ids = list(dict.fromkeys(contact_ids))
+
+    contacts = list(
+        EmailMarketingContact.objects.filter(
+            pk__in=contact_ids, marketing_list=marketing_list
+        )
+    ) if contact_ids else []
+
+    contact_label = (request.POST.get("contact_label") or "").strip()
+    title = form.cleaned_data.get("title") or "Follow up CRM lead"
+    description = (form.cleaned_data.get("description") or "").strip()
+    due_date = form.cleaned_data.get("due_date")
+
+    now = timezone.now()
+    agent_name = agent.user.get_full_name().strip() or agent.user.username
+
+    if len(contacts) > 1:
+        # One shared task for bulk assign; each contact is marked assigned.
+        lines = [f"Bulk CRM assign · {len(contacts)} contacts from {marketing_list.name}:"]
+        for c in contacts:
+            bits = [c.name]
+            if c.email:
+                bits.append(c.email)
+            if c.phone:
+                bits.append(c.phone)
+            lines.append(" · ".join(bits))
+        if description:
+            lines.append("")
+            lines.append(description)
+        task = AgentTask.objects.create(
+            organization=org,
+            assigned_to=agent,
+            created_by=request.user,
+            title=title if title != "Follow up CRM lead" else f"Follow up · {len(contacts)} CRM leads",
+            description="\n".join(lines),
+            due_date=due_date,
+        )
+        EmailMarketingContact.objects.filter(
+            pk__in=[c.id for c in contacts]
+        ).update(
+            assigned_agent=agent,
+            assigned_at=now,
+            assigned_task=task,
+            updated_at=now,
+        )
+        Notification.objects.create(
+            user=agent.user,
+            organization=org,
+            event_type="agent_task_assigned",
+            level=Notification.Level.INFO,
+            title="New bulk task assigned",
+            message=task.title[:200],
+        )
+        messages.success(
+            request,
+            f"{len(contacts)} contacts assigned to {agent_name}.",
+        )
+        return redirect(redirect_url)
+
     task = form.save(commit=False)
     task.organization = org
     task.assigned_to = agent
     task.created_by = request.user
     task.save()
 
-    contact_id = (request.POST.get("contact_id") or "").strip()
-    contact_label = (request.POST.get("contact_label") or "").strip()
-    contact = None
-    if contact_id:
-        contact = EmailMarketingContact.objects.filter(
-            pk=contact_id, marketing_list=marketing_list
-        ).first()
-        if contact and not contact_label:
-            contact_label = contact.name
+    contact = contacts[0] if contacts else None
+    if contact and not contact_label:
+        contact_label = contact.name
 
     note_bits = []
     if contact_label:
@@ -259,7 +340,7 @@ def email_marketing_assign_task(request, list_id):
 
     if contact is not None:
         contact.assigned_agent = agent
-        contact.assigned_at = timezone.now()
+        contact.assigned_at = now
         contact.assigned_task = task
         contact.save(update_fields=["assigned_agent", "assigned_at", "assigned_task", "updated_at"])
 
@@ -271,7 +352,6 @@ def email_marketing_assign_task(request, list_id):
         title="New task assigned",
         message=task.title[:200],
     )
-    agent_name = agent.user.get_full_name().strip() or agent.user.username
     messages.success(request, f"Task assigned to {agent_name}. It will show in their agent portal.")
     return redirect(redirect_url)
 

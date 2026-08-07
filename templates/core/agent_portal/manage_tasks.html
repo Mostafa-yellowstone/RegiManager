@@ -5,7 +5,7 @@
 
 {% block portal_head %}
 <link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=10">
-<link rel="stylesheet" href="{% static 'core/css/agent_tasks_board.css' %}?v=2">
+<link rel="stylesheet" href="{% static 'core/css/agent_tasks_board.css' %}?v=3">
 {% endblock %}
 
 {% block portal_content %}
@@ -82,6 +82,19 @@
             <a class="atb-view-btn {% if view_mode == 'list' %}is-active{% endif %}" href="?view=list&status={{ selected_status|urlencode }}&agent={{ selected_agent|urlencode }}&q={{ search_query|urlencode }}">By agent</a>
         </div>
     </div>
+
+    <nav class="atb-pipeline" aria-label="Task stages">
+        {% for stage in stages %}
+        <a class="atb-pipeline__step atb-pipeline__step--{{ stage.key }} {% if selected_status == stage.key %}is-active{% endif %}"
+           href="?view={{ view_mode }}&status={{ stage.key }}&agent={{ selected_agent|urlencode }}&q={{ search_query|urlencode }}">
+            <span class="atb-pipeline__num">{{ forloop.counter }}</span>
+            <span class="atb-pipeline__meta">
+                <strong>{{ stage.label }}</strong>
+                <span>{{ stage.count }} task{{ stage.count|pluralize }}</span>
+            </span>
+        </a>
+        {% endfor %}
+    </nav>
 
     {% if view_mode == 'board' %}
     <div class="atb-board atb-board--stages">
