@@ -1302,6 +1302,7 @@
   color: var(--at-muted);
 }
 
+
 @media (max-width: 900px) {
   .attendance-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -1312,3 +1313,252 @@
   .attendance-filters input,
   .attendance-filters select { min-width: 0; width: 100%; }
 }
+
+/* ── Enhanced Attendance Tracker Animations ─────────── */
+@keyframes atCardReveal {
+  from { opacity: 0; transform: translateY(18px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+.attendance-card {
+  animation: atCardReveal 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i, 0) * 0.05s);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+.attendance-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.1);
+}
+
+.attendance-card--on_shift {
+  border-color: rgba(5, 150, 105, 0.35);
+}
+
+.attendance-card--on_shift::before {
+  background: linear-gradient(180deg, var(--at-live), #34d399);
+  box-shadow: 0 0 8px rgba(5, 150, 105, 0.55);
+  animation: atPulseBar 2s ease-in-out infinite alternate;
+}
+
+@keyframes atPulseBar {
+  from { box-shadow: 0 0 4px rgba(5, 150, 105, 0.4); }
+  to   { box-shadow: 0 0 12px rgba(5, 150, 105, 0.8); }
+}
+
+/* Pulsing live indicator dot */
+.attendance-pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.attendance-pulse::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--at-live);
+  box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.6);
+  animation: atPulseDot 1.8s ease-in-out infinite;
+}
+
+@keyframes atPulseDot {
+  0%   { box-shadow: 0 0 0 0   rgba(5, 150, 105, 0.6); }
+  70%  { box-shadow: 0 0 0 8px rgba(5, 150, 105, 0.0); }
+  100% { box-shadow: 0 0 0 0   rgba(5, 150, 105, 0.0); }
+}
+
+/* Stat cards animated reveal */
+@keyframes atStatIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.attendance-stat {
+  animation: atStatIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.attendance-stat:nth-child(1) { animation-delay: 0.06s; }
+.attendance-stat:nth-child(2) { animation-delay: 0.12s; }
+.attendance-stat:nth-child(3) { animation-delay: 0.18s; }
+.attendance-stat:nth-child(4) { animation-delay: 0.24s; }
+
+.attendance-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
+}
+
+/* Upgrade attendance card actions */
+.attendance-card__actions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.95rem;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.1);
+  border: 1px solid rgba(15, 118, 110, 0.25);
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.attendance-card__actions a:hover {
+  background: rgba(15, 118, 110, 0.18);
+  border-color: rgba(15, 118, 110, 0.45);
+  transform: translateX(2px);
+}
+
+/* Dark mode attendance cards */
+.portal-theme-dark .attendance-card {
+  background: rgba(22, 32, 41, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-color: rgba(236, 243, 247, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.portal-theme-dark .attendance-card:hover {
+  border-color: rgba(94, 234, 212, 0.3);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+.portal-theme-dark .attendance-board {
+  background: rgba(22, 32, 41, 0.6);
+  backdrop-filter: blur(8px);
+  border-color: rgba(236, 243, 247, 0.12);
+}
+
+.portal-theme-dark .attendance-stat {
+  background: rgba(22, 32, 41, 0.75);
+  border-color: rgba(236, 243, 247, 0.12);
+}
+
+.portal-theme-dark .attendance-card__meta div {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.portal-theme-dark .attendance-window-banner > div {
+  background: rgba(22, 32, 41, 0.65);
+  border-color: rgba(236, 243, 247, 0.12);
+}
+
+.portal-theme-dark .attendance-avatar {
+  background: rgba(94, 234, 212, 0.15);
+  color: #5eead4;
+}
+
+/* ── Enhanced Agent Portal Hero ───────────────────────── */
+.agent-portal__hero {
+  background:
+    radial-gradient(ellipse 75% 100% at 0% 0%, rgba(15, 118, 110, 0.18), transparent 55%),
+    radial-gradient(ellipse 50% 80% at 100% 100%, rgba(123, 104, 238, 0.14), transparent 50%),
+    var(--ap-wash);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+  transition: box-shadow 0.3s ease;
+}
+
+/* Agent cards hover tilt effect */
+.agent-card {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+}
+
+.agent-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.1) !important;
+}
+
+/* Animated progress ring */
+@keyframes apRingIn {
+  from { stroke-dasharray: 0, 100; }
+  to   { stroke-dasharray: var(--progress, 0), 100; }
+}
+
+.agent-progress__fg {
+  animation: apRingIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) both 0.3s;
+}
+
+/* Timeline items staggered fade */
+@keyframes apTimelineIn {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.agent-timeline__item {
+  animation: apTimelineIn 0.4s ease both;
+}
+
+.agent-timeline__item:nth-child(1) { animation-delay: 0.05s; }
+.agent-timeline__item:nth-child(2) { animation-delay: 0.1s; }
+.agent-timeline__item:nth-child(3) { animation-delay: 0.15s; }
+.agent-timeline__item:nth-child(4) { animation-delay: 0.2s; }
+.agent-timeline__item:nth-child(5) { animation-delay: 0.25s; }
+.agent-timeline__item:nth-child(n+6) { animation-delay: 0.3s; }
+
+/* Agent task list items slide in */
+@keyframes apTaskIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.agent-task {
+  animation: apTaskIn 0.35s ease both;
+  animation-delay: calc(var(--task-i, 0) * 0.04s);
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.agent-task:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--ap-accent) 40%, var(--ap-line));
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+
+/* Space modal glass panel */
+.agent-spaces-modal {
+  border: none;
+  padding: 0;
+  background: transparent;
+  max-width: min(860px, calc(100vw - 2rem));
+  width: 100%;
+}
+
+.agent-spaces-modal::backdrop {
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.agent-spaces-modal__panel {
+  background: var(--ap-card);
+  border: 1px solid var(--ap-line);
+  border-radius: 28px;
+  box-shadow: 0 32px 72px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+  animation: apModalIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes apModalIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Space tile shimmer hover */
+.agent-space-tile {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease;
+}
+
+.agent-space-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+}
+
+/* Icon button hover ring */
+.agent-icon-btn {
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.agent-icon-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1);
+}
+

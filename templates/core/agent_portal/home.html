@@ -8,7 +8,7 @@
 {% endblock %}
 
 {% block portal_content %}
-<main class="agent-portal">
+<main class="agent-portal" style="padding:1.5rem 2rem 4rem;max-width:100%;">
     <section class="agent-portal__hero">
         <div class="agent-portal__identity">
             <form method="post" action="{% url 'agent-portal-upload-photo' %}" enctype="multipart/form-data" class="agent-photo-form" id="agentPhotoForm">
@@ -49,8 +49,8 @@
         </div>
     </section>
 
-    <div class="agent-portal__grid">
-        <section class="agent-card agent-card--attendance">
+        <div class="agent-portal__grid" style="display:grid;grid-template-columns:1.1fr 0.9fr;gap:1.25rem;margin-bottom:1.25rem;">
+        <section class="agent-card agent-card--attendance" style="background:var(--ap-card);border:1px solid var(--ap-line);border-radius:24px;padding:1.35rem 1.4rem;box-shadow:0 14px 32px rgba(15,23,42,0.05);">
             <header class="agent-card__head">
                 <h2>Attendance</h2>
                 {% if attendance %}
@@ -82,7 +82,7 @@
             </dl>
         </section>
 
-        <section class="agent-card agent-card--tasks">
+        <section class="agent-card agent-card--tasks" style="background:var(--ap-card);border:1px solid var(--ap-line);border-radius:24px;padding:1.35rem 1.4rem;box-shadow:0 14px 32px rgba(15,23,42,0.05);">
             <header class="agent-card__head">
                 <h2>My tasks</h2>
                 <a class="agent-pill agent-pill--link" href="{% url 'agent-portal-tasks-board' %}">{{ task_progress.done }}/{{ task_progress.total }} · Board</a>
@@ -113,7 +113,7 @@
             </div>
             <ul class="agent-task-list" id="agentTaskList">
                 {% for task in task_progress.open_tasks %}
-                <li class="agent-task" data-task-id="{{ task.id }}">
+                <li class="agent-task" data-task-id="{{ task.id }}" style="--task-i:{{ forloop.counter0 }};">
                     <a href="{% url 'agent-portal-tasks-board' %}" class="agent-check" style="text-decoration:none;color:inherit;">
                         <span class="agent-check__box" aria-hidden="true" style="border-radius:999px;font-size:0.55rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center;width:auto;min-width:4.5rem;padding:0.2rem 0.45rem;">{{ task.get_status_display }}</span>
                         <span class="agent-check__label">
@@ -128,8 +128,10 @@
                 {% endfor %}
             </ul>
         </section>
+        </div><!-- /.agent-portal__grid -->
 
-        <section class="agent-card agent-card--timeline">
+        <!-- Full-width timeline below the 2-col grid -->
+        <section class="agent-card agent-card--timeline" style="background:var(--ap-card);border:1px solid var(--ap-line);border-radius:24px;padding:1.35rem 1.4rem;box-shadow:0 14px 32px rgba(15,23,42,0.05);">
             <header class="agent-card__head">
                 <h2>Day audit trail</h2>
                 <form method="get" style="display:flex;align-items:center;gap:0.45rem;">

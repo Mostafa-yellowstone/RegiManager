@@ -4,12 +4,12 @@
 {% block title %}My Tasks | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=10">
-<link rel="stylesheet" href="{% static 'core/css/agent_tasks_board.css' %}?v=4">
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=12">
+<link rel="stylesheet" href="{% static 'core/css/agent_tasks_board.css' %}?v=5">
 {% endblock %}
 
 {% block portal_content %}
-<main class="agent-portal atb" data-view="{{ view_mode }}" data-status="{{ status_filter }}" data-toggle-url-template="{% url 'agent-portal-toggle-task' 0 %}">
+<main class="agent-portal atb" data-view="{{ view_mode }}" data-status="{{ status_filter }}" data-toggle-url-template="{% url 'agent-portal-toggle-task' 0 %}" style="max-width:100%;width:100%;padding:1.5rem 2rem 4rem;">
     <header class="atb-hero">
         <div class="atb-hero__copy">
             <a class="atb-back" href="{% url 'agent-portal-home' %}">

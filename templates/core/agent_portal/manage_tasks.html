@@ -4,12 +4,12 @@
 {% block title %}Tasks CRM | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=10">
-<link rel="stylesheet" href="{% static 'core/css/agent_tasks_board.css' %}?v=3">
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=11">
+<link rel="stylesheet" href="{% static 'core/css/agent_tasks_board.css' %}?v=5">
 {% endblock %}
 
 {% block portal_content %}
-<main class="agent-portal atb atc-crm">
+<main class="agent-portal atb atc-crm" style="padding:1.5rem 2rem 4rem;">
     <header class="atb-hero">
         <div class="atb-hero__copy">
             <a class="atb-back" href="{% url 'dashboard' %}">
@@ -21,17 +21,25 @@
             <p class="atb-hero__lead">Assign work to insurance agents, track stages across the team, and review completion notes.</p>
         </div>
         <div class="atb-hero__stats">
-            <div class="atb-progress">
+            <div class="atb-progress" style="background: linear-gradient(135deg, rgba(123,104,238,0.12), var(--ap-card)); border: 1.5px solid color-mix(in srgb, var(--atb-accent) 28%, var(--ap-line)); padding: 1rem 1.4rem; gap: 1.25rem;">
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.15rem;">
+                    <span style="font-size:2rem;font-weight:900;letter-spacing:-0.04em;color:var(--atb-accent);line-height:1;">{{ crm_totals.done }}</span>
+                    <small style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;color:var(--ap-muted);">Done</small>
+                </div>
+                <div style="width:1px;height:2.5rem;background:var(--ap-line);"></div>
                 <div class="atb-progress__meta">
-                    <span>{{ crm_totals.done }}/{{ crm_totals.total }} done</span>
+                    <span>{{ crm_totals.done }}/{{ crm_totals.total }} complete</span>
                     <small>{{ crm_totals.open }} still open</small>
                 </div>
             </div>
         </div>
     </header>
 
-    <section class="atc-assign">
-        <h2 style="margin:0;font-size:1rem;">Assign new task</h2>
+    <section class="atc-assign" id="atcAssignPanel">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.85rem;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:2rem;height:2rem;border-radius:10px;background:linear-gradient(135deg,#6d5dfc,#7b68ee);box-shadow:0 6px 14px rgba(123,104,238,0.3);"><svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+            <h2 style="margin:0;font-size:1.05rem;font-weight:850;letter-spacing:-0.02em;">Assign new task</h2>
+        </div>
         <form method="post" action="{% url 'agent-portal-create-task' %}">
             {% csrf_token %}
             <input type="hidden" name="next" value="{% url 'agent-portal-manage-tasks' %}">
@@ -41,8 +49,8 @@
                 <div>{{ assign_form.due_date }}</div>
             </div>
             {{ assign_form.description }}
-            <div style="margin-top:0.65rem;">
-                <button type="submit" class="btn btn-primary">Assign task</button>
+            <div style="margin-top:0.85rem;display:flex;gap:0.65rem;align-items:center;">
+                <button type="submit" class="btn btn-primary" style="background:linear-gradient(135deg,#6d5dfc,#7b68ee);border:none;box-shadow:0 8px 18px rgba(123,104,238,0.3);font-weight:800;">Assign task</button>
             </div>
         </form>
     </section>
@@ -107,7 +115,7 @@
             </header>
             <ul class="atb-cards">
                 {% for task in stage.tasks %}
-                <li class="atb-card {% if task.is_done %}is-done{% endif %}">
+                <li class="atb-card {% if task.is_done %}is-done{% endif %}" style="--i:{{ forloop.counter0 }};">
                     <div class="atb-card__body">
                         <span class="atc-card-agent">{{ task.assigned_to.user.get_full_name|default:task.assigned_to.user.username }}</span>
                         <strong class="atb-card__title">{{ task.title }}</strong>
@@ -175,7 +183,7 @@
                 <a class="btn btn-secondary btn-sm" href="{% url 'agent-profile' group.grouper.id %}">Agent profile</a>
             </li>
             {% for task in group.list %}
-            <li class="atb-list-row {% if task.is_done %}is-done{% endif %}">
+            <li class="atb-list-row {% if task.is_done %}is-done{% endif %}" style="--i:{{ forloop.counter0 }};">
                 <div class="atb-list-row__main">
                     <strong>{{ task.title }}</strong>
                     {% if task.description %}<small>{{ task.description|truncatechars:120 }}</small>{% endif %}
@@ -193,4 +201,10 @@
     </section>
     {% endif %}
 </main>
+
+<!-- Floating Action Button -->
+<a href="#atcAssignPanel" class="atb-fab" onclick="document.getElementById('atcAssignPanel').scrollIntoView({behavior:'smooth',block:'center'});return false;" aria-label="Assign new task">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    Assign task
+</a>
 {% endblock %}

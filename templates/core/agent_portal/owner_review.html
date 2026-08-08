@@ -4,7 +4,7 @@
 {% block title %}Portal · {{ agent_membership.user.get_full_name|default:agent_membership.user.username }} | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=8">
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=12">
 {% endblock %}
 
 {% block portal_content %}
@@ -17,10 +17,24 @@
   --ior-green: #16a34a;
   --ior-amber: #d97706;
 }
+
+/* page fade-in */
+@keyframes iorPageIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* strip card stagger */
+@keyframes iorStripIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .ior-page .portal-space-inner--wide {
   max-width: 100%;
   width: 100%;
   padding: 1.5rem 2rem 3rem;
+  animation: iorPageIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 @media (min-width: 1400px) {
   .ior-page .portal-space-inner--wide {
@@ -158,7 +172,19 @@
   border-radius: 16px;
   background: rgba(15, 23, 42, 0.28);
   border: 1px solid rgba(255,255,255,0.14);
+  animation: iorStripIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+
+.ior-strip__card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+}
+
+.ior-strip > .ior-strip__card:nth-child(1) { animation-delay: 0.05s; }
+.ior-strip > .ior-strip__card:nth-child(2) { animation-delay: 0.1s; }
+.ior-strip > .ior-strip__card:nth-child(3) { animation-delay: 0.15s; }
+.ior-strip > .ior-strip__card:nth-child(4) { animation-delay: 0.2s; }
 .ior-strip__label {
   display: block;
   color: #c7d2fe;
@@ -202,6 +228,13 @@
   border-radius: 20px;
   padding: 1.2rem 1.3rem 1.3rem;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+.ior-panel:hover {
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.07);
 }
 .ior-panel__head {
   display: flex;
@@ -368,8 +401,11 @@
 }
 
 html.portal-theme-dark .ior-panel {
-  background: rgba(30, 27, 75, 0.35);
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-color: rgba(165, 180, 252, 0.22);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
 }
 html.portal-theme-dark .ior-chip {
   background: rgba(99, 102, 241, 0.18);

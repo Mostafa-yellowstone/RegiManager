@@ -610,6 +610,157 @@
 .ift-stat-tile:nth-child(3) { border-color: color-mix(in srgb, var(--ift-sky) 25%, var(--ift-line)); }
 .ift-stat-tile:nth-child(4) { border-color: color-mix(in srgb, var(--ift-amber) 25%, var(--ift-line)); }
 
+.ift-score {
+  position: relative;
+  overflow: hidden;
+  padding: 1.35rem 1.3rem 1.4rem;
+  border-radius: 22px;
+  border: 1px solid var(--ift-line);
+  background: var(--ift-card);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.045);
+  min-height: 100%;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+  animation: iftCardIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.ift-scoreboard article:nth-child(1) { animation-delay: 0.05s; }
+.ift-scoreboard article:nth-child(2) { animation-delay: 0.12s; }
+.ift-scoreboard article:nth-child(3) { animation-delay: 0.19s; }
+
+@keyframes iftCardIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.ift-score:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.1);
+  border-color: color-mix(in srgb, var(--ift-indigo) 35%, var(--ift-line));
+}
+
+.ift-score::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 4px;
+}
+
+.ift-score--premium::before {
+  background: linear-gradient(90deg, #6366f1, #4f46e5, #818cf8);
+}
+.ift-score--commission::before {
+  background: linear-gradient(90deg, #2dd4bf, #0d9488, #14b8a6);
+}
+.ift-score--planner::before {
+  background: linear-gradient(90deg, #38bdf8, #0284c7, #7c3aed);
+}
+
+.ift-score--premium {
+  background:
+    radial-gradient(ellipse 90% 80% at 100% 0%, rgba(79, 70, 229, 0.1), transparent 55%),
+    #fff;
+}
+.ift-score--commission {
+  background:
+    radial-gradient(ellipse 90% 80% at 100% 0%, rgba(13, 148, 136, 0.1), transparent 55%),
+    #fff;
+}
+.ift-score--planner {
+  background:
+    radial-gradient(ellipse 90% 80% at 100% 0%, rgba(2, 132, 199, 0.1), transparent 55%),
+    #fff;
+}
+
+.ift-score__label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ift-muted);
+  margin-bottom: 0.45rem;
+}
+
+.ift-score__value {
+  display: block;
+  font-size: 1.85rem;
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  color: var(--ift-ink);
+}
+
+.ift-score__headline {
+  display: block;
+  font-size: 1.05rem;
+  line-height: 1.4;
+  font-weight: 800;
+  color: var(--ift-ink);
+}
+
+.ift-score__row {
+  display: flex;
+  justify-content: space-between;
+  margin: 0.7rem 0 0.5rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--ift-muted);
+}
+
+.ift-progress {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: #e8edf5;
+  overflow: hidden;
+}
+
+.ift-progress i {
+  position: relative;
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #818cf8, #4f46e5);
+  max-width: 100%;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.ift-progress i::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  animation: iftShimmer 2.2s infinite;
+}
+
+@keyframes iftShimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+.ift-progress--green i {
+  background: linear-gradient(90deg, #5eead4, #0d9488);
+}
+
+.ift-score__meta {
+  margin: 0.7rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--ift-muted);
+  line-height: 1.4;
+}
+
+.ift-lob {
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  animation: iftCardIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.ift-lob:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+}
+
 .ift-assume-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
@@ -693,32 +844,77 @@
   padding: 0.95rem;
 }
 
-html.portal-theme-dark .ift-hero,
+/* ── Dark theme support for Insurance Targets ── */
+html.portal-theme-dark .ift {
+  --ift-ink: #f8fafc;
+  --ift-muted: #94a3b8;
+  --ift-line: rgba(148, 163, 184, 0.18);
+  --ift-card: #0f172a;
+  --ift-soft: #1e293b;
+}
+
+html.portal-theme-dark .ift-hero {
+  background:
+    radial-gradient(ellipse 80% 120% at 0% 0%, rgba(79, 70, 229, 0.28), transparent 55%),
+    radial-gradient(ellipse 55% 90% at 100% 0%, rgba(13, 148, 136, 0.25), transparent 52%),
+    linear-gradient(165deg, #0f172a 0%, #1e293b 100%);
+  border-color: rgba(148, 163, 184, 0.22);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+html.portal-theme-dark .ift-hero h2,
+html.portal-theme-dark .ift-score__value,
+html.portal-theme-dark .ift-score__headline,
+html.portal-theme-dark .ift-lob h4,
+html.portal-theme-dark .ift-section-head h3,
+html.portal-theme-dark .ift-analytics__head h3,
+html.portal-theme-dark .ift-panel__head h3,
+html.portal-theme-dark .ift-chart-card h4,
+html.portal-theme-dark .ift-stat-tile strong {
+  color: #f8fafc;
+}
+
 html.portal-theme-dark .ift-score,
 html.portal-theme-dark .ift-lob,
 html.portal-theme-dark .ift-panel,
 html.portal-theme-dark .ift-analytics,
 html.portal-theme-dark .ift-chart-card {
-  background: rgba(15, 23, 42, 0.78);
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-color: rgba(148, 163, 184, 0.22);
-  box-shadow: none;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.25);
 }
 
-html.portal-theme-dark .ift-hero h2,
-html.portal-theme-dark .ift-score__value,
-html.portal-theme-dark .ift-lob h4,
-html.portal-theme-dark .ift-section-head h3,
-html.portal-theme-dark .ift-analytics__head h3 {
-  color: #f8fafc;
+html.portal-theme-dark .ift-progress {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 html.portal-theme-dark .ift-insights li {
   color: #c7d2fe;
-  background: rgba(79, 70, 229, 0.14);
+  background: rgba(79, 70, 229, 0.22);
+  border-color: rgba(99, 102, 241, 0.3);
 }
 
 html.portal-theme-dark .ift-plays li,
 html.portal-theme-dark .ift-stat-tile,
 html.portal-theme-dark .ift-assume-card {
-  background: rgba(30, 41, 59, 0.65);
+  background: rgba(30, 41, 59, 0.75);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+html.portal-theme-dark .ift-month-form input[type="month"] {
+  background: #1e293b;
+  color: #f8fafc;
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+html.portal-theme-dark .ift-ring {
+  background:
+    radial-gradient(closest-side, #0f172a 72%, transparent 73% 100%),
+    conic-gradient(var(--ring) calc(var(--pct) * 1%), rgba(255, 255, 255, 0.12) 0);
+}
+
+html.portal-theme-dark .ift-ring strong {
+  color: #f8fafc;
 }

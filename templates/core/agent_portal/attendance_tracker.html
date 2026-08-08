@@ -4,7 +4,7 @@
 {% block title %}Attendance Tracker | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=9">
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=12">
 {% endblock %}
 
 {% block portal_content %}
@@ -85,7 +85,7 @@
         {% if roster.rows %}
         <div class="attendance-grid">
             {% for row in roster.rows %}
-            <article class="attendance-card attendance-card--{{ row.status }}">
+            <article class="attendance-card attendance-card--{{ row.status }}" style="--i:{{ forloop.counter0 }};" data-status="{{ row.status }}">
                 <div class="attendance-card__top">
                     <div class="attendance-avatar" aria-hidden="true">
                         {% if row.membership.profile_photo %}
@@ -98,7 +98,7 @@
                         <h3>{{ row.membership.user.get_full_name|default:row.membership.user.username }}</h3>
                         <p>{{ row.membership.organization.name }}{% if row.membership.can_deal_with_insurance %} · Insurance{% else %} · DMV{% endif %}</p>
                     </div>
-                    <span class="attendance-status attendance-status--{{ row.status }}">
+                    <span class="attendance-status attendance-status--{{ row.status }} {% if row.status == 'on_shift' %}attendance-pulse{% endif %}">
                         {% if row.status == "on_shift" %}On shift
                         {% elif row.status == "closed" %}Closed
                         {% else %}No check-in{% endif %}
