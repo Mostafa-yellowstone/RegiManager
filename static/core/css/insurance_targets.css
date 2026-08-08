@@ -844,6 +844,166 @@
   padding: 0.95rem;
 }
 
+/* ── New Handsome UI Components ── */
+.ift-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(79, 70, 229, 0.12);
+  color: var(--ift-indigo);
+  font-size: 0.72rem;
+  font-weight: 800;
+  border: 1px solid rgba(79, 70, 229, 0.2);
+}
+
+.ift-badge__dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+  animation: iftDotPulse 1.8s infinite alternate;
+}
+
+@keyframes iftDotPulse {
+  from { opacity: 0.5; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1.2); }
+}
+
+.ift-badge--teal { background: rgba(13, 148, 136, 0.12); color: var(--ift-teal); border-color: rgba(13, 148, 136, 0.22); }
+.ift-badge--violet { background: rgba(124, 58, 237, 0.12); color: var(--ift-violet); border-color: rgba(124, 58, 237, 0.22); }
+.ift-badge--on_track { background: rgba(5, 150, 105, 0.12); color: var(--ift-emerald); border-color: rgba(5, 150, 105, 0.22); }
+.ift-badge--caution { background: rgba(217, 119, 6, 0.12); color: var(--ift-amber); border-color: rgba(217, 119, 6, 0.22); }
+.ift-badge--behind { background: rgba(225, 29, 72, 0.12); color: var(--ift-rose); border-color: rgba(225, 29, 72, 0.22); }
+
+.ift-score__pct {
+  display: inline-flex;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(79, 70, 229, 0.12);
+  color: var(--ift-indigo);
+  font-weight: 900;
+  font-size: 0.82rem;
+}
+
+.ift-score__pct--teal {
+  background: rgba(13, 148, 136, 0.12);
+  color: var(--ift-teal);
+}
+
+.ift-score__meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.ift-micro-pill {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 12px;
+  background: var(--ift-soft);
+  border: 1px solid var(--ift-line);
+}
+
+.ift-micro-pill span {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ift-muted);
+}
+
+.ift-micro-pill strong {
+  font-size: 0.82rem;
+  font-weight: 850;
+  color: var(--ift-ink);
+}
+
+.ift-score__detail {
+  display: block;
+  margin-top: 0.6rem;
+  font-size: 0.78rem;
+  color: var(--ift-muted);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.ift-score__meta-box {
+  margin: 0.85rem 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 14px;
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ift-score__meta-box span {
+  font-size: 0.72rem;
+  font-weight: 750;
+  color: var(--ift-muted);
+}
+
+.ift-score__meta-box strong {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--ift-violet);
+}
+
+.ift-chip-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 750;
+  background: var(--ift-soft);
+  border: 1px solid var(--ift-line);
+  color: var(--ift-muted);
+}
+
+.ift-lob__bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ift-lob__bar-row small {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--ift-muted);
+  width: 75px;
+  flex-shrink: 0;
+}
+
+.ift-lob__bar-row .ift-lob__bar {
+  flex: 1;
+}
+
+.ift-play-impact {
+  display: flex;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.ift-play-impact span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.15rem 0.5rem;
+  border-radius: 8px;
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--ift-indigo);
+}
+
 /* ── Dark theme support for Insurance Targets ── */
 html.portal-theme-dark .ift {
   --ift-ink: #f8fafc;
@@ -870,7 +1030,8 @@ html.portal-theme-dark .ift-section-head h3,
 html.portal-theme-dark .ift-analytics__head h3,
 html.portal-theme-dark .ift-panel__head h3,
 html.portal-theme-dark .ift-chart-card h4,
-html.portal-theme-dark .ift-stat-tile strong {
+html.portal-theme-dark .ift-stat-tile strong,
+html.portal-theme-dark .ift-micro-pill strong {
   color: #f8fafc;
 }
 
@@ -878,7 +1039,9 @@ html.portal-theme-dark .ift-score,
 html.portal-theme-dark .ift-lob,
 html.portal-theme-dark .ift-panel,
 html.portal-theme-dark .ift-analytics,
-html.portal-theme-dark .ift-chart-card {
+html.portal-theme-dark .ift-chart-card,
+html.portal-theme-dark .ift-micro-pill,
+html.portal-theme-dark .ift-chip-tag {
   background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -918,3 +1081,4 @@ html.portal-theme-dark .ift-ring {
 html.portal-theme-dark .ift-ring strong {
   color: #f8fafc;
 }
+

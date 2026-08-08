@@ -4,60 +4,103 @@
 <section class="ift" id="insuranceTargetsRoot" data-month="{{ insurance_targets.month_key }}">
   <header class="ift-hero">
     <div class="ift-hero__copy">
-      <p class="ift-kicker">Targets &amp; Forecast · {{ insurance_targets.month_label }}</p>
+      <div style="display:flex;align-items:center;gap:0.55rem;margin-bottom:0.4rem;">
+        <span class="ift-kicker">Targets &amp; Forecast</span>
+        <span class="ift-pill-badge">{{ insurance_targets.month_label }}</span>
+      </div>
       <h2>How we hit the month</h2>
       <p class="ift-lead">Premium is the north star; commission rides shotgun. Track every line of business, pace the forecast, then let the planner suggest the bind mix.</p>
     </div>
     <form method="get" class="ift-month-form">
       <input type="hidden" name="tab" value="targets">
       <label>
-        Month
+        <span>Target Month</span>
         <input type="month" name="target_month" value="{{ insurance_targets.month_key }}" onchange="this.form.submit()">
       </label>
     </form>
   </header>
 
   <div class="ift-scoreboard">
+    <!-- Premium Scorecard -->
     <article class="ift-score ift-score--premium ift-score--{{ insurance_targets.premium_pace.status }}">
-      <span class="ift-score__label">Premium target</span>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;">
+        <span class="ift-score__label">Premium Target</span>
+        <em class="ift-badge ift-badge--{{ insurance_targets.premium_pace.status }}">
+          <span class="ift-badge__dot"></span>
+          {{ insurance_targets.premium_pace.status_label }}
+        </em>
+      </div>
       <strong class="ift-score__value">${{ insurance_targets.premium_pace.target|floatformat:2 }}</strong>
       <div class="ift-score__row">
-        <span>MTD ${{ insurance_targets.premium_pace.mtd|floatformat:2 }}</span>
-        <span>{{ insurance_targets.premium_pace.mtd_pct }}%</span>
+        <span>MTD <strong>${{ insurance_targets.premium_pace.mtd|floatformat:2 }}</strong></span>
+        <span class="ift-score__pct">{{ insurance_targets.premium_pace.mtd_pct }}%</span>
       </div>
       <div class="ift-progress"><i style="width: {{ insurance_targets.premium_pace.mtd_pct|floatformat:0 }}%"></i></div>
-      <p class="ift-score__meta">
-        Forecast ${{ insurance_targets.premium_pace.projected_month_end|floatformat:2 }}
-        · need ${{ insurance_targets.premium_pace.required_daily_pace|floatformat:2 }}/day
-        · {{ insurance_targets.days_remaining }} days left
-      </p>
-      <em class="ift-badge">{{ insurance_targets.premium_pace.status_label }}</em>
-      <small>{{ insurance_targets.premium_pace.status_detail }}</small>
+      
+      <div class="ift-score__meta-grid">
+        <div class="ift-micro-pill">
+          <span>Forecast</span>
+          <strong>${{ insurance_targets.premium_pace.projected_month_end|floatformat:0 }}</strong>
+        </div>
+        <div class="ift-micro-pill">
+          <span>Need Daily</span>
+          <strong>${{ insurance_targets.premium_pace.required_daily_pace|floatformat:0 }}/day</strong>
+        </div>
+        <div class="ift-micro-pill">
+          <span>Remaining</span>
+          <strong>{{ insurance_targets.days_remaining }} days</strong>
+        </div>
+      </div>
+      <small class="ift-score__detail">{{ insurance_targets.premium_pace.status_detail }}</small>
     </article>
 
+    <!-- Commission Scorecard -->
     <article class="ift-score ift-score--commission">
-      <span class="ift-score__label">Commission target</span>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;">
+        <span class="ift-score__label">Commission Target</span>
+        <span class="ift-badge ift-badge--teal">
+          <span class="ift-badge__dot"></span>
+          Revenue Pace
+        </span>
+      </div>
       <strong class="ift-score__value">${{ insurance_targets.commission_pace.target|floatformat:2 }}</strong>
       <div class="ift-score__row">
-        <span>MTD ${{ insurance_targets.commission_pace.mtd|floatformat:2 }}</span>
-        <span>{{ insurance_targets.commission_pace.mtd_pct }}%</span>
+        <span>MTD <strong>${{ insurance_targets.commission_pace.mtd|floatformat:2 }}</strong></span>
+        <span class="ift-score__pct ift-score__pct--teal">{{ insurance_targets.commission_pace.mtd_pct }}%</span>
       </div>
       <div class="ift-progress ift-progress--green"><i style="width: {{ insurance_targets.commission_pace.mtd_pct|floatformat:0 }}%"></i></div>
-      <p class="ift-score__meta">
-        Forecast ${{ insurance_targets.commission_pace.projected_month_end|floatformat:2 }}
-        · {{ insurance_targets.totals.binds }} binds / {{ insurance_targets.totals.quotes }} quotes
-      </p>
+      
+      <div class="ift-score__meta-grid">
+        <div class="ift-micro-pill">
+          <span>Forecast End</span>
+          <strong>${{ insurance_targets.commission_pace.projected_month_end|floatformat:0 }}</strong>
+        </div>
+        <div class="ift-micro-pill">
+          <span>Activity</span>
+          <strong>{{ insurance_targets.totals.binds }} binds / {{ insurance_targets.totals.quotes }} quotes</strong>
+        </div>
+      </div>
     </article>
 
+    <!-- AI Planner Scorecard -->
     <article class="ift-score ift-score--planner">
-      <span class="ift-score__label">AI-style planner</span>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;">
+        <span class="ift-score__label">AI-Style Planner</span>
+        <span class="ift-badge ift-badge--violet">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          Smart Playbook
+        </span>
+      </div>
       <strong class="ift-score__headline">{{ insurance_targets.planner.headline }}</strong>
-      <p class="ift-score__meta">
-        Est. commission from playbook
-        <b>${{ insurance_targets.planner.estimated_commission_from_plays|floatformat:2 }}</b>
-      </p>
+      <div class="ift-score__meta-box">
+        <span>Est. commission from playbook</span>
+        <strong>+${{ insurance_targets.planner.estimated_commission_from_plays|floatformat:2 }}</strong>
+      </div>
       {% if can_edit_insurance_targets %}
-      <button type="button" class="ift-btn" onclick="document.getElementById('iftTargetsModal').classList.add('active')">Set targets</button>
+      <button type="button" class="ift-btn" onclick="document.getElementById('iftTargetsModal').classList.add('active')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Set Monthly Targets
+      </button>
       {% endif %}
     </article>
   </div>
@@ -65,15 +108,18 @@
   {% if insurance_targets.insights %}
   <ul class="ift-insights">
     {% for tip in insurance_targets.insights %}
-    <li>{{ tip }}</li>
+    <li>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <span>{{ tip }}</span>
+    </li>
     {% endfor %}
   </ul>
   {% endif %}
 
   <div class="ift-section-head">
     <div>
-      <h3>Lines of business</h3>
-      <p>Personal auto, commercial, GL, workers comp — and every type you configured.</p>
+      <h3>Lines of Business Performance</h3>
+      <p>Personal auto, commercial, GL, workers comp — breakdown by product line.</p>
     </div>
     <span class="ift-section-tag">Progress by LOB</span>
   </div>
@@ -91,26 +137,39 @@
         </header>
         <div class="ift-lob__money">
           <div>
-            <span>Premium</span>
-            <strong>${{ card.premium_actual|floatformat:0 }} / ${{ card.premium_target|floatformat:0 }}</strong>
+            <span>Premium MTD / Target</span>
+            <strong>${{ card.premium_actual|floatformat:0 }} <small>/ ${{ card.premium_target|floatformat:0 }}</small></strong>
           </div>
           <div>
             <span>Commission</span>
-            <strong>${{ card.commission_actual|floatformat:0 }} / ${{ card.commission_target|floatformat:0 }}</strong>
+            <strong>${{ card.commission_actual|floatformat:0 }} <small>/ ${{ card.commission_target|floatformat:0 }}</small></strong>
           </div>
         </div>
         <div class="ift-lob__bars">
-          <div class="ift-lob__bar ift-lob__bar--prem"><i style="width: {{ card.progress_pct|floatformat:0 }}%"></i></div>
-          <div class="ift-lob__bar ift-lob__bar--comm"><i style="width: {{ card.commission_progress_pct|floatformat:0 }}%"></i></div>
+          <div class="ift-lob__bar-row">
+            <small>Premium Pace</small>
+            <div class="ift-lob__bar ift-lob__bar--prem"><i style="width: {{ card.progress_pct|floatformat:0 }}%"></i></div>
+          </div>
+          <div class="ift-lob__bar-row">
+            <small>Comm Pace</small>
+            <div class="ift-lob__bar ift-lob__bar--comm"><i style="width: {{ card.commission_progress_pct|floatformat:0 }}%"></i></div>
+          </div>
         </div>
         <div class="ift-lob__meta">
-          <span>{{ card.binds }} bound · {{ card.quotes }} quotes · {{ card.conversion }}% conv</span>
-          <span>Assumed ${{ card.assumed_premium|floatformat:0 }}</span>
+          <span class="ift-chip-tag">{{ card.binds }} bound</span>
+          <span class="ift-chip-tag">{{ card.quotes }} quotes</span>
+          <span class="ift-chip-tag">{{ card.conversion }}% conv</span>
         </div>
         {% if card.premium_gap > 0 %}
-        <p class="ift-lob__need">Gap ${{ card.premium_gap|floatformat:0 }} · ~{{ card.binds_needed }} binds to close</p>
+        <p class="ift-lob__need">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Gap ${{ card.premium_gap|floatformat:0 }} · ~{{ card.binds_needed }} binds to close
+        </p>
         {% else %}
-        <p class="ift-lob__need is-ok">Line looking healthy — keep feeding quality quotes.</p>
+        <p class="ift-lob__need is-ok">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Healthy pace — target on track
+        </p>
         {% endif %}
       </div>
     </article>
@@ -123,22 +182,31 @@
   <section class="ift-analytics" aria-labelledby="ift-analytics-title">
     <div class="ift-analytics__head">
       <div>
-        <h3 id="ift-analytics-title">Charts &amp; data visualization</h3>
-        <p>Six-month trajectory, LOB mix, and bind conversion at a glance.</p>
+        <h3 id="ift-analytics-title">Data Visualization &amp; Forecast Trends</h3>
+        <p>Six-month revenue trajectory, line-of-business target pace, and bind conversion mix.</p>
       </div>
-      <span class="ift-section-tag">Analytics</span>
+      <span class="ift-section-tag">Interactive Analytics</span>
     </div>
     <div class="ift-chart-grid">
       <article class="ift-chart-card ift-chart-card--wide">
-        <h4>6-month premium &amp; commission trend</h4>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+          <h4>6-Month Premium &amp; Commission Revenue Trend</h4>
+          <span class="ift-chip-tag">Trajectory</span>
+        </div>
         <canvas id="iftTrendChart" height="110"></canvas>
       </article>
       <article class="ift-chart-card">
-        <h4>Premium by line (MTD vs target)</h4>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+          <h4>Premium by Line (MTD vs Target)</h4>
+          <span class="ift-chip-tag">LOB Comparison</span>
+        </div>
         <canvas id="iftLobBarChart" height="200"></canvas>
       </article>
       <article class="ift-chart-card">
-        <h4>Binds vs quotes by line</h4>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+          <h4>Binds vs Quotes by Line</h4>
+          <span class="ift-chip-tag">Volume Mix</span>
+        </div>
         <canvas id="iftMixChart" height="200"></canvas>
       </article>
     </div>
@@ -147,45 +215,48 @@
   <div class="ift-split">
     <section class="ift-panel">
       <header class="ift-panel__head">
-        <h3>How we hit it</h3>
-        <span>Bind playbook</span>
+        <h3>How We Hit The Goal</h3>
+        <span class="ift-section-tag">AI Bind Playbook</span>
       </header>
       <ol class="ift-plays">
         {% for play in insurance_targets.planner.plays %}
         <li>
-          <span class="ift-plays__rank">{{ play.rank }}</span>
+          <span class="ift-plays__rank">#{{ play.rank }}</span>
           <div>
             <strong>{{ play.label }}</strong>
             <p>{{ play.message }}</p>
-            <small>+${{ play.premium_impact|floatformat:0 }} premium · ~${{ play.estimated_commission|floatformat:0 }} commission</small>
+            <div class="ift-play-impact">
+              <span>+${{ play.premium_impact|floatformat:0 }} Premium</span>
+              <span>~${{ play.estimated_commission|floatformat:0 }} Comm</span>
+            </div>
           </div>
         </li>
         {% empty %}
-        <li class="ift-empty">No gaps to chase — or set market premiums so the planner can count binds.</li>
+        <li class="ift-empty">No gaps to chase — target is fully pacing or market premiums need configuration.</li>
         {% endfor %}
       </ol>
     </section>
 
     <section class="ift-panel">
       <header class="ift-panel__head">
-        <h3>Month snapshot</h3>
-        <span>At a glance</span>
+        <h3>Month Performance Snapshot</h3>
+        <span class="ift-section-tag">Summary</span>
       </header>
       <div class="ift-stat-tiles">
         <div class="ift-stat-tile">
-          <span>Premium written</span>
+          <span>Premium Written</span>
           <strong>${{ insurance_targets.totals.premium_actual|floatformat:0 }}</strong>
         </div>
         <div class="ift-stat-tile">
-          <span>Commission earned</span>
+          <span>Commission Earned</span>
           <strong>${{ insurance_targets.totals.commission_actual|floatformat:0 }}</strong>
         </div>
         <div class="ift-stat-tile">
-          <span>Binds</span>
+          <span>Binds Closed</span>
           <strong>{{ insurance_targets.totals.binds }}</strong>
         </div>
         <div class="ift-stat-tile">
-          <span>Quotes</span>
+          <span>Quotes Sent</span>
           <strong>{{ insurance_targets.totals.quotes }}</strong>
         </div>
       </div>
