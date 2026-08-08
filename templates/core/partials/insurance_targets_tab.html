@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_targets.css' %}?v=2">
+<link rel="stylesheet" href="{% static 'core/css/insurance_targets.css' %}?v=4">
 
 <section class="ift" id="insuranceTargetsRoot" data-month="{{ insurance_targets.month_key }}">
   <header class="ift-hero">
@@ -35,7 +35,12 @@
         <span>MTD <strong>${{ insurance_targets.premium_pace.mtd|floatformat:2 }}</strong></span>
         <span class="ift-score__pct">{{ insurance_targets.premium_pace.mtd_pct }}%</span>
       </div>
-      <div class="ift-progress"><i style="width: {{ insurance_targets.premium_pace.mtd_pct|floatformat:0 }}%"></i></div>
+      <div class="ift-progress-wrap">
+        <div class="ift-progress" role="progressbar" aria-valuenow="{{ insurance_targets.premium_pace.mtd_pct }}" aria-valuemin="0" aria-valuemax="100">
+          <i style="width: {% if insurance_targets.premium_pace.mtd_pct > 100 %}100{% else %}{{ insurance_targets.premium_pace.mtd_pct }}{% endif %}%"></i>
+        </div>
+        <span class="ift-progress__caption">{{ insurance_targets.premium_pace.mtd_pct }}% of premium target</span>
+      </div>
       
       <div class="ift-score__meta-grid">
         <div class="ift-micro-pill">
@@ -68,7 +73,12 @@
         <span>MTD <strong>${{ insurance_targets.commission_pace.mtd|floatformat:2 }}</strong></span>
         <span class="ift-score__pct ift-score__pct--teal">{{ insurance_targets.commission_pace.mtd_pct }}%</span>
       </div>
-      <div class="ift-progress ift-progress--green"><i style="width: {{ insurance_targets.commission_pace.mtd_pct|floatformat:0 }}%"></i></div>
+      <div class="ift-progress-wrap">
+        <div class="ift-progress ift-progress--green" role="progressbar" aria-valuenow="{{ insurance_targets.commission_pace.mtd_pct }}" aria-valuemin="0" aria-valuemax="100">
+          <i style="width: {% if insurance_targets.commission_pace.mtd_pct > 100 %}100{% else %}{{ insurance_targets.commission_pace.mtd_pct }}{% endif %}%"></i>
+        </div>
+        <span class="ift-progress__caption">{{ insurance_targets.commission_pace.mtd_pct }}% of commission target</span>
+      </div>
       
       <div class="ift-score__meta-grid">
         <div class="ift-micro-pill">
@@ -128,31 +138,48 @@
     {% for card in insurance_targets.line_cards %}
     {% if card.is_active or card.binds or card.quotes or card.premium_target %}
     <article class="ift-lob {% if card.premium_gap > 0 %}is-gap{% elif card.premium_target > 0 %}is-hit{% endif %}">
-      <div class="ift-ring" style="--pct: {{ card.progress_pct|floatformat:0 }};" aria-hidden="true">
-        <strong>{{ card.progress_pct|floatformat:0 }}%</strong>
-      </div>
-      <div class="ift-lob__body">
-        <header>
-          <h4>{{ card.label }}</h4>
-        </header>
-        <div class="ift-lob__money">
-          <div>
-            <span>Premium MTD / Target</span>
-            <strong>${{ card.premium_actual|floatformat:0 }} <small>/ ${{ card.premium_target|floatformat:0 }}</small></strong>
-          </div>
-          <div>
-            <span>Commission</span>
-            <strong>${{ card.commission_actual|floatformat:0 }} <small>/ ${{ card.commission_target|floatformat:0 }}</small></strong>
+      <div class="ift-lob__top">
+        <div class="ift-ring" style="--pct: {% if card.progress_pct > 100 %}100{% else %}{{ card.progress_pct|floatformat:0 }}{% endif %};" aria-hidden="true">
+          <span class="ift-ring__value">{{ card.progress_pct|floatformat:0 }}<small>%</small></span>
+        </div>
+        <div class="ift-lob__intro">
+          <header>
+            <h4>{{ card.label }}</h4>
+            <span class="ift-lob__status {% if card.premium_gap > 0 %}is-gap{% elif card.premium_target > 0 %}is-hit{% else %}is-idle{% endif %}">
+              {% if card.premium_gap > 0 %}Behind{% elif card.premium_target > 0 %}On pace{% else %}Tracking{% endif %}
+            </span>
+          </header>
+          <div class="ift-lob__money">
+            <div>
+              <span>Premium MTD / Target</span>
+              <strong>${{ card.premium_actual|floatformat:0 }} <small>/ ${{ card.premium_target|floatformat:0 }}</small></strong>
+            </div>
+            <div>
+              <span>Commission</span>
+              <strong>${{ card.commission_actual|floatformat:0 }} <small>/ ${{ card.commission_target|floatformat:0 }}</small></strong>
+            </div>
           </div>
         </div>
+      </div>
+      <div class="ift-lob__body">
         <div class="ift-lob__bars">
           <div class="ift-lob__bar-row">
-            <small>Premium Pace</small>
-            <div class="ift-lob__bar ift-lob__bar--prem"><i style="width: {{ card.progress_pct|floatformat:0 }}%"></i></div>
+            <div class="ift-lob__bar-label">
+              <small>Premium pace</small>
+              <em>{{ card.progress_pct|floatformat:0 }}%</em>
+            </div>
+            <div class="ift-lob__bar ift-lob__bar--prem" role="progressbar" aria-valuenow="{{ card.progress_pct|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100">
+              <i style="width: {% if card.progress_pct > 100 %}100{% else %}{{ card.progress_pct|floatformat:0 }}{% endif %}%"></i>
+            </div>
           </div>
           <div class="ift-lob__bar-row">
-            <small>Comm Pace</small>
-            <div class="ift-lob__bar ift-lob__bar--comm"><i style="width: {{ card.commission_progress_pct|floatformat:0 }}%"></i></div>
+            <div class="ift-lob__bar-label">
+              <small>Commission pace</small>
+              <em>{{ card.commission_progress_pct|floatformat:0 }}%</em>
+            </div>
+            <div class="ift-lob__bar ift-lob__bar--comm" role="progressbar" aria-valuenow="{{ card.commission_progress_pct|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100">
+              <i style="width: {% if card.commission_progress_pct > 100 %}100{% else %}{{ card.commission_progress_pct|floatformat:0 }}{% endif %}%"></i>
+            </div>
           </div>
         </div>
         <div class="ift-lob__meta">
@@ -365,167 +392,259 @@ function iftDistributeRemaining() {
     }
   });
 }
+</script>
 
+<script type="application/json" id="iftChartsData">{{ insurance_targets.charts_json|safe }}</script>
+<script>
 (function () {
-  if (typeof Chart === 'undefined') return;
-  var charts = {{ insurance_targets.charts_json|safe }};
-  var trends = (charts && charts.trends) || {{ insurance_targets.trends_json|safe }};
-  var lines = (charts && charts.lines) || [];
-  var palette = ['#4f46e5', '#0d9488', '#0284c7', '#d97706', '#e11d48', '#7c3aed', '#059669', '#64748b'];
+  var trendChart = null;
+  var lobChart = null;
+  var mixChart = null;
+  var rendered = false;
 
-  var isDark = document.documentElement.classList.contains('portal-theme-dark');
-  var textColor = isDark ? '#94a3b8' : '#64748b';
-  var gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(148, 163, 184, 0.18)';
-  var fontOptions = { family: 'Inter, sans-serif', size: 11, weight: '600' };
-
-  var trendCanvas = document.getElementById('iftTrendChart');
-  if (trendCanvas && Array.isArray(trends) && trends.length) {
-    var ctx = trendCanvas.getContext('2d');
-    var premGrad = ctx.createLinearGradient(0, 0, 0, 300);
-    premGrad.addColorStop(0, 'rgba(79, 70, 229, 0.35)');
-    premGrad.addColorStop(1, 'rgba(79, 70, 229, 0.0)');
-
-    var commGrad = ctx.createLinearGradient(0, 0, 0, 300);
-    commGrad.addColorStop(0, 'rgba(13, 148, 136, 0.35)');
-    commGrad.addColorStop(1, 'rgba(13, 148, 136, 0.0)');
-
-    new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: trends.map(function (t) { return t.label; }),
-        datasets: [
-          {
-            label: 'Premium ($)',
-            data: trends.map(function (t) { return Number(t.premium); }),
-            borderColor: '#6366f1',
-            backgroundColor: premGrad,
-            tension: 0.38,
-            fill: true,
-            pointRadius: 4,
-            pointHoverRadius: 7,
-            pointBackgroundColor: '#6366f1',
-            borderWidth: 3
-          },
-          {
-            label: 'Commission ($)',
-            data: trends.map(function (t) { return Number(t.commission); }),
-            borderColor: '#14b8a6',
-            backgroundColor: commGrad,
-            tension: 0.38,
-            fill: true,
-            pointRadius: 4,
-            pointHoverRadius: 7,
-            pointBackgroundColor: '#14b8a6',
-            borderWidth: 3
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        animation: { duration: 900, easing: 'easeInOutQuart' },
-        plugins: {
-          legend: { position: 'bottom', labels: { color: textColor, font: fontOptions, padding: 16 } },
-          tooltip: {
-            padding: 12,
-            cornerRadius: 12,
-            titleFont: { family: 'Inter', weight: 'bold' },
-            callbacks: {
-              label: function(c) {
-                return c.dataset.label + ': $' + Number(c.raw).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
-              }
-            }
-          }
-        },
-        scales: {
-          y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, font: fontOptions } },
-          x: { grid: { display: false }, ticks: { color: textColor, font: fontOptions } }
-        }
-      }
-    });
+  function readChartsPayload() {
+    var el = document.getElementById('iftChartsData');
+    if (!el) return { trends: [], lines: [] };
+    try {
+      return JSON.parse(el.textContent || '{}') || { trends: [], lines: [] };
+    } catch (err) {
+      console.warn('Insurance targets chart data parse failed', err);
+      return { trends: [], lines: [] };
+    }
   }
 
-  var lobCanvas = document.getElementById('iftLobBarChart');
-  if (lobCanvas && lines.length) {
-    new Chart(lobCanvas.getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels: lines.map(function (l) { return l.label; }),
-        datasets: [
-          {
-            label: 'Actual ($)',
-            data: lines.map(function (l) { return Number(l.premium_actual); }),
-            backgroundColor: 'rgba(99, 102, 241, 0.85)',
-            borderRadius: 8,
-            borderSkipped: false
-          },
-          {
-            label: 'Target ($)',
-            data: lines.map(function (l) { return Number(l.premium_target); }),
-            backgroundColor: isDark ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.45)',
-            borderRadius: 8,
-            borderSkipped: false
-          }
-        ]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        animation: { duration: 950, easing: 'easeInOutQuart' },
-        plugins: {
-          legend: { position: 'bottom', labels: { color: textColor, font: fontOptions } },
-          tooltip: {
-            padding: 12,
-            cornerRadius: 12,
-            callbacks: {
-              label: function(c) {
-                return c.dataset.label + ': $' + Number(c.raw).toLocaleString();
-              }
-            }
-          }
-        },
-        scales: {
-          x: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, font: fontOptions } },
-          y: { grid: { display: false }, ticks: { color: textColor, font: fontOptions } }
-        }
-      }
-    });
+  function ensureEmptyNote(canvas, message) {
+    if (!canvas || !canvas.parentElement) return;
+    var note = canvas.parentElement.querySelector('.ift-chart-empty');
+    if (!note) {
+      note = document.createElement('p');
+      note.className = 'ift-chart-empty';
+      canvas.parentElement.appendChild(note);
+    }
+    note.textContent = message;
+    note.hidden = false;
+    canvas.style.display = 'none';
   }
 
-  var mixCanvas = document.getElementById('iftMixChart');
-  if (mixCanvas && lines.length) {
-    new Chart(mixCanvas.getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels: lines.map(function (l) { return l.label; }),
-        datasets: [
-          {
-            label: 'Binds',
-            data: lines.map(function (l) { return Number(l.binds || 0); }),
-            backgroundColor: lines.map(function (_, i) { return palette[i % palette.length]; }),
-            borderRadius: 8
+  function clearEmptyNote(canvas) {
+    if (!canvas || !canvas.parentElement) return;
+    var note = canvas.parentElement.querySelector('.ift-chart-empty');
+    if (note) note.hidden = true;
+    canvas.style.display = '';
+  }
+
+  function destroyCharts() {
+    if (trendChart) { trendChart.destroy(); trendChart = null; }
+    if (lobChart) { lobChart.destroy(); lobChart = null; }
+    if (mixChart) { mixChart.destroy(); mixChart = null; }
+    rendered = false;
+  }
+
+  window.renderInsuranceTargetCharts = function (force) {
+    if (typeof Chart === 'undefined') return false;
+    var panel = document.getElementById('tab-targets');
+    if (panel && panel.style.display === 'none' && !force) return false;
+    if (rendered && !force) {
+      if (trendChart) trendChart.resize();
+      if (lobChart) lobChart.resize();
+      if (mixChart) mixChart.resize();
+      return true;
+    }
+
+    destroyCharts();
+    var charts = readChartsPayload();
+    var trends = Array.isArray(charts.trends) ? charts.trends : [];
+    var lines = Array.isArray(charts.lines) ? charts.lines : [];
+    var palette = ['#4f46e5', '#0d9488', '#0284c7', '#d97706', '#e11d48', '#7c3aed', '#059669', '#64748b'];
+    var isDark = document.documentElement.classList.contains('portal-theme-dark');
+    var textColor = isDark ? '#94a3b8' : '#64748b';
+    var gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(148, 163, 184, 0.18)';
+    var fontOptions = { family: 'Inter, system-ui, sans-serif', size: 11, weight: '600' };
+
+    var trendCanvas = document.getElementById('iftTrendChart');
+    if (trendCanvas) {
+      if (trends.length) {
+        clearEmptyNote(trendCanvas);
+        var ctx = trendCanvas.getContext('2d');
+        var premGrad = ctx.createLinearGradient(0, 0, 0, 280);
+        premGrad.addColorStop(0, 'rgba(79, 70, 229, 0.35)');
+        premGrad.addColorStop(1, 'rgba(79, 70, 229, 0.0)');
+        var commGrad = ctx.createLinearGradient(0, 0, 0, 280);
+        commGrad.addColorStop(0, 'rgba(13, 148, 136, 0.35)');
+        commGrad.addColorStop(1, 'rgba(13, 148, 136, 0.0)');
+        trendChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: trends.map(function (t) { return t.label; }),
+            datasets: [
+              {
+                label: 'Premium ($)',
+                data: trends.map(function (t) { return Number(t.premium) || 0; }),
+                borderColor: '#6366f1',
+                backgroundColor: premGrad,
+                tension: 0.38,
+                fill: true,
+                pointRadius: 4,
+                pointHoverRadius: 7,
+                pointBackgroundColor: '#6366f1',
+                borderWidth: 3
+              },
+              {
+                label: 'Commission ($)',
+                data: trends.map(function (t) { return Number(t.commission) || 0; }),
+                borderColor: '#14b8a6',
+                backgroundColor: commGrad,
+                tension: 0.38,
+                fill: true,
+                pointRadius: 4,
+                pointHoverRadius: 7,
+                pointBackgroundColor: '#14b8a6',
+                borderWidth: 3
+              }
+            ]
           },
-          {
-            label: 'Quotes',
-            data: lines.map(function (l) { return Number(l.quotes || 0); }),
-            backgroundColor: isDark ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.35)',
-            borderRadius: 8
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            animation: { duration: 900, easing: 'easeInOutQuart' },
+            plugins: {
+              legend: { position: 'bottom', labels: { color: textColor, font: fontOptions, padding: 16 } },
+              tooltip: {
+                padding: 12,
+                cornerRadius: 12,
+                callbacks: {
+                  label: function (c) {
+                    return c.dataset.label + ': $' + Number(c.raw).toLocaleString('en-US', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    });
+                  }
+                }
+              }
+            },
+            scales: {
+              y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, font: fontOptions } },
+              x: { grid: { display: false }, ticks: { color: textColor, font: fontOptions } }
+            }
           }
-        ]
-      },
-      options: {
-        responsive: true,
-        animation: { duration: 900, easing: 'easeInOutQuart' },
-        plugins: {
-          legend: { position: 'bottom', labels: { color: textColor, font: fontOptions } },
-          tooltip: { padding: 12, cornerRadius: 12 }
-        },
-        scales: {
-          y: { beginAtZero: true, ticks: { precision: 0, color: textColor, font: fontOptions }, grid: { color: gridColor } },
-          x: { grid: { display: false }, ticks: { color: textColor, font: fontOptions } }
-        }
+        });
+      } else {
+        ensureEmptyNote(trendCanvas, 'No six-month premium/commission history yet.');
       }
-    });
+    }
+
+    var lobCanvas = document.getElementById('iftLobBarChart');
+    if (lobCanvas) {
+      if (lines.length) {
+        clearEmptyNote(lobCanvas);
+        lobChart = new Chart(lobCanvas.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: lines.map(function (l) { return l.label; }),
+            datasets: [
+              {
+                label: 'Actual ($)',
+                data: lines.map(function (l) { return Number(l.premium_actual) || 0; }),
+                backgroundColor: 'rgba(99, 102, 241, 0.85)',
+                borderRadius: 8,
+                borderSkipped: false
+              },
+              {
+                label: 'Target ($)',
+                data: lines.map(function (l) { return Number(l.premium_target) || 0; }),
+                backgroundColor: isDark ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.45)',
+                borderRadius: 8,
+                borderSkipped: false
+              }
+            ]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            animation: { duration: 950, easing: 'easeInOutQuart' },
+            plugins: {
+              legend: { position: 'bottom', labels: { color: textColor, font: fontOptions } },
+              tooltip: {
+                padding: 12,
+                cornerRadius: 12,
+                callbacks: {
+                  label: function (c) {
+                    return c.dataset.label + ': $' + Number(c.raw).toLocaleString();
+                  }
+                }
+              }
+            },
+            scales: {
+              x: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, font: fontOptions } },
+              y: { grid: { display: false }, ticks: { color: textColor, font: fontOptions } }
+            }
+          }
+        });
+      } else {
+        ensureEmptyNote(lobCanvas, 'Set line targets or record binds to populate this chart.');
+      }
+    }
+
+    var mixCanvas = document.getElementById('iftMixChart');
+    if (mixCanvas) {
+      if (lines.length) {
+        clearEmptyNote(mixCanvas);
+        mixChart = new Chart(mixCanvas.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: lines.map(function (l) { return l.label; }),
+            datasets: [
+              {
+                label: 'Binds',
+                data: lines.map(function (l) { return Number(l.binds || 0); }),
+                backgroundColor: lines.map(function (_, i) { return palette[i % palette.length]; }),
+                borderRadius: 8
+              },
+              {
+                label: 'Quotes',
+                data: lines.map(function (l) { return Number(l.quotes || 0); }),
+                backgroundColor: isDark ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.35)',
+                borderRadius: 8
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            animation: { duration: 900, easing: 'easeInOutQuart' },
+            plugins: {
+              legend: { position: 'bottom', labels: { color: textColor, font: fontOptions } },
+              tooltip: { padding: 12, cornerRadius: 12 }
+            },
+            scales: {
+              y: { beginAtZero: true, ticks: { precision: 0, color: textColor, font: fontOptions }, grid: { color: gridColor } },
+              x: { grid: { display: false }, ticks: { color: textColor, font: fontOptions } }
+            }
+          }
+        });
+      } else {
+        ensureEmptyNote(mixCanvas, 'No binds/quotes by line for this month yet.');
+      }
+    }
+
+    rendered = true;
+    return true;
+  };
+
+  function bootWhenReady() {
+    if (typeof Chart === 'undefined') {
+      setTimeout(bootWhenReady, 80);
+      return;
+    }
+    var panel = document.getElementById('tab-targets');
+    if (panel && panel.style.display !== 'none') {
+      window.renderInsuranceTargetCharts(true);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootWhenReady);
+  } else {
+    bootWhenReady();
   }
 })();
 </script>
