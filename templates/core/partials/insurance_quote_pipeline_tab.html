@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=1">
+<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=3">
 
 <section class="iqp" id="quotePipelineRoot">
   <header class="iqp-hero">
@@ -13,7 +13,7 @@
     </div>
     <div class="iqp-hero__actions">
       {% if can_create_quote_leads %}
-      <button type="button" class="iqp-btn iqp-btn--primary" onclick="document.getElementById('iqpCreateModal').classList.add('is-open')">
+      <button type="button" class="iqp-btn iqp-btn--primary" data-iqp-open-create>
         + New quote lead
       </button>
       {% endif %}
@@ -155,53 +155,180 @@
 </section>
 
 {% if can_create_quote_leads %}
-<div class="iqp-modal" id="iqpCreateModal" onclick="if(event.target===this)this.classList.remove('is-open')">
-  <form method="post" action="{% url 'create-quote-lead' %}" class="iqp-modal__panel" onclick="event.stopPropagation()">
+<div class="iqp-modal" id="iqpCreateModal" role="dialog" aria-modal="true" aria-labelledby="iqpCreateTitle" hidden>
+  <div class="iqp-modal__scrim" data-iqp-close></div>
+  <form method="post" action="{% url 'create-quote-lead' %}" class="iqp-modal__panel">
     {% csrf_token %}
-    <header>
-      <h3>New fundamental quote</h3>
-      <button type="button" class="iqp-link-btn" onclick="document.getElementById('iqpCreateModal').classList.remove('is-open')">Close</button>
+    <header class="iqp-modal__header">
+      <div>
+        <p class="iqp-modal__eyebrow">Quote Pipeline</p>
+        <h3 id="iqpCreateTitle">New quote lead</h3>
+      </div>
+      <button type="button" class="iqp-modal__close" data-iqp-close aria-label="Close">&times;</button>
     </header>
-    <div class="iqp-modal__grid">
-      <label>Client name<input name="client_name" required maxlength="200" placeholder="Full name"></label>
-      <label>Phone<input name="phone" required maxlength="30" placeholder="Mobile number"></label>
-      <label>Email<input type="email" name="email" maxlength="254" placeholder="Optional"></label>
-      <label>Insurance type
-        <select name="insurance_type">
-          <option value="">Select type</option>
-          {% for opt in quote_type_options %}
-          <option value="{{ opt.key }}">{{ opt.label }}</option>
+
+    <div class="iqp-modal__body">
+      <div class="iqp-modal__grid">
+        <label class="iqp-field">
+          <span>Client name</span>
+          <input name="client_name" required maxlength="200" placeholder="Full name" autocomplete="name">
+        </label>
+        <label class="iqp-field">
+          <span>Phone</span>
+          <input name="phone" required maxlength="30" placeholder="Mobile number" autocomplete="tel">
+        </label>
+        <label class="iqp-field">
+          <span>Email</span>
+          <input type="email" name="email" maxlength="254" placeholder="Optional" autocomplete="email">
+        </label>
+        <label class="iqp-field">
+          <span>Insurance type</span>
+          <select name="insurance_type">
+            <option value="">Select type</option>
+            {% for opt in quote_type_options %}
+            <option value="{{ opt.key }}">{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div class="iqp-toggles">
+        <label class="iqp-check"><input type="checkbox" name="has_prior"><span>Has prior insurance</span></label>
+        <label class="iqp-check"><input type="checkbox" name="is_experienced"><span>Experienced</span></label>
+        <label class="iqp-check"><input type="checkbox" name="has_accident"><span>Has accident history</span></label>
+      </div>
+
+      <div class="iqp-field">
+        <span>Recommended companies</span>
+        <div class="iqp-dd" data-iqp-dd>
+          <button type="button" class="iqp-dd__trigger" data-iqp-dd-trigger aria-haspopup="listbox" aria-expanded="false">
+            <span data-iqp-dd-label>Select companies…</span>
+            <span class="iqp-dd__chev" aria-hidden="true"></span>
+          </button>
+          <div class="iqp-dd__menu" data-iqp-dd-menu hidden role="listbox" aria-multiselectable="true">
+            {% for co in quote_companies %}
+            <label class="iqp-dd__option">
+              <input type="checkbox" name="recommended_companies" value="{{ co.id }}">
+              <span>{{ co.name }}</span>
+            </label>
+            {% empty %}
+            <p class="iqp-dd__empty">Add companies in the Companies tab first.</p>
+            {% endfor %}
+          </div>
+        </div>
+        <small class="iqp-field__hint">Pick one or more carriers to recommend for quoting.</small>
+      </div>
+
+      <label class="iqp-field">
+        <span>Notes</span>
+        <textarea name="notes" rows="3" placeholder="Anything the agent should know"></textarea>
+      </label>
+
+      {% if can_manage_quote_distribution %}
+      <label class="iqp-field">
+        <span>Manual assign (optional)</span>
+        <select name="assigned_to">
+          <option value="">Auto distribute</option>
+          {% for agent in quote_agents %}
+          <option value="{{ agent.id }}">{{ agent.user.get_full_name|default:agent.user.username }}</option>
           {% endfor %}
         </select>
       </label>
+      {% endif %}
     </div>
-    <div class="iqp-toggles">
-      <label class="iqp-check"><input type="checkbox" name="has_prior"> Has prior insurance</label>
-      <label class="iqp-check"><input type="checkbox" name="is_experienced"> Experienced driver/insured</label>
-      <label class="iqp-check"><input type="checkbox" name="has_accident"> Has accident history</label>
-    </div>
-    <fieldset class="iqp-carriers-pick">
-      <legend>Recommended companies to start quoting</legend>
-      <div class="iqp-carriers-grid">
-        {% for co in quote_companies %}
-        <label class="iqp-chip-check"><input type="checkbox" name="recommended_companies" value="{{ co.id }}"><span>{{ co.name }}</span></label>
-        {% empty %}
-        <p class="iqp-empty">Add companies in the Companies tab first.</p>
-        {% endfor %}
-      </div>
-    </fieldset>
-    <label class="iqp-notes-field">Notes<textarea name="notes" rows="3" placeholder="Anything the agent should know"></textarea></label>
-    {% if can_manage_quote_distribution %}
-    <label>Manual assign (optional — leave blank for auto)
-      <select name="assigned_to">
-        <option value="">Auto distribute</option>
-        {% for agent in quote_agents %}
-        <option value="{{ agent.id }}">{{ agent.user.get_full_name|default:agent.user.username }}</option>
-        {% endfor %}
-      </select>
-    </label>
-    {% endif %}
-    <button type="submit" class="iqp-btn iqp-btn--primary">Create &amp; route lead</button>
+
+    <footer class="iqp-modal__footer">
+      <button type="button" class="iqp-btn iqp-btn--ghost" data-iqp-close>Cancel</button>
+      <button type="submit" class="iqp-btn iqp-btn--primary">Create &amp; route lead</button>
+    </footer>
   </form>
 </div>
+<script>
+(function () {
+  var modal = document.getElementById('iqpCreateModal');
+  if (!modal) return;
+
+  function openModal() {
+    modal.hidden = false;
+    modal.classList.add('is-open');
+    document.body.classList.add('iqp-modal-open');
+  }
+  function closeModal() {
+    modal.hidden = true;
+    modal.classList.remove('is-open');
+    document.body.classList.remove('iqp-modal-open');
+    closeAllDropdowns();
+  }
+
+  document.querySelectorAll('[data-iqp-open-create]').forEach(function (btn) {
+    btn.addEventListener('click', openModal);
+  });
+  modal.querySelectorAll('[data-iqp-close]').forEach(function (el) {
+    el.addEventListener('click', closeModal);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !modal.classList.contains('is-open')) return;
+    if (modal.querySelector('[data-iqp-dd].is-open')) {
+      closeAllDropdowns();
+      return;
+    }
+    closeModal();
+  });
+
+  function closeAllDropdowns() {
+    modal.querySelectorAll('[data-iqp-dd]').forEach(function (dd) {
+      var menu = dd.querySelector('[data-iqp-dd-menu]');
+      var trigger = dd.querySelector('[data-iqp-dd-trigger]');
+      if (menu) menu.hidden = true;
+      if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      dd.classList.remove('is-open');
+    });
+  }
+
+  function syncDdLabel(dd) {
+    var label = dd.querySelector('[data-iqp-dd-label]');
+    var checked = Array.prototype.slice.call(dd.querySelectorAll('input[type="checkbox"]:checked'));
+    if (!label) return;
+    if (!checked.length) {
+      label.textContent = 'Select companies…';
+      return;
+    }
+    var names = checked.map(function (c) {
+      var span = c.parentElement && c.parentElement.querySelector('span');
+      return span ? span.textContent.trim() : c.value;
+    });
+    label.textContent = names.length <= 2
+      ? names.join(', ')
+      : names.slice(0, 2).join(', ') + ' +' + (names.length - 2) + ' more';
+  }
+
+  modal.querySelectorAll('[data-iqp-dd]').forEach(function (dd) {
+    var trigger = dd.querySelector('[data-iqp-dd-trigger]');
+    var menu = dd.querySelector('[data-iqp-dd-menu]');
+    if (!trigger || !menu) return;
+
+    trigger.addEventListener('click', function (e) {
+      e.preventDefault();
+      var willOpen = menu.hidden;
+      closeAllDropdowns();
+      if (willOpen) {
+        menu.hidden = false;
+        trigger.setAttribute('aria-expanded', 'true');
+        dd.classList.add('is-open');
+      }
+    });
+
+    dd.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+      cb.addEventListener('change', function () { syncDdLabel(dd); });
+    });
+    syncDdLabel(dd);
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!modal.classList.contains('is-open')) return;
+    if (e.target.closest('[data-iqp-dd]')) return;
+    closeAllDropdowns();
+  });
+})();
+</script>
 {% endif %}
