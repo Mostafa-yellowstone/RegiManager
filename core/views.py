@@ -5589,13 +5589,6 @@ from .intake_views import (  # noqa: E402, F401
     reject_intake,
 )
 
-from .insurance_intake_views import (  # noqa: E402, F401
-    approve_insurance_intake_view,
-    public_insurance_intake_portal,
-    public_insurance_intake_success,
-    reject_insurance_intake_view,
-)
-
 @login_required
 def client_search_ajax(request):
     """
@@ -6402,24 +6395,13 @@ def inventory_detail(request, inventory_id):
         )
         daily_is_today = daily_payment_date == timezone.localdate()
 
-        from .insurance_permissions import can_manage_insurance_intake
-        from .models import InsuranceIntake
+        from .insurance_quote_pipeline_views import build_quote_pipeline_context
+        from .insurance_quote_permissions import membership_for_org as quote_membership_for_org
 
-        user_can_manage_insurance_intake = can_manage_insurance_intake(
-            request.user, active_org, membership=membership, is_owner=is_owner
+        quote_membership = membership or quote_membership_for_org(request.user, active_org)
+        quote_pipeline = build_quote_pipeline_context(
+            request, active_org, quote_membership
         )
-        pending_insurance_intakes = []
-        insurance_intake_portal_url = ""
-        pending_insurance_intake_count = 0
-        if user_can_manage_insurance_intake:
-            pending_qs = InsuranceIntake.objects.filter(
-                organization=active_org,
-                status=InsuranceIntake.Status.PENDING,
-            )
-            pending_insurance_intake_count = pending_qs.count()
-            pending_insurance_intakes = list(pending_qs.order_by("-created_at")[:100])
-            if active_org.is_public_insurance_intake_enabled and active_org.portal_token:
-                insurance_intake_portal_url = f"/insurance-intake/{active_org.portal_token}/"
 
         from .insurance_targets_metrics import (
             build_insurance_targets_dashboard,
@@ -6567,10 +6549,11 @@ def inventory_detail(request, inventory_id):
             "daily_min_amount": daily_min_amount,
             "daily_max_amount": daily_max_amount,
             "insurance_type_options": _insurance_type_options_for_org(active_org),
-            "user_can_manage_insurance_intake": user_can_manage_insurance_intake,
-            "pending_insurance_intakes": pending_insurance_intakes,
-            "pending_insurance_intake_count": pending_insurance_intake_count,
-            "insurance_intake_portal_url": insurance_intake_portal_url,
+            "user_can_manage_insurance_intake": False,
+            "pending_insurance_intakes": [],
+            "pending_insurance_intake_count": 0,
+            "insurance_intake_portal_url": "",
+            **quote_pipeline,
             "insurance_targets": insurance_targets,
             "can_edit_insurance_targets": can_edit_insurance_targets,
         }

@@ -19,7 +19,6 @@ from .insurance_space_metrics import (
 from .inventory_crm import inventory_dashboard_stats
 from .models import (
     ClientIntake,
-    InsuranceIntake,
     InsurancePolicy,
     MotorclubMembership,
     Organization,
@@ -610,14 +609,19 @@ def build_process_summary(organization: Organization, today: date) -> dict:
             "rejected": intake_qs.filter(status=ClientIntake.Status.REJECTED).count(),
         }
 
-    insurance_intake_summary = {}
-    if organization.is_public_insurance_intake_enabled:
-        ins_qs = InsuranceIntake.objects.filter(organization=organization)
-        insurance_intake_summary = {
-            "pending": ins_qs.filter(status=InsuranceIntake.Status.PENDING).count(),
-            "approved": ins_qs.filter(status=InsuranceIntake.Status.APPROVED).count(),
-            "rejected": ins_qs.filter(status=InsuranceIntake.Status.REJECTED).count(),
+    insurance_quote_summary = {}
+    try:
+        from .insurance_quote_pipeline_models import InsuranceQuoteLead
+
+        qs = InsuranceQuoteLead.objects.filter(organization=organization)
+        insurance_quote_summary = {
+            "total": qs.count(),
+            "unassigned": qs.filter(assigned_to__isnull=True).count(),
+            "assigned": qs.filter(assigned_to__isnull=False).count(),
+            "quoting": qs.filter(stage=InsuranceQuoteLead.Stage.QUOTING).count(),
         }
+    except Exception:
+        insurance_quote_summary = {}
 
     policy_qs = InsurancePolicy.objects.filter(organization=organization)
     insurance_pipeline = {
@@ -635,7 +639,8 @@ def build_process_summary(organization: Organization, today: date) -> dict:
     return {
         "service_status": status_totals,
         "dmv_intake": intake_summary,
-        "insurance_intake": insurance_intake_summary,
+        "insurance_intake": {},
+        "insurance_quotes": insurance_quote_summary,
         "insurance_pipeline": insurance_pipeline,
         "as_of": today.isoformat(),
     }

@@ -38,17 +38,3 @@ def can_manage_insurance_finance(user, organization, *, membership=None, is_owne
   if is_owner:
       return True
   return bool(membership.can_view_banking)
-
-
-def can_manage_insurance_intake(user, organization, *, membership=None, is_owner=None) -> bool:
-    """Insurance intake queue and approve/reject — PSB owners and insurance agents."""
-    if user.is_superuser:
-        return True
-    membership = membership or membership_for_org(user, organization)
-    if membership is None:
-        return False
-    if is_owner is None:
-        is_owner = membership.role == OrganizationMembership.Role.OWNER
-    if is_owner:
-        return True
-    return bool(membership.can_deal_with_insurance and membership.is_active)

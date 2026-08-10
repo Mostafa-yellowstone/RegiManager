@@ -32,6 +32,14 @@ from core.agent_portal_views import (
     agent_portal_update_task,
     agent_portal_upload_photo,
 )
+from core.insurance_quote_pipeline_views import (
+    add_insurance_agent_off_day,
+    assign_quote_lead,
+    create_quote_lead,
+    delete_insurance_agent_off_day,
+    save_quote_distribution_config,
+    update_quote_lead_stage,
+)
 from core.insurance_policy_views import (
     import_insurance_dec_page,
     import_insurance_dec_to_policy,
@@ -112,10 +120,6 @@ from core.views import (
     reject_intake,
     intake_mv82_pdf,
     portal_intake_list,
-    public_insurance_intake_portal,
-    public_insurance_intake_success,
-    approve_insurance_intake_view,
-    reject_insurance_intake_view,
     outstanding_balances,
     mark_balance_paid,
     client_search_ajax,
@@ -452,19 +456,36 @@ urlpatterns = [
     path("dashboard/intake/<int:intake_id>/reject/", reject_intake, name="reject-intake"),
     path("intake/<int:intake_id>/mv82-preview/", intake_mv82_pdf, name="intake-mv82-pdf"),
 
-    # Public Insurance Intake Routes
-    path("insurance-intake/", public_insurance_intake_portal, name="public-insurance-intake-start"),
-    path("insurance-intake/success/", public_insurance_intake_success, name="public-insurance-intake-success"),
-    path("insurance-intake/<str:portal_token>/", public_insurance_intake_portal, name="public-insurance-intake-direct"),
+    # Fundamental Quote Pipeline (Insurance Space)
     path(
-        "dashboard/insurance-intake/<int:intake_id>/approve/",
-        approve_insurance_intake_view,
-        name="approve-insurance-intake",
+        "dashboard/insurance-quotes/create/",
+        create_quote_lead,
+        name="create-quote-lead",
     ),
     path(
-        "dashboard/insurance-intake/<int:intake_id>/reject/",
-        reject_insurance_intake_view,
-        name="reject-insurance-intake",
+        "dashboard/insurance-quotes/<int:lead_id>/assign/",
+        assign_quote_lead,
+        name="assign-quote-lead",
+    ),
+    path(
+        "dashboard/insurance-quotes/<int:lead_id>/stage/",
+        update_quote_lead_stage,
+        name="update-quote-lead-stage",
+    ),
+    path(
+        "dashboard/insurance-quotes/distribution/",
+        save_quote_distribution_config,
+        name="save-quote-distribution-config",
+    ),
+    path(
+        "dashboard/insurance-quotes/off-days/add/",
+        add_insurance_agent_off_day,
+        name="add-insurance-agent-off-day",
+    ),
+    path(
+        "dashboard/insurance-quotes/off-days/<int:off_day_id>/delete/",
+        delete_insurance_agent_off_day,
+        name="delete-insurance-agent-off-day",
     ),
 
     path("dashboard/outstanding-balances/", outstanding_balances, name="outstanding-balances"),

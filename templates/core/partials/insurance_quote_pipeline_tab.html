@@ -1,0 +1,207 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=1">
+
+<section class="iqp" id="quotePipelineRoot">
+  <header class="iqp-hero">
+    <div class="iqp-hero__copy">
+      <p class="iqp-kicker">Fundamental Quote Pipeline</p>
+      <h2>Pass quotes. Distribute smart. Close faster.</h2>
+      <p class="iqp-lead">
+        Capture the essentials, recommend carriers, and route work to insurance agents —
+        auto when they’re on, manual when you need control.
+      </p>
+    </div>
+    <div class="iqp-hero__actions">
+      {% if can_create_quote_leads %}
+      <button type="button" class="iqp-btn iqp-btn--primary" onclick="document.getElementById('iqpCreateModal').classList.add('is-open')">
+        + New quote lead
+      </button>
+      {% endif %}
+      {% if quote_distribution.auto_paused %}
+      <span class="iqp-banner-pill is-paused">Auto paused{% if quote_distribution.is_sunday %} · Sunday{% endif %}</span>
+      {% else %}
+      <span class="iqp-banner-pill is-live">Auto on · {{ quote_distribution.eligible_count }} eligible</span>
+      {% endif %}
+    </div>
+  </header>
+
+  <div class="iqp-kpis">
+    <article><span>Leads</span><strong>{{ quote_kpis.total }}</strong></article>
+    <article><span>Unassigned</span><strong>{{ quote_kpis.unassigned }}</strong></article>
+    <article><span>Quoting</span><strong>{{ quote_kpis.quoting }}</strong></article>
+    <article><span>Won</span><strong>{{ quote_kpis.won }}</strong></article>
+  </div>
+
+  {% if can_manage_quote_distribution %}
+  <section class="iqp-control">
+    <div class="iqp-control__head">
+      <h3>Smart distribution</h3>
+      <p>Owner &amp; Manager only. Auto routes to insurance agents; Sunday stays manual.</p>
+    </div>
+    <form method="post" action="{% url 'save-quote-distribution-config' %}" class="iqp-control__form">
+      {% csrf_token %}
+      <label class="iqp-check">
+        <input type="checkbox" name="is_auto_enabled" {% if quote_distribution.config.is_auto_enabled %}checked{% endif %}>
+        Enable auto distribution
+      </label>
+      <label class="iqp-check">
+        <input type="checkbox" name="skip_sundays" {% if quote_distribution.config.skip_sundays %}checked{% endif %}>
+        Pause auto on Sundays (NY)
+      </label>
+      <label class="iqp-check">
+        <input type="checkbox" name="require_attendance_present" {% if quote_distribution.config.require_attendance_present %}checked{% endif %}>
+        Require attendance check-in
+      </label>
+      <button type="submit" class="iqp-btn iqp-btn--ghost">Save</button>
+    </form>
+
+    <div class="iqp-offdays">
+      <h4>Agent off days</h4>
+      <form method="post" action="{% url 'add-insurance-agent-off-day' %}" class="iqp-offdays__form">
+        {% csrf_token %}
+        <select name="membership_id" required>
+          <option value="">Insurance agent</option>
+          {% for agent in quote_agents %}
+          <option value="{{ agent.id }}">{{ agent.user.get_full_name|default:agent.user.username }}</option>
+          {% endfor %}
+        </select>
+        <input type="date" name="off_date" required>
+        <input type="text" name="reason" placeholder="Reason (optional)" maxlength="200">
+        <button type="submit" class="iqp-btn iqp-btn--ghost">Add off day</button>
+      </form>
+      <ul class="iqp-offdays__list">
+        {% for day in quote_off_days %}
+        <li>
+          <strong>{{ day.membership.user.get_full_name|default:day.membership.user.username }}</strong>
+          <span>{{ day.off_date|date:"D, M j" }}{% if day.reason %} · {{ day.reason }}{% endif %}</span>
+          <form method="post" action="{% url 'delete-insurance-agent-off-day' day.id %}">{% csrf_token %}<button type="submit" class="iqp-link-btn">Remove</button></form>
+        </li>
+        {% empty %}
+        <li class="iqp-empty">No upcoming off days scheduled.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+  {% endif %}
+
+  <div class="iqp-board">
+    {% for stage in quote_stages %}
+    <section class="iqp-column iqp-column--{{ stage.key }}">
+      <header>
+        <h3>{{ stage.label }}</h3>
+        <span>{{ stage.leads|length }}</span>
+      </header>
+      <ul>
+        {% for lead in stage.leads %}
+        <li class="iqp-card" style="--i:{{ forloop.counter0 }}">
+          <div class="iqp-card__top">
+            <strong>{{ lead.client_name }}</strong>
+            <span class="iqp-badge">{{ lead.insurance_type|default:"General"|cut:"_"|title }}</span>
+          </div>
+          <p class="iqp-card__meta">{{ lead.phone }}{% if lead.email %} · {{ lead.email }}{% endif %}</p>
+          <div class="iqp-flags">
+            <span class="{% if lead.has_prior %}is-on{% endif %}">{% if lead.has_prior %}Prior{% else %}No prior{% endif %}</span>
+            <span class="{% if lead.is_experienced %}is-on{% endif %}">{% if lead.is_experienced %}Experienced{% else %}New{% endif %}</span>
+            <span class="{% if lead.has_accident %}is-warn{% endif %}">{% if lead.has_accident %}Accident{% else %}Clean{% endif %}</span>
+          </div>
+          {% if lead.recommended_companies.all %}
+          <div class="iqp-carriers">
+            {% for co in lead.recommended_companies.all %}
+            <em>{{ co.name }}</em>
+            {% endfor %}
+          </div>
+          {% endif %}
+          <div class="iqp-card__assignee">
+            {% if lead.assigned_to %}
+            {{ lead.assigned_to.user.get_full_name|default:lead.assigned_to.user.username }}
+            <small>{{ lead.get_assignment_mode_display }}</small>
+            {% else %}
+            <em>Unassigned</em>
+            {% endif %}
+          </div>
+          {% if lead.notes %}<p class="iqp-notes">{{ lead.notes|truncatechars:120 }}</p>{% endif %}
+
+          <form method="post" action="{% url 'update-quote-lead-stage' lead.id %}" class="iqp-card__stage">
+            {% csrf_token %}
+            <select name="stage" onchange="this.form.submit()">
+              {% for value, label in quote_stage_choices %}
+              <option value="{{ value }}" {% if lead.stage == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </form>
+
+          {% if can_manage_quote_distribution %}
+          <form method="post" action="{% url 'assign-quote-lead' lead.id %}" class="iqp-card__assign">
+            {% csrf_token %}
+            <select name="assigned_to" required>
+              <option value="">Assign agent</option>
+              {% for agent in quote_agents %}
+              <option value="{{ agent.id }}" {% if lead.assigned_to_id == agent.id %}selected{% endif %}>
+                {{ agent.user.get_full_name|default:agent.user.username }}
+              </option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="iqp-btn iqp-btn--tiny">Assign</button>
+          </form>
+          {% endif %}
+        </li>
+        {% empty %}
+        <li class="iqp-empty">No leads in this stage.</li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endfor %}
+  </div>
+</section>
+
+{% if can_create_quote_leads %}
+<div class="iqp-modal" id="iqpCreateModal" onclick="if(event.target===this)this.classList.remove('is-open')">
+  <form method="post" action="{% url 'create-quote-lead' %}" class="iqp-modal__panel" onclick="event.stopPropagation()">
+    {% csrf_token %}
+    <header>
+      <h3>New fundamental quote</h3>
+      <button type="button" class="iqp-link-btn" onclick="document.getElementById('iqpCreateModal').classList.remove('is-open')">Close</button>
+    </header>
+    <div class="iqp-modal__grid">
+      <label>Client name<input name="client_name" required maxlength="200" placeholder="Full name"></label>
+      <label>Phone<input name="phone" required maxlength="30" placeholder="Mobile number"></label>
+      <label>Email<input type="email" name="email" maxlength="254" placeholder="Optional"></label>
+      <label>Insurance type
+        <select name="insurance_type">
+          <option value="">Select type</option>
+          {% for opt in quote_type_options %}
+          <option value="{{ opt.key }}">{{ opt.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="iqp-toggles">
+      <label class="iqp-check"><input type="checkbox" name="has_prior"> Has prior insurance</label>
+      <label class="iqp-check"><input type="checkbox" name="is_experienced"> Experienced driver/insured</label>
+      <label class="iqp-check"><input type="checkbox" name="has_accident"> Has accident history</label>
+    </div>
+    <fieldset class="iqp-carriers-pick">
+      <legend>Recommended companies to start quoting</legend>
+      <div class="iqp-carriers-grid">
+        {% for co in quote_companies %}
+        <label class="iqp-chip-check"><input type="checkbox" name="recommended_companies" value="{{ co.id }}"><span>{{ co.name }}</span></label>
+        {% empty %}
+        <p class="iqp-empty">Add companies in the Companies tab first.</p>
+        {% endfor %}
+      </div>
+    </fieldset>
+    <label class="iqp-notes-field">Notes<textarea name="notes" rows="3" placeholder="Anything the agent should know"></textarea></label>
+    {% if can_manage_quote_distribution %}
+    <label>Manual assign (optional — leave blank for auto)
+      <select name="assigned_to">
+        <option value="">Auto distribute</option>
+        {% for agent in quote_agents %}
+        <option value="{{ agent.id }}">{{ agent.user.get_full_name|default:agent.user.username }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% endif %}
+    <button type="submit" class="iqp-btn iqp-btn--primary">Create &amp; route lead</button>
+  </form>
+</div>
+{% endif %}

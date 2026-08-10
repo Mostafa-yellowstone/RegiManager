@@ -147,22 +147,6 @@ class Organization(models.Model):
         location = ", ".join(part for part in [self.city, self.state] if part)
         return f"{self.name} ({location})" if location else self.name
 
-    @property
-    def insurance_intake_brand_name(self):
-        custom = (self.insurance_intake_display_name or "").strip()
-        return custom or self.name
-
-    @property
-    def insurance_intake_brand_tagline(self):
-        custom = (self.insurance_intake_tagline or "").strip()
-        return custom or "Request an insurance quote — secure online intake for auto, commercial, and business lines."
-
-    @property
-    def insurance_intake_effective_portal_mode(self):
-        from .insurance_intake_constants import insurance_intake_effective_portal_mode
-
-        return insurance_intake_effective_portal_mode(self)
-
 
 class OrganizationMembership(models.Model):
     class Role(models.TextChoices):
@@ -1365,123 +1349,6 @@ class ClientIntake(models.Model):
 
     def __str__(self):
         return f"Intake: {self.name} ({self.organization.name})"
-
-
-class InsuranceIntake(models.Model):
-    class Status(models.TextChoices):
-        PENDING = "pending", "Pending Review"
-        APPROVED = "approved", "Approved"
-        REJECTED = "rejected", "Rejected"
-
-    organization = models.ForeignKey(
-        Organization,
-        on_delete=models.CASCADE,
-        related_name="insurance_intakes",
-    )
-    status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.PENDING,
-        db_index=True,
-    )
-
-    insurance_type = models.CharField(max_length=30, blank=True, default="")
-    source = models.CharField(max_length=50, default="walk_in")
-    business_type = models.CharField(max_length=50, default="new_business")
-
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
-    email = models.EmailField(blank=True, default="")
-    phone_number = models.CharField(max_length=20)
-    dob = models.DateField(blank=True, null=True)
-    driver_license = models.CharField(max_length=50, blank=True, default="")
-
-    business_name = models.CharField(max_length=200, blank=True, default="")
-    business_ein = models.CharField(max_length=20, blank=True, default="")
-    dot_number = models.CharField(max_length=30, blank=True, default="")
-    fleet_vehicle_count = models.PositiveIntegerField(blank=True, null=True)
-
-    street_address = models.CharField(max_length=200, blank=True, default="")
-    city = models.CharField(max_length=100, blank=True, default="")
-    state = models.CharField(max_length=2, default="NY", blank=True)
-    zip_code = models.CharField(max_length=10, blank=True, default="")
-
-    vin = models.CharField(max_length=50, blank=True, default="")
-    year = models.IntegerField(blank=True, null=True)
-    make = models.CharField(max_length=100, blank=True, default="")
-    model = models.CharField(max_length=100, blank=True, default="")
-
-    current_carrier = models.CharField(max_length=150, blank=True, default="")
-    prior_policy_number = models.CharField(max_length=100, blank=True, default="")
-    requested_effective_date = models.DateField(blank=True, null=True)
-    intake_note = models.TextField(blank=True, default="")
-
-    driver_license_file = models.FileField(
-        upload_to="insurance_intake_docs/dl/",
-        blank=True,
-        null=True,
-    )
-    vehicle_registration_file = models.FileField(
-        upload_to="insurance_intake_docs/registration/",
-        blank=True,
-        null=True,
-    )
-    other_docs_file = models.FileField(
-        upload_to="insurance_intake_docs/other/",
-        blank=True,
-        null=True,
-    )
-
-    additional_data = models.JSONField(default=dict, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    processed_at = models.DateTimeField(null=True, blank=True)
-    processed_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="processed_insurance_intakes",
-    )
-    created_client = models.ForeignKey(
-        Client,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="insurance_intakes",
-    )
-    created_policy = models.ForeignKey(
-        "InsurancePolicy",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="source_intakes",
-    )
-
-    class Meta:
-        ordering = ["-created_at"]
-        verbose_name = "Insurance Intake"
-        verbose_name_plural = "Insurance Intakes"
-
-    @property
-    def name(self):
-        if self.business_name:
-            return self.business_name
-        return f"{self.first_name} {self.last_name}".strip()
-
-    @property
-    def insurance_type_label(self):
-        from .insurance_intake_constants import insurance_intake_type_choices
-
-        labels = dict(insurance_intake_type_choices())
-        return labels.get(self.insurance_type, self.insurance_type.replace("_", " ").title())
-
-    @property
-    def is_ezlynx_portal_intake(self):
-        portal_mode = (self.additional_data or {}).get("portal_mode", "")
-        return portal_mode in {"ezlynx_dual", "ezlynx_only"}
-
-    def __str__(self):
-        return f"Insurance Intake: {self.name} ({self.organization.name})"
 
 
 class Space(models.Model):
@@ -2925,5 +2792,12 @@ from .insurance_targets_models import (  # noqa: E402,F401
     InsuranceLineTarget,
     InsuranceMarketPremiumAssumption,
     InsuranceMonthlyTarget,
+)
+
+# Fundamental Quote Pipeline + smart distribution
+from .insurance_quote_pipeline_models import (  # noqa: E402,F401
+    InsuranceAgentOffDay,
+    InsuranceQuoteDistributionConfig,
+    InsuranceQuoteLead,
 )
 
