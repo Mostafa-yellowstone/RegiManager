@@ -558,14 +558,15 @@
             if (!wrap) return;
 
             const snapshotUrl = wrap.dataset.notifSnapshotUrl;
-            const waitUrl = wrap.dataset.notifWaitUrl;
-            if (!snapshotUrl || !waitUrl) return;
+            if (!snapshotUrl) return;
 
             this._rtSeenNotifIds = this._rtSeenNotifIds || {};
             this._rtLastNotifId = this._rtLastNotifId || 0;
-            this._rtWaitAbort = false;
+            this._rtBusy = false;
 
-            const handleIncomingNotification = (payload) => {
+            // Same idea as the tasks board: fetch JSON, then surgically update the DOM
+            // (badge + toast + list row) — never reload the page.
+            const applyNotification = (payload) => {
                 if (!payload || !payload.id) return;
                 const id = String(payload.id);
                 if (this._rtSeenNotifIds[id]) return;
@@ -576,15 +577,18 @@
                 this.prependNotification(payload);
                 if (typeof payload.unread_count === 'number') {
                     this.updateNotifBadges(payload.unread_count);
-                } else {
-                    // Badge will be corrected by wait payload unread_count normally.
                 }
                 this.showRealtimeToast(payload);
                 this.pulseNotifBell();
             };
 
-            const hydrate = () =>
-                fetch(snapshotUrl, {
+            const checkOnce = (isHydrate) => {
+                if (this._rtBusy) return Promise.resolve();
+                this._rtBusy = true;
+                const url = isHydrate || !this._rtLastNotifId
+                    ? snapshotUrl
+                    : (snapshotUrl + (snapshotUrl.indexOf('?') >= 0 ? '&' : '?') + 'after_id=' + this._rtLastNotifId);
+                return fetch(url, {
                     credentials: 'same-origin',
                     headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
                     cache: 'no-store',
@@ -596,60 +600,37 @@
                             this.updateNotifBadges(data.unread_count);
                         }
                         const items = Array.isArray(data.notifications) ? data.notifications : [];
-                        items.forEach((item) => {
-                            if (item && item.id) this._rtSeenNotifIds[String(item.id)] = true;
-                        });
-                        if (typeof data.newest_id === 'number') {
-                            this._rtLastNotifId = data.newest_id;
-                        } else {
+                        if (isHydrate || !this._rtBooted) {
                             items.forEach((item) => {
-                                if (item && item.id > this._rtLastNotifId) this._rtLastNotifId = item.id;
+                                if (item && item.id) this._rtSeenNotifIds[String(item.id)] = true;
                             });
+                            if (typeof data.newest_id === 'number') {
+                                this._rtLastNotifId = Math.max(this._rtLastNotifId, data.newest_id);
+                            }
+                            this.replaceNotificationList(items);
+                            this._rtBooted = true;
+                            return;
                         }
-                        this.replaceNotificationList(items);
-                    })
-                    .catch(() => null);
-
-            const waitLoop = async () => {
-                while (!this._rtWaitAbort) {
-                    try {
-                        const url =
-                            waitUrl +
-                            (waitUrl.indexOf('?') >= 0 ? '&' : '?') +
-                            'after_id=' +
-                            encodeURIComponent(this._rtLastNotifId || 0) +
-                            '&timeout=25';
-                        const res = await fetch(url, {
-                            credentials: 'same-origin',
-                            headers: {
-                                'X-Requested-With': 'XMLHttpRequest',
-                                Accept: 'application/json',
-                            },
-                            cache: 'no-store',
-                        });
-                        if (!res.ok) {
-                            await new Promise((r) => setTimeout(r, 2000));
-                            continue;
-                        }
-                        const data = await res.json();
-                        if (typeof data.unread_count === 'number') {
-                            this.updateNotifBadges(data.unread_count);
-                        }
-                        if (data.has_new && Array.isArray(data.notifications)) {
-                            data.notifications.forEach((item) => handleIncomingNotification(item));
+                        if (data.has_new && items.length) {
+                            items.forEach((item) => applyNotification(item));
                         }
                         if (typeof data.newest_id === 'number' && data.newest_id > this._rtLastNotifId) {
                             this._rtLastNotifId = data.newest_id;
                         }
-                    } catch (e) {
-                        await new Promise((r) => setTimeout(r, 2000));
-                    }
-                }
+                    })
+                    .catch(() => null)
+                    .finally(() => {
+                        this._rtBusy = false;
+                    });
             };
 
-            // One-time hydrate of existing bell items, then wait until something is assigned.
-            hydrate().finally(() => {
-                waitLoop();
+            checkOnce(true).finally(() => {
+                if (this._rtCheckTimer) clearInterval(this._rtCheckTimer);
+                this._rtCheckTimer = setInterval(() => checkOnce(false), 1500);
+            });
+
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) checkOnce(false);
             });
         },
 
@@ -671,9 +652,7 @@
                 .catch(() => null);
         },
 
-        refreshQuotePipeline() {
-            // Intentionally no auto board refresh — notifications/badge only.
-        },
+        refreshQuotePipeline() {},
 
         replaceNotificationList(items) {
             const body = document.querySelector('#notifDropdown .notif-dropdown-body');

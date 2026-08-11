@@ -135,30 +135,35 @@ def _lead_task_description(lead: InsuranceQuoteLead) -> str:
     return "\n".join(parts)
 
 
-def _notify_quote_assigned(lead: InsuranceQuoteLead):
+def _create_quote_assignment_notification(lead: InsuranceQuoteLead):
+    """Persist the notification row inside the assign transaction."""
     if not lead.assigned_to_id or not lead.assigned_to.user_id:
-        return
-    from django.urls import reverse
-
+        return None
     from .models import Notification
     from .notification_actions import task_board_action_url
-    from .realtime import publish_org_quote_event, publish_user_event
 
-    action_url = task_board_action_url(task_id=lead.agent_task_id)
-    notif = Notification.objects.create(
+    return Notification.objects.create(
         user=lead.assigned_to.user,
         organization=lead.organization,
         event_type="quote_lead_assigned",
         level=Notification.Level.INFO,
         title="New quote lead assigned",
         message=_lead_task_title(lead)[:200],
-        action_url=action_url,
+        action_url=task_board_action_url(task_id=lead.agent_task_id),
     )
+
+
+def _broadcast_quote_notification(notif, lead: InsuranceQuoteLead):
+    from django.urls import reverse
+
+    from .models import Notification
+    from .realtime import publish_org_quote_event, publish_user_event
+
     unread = Notification.objects.filter(
-        user=lead.assigned_to.user, is_read=False
+        user=notif.user_id, is_read=False
     ).count()
     publish_user_event(
-        lead.assigned_to.user_id,
+        notif.user_id,
         "notification.created",
         {
             "id": notif.id,
@@ -230,22 +235,30 @@ def assign_lead(
             "updated_at",
         ]
     )
-    # Publish only after DB commit so other workers/pollers see the notification row.
+
+    # Save notification in the same DB transaction as the assignment so it always exists.
+    notif = _create_quote_assignment_notification(lead)
+    notif_id = notif.id if notif is not None else None
     lead_id = lead.id
 
-    def _notify_after_commit(pk=lead_id):
-        fresh = (
+    def _broadcast_after_commit(nid=notif_id, pk=lead_id):
+        if not nid:
+            return
+        from .models import Notification
+
+        fresh_lead = (
             InsuranceQuoteLead.objects.select_related(
                 "assigned_to__user", "agent_task", "organization"
             )
-            .prefetch_related("recommended_companies")
             .filter(pk=pk)
             .first()
         )
-        if fresh is not None:
-            _notify_quote_assigned(fresh)
+        fresh_notif = Notification.objects.filter(pk=nid).first()
+        if fresh_lead is None or fresh_notif is None:
+            return
+        _broadcast_quote_notification(fresh_notif, fresh_lead)
 
-    transaction.on_commit(_notify_after_commit)
+    transaction.on_commit(_broadcast_after_commit)
 
     config = get_or_create_distribution_config(lead.organization)
     config.last_assigned_membership = membership

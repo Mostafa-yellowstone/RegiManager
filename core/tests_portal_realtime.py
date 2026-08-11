@@ -71,13 +71,12 @@ class NotificationActionUrlTests(TestCase):
             phone="555-0100",
             stage=InsuranceQuoteLead.Stage.NEW,
         )
-        with self.captureOnCommitCallbacks(execute=True):
-            assign_lead(
-                lead,
-                agent,
-                mode=InsuranceQuoteLead.AssignmentMode.MANUAL,
-                actor=owner,
-            )
+        assign_lead(
+            lead,
+            agent,
+            mode=InsuranceQuoteLead.AssignmentMode.MANUAL,
+            actor=owner,
+        )
         notif = Notification.objects.get(
             user=agent_user, event_type="quote_lead_assigned"
         )

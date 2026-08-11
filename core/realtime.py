@@ -88,6 +88,7 @@ def publish(channel: str, event_type: str, payload: dict[str, Any] | None = None
 def publish_user_event(user_id: int, event_type: str, payload: dict[str, Any] | None = None) -> None:
     if not user_id:
         return
+    payload = payload or {}
     publish(user_channel(user_id), event_type, payload)
     wake_user(user_id)
 
