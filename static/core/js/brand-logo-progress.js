@@ -19,6 +19,11 @@
     'session-heartbeat',
     'set-portal-timezone',
     'favicon',
+    // Background realtime — long-lived; must never drive the brand loader.
+    '/api/portal/notifications/wait',
+    '/api/portal/notifications/',
+    '/api/portal/events/',
+    '/api/portal/quote-pipeline/',
   ];
 
   function ensureDom() {
