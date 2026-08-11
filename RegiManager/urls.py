@@ -45,6 +45,7 @@ from core.insurance_quote_pipeline_views import (
 from core.portal_realtime_views import (
     portal_events_stream,
     portal_notifications_snapshot,
+    portal_notifications_wait,
     portal_quote_pipeline_snapshot,
 )
 from core.insurance_policy_views import (
@@ -346,6 +347,7 @@ urlpatterns = [
     path('api/owner/notifications/<int:notification_id>/read/', OwnerNotificationReadView.as_view(), name='api-owner-notification-read'),
     path('api/portal/events/', portal_events_stream, name='portal-events-stream'),
     path('api/portal/notifications/', portal_notifications_snapshot, name='portal-notifications-snapshot'),
+    path('api/portal/notifications/wait/', portal_notifications_wait, name='portal-notifications-wait'),
     path('api/portal/quote-pipeline/', portal_quote_pipeline_snapshot, name='portal-quote-pipeline-snapshot'),
     path('api/owner/agents/', OwnerAgentsListView.as_view(), name='api-owner-agents'),
     path('api/owner/agents/<int:membership_id>/workboard/', OwnerAgentWorkboardView.as_view(), name='api-owner-agent-workboard'),

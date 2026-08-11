@@ -15,7 +15,7 @@ from .access import organizations_for_user
 from .insurance_quote_permissions import can_view_quote_pipeline, membership_for_org
 from .insurance_quote_pipeline_views import build_quote_pipeline_context
 from .models import Notification, Organization
-from .realtime import iter_events, org_quote_channel, user_channel
+from .realtime import iter_events, org_quote_channel, user_channel, wait_user_wake
 
 
 def _serialize_notification(n: Notification) -> dict:
@@ -64,6 +64,68 @@ def portal_notifications_snapshot(request):
             "notifications": items,
             "unread_count": unread,
             "newest_id": newest,
+            "has_new": False,
+        }
+    )
+
+
+@login_required
+@require_GET
+def portal_notifications_wait(request):
+    """Long-poll: hold until a newer notification exists, then return it.
+
+    No client-side timer refresh — the browser waits on this request and only
+    updates toast/badge when an assignment (or other notif) is created.
+    """
+    after_raw = (request.GET.get("after_id") or "").strip()
+    after_id = int(after_raw) if after_raw.isdigit() else 0
+    try:
+        timeout = int(request.GET.get("timeout") or 25)
+    except (TypeError, ValueError):
+        timeout = 25
+    timeout = max(5, min(timeout, 30))
+
+    def _fresh(after: int):
+        qs = list(
+            Notification.objects.filter(user=request.user, id__gt=after).order_by("id")[:20]
+        )
+        unread = Notification.objects.filter(user=request.user, is_read=False).count()
+        items = [_serialize_notification(n) for n in qs]
+        newest = items[-1]["id"] if items else after
+        return items, unread, newest
+
+    items, unread, newest = _fresh(after_id)
+    if items:
+        return JsonResponse(
+            {
+                "notifications": items,
+                "unread_count": unread,
+                "newest_id": newest,
+                "has_new": True,
+            }
+        )
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        remaining = deadline - time.monotonic()
+        wait_user_wake(request.user.id, min(remaining, 1.0))
+        items, unread, newest = _fresh(after_id)
+        if items:
+            return JsonResponse(
+                {
+                    "notifications": items,
+                    "unread_count": unread,
+                    "newest_id": newest,
+                    "has_new": True,
+                }
+            )
+
+    unread = Notification.objects.filter(user=request.user, is_read=False).count()
+    return JsonResponse(
+        {
+            "notifications": [],
+            "unread_count": unread,
+            "newest_id": after_id,
             "has_new": False,
         }
     )

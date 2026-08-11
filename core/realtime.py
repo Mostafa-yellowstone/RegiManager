@@ -89,6 +89,40 @@ def publish_user_event(user_id: int, event_type: str, payload: dict[str, Any] | 
     if not user_id:
         return
     publish(user_channel(user_id), event_type, payload)
+    wake_user(user_id)
+
+
+def wake_user(user_id: int) -> None:
+    """Unblock long-poll waiters for this user (Redis BLPOP), if Redis is up."""
+    if not user_id:
+        return
+    client = _get_redis()
+    if client is None:
+        return
+    key = f"rm:user:{int(user_id)}:wake"
+    try:
+        client.lpush(key, "1")
+        client.ltrim(key, 0, 0)
+        client.expire(key, 60)
+    except Exception:
+        logger.exception("Failed waking user long-poll")
+
+
+def wait_user_wake(user_id: int, timeout: float) -> bool:
+    """Block until wake signal or timeout. Returns True if woken."""
+    if timeout <= 0:
+        return False
+    client = _get_redis()
+    if client is None:
+        time.sleep(min(timeout, 0.45))
+        return False
+    key = f"rm:user:{int(user_id)}:wake"
+    try:
+        result = client.blpop(key, timeout=max(1, int(timeout)))
+        return bool(result)
+    except Exception:
+        time.sleep(min(timeout, 0.45))
+        return False
 
 
 def publish_org_quote_event(org_id: int, event_type: str, payload: dict[str, Any] | None = None) -> None:

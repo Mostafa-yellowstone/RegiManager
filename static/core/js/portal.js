@@ -558,15 +558,14 @@
             if (!wrap) return;
 
             const snapshotUrl = wrap.dataset.notifSnapshotUrl;
-            const eventsUrl = wrap.dataset.eventsUrl;
-            const root = document.getElementById('quotePipelineRoot');
-            const orgId = root && root.dataset.orgId;
+            const waitUrl = wrap.dataset.notifWaitUrl;
+            if (!snapshotUrl || !waitUrl) return;
 
             this._rtSeenNotifIds = this._rtSeenNotifIds || {};
             this._rtLastNotifId = this._rtLastNotifId || 0;
-            this._rtPipelineTimer = null;
+            this._rtWaitAbort = false;
 
-            const handleIncomingNotification = (payload, { toast } = { toast: true }) => {
+            const handleIncomingNotification = (payload) => {
                 if (!payload || !payload.id) return;
                 const id = String(payload.id);
                 if (this._rtSeenNotifIds[id]) return;
@@ -577,19 +576,15 @@
                 this.prependNotification(payload);
                 if (typeof payload.unread_count === 'number') {
                     this.updateNotifBadges(payload.unread_count);
+                } else {
+                    // Badge will be corrected by wait payload unread_count normally.
                 }
-                if (toast) {
-                    this.showRealtimeToast(payload);
-                    this.pulseNotifBell();
-                }
+                this.showRealtimeToast(payload);
+                this.pulseNotifBell();
             };
 
-            const pollNotifications = () => {
-                if (!snapshotUrl) return;
-                const url = this._rtLastNotifId
-                    ? (snapshotUrl + (snapshotUrl.indexOf('?') >= 0 ? '&' : '?') + 'after_id=' + this._rtLastNotifId)
-                    : snapshotUrl;
-                fetch(url, {
+            const hydrate = () =>
+                fetch(snapshotUrl, {
                     credentials: 'same-origin',
                     headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
                     cache: 'no-store',
@@ -601,85 +596,61 @@
                             this.updateNotifBadges(data.unread_count);
                         }
                         const items = Array.isArray(data.notifications) ? data.notifications : [];
-                        if (!this._rtLastNotifId) {
-                            // First hydrate: fill bell, remember ids, no toast spam.
+                        items.forEach((item) => {
+                            if (item && item.id) this._rtSeenNotifIds[String(item.id)] = true;
+                        });
+                        if (typeof data.newest_id === 'number') {
+                            this._rtLastNotifId = data.newest_id;
+                        } else {
                             items.forEach((item) => {
-                                if (item && item.id) this._rtSeenNotifIds[String(item.id)] = true;
+                                if (item && item.id > this._rtLastNotifId) this._rtLastNotifId = item.id;
                             });
-                            if (typeof data.newest_id === 'number' && data.newest_id > this._rtLastNotifId) {
-                                this._rtLastNotifId = data.newest_id;
-                            } else {
-                                items.forEach((item) => {
-                                    if (item && item.id > this._rtLastNotifId) this._rtLastNotifId = item.id;
-                                });
-                            }
-                            this.replaceNotificationList(items);
-                            return;
                         }
-                        if (data.has_new && items.length) {
-                            // items are ascending by id when after_id is used
-                            items.forEach((item) => handleIncomingNotification(item, { toast: true }));
-                            if (typeof data.unread_count === 'number') {
-                                this.updateNotifBadges(data.unread_count);
-                            }
+                        this.replaceNotificationList(items);
+                    })
+                    .catch(() => null);
+
+            const waitLoop = async () => {
+                while (!this._rtWaitAbort) {
+                    try {
+                        const url =
+                            waitUrl +
+                            (waitUrl.indexOf('?') >= 0 ? '&' : '?') +
+                            'after_id=' +
+                            encodeURIComponent(this._rtLastNotifId || 0) +
+                            '&timeout=25';
+                        const res = await fetch(url, {
+                            credentials: 'same-origin',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                Accept: 'application/json',
+                            },
+                            cache: 'no-store',
+                        });
+                        if (!res.ok) {
+                            await new Promise((r) => setTimeout(r, 2000));
+                            continue;
+                        }
+                        const data = await res.json();
+                        if (typeof data.unread_count === 'number') {
+                            this.updateNotifBadges(data.unread_count);
+                        }
+                        if (data.has_new && Array.isArray(data.notifications)) {
+                            data.notifications.forEach((item) => handleIncomingNotification(item));
                         }
                         if (typeof data.newest_id === 'number' && data.newest_id > this._rtLastNotifId) {
                             this._rtLastNotifId = data.newest_id;
                         }
-                    })
-                    .catch(() => null);
-            };
-
-            // Reliable path: DB poll (works without Redis / gevent / SSE).
-            pollNotifications();
-            if (this._rtNotifTimer) clearInterval(this._rtNotifTimer);
-            this._rtNotifTimer = setInterval(pollNotifications, 3000);
-
-            const schedulePipelineRefresh = () => {
-                if (!root) return;
-                if (this._rtPipelineTimer) clearTimeout(this._rtPipelineTimer);
-                this._rtPipelineTimer = setTimeout(() => this.refreshQuotePipeline(), 250);
-            };
-
-            if (root) {
-                if (this._rtPipelinePoll) clearInterval(this._rtPipelinePoll);
-                this._rtPipelinePoll = setInterval(() => this.refreshQuotePipeline(), 5000);
-            }
-
-            // Best-effort SSE acceleration when the proxy/worker supports it.
-            if (eventsUrl && typeof window.EventSource !== 'undefined') {
-                let url = eventsUrl;
-                if (orgId) {
-                    url += (url.indexOf('?') >= 0 ? '&' : '?') + 'org=' + encodeURIComponent(orgId);
+                    } catch (e) {
+                        await new Promise((r) => setTimeout(r, 2000));
+                    }
                 }
-                const connect = () => {
-                    try {
-                        if (this._eventSource) {
-                            try { this._eventSource.close(); } catch (e) {}
-                        }
-                        const es = new EventSource(url, { withCredentials: true });
-                        es.addEventListener('notification.created', (ev) => {
-                            try {
-                                const data = JSON.parse(ev.data || '{}');
-                                const payload = data.payload || data;
-                                if (typeof payload.unread_count !== 'number') {
-                                    // leave badge to poller if missing
-                                }
-                                handleIncomingNotification(payload, { toast: true });
-                            } catch (e) {}
-                        });
-                        es.addEventListener('quote_pipeline.changed', () => {
-                            schedulePipelineRefresh();
-                        });
-                        es.onerror = () => {
-                            try { es.close(); } catch (e) {}
-                            setTimeout(connect, 8000);
-                        };
-                        this._eventSource = es;
-                    } catch (e) {}
-                };
-                connect();
-            }
+            };
+
+            // One-time hydrate of existing bell items, then wait until something is assigned.
+            hydrate().finally(() => {
+                waitLoop();
+            });
         },
 
         refreshNotificationsSnapshot() {
@@ -701,22 +672,7 @@
         },
 
         refreshQuotePipeline() {
-            const root = document.getElementById('quotePipelineRoot');
-            if (!root) return;
-            const url = root.dataset.snapshotUrl;
-            if (!url) return;
-            fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then((res) => (res.ok ? res.json() : null))
-                .then((data) => {
-                    if (!data || !data.html) return;
-                    const live = root.querySelector('#iqpLiveRegion');
-                    if (!live) return;
-                    const holder = document.createElement('div');
-                    holder.innerHTML = data.html;
-                    const next = holder.querySelector('#iqpLiveRegion') || holder.firstElementChild;
-                    if (next) live.replaceWith(next);
-                })
-                .catch(() => null);
+            // Intentionally no auto board refresh — notifications/badge only.
         },
 
         replaceNotificationList(items) {

@@ -144,6 +144,23 @@ class PortalRealtimeApiTests(TestCase):
         self.assertEqual(ids, [second.id])
         self.assertEqual(data["newest_id"], second.id)
 
+    def test_notifications_wait_returns_existing_immediately(self):
+        first = Notification.objects.create(
+            user=self.user,
+            organization=self.org,
+            title="Ready",
+            message="Now",
+            level=Notification.Level.INFO,
+        )
+        resp = self.client.get(
+            reverse("portal-notifications-wait"),
+            {"after_id": first.id - 1, "timeout": 5},
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data["has_new"])
+        self.assertEqual(data["notifications"][0]["id"], first.id)
+
     def test_events_stream_smoke(self):
         resp = self.client.get(reverse("portal-events-stream"), data={"org": self.org.id})
         self.assertEqual(resp.status_code, 200)
