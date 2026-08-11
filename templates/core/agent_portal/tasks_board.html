@@ -81,6 +81,16 @@
                         <div class="atb-card__body">
                             <strong class="atb-card__title">{{ task.title }}</strong>
                             {% if task.description %}<p class="atb-card__desc">{{ task.description|truncatechars:140 }}</p>{% endif %}
+                            {% for lead in task.quote_leads.all %}
+                              {% if lead.documents.all %}
+                              <div class="atb-card__docs">
+                                <span>Quote docs</span>
+                                {% for doc in lead.documents.all %}
+                                <a href="{% url 'download-quote-lead-document' doc.id %}" target="_blank" rel="noopener">{{ doc.original_name|default:doc.file.name }}</a>
+                                {% endfor %}
+                              </div>
+                              {% endif %}
+                            {% endfor %}
                             {% if task.completion_note %}
                             <p class="atb-card__note"><span>Progress note</span>{{ task.completion_note|truncatechars:180 }}</p>
                             {% endif %}
@@ -124,6 +134,15 @@
                     <div class="atb-list-row__main">
                         <strong>{{ task.title }}</strong>
                         {% if task.description %}<small>{{ task.description|truncatechars:160 }}</small>{% endif %}
+                        {% for lead in task.quote_leads.all %}
+                          {% if lead.documents.all %}
+                          <div class="atb-card__docs">
+                            {% for doc in lead.documents.all %}
+                            <a href="{% url 'download-quote-lead-document' doc.id %}" target="_blank" rel="noopener">{{ doc.original_name|default:doc.file.name }}</a>
+                            {% endfor %}
+                          </div>
+                          {% endif %}
+                        {% endfor %}
                         {% if task.completion_note %}<small class="atb-list-note">{{ task.completion_note|truncatechars:140 }}</small>{% endif %}
                     </div>
                     <div class="atb-list-row__side">

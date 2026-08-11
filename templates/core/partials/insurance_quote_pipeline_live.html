@@ -22,6 +22,14 @@
           data-phone="{{ lead.phone }}"
           data-email="{{ lead.email }}"
           data-insurance-type="{{ lead.insurance_type }}"
+          data-vehicle-ownership="{{ lead.vehicle_ownership }}"
+          data-coverage-type="{{ lead.coverage_type }}"
+          data-vehicle-make="{{ lead.vehicle_make }}"
+          data-vehicle-model="{{ lead.vehicle_model }}"
+          data-vehicle-year="{{ lead.vehicle_year }}"
+          data-vin="{{ lead.vin }}"
+          data-dl-number="{{ lead.dl_number }}"
+          data-date-of-birth="{% if lead.date_of_birth %}{{ lead.date_of_birth|date:'Y-m-d' }}{% endif %}"
           data-has-prior="{% if lead.has_prior %}1{% else %}0{% endif %}"
           data-is-experienced="{% if lead.is_experienced %}1{% else %}0{% endif %}"
           data-has-accident="{% if lead.has_accident %}1{% else %}0{% endif %}"
@@ -29,6 +37,7 @@
           data-stage="{{ lead.stage }}"
           data-assigned-to="{{ lead.assigned_to_id|default:'' }}"
           data-company-ids="{% for co in lead.recommended_companies.all %}{{ co.id }}{% if not forloop.last %},{% endif %}{% endfor %}"
+          data-docs='[{% for doc in lead.documents.all %}{"id":{{ doc.id }},"name":"{{ doc.original_name|default:doc.file.name|escapejs }}","url":"{% url "download-quote-lead-document" doc.id %}"}{% if not forloop.last %},{% endif %}{% endfor %}]'
           data-edit-url="{% url 'edit-quote-lead' lead.id %}"
           style="--i:{{ forloop.counter0 }}"
         >
@@ -37,6 +46,26 @@
             <span class="iqp-badge">{{ lead.insurance_type|default:"General"|cut:"_"|title }}</span>
           </div>
           <p class="iqp-card__meta">{{ lead.phone }}{% if lead.email %} · {{ lead.email }}{% endif %}</p>
+          {% if lead.vehicle_ownership or lead.coverage_type or lead.vehicle_make or lead.vehicle_model or lead.vehicle_year or lead.vin %}
+          <p class="iqp-card__meta iqp-card__meta--secondary">
+            {% if lead.vehicle_year or lead.vehicle_make or lead.vehicle_model %}
+              {{ lead.vehicle_year }} {{ lead.vehicle_make }} {{ lead.vehicle_model }}
+            {% endif %}
+            {% if lead.vin %}{% if lead.vehicle_year or lead.vehicle_make or lead.vehicle_model %} · {% endif %}VIN {{ lead.vin }}{% endif %}
+          </p>
+          <p class="iqp-card__meta iqp-card__meta--secondary">
+            {% if lead.vehicle_ownership %}{{ lead.get_vehicle_ownership_display }}{% endif %}
+            {% if lead.vehicle_ownership and lead.coverage_type %} · {% endif %}
+            {% if lead.coverage_type %}{{ lead.get_coverage_type_display }}{% endif %}
+          </p>
+          {% endif %}
+          {% if lead.dl_number or lead.date_of_birth %}
+          <p class="iqp-card__meta iqp-card__meta--secondary">
+            {% if lead.dl_number %}DL {{ lead.dl_number }}{% endif %}
+            {% if lead.dl_number and lead.date_of_birth %} · {% endif %}
+            {% if lead.date_of_birth %}DOB {{ lead.date_of_birth|date:"M j, Y" }}{% endif %}
+          </p>
+          {% endif %}
           <div class="iqp-flags">
             <span class="{% if lead.has_prior %}is-on{% endif %}">{% if lead.has_prior %}Prior{% else %}No prior{% endif %}</span>
             <span class="{% if lead.is_experienced %}is-on{% endif %}">{% if lead.is_experienced %}Experienced{% else %}New{% endif %}</span>
@@ -48,6 +77,18 @@
             <em>{{ co.name }}</em>
             {% endfor %}
           </div>
+          {% endif %}
+          {% if lead.documents.all %}
+            {% if can_manage_quote_distribution or quote_pipeline_membership and lead.assigned_to_id == quote_pipeline_membership.id %}
+            <div class="iqp-docs">
+              <span class="iqp-docs__label">Documents</span>
+              {% for doc in lead.documents.all %}
+              <a class="iqp-docs__link" href="{% url 'download-quote-lead-document' doc.id %}" target="_blank" rel="noopener">
+                {{ doc.original_name|default:doc.file.name }}
+              </a>
+              {% endfor %}
+            </div>
+            {% endif %}
           {% endif %}
           <div class="iqp-card__assignee">
             {% if lead.assigned_to %}

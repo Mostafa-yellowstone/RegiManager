@@ -154,8 +154,10 @@ def start_attendance_on_login(user, *, now: datetime | None = None) -> list:
 
 
 def task_progress_for_membership(membership: OrganizationMembership) -> dict:
-    qs = AgentTask.objects.filter(assigned_to=membership).select_related(
-        "created_by", "assigned_to__user"
+    qs = (
+        AgentTask.objects.filter(assigned_to=membership)
+        .select_related("created_by", "assigned_to__user")
+        .prefetch_related("quote_leads__documents")
     )
     totals = qs.aggregate(
         total=Count("id"),

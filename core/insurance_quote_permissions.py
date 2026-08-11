@@ -99,3 +99,15 @@ def can_edit_quote_lead(user, lead, *, membership=None) -> bool:
 def can_delete_quote_lead(user, lead, *, membership=None) -> bool:
     """Hard delete — Owner/Manager only."""
     return can_manage_quote_distribution(user, lead.organization, membership=membership)
+
+
+def can_view_quote_lead_documents(user, lead, *, membership=None) -> bool:
+    """Docs are visible to owners/managers and the agent currently assigned to the lead."""
+    if getattr(user, "is_superuser", False):
+        return True
+    membership = membership or membership_for_org(user, lead.organization)
+    if membership is None:
+        return False
+    if is_owner_or_manager(membership, user=user):
+        return True
+    return bool(lead.assigned_to_id and lead.assigned_to_id == membership.id)

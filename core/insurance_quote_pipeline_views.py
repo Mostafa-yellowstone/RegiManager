@@ -6,8 +6,9 @@ from datetime import datetime
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from .access import organizations_for_user
 from .http import deny_access
@@ -26,12 +27,14 @@ from .insurance_quote_permissions import (
     can_manage_quote_distribution,
     can_receive_quote_distribution,
     can_update_assigned_lead,
+    can_view_quote_lead_documents,
     can_view_quote_pipeline,
     membership_for_org,
 )
 from .insurance_quote_pipeline_models import (
     InsuranceAgentOffDay,
     InsuranceQuoteLead,
+    InsuranceQuoteLeadDocument,
 )
 from .insurance_targets_metrics import insurance_type_catalog
 from .models import InsuranceCompany, Organization, OrganizationMembership, Space
@@ -64,7 +67,7 @@ def build_quote_pipeline_context(request, organization, membership):
     leads_qs = (
         InsuranceQuoteLead.objects.filter(organization=organization)
         .select_related("assigned_to__user", "created_by", "agent_task")
-        .prefetch_related("recommended_companies")
+        .prefetch_related("recommended_companies", "documents")
         .order_by("-created_at")
     )
     is_leader = can_manage_quote_distribution(
@@ -128,12 +131,99 @@ def build_quote_pipeline_context(request, organization, membership):
             request.user, organization, membership=membership
         ),
         "quote_stage_choices": InsuranceQuoteLead.Stage.choices,
+        "quote_vehicle_ownership_choices": InsuranceQuoteLead.VehicleOwnership.choices,
+        "quote_coverage_type_choices": InsuranceQuoteLead.CoverageType.choices,
         "can_edit_quote_leads": can_create_quote_leads(
             request.user, organization, membership=membership
         )
         or is_leader,
         "can_delete_quote_leads": is_leader,
+        "quote_pipeline_membership": membership,
     }
+
+
+def _parse_vehicle_ownership(raw: str) -> str:
+    value = (raw or "").strip()
+    valid = {c.value for c in InsuranceQuoteLead.VehicleOwnership}
+    return value if value in valid else ""
+
+
+def _parse_coverage_type(raw: str) -> str:
+    value = (raw or "").strip()
+    valid = {c.value for c in InsuranceQuoteLead.CoverageType}
+    return value if value in valid else ""
+
+
+def _parse_date_of_birth(raw: str):
+    value = (raw or "").strip()
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _parse_vehicle_year(raw: str) -> str:
+    value = (raw or "").strip()
+    if value.isdigit() and 1900 <= int(value) <= 2100:
+        return value
+    return ""
+
+
+def _apply_car_and_dl_fields(request, lead: InsuranceQuoteLead) -> None:
+    lead.vehicle_make = (request.POST.get("vehicle_make") or "").strip()[:80]
+    lead.vehicle_model = (request.POST.get("vehicle_model") or "").strip()[:80]
+    lead.vehicle_year = _parse_vehicle_year(request.POST.get("vehicle_year"))
+    lead.vin = (request.POST.get("vin") or "").strip().upper()[:32]
+    lead.dl_number = (request.POST.get("dl_number") or "").strip()[:40]
+    lead.date_of_birth = _parse_date_of_birth(request.POST.get("date_of_birth"))
+
+
+def _save_uploaded_documents(request, lead: InsuranceQuoteLead) -> int:
+    files = request.FILES.getlist("documents")
+    count = 0
+    for uploaded in files:
+        if not uploaded:
+            continue
+        InsuranceQuoteLeadDocument.objects.create(
+            lead=lead,
+            file=uploaded,
+            original_name=getattr(uploaded, "name", "")[:255],
+            uploaded_by=request.user,
+        )
+        count += 1
+    return count
+
+
+def _remove_documents(request, lead: InsuranceQuoteLead) -> int:
+    raw_ids = request.POST.getlist("remove_documents")
+    if not raw_ids:
+        return 0
+    ids = []
+    for value in raw_ids:
+        if str(value).isdigit():
+            ids.append(int(value))
+    if not ids:
+        return 0
+    removed = 0
+    for doc in InsuranceQuoteLeadDocument.objects.filter(lead=lead, id__in=ids):
+        if doc.file:
+            doc.file.delete(save=False)
+        doc.delete()
+        removed += 1
+    return removed
+
+
+def _refresh_linked_task_description(lead: InsuranceQuoteLead) -> None:
+    if not lead.agent_task_id:
+        return
+    from .insurance_quote_distribution import _lead_task_description, _lead_task_title
+
+    task = lead.agent_task
+    task.title = _lead_task_title(lead)
+    task.description = _lead_task_description(lead)
+    task.save(update_fields=["title", "description", "updated_at"])
 
 
 @login_required
@@ -162,6 +252,14 @@ def create_quote_lead(request):
         has_prior=request.POST.get("has_prior") in {"1", "true", "on", "yes"},
         is_experienced=request.POST.get("is_experienced") in {"1", "true", "on", "yes"},
         has_accident=request.POST.get("has_accident") in {"1", "true", "on", "yes"},
+        vehicle_ownership=_parse_vehicle_ownership(request.POST.get("vehicle_ownership")),
+        coverage_type=_parse_coverage_type(request.POST.get("coverage_type")),
+        vehicle_make=(request.POST.get("vehicle_make") or "").strip()[:80],
+        vehicle_model=(request.POST.get("vehicle_model") or "").strip()[:80],
+        vehicle_year=_parse_vehicle_year(request.POST.get("vehicle_year")),
+        vin=(request.POST.get("vin") or "").strip().upper()[:32],
+        dl_number=(request.POST.get("dl_number") or "").strip()[:40],
+        date_of_birth=_parse_date_of_birth(request.POST.get("date_of_birth")),
         notes=(request.POST.get("notes") or "").strip(),
         stage=InsuranceQuoteLead.Stage.NEW,
         assignment_mode=InsuranceQuoteLead.AssignmentMode.UNASSIGNED,
@@ -172,6 +270,8 @@ def create_quote_lead(request):
             organization=org, id__in=company_ids
         )
         lead.recommended_companies.set(companies)
+
+    _save_uploaded_documents(request, lead)
 
     manual_agent_id = (request.POST.get("assigned_to") or "").strip()
     if manual_agent_id and can_manage_quote_distribution(
@@ -210,6 +310,7 @@ def create_quote_lead(request):
     from .realtime import publish_org_quote_event
 
     lead.refresh_from_db()
+    _refresh_linked_task_description(lead)
     publish_org_quote_event(
         org.id,
         "quote_pipeline.changed",
@@ -329,6 +430,9 @@ def _apply_lead_fields(request, lead, org):
     lead.has_prior = request.POST.get("has_prior") in {"1", "true", "on", "yes"}
     lead.is_experienced = request.POST.get("is_experienced") in {"1", "true", "on", "yes"}
     lead.has_accident = request.POST.get("has_accident") in {"1", "true", "on", "yes"}
+    lead.vehicle_ownership = _parse_vehicle_ownership(request.POST.get("vehicle_ownership"))
+    lead.coverage_type = _parse_coverage_type(request.POST.get("coverage_type"))
+    _apply_car_and_dl_fields(request, lead)
     lead.notes = (request.POST.get("notes") or "").strip()
 
     stage = (request.POST.get("stage") or "").strip()
@@ -341,14 +445,31 @@ def _apply_lead_fields(request, lead, org):
     companies = InsuranceCompany.objects.filter(organization=org, id__in=company_ids)
     lead.recommended_companies.set(companies)
 
-    if lead.agent_task_id:
-        from .insurance_quote_distribution import _lead_task_description, _lead_task_title
-
-        task = lead.agent_task
-        task.title = _lead_task_title(lead)
-        task.description = _lead_task_description(lead)
-        task.save(update_fields=["title", "description", "updated_at"])
+    _remove_documents(request, lead)
+    _save_uploaded_documents(request, lead)
+    _refresh_linked_task_description(lead)
     return True, ""
+
+
+@login_required
+@require_GET
+def download_quote_lead_document(request, document_id: int):
+    doc = get_object_or_404(
+        InsuranceQuoteLeadDocument.objects.select_related(
+            "lead", "lead__assigned_to", "lead__organization"
+        ),
+        id=document_id,
+    )
+    lead = doc.lead
+    org = lead.organization
+    membership = membership_for_org(request.user, org)
+    if not can_view_quote_lead_documents(request.user, lead, membership=membership):
+        deny_access("You cannot view documents for this lead.")
+    if not doc.file:
+        raise Http404("File missing.")
+    filename = doc.original_name or doc.file.name.rsplit("/", 1)[-1]
+    response = FileResponse(doc.file.open("rb"), as_attachment=True, filename=filename)
+    return response
 
 
 @login_required

@@ -478,6 +478,108 @@ body.iqp-modal-open { overflow: hidden; }
   letter-spacing: 0;
 }
 
+.iqp-docs {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.45rem 0 0.15rem;
+}
+.iqp-docs__label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+.iqp-docs__link {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: #0f766e;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-word;
+}
+.iqp-docs-edit {
+  display: grid;
+  gap: 0.4rem;
+}
+.iqp-docs-edit__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 650;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #0f172a;
+}
+.iqp-docs-edit__row a {
+  color: #0f766e;
+}
+.iqp-card__meta--secondary {
+  opacity: 0.85;
+  font-size: 0.78rem;
+}
+
+.iqp-section {
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  background: #f8fafc;
+  overflow: hidden;
+}
+.iqp-section__summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0f172a;
+  user-select: none;
+}
+.iqp-section__summary::-webkit-details-marker {
+  display: none;
+}
+.iqp-section__summary::after {
+  content: "+";
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f766e;
+  line-height: 1;
+}
+.iqp-section[open] > .iqp-section__summary::after {
+  content: "−";
+}
+.iqp-section__hint {
+  margin-left: auto;
+  margin-right: 0.35rem;
+  font-style: normal;
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #64748b;
+}
+.iqp-section__body {
+  padding: 0 0.9rem 0.9rem;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 0.85rem;
+}
+html.portal-theme-dark .iqp-section {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: rgba(148, 163, 184, 0.28);
+}
+html.portal-theme-dark .iqp-section__summary {
+  color: #e2e8f0;
+}
+html.portal-theme-dark .iqp-section__body {
+  border-top-color: rgba(148, 163, 184, 0.22);
+}
+
 .iqp-dd {
   position: relative;
 }

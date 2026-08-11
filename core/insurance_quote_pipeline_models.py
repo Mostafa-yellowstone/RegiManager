@@ -23,6 +23,15 @@ class InsuranceQuoteLead(models.Model):
         MANUAL = "manual", "Manual"
         UNASSIGNED = "unassigned", "Unassigned"
 
+    class VehicleOwnership(models.TextChoices):
+        BLANK = "blank", "Blank"
+        OWNED = "owned", "Owned"
+        FINANCED = "financed", "Financed"
+
+    class CoverageType(models.TextChoices):
+        LIABILITY = "liability", "Liability only"
+        FULL = "full", "Full coverage"
+
     organization = models.ForeignKey(
         "Organization",
         on_delete=models.CASCADE,
@@ -42,6 +51,24 @@ class InsuranceQuoteLead(models.Model):
     has_prior = models.BooleanField(default=False)
     is_experienced = models.BooleanField(default=False)
     has_accident = models.BooleanField(default=False)
+    vehicle_ownership = models.CharField(
+        max_length=20,
+        choices=VehicleOwnership.choices,
+        blank=True,
+        default="",
+    )
+    coverage_type = models.CharField(
+        max_length=20,
+        choices=CoverageType.choices,
+        blank=True,
+        default="",
+    )
+    vehicle_make = models.CharField(max_length=80, blank=True, default="")
+    vehicle_model = models.CharField(max_length=80, blank=True, default="")
+    vehicle_year = models.CharField(max_length=4, blank=True, default="")
+    vin = models.CharField(max_length=32, blank=True, default="")
+    dl_number = models.CharField(max_length=40, blank=True, default="")
+    date_of_birth = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True, default="")
     recommended_companies = models.ManyToManyField(
         "InsuranceCompany",
@@ -88,6 +115,38 @@ class InsuranceQuoteLead(models.Model):
 
     def __str__(self):
         return f"{self.client_name} · {self.insurance_type or 'quote'}"
+
+
+def quote_lead_document_upload_to(instance, filename):
+    return f"quote_lead_docs/{instance.lead_id}/{filename}"
+
+
+class InsuranceQuoteLeadDocument(models.Model):
+    """File attached to a quote lead — visible to managers and the assigned agent."""
+
+    lead = models.ForeignKey(
+        InsuranceQuoteLead,
+        on_delete=models.CASCADE,
+        related_name="documents",
+    )
+    file = models.FileField(upload_to=quote_lead_document_upload_to)
+    original_name = models.CharField(max_length=255, blank=True, default="")
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = "Quote lead document"
+        verbose_name_plural = "Quote lead documents"
+
+    def __str__(self):
+        return self.original_name or self.file.name
 
 
 class InsuranceQuoteDistributionConfig(models.Model):

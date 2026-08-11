@@ -130,30 +130,85 @@ def _lead_task_description(lead: InsuranceQuoteLead) -> str:
         f"Profile: {', '.join(flags)}",
         f"Recommended carriers: {companies}",
     ]
+    if lead.vehicle_ownership:
+        parts.append(f"Ownership: {lead.get_vehicle_ownership_display()}")
+    if lead.coverage_type:
+        parts.append(f"Coverage: {lead.get_coverage_type_display()}")
+    car_bits = [
+        x
+        for x in [
+            lead.vehicle_year,
+            lead.vehicle_make,
+            lead.vehicle_model,
+        ]
+        if x
+    ]
+    if car_bits or lead.vin:
+        car_line = " ".join(car_bits) if car_bits else "Vehicle"
+        if lead.vin:
+            car_line += f" · VIN {lead.vin}"
+        parts.append(f"Car: {car_line}")
+    if lead.dl_number or lead.date_of_birth:
+        dl_bits = []
+        if lead.dl_number:
+            dl_bits.append(f"DL {lead.dl_number}")
+        if lead.date_of_birth:
+            dl_bits.append(f"DOB {lead.date_of_birth.isoformat()}")
+        parts.append("Driver: " + " · ".join(dl_bits))
     if lead.notes:
         parts.append(f"Notes: {lead.notes[:500]}")
+    docs = list(lead.documents.all()[:12])
+    if docs:
+        from django.urls import reverse
+
+        lines = ["Documents:"]
+        for doc in docs:
+            name = doc.original_name or doc.file.name.rsplit("/", 1)[-1]
+            try:
+                url = reverse("download-quote-lead-document", args=[doc.id])
+            except Exception:
+                url = ""
+            lines.append(f"- {name}" + (f" → {url}" if url else ""))
+        parts.append("\n".join(lines))
     return "\n".join(parts)
 
 
-def _create_quote_assignment_notification(lead: InsuranceQuoteLead):
+def _clear_previous_assignment_notifications(lead: InsuranceQuoteLead, previous_membership, task_id):
+    """Remove the prior agent's quote assignment notifications for this task."""
+    if not previous_membership or not previous_membership.user_id or not task_id:
+        return
+    from .models import Notification
+    from .notification_actions import task_board_action_url
+
+    action_url = task_board_action_url(task_id=task_id)
+    Notification.objects.filter(
+        user_id=previous_membership.user_id,
+        organization_id=lead.organization_id,
+        event_type="quote_lead_assigned",
+        action_url=action_url,
+    ).delete()
+
+
+def _create_quote_assignment_notification(lead: InsuranceQuoteLead, *, reassigned: bool = False):
     """Persist the notification row inside the assign transaction."""
     if not lead.assigned_to_id or not lead.assigned_to.user_id:
         return None
     from .models import Notification
     from .notification_actions import task_board_action_url
 
+    title = "Quote lead reassigned to you" if reassigned else "New quote lead assigned"
     return Notification.objects.create(
         user=lead.assigned_to.user,
         organization=lead.organization,
         event_type="quote_lead_assigned",
         level=Notification.Level.INFO,
-        title="New quote lead assigned",
+        title=title,
         message=_lead_task_title(lead)[:200],
         action_url=task_board_action_url(task_id=lead.agent_task_id),
     )
 
 
-def _broadcast_quote_notification(notif, lead: InsuranceQuoteLead):
+def _broadcast_quote_notification(notif, lead: InsuranceQuoteLead, *, reason: str = "assigned"):
     from django.urls import reverse
 
     from .models import Notification
@@ -185,7 +240,7 @@ def _broadcast_quote_notification(notif, lead: InsuranceQuoteLead):
             "lead_id": lead.id,
             "stage": lead.stage,
             "assigned_to_id": lead.assigned_to_id,
-            "reason": "assigned",
+            "reason": reason,
         },
     )
 
@@ -198,6 +253,10 @@ def assign_lead(
     mode: str,
     actor=None,
 ) -> InsuranceQuoteLead:
+    previous = lead.assigned_to
+    reassigned = bool(previous_id := previous.id if previous else None) and previous_id != membership.id
+    previous_user_id = previous.user_id if previous and reassigned else None
+
     lead.assigned_to = membership
     lead.assigned_at = timezone.now()
     lead.assignment_mode = mode
@@ -207,6 +266,7 @@ def assign_lead(
     }:
         lead.stage = InsuranceQuoteLead.Stage.ASSIGNED
 
+    task_id_for_clear = lead.agent_task_id
     if lead.agent_task_id:
         task = lead.agent_task
         task.assigned_to = membership
@@ -224,6 +284,10 @@ def assign_lead(
             is_done=False,
         )
         lead.agent_task = task
+        task_id_for_clear = task.id
+
+    if reassigned and previous is not None:
+        _clear_previous_assignment_notifications(lead, previous, task_id_for_clear)
 
     lead.save(
         update_fields=[
@@ -237,14 +301,19 @@ def assign_lead(
     )
 
     # Save notification in the same DB transaction as the assignment so it always exists.
-    notif = _create_quote_assignment_notification(lead)
+    notif = _create_quote_assignment_notification(lead, reassigned=reassigned)
     notif_id = notif.id if notif is not None else None
     lead_id = lead.id
+    broadcast_reason = "reassigned" if reassigned else "assigned"
 
-    def _broadcast_after_commit(nid=notif_id, pk=lead_id):
-        if not nid:
-            return
+    def _broadcast_after_commit(
+        nid=notif_id,
+        pk=lead_id,
+        reason=broadcast_reason,
+        prev_uid=previous_user_id,
+    ):
         from .models import Notification
+        from .realtime import publish_user_event
 
         fresh_lead = (
             InsuranceQuoteLead.objects.select_related(
@@ -253,10 +322,16 @@ def assign_lead(
             .filter(pk=pk)
             .first()
         )
-        fresh_notif = Notification.objects.filter(pk=nid).first()
-        if fresh_lead is None or fresh_notif is None:
-            return
-        _broadcast_quote_notification(fresh_notif, fresh_lead)
+        fresh_notif = Notification.objects.filter(pk=nid).first() if nid else None
+        if fresh_lead is not None and fresh_notif is not None:
+            _broadcast_quote_notification(fresh_notif, fresh_lead, reason=reason)
+        if prev_uid:
+            unread = Notification.objects.filter(user_id=prev_uid, is_read=False).count()
+            publish_user_event(
+                prev_uid,
+                "notification.badge",
+                {"unread_count": unread},
+            )
 
     transaction.on_commit(_broadcast_after_commit)
 

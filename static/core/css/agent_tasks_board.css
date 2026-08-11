@@ -603,6 +603,28 @@
   opacity: 0.8;
 }
 
+.atb-card__docs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+  align-items: center;
+  margin-top: 0.4rem;
+}
+.atb-card__docs > span {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+.atb-card__docs a {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: #0f766e;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .atb-card__actions {
   display: flex;
   flex-wrap: wrap;

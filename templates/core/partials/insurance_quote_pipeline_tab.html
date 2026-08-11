@@ -83,7 +83,7 @@
 {% if can_create_quote_leads %}
 <div class="iqp-modal" id="iqpCreateModal" role="dialog" aria-modal="true" aria-labelledby="iqpCreateTitle" hidden>
   <div class="iqp-modal__scrim" data-iqp-close></div>
-  <form method="post" action="{% url 'create-quote-lead' %}" class="iqp-modal__panel">
+  <form method="post" action="{% url 'create-quote-lead' %}" class="iqp-modal__panel" enctype="multipart/form-data">
     {% csrf_token %}
     <header class="iqp-modal__header">
       <div>
@@ -116,6 +116,24 @@
             {% endfor %}
           </select>
         </label>
+        <label class="iqp-field">
+          <span>Vehicle</span>
+          <select name="vehicle_ownership">
+            <option value="">Select…</option>
+            {% for value, label in quote_vehicle_ownership_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="iqp-field">
+          <span>Coverage</span>
+          <select name="coverage_type">
+            <option value="">Select…</option>
+            {% for value, label in quote_coverage_type_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
       </div>
 
       <div class="iqp-toggles">
@@ -123,6 +141,52 @@
         <label class="iqp-check"><input type="checkbox" name="is_experienced"><span>Experienced</span></label>
         <label class="iqp-check"><input type="checkbox" name="has_accident"><span>Has accident history</span></label>
       </div>
+
+      <details class="iqp-section">
+        <summary class="iqp-section__summary">
+          <span>Car info</span>
+          <em class="iqp-section__hint">Make, model, year, VIN</em>
+        </summary>
+        <div class="iqp-section__body">
+          <div class="iqp-modal__grid">
+            <label class="iqp-field">
+              <span>Make</span>
+              <input name="vehicle_make" maxlength="80" placeholder="e.g. Toyota" autocomplete="off">
+            </label>
+            <label class="iqp-field">
+              <span>Model</span>
+              <input name="vehicle_model" maxlength="80" placeholder="e.g. Camry" autocomplete="off">
+            </label>
+            <label class="iqp-field">
+              <span>Year</span>
+              <input name="vehicle_year" maxlength="4" inputmode="numeric" placeholder="YYYY" autocomplete="off">
+            </label>
+            <label class="iqp-field">
+              <span>VIN</span>
+              <input name="vin" maxlength="32" placeholder="Vehicle identification number" autocomplete="off">
+            </label>
+          </div>
+        </div>
+      </details>
+
+      <details class="iqp-section">
+        <summary class="iqp-section__summary">
+          <span>Driver license</span>
+          <em class="iqp-section__hint">DL number &amp; date of birth</em>
+        </summary>
+        <div class="iqp-section__body">
+          <div class="iqp-modal__grid">
+            <label class="iqp-field">
+              <span>DL number</span>
+              <input name="dl_number" maxlength="40" placeholder="License number" autocomplete="off">
+            </label>
+            <label class="iqp-field">
+              <span>Date of birth</span>
+              <input type="date" name="date_of_birth" autocomplete="bday">
+            </label>
+          </div>
+        </div>
+      </details>
 
       <div class="iqp-field">
         <span>Recommended companies</span>
@@ -150,6 +214,12 @@
         <textarea name="notes" rows="3" placeholder="Anything the agent should know"></textarea>
       </label>
 
+      <label class="iqp-field">
+        <span>Upload documents</span>
+        <input type="file" name="documents" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.heic">
+        <small class="iqp-field__hint">Visible only to the agent assigned to work this lead (and owners/managers).</small>
+      </label>
+
       {% if can_manage_quote_distribution %}
       <label class="iqp-field">
         <span>Manual assign (optional)</span>
@@ -174,7 +244,7 @@
 {% if can_edit_quote_leads %}
 <div class="iqp-modal" id="iqpEditModal" role="dialog" aria-modal="true" aria-labelledby="iqpEditTitle" hidden>
   <div class="iqp-modal__scrim" data-iqp-close></div>
-  <form method="post" action="" class="iqp-modal__panel" id="iqpEditForm">
+  <form method="post" action="" class="iqp-modal__panel" id="iqpEditForm" enctype="multipart/form-data">
     {% csrf_token %}
     <header class="iqp-modal__header">
       <div>
@@ -208,6 +278,24 @@
           </select>
         </label>
         <label class="iqp-field">
+          <span>Vehicle</span>
+          <select name="vehicle_ownership" id="iqpEditVehicle">
+            <option value="">Select…</option>
+            {% for value, label in quote_vehicle_ownership_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="iqp-field">
+          <span>Coverage</span>
+          <select name="coverage_type" id="iqpEditCoverage">
+            <option value="">Select…</option>
+            {% for value, label in quote_coverage_type_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="iqp-field">
           <span>Stage</span>
           <select name="stage" id="iqpEditStage">
             {% for value, label in quote_stage_choices %}
@@ -222,6 +310,52 @@
         <label class="iqp-check"><input type="checkbox" name="is_experienced" id="iqpEditExperienced"><span>Experienced</span></label>
         <label class="iqp-check"><input type="checkbox" name="has_accident" id="iqpEditAccident"><span>Has accident history</span></label>
       </div>
+
+      <details class="iqp-section" id="iqpEditCarSection">
+        <summary class="iqp-section__summary">
+          <span>Car info</span>
+          <em class="iqp-section__hint">Make, model, year, VIN</em>
+        </summary>
+        <div class="iqp-section__body">
+          <div class="iqp-modal__grid">
+            <label class="iqp-field">
+              <span>Make</span>
+              <input name="vehicle_make" id="iqpEditMake" maxlength="80" autocomplete="off">
+            </label>
+            <label class="iqp-field">
+              <span>Model</span>
+              <input name="vehicle_model" id="iqpEditModel" maxlength="80" autocomplete="off">
+            </label>
+            <label class="iqp-field">
+              <span>Year</span>
+              <input name="vehicle_year" id="iqpEditYear" maxlength="4" inputmode="numeric" autocomplete="off">
+            </label>
+            <label class="iqp-field">
+              <span>VIN</span>
+              <input name="vin" id="iqpEditVin" maxlength="32" autocomplete="off">
+            </label>
+          </div>
+        </div>
+      </details>
+
+      <details class="iqp-section" id="iqpEditDlSection">
+        <summary class="iqp-section__summary">
+          <span>Driver license</span>
+          <em class="iqp-section__hint">DL number &amp; date of birth</em>
+        </summary>
+        <div class="iqp-section__body">
+          <div class="iqp-modal__grid">
+            <label class="iqp-field">
+              <span>DL number</span>
+              <input name="dl_number" id="iqpEditDlNumber" maxlength="40" autocomplete="off">
+            </label>
+            <label class="iqp-field">
+              <span>Date of birth</span>
+              <input type="date" name="date_of_birth" id="iqpEditDob" autocomplete="bday">
+            </label>
+          </div>
+        </div>
+      </details>
 
       <div class="iqp-field">
         <span>Recommended companies</span>
@@ -246,6 +380,17 @@
       <label class="iqp-field">
         <span>Notes</span>
         <textarea name="notes" rows="3" id="iqpEditNotes"></textarea>
+      </label>
+
+      <div class="iqp-field" id="iqpEditExistingDocsWrap" hidden>
+        <span>Existing documents</span>
+        <div class="iqp-docs-edit" id="iqpEditExistingDocs"></div>
+        <small class="iqp-field__hint">Check to remove on save.</small>
+      </div>
+
+      <label class="iqp-field">
+        <span>Upload more documents</span>
+        <input type="file" name="documents" id="iqpEditDocuments" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.heic">
       </label>
 
       {% if can_manage_quote_distribution %}
@@ -368,6 +513,56 @@
       document.getElementById('iqpEditPrior').checked = card.getAttribute('data-has-prior') === '1';
       document.getElementById('iqpEditExperienced').checked = card.getAttribute('data-is-experienced') === '1';
       document.getElementById('iqpEditAccident').checked = card.getAttribute('data-has-accident') === '1';
+      var vehicleEl = document.getElementById('iqpEditVehicle');
+      if (vehicleEl) vehicleEl.value = card.getAttribute('data-vehicle-ownership') || '';
+      var coverageEl = document.getElementById('iqpEditCoverage');
+      if (coverageEl) coverageEl.value = card.getAttribute('data-coverage-type') || '';
+      var makeEl = document.getElementById('iqpEditMake');
+      if (makeEl) makeEl.value = card.getAttribute('data-vehicle-make') || '';
+      var modelEl = document.getElementById('iqpEditModel');
+      if (modelEl) modelEl.value = card.getAttribute('data-vehicle-model') || '';
+      var yearEl = document.getElementById('iqpEditYear');
+      if (yearEl) yearEl.value = card.getAttribute('data-vehicle-year') || '';
+      var vinEl = document.getElementById('iqpEditVin');
+      if (vinEl) vinEl.value = card.getAttribute('data-vin') || '';
+      var dlEl = document.getElementById('iqpEditDlNumber');
+      if (dlEl) dlEl.value = card.getAttribute('data-dl-number') || '';
+      var dobEl = document.getElementById('iqpEditDob');
+      if (dobEl) dobEl.value = card.getAttribute('data-date-of-birth') || '';
+      var carSection = document.getElementById('iqpEditCarSection');
+      var dlSection = document.getElementById('iqpEditDlSection');
+      var hasCar = !!(card.getAttribute('data-vehicle-make') || card.getAttribute('data-vehicle-model') || card.getAttribute('data-vehicle-year') || card.getAttribute('data-vin'));
+      var hasDl = !!(card.getAttribute('data-dl-number') || card.getAttribute('data-date-of-birth'));
+      if (carSection) carSection.open = hasCar;
+      if (dlSection) dlSection.open = hasDl;
+      var docsWrap = document.getElementById('iqpEditExistingDocsWrap');
+      var docsBox = document.getElementById('iqpEditExistingDocs');
+      if (docsWrap && docsBox) {
+        docsBox.innerHTML = '';
+        var docs = [];
+        try {
+          docs = JSON.parse(card.getAttribute('data-docs') || '[]');
+        } catch (err) {
+          docs = [];
+        }
+        if (docs.length) {
+          docs.forEach(function (doc) {
+            var label = document.createElement('label');
+            label.className = 'iqp-docs-edit__row';
+            label.innerHTML =
+              '<input type="checkbox" name="remove_documents" value="' + String(doc.id) + '">' +
+              '<a href="' + String(doc.url || '#') + '" target="_blank" rel="noopener">' +
+              String(doc.name || 'Document') +
+              '</a>';
+            docsBox.appendChild(label);
+          });
+          docsWrap.hidden = false;
+        } else {
+          docsWrap.hidden = true;
+        }
+      }
+      var fileInput = document.getElementById('iqpEditDocuments');
+      if (fileInput) fileInput.value = '';
       var assignee = document.getElementById('iqpEditAssignee');
       if (assignee) assignee.value = card.getAttribute('data-assigned-to') || '';
       var ids = (card.getAttribute('data-company-ids') || '').split(',').filter(Boolean);
