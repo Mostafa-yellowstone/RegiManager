@@ -73,6 +73,7 @@ def _notify_task_assigned(task: AgentTask):
             "action_url": notif.action_url,
             "open_url": reverse("open-notification", args=[notif.id]),
             "created_at": notif.created_at.isoformat() if notif.created_at else "",
+            "created_label": notif.created_at.strftime("%b %d, %H:%M") if notif.created_at else "",
             "unread_count": unread,
         },
     )

@@ -36,12 +36,35 @@ def _serialize_notification(n: Notification) -> dict:
 @login_required
 @require_GET
 def portal_notifications_snapshot(request):
-    qs = Notification.objects.filter(user=request.user).order_by("-created_at")[:20]
-    unread = Notification.objects.filter(user=request.user, is_read=False).count()
+    after_raw = (request.GET.get("after_id") or "").strip()
+    after_id = int(after_raw) if after_raw.isdigit() else 0
+
+    base = Notification.objects.filter(user=request.user)
+    unread = base.filter(is_read=False).count()
+
+    if after_id:
+        qs = base.filter(id__gt=after_id).order_by("id")[:30]
+        items = [_serialize_notification(n) for n in qs]
+        newest = items[-1]["id"] if items else after_id
+        return JsonResponse(
+            {
+                "notifications": items,
+                "unread_count": unread,
+                "after_id": after_id,
+                "newest_id": newest,
+                "has_new": bool(items),
+            }
+        )
+
+    qs = base.order_by("-created_at")[:20]
+    items = [_serialize_notification(n) for n in qs]
+    newest = max((n["id"] for n in items), default=0)
     return JsonResponse(
         {
-            "notifications": [_serialize_notification(n) for n in qs],
+            "notifications": items,
             "unread_count": unread,
+            "newest_id": newest,
+            "has_new": False,
         }
     )
 
@@ -97,4 +120,7 @@ def portal_events_stream(request):
     response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
     response["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response["X-Accel-Buffering"] = "no"
+    response["Connection"] = "keep-alive"
+    # Help proxies flush immediately.
+    response["Content-Type"] = "text/event-stream; charset=utf-8"
     return response

@@ -169,6 +169,7 @@ def _notify_quote_assigned(lead: InsuranceQuoteLead):
             "action_url": notif.action_url,
             "open_url": reverse("open-notification", args=[notif.id]),
             "created_at": notif.created_at.isoformat() if notif.created_at else "",
+            "created_label": notif.created_at.strftime("%b %d, %H:%M") if notif.created_at else "",
             "unread_count": unread,
         },
     )
@@ -229,7 +230,22 @@ def assign_lead(
             "updated_at",
         ]
     )
-    _notify_quote_assigned(lead)
+    # Publish only after DB commit so other workers/pollers see the notification row.
+    lead_id = lead.id
+
+    def _notify_after_commit(pk=lead_id):
+        fresh = (
+            InsuranceQuoteLead.objects.select_related(
+                "assigned_to__user", "agent_task", "organization"
+            )
+            .prefetch_related("recommended_companies")
+            .filter(pk=pk)
+            .first()
+        )
+        if fresh is not None:
+            _notify_quote_assigned(fresh)
+
+    transaction.on_commit(_notify_after_commit)
 
     config = get_or_create_distribution_config(lead.organization)
     config.last_assigned_membership = membership

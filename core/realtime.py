@@ -39,7 +39,7 @@ def _get_redis():
         client.ping()
         return client
     except Exception as exc:
-        logger.debug("Realtime Redis unavailable: %s", exc)
+        logger.warning("Realtime Redis unavailable: %s", exc)
         return None
 
 

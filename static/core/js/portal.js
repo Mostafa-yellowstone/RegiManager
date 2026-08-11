@@ -555,50 +555,131 @@
 
         initRealtime() {
             const wrap = document.querySelector('.notif-wrap');
-            const eventsUrl = wrap && wrap.dataset.eventsUrl;
-            if (!eventsUrl || typeof window.EventSource === 'undefined') return;
+            if (!wrap) return;
 
+            const snapshotUrl = wrap.dataset.notifSnapshotUrl;
+            const eventsUrl = wrap.dataset.eventsUrl;
             const root = document.getElementById('quotePipelineRoot');
             const orgId = root && root.dataset.orgId;
-            let url = eventsUrl;
-            if (orgId) {
-                url += (url.indexOf('?') >= 0 ? '&' : '?') + 'org=' + encodeURIComponent(orgId);
-            }
 
-            let refreshTimer = null;
+            this._rtSeenNotifIds = this._rtSeenNotifIds || {};
+            this._rtLastNotifId = this._rtLastNotifId || 0;
+            this._rtPipelineTimer = null;
+
+            const handleIncomingNotification = (payload, { toast } = { toast: true }) => {
+                if (!payload || !payload.id) return;
+                const id = String(payload.id);
+                if (this._rtSeenNotifIds[id]) return;
+                this._rtSeenNotifIds[id] = true;
+                if (payload.id > this._rtLastNotifId) {
+                    this._rtLastNotifId = payload.id;
+                }
+                this.prependNotification(payload);
+                if (typeof payload.unread_count === 'number') {
+                    this.updateNotifBadges(payload.unread_count);
+                }
+                if (toast) {
+                    this.showRealtimeToast(payload);
+                    this.pulseNotifBell();
+                }
+            };
+
+            const pollNotifications = () => {
+                if (!snapshotUrl) return;
+                const url = this._rtLastNotifId
+                    ? (snapshotUrl + (snapshotUrl.indexOf('?') >= 0 ? '&' : '?') + 'after_id=' + this._rtLastNotifId)
+                    : snapshotUrl;
+                fetch(url, {
+                    credentials: 'same-origin',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+                    cache: 'no-store',
+                })
+                    .then((res) => (res.ok ? res.json() : null))
+                    .then((data) => {
+                        if (!data) return;
+                        if (typeof data.unread_count === 'number') {
+                            this.updateNotifBadges(data.unread_count);
+                        }
+                        const items = Array.isArray(data.notifications) ? data.notifications : [];
+                        if (!this._rtLastNotifId) {
+                            // First hydrate: fill bell, remember ids, no toast spam.
+                            items.forEach((item) => {
+                                if (item && item.id) this._rtSeenNotifIds[String(item.id)] = true;
+                            });
+                            if (typeof data.newest_id === 'number' && data.newest_id > this._rtLastNotifId) {
+                                this._rtLastNotifId = data.newest_id;
+                            } else {
+                                items.forEach((item) => {
+                                    if (item && item.id > this._rtLastNotifId) this._rtLastNotifId = item.id;
+                                });
+                            }
+                            this.replaceNotificationList(items);
+                            return;
+                        }
+                        if (data.has_new && items.length) {
+                            // items are ascending by id when after_id is used
+                            items.forEach((item) => handleIncomingNotification(item, { toast: true }));
+                            if (typeof data.unread_count === 'number') {
+                                this.updateNotifBadges(data.unread_count);
+                            }
+                        }
+                        if (typeof data.newest_id === 'number' && data.newest_id > this._rtLastNotifId) {
+                            this._rtLastNotifId = data.newest_id;
+                        }
+                    })
+                    .catch(() => null);
+            };
+
+            // Reliable path: DB poll (works without Redis / gevent / SSE).
+            pollNotifications();
+            if (this._rtNotifTimer) clearInterval(this._rtNotifTimer);
+            this._rtNotifTimer = setInterval(pollNotifications, 3000);
+
             const schedulePipelineRefresh = () => {
                 if (!root) return;
-                if (refreshTimer) clearTimeout(refreshTimer);
-                refreshTimer = setTimeout(() => this.refreshQuotePipeline(), 350);
+                if (this._rtPipelineTimer) clearTimeout(this._rtPipelineTimer);
+                this._rtPipelineTimer = setTimeout(() => this.refreshQuotePipeline(), 250);
             };
 
-            const connect = () => {
-                const es = new EventSource(url, { withCredentials: true });
-                es.addEventListener('notification.created', (ev) => {
+            if (root) {
+                if (this._rtPipelinePoll) clearInterval(this._rtPipelinePoll);
+                this._rtPipelinePoll = setInterval(() => this.refreshQuotePipeline(), 5000);
+            }
+
+            // Best-effort SSE acceleration when the proxy/worker supports it.
+            if (eventsUrl && typeof window.EventSource !== 'undefined') {
+                let url = eventsUrl;
+                if (orgId) {
+                    url += (url.indexOf('?') >= 0 ? '&' : '?') + 'org=' + encodeURIComponent(orgId);
+                }
+                const connect = () => {
                     try {
-                        const data = JSON.parse(ev.data || '{}');
-                        const payload = data.payload || data;
-                        this.prependNotification(payload);
-                        if (typeof payload.unread_count === 'number') {
-                            this.updateNotifBadges(payload.unread_count);
+                        if (this._eventSource) {
+                            try { this._eventSource.close(); } catch (e) {}
                         }
-                        this.showRealtimeToast(payload);
-                        this.pulseNotifBell();
+                        const es = new EventSource(url, { withCredentials: true });
+                        es.addEventListener('notification.created', (ev) => {
+                            try {
+                                const data = JSON.parse(ev.data || '{}');
+                                const payload = data.payload || data;
+                                if (typeof payload.unread_count !== 'number') {
+                                    // leave badge to poller if missing
+                                }
+                                handleIncomingNotification(payload, { toast: true });
+                            } catch (e) {}
+                        });
+                        es.addEventListener('quote_pipeline.changed', () => {
+                            schedulePipelineRefresh();
+                        });
+                        es.onerror = () => {
+                            try { es.close(); } catch (e) {}
+                            setTimeout(connect, 8000);
+                        };
+                        this._eventSource = es;
                     } catch (e) {}
-                });
-                es.addEventListener('quote_pipeline.changed', () => {
-                    schedulePipelineRefresh();
-                });
-                es.onerror = () => {
-                    es.close();
-                    setTimeout(connect, 4000);
                 };
-                this._eventSource = es;
-            };
-            connect();
-
-            // Catch anything missed while the stream was down.
-            this.refreshNotificationsSnapshot();
+                connect();
+            }
         },
 
         refreshNotificationsSnapshot() {

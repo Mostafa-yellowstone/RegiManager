@@ -71,12 +71,13 @@ class NotificationActionUrlTests(TestCase):
             phone="555-0100",
             stage=InsuranceQuoteLead.Stage.NEW,
         )
-        assign_lead(
-            lead,
-            agent,
-            mode=InsuranceQuoteLead.AssignmentMode.MANUAL,
-            actor=owner,
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            assign_lead(
+                lead,
+                agent,
+                mode=InsuranceQuoteLead.AssignmentMode.MANUAL,
+                actor=owner,
+            )
         notif = Notification.objects.get(
             user=agent_user, event_type="quote_lead_assigned"
         )
@@ -115,6 +116,33 @@ class PortalRealtimeApiTests(TestCase):
         data = resp.json()
         self.assertGreaterEqual(data["unread_count"], 1)
         self.assertTrue(data["notifications"])
+        self.assertGreaterEqual(data["newest_id"], 1)
+
+    def test_notifications_snapshot_after_id(self):
+        first = Notification.objects.create(
+            user=self.user,
+            organization=self.org,
+            title="Old",
+            message="A",
+            level=Notification.Level.INFO,
+        )
+        second = Notification.objects.create(
+            user=self.user,
+            organization=self.org,
+            title="New",
+            message="B",
+            level=Notification.Level.INFO,
+        )
+        resp = self.client.get(
+            reverse("portal-notifications-snapshot"),
+            {"after_id": first.id},
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data["has_new"])
+        ids = [n["id"] for n in data["notifications"]]
+        self.assertEqual(ids, [second.id])
+        self.assertEqual(data["newest_id"], second.id)
 
     def test_events_stream_smoke(self):
         resp = self.client.get(reverse("portal-events-stream"), data={"org": self.org.id})
