@@ -582,6 +582,8 @@
                         if (typeof payload.unread_count === 'number') {
                             this.updateNotifBadges(payload.unread_count);
                         }
+                        this.showRealtimeToast(payload);
+                        this.pulseNotifBell();
                     } catch (e) {}
                 });
                 es.addEventListener('quote_pipeline.changed', () => {
@@ -666,6 +668,92 @@
             this.bindMarkOneButtons(row);
             const markAll = document.getElementById('notifMarkAllReadBtn');
             if (markAll) markAll.style.display = '';
+        },
+
+        pulseNotifBell() {
+            const btn = document.getElementById('notifBtn');
+            if (!btn) return;
+            btn.classList.remove('is-rt-pulse');
+            void btn.offsetWidth;
+            btn.classList.add('is-rt-pulse');
+            setTimeout(() => btn.classList.remove('is-rt-pulse'), 1600);
+        },
+
+        showRealtimeToast(item) {
+            if (!item) return;
+            const host = document.getElementById('portalRealtimeToasts');
+            if (!host) return;
+
+            const openUrl = item.open_url
+                || (item.id ? ('/dashboard/notifications/' + item.id + '/open/') : '')
+                || item.action_url
+                || '';
+            const eventType = item.event_type || '';
+            const isQuote = eventType === 'quote_lead_assigned';
+            const isTask = eventType === 'agent_task_assigned';
+            const eyebrow = isQuote ? 'New quote lead' : (isTask ? 'New task' : 'Notification');
+
+            const toast = document.createElement('div');
+            toast.className = 'portal-rt-toast' + (isQuote ? ' portal-rt-toast--quote' : '');
+            toast.setAttribute('role', 'status');
+
+            const body = document.createElement(openUrl ? 'a' : 'div');
+            if (openUrl) {
+                body.href = openUrl;
+                body.className = 'portal-rt-toast__body';
+            } else {
+                body.className = 'portal-rt-toast__body portal-rt-toast__body--static';
+            }
+
+            const eye = document.createElement('p');
+            eye.className = 'portal-rt-toast__eyebrow';
+            eye.textContent = eyebrow;
+
+            const title = document.createElement('strong');
+            title.className = 'portal-rt-toast__title';
+            title.textContent = item.title || 'New notification';
+
+            const msg = document.createElement('span');
+            msg.className = 'portal-rt-toast__msg';
+            msg.textContent = item.message || 'Open to take action.';
+
+            const cta = document.createElement('span');
+            cta.className = 'portal-rt-toast__cta';
+            cta.textContent = openUrl ? 'Open →' : '';
+
+            body.appendChild(eye);
+            body.appendChild(title);
+            body.appendChild(msg);
+            if (openUrl) body.appendChild(cta);
+
+            const closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.className = 'portal-rt-toast__close';
+            closeBtn.setAttribute('aria-label', 'Dismiss');
+            closeBtn.innerHTML = '&times;';
+
+            toast.appendChild(body);
+            toast.appendChild(closeBtn);
+            host.appendChild(toast);
+
+            requestAnimationFrame(() => toast.classList.add('is-visible'));
+
+            const dismiss = () => {
+                toast.classList.remove('is-visible');
+                setTimeout(() => {
+                    if (toast.parentNode) toast.parentNode.removeChild(toast);
+                }, 280);
+            };
+            closeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dismiss();
+            });
+            setTimeout(dismiss, 12000);
+
+            while (host.children.length > 3) {
+                host.removeChild(host.firstChild);
+            }
         },
 
         buildNotifRow(item) {

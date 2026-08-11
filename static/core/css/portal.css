@@ -2037,6 +2037,125 @@ html.portal-theme-dark .branch-compare__analytics-btn:hover {
     z-index: 1200;
 }
 
+.notif-btn.is-rt-pulse {
+    animation: portalNotifPulse 1.4s ease;
+}
+
+@keyframes portalNotifPulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 2px 10px rgba(234, 88, 12, 0.28); }
+    35% { transform: scale(1.08); box-shadow: 0 0 0 8px rgba(249, 115, 22, 0.22); }
+    70% { transform: scale(1.03); box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12); }
+}
+
+.portal-rt-toasts {
+    position: fixed;
+    z-index: 1400;
+    right: 1rem;
+    bottom: 1.15rem;
+    display: grid;
+    gap: 0.65rem;
+    width: min(380px, calc(100vw - 1.5rem));
+    pointer-events: none;
+}
+
+.portal-rt-toast {
+    pointer-events: auto;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: 0.35rem;
+    padding: 0.85rem 0.75rem 0.85rem 0.95rem;
+    border-radius: 16px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.portal-rt-toast.is-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.portal-rt-toast--quote {
+    border-color: rgba(13, 148, 136, 0.35);
+    box-shadow: 0 18px 40px rgba(13, 148, 136, 0.18);
+}
+
+.portal-rt-toast__body {
+    display: grid;
+    gap: 0.2rem;
+    text-decoration: none;
+    color: inherit;
+    min-width: 0;
+}
+
+.portal-rt-toast__eyebrow {
+    margin: 0;
+    font-size: 0.68rem;
+    font-weight: 850;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #0d9488;
+}
+
+.portal-rt-toast__title {
+    font-size: 0.95rem;
+    color: #0f172a;
+    line-height: 1.25;
+}
+
+.portal-rt-toast__msg {
+    font-size: 0.82rem;
+    color: #64748b;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.portal-rt-toast__cta {
+    margin-top: 0.25rem;
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: #0d9488;
+}
+
+.portal-rt-toast__close {
+    width: 1.75rem;
+    height: 1.75rem;
+    border: none;
+    border-radius: 8px;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.portal-rt-toast__close:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+html.portal-theme-dark .portal-rt-toast {
+    background: #111827;
+    border-color: rgba(148, 163, 184, 0.28);
+    color: #f8fafc;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+html.portal-theme-dark .portal-rt-toast__title { color: #f8fafc; }
+html.portal-theme-dark .portal-rt-toast__msg { color: #94a3b8; }
+html.portal-theme-dark .portal-rt-toast__close {
+    background: #1e293b;
+    color: #cbd5e1;
+}
+
 .notif-btn {
     width: 40px;
     height: 40px;
