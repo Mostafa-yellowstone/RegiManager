@@ -80,3 +80,22 @@ def can_update_assigned_lead(user, lead, *, membership=None) -> bool:
     if is_owner_or_manager(membership):
         return True
     return bool(lead.assigned_to_id and lead.assigned_to_id == membership.id)
+
+
+def can_edit_quote_lead(user, lead, *, membership=None) -> bool:
+    """Edit lead fields — Owner/Manager, assignee, or creator."""
+    if getattr(user, "is_superuser", False):
+        return True
+    membership = membership or membership_for_org(user, lead.organization)
+    if membership is None:
+        return False
+    if is_owner_or_manager(membership):
+        return True
+    if lead.assigned_to_id and lead.assigned_to_id == membership.id:
+        return True
+    return bool(lead.created_by_id and lead.created_by_id == user.id)
+
+
+def can_delete_quote_lead(user, lead, *, membership=None) -> bool:
+    """Hard delete — Owner/Manager only."""
+    return can_manage_quote_distribution(user, lead.organization, membership=membership)

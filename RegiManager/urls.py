@@ -37,6 +37,8 @@ from core.insurance_quote_pipeline_views import (
     assign_quote_lead,
     create_quote_lead,
     delete_insurance_agent_off_day,
+    delete_quote_lead,
+    edit_quote_lead,
     save_quote_distribution_config,
     update_quote_lead_stage,
 )
@@ -479,6 +481,16 @@ urlpatterns = [
         "dashboard/insurance-quotes/<int:lead_id>/stage/",
         update_quote_lead_stage,
         name="update-quote-lead-stage",
+    ),
+    path(
+        "dashboard/insurance-quotes/<int:lead_id>/edit/",
+        edit_quote_lead,
+        name="edit-quote-lead",
+    ),
+    path(
+        "dashboard/insurance-quotes/<int:lead_id>/delete/",
+        delete_quote_lead,
+        name="delete-quote-lead",
     ),
     path(
         "dashboard/insurance-quotes/distribution/",

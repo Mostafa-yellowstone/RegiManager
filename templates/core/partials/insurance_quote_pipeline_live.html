@@ -15,7 +15,23 @@
       </header>
       <ul>
         {% for lead in stage.leads %}
-        <li class="iqp-card" data-lead-id="{{ lead.id }}" style="--i:{{ forloop.counter0 }}">
+        <li
+          class="iqp-card"
+          data-lead-id="{{ lead.id }}"
+          data-client-name="{{ lead.client_name }}"
+          data-phone="{{ lead.phone }}"
+          data-email="{{ lead.email }}"
+          data-insurance-type="{{ lead.insurance_type }}"
+          data-has-prior="{% if lead.has_prior %}1{% else %}0{% endif %}"
+          data-is-experienced="{% if lead.is_experienced %}1{% else %}0{% endif %}"
+          data-has-accident="{% if lead.has_accident %}1{% else %}0{% endif %}"
+          data-notes="{{ lead.notes }}"
+          data-stage="{{ lead.stage }}"
+          data-assigned-to="{{ lead.assigned_to_id|default:'' }}"
+          data-company-ids="{% for co in lead.recommended_companies.all %}{{ co.id }}{% if not forloop.last %},{% endif %}{% endfor %}"
+          data-edit-url="{% url 'edit-quote-lead' lead.id %}"
+          style="--i:{{ forloop.counter0 }}"
+        >
           <div class="iqp-card__top">
             <strong>{{ lead.client_name }}</strong>
             <span class="iqp-badge">{{ lead.insurance_type|default:"General"|cut:"_"|title }}</span>
@@ -66,6 +82,18 @@
             <button type="submit" class="iqp-btn iqp-btn--tiny">Assign</button>
           </form>
           {% endif %}
+
+          <div class="iqp-card__actions">
+            {% if can_edit_quote_leads %}
+            <button type="button" class="iqp-btn iqp-btn--tiny iqp-btn--ghost" data-iqp-edit-lead>Edit</button>
+            {% endif %}
+            {% if can_delete_quote_leads %}
+            <form method="post" action="{% url 'delete-quote-lead' lead.id %}" class="iqp-card__delete" onsubmit="return confirm('Remove this quote lead? This also deletes the linked agent task.');">
+              {% csrf_token %}
+              <button type="submit" class="iqp-btn iqp-btn--tiny iqp-btn--danger">Delete</button>
+            </form>
+            {% endif %}
+          </div>
         </li>
         {% empty %}
         <li class="iqp-empty">No leads in this stage.</li>

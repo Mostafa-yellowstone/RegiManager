@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=4">
+<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=5">
 
 <section class="iqp" id="quotePipelineRoot" data-org-id="{{ organization.id }}" data-snapshot-url="{% url 'portal-quote-pipeline-snapshot' %}?org={{ organization.id }}">
   <header class="iqp-hero">
@@ -169,92 +169,248 @@
     </footer>
   </form>
 </div>
+{% endif %}
+
+{% if can_edit_quote_leads %}
+<div class="iqp-modal" id="iqpEditModal" role="dialog" aria-modal="true" aria-labelledby="iqpEditTitle" hidden>
+  <div class="iqp-modal__scrim" data-iqp-close></div>
+  <form method="post" action="" class="iqp-modal__panel" id="iqpEditForm">
+    {% csrf_token %}
+    <header class="iqp-modal__header">
+      <div>
+        <p class="iqp-modal__eyebrow">Quote Pipeline</p>
+        <h3 id="iqpEditTitle">Edit quote lead</h3>
+      </div>
+      <button type="button" class="iqp-modal__close" data-iqp-close aria-label="Close">&times;</button>
+    </header>
+
+    <div class="iqp-modal__body">
+      <div class="iqp-modal__grid">
+        <label class="iqp-field">
+          <span>Client name</span>
+          <input name="client_name" required maxlength="200" id="iqpEditClientName">
+        </label>
+        <label class="iqp-field">
+          <span>Phone</span>
+          <input name="phone" required maxlength="30" id="iqpEditPhone">
+        </label>
+        <label class="iqp-field">
+          <span>Email</span>
+          <input type="email" name="email" maxlength="254" id="iqpEditEmail">
+        </label>
+        <label class="iqp-field">
+          <span>Insurance type</span>
+          <select name="insurance_type" id="iqpEditType">
+            <option value="">Select type</option>
+            {% for opt in quote_type_options %}
+            <option value="{{ opt.key }}">{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="iqp-field">
+          <span>Stage</span>
+          <select name="stage" id="iqpEditStage">
+            {% for value, label in quote_stage_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div class="iqp-toggles">
+        <label class="iqp-check"><input type="checkbox" name="has_prior" id="iqpEditPrior"><span>Has prior insurance</span></label>
+        <label class="iqp-check"><input type="checkbox" name="is_experienced" id="iqpEditExperienced"><span>Experienced</span></label>
+        <label class="iqp-check"><input type="checkbox" name="has_accident" id="iqpEditAccident"><span>Has accident history</span></label>
+      </div>
+
+      <div class="iqp-field">
+        <span>Recommended companies</span>
+        <div class="iqp-dd" data-iqp-dd>
+          <button type="button" class="iqp-dd__trigger" data-iqp-dd-trigger aria-haspopup="listbox" aria-expanded="false">
+            <span data-iqp-dd-label>Select companies…</span>
+            <span class="iqp-dd__chev" aria-hidden="true"></span>
+          </button>
+          <div class="iqp-dd__menu" data-iqp-dd-menu hidden role="listbox" aria-multiselectable="true">
+            {% for co in quote_companies %}
+            <label class="iqp-dd__option">
+              <input type="checkbox" name="recommended_companies" value="{{ co.id }}">
+              <span>{{ co.name }}</span>
+            </label>
+            {% empty %}
+            <p class="iqp-dd__empty">Add companies in the Companies tab first.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <label class="iqp-field">
+        <span>Notes</span>
+        <textarea name="notes" rows="3" id="iqpEditNotes"></textarea>
+      </label>
+
+      {% if can_manage_quote_distribution %}
+      <label class="iqp-field">
+        <span>Assigned agent</span>
+        <select name="assigned_to" id="iqpEditAssignee">
+          <option value="">Keep current / unassigned</option>
+          {% for agent in quote_agents %}
+          <option value="{{ agent.id }}">{{ agent.user.get_full_name|default:agent.user.username }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% endif %}
+    </div>
+
+    <footer class="iqp-modal__footer">
+      <button type="button" class="iqp-btn iqp-btn--ghost" data-iqp-close>Cancel</button>
+      <button type="submit" class="iqp-btn iqp-btn--primary">Save changes</button>
+    </footer>
+  </form>
+</div>
+{% endif %}
+
 <script>
 (function () {
-  var modal = document.getElementById('iqpCreateModal');
-  if (!modal) return;
+  function wireModal(modal) {
+    if (!modal) return null;
 
-  function openModal() {
-    modal.hidden = false;
-    modal.classList.add('is-open');
-    document.body.classList.add('iqp-modal-open');
-  }
-  function closeModal() {
-    modal.hidden = true;
-    modal.classList.remove('is-open');
-    document.body.classList.remove('iqp-modal-open');
-    closeAllDropdowns();
+    function openModal() {
+      modal.hidden = false;
+      modal.classList.add('is-open');
+      document.body.classList.add('iqp-modal-open');
+    }
+    function closeModal() {
+      modal.hidden = true;
+      modal.classList.remove('is-open');
+      if (!document.querySelector('.iqp-modal.is-open')) {
+        document.body.classList.remove('iqp-modal-open');
+      }
+      closeAllDropdowns(modal);
+    }
+    function closeAllDropdowns(root) {
+      (root || modal).querySelectorAll('[data-iqp-dd]').forEach(function (dd) {
+        var menu = dd.querySelector('[data-iqp-dd-menu]');
+        var trigger = dd.querySelector('[data-iqp-dd-trigger]');
+        if (menu) menu.hidden = true;
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        dd.classList.remove('is-open');
+      });
+    }
+    function syncDdLabel(dd) {
+      var label = dd.querySelector('[data-iqp-dd-label]');
+      var checked = Array.prototype.slice.call(dd.querySelectorAll('input[type="checkbox"]:checked'));
+      if (!label) return;
+      if (!checked.length) {
+        label.textContent = 'Select companies…';
+        return;
+      }
+      var names = checked.map(function (c) {
+        var span = c.parentElement && c.parentElement.querySelector('span');
+        return span ? span.textContent.trim() : c.value;
+      });
+      label.textContent = names.length <= 2
+        ? names.join(', ')
+        : names.slice(0, 2).join(', ') + ' +' + (names.length - 2) + ' more';
+    }
+
+    modal.querySelectorAll('[data-iqp-close]').forEach(function (el) {
+      el.addEventListener('click', closeModal);
+    });
+
+    modal.querySelectorAll('[data-iqp-dd]').forEach(function (dd) {
+      var trigger = dd.querySelector('[data-iqp-dd-trigger]');
+      var menu = dd.querySelector('[data-iqp-dd-menu]');
+      if (!trigger || !menu) return;
+      trigger.addEventListener('click', function (e) {
+        e.preventDefault();
+        var willOpen = menu.hidden;
+        closeAllDropdowns(modal);
+        if (willOpen) {
+          menu.hidden = false;
+          trigger.setAttribute('aria-expanded', 'true');
+          dd.classList.add('is-open');
+        }
+      });
+      dd.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+        cb.addEventListener('change', function () { syncDdLabel(dd); });
+      });
+      syncDdLabel(dd);
+    });
+
+    return { open: openModal, close: closeModal, syncDdLabel: syncDdLabel, closeAllDropdowns: closeAllDropdowns };
   }
 
-  document.querySelectorAll('[data-iqp-open-create]').forEach(function (btn) {
-    btn.addEventListener('click', openModal);
-  });
-  modal.querySelectorAll('[data-iqp-close]').forEach(function (el) {
-    el.addEventListener('click', closeModal);
-  });
-  document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Escape' || !modal.classList.contains('is-open')) return;
-    if (modal.querySelector('[data-iqp-dd].is-open')) {
-      closeAllDropdowns();
+  var createModal = document.getElementById('iqpCreateModal');
+  var editModal = document.getElementById('iqpEditModal');
+  var createApi = wireModal(createModal);
+  var editApi = wireModal(editModal);
+
+  if (createApi) {
+    document.querySelectorAll('[data-iqp-open-create]').forEach(function (btn) {
+      btn.addEventListener('click', createApi.open);
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    var editBtn = e.target.closest('[data-iqp-edit-lead]');
+    if (editBtn && editApi && editModal) {
+      e.preventDefault();
+      var card = editBtn.closest('.iqp-card');
+      if (!card) return;
+      var form = document.getElementById('iqpEditForm');
+      form.action = card.getAttribute('data-edit-url') || '';
+      document.getElementById('iqpEditClientName').value = card.getAttribute('data-client-name') || '';
+      document.getElementById('iqpEditPhone').value = card.getAttribute('data-phone') || '';
+      document.getElementById('iqpEditEmail').value = card.getAttribute('data-email') || '';
+      document.getElementById('iqpEditType').value = card.getAttribute('data-insurance-type') || '';
+      document.getElementById('iqpEditStage').value = card.getAttribute('data-stage') || 'new';
+      document.getElementById('iqpEditNotes').value = card.getAttribute('data-notes') || '';
+      document.getElementById('iqpEditPrior').checked = card.getAttribute('data-has-prior') === '1';
+      document.getElementById('iqpEditExperienced').checked = card.getAttribute('data-is-experienced') === '1';
+      document.getElementById('iqpEditAccident').checked = card.getAttribute('data-has-accident') === '1';
+      var assignee = document.getElementById('iqpEditAssignee');
+      if (assignee) assignee.value = card.getAttribute('data-assigned-to') || '';
+      var ids = (card.getAttribute('data-company-ids') || '').split(',').filter(Boolean);
+      editModal.querySelectorAll('input[name="recommended_companies"]').forEach(function (cb) {
+        cb.checked = ids.indexOf(String(cb.value)) !== -1;
+      });
+      editModal.querySelectorAll('[data-iqp-dd]').forEach(function (dd) {
+        editApi.syncDdLabel(dd);
+      });
+      editApi.open();
       return;
     }
-    closeModal();
-  });
 
-  function closeAllDropdowns() {
-    modal.querySelectorAll('[data-iqp-dd]').forEach(function (dd) {
+    var openModal = document.querySelector('.iqp-modal.is-open');
+    if (!openModal) return;
+    if (e.target.closest('[data-iqp-dd]')) return;
+    openModal.querySelectorAll('[data-iqp-dd]').forEach(function (dd) {
       var menu = dd.querySelector('[data-iqp-dd-menu]');
       var trigger = dd.querySelector('[data-iqp-dd-trigger]');
       if (menu) menu.hidden = true;
       if (trigger) trigger.setAttribute('aria-expanded', 'false');
       dd.classList.remove('is-open');
     });
-  }
-
-  function syncDdLabel(dd) {
-    var label = dd.querySelector('[data-iqp-dd-label]');
-    var checked = Array.prototype.slice.call(dd.querySelectorAll('input[type="checkbox"]:checked'));
-    if (!label) return;
-    if (!checked.length) {
-      label.textContent = 'Select companies…';
-      return;
-    }
-    var names = checked.map(function (c) {
-      var span = c.parentElement && c.parentElement.querySelector('span');
-      return span ? span.textContent.trim() : c.value;
-    });
-    label.textContent = names.length <= 2
-      ? names.join(', ')
-      : names.slice(0, 2).join(', ') + ' +' + (names.length - 2) + ' more';
-  }
-
-  modal.querySelectorAll('[data-iqp-dd]').forEach(function (dd) {
-    var trigger = dd.querySelector('[data-iqp-dd-trigger]');
-    var menu = dd.querySelector('[data-iqp-dd-menu]');
-    if (!trigger || !menu) return;
-
-    trigger.addEventListener('click', function (e) {
-      e.preventDefault();
-      var willOpen = menu.hidden;
-      closeAllDropdowns();
-      if (willOpen) {
-        menu.hidden = false;
-        trigger.setAttribute('aria-expanded', 'true');
-        dd.classList.add('is-open');
-      }
-    });
-
-    dd.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
-      cb.addEventListener('change', function () { syncDdLabel(dd); });
-    });
-    syncDdLabel(dd);
   });
 
-  document.addEventListener('click', function (e) {
-    if (!modal.classList.contains('is-open')) return;
-    if (e.target.closest('[data-iqp-dd]')) return;
-    closeAllDropdowns();
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    var openModal = document.querySelector('.iqp-modal.is-open');
+    if (!openModal) return;
+    var openDd = openModal.querySelector('[data-iqp-dd].is-open');
+    if (openDd) {
+      var menu = openDd.querySelector('[data-iqp-dd-menu]');
+      var trigger = openDd.querySelector('[data-iqp-dd-trigger]');
+      if (menu) menu.hidden = true;
+      if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      openDd.classList.remove('is-open');
+      return;
+    }
+    openModal.hidden = true;
+    openModal.classList.remove('is-open');
+    if (!document.querySelector('.iqp-modal.is-open')) {
+      document.body.classList.remove('iqp-modal-open');
+    }
   });
 })();
 </script>
-{% endif %}

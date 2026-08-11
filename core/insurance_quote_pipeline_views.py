@@ -21,6 +21,8 @@ from .insurance_quote_distribution import (
 )
 from .insurance_quote_permissions import (
     can_create_quote_leads,
+    can_delete_quote_lead,
+    can_edit_quote_lead,
     can_manage_quote_distribution,
     can_receive_quote_distribution,
     can_update_assigned_lead,
@@ -126,6 +128,11 @@ def build_quote_pipeline_context(request, organization, membership):
             request.user, organization, membership=membership
         ),
         "quote_stage_choices": InsuranceQuoteLead.Stage.choices,
+        "can_edit_quote_leads": can_create_quote_leads(
+            request.user, organization, membership=membership
+        )
+        or is_leader,
+        "can_delete_quote_leads": is_leader,
     }
 
 
@@ -306,6 +313,127 @@ def update_quote_lead_stage(request, lead_id: int):
     )
 
     messages.success(request, "Lead updated.")
+    return _redirect_pipeline(request, org)
+
+
+def _apply_lead_fields(request, lead, org):
+    client_name = (request.POST.get("client_name") or "").strip()
+    phone = (request.POST.get("phone") or "").strip()
+    if not client_name or not phone:
+        return False, "Client name and phone are required."
+
+    lead.client_name = client_name
+    lead.phone = phone
+    lead.email = (request.POST.get("email") or "").strip()
+    lead.insurance_type = (request.POST.get("insurance_type") or "").strip()
+    lead.has_prior = request.POST.get("has_prior") in {"1", "true", "on", "yes"}
+    lead.is_experienced = request.POST.get("is_experienced") in {"1", "true", "on", "yes"}
+    lead.has_accident = request.POST.get("has_accident") in {"1", "true", "on", "yes"}
+    lead.notes = (request.POST.get("notes") or "").strip()
+
+    stage = (request.POST.get("stage") or "").strip()
+    valid_stages = {c.value for c in InsuranceQuoteLead.Stage}
+    if stage in valid_stages:
+        lead.stage = stage
+
+    lead.save()
+    company_ids = request.POST.getlist("recommended_companies")
+    companies = InsuranceCompany.objects.filter(organization=org, id__in=company_ids)
+    lead.recommended_companies.set(companies)
+
+    if lead.agent_task_id:
+        from .insurance_quote_distribution import _lead_task_description, _lead_task_title
+
+        task = lead.agent_task
+        task.title = _lead_task_title(lead)
+        task.description = _lead_task_description(lead)
+        task.save(update_fields=["title", "description", "updated_at"])
+    return True, ""
+
+
+@login_required
+@require_POST
+def edit_quote_lead(request, lead_id: int):
+    org = _active_org(request)
+    if org is None:
+        deny_access("Organization required.")
+    membership = membership_for_org(request.user, org)
+    lead = get_object_or_404(InsuranceQuoteLead, id=lead_id, organization=org)
+    if not can_edit_quote_lead(request.user, lead, membership=membership):
+        deny_access("You cannot edit this lead.")
+
+    ok, err = _apply_lead_fields(request, lead, org)
+    if not ok:
+        messages.error(request, err)
+        return _redirect_pipeline(request, org)
+
+    # Optional reassignment for owners/managers.
+    if can_manage_quote_distribution(request.user, org, membership=membership):
+        manual_agent_id = (request.POST.get("assigned_to") or "").strip()
+        if manual_agent_id:
+            agent = OrganizationMembership.objects.filter(
+                id=manual_agent_id,
+                organization=org,
+                is_active=True,
+            ).first()
+            if agent and can_receive_quote_distribution(agent):
+                if lead.assigned_to_id != agent.id:
+                    assign_lead(
+                        lead,
+                        agent,
+                        mode=InsuranceQuoteLead.AssignmentMode.MANUAL,
+                        actor=request.user,
+                    )
+
+    from .realtime import publish_org_quote_event
+
+    lead.refresh_from_db()
+    publish_org_quote_event(
+        org.id,
+        "quote_pipeline.changed",
+        {
+            "lead_id": lead.id,
+            "stage": lead.stage,
+            "assigned_to_id": lead.assigned_to_id,
+            "reason": "edited",
+        },
+    )
+    messages.success(request, "Lead saved.")
+    return _redirect_pipeline(request, org)
+
+
+@login_required
+@require_POST
+def delete_quote_lead(request, lead_id: int):
+    org = _active_org(request)
+    if org is None:
+        deny_access("Organization required.")
+    membership = membership_for_org(request.user, org)
+    lead = get_object_or_404(InsuranceQuoteLead, id=lead_id, organization=org)
+    if not can_delete_quote_lead(request.user, lead, membership=membership):
+        deny_access("Owner or manager access required to delete leads.")
+
+    lead_id_val = lead.id
+    task = lead.agent_task
+    lead.agent_task = None
+    lead.save(update_fields=["agent_task", "updated_at"])
+    lead.delete()
+    if task is not None:
+        task.delete()
+
+    from .realtime import publish_org_quote_event
+
+    publish_org_quote_event(
+        org.id,
+        "quote_pipeline.changed",
+        {
+            "lead_id": lead_id_val,
+            "stage": "",
+            "assigned_to_id": None,
+            "reason": "deleted",
+        },
+    )
+    messages.success(request, "Lead removed.")
     return _redirect_pipeline(request, org)
 
 

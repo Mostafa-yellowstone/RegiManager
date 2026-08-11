@@ -95,6 +95,22 @@
   background: rgba(13, 148, 136, 0.12);
   color: #0f766e;
 }
+.iqp-btn--danger {
+  background: rgba(225, 29, 72, 0.12);
+  color: #be123c;
+  border: 1px solid rgba(225, 29, 72, 0.28);
+}
+.iqp-btn--danger:hover {
+  background: rgba(225, 29, 72, 0.18);
+}
+.iqp-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.15rem;
+}
+.iqp-card__delete { margin: 0; }
 
 .iqp-banner-pill {
   display: inline-flex;

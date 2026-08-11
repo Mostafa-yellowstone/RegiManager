@@ -161,3 +161,56 @@ class QuotePipelineDistributionTests(TestCase):
             reverse("public-insurance-intake-start")
         with self.assertRaises(NoReverseMatch):
             reverse("approve-insurance-intake", args=[1])
+
+    def test_owner_can_edit_and_delete_lead(self):
+        lead = InsuranceQuoteLead.objects.create(
+            organization=self.org,
+            created_by=self.owner_user,
+            client_name="Edit Me",
+            phone="5551112222",
+            stage=InsuranceQuoteLead.Stage.NEW,
+        )
+        self.client.login(username="qowner", password="password123")
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+
+        edit = self.client.post(
+            reverse("edit-quote-lead", args=[lead.id]),
+            {
+                "client_name": "Edited Name",
+                "phone": "5553334444",
+                "email": "e@example.com",
+                "insurance_type": "personal_auto",
+                "stage": "quoting",
+                "notes": "Updated note",
+                "has_prior": "on",
+            },
+        )
+        self.assertEqual(edit.status_code, 302)
+        lead.refresh_from_db()
+        self.assertEqual(lead.client_name, "Edited Name")
+        self.assertEqual(lead.phone, "5553334444")
+        self.assertEqual(lead.stage, "quoting")
+        self.assertTrue(lead.has_prior)
+
+        delete = self.client.post(reverse("delete-quote-lead", args=[lead.id]))
+        self.assertEqual(delete.status_code, 302)
+        self.assertFalse(InsuranceQuoteLead.objects.filter(id=lead.id).exists())
+
+    def test_agent_cannot_delete_lead(self):
+        lead = InsuranceQuoteLead.objects.create(
+            organization=self.org,
+            created_by=self.owner_user,
+            client_name="Protected",
+            phone="5550001111",
+            assigned_to=self.agent,
+            stage=InsuranceQuoteLead.Stage.ASSIGNED,
+        )
+        self.client.login(username="qagent", password="password123")
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+        resp = self.client.post(reverse("delete-quote-lead", args=[lead.id]))
+        self.assertEqual(resp.status_code, 403)
+        self.assertTrue(InsuranceQuoteLead.objects.filter(id=lead.id).exists())
