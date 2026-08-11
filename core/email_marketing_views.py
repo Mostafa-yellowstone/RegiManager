@@ -308,6 +308,7 @@ def email_marketing_assign_task(request, list_id):
             level=Notification.Level.INFO,
             title="New bulk task assigned",
             message=task.title[:200],
+            action_url=f"/dashboard/agent-portal/tasks/?task={task.id}",
         )
         messages.success(
             request,
@@ -351,6 +352,7 @@ def email_marketing_assign_task(request, list_id):
         level=Notification.Level.INFO,
         title="New task assigned",
         message=task.title[:200],
+        action_url=f"/dashboard/agent-portal/tasks/?task={task.id}",
     )
     messages.success(request, f"Task assigned to {agent_name}. It will show in their agent portal.")
     return redirect(redirect_url)

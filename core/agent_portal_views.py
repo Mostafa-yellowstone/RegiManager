@@ -35,20 +35,46 @@ from .agent_portal_services import (
     uses_agent_portal_home,
 )
 from .http import deny_access
-from .models import Notification, OrganizationMembership
+from .models import OrganizationMembership
 from .policies import redirect_back
 
 
 def _notify_task_assigned(task: AgentTask):
     if not task.assigned_to_id or not task.assigned_to.user_id:
         return
-    Notification.objects.create(
+    from django.urls import reverse
+
+    from core.models import Notification
+    from core.notification_actions import task_board_action_url
+    from core.realtime import publish_user_event
+
+    action_url = task_board_action_url(task_id=task.id)
+    notif = Notification.objects.create(
         user=task.assigned_to.user,
         organization=task.organization,
         event_type="agent_task_assigned",
         level=Notification.Level.INFO,
         title="New task assigned",
         message=task.title[:200],
+        action_url=action_url,
+    )
+    unread = Notification.objects.filter(
+        user=task.assigned_to.user, is_read=False
+    ).count()
+    publish_user_event(
+        task.assigned_to.user_id,
+        "notification.created",
+        {
+            "id": notif.id,
+            "title": notif.title,
+            "message": notif.message,
+            "level": notif.level,
+            "event_type": notif.event_type,
+            "action_url": notif.action_url,
+            "open_url": reverse("open-notification", args=[notif.id]),
+            "created_at": notif.created_at.isoformat() if notif.created_at else "",
+            "unread_count": unread,
+        },
     )
 
 

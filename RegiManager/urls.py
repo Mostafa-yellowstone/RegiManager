@@ -40,6 +40,11 @@ from core.insurance_quote_pipeline_views import (
     save_quote_distribution_config,
     update_quote_lead_stage,
 )
+from core.portal_realtime_views import (
+    portal_events_stream,
+    portal_notifications_snapshot,
+    portal_quote_pipeline_snapshot,
+)
 from core.insurance_policy_views import (
     import_insurance_dec_page,
     import_insurance_dec_to_policy,
@@ -337,6 +342,9 @@ urlpatterns = [
     path('api/owner/notifications/', OwnerNotificationsView.as_view(), name='api-owner-notifications'),
     path('api/owner/notifications/mark-all-read/', OwnerNotificationMarkAllReadView.as_view(), name='api-owner-notifications-mark-all'),
     path('api/owner/notifications/<int:notification_id>/read/', OwnerNotificationReadView.as_view(), name='api-owner-notification-read'),
+    path('api/portal/events/', portal_events_stream, name='portal-events-stream'),
+    path('api/portal/notifications/', portal_notifications_snapshot, name='portal-notifications-snapshot'),
+    path('api/portal/quote-pipeline/', portal_quote_pipeline_snapshot, name='portal-quote-pipeline-snapshot'),
     path('api/owner/agents/', OwnerAgentsListView.as_view(), name='api-owner-agents'),
     path('api/owner/agents/<int:membership_id>/workboard/', OwnerAgentWorkboardView.as_view(), name='api-owner-agent-workboard'),
     path('api/owner/agents/<int:membership_id>/tasks/', OwnerAgentCreateTaskView.as_view(), name='api-owner-agent-create-task'),

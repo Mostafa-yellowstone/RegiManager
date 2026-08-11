@@ -12,7 +12,7 @@ bind = "127.0.0.1:8000"
 # --- Workers ---
 # Rule of thumb: (2 × CPU cores) + 1
 workers = multiprocessing.cpu_count() * 2 + 1
-worker_class = "sync"  # Use "gevent" or "uvicorn.workers.UvicornWorker" for async
+worker_class = "gevent"  # Required for SSE realtime (portal notifications / quote pipeline)
 
 # --- Timeout ---
 # CRITICAL: Must be long enough for:

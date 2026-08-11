@@ -17,6 +17,7 @@
             this.initModals();
             this.initSiteNewsAlert();
             this.preserveCrmFilters();
+            this.initRealtime();
         },
 
         applyTheme(theme) {
@@ -550,6 +551,176 @@
             });
 
             open();
+        },
+
+        initRealtime() {
+            const wrap = document.querySelector('.notif-wrap');
+            const eventsUrl = wrap && wrap.dataset.eventsUrl;
+            if (!eventsUrl || typeof window.EventSource === 'undefined') return;
+
+            const root = document.getElementById('quotePipelineRoot');
+            const orgId = root && root.dataset.orgId;
+            let url = eventsUrl;
+            if (orgId) {
+                url += (url.indexOf('?') >= 0 ? '&' : '?') + 'org=' + encodeURIComponent(orgId);
+            }
+
+            let refreshTimer = null;
+            const schedulePipelineRefresh = () => {
+                if (!root) return;
+                if (refreshTimer) clearTimeout(refreshTimer);
+                refreshTimer = setTimeout(() => this.refreshQuotePipeline(), 350);
+            };
+
+            const connect = () => {
+                const es = new EventSource(url, { withCredentials: true });
+                es.addEventListener('notification.created', (ev) => {
+                    try {
+                        const data = JSON.parse(ev.data || '{}');
+                        const payload = data.payload || data;
+                        this.prependNotification(payload);
+                        if (typeof payload.unread_count === 'number') {
+                            this.updateNotifBadges(payload.unread_count);
+                        }
+                    } catch (e) {}
+                });
+                es.addEventListener('quote_pipeline.changed', () => {
+                    schedulePipelineRefresh();
+                });
+                es.onerror = () => {
+                    es.close();
+                    setTimeout(connect, 4000);
+                };
+                this._eventSource = es;
+            };
+            connect();
+
+            // Catch anything missed while the stream was down.
+            this.refreshNotificationsSnapshot();
+        },
+
+        refreshNotificationsSnapshot() {
+            const wrap = document.querySelector('.notif-wrap');
+            const url = wrap && wrap.dataset.notifSnapshotUrl;
+            if (!url) return;
+            fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then((res) => (res.ok ? res.json() : null))
+                .then((data) => {
+                    if (!data) return;
+                    if (typeof data.unread_count === 'number') {
+                        this.updateNotifBadges(data.unread_count);
+                    }
+                    if (Array.isArray(data.notifications)) {
+                        this.replaceNotificationList(data.notifications);
+                    }
+                })
+                .catch(() => null);
+        },
+
+        refreshQuotePipeline() {
+            const root = document.getElementById('quotePipelineRoot');
+            if (!root) return;
+            const url = root.dataset.snapshotUrl;
+            if (!url) return;
+            fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then((res) => (res.ok ? res.json() : null))
+                .then((data) => {
+                    if (!data || !data.html) return;
+                    const live = root.querySelector('#iqpLiveRegion');
+                    if (!live) return;
+                    const holder = document.createElement('div');
+                    holder.innerHTML = data.html;
+                    const next = holder.querySelector('#iqpLiveRegion') || holder.firstElementChild;
+                    if (next) live.replaceWith(next);
+                })
+                .catch(() => null);
+        },
+
+        replaceNotificationList(items) {
+            const body = document.querySelector('#notifDropdown .notif-dropdown-body');
+            if (!body) return;
+            body.innerHTML = '';
+            if (!items.length) {
+                const empty = document.createElement('div');
+                empty.className = 'notif-empty';
+                empty.textContent = 'No notifications.';
+                body.appendChild(empty);
+                return;
+            }
+            items.slice(0, 12).forEach((item) => {
+                body.appendChild(this.buildNotifRow(item));
+            });
+            this.bindMarkOneButtons(body);
+        },
+
+        prependNotification(item) {
+            if (!item || !item.id) return;
+            const body = document.querySelector('#notifDropdown .notif-dropdown-body');
+            if (!body) return;
+            const existing = body.querySelector('[data-notif-id="' + item.id + '"]');
+            if (existing) return;
+            const empty = body.querySelector('.notif-empty');
+            if (empty) empty.remove();
+            const row = this.buildNotifRow(item);
+            body.insertBefore(row, body.firstChild);
+            this.bindMarkOneButtons(row);
+            const markAll = document.getElementById('notifMarkAllReadBtn');
+            if (markAll) markAll.style.display = '';
+        },
+
+        buildNotifRow(item) {
+            const row = document.createElement('div');
+            row.className = 'notif-item-row';
+            row.dataset.notifId = String(item.id);
+            const openUrl = item.open_url || ('/dashboard/notifications/' + item.id + '/open/');
+            const levelClass = item.level === 'warning' ? 'warning' : 'info';
+            const msg = (item.message || '').trim();
+            const when = item.created_label || '';
+            row.innerHTML =
+                '<a href="' + openUrl + '" class="notif-item">' +
+                '<div class="notif-item-inner">' +
+                '<div class="notif-dot ' + levelClass + '"></div>' +
+                '<div class="notif-item-body">' +
+                '<div class="notif-item-title"></div>' +
+                '<div class="notif-item-msg"></div>' +
+                '<div class="notif-item-time"></div>' +
+                '</div></div></a>' +
+                '<button type="button" class="notif-action-btn notif-mark-one-btn" title="Mark as read" aria-label="Mark notification as read" data-url="/dashboard/notifications/' + item.id + '/read/">' +
+                '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
+                '</button>';
+            row.querySelector('.notif-item-title').textContent = item.title || 'Notification';
+            row.querySelector('.notif-item-msg').textContent = msg ? ('System • ' + msg) : 'System';
+            row.querySelector('.notif-item-time').textContent = when;
+            return row;
+        },
+
+        bindMarkOneButtons(scope) {
+            const root = scope || document;
+            root.querySelectorAll('.notif-mark-one-btn').forEach((btn) => {
+                if (btn.dataset.bound === '1') return;
+                btn.dataset.bound = '1';
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const url = btn.dataset.url;
+                    const row = btn.closest('.notif-item-row');
+                    if (!url) return;
+                    this.postNotifAction(url).then((data) => {
+                        if (!data || !data.success) return;
+                        if (row) row.remove();
+                        const body = document.querySelector('#notifDropdown .notif-dropdown-body');
+                        if (body && !body.querySelector('.notif-item-row') && !body.querySelector('.notif-empty')) {
+                            const empty = document.createElement('div');
+                            empty.className = 'notif-empty';
+                            empty.textContent = 'No notifications.';
+                            body.appendChild(empty);
+                        }
+                        this.updateNotifBadges(
+                            typeof data.unread_count === 'number' ? data.unread_count : 0
+                        );
+                    });
+                });
+            });
         },
     };
 

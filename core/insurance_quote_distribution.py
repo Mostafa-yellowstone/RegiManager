@@ -15,7 +15,7 @@ from .insurance_quote_pipeline_models import (
     InsuranceQuoteDistributionConfig,
     InsuranceQuoteLead,
 )
-from .models import Notification, OrganizationMembership
+from .models import OrganizationMembership
 
 
 def get_or_create_distribution_config(organization) -> InsuranceQuoteDistributionConfig:
@@ -138,13 +138,49 @@ def _lead_task_description(lead: InsuranceQuoteLead) -> str:
 def _notify_quote_assigned(lead: InsuranceQuoteLead):
     if not lead.assigned_to_id or not lead.assigned_to.user_id:
         return
-    Notification.objects.create(
+    from django.urls import reverse
+
+    from .models import Notification
+    from .notification_actions import task_board_action_url
+    from .realtime import publish_org_quote_event, publish_user_event
+
+    action_url = task_board_action_url(task_id=lead.agent_task_id)
+    notif = Notification.objects.create(
         user=lead.assigned_to.user,
         organization=lead.organization,
         event_type="quote_lead_assigned",
         level=Notification.Level.INFO,
         title="New quote lead assigned",
         message=_lead_task_title(lead)[:200],
+        action_url=action_url,
+    )
+    unread = Notification.objects.filter(
+        user=lead.assigned_to.user, is_read=False
+    ).count()
+    publish_user_event(
+        lead.assigned_to.user_id,
+        "notification.created",
+        {
+            "id": notif.id,
+            "title": notif.title,
+            "message": notif.message,
+            "level": notif.level,
+            "event_type": notif.event_type,
+            "action_url": notif.action_url,
+            "open_url": reverse("open-notification", args=[notif.id]),
+            "created_at": notif.created_at.isoformat() if notif.created_at else "",
+            "unread_count": unread,
+        },
+    )
+    publish_org_quote_event(
+        lead.organization_id,
+        "quote_pipeline.changed",
+        {
+            "lead_id": lead.id,
+            "stage": lead.stage,
+            "assigned_to_id": lead.assigned_to_id,
+            "reason": "assigned",
+        },
     )
 
 

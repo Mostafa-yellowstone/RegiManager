@@ -982,6 +982,11 @@ def open_notification(request, notification_id):
         notif.is_read = True
         notif.save(update_fields=["is_read"])
 
+    from .notification_actions import is_safe_action_url, task_board_action_url
+
+    if is_safe_action_url(getattr(notif, "action_url", "") or ""):
+        return redirect(notif.action_url)
+
     if notif.insurance_company_id:
         return redirect("insurance-company-detail", company_id=notif.insurance_company_id)
 
@@ -992,8 +997,8 @@ def open_notification(request, notification_id):
         anchor = f"#note-{notif.note_id}" if notif.note_id else ""
         return redirect(f"{redirect('client-detail', client_id=notif.client_id).url}{anchor}")
 
-    if notif.event_type == "agent_task_assigned":
-        return redirect("agent-portal-tasks-board")
+    if notif.event_type in {"agent_task_assigned", "quote_lead_assigned"}:
+        return redirect(task_board_action_url())
 
     messages.info(request, notif.title or "Notification opened.")
     return redirect("dashboard")

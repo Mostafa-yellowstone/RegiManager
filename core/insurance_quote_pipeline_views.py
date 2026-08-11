@@ -101,6 +101,7 @@ def build_quote_pipeline_context(request, organization, membership):
         .order_by("off_date")[:60]
     )
     return {
+        "organization": organization,
         "quote_leads": leads,
         "quote_stages": stages,
         "quote_unassigned": unassigned,
@@ -198,6 +199,20 @@ def create_quote_lead(request):
                 request,
                 "Lead created and waiting in the unassigned queue (auto-distribution paused or no eligible agents).",
             )
+
+    from .realtime import publish_org_quote_event
+
+    lead.refresh_from_db()
+    publish_org_quote_event(
+        org.id,
+        "quote_pipeline.changed",
+        {
+            "lead_id": lead.id,
+            "stage": lead.stage,
+            "assigned_to_id": lead.assigned_to_id,
+            "reason": "created",
+        },
+    )
     return _redirect_pipeline(request, org)
 
 
@@ -276,6 +291,19 @@ def update_quote_lead_stage(request, lead_id: int):
             )
         except Exception:
             pass
+
+    from .realtime import publish_org_quote_event
+
+    publish_org_quote_event(
+        org.id,
+        "quote_pipeline.changed",
+        {
+            "lead_id": lead.id,
+            "stage": lead.stage,
+            "assigned_to_id": lead.assigned_to_id,
+            "reason": "stage_updated",
+        },
+    )
 
     messages.success(request, "Lead updated.")
     return _redirect_pipeline(request, org)

@@ -327,13 +327,33 @@ class OwnerAgentCreateTaskView(OwnerAPIBase):
             description=description,
             due_date=due_date,
         )
-        Notification.objects.create(
+        notif = Notification.objects.create(
             user=agent.user,
             organization=organization,
             event_type="agent_task_assigned",
             level=Notification.Level.INFO,
             title="New task assigned",
             message=title[:200],
+            action_url=f"/dashboard/agent-portal/tasks/?task={task.id}",
+        )
+        from django.urls import reverse
+
+        from .realtime import publish_user_event
+
+        unread = Notification.objects.filter(user=agent.user, is_read=False).count()
+        publish_user_event(
+            agent.user_id,
+            "notification.created",
+            {
+                "id": notif.id,
+                "title": notif.title,
+                "message": notif.message,
+                "level": notif.level,
+                "event_type": notif.event_type,
+                "action_url": notif.action_url,
+                "open_url": reverse("open-notification", args=[notif.id]),
+                "unread_count": unread,
+            },
         )
         return Response({"task": _serialize_task(task)}, status=status.HTTP_201_CREATED)
 

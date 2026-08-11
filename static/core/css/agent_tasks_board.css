@@ -886,3 +886,9 @@
   border-color: rgba(236, 243, 247, 0.16);
 }
 
+.atb-card.is-focus-task,
+.atb-list-row.is-focus-task {
+  outline: 2px solid #0d9488;
+  box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.2);
+}
+

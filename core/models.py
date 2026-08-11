@@ -1106,6 +1106,12 @@ class Notification(models.Model):
     event_type = models.CharField(max_length=40, blank=True, default="", db_index=True)
     title = models.CharField(max_length=140)
     message = models.TextField(blank=True, default="")
+    action_url = models.CharField(
+        max_length=400,
+        blank=True,
+        default="",
+        help_text="Relative portal path opened when the user clicks this notification.",
+    )
     level = models.CharField(max_length=20, choices=Level.choices, default=Level.WARNING, db_index=True)
     is_read = models.BooleanField(default=False, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
