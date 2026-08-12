@@ -66,65 +66,77 @@
                   <span class="iqp-card__date-ago">{{ lead.created_at|timesince }} ago</span>
                 </div>
               </div>
-              <span class="iqp-badge iqp-badge--type">{{ lead.insurance_type|default:"General"|cut:"_"|title }}</span>
+              <span class="iqp-badge iqp-badge--type" title="{{ lead.insurance_type|default:'General'|cut:'_'|title }}">{{ lead.insurance_type|default:"General"|cut:"_"|title }}</span>
             </div>
 
-            <div class="iqp-card__contact-line">
-              <a href="tel:{{ lead.phone }}">{{ lead.phone }}</a>
-              {% if lead.email %}<a href="mailto:{{ lead.email }}">{{ lead.email }}</a>{% endif %}
-            </div>
+            <dl class="iqp-card__meta">
+              <div class="iqp-card__meta-row">
+                <dt>Phone</dt>
+                <dd><a href="tel:{{ lead.phone }}">{{ lead.phone }}</a></dd>
+              </div>
+              {% if lead.email %}
+              <div class="iqp-card__meta-row">
+                <dt>Email</dt>
+                <dd><a href="mailto:{{ lead.email }}">{{ lead.email }}</a></dd>
+              </div>
+              {% endif %}
+              {% if lead.heard_about %}
+              <div class="iqp-card__meta-row">
+                <dt>Source</dt>
+                <dd>{{ lead.get_heard_about_display }}</dd>
+              </div>
+              {% endif %}
+            </dl>
 
-            {% if lead.street_address or lead.apartment or lead.city or lead.state or lead.zip_code %}
-            <div class="iqp-card__section">
-              <span class="iqp-card__section-label">Address</span>
-              <p class="iqp-card__detail">
-                {% if lead.street_address %}{{ lead.street_address }}{% endif %}{% if lead.apartment %}{% if lead.street_address %}, {% endif %}Apt {{ lead.apartment }}{% endif %}
-                {% if lead.city or lead.state or lead.zip_code %}
-                <br>{% if lead.city %}{{ lead.city }}{% endif %}{% if lead.city and lead.state %}, {% endif %}{% if lead.state %}{{ lead.state }}{% endif %}{% if lead.zip_code %} {{ lead.zip_code }}{% endif %}
+            <div class="iqp-card__grid">
+              {% if lead.street_address or lead.apartment or lead.city or lead.state or lead.zip_code %}
+              <div class="iqp-card__section">
+                <span class="iqp-card__section-label">Address</span>
+                <p class="iqp-card__detail">
+                  {% if lead.street_address %}{{ lead.street_address }}{% endif %}{% if lead.apartment %}{% if lead.street_address %}, {% endif %}Apt {{ lead.apartment }}{% endif %}
+                  {% if lead.city or lead.state or lead.zip_code %}
+                  {% if lead.street_address or lead.apartment %}<br>{% endif %}{% if lead.city %}{{ lead.city }}{% endif %}{% if lead.city and lead.state %}, {% endif %}{% if lead.state %}{{ lead.state }}{% endif %}{% if lead.zip_code %} {{ lead.zip_code }}{% endif %}
+                  {% endif %}
+                </p>
+              </div>
+              {% endif %}
+
+              {% if lead.vehicle_year or lead.vehicle_make or lead.vehicle_model or lead.vin or lead.vehicle_ownership and lead.vehicle_ownership != 'blank' or lead.coverage_type or lead.additional_vehicles.all %}
+              <div class="iqp-card__section iqp-card__section--wide">
+                <span class="iqp-card__section-label">Vehicle</span>
+                {% if lead.vehicle_year or lead.vehicle_make or lead.vehicle_model %}
+                <p class="iqp-card__detail">{{ lead.vehicle_year }} {{ lead.vehicle_make }} {{ lead.vehicle_model }}</p>
                 {% endif %}
-              </p>
-            </div>
-            {% endif %}
-
-            {% if lead.vehicle_year or lead.vehicle_make or lead.vehicle_model or lead.vin or lead.vehicle_ownership or lead.coverage_type or lead.additional_vehicles.all %}
-            <div class="iqp-card__section">
-              <span class="iqp-card__section-label">Vehicle</span>
-              {% if lead.vehicle_year or lead.vehicle_make or lead.vehicle_model %}
-              <p class="iqp-card__detail">{{ lead.vehicle_year }} {{ lead.vehicle_make }} {{ lead.vehicle_model }}</p>
+                {% if lead.vin %}<p class="iqp-card__detail iqp-card__detail--muted"><code class="iqp-card__vin">{{ lead.vin }}</code></p>{% endif %}
+                {% if lead.vehicle_ownership and lead.vehicle_ownership != 'blank' or lead.coverage_type %}
+                <p class="iqp-card__detail iqp-card__detail--muted">
+                  {% if lead.vehicle_ownership and lead.vehicle_ownership != 'blank' %}{{ lead.get_vehicle_ownership_display }}{% endif %}{% if lead.vehicle_ownership and lead.vehicle_ownership != 'blank' and lead.coverage_type %} · {% endif %}{% if lead.coverage_type %}{{ lead.get_coverage_type_display }}{% endif %}
+                </p>
+                {% endif %}
+                {% for v in lead.additional_vehicles.all %}
+                <p class="iqp-card__detail iqp-card__detail--extra">+ {{ v.year }} {{ v.make }} {{ v.model }}{% if v.vin %} · {{ v.vin }}{% endif %}</p>
+                {% endfor %}
+              </div>
               {% endif %}
-              {% if lead.vin %}<p class="iqp-card__detail iqp-card__detail--muted"><code class="iqp-card__vin">{{ lead.vin }}</code></p>{% endif %}
-              {% if lead.vehicle_ownership and lead.vehicle_ownership != 'blank' or lead.coverage_type %}
-              <p class="iqp-card__detail iqp-card__detail--muted">
-                {% if lead.vehicle_ownership and lead.vehicle_ownership != 'blank' %}{{ lead.get_vehicle_ownership_display }}{% endif %}{% if lead.vehicle_ownership and lead.vehicle_ownership != 'blank' and lead.coverage_type %} · {% endif %}{% if lead.coverage_type %}{{ lead.get_coverage_type_display }}{% endif %}
-              </p>
+
+              {% if lead.dl_number or lead.date_of_birth or lead.additional_drivers.all %}
+              <div class="iqp-card__section iqp-card__section--wide">
+                <span class="iqp-card__section-label">Drivers</span>
+                <p class="iqp-card__detail">
+                  <span class="iqp-card__driver-name">{{ lead.client_name }}</span>
+                  {% if lead.dl_number %}<span class="iqp-card__kv">DL {{ lead.dl_number }}</span>{% endif %}
+                  {% if lead.date_of_birth %}<span class="iqp-card__kv">DOB {{ lead.date_of_birth|date:"M j, Y" }}</span>{% endif %}
+                </p>
+                {% for d in lead.additional_drivers.all %}
+                <p class="iqp-card__detail iqp-card__detail--extra">
+                  <span class="iqp-card__driver-name">+ {{ d.full_name }}</span>
+                  {% if d.dl_number %}<span class="iqp-card__kv">DL {{ d.dl_number }}</span>{% endif %}
+                  {% if d.date_of_birth %}<span class="iqp-card__kv">DOB {{ d.date_of_birth|date:"M j, Y" }}</span>{% endif %}
+                </p>
+                {% endfor %}
+              </div>
               {% endif %}
-              {% for v in lead.additional_vehicles.all %}
-              <p class="iqp-card__detail iqp-card__detail--extra">+ {{ v.year }} {{ v.make }} {{ v.model }}{% if v.vin %} · {{ v.vin }}{% endif %}</p>
-              {% endfor %}
             </div>
-            {% endif %}
-
-            {% if lead.dl_number or lead.date_of_birth or lead.additional_drivers.all %}
-            <div class="iqp-card__section">
-              <span class="iqp-card__section-label">Drivers</span>
-              <p class="iqp-card__detail">
-                {{ lead.client_name }}
-                {% if lead.dl_number %}<span class="iqp-card__detail--muted"> · DL {{ lead.dl_number }}</span>{% endif %}
-                {% if lead.date_of_birth %}<span class="iqp-card__detail--muted"> · DOB {{ lead.date_of_birth|date:"M j, Y" }}</span>{% endif %}
-              </p>
-              {% for d in lead.additional_drivers.all %}
-              <p class="iqp-card__detail iqp-card__detail--extra">
-                + {{ d.full_name }}
-                {% if d.dl_number %}<span class="iqp-card__detail--muted"> · DL {{ d.dl_number }}</span>{% endif %}
-                {% if d.date_of_birth %}<span class="iqp-card__detail--muted"> · DOB {{ d.date_of_birth|date:"M j, Y" }}</span>{% endif %}
-              </p>
-              {% endfor %}
-            </div>
-            {% endif %}
-
-            {% if lead.heard_about %}
-            <p class="iqp-card__detail iqp-card__detail--muted">Heard about: {{ lead.get_heard_about_display }}</p>
-            {% endif %}
 
             <div class="iqp-flags">
               <span class="iqp-flag {% if lead.has_prior %}is-on{% endif %}">{% if lead.has_prior %}Prior{% else %}No prior{% endif %}</span>
@@ -133,22 +145,29 @@
             </div>
 
             {% if lead.notes %}
-            <p class="iqp-card__notes">{{ lead.notes|truncatechars:120 }}</p>
+            <div class="iqp-card__section iqp-card__section--notes">
+              <span class="iqp-card__section-label">Notes</span>
+              <p class="iqp-card__notes">{{ lead.notes|truncatechars:180 }}</p>
+            </div>
             {% endif %}
 
             {% if lead.recommended_companies.all %}
-            <p class="iqp-card__detail iqp-card__detail--muted">
-              Companies: {% for co in lead.recommended_companies.all %}{{ co.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
-            </p>
+            <div class="iqp-carriers">
+              {% for co in lead.recommended_companies.all %}
+              <em class="iqp-carrier-tag">{{ co.name }}</em>
+              {% endfor %}
+            </div>
             {% endif %}
 
             {% if lead.documents.all %}
-            <p class="iqp-card__detail iqp-card__detail--muted">
-              Docs: {{ lead.documents.all|length }}
-              {% for doc in lead.documents.all %}
-              · <a href="{% url 'download-quote-lead-document' doc.id %}">{{ doc.original_name|default:"file"|truncatechars:18 }}</a>
-              {% endfor %}
-            </p>
+            <div class="iqp-card__docs">
+              <span class="iqp-card__section-label">Documents</span>
+              <div class="iqp-card__doc-list">
+                {% for doc in lead.documents.all %}
+                <a href="{% url 'download-quote-lead-document' doc.id %}">{{ doc.original_name|default:"file"|truncatechars:28 }}</a>
+                {% endfor %}
+              </div>
+            </div>
             {% endif %}
 
             {% if can_assign_quote_leads or can_manage_quote_distribution %}

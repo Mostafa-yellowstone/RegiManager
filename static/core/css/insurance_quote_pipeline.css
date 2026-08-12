@@ -2052,3 +2052,228 @@ html.portal-theme-dark .iqp-assign-row select {
   border-top: 1px solid var(--iqp-line) !important;
   background: color-mix(in srgb, var(--iqp-soft) 65%, #fff) !important;
 }
+/* Professional wide record cards (must stay last) */
+.iqp-board {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(380px, 1fr)) !important;
+  gap: 0.85rem !important;
+  align-items: stretch !important;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+}
+.iqp-column {
+  min-width: 380px !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 30rem !important;
+  max-height: 82vh !important;
+  overflow: hidden !important;
+  border-radius: 18px !important;
+}
+.iqp-column__header {
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-bottom: 1px solid var(--iqp-line) !important;
+}
+.iqp-column__cards {
+  flex: 1 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  min-height: 0 !important;
+  padding: 0.75rem !important;
+  margin: 0 !important;
+  align-content: start !important;
+  gap: 0.75rem !important;
+}
+.iqp-column__footer {
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+  padding: 0.55rem 0.75rem 0.75rem !important;
+  border-top: 1px solid var(--iqp-line) !important;
+  background: color-mix(in srgb, var(--iqp-soft) 65%, #fff) !important;
+}
+
+.iqp-card,
+.iqp-card--compact {
+  padding: 0.95rem 1rem !important;
+  gap: 0.65rem !important;
+  border-radius: 16px !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+  overflow: visible !important;
+  max-height: none !important;
+}
+.iqp-column__cards .iqp-card:hover {
+  transform: none;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07) !important;
+}
+
+.iqp-card__top {
+  align-items: flex-start !important;
+  gap: 0.65rem !important;
+}
+.iqp-card__who {
+  flex: 1;
+  min-width: 0;
+  gap: 0.65rem !important;
+}
+.iqp-avatar-circle {
+  width: 38px !important;
+  height: 38px !important;
+  font-size: 0.9rem !important;
+}
+.iqp-card__client-name {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  max-width: none !important;
+  font-size: 1rem !important;
+  line-height: 1.25 !important;
+}
+.iqp-card__date-ago {
+  font-size: 0.7rem !important;
+  margin-top: 0.12rem;
+}
+.iqp-badge--type {
+  max-width: 9.5rem;
+  white-space: normal !important;
+  text-align: center;
+  line-height: 1.2;
+  font-size: 0.64rem !important;
+  padding: 0.28rem 0.5rem;
+  border-radius: 8px;
+}
+
+.iqp-card__meta {
+  margin: 0;
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--iqp-line);
+}
+.iqp-card__meta-row {
+  display: grid;
+  grid-template-columns: 4.2rem minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: baseline;
+}
+.iqp-card__meta-row dt {
+  margin: 0;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--iqp-muted);
+}
+.iqp-card__meta-row dd {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--iqp-ink);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.iqp-card__meta-row dd a {
+  color: inherit;
+  text-decoration: none;
+}
+.iqp-card__meta-row dd a:hover {
+  color: var(--iqp-teal);
+}
+
+.iqp-card__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+.iqp-card__section {
+  padding: 0.55rem 0.65rem !important;
+  border-radius: 12px !important;
+  gap: 0.28rem !important;
+}
+.iqp-card__section--wide {
+  grid-column: 1 / -1;
+}
+.iqp-card__section-label {
+  font-size: 0.64rem !important;
+}
+.iqp-card__detail {
+  font-size: 0.8rem !important;
+  line-height: 1.4 !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.iqp-card__vin {
+  font-size: 0.74rem !important;
+  letter-spacing: 0.03em;
+}
+.iqp-card__driver-name {
+  display: block;
+  font-weight: 800;
+}
+.iqp-card__kv {
+  display: inline-block;
+  margin-top: 0.12rem;
+  margin-right: 0.55rem;
+  font-size: 0.74rem;
+  font-weight: 650;
+  color: var(--iqp-muted);
+}
+.iqp-card__section--notes {
+  background: color-mix(in srgb, #fef9c3 45%, #fff) !important;
+  border-color: color-mix(in srgb, #f59e0b 22%, transparent) !important;
+}
+.iqp-card__notes {
+  font-size: 0.78rem !important;
+  color: #78716c !important;
+  white-space: pre-wrap;
+}
+.iqp-card__docs {
+  display: grid;
+  gap: 0.3rem;
+}
+.iqp-card__doc-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.iqp-card__doc-list a {
+  font-size: 0.72rem;
+  font-weight: 750;
+  color: var(--iqp-teal);
+  text-decoration: none;
+  padding: 0.2rem 0.45rem;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--iqp-teal) 8%, #fff);
+  border: 1px solid color-mix(in srgb, var(--iqp-teal) 18%, transparent);
+}
+.iqp-card__doc-list a:hover {
+  background: color-mix(in srgb, var(--iqp-teal) 14%, #fff);
+}
+
+.iqp-assign-box {
+  padding: 0.65rem 0.7rem !important;
+  border-radius: 12px !important;
+}
+.iqp-assign-row select {
+  font-size: 0.8rem !important;
+  min-height: 2.15rem !important;
+}
+.iqp-card__actions-row {
+  gap: 0.5rem !important;
+  padding-top: 0.55rem !important;
+}
+.iqp-card__stage select {
+  font-size: 0.78rem !important;
+  min-height: 2.05rem;
+  padding: 0.4rem 0.55rem !important;
+}
+
+@media (min-width: 420px) {
+  .iqp-card__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
