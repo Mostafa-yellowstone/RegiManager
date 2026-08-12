@@ -1,5 +1,5 @@
 ﻿{% load static %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=23">
+<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=24">
 
 <section class="iqp" id="quotePipelineRoot" data-org-id="{{ organization.id }}" data-snapshot-url="{% url 'portal-quote-pipeline-snapshot' %}?org={{ organization.id }}">
   <header class="iqp-hero">
@@ -49,32 +49,24 @@
       <button type="submit" class="iqp-btn iqp-btn--ghost">Save</button>
     </form>
 
-    <div class="iqp-offdays">
-      <h4>Agent off days</h4>
-      <form method="post" action="{% url 'add-insurance-agent-off-day' %}" class="iqp-offdays__form">
-        {% csrf_token %}
-        <select name="membership_id" required>
-          <option value="">Insurance agent</option>
-          {% for agent in quote_auto_agents|default:quote_agents %}
-          <option value="{{ agent.id }}">{{ agent.user.get_full_name|default:agent.user.username }}</option>
-          {% endfor %}
-        </select>
-        <input type="date" name="off_date" required>
-        <input type="text" name="reason" placeholder="Reason (optional)" maxlength="200">
-        <button type="submit" class="iqp-btn iqp-btn--ghost">Add off day</button>
-      </form>
-      <ul class="iqp-offdays__list">
-        {% for day in quote_off_days %}
-        <li>
-          <strong>{{ day.membership.user.get_full_name|default:day.membership.user.username }}</strong>
-          <span>{{ day.off_date|date:"D, M j" }}{% if day.reason %} · {{ day.reason }}{% endif %}</span>
-          <form method="post" action="{% url 'delete-insurance-agent-off-day' day.id %}">{% csrf_token %}<button type="submit" class="iqp-link-btn">Remove</button></form>
-        </li>
-        {% empty %}
-        <li class="iqp-empty">No upcoming off days scheduled.</li>
-        {% endfor %}
-      </ul>
-    </div>
+    <a class="iqp-control__offlink" href="{% url 'quote-agent-off-days' %}">
+      <span class="iqp-control__offlink-icon" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+          <rect x="3" y="4" width="18" height="18" rx="3"/>
+          <path d="M16 2v4M8 2v4M3 10h18"/>
+          <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>
+        </svg>
+      </span>
+      <span class="iqp-control__offlink-copy">
+        <strong>Agent days off</strong>
+        <small>Open the calendar to schedule from–to leave periods excluded from auto-distribution.</small>
+      </span>
+      <span class="iqp-control__offlink-meta">
+        <em>{{ quote_off_days|length }}</em>
+        upcoming
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14"/><path d="M13 5l7 7-7 7"/></svg>
+      </span>
+    </a>
   </section>
   {% endif %}
 

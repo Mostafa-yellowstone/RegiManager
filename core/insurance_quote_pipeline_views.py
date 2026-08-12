@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -105,6 +105,30 @@ def _redirect_pipeline(request, org: Organization):
     if space:
         return redirect(f"/dashboard/inventory/{space.id}/?tab=quote-pipeline")
     return redirect_back(request, "dashboard")
+
+
+def _redirect_off_days(request, org: Organization):
+    nxt = _safe_quote_next(request)
+    if nxt:
+        return redirect(nxt)
+    return redirect("quote-agent-off-days")
+
+
+def _parse_iso_date(raw: str):
+    value = (raw or "").strip()
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _iter_date_range(start, end):
+    current = start
+    while current <= end:
+        yield current
+        current += timedelta(days=1)
 
 
 def build_quote_pipeline_context(request, organization, membership):
@@ -749,8 +773,9 @@ def add_insurance_agent_off_day(request):
         deny_access("Owner or manager access required.")
 
     agent_id = request.POST.get("membership_id")
-    off_raw = (request.POST.get("off_date") or "").strip()
-    reason = (request.POST.get("reason") or "").strip()
+    reason = (request.POST.get("reason") or "").strip()[:200]
+    start = _parse_iso_date(request.POST.get("off_date_from") or request.POST.get("off_date"))
+    end = _parse_iso_date(request.POST.get("off_date_to")) or start
     agent = get_object_or_404(
         OrganizationMembership,
         id=agent_id,
@@ -759,24 +784,43 @@ def add_insurance_agent_off_day(request):
     )
     if not can_receive_quote_distribution(agent):
         messages.error(request, "Off days apply to insurance agents only.")
-        return _redirect_pipeline(request, org)
-    try:
-        off_date = datetime.strptime(off_raw, "%Y-%m-%d").date()
-    except ValueError:
-        messages.error(request, "Invalid off date.")
-        return _redirect_pipeline(request, org)
+        return _redirect_off_days(request, org)
+    if start is None:
+        messages.error(request, "Choose a valid start date.")
+        return _redirect_off_days(request, org)
+    if end < start:
+        messages.error(request, "End date must be on or after the start date.")
+        return _redirect_off_days(request, org)
+    if (end - start).days > 90:
+        messages.error(request, "Off periods can be at most 90 days.")
+        return _redirect_off_days(request, org)
 
-    InsuranceAgentOffDay.objects.update_or_create(
-        membership=agent,
-        off_date=off_date,
-        defaults={
-            "organization": org,
-            "reason": reason,
-            "created_by": request.user,
-        },
-    )
-    messages.success(request, "Off day saved — agent excluded from auto-distribution that day.")
-    return _redirect_pipeline(request, org)
+    created = 0
+    for day in _iter_date_range(start, end):
+        _, was_created = InsuranceAgentOffDay.objects.update_or_create(
+            membership=agent,
+            off_date=day,
+            defaults={
+                "organization": org,
+                "reason": reason,
+                "created_by": request.user,
+            },
+        )
+        if was_created:
+            created += 1
+
+    agent_name = agent.user.get_full_name() or agent.user.username
+    if start == end:
+        messages.success(
+            request,
+            f"Off day saved for {agent_name} on {start:%b %d, %Y} — excluded from auto-distribution.",
+        )
+    else:
+        messages.success(
+            request,
+            f"Off period saved for {agent_name} ({start:%b %d} – {end:%b %d, %Y}, {created} new day(s)) — excluded from auto-distribution.",
+        )
+    return _redirect_off_days(request, org)
 
 
 @login_required
@@ -791,7 +835,53 @@ def delete_insurance_agent_off_day(request, off_day_id: int):
     off = get_object_or_404(InsuranceAgentOffDay, id=off_day_id, organization=org)
     off.delete()
     messages.success(request, "Off day removed.")
-    return _redirect_pipeline(request, org)
+    return _redirect_off_days(request, org)
+
+
+@login_required
+@require_GET
+def quote_agent_off_days(request):
+    """Dedicated Agent Days Off page for smart distribution exclusions."""
+    org = _active_org(request)
+    if org is None:
+        deny_access("Organization required.")
+    membership = membership_for_org(request.user, org)
+    if not can_manage_quote_distribution(request.user, org, membership=membership):
+        deny_access("Owner or manager access required.")
+
+    ctx = build_quote_pipeline_context(request, org, membership)
+    space = _insurance_space(org)
+    today = ny_work_date()
+    show_past = request.GET.get("past") in {"1", "true", "on"}
+    agent_filter = (request.GET.get("agent") or "all").strip()
+
+    off_qs = (
+        InsuranceAgentOffDay.objects.filter(organization=org)
+        .select_related("membership__user", "created_by")
+        .order_by("off_date", "membership__user__first_name")
+    )
+    if not show_past:
+        off_qs = off_qs.filter(off_date__gte=today)
+    if agent_filter.isdigit():
+        off_qs = off_qs.filter(membership_id=int(agent_filter))
+
+    off_days = list(off_qs[:200])
+    upcoming_count = InsuranceAgentOffDay.objects.filter(
+        organization=org, off_date__gte=today
+    ).count()
+
+    ctx.update(
+        {
+            "insurance_space": space,
+            "off_days_page": off_days,
+            "off_days_upcoming_count": upcoming_count,
+            "off_days_show_past": show_past,
+            "off_days_agent_filter": agent_filter,
+            "quote_form_next": reverse("quote-agent-off-days"),
+            "off_days_today": today,
+        }
+    )
+    return render(request, "core/insurance_quote_off_days.html", ctx)
 
 
 @login_required

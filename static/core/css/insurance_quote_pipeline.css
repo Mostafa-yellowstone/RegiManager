@@ -1764,12 +1764,13 @@ html.portal-theme-dark .iqp-assign-row select {
 }
 
 .iqp-records-page {
-  padding: 1.25rem 1.5rem 2.5rem;
+  padding: 1rem 1.1rem 2.25rem;
 }
 
 .iqp-records {
-  max-width: 1400px;
-  margin: 0 auto;
+  max-width: none;
+  width: 100%;
+  margin: 0;
   display: grid;
   gap: 1rem;
 }
@@ -1924,8 +1925,10 @@ html.portal-theme-dark .iqp-assign-row select {
 
 .iqp-records__vin {
   display: inline-block;
-  margin-top: 0.2rem;
-  font-size: 0.72rem;
+  margin-top: 0.28rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
   color: #0f766e;
 }
 
@@ -2276,4 +2279,372 @@ html.portal-theme-dark .iqp-assign-row select {
   .iqp-card__grid {
     grid-template-columns: 1fr 1fr;
   }
+}
+/* Smart distribution off-days link + dedicated page */
+.iqp-control__offlink {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 1rem;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, #0d9488 28%, var(--iqp-line));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, #0d9488 10%, #fff), #fff 55%);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+.iqp-control__offlink:hover {
+  border-color: color-mix(in srgb, #0d9488 48%, var(--iqp-line));
+  box-shadow: 0 10px 24px rgba(13, 148, 136, 0.12);
+  transform: translateY(-1px);
+}
+.iqp-control__offlink-icon {
+  flex-shrink: 0;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: #0f766e;
+  background: color-mix(in srgb, #0d9488 14%, #fff);
+  border: 1px solid color-mix(in srgb, #0d9488 22%, transparent);
+}
+.iqp-control__offlink-copy {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+.iqp-control__offlink-copy strong {
+  font-size: 0.95rem;
+  color: var(--iqp-ink);
+}
+.iqp-control__offlink-copy small {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--iqp-muted);
+  line-height: 1.35;
+}
+.iqp-control__offlink-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #0f766e;
+}
+.iqp-control__offlink-meta em {
+  font-style: normal;
+  font-weight: 900;
+  font-size: 1.05rem;
+}
+
+.iqp-offdays-page {
+  padding: 1rem 1.1rem 2.5rem;
+}
+.iqp-offdays-shell {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  gap: 1rem;
+}
+.iqp-offdays-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding: 1.25rem 1.35rem;
+  border-radius: 22px;
+  border: 1px solid var(--iqp-line);
+  background:
+    radial-gradient(ellipse 80% 120% at 0% 0%, rgba(13, 148, 136, 0.14), transparent 55%),
+    radial-gradient(ellipse 50% 80% at 100% 0%, rgba(79, 70, 229, 0.08), transparent 50%),
+    var(--iqp-card);
+}
+.iqp-offdays-hero__title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+.iqp-offdays-hero__icon {
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  color: #0f766e;
+  background: color-mix(in srgb, #0d9488 12%, #fff);
+  border: 1px solid color-mix(in srgb, #0d9488 20%, transparent);
+}
+.iqp-offdays-hero h1 {
+  margin: 0;
+  font-size: 1.55rem;
+  letter-spacing: -0.03em;
+  color: var(--iqp-ink);
+}
+.iqp-offdays-hero p {
+  margin: 0.3rem 0 0;
+  color: var(--iqp-muted);
+  font-weight: 650;
+  max-width: 36rem;
+}
+.iqp-offdays-hero__stats {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+.iqp-offdays-stat {
+  min-width: 7.5rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid var(--iqp-line);
+  background: #fff;
+  display: grid;
+  gap: 0.15rem;
+}
+.iqp-offdays-stat em {
+  font-style: normal;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: var(--iqp-ink);
+  line-height: 1;
+}
+.iqp-offdays-stat span {
+  font-size: 0.72rem;
+  font-weight: 750;
+  color: var(--iqp-muted);
+}
+
+.iqp-offdays-compose {
+  padding: 1.15rem 1.25rem;
+  border-radius: 20px;
+  border: 1px solid var(--iqp-line);
+  background: var(--iqp-card);
+  display: grid;
+  gap: 0.9rem;
+}
+.iqp-offdays-compose__head h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+.iqp-offdays-compose__head p {
+  margin: 0;
+  color: var(--iqp-muted);
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+.iqp-offdays-compose__form {
+  display: grid;
+  grid-template-columns: 1.3fr 0.85fr 0.85fr 1.2fr auto;
+  gap: 0.65rem;
+  align-items: end;
+}
+@media (max-width: 980px) {
+  .iqp-offdays-compose__form {
+    grid-template-columns: 1fr 1fr;
+  }
+  .iqp-offdays-compose__reason,
+  .iqp-offdays-compose__submit {
+    grid-column: 1 / -1;
+  }
+}
+.iqp-offdays-compose__form .iqp-adv-field {
+  display: grid;
+  gap: 0.28rem;
+}
+.iqp-offdays-compose__form .iqp-adv-field > span {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--iqp-muted);
+}
+.iqp-offdays-compose__form input,
+.iqp-offdays-compose__form select {
+  width: 100%;
+  min-height: 2.45rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 12px;
+  border: 1px solid var(--iqp-line);
+  background: #fff;
+  font: inherit;
+  font-weight: 650;
+}
+.iqp-offdays-compose__submit {
+  min-height: 2.45rem;
+  white-space: nowrap;
+}
+
+.iqp-offdays-board {
+  padding: 1.1rem 1.2rem 1.25rem;
+  border-radius: 20px;
+  border: 1px solid var(--iqp-line);
+  background: color-mix(in srgb, var(--iqp-soft) 70%, #fff);
+  display: grid;
+  gap: 0.85rem;
+}
+.iqp-offdays-board__toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  align-items: end;
+}
+.iqp-offdays-board__toolbar h2 {
+  margin: 0;
+  font-size: 1.02rem;
+}
+.iqp-offdays-board__filters {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  align-items: end;
+}
+.iqp-offdays-board__filters .iqp-adv-field {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 11rem;
+}
+.iqp-offdays-board__filters .iqp-adv-field > span {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--iqp-muted);
+}
+.iqp-offdays-board__filters select {
+  min-height: 2.2rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid var(--iqp-line);
+  background: #fff;
+  font: inherit;
+}
+
+.iqp-offdays-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+.iqp-offdays-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.85rem;
+  align-items: center;
+  padding: 0.85rem 0.95rem;
+  border-radius: 16px;
+  border: 1px solid var(--iqp-line);
+  background: #fff;
+}
+.iqp-offdays-card.is-past {
+  opacity: 0.72;
+}
+.iqp-offdays-card.is-today {
+  border-color: color-mix(in srgb, #0d9488 40%, var(--iqp-line));
+  box-shadow: 0 8px 20px rgba(13, 148, 136, 0.08);
+}
+.iqp-offdays-card__date {
+  width: 4.4rem;
+  padding: 0.55rem 0.4rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, #0d9488 10%, #fff);
+  border: 1px solid color-mix(in srgb, #0d9488 18%, transparent);
+  text-align: center;
+  display: grid;
+  gap: 0.05rem;
+}
+.iqp-offdays-card__date strong {
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+.iqp-offdays-card__date em {
+  font-style: normal;
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: var(--iqp-ink);
+  line-height: 1.1;
+}
+.iqp-offdays-card__date span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--iqp-muted);
+}
+.iqp-offdays-card__body strong {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--iqp-ink);
+}
+.iqp-offdays-card__body p {
+  margin: 0.2rem 0 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--iqp-ink);
+}
+.iqp-offdays-card__body p.is-muted {
+  color: var(--iqp-muted);
+}
+.iqp-offdays-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.16rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 850;
+  background: var(--iqp-soft);
+  border: 1px solid var(--iqp-line);
+  color: var(--iqp-muted);
+}
+.iqp-offdays-pill.is-live {
+  background: rgba(13, 148, 136, 0.12);
+  border-color: rgba(13, 148, 136, 0.24);
+  color: #0f766e;
+}
+.iqp-offdays-pill.is-past {
+  background: rgba(148, 163, 184, 0.16);
+}
+.iqp-offdays-empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 2.2rem 1rem;
+  text-align: center;
+  border-radius: 16px;
+  border: 1px dashed var(--iqp-line);
+  background: #fff;
+  color: var(--iqp-muted);
+}
+.iqp-offdays-empty strong {
+  color: var(--iqp-ink);
+  font-size: 1rem;
+}
+.iqp-offdays-empty p {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 650;
+  max-width: 26rem;
+}
+@media (max-width: 700px) {
+  .iqp-offdays-card {
+    grid-template-columns: auto 1fr;
+  }
+  .iqp-offdays-card__remove {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+}
+
+.iqp-card__vin,
+.iqp-records__vin {
+  font-size: 0.95rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em;
 }

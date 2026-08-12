@@ -1,0 +1,146 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}Agent days off | RegiManager{% endblock %}
+
+{% block portal_head %}
+<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=24">
+{% endblock %}
+
+{% block portal_content %}
+<main class="dashboard-shell iqp iqp-offdays-page">
+  <div class="iqp-offdays-shell">
+    <header class="iqp-offdays-hero">
+      <div class="iqp-offdays-hero__copy">
+        {% if insurance_space %}
+        <a class="iqp-records__back" href="/dashboard/inventory/{{ insurance_space.id }}/?tab=quote-pipeline">← Back to pipeline</a>
+        {% endif %}
+        <div class="iqp-offdays-hero__title-row">
+          <span class="iqp-offdays-hero__icon" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+              <rect x="3" y="4" width="18" height="18" rx="3"/>
+              <path d="M16 2v4M8 2v4M3 10h18"/>
+              <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>
+            </svg>
+          </span>
+          <div>
+            <h1>Agent days off</h1>
+            <p>Schedule PTO or leave periods so smart distribution skips these agents automatically.</p>
+          </div>
+        </div>
+      </div>
+      <div class="iqp-offdays-hero__stats">
+        <div class="iqp-offdays-stat">
+          <em>{{ off_days_upcoming_count }}</em>
+          <span>Upcoming off days</span>
+        </div>
+        <div class="iqp-offdays-stat">
+          <em>{{ quote_distribution.eligible_count }}</em>
+          <span>Eligible today</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="iqp-offdays-compose">
+      <div class="iqp-offdays-compose__head">
+        <h2>Schedule an off period</h2>
+        <p>Pick an agent and a from–to range. Every day in the period is excluded from auto-distribution.</p>
+      </div>
+      <form method="post" action="{% url 'add-insurance-agent-off-day' %}" class="iqp-offdays-compose__form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'quote-agent-off-days' %}">
+        <label class="iqp-adv-field">
+          <span>Agent</span>
+          <select name="membership_id" required>
+            <option value="">Select insurance agent</option>
+            {% for agent in quote_auto_agents|default:quote_agents %}
+            <option value="{{ agent.id }}">{{ agent.user.get_full_name|default:agent.user.username }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="iqp-adv-field">
+          <span>From</span>
+          <input type="date" name="off_date_from" required value="{{ off_days_today|date:'Y-m-d' }}">
+        </label>
+        <label class="iqp-adv-field">
+          <span>To</span>
+          <input type="date" name="off_date_to" required value="{{ off_days_today|date:'Y-m-d' }}">
+        </label>
+        <label class="iqp-adv-field iqp-offdays-compose__reason">
+          <span>Reason (optional)</span>
+          <input type="text" name="reason" placeholder="PTO, training, leave…" maxlength="200">
+        </label>
+        <button type="submit" class="iqp-btn iqp-btn--primary iqp-offdays-compose__submit">
+          Save off period
+        </button>
+      </form>
+    </section>
+
+    <section class="iqp-offdays-board">
+      <div class="iqp-offdays-board__toolbar">
+        <h2>{% if off_days_show_past %}All scheduled days{% else %}Upcoming schedule{% endif %}</h2>
+        <form method="get" class="iqp-offdays-board__filters">
+          <label class="iqp-adv-field">
+            <span>Agent</span>
+            <select name="agent" onchange="this.form.submit()">
+              <option value="all" {% if off_days_agent_filter == 'all' %}selected{% endif %}>All agents</option>
+              {% for agent in quote_auto_agents|default:quote_agents %}
+              <option value="{{ agent.id }}" {% if off_days_agent_filter == agent.id|stringformat:'s' %}selected{% endif %}>
+                {{ agent.user.get_full_name|default:agent.user.username }}
+              </option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="iqp-check-pill">
+            <input type="checkbox" name="past" value="1" {% if off_days_show_past %}checked{% endif %} onchange="this.form.submit()">
+            <span>Include past</span>
+          </label>
+        </form>
+      </div>
+
+      <ul class="iqp-offdays-cards">
+        {% for day in off_days_page %}
+        <li class="iqp-offdays-card{% if day.off_date < off_days_today %} is-past{% endif %}{% if day.off_date == off_days_today %} is-today{% endif %}">
+          <div class="iqp-offdays-card__date">
+            <strong>{{ day.off_date|date:"D" }}</strong>
+            <em>{{ day.off_date|date:"M j" }}</em>
+            <span>{{ day.off_date|date:"Y" }}</span>
+          </div>
+          <div class="iqp-offdays-card__body">
+            <strong>{{ day.membership.user.get_full_name|default:day.membership.user.username }}</strong>
+            {% if day.reason %}
+            <p>{{ day.reason }}</p>
+            {% else %}
+            <p class="is-muted">No reason noted</p>
+            {% endif %}
+            {% if day.off_date == off_days_today %}
+            <span class="iqp-offdays-pill is-live">Off today — skipped by auto</span>
+            {% elif day.off_date > off_days_today %}
+            <span class="iqp-offdays-pill">Upcoming</span>
+            {% else %}
+            <span class="iqp-offdays-pill is-past">Past</span>
+            {% endif %}
+          </div>
+          <form method="post" action="{% url 'delete-insurance-agent-off-day' day.id %}" class="iqp-offdays-card__remove" onsubmit="return confirm('Remove this off day?');">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'quote-agent-off-days' %}">
+            <button type="submit" class="iqp-btn iqp-btn--tiny iqp-btn--danger">Remove</button>
+          </form>
+        </li>
+        {% empty %}
+        <li class="iqp-offdays-empty">
+          <span class="iqp-offdays-hero__icon" aria-hidden="true">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <rect x="3" y="4" width="18" height="18" rx="3"/>
+              <path d="M16 2v4M8 2v4M3 10h18"/>
+            </svg>
+          </span>
+          <strong>No off days scheduled</strong>
+          <p>Add a from–to period above to keep agents out of smart distribution.</p>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+</main>
+{% endblock %}

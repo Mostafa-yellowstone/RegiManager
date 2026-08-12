@@ -40,6 +40,7 @@ from core.insurance_quote_pipeline_views import (
     delete_quote_lead,
     download_quote_lead_document,
     edit_quote_lead,
+    quote_agent_off_days,
     quote_records,
     save_quote_distribution_config,
     update_quote_lead_stage,
@@ -510,6 +511,11 @@ urlpatterns = [
         "dashboard/insurance-quotes/distribution/",
         save_quote_distribution_config,
         name="save-quote-distribution-config",
+    ),
+    path(
+        "dashboard/insurance-quotes/off-days/",
+        quote_agent_off_days,
+        name="quote-agent-off-days",
     ),
     path(
         "dashboard/insurance-quotes/off-days/add/",
