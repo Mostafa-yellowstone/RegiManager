@@ -163,6 +163,22 @@ def _lead_task_description(lead: InsuranceQuoteLead) -> str:
         if lead.vin:
             car_line += f" · VIN {lead.vin}"
         parts.append(f"Car: {car_line}")
+    extra_cars = list(lead.additional_vehicles.all()[:8])
+    for idx, vehicle in enumerate(extra_cars, start=2):
+        bits = [
+            x
+            for x in [
+                vehicle.year,
+                vehicle.make,
+                vehicle.model,
+            ]
+            if x
+        ]
+        car_line = " ".join(bits) if bits else "Vehicle"
+        if vehicle.vin:
+            car_line += f" · VIN {vehicle.vin}"
+        if bits or vehicle.vin:
+            parts.append(f"Car {idx}: {car_line}")
     if lead.dl_number or lead.date_of_birth:
         dl_bits = []
         if lead.dl_number:

@@ -1,22 +1,70 @@
 <div class="iqp-live" id="iqpLiveRegion">
+  <!-- KPI Metrics Strip -->
   <div class="iqp-kpis">
-    <article><span>Leads</span><strong>{{ quote_kpis.total }}</strong></article>
-    <article><span>Unassigned</span><strong>{{ quote_kpis.unassigned }}</strong></article>
-    <article><span>Quoting</span><strong>{{ quote_kpis.quoting }}</strong></article>
-    <article><span>Won</span><strong>{{ quote_kpis.won }}</strong></article>
+    <article class="iqp-kpi-card iqp-kpi-card--total">
+      <div class="iqp-kpi-card__icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      </div>
+      <div>
+        <span>Total Leads</span>
+        <strong>{{ quote_kpis.total }}</strong>
+      </div>
+    </article>
+
+    <article class="iqp-kpi-card iqp-kpi-card--unassigned">
+      <div class="iqp-kpi-card__icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
+      </div>
+      <div>
+        <span>Unassigned</span>
+        <strong>{{ quote_kpis.unassigned }}</strong>
+      </div>
+    </article>
+
+    <article class="iqp-kpi-card iqp-kpi-card--quoting">
+      <div class="iqp-kpi-card__icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <div>
+        <span>Actively Quoting</span>
+        <strong>{{ quote_kpis.quoting }}</strong>
+      </div>
+    </article>
+
+    <article class="iqp-kpi-card iqp-kpi-card--won">
+      <div class="iqp-kpi-card__icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      </div>
+      <div>
+        <span>Won &amp; Bound</span>
+        <strong>{{ quote_kpis.won }}</strong>
+      </div>
+    </article>
+
+    <div class="iqp-kpis__action">
+      <button type="button" class="iqp-btn iqp-btn--adv-filter" onclick="iqpToggleAdvancedFilter('all')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Advanced Control &amp; Filter
+      </button>
+    </div>
   </div>
 
+  <!-- Main Pipeline Kanban Board (Top 3 Records Per Stage) -->
   <div class="iqp-board">
     {% for stage in quote_stages %}
     <section class="iqp-column iqp-column--{{ stage.key }}">
-      <header>
-        <h3>{{ stage.label }}</h3>
-        <span>{{ stage.leads|length }}</span>
+      <header class="iqp-column__header">
+        <div class="iqp-column__title-wrap">
+          <span class="iqp-stage-dot iqp-stage-dot--{{ stage.key }}"></span>
+          <h3>{{ stage.label }}</h3>
+        </div>
+        <span class="iqp-column__count-badge">{{ stage.total_count }}</span>
       </header>
-      <ul>
-        {% for lead in stage.leads %}
+
+      <ul class="iqp-column__cards">
+        {% for lead in stage.latest_leads %}
         <li
-          class="iqp-card"
+          class="iqp-card iqp-card--stage-{{ stage.key }}"
           data-lead-id="{{ lead.id }}"
           data-client-name="{{ lead.client_name }}"
           data-phone="{{ lead.phone }}"
@@ -37,6 +85,7 @@
           data-dl-number="{{ lead.dl_number }}"
           data-date-of-birth="{% if lead.date_of_birth %}{{ lead.date_of_birth|date:'Y-m-d' }}{% endif %}"
           data-extra-drivers='[{% for d in lead.additional_drivers.all %}{"name":"{{ d.full_name|escapejs }}","dl":"{{ d.dl_number|escapejs }}","dob":"{% if d.date_of_birth %}{{ d.date_of_birth|date:'Y-m-d' }}{% endif %}"}{% if not forloop.last %},{% endif %}{% endfor %}]'
+          data-extra-cars='[{% for v in lead.additional_vehicles.all %}{"make":"{{ v.make|escapejs }}","model":"{{ v.model|escapejs }}","year":"{{ v.year|escapejs }}","vin":"{{ v.vin|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]'
           data-has-prior="{% if lead.has_prior %}1{% else %}0{% endif %}"
           data-is-experienced="{% if lead.is_experienced %}1{% else %}0{% endif %}"
           data-has-accident="{% if lead.has_accident %}1{% else %}0{% endif %}"
@@ -48,126 +97,429 @@
           data-edit-url="{% url 'edit-quote-lead' lead.id %}"
           style="--i:{{ forloop.counter0 }}"
         >
+          <!-- Card Header -->
           <div class="iqp-card__top">
-            <strong>{{ lead.client_name }}</strong>
-            <span class="iqp-badge">{{ lead.insurance_type|default:"General"|cut:"_"|title }}</span>
+            <div class="iqp-card__who">
+              <div class="iqp-avatar-circle" aria-hidden="true">
+                {{ lead.client_name|slice:":1"|upper }}
+              </div>
+              <div>
+                <strong class="iqp-card__client-name">{{ lead.client_name }}</strong>
+                <span class="iqp-card__date-ago">{{ lead.created_at|timesince }} ago</span>
+              </div>
+            </div>
+            <span class="iqp-badge iqp-badge--type">{{ lead.insurance_type|default:"General"|cut:"_"|title }}</span>
           </div>
-          <p class="iqp-card__meta">{{ lead.phone }}{% if lead.email %} · {{ lead.email }}{% endif %}</p>
-          {% if lead.heard_about %}
-          <p class="iqp-card__meta iqp-card__meta--secondary">Heard about us: {{ lead.get_heard_about_display }}</p>
-          {% endif %}
-          {% if lead.street_address or lead.city or lead.zip_code %}
-          <p class="iqp-card__meta iqp-card__meta--secondary">
-            {% if lead.street_address %}{{ lead.street_address }}{% endif %}
-            {% if lead.apartment %}{% if lead.street_address %}, {% endif %}{{ lead.apartment }}{% endif %}
-            {% if lead.city or lead.state or lead.zip_code %}
-              {% if lead.street_address or lead.apartment %} · {% endif %}
-              {{ lead.city }}{% if lead.city and lead.state %}, {% endif %}{{ lead.state }} {{ lead.zip_code }}
+
+          <!-- Contact Micro Info -->
+          <div class="iqp-card__contact">
+            <a href="tel:{{ lead.phone }}" class="iqp-contact-chip" title="Call {{ lead.phone }}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              <span>{{ lead.phone }}</span>
+            </a>
+            {% if lead.email %}
+            <a href="mailto:{{ lead.email }}" class="iqp-contact-chip" title="{{ lead.email }}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              <span>{{ lead.email|truncatechars:18 }}</span>
+            </a>
             {% endif %}
-          </p>
-          {% endif %}
-          {% if lead.vehicle_ownership or lead.coverage_type or lead.vehicle_make or lead.vehicle_model or lead.vehicle_year or lead.vin %}
-          <p class="iqp-card__meta iqp-card__meta--secondary">
+          </div>
+
+          <!-- Vehicle & Address micro section -->
+          {% if lead.vehicle_year or lead.vehicle_make or lead.vehicle_model or lead.vin or lead.additional_vehicles.all or lead.city %}
+          <div class="iqp-card__vehicle-box">
             {% if lead.vehicle_year or lead.vehicle_make or lead.vehicle_model %}
-              {{ lead.vehicle_year }} {{ lead.vehicle_make }} {{ lead.vehicle_model }}
+            <div class="iqp-vehicle-line">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C1.4 11.2 1 12.1 1 13v3c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+              <strong>{{ lead.vehicle_year }} {{ lead.vehicle_make }} {{ lead.vehicle_model }}</strong>
+            </div>
             {% endif %}
-            {% if lead.vin %}{% if lead.vehicle_year or lead.vehicle_make or lead.vehicle_model %} · {% endif %}VIN {{ lead.vin }}{% endif %}
-          </p>
-          <p class="iqp-card__meta iqp-card__meta--secondary">
-            {% if lead.vehicle_ownership %}{{ lead.get_vehicle_ownership_display }}{% endif %}
-            {% if lead.vehicle_ownership and lead.coverage_type %} · {% endif %}
-            {% if lead.coverage_type %}{{ lead.get_coverage_type_display }}{% endif %}
-          </p>
-          {% endif %}
-          {% if lead.dl_number or lead.date_of_birth %}
-          <p class="iqp-card__meta iqp-card__meta--secondary">
-            Primary
-            {% if lead.dl_number %} · DL {{ lead.dl_number }}{% endif %}
-            {% if lead.date_of_birth %} · DOB {{ lead.date_of_birth|date:"M j, Y" }}{% endif %}
-          </p>
-          {% endif %}
-          {% for d in lead.additional_drivers.all %}
-          <p class="iqp-card__meta iqp-card__meta--secondary">
-            {% if d.full_name %}{{ d.full_name }}{% else %}Additional driver{% endif %}
-            {% if d.dl_number %} · DL {{ d.dl_number }}{% endif %}
-            {% if d.date_of_birth %} · DOB {{ d.date_of_birth|date:"M j, Y" }}{% endif %}
-          </p>
-          {% endfor %}
-          <div class="iqp-flags">
-            <span class="{% if lead.has_prior %}is-on{% endif %}">{% if lead.has_prior %}Prior{% else %}No prior{% endif %}</span>
-            <span class="{% if lead.is_experienced %}is-on{% endif %}">{% if lead.is_experienced %}Experienced{% else %}New{% endif %}</span>
-            <span class="{% if lead.has_accident %}is-warn{% endif %}">{% if lead.has_accident %}Accident{% else %}Clean{% endif %}</span>
+            {% if lead.vin %}
+            <div class="iqp-vin-tag">VIN: <code>{{ lead.vin }}</code></div>
+            {% endif %}
+            {% for v in lead.additional_vehicles.all %}
+            <div class="iqp-vehicle-line">
+              <strong>{% if v.year or v.make or v.model %}{{ v.year }} {{ v.make }} {{ v.model }}{% else %}Additional car{% endif %}</strong>
+            </div>
+            {% if v.vin %}
+            <div class="iqp-vin-tag">VIN: <code>{{ v.vin }}</code></div>
+            {% endif %}
+            {% endfor %}
+            {% if lead.city or lead.state %}
+            <div class="iqp-loc-tag">📍 {{ lead.city }}{% if lead.state %}, {{ lead.state }}{% endif %}</div>
+            {% endif %}
           </div>
-          {% if lead.recommended_companies.all %}
-          <div class="iqp-carriers">
-            {% for co in lead.recommended_companies.all %}
-            <em>{{ co.name }}</em>
+          {% endif %}
+
+          {% if lead.dl_number or lead.date_of_birth or lead.additional_drivers.all %}
+          <div class="iqp-card__meta iqp-card__meta--secondary">
+            {% if lead.dl_number or lead.date_of_birth %}
+            <div>Primary{% if lead.dl_number %} · DL {{ lead.dl_number }}{% endif %}{% if lead.date_of_birth %} · DOB {{ lead.date_of_birth|date:"M j, Y" }}{% endif %}</div>
+            {% endif %}
+            {% for d in lead.additional_drivers.all %}
+            <div>{% if d.full_name %}{{ d.full_name }}{% else %}Additional driver{% endif %}{% if d.dl_number %} · DL {{ d.dl_number }}{% endif %}{% if d.date_of_birth %} · DOB {{ d.date_of_birth|date:"M j, Y" }}{% endif %}</div>
             {% endfor %}
           </div>
           {% endif %}
+
+          <!-- Driver License & History Flags -->
+          <div class="iqp-flags">
+            <span class="iqp-flag {% if lead.has_prior %}is-on{% endif %}">{% if lead.has_prior %}✓ Prior Ins.{% else %}No Prior{% endif %}</span>
+            <span class="iqp-flag {% if lead.is_experienced %}is-on{% endif %}">{% if lead.is_experienced %}✓ Experienced{% else %}New Driver{% endif %}</span>
+            <span class="iqp-flag {% if lead.has_accident %}is-warn{% endif %}">{% if lead.has_accident %}⚠️ Accident Hist.{% else %}✓ Clean Record{% endif %}</span>
+          </div>
+
+          <!-- Recommended Companies -->
+          {% if lead.recommended_companies.all %}
+          <div class="iqp-carriers">
+            {% for co in lead.recommended_companies.all %}
+            <em class="iqp-carrier-tag">{{ co.name }}</em>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          <!-- Document Attachments -->
           {% if lead.documents.all %}
             {% if can_manage_quote_distribution or quote_pipeline_membership and lead.assigned_to_id == quote_pipeline_membership.id %}
             <div class="iqp-docs">
-              <span class="iqp-docs__label">Documents</span>
-              {% for doc in lead.documents.all %}
-              <a class="iqp-docs__link" href="{% url 'download-quote-lead-document' doc.id %}" target="_blank" rel="noopener">
-                {{ doc.original_name|default:doc.file.name }}
-              </a>
-              {% endfor %}
+              <span class="iqp-docs__label">📎 Documents ({{ lead.documents.all|length }})</span>
+              <div class="iqp-docs__list">
+                {% for doc in lead.documents.all %}
+                <a class="iqp-docs__link" href="{% url 'download-quote-lead-document' doc.id %}" target="_blank" rel="noopener">
+                  {{ doc.original_name|default:doc.file.name|truncatechars:20 }}
+                </a>
+                {% endfor %}
+              </div>
             </div>
             {% endif %}
           {% endif %}
+
+          <!-- Assignee & Notes -->
+          <div class="iqp-card__footer-meta">
+            <div class="iqp-card__assignee">
+              {% if lead.assigned_to %}
+              <span class="iqp-assignee-avatar">{{ lead.assigned_to.user.get_full_name|default:lead.assigned_to.user.username|slice:":1"|upper }}</span>
+              <span>{{ lead.assigned_to.user.get_full_name|default:lead.assigned_to.user.username }}</span>
+              {% else %}
+              <span class="iqp-assignee-unassigned">Unassigned</span>
+              {% endif %}
+            </div>
+          </div>
+
+          {% if lead.notes %}
+          <p class="iqp-notes">{{ lead.notes|truncatechars:100 }}</p>
+          {% endif %}
+
+          <!-- Stage Dropdown / Fast Actions -->
+          <div class="iqp-card__actions-row">
+            <form method="post" action="{% url 'update-quote-lead-stage' lead.id %}" class="iqp-card__stage">
+              {% csrf_token %}
+              <select name="stage" onchange="this.form.submit()">
+                {% for value, label in quote_stage_choices %}
+                <option value="{{ value }}" {% if lead.stage == value %}selected{% endif %}>Stage: {{ label }}</option>
+                {% endfor %}
+              </select>
+            </form>
+
+            <div class="iqp-card__btn-group">
+              {% if can_edit_quote_leads %}
+              <button type="button" class="iqp-btn iqp-btn--tiny iqp-btn--ghost" data-iqp-edit-lead>Edit</button>
+              {% endif %}
+              {% if can_delete_quote_leads %}
+              <form method="post" action="{% url 'delete-quote-lead' lead.id %}" class="iqp-card__delete" onsubmit="return confirm('Remove this quote lead? This also deletes the linked agent task.');">
+                {% csrf_token %}
+                <button type="submit" class="iqp-btn iqp-btn--tiny iqp-btn--danger">Delete</button>
+              </form>
+              {% endif %}
+            </div>
+          </div>
+        </li>
+        {% empty %}
+        <li class="iqp-empty">No leads in {{ stage.label }}.</li>
+        {% endfor %}
+      </ul>
+
+      <!-- Stage Column Footer Banner for Remaining Records -->
+      {% if stage.has_more %}
+      <footer class="iqp-column__footer">
+        <button type="button" class="iqp-more-records-btn" onclick="iqpToggleAdvancedFilter('{{ stage.key }}')">
+          <span class="iqp-more-badge">+{{ stage.more_count }}</span>
+          <span>More in {{ stage.label }}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+        </button>
+      </footer>
+      {% endif %}
+    </section>
+    {% endfor %}
+  </div>
+
+  <!-- Advanced Control & Filter Center Modal / Panel -->
+  <div class="iqp-adv-panel" id="iqpAdvancedFilterPanel" hidden>
+    <div class="iqp-adv-panel__header">
+      <div>
+        <h3>⚡ Advanced Quote Control &amp; Filter Center</h3>
+        <p>Filter across all quote records with multi-dimensional search, stage filter, agent assignment, and bulk management.</p>
+      </div>
+      <button type="button" class="iqp-adv-panel__close" onclick="iqpToggleAdvancedFilter()" aria-label="Close Filter">&times;</button>
+    </div>
+
+    <!-- Filter Form Bar -->
+    <div class="iqp-adv-panel__controls">
+      <div class="iqp-adv-panel__row">
+        <div class="iqp-adv-field iqp-adv-field--search">
+          <label for="iqpSearchInput">Search Records</label>
+          <input type="search" id="iqpSearchInput" placeholder="Search by name, phone, email, VIN, address, carrier…" onkeyup="iqpApplyAdvancedFilters()">
+        </div>
+
+        <div class="iqp-adv-field">
+          <label for="iqpStageFilter">Stage</label>
+          <select id="iqpStageFilter" onchange="iqpApplyAdvancedFilters()">
+            <option value="all">All Stages</option>
+            {% for value, label in quote_stage_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="iqp-adv-field">
+          <label for="iqpAgentFilter">Assigned Agent</label>
+          <select id="iqpAgentFilter" onchange="iqpApplyAdvancedFilters()">
+            <option value="all">All Agents</option>
+            <option value="unassigned">Unassigned Only</option>
+            {% for agent in quote_agents %}
+            <option value="{{ agent.id }}">{{ agent.user.get_full_name|default:agent.user.username }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="iqp-adv-field">
+          <label for="iqpTypeFilter">Insurance Type</label>
+          <select id="iqpTypeFilter" onchange="iqpApplyAdvancedFilters()">
+            <option value="all">All Insurance Types</option>
+            {% for opt in quote_type_options %}
+            <option value="{{ opt.key }}">{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Secondary Flags & View Mode Switcher -->
+      <div class="iqp-adv-panel__subrow">
+        <div class="iqp-adv-flags">
+          <label class="iqp-check-pill">
+            <input type="checkbox" id="iqpFlagPrior" onchange="iqpApplyAdvancedFilters()">
+            <span>Has Prior Insurance</span>
+          </label>
+          <label class="iqp-check-pill">
+            <input type="checkbox" id="iqpFlagAccident" onchange="iqpApplyAdvancedFilters()">
+            <span>Accident History</span>
+          </label>
+        </div>
+
+        <div class="iqp-adv-view-toggle">
+          <button type="button" class="iqp-view-btn is-active" id="iqpViewCardsBtn" onclick="iqpSwitchAdvView('cards')">Grid Cards</button>
+          <button type="button" class="iqp-view-btn" id="iqpViewTableBtn" onclick="iqpSwitchAdvView('table')">Full Table</button>
+        </div>
+
+        <button type="button" class="iqp-btn iqp-btn--ghost" onclick="iqpResetAdvancedFilters()">Reset Filters</button>
+      </div>
+    </div>
+
+    <!-- Filter Results Header -->
+    <div class="iqp-adv-panel__results-bar">
+      <span id="iqpAdvMatchCount">Showing 0 matching records</span>
+      <span class="iqp-adv-badge">Full Control Mode</span>
+    </div>
+
+    <!-- Rendered Records Grid View -->
+    <div class="iqp-adv-records-grid" id="iqpAdvGrid">
+      {% for stage in quote_stages %}
+        {% for lead in stage.leads %}
+        <div
+          class="iqp-adv-card iqp-card"
+          data-adv-lead-id="{{ lead.id }}"
+          data-adv-stage="{{ lead.stage }}"
+          data-adv-assigned="{{ lead.assigned_to_id|default:'unassigned' }}"
+          data-adv-type="{{ lead.insurance_type|default:'' }}"
+          data-adv-prior="{% if lead.has_prior %}1{% else %}0{% endif %}"
+          data-adv-accident="{% if lead.has_accident %}1{% else %}0{% endif %}"
+          data-adv-search="{{ lead.client_name }} {{ lead.phone }} {{ lead.email }} {{ lead.vehicle_make }} {{ lead.vehicle_model }} {{ lead.vin }} {% for v in lead.additional_vehicles.all %}{{ v.make }} {{ v.model }} {{ v.vin }} {% endfor %}{{ lead.city }} {{ lead.notes }}"
+        >
+          <div class="iqp-card__top">
+            <strong class="iqp-card__client-name">{{ lead.client_name }}</strong>
+            <span class="iqp-badge iqp-badge--stage-{{ lead.stage }}">{{ lead.get_stage_display }}</span>
+          </div>
+          <p class="iqp-card__meta">📞 {{ lead.phone }}{% if lead.email %} · ✉️ {{ lead.email }}{% endif %}</p>
+          {% if lead.vehicle_make or lead.vehicle_model or lead.vin or lead.additional_vehicles.all %}
+          <div class="iqp-vin-tag">🚗 {{ lead.vehicle_year }} {{ lead.vehicle_make }} {{ lead.vehicle_model }} {% if lead.vin %}(VIN {{ lead.vin }}){% endif %}</div>
+          {% for v in lead.additional_vehicles.all %}
+          <div class="iqp-vin-tag">🚗 {% if v.year or v.make or v.model %}{{ v.year }} {{ v.make }} {{ v.model }}{% else %}Additional car{% endif %}{% if v.vin %} (VIN {{ v.vin }}){% endif %}</div>
+          {% endfor %}
+          {% endif %}
+          <div class="iqp-flags">
+            <span class="iqp-flag {% if lead.has_prior %}is-on{% endif %}">{% if lead.has_prior %}Prior Ins.{% else %}No Prior{% endif %}</span>
+            <span class="iqp-flag {% if lead.has_accident %}is-warn{% endif %}">{% if lead.has_accident %}Accident Hist.{% else %}Clean Record{% endif %}</span>
+          </div>
           <div class="iqp-card__assignee">
             {% if lead.assigned_to %}
-            {{ lead.assigned_to.user.get_full_name|default:lead.assigned_to.user.username }}
-            <small>{{ lead.get_assignment_mode_display }}</small>
+            👤 {{ lead.assigned_to.user.get_full_name|default:lead.assigned_to.user.username }}
             {% else %}
             <em>Unassigned</em>
             {% endif %}
           </div>
-          {% if lead.notes %}<p class="iqp-notes">{{ lead.notes|truncatechars:120 }}</p>{% endif %}
-
-          <form method="post" action="{% url 'update-quote-lead-stage' lead.id %}" class="iqp-card__stage">
-            {% csrf_token %}
-            <select name="stage" onchange="this.form.submit()">
-              {% for value, label in quote_stage_choices %}
-              <option value="{{ value }}" {% if lead.stage == value %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </form>
-
-          {% if can_manage_quote_distribution %}
-          <form method="post" action="{% url 'assign-quote-lead' lead.id %}" class="iqp-card__assign">
-            {% csrf_token %}
-            <select name="assigned_to" required>
-              <option value="">Assign agent</option>
-              {% for agent in quote_agents %}
-              <option value="{{ agent.id }}" {% if lead.assigned_to_id == agent.id %}selected{% endif %}>
-                {{ agent.user.get_full_name|default:agent.user.username }}
-              </option>
-              {% endfor %}
-            </select>
-            <button type="submit" class="iqp-btn iqp-btn--tiny">Assign</button>
-          </form>
-          {% endif %}
-
-          <div class="iqp-card__actions">
-            {% if can_edit_quote_leads %}
-            <button type="button" class="iqp-btn iqp-btn--tiny iqp-btn--ghost" data-iqp-edit-lead>Edit</button>
-            {% endif %}
-            {% if can_delete_quote_leads %}
-            <form method="post" action="{% url 'delete-quote-lead' lead.id %}" class="iqp-card__delete" onsubmit="return confirm('Remove this quote lead? This also deletes the linked agent task.');">
-              {% csrf_token %}
-              <button type="submit" class="iqp-btn iqp-btn--tiny iqp-btn--danger">Delete</button>
-            </form>
-            {% endif %}
-          </div>
-        </li>
-        {% empty %}
-        <li class="iqp-empty">No leads in this stage.</li>
+        </div>
         {% endfor %}
-      </ul>
-    </section>
-    {% endfor %}
+      {% endfor %}
+    </div>
+
+    <!-- Rendered Records Full Table View -->
+    <div class="iqp-adv-table-wrap" id="iqpAdvTableWrap" hidden>
+      <table class="iqp-adv-table">
+        <thead>
+          <tr>
+            <th>Client Name</th>
+            <th>Stage</th>
+            <th>Phone / Email</th>
+            <th>Insurance Type</th>
+            <th>Vehicle &amp; VIN</th>
+            <th>Assigned Agent</th>
+            <th>Date Added</th>
+          </tr>
+        </thead>
+        <tbody id="iqpAdvTableBody">
+          {% for stage in quote_stages %}
+            {% for lead in stage.leads %}
+            <tr
+              class="iqp-adv-row"
+              data-adv-lead-id="{{ lead.id }}"
+              data-adv-stage="{{ lead.stage }}"
+              data-adv-assigned="{{ lead.assigned_to_id|default:'unassigned' }}"
+              data-adv-type="{{ lead.insurance_type|default:'' }}"
+              data-adv-prior="{% if lead.has_prior %}1{% else %}0{% endif %}"
+              data-adv-accident="{% if lead.has_accident %}1{% else %}0{% endif %}"
+              data-adv-search="{{ lead.client_name }} {{ lead.phone }} {{ lead.email }} {{ lead.vehicle_make }} {{ lead.vehicle_model }} {{ lead.vin }} {% for v in lead.additional_vehicles.all %}{{ v.make }} {{ v.model }} {{ v.vin }} {% endfor %}{{ lead.city }} {{ lead.notes }}"
+            >
+              <td><strong>{{ lead.client_name }}</strong></td>
+              <td><span class="iqp-badge iqp-badge--stage-{{ lead.stage }}">{{ lead.get_stage_display }}</span></td>
+              <td>{{ lead.phone }}<br><small>{{ lead.email|default:"—" }}</small></td>
+              <td>{{ lead.insurance_type|default:"General"|cut:"_"|title }}</td>
+              <td>
+                {{ lead.vehicle_year }} {{ lead.vehicle_make }} {{ lead.vehicle_model }}<br><code>{{ lead.vin|default:"—" }}</code>
+                {% for v in lead.additional_vehicles.all %}
+                <br>{{ v.year }} {{ v.make }} {{ v.model }}{% if v.vin %}<br><code>{{ v.vin }}</code>{% endif %}
+                {% endfor %}
+              </td>
+              <td>
+                {% if lead.assigned_to %}
+                {{ lead.assigned_to.user.get_full_name|default:lead.assigned_to.user.username }}
+                {% else %}
+                <em>Unassigned</em>
+                {% endif %}
+              </td>
+              <td>{{ lead.created_at|date:"M j, Y" }}</td>
+            </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
+
+<script>
+function iqpToggleAdvancedFilter(stageKey) {
+  var panel = document.getElementById('iqpAdvancedFilterPanel');
+  if (!panel) return;
+  var isHidden = panel.hidden;
+  if (isHidden) {
+    panel.hidden = false;
+    panel.removeAttribute('hidden');
+    if (stageKey && stageKey !== 'all') {
+      var stageSelect = document.getElementById('iqpStageFilter');
+      if (stageSelect) stageSelect.value = stageKey;
+    }
+    iqpApplyAdvancedFilters();
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    panel.hidden = true;
+    panel.setAttribute('hidden', '');
+  }
+}
+
+function iqpSwitchAdvView(mode) {
+  var grid = document.getElementById('iqpAdvGrid');
+  var table = document.getElementById('iqpAdvTableWrap');
+  var cardsBtn = document.getElementById('iqpViewCardsBtn');
+  var tableBtn = document.getElementById('iqpViewTableBtn');
+
+  if (mode === 'table') {
+    if (grid) grid.hidden = true;
+    if (table) table.hidden = false;
+    if (cardsBtn) cardsBtn.classList.remove('is-active');
+    if (tableBtn) tableBtn.classList.add('is-active');
+  } else {
+    if (grid) grid.hidden = false;
+    if (table) table.hidden = true;
+    if (cardsBtn) cardsBtn.classList.add('is-active');
+    if (tableBtn) tableBtn.classList.remove('is-active');
+  }
+}
+
+function iqpApplyAdvancedFilters() {
+  var search = (document.getElementById('iqpSearchInput').value || '').toLowerCase().trim();
+  var stage = document.getElementById('iqpStageFilter').value;
+  var agent = document.getElementById('iqpAgentFilter').value;
+  var type = document.getElementById('iqpTypeFilter').value;
+  var prior = document.getElementById('iqpFlagPrior').checked;
+  var accident = document.getElementById('iqpFlagAccident').checked;
+
+  var cards = document.querySelectorAll('.iqp-adv-card');
+  var rows = document.querySelectorAll('.iqp-adv-row');
+  var count = 0;
+
+  function matches(el) {
+    var sText = el.getAttribute('data-adv-search') || '';
+    var sStage = el.getAttribute('data-adv-stage') || '';
+    var sAssigned = el.getAttribute('data-adv-assigned') || '';
+    var sType = el.getAttribute('data-adv-type') || '';
+    var sPrior = el.getAttribute('data-adv-prior') === '1';
+    var sAccident = el.getAttribute('data-adv-accident') === '1';
+
+    if (search && sText.toLowerCase().indexOf(search) === -1) return false;
+    if (stage !== 'all' && sStage !== stage) return false;
+    if (agent !== 'all' && sAssigned !== agent) return false;
+    if (type !== 'all' && sType !== type) return false;
+    if (prior && !sPrior) return false;
+    if (accident && !sAccident) return false;
+
+    return true;
+  }
+
+  cards.forEach(function (c) {
+    var ok = matches(c);
+    c.style.display = ok ? 'grid' : 'none';
+    if (ok) count++;
+  });
+
+  rows.forEach(function (r) {
+    var ok = matches(r);
+    r.style.display = ok ? 'table-row' : 'none';
+  });
+
+  var matchLabel = document.getElementById('iqpAdvMatchCount');
+  if (matchLabel) {
+    matchLabel.textContent = 'Showing ' + count + ' matching record' + (count === 1 ? '' : 's');
+  }
+}
+
+function iqpResetAdvancedFilters() {
+  document.getElementById('iqpSearchInput').value = '';
+  document.getElementById('iqpStageFilter').value = 'all';
+  document.getElementById('iqpAgentFilter').value = 'all';
+  document.getElementById('iqpTypeFilter').value = 'all';
+  document.getElementById('iqpFlagPrior').checked = false;
+  document.getElementById('iqpFlagAccident').checked = false;
+  iqpApplyAdvancedFilters();
+}
+</script>
+

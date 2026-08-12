@@ -320,8 +320,9 @@ class QuotePipelineDistributionTests(TestCase):
         self.assertIn("Toyota", lead.agent_task.description)
         self.assertIn("D1234567", lead.agent_task.description)
         self.assertEqual(lead.additional_drivers.count(), 0)
+        self.assertEqual(lead.additional_vehicles.count(), 0)
 
-        # Re-save with an additional driver via edit.
+        # Re-save with an additional driver and car via edit.
         self.client.login(username="qmgr", password="password123")
         session = self.client.session
         session["active_org_id"] = self.org.id
@@ -344,6 +345,10 @@ class QuotePipelineDistributionTests(TestCase):
                 "extra_driver_name": ["Jane Extra"],
                 "extra_driver_dl": ["E998877"],
                 "extra_driver_dob": ["1988-01-02"],
+                "extra_vehicle_make": ["Honda"],
+                "extra_vehicle_model": ["Accord"],
+                "extra_vehicle_year": ["2019"],
+                "extra_vehicle_vin": ["1HGCV1F30JA000001"],
             },
         )
         self.assertEqual(edit.status_code, 302)
@@ -353,6 +358,14 @@ class QuotePipelineDistributionTests(TestCase):
         self.assertEqual(extra.full_name, "Jane Extra")
         self.assertEqual(extra.dl_number, "E998877")
         self.assertIn("Jane Extra", lead.agent_task.description)
+        self.assertEqual(lead.additional_vehicles.count(), 1)
+        extra_car = lead.additional_vehicles.first()
+        self.assertEqual(extra_car.make, "Honda")
+        self.assertEqual(extra_car.model, "Accord")
+        self.assertEqual(extra_car.year, "2019")
+        self.assertEqual(extra_car.vin, "1HGCV1F30JA000001")
+        self.assertIn("Honda", lead.agent_task.description)
+        self.assertIn("Car 2:", lead.agent_task.description)
 
         doc = lead.documents.first()
         self.assertTrue(

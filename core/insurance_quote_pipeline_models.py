@@ -193,6 +193,31 @@ class InsuranceQuoteLeadDriver(models.Model):
         return self.full_name or self.dl_number or f"Driver {self.pk}"
 
 
+class InsuranceQuoteLeadVehicle(models.Model):
+    """Additional vehicle on a quote lead (beyond the primary car fields)."""
+
+    lead = models.ForeignKey(
+        InsuranceQuoteLead,
+        on_delete=models.CASCADE,
+        related_name="additional_vehicles",
+    )
+    make = models.CharField(max_length=80, blank=True, default="")
+    model = models.CharField(max_length=80, blank=True, default="")
+    year = models.CharField(max_length=4, blank=True, default="")
+    vin = models.CharField(max_length=32, blank=True, default="")
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+        verbose_name = "Quote lead additional vehicle"
+        verbose_name_plural = "Quote lead additional vehicles"
+
+    def __str__(self):
+        bits = [x for x in [self.year, self.make, self.model] if x]
+        return " ".join(bits) or self.vin or f"Vehicle {self.pk}"
+
+
 class InsuranceQuoteDistributionConfig(models.Model):
     """Per-org smart distribution settings for quote leads."""
 

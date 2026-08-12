@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=11">
+<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=15">
 
 <section class="iqp" id="quotePipelineRoot" data-org-id="{{ organization.id }}" data-snapshot-url="{% url 'portal-quote-pipeline-snapshot' %}?org={{ organization.id }}">
   <header class="iqp-hero">
@@ -195,6 +195,10 @@
             <span>VIN</span>
             <input name="vin" maxlength="32" placeholder="Vehicle identification number" autocomplete="off">
           </label>
+        </div>
+        <div class="iqp-extra-cars" data-iqp-extra-cars>
+          <div class="iqp-extra-cars__list" data-iqp-extra-cars-list></div>
+          <button type="button" class="iqp-btn iqp-btn--ghost" data-iqp-add-car>+ Add additional car</button>
         </div>
       </div>
 
@@ -398,6 +402,10 @@
             <span>VIN</span>
             <input name="vin" id="iqpEditVin" maxlength="32" autocomplete="off">
           </label>
+        </div>
+        <div class="iqp-extra-cars" data-iqp-extra-cars>
+          <div class="iqp-extra-cars__list" data-iqp-extra-cars-list id="iqpEditExtraCars"></div>
+          <button type="button" class="iqp-btn iqp-btn--ghost" data-iqp-add-car>+ Add additional car</button>
         </div>
       </div>
 
@@ -615,12 +623,86 @@
       });
     });
 
+    function makeExtraCarRow(data) {
+      data = data || {};
+      var row = document.createElement('div');
+      row.className = 'iqp-extra-car';
+      row.setAttribute('data-iqp-extra-car', '');
+      row.innerHTML =
+        '<div class="iqp-extra-car__head">' +
+          '<strong>Additional car</strong>' +
+          '<button type="button" class="iqp-btn iqp-btn--tiny iqp-btn--ghost" data-iqp-remove-car aria-label="Remove car">Remove</button>' +
+        '</div>' +
+        '<div class="iqp-modal__grid">' +
+          '<label class="iqp-field"><span>Make</span>' +
+            '<input name="extra_vehicle_make" maxlength="80" placeholder="e.g. Honda" autocomplete="off">' +
+          '</label>' +
+          '<label class="iqp-field"><span>Model</span>' +
+            '<input name="extra_vehicle_model" maxlength="80" placeholder="e.g. Accord" autocomplete="off">' +
+          '</label>' +
+          '<label class="iqp-field"><span>Year</span>' +
+            '<input name="extra_vehicle_year" maxlength="4" inputmode="numeric" placeholder="YYYY" autocomplete="off">' +
+          '</label>' +
+          '<label class="iqp-field"><span>VIN</span>' +
+            '<input name="extra_vehicle_vin" maxlength="32" placeholder="Vehicle identification number" autocomplete="off">' +
+          '</label>' +
+        '</div>';
+      var makeInput = row.querySelector('input[name="extra_vehicle_make"]');
+      var modelInput = row.querySelector('input[name="extra_vehicle_model"]');
+      var yearInput = row.querySelector('input[name="extra_vehicle_year"]');
+      var vinInput = row.querySelector('input[name="extra_vehicle_vin"]');
+      if (makeInput) makeInput.value = data.make || '';
+      if (modelInput) modelInput.value = data.model || '';
+      if (yearInput) yearInput.value = data.year || '';
+      if (vinInput) vinInput.value = data.vin || '';
+      return row;
+    }
+
+    function extraCarsList() {
+      return modal.querySelector('[data-iqp-extra-cars-list]');
+    }
+
+    function clearExtraCars() {
+      var list = extraCarsList();
+      if (list) list.innerHTML = '';
+    }
+
+    function setExtraCars(cars) {
+      var list = extraCarsList();
+      if (!list) return;
+      list.innerHTML = '';
+      (cars || []).forEach(function (car) {
+        list.appendChild(makeExtraCarRow(car));
+      });
+    }
+
+    function addExtraCar(data) {
+      var list = extraCarsList();
+      if (!list) return;
+      list.appendChild(makeExtraCarRow(data));
+    }
+
+    modal.querySelectorAll('[data-iqp-add-car]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        addExtraCar();
+      });
+    });
+
     modal.addEventListener('click', function (e) {
-      var removeBtn = e.target.closest('[data-iqp-remove-driver]');
-      if (!removeBtn || !modal.contains(removeBtn)) return;
-      e.preventDefault();
-      var row = removeBtn.closest('[data-iqp-extra-driver]');
-      if (row) row.remove();
+      var removeDriver = e.target.closest('[data-iqp-remove-driver]');
+      if (removeDriver && modal.contains(removeDriver)) {
+        e.preventDefault();
+        var driverRow = removeDriver.closest('[data-iqp-extra-driver]');
+        if (driverRow) driverRow.remove();
+        return;
+      }
+      var removeCar = e.target.closest('[data-iqp-remove-car]');
+      if (removeCar && modal.contains(removeCar)) {
+        e.preventDefault();
+        var carRow = removeCar.closest('[data-iqp-extra-car]');
+        if (carRow) carRow.remove();
+      }
     });
 
     return {
@@ -631,6 +713,9 @@
       clearExtraDrivers: clearExtraDrivers,
       setExtraDrivers: setExtraDrivers,
       addExtraDriver: addExtraDriver,
+      clearExtraCars: clearExtraCars,
+      setExtraCars: setExtraCars,
+      addExtraCar: addExtraCar,
     };
   }
 
@@ -643,6 +728,7 @@
     document.querySelectorAll('[data-iqp-open-create]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         if (createApi.clearExtraDrivers) createApi.clearExtraDrivers();
+        if (createApi.clearExtraCars) createApi.clearExtraCars();
         createApi.open();
       });
     });
@@ -701,6 +787,15 @@
       }
       if (editApi && editApi.setExtraDrivers) {
         editApi.setExtraDrivers(extras);
+      }
+      var extraCars = [];
+      try {
+        extraCars = JSON.parse(card.getAttribute('data-extra-cars') || '[]');
+      } catch (err) {
+        extraCars = [];
+      }
+      if (editApi && editApi.setExtraCars) {
+        editApi.setExtraCars(extraCars);
       }
       var docsWrap = document.getElementById('iqpEditExistingDocsWrap');
       var docsBox = document.getElementById('iqpEditExistingDocs');

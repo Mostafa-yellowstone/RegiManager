@@ -36,6 +36,7 @@ from .insurance_quote_pipeline_models import (
     InsuranceQuoteLead,
     InsuranceQuoteLeadDocument,
     InsuranceQuoteLeadDriver,
+    InsuranceQuoteLeadVehicle,
 )
 from .insurance_targets_metrics import insurance_type_catalog
 from .models import InsuranceCompany, Organization, OrganizationMembership, Space
@@ -69,7 +70,12 @@ def build_quote_pipeline_context(request, organization, membership):
     leads_qs = (
         InsuranceQuoteLead.objects.filter(organization=organization)
         .select_related("assigned_to__user", "created_by", "agent_task")
-        .prefetch_related("recommended_companies", "documents", "additional_drivers")
+        .prefetch_related(
+            "recommended_companies",
+            "documents",
+            "additional_drivers",
+            "additional_vehicles",
+        )
         .order_by("-created_at")
     )
     is_leader = can_manage_quote_distribution(
@@ -79,19 +85,29 @@ def build_quote_pipeline_context(request, organization, membership):
         leads_qs = leads_qs.filter(assigned_to=membership)
 
     leads = list(leads_qs[:200])
-    stages = [
-        {"key": key, "label": label, "leads": [l for l in leads if l.stage == key]}
-        for key, label in InsuranceQuoteLead.Stage.choices
-        if key
-        in {
-            InsuranceQuoteLead.Stage.NEW,
-            InsuranceQuoteLead.Stage.ASSIGNED,
-            InsuranceQuoteLead.Stage.QUOTING,
-            InsuranceQuoteLead.Stage.QUOTED,
-            InsuranceQuoteLead.Stage.WON,
-            InsuranceQuoteLead.Stage.LOST,
-        }
+    stage_keys = [
+        InsuranceQuoteLead.Stage.NEW,
+        InsuranceQuoteLead.Stage.ASSIGNED,
+        InsuranceQuoteLead.Stage.QUOTING,
+        InsuranceQuoteLead.Stage.QUOTED,
+        InsuranceQuoteLead.Stage.WON,
+        InsuranceQuoteLead.Stage.LOST,
     ]
+    stage_label_map = dict(InsuranceQuoteLead.Stage.choices)
+    stages = []
+    for key in stage_keys:
+        if not key:
+            continue
+        stage_leads = [l for l in leads if l.stage == key]
+        stages.append({
+            "key": key,
+            "label": stage_label_map.get(key, key.title()),
+            "leads": stage_leads,
+            "latest_leads": stage_leads[:3],
+            "total_count": len(stage_leads),
+            "has_more": len(stage_leads) > 3,
+            "more_count": max(0, len(stage_leads) - 3),
+        })
     unassigned = [l for l in leads if not l.assigned_to_id]
     status = distribution_status(organization)
     companies = list(
@@ -223,6 +239,34 @@ def _save_additional_drivers(request, lead: InsuranceQuoteLead) -> int:
     return created
 
 
+def _save_additional_vehicles(request, lead: InsuranceQuoteLead) -> int:
+    """Replace additional vehicles from parallel POST lists."""
+    makes = request.POST.getlist("extra_vehicle_make")
+    models_ = request.POST.getlist("extra_vehicle_model")
+    years = request.POST.getlist("extra_vehicle_year")
+    vins = request.POST.getlist("extra_vehicle_vin")
+    count = max(len(makes), len(models_), len(years), len(vins))
+    lead.additional_vehicles.all().delete()
+    created = 0
+    for idx in range(count):
+        make = (makes[idx] if idx < len(makes) else "").strip()[:80]
+        model = (models_[idx] if idx < len(models_) else "").strip()[:80]
+        year = _parse_vehicle_year(years[idx] if idx < len(years) else "")
+        vin = (vins[idx] if idx < len(vins) else "").strip().upper()[:32]
+        if not make and not model and not year and not vin:
+            continue
+        InsuranceQuoteLeadVehicle.objects.create(
+            lead=lead,
+            make=make,
+            model=model,
+            year=year,
+            vin=vin,
+            sort_order=created,
+        )
+        created += 1
+    return created
+
+
 def _save_uploaded_documents(request, lead: InsuranceQuoteLead) -> int:
     files = request.FILES.getlist("documents")
     count = 0
@@ -321,6 +365,7 @@ def create_quote_lead(request):
         lead.recommended_companies.set(companies)
 
     _save_additional_drivers(request, lead)
+    _save_additional_vehicles(request, lead)
     _save_uploaded_documents(request, lead)
 
     manual_agent_id = (request.POST.get("assigned_to") or "").strip()
@@ -498,6 +543,7 @@ def _apply_lead_fields(request, lead, org):
     lead.recommended_companies.set(companies)
 
     _save_additional_drivers(request, lead)
+    _save_additional_vehicles(request, lead)
     _remove_documents(request, lead)
     _save_uploaded_documents(request, lead)
     _refresh_linked_task_description(lead)
