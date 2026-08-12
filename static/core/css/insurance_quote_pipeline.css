@@ -526,6 +526,30 @@ body.iqp-modal-open { overflow: hidden; }
   font-size: 0.78rem;
 }
 
+.iqp-block {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+.iqp-block__title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+html.portal-theme-dark .iqp-block {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: rgba(148, 163, 184, 0.28);
+}
+html.portal-theme-dark .iqp-block__title {
+  color: #5eead4;
+}
+
 .iqp-section {
   border: 1px solid #cbd5e1;
   border-radius: 16px;

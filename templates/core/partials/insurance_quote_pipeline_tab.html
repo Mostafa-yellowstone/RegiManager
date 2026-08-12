@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=8">
+<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=9">
 
 <section class="iqp" id="quotePipelineRoot" data-org-id="{{ organization.id }}" data-snapshot-url="{% url 'portal-quote-pipeline-snapshot' %}?org={{ organization.id }}">
   <header class="iqp-hero">
@@ -117,9 +117,9 @@
           </select>
         </label>
         <label class="iqp-field">
-          <span>Vehicle</span>
+          <span>Ownership</span>
           <select name="vehicle_ownership">
-            <option value="">Select…</option>
+            <option value="">Blank / Owned / Financed</option>
             {% for value, label in quote_vehicle_ownership_choices %}
             <option value="{{ value }}">{{ label }}</option>
             {% endfor %}
@@ -128,7 +128,7 @@
         <label class="iqp-field">
           <span>Coverage</span>
           <select name="coverage_type">
-            <option value="">Select…</option>
+            <option value="">Liability / Full</option>
             {% for value, label in quote_coverage_type_choices %}
             <option value="{{ value }}">{{ label }}</option>
             {% endfor %}
@@ -136,67 +136,50 @@
         </label>
       </div>
 
+      <div class="iqp-block">
+        <h4 class="iqp-block__title">Car info</h4>
+        <div class="iqp-modal__grid">
+          <label class="iqp-field">
+            <span>Make</span>
+            <input name="vehicle_make" maxlength="80" placeholder="e.g. Toyota" autocomplete="off">
+          </label>
+          <label class="iqp-field">
+            <span>Model</span>
+            <input name="vehicle_model" maxlength="80" placeholder="e.g. Camry" autocomplete="off">
+          </label>
+          <label class="iqp-field">
+            <span>Year</span>
+            <input name="vehicle_year" maxlength="4" inputmode="numeric" placeholder="YYYY" autocomplete="off">
+          </label>
+          <label class="iqp-field">
+            <span>VIN</span>
+            <input name="vin" maxlength="32" placeholder="Vehicle identification number" autocomplete="off">
+          </label>
+        </div>
+      </div>
+
+      <div class="iqp-block">
+        <h4 class="iqp-block__title">Driver license</h4>
+        <div class="iqp-modal__grid">
+          <label class="iqp-field">
+            <span>DL number</span>
+            <input name="dl_number" maxlength="40" placeholder="License number" autocomplete="off">
+          </label>
+          <label class="iqp-field">
+            <span>Date of birth</span>
+            <input type="date" name="date_of_birth" autocomplete="bday">
+          </label>
+        </div>
+        <div class="iqp-extra-drivers" data-iqp-extra-drivers>
+          <div class="iqp-extra-drivers__list" data-iqp-extra-drivers-list></div>
+          <button type="button" class="iqp-btn iqp-btn--ghost" data-iqp-add-driver>+ Add additional driver</button>
+        </div>
+      </div>
+
       <div class="iqp-toggles">
         <label class="iqp-check"><input type="checkbox" name="has_prior"><span>Has prior insurance</span></label>
         <label class="iqp-check"><input type="checkbox" name="is_experienced"><span>Experienced</span></label>
         <label class="iqp-check"><input type="checkbox" name="has_accident"><span>Has accident history</span></label>
-      </div>
-
-      <div class="iqp-section is-open" data-iqp-section>
-        <button type="button" class="iqp-section__toggle" data-iqp-section-toggle aria-expanded="true">
-          <span class="iqp-section__titles">
-            <strong>Car info</strong>
-            <em>Make · model · year · VIN</em>
-          </span>
-          <span class="iqp-section__chev" aria-hidden="true"></span>
-        </button>
-        <div class="iqp-section__body" data-iqp-section-panel>
-          <div class="iqp-modal__grid">
-            <label class="iqp-field">
-              <span>Make</span>
-              <input name="vehicle_make" maxlength="80" placeholder="e.g. Toyota" autocomplete="off">
-            </label>
-            <label class="iqp-field">
-              <span>Model</span>
-              <input name="vehicle_model" maxlength="80" placeholder="e.g. Camry" autocomplete="off">
-            </label>
-            <label class="iqp-field">
-              <span>Year</span>
-              <input name="vehicle_year" maxlength="4" inputmode="numeric" placeholder="YYYY" autocomplete="off">
-            </label>
-            <label class="iqp-field">
-              <span>VIN</span>
-              <input name="vin" maxlength="32" placeholder="Vehicle identification number" autocomplete="off">
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div class="iqp-section is-open" data-iqp-section>
-        <button type="button" class="iqp-section__toggle" data-iqp-section-toggle aria-expanded="true">
-          <span class="iqp-section__titles">
-            <strong>Driver license</strong>
-            <em>DL number · date of birth</em>
-          </span>
-          <span class="iqp-section__chev" aria-hidden="true"></span>
-        </button>
-        <div class="iqp-section__body" data-iqp-section-panel>
-          <p class="iqp-section__label">Primary driver</p>
-          <div class="iqp-modal__grid">
-            <label class="iqp-field">
-              <span>DL number</span>
-              <input name="dl_number" maxlength="40" placeholder="License number" autocomplete="off">
-            </label>
-            <label class="iqp-field">
-              <span>Date of birth</span>
-              <input type="date" name="date_of_birth" autocomplete="bday">
-            </label>
-          </div>
-          <div class="iqp-extra-drivers" data-iqp-extra-drivers>
-            <div class="iqp-extra-drivers__list" data-iqp-extra-drivers-list></div>
-            <button type="button" class="iqp-btn iqp-btn--ghost iqp-btn--tiny" data-iqp-add-driver>+ Add additional driver</button>
-          </div>
-        </div>
       </div>
 
       <div class="iqp-field">
@@ -289,9 +272,9 @@
           </select>
         </label>
         <label class="iqp-field">
-          <span>Vehicle</span>
+          <span>Ownership</span>
           <select name="vehicle_ownership" id="iqpEditVehicle">
-            <option value="">Select…</option>
+            <option value="">Blank / Owned / Financed</option>
             {% for value, label in quote_vehicle_ownership_choices %}
             <option value="{{ value }}">{{ label }}</option>
             {% endfor %}
@@ -300,7 +283,7 @@
         <label class="iqp-field">
           <span>Coverage</span>
           <select name="coverage_type" id="iqpEditCoverage">
-            <option value="">Select…</option>
+            <option value="">Liability / Full</option>
             {% for value, label in quote_coverage_type_choices %}
             <option value="{{ value }}">{{ label }}</option>
             {% endfor %}
@@ -316,67 +299,50 @@
         </label>
       </div>
 
+      <div class="iqp-block">
+        <h4 class="iqp-block__title">Car info</h4>
+        <div class="iqp-modal__grid">
+          <label class="iqp-field">
+            <span>Make</span>
+            <input name="vehicle_make" id="iqpEditMake" maxlength="80" autocomplete="off">
+          </label>
+          <label class="iqp-field">
+            <span>Model</span>
+            <input name="vehicle_model" id="iqpEditModel" maxlength="80" autocomplete="off">
+          </label>
+          <label class="iqp-field">
+            <span>Year</span>
+            <input name="vehicle_year" id="iqpEditYear" maxlength="4" inputmode="numeric" autocomplete="off">
+          </label>
+          <label class="iqp-field">
+            <span>VIN</span>
+            <input name="vin" id="iqpEditVin" maxlength="32" autocomplete="off">
+          </label>
+        </div>
+      </div>
+
+      <div class="iqp-block">
+        <h4 class="iqp-block__title">Driver license</h4>
+        <div class="iqp-modal__grid">
+          <label class="iqp-field">
+            <span>DL number</span>
+            <input name="dl_number" id="iqpEditDlNumber" maxlength="40" autocomplete="off">
+          </label>
+          <label class="iqp-field">
+            <span>Date of birth</span>
+            <input type="date" name="date_of_birth" id="iqpEditDob" autocomplete="bday">
+          </label>
+        </div>
+        <div class="iqp-extra-drivers" data-iqp-extra-drivers>
+          <div class="iqp-extra-drivers__list" data-iqp-extra-drivers-list id="iqpEditExtraDrivers"></div>
+          <button type="button" class="iqp-btn iqp-btn--ghost" data-iqp-add-driver>+ Add additional driver</button>
+        </div>
+      </div>
+
       <div class="iqp-toggles">
         <label class="iqp-check"><input type="checkbox" name="has_prior" id="iqpEditPrior"><span>Has prior insurance</span></label>
         <label class="iqp-check"><input type="checkbox" name="is_experienced" id="iqpEditExperienced"><span>Experienced</span></label>
         <label class="iqp-check"><input type="checkbox" name="has_accident" id="iqpEditAccident"><span>Has accident history</span></label>
-      </div>
-
-      <div class="iqp-section" data-iqp-section id="iqpEditCarSection">
-        <button type="button" class="iqp-section__toggle" data-iqp-section-toggle aria-expanded="false">
-          <span class="iqp-section__titles">
-            <strong>Car info</strong>
-            <em>Make · model · year · VIN</em>
-          </span>
-          <span class="iqp-section__chev" aria-hidden="true"></span>
-        </button>
-        <div class="iqp-section__body" data-iqp-section-panel hidden>
-          <div class="iqp-modal__grid">
-            <label class="iqp-field">
-              <span>Make</span>
-              <input name="vehicle_make" id="iqpEditMake" maxlength="80" autocomplete="off">
-            </label>
-            <label class="iqp-field">
-              <span>Model</span>
-              <input name="vehicle_model" id="iqpEditModel" maxlength="80" autocomplete="off">
-            </label>
-            <label class="iqp-field">
-              <span>Year</span>
-              <input name="vehicle_year" id="iqpEditYear" maxlength="4" inputmode="numeric" autocomplete="off">
-            </label>
-            <label class="iqp-field">
-              <span>VIN</span>
-              <input name="vin" id="iqpEditVin" maxlength="32" autocomplete="off">
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div class="iqp-section" data-iqp-section id="iqpEditDlSection">
-        <button type="button" class="iqp-section__toggle" data-iqp-section-toggle aria-expanded="false">
-          <span class="iqp-section__titles">
-            <strong>Driver license</strong>
-            <em>DL number · date of birth</em>
-          </span>
-          <span class="iqp-section__chev" aria-hidden="true"></span>
-        </button>
-        <div class="iqp-section__body" data-iqp-section-panel hidden>
-          <p class="iqp-section__label">Primary driver</p>
-          <div class="iqp-modal__grid">
-            <label class="iqp-field">
-              <span>DL number</span>
-              <input name="dl_number" id="iqpEditDlNumber" maxlength="40" autocomplete="off">
-            </label>
-            <label class="iqp-field">
-              <span>Date of birth</span>
-              <input type="date" name="date_of_birth" id="iqpEditDob" autocomplete="bday">
-            </label>
-          </div>
-          <div class="iqp-extra-drivers" data-iqp-extra-drivers>
-            <div class="iqp-extra-drivers__list" data-iqp-extra-drivers-list id="iqpEditExtraDrivers"></div>
-            <button type="button" class="iqp-btn iqp-btn--ghost iqp-btn--tiny" data-iqp-add-driver>+ Add additional driver</button>
-          </div>
-        </div>
       </div>
 
       <div class="iqp-field">
@@ -441,31 +407,11 @@
   function wireModal(modal) {
     if (!modal) return null;
 
-    function setSectionOpen(section, open) {
-      if (!section) return;
-      var toggle = section.querySelector('[data-iqp-section-toggle]');
-      var panel = section.querySelector('[data-iqp-section-panel]');
-      section.classList.toggle('is-open', !!open);
-      if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-      if (panel) {
-        if (open) {
-          panel.removeAttribute('hidden');
-          panel.hidden = false;
-        } else {
-          panel.setAttribute('hidden', '');
-          panel.hidden = true;
-        }
-      }
-    }
-
     function openModal() {
       modal.hidden = false;
       modal.removeAttribute('hidden');
       modal.classList.add('is-open');
       document.body.classList.add('iqp-modal-open');
-      modal.querySelectorAll('[data-iqp-section]').forEach(function (section) {
-        setSectionOpen(section, true);
-      });
       var body = modal.querySelector('.iqp-modal__body');
       if (body) body.scrollTop = 0;
     }
@@ -582,23 +528,10 @@
       list.appendChild(makeExtraDriverRow(data));
     }
 
-    modal.querySelectorAll('[data-iqp-section]').forEach(function (section) {
-      var toggle = section.querySelector('[data-iqp-section-toggle]');
-      if (!toggle) return;
-      // Sync initial state from markup (create starts open; edit starts closed).
-      setSectionOpen(section, section.classList.contains('is-open'));
-      toggle.addEventListener('click', function (e) {
-        e.preventDefault();
-        setSectionOpen(section, !section.classList.contains('is-open'));
-      });
-    });
-
     modal.querySelectorAll('[data-iqp-add-driver]').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.preventDefault();
         addExtraDriver();
-        var dlSection = btn.closest('[data-iqp-section]');
-        if (dlSection) setSectionOpen(dlSection, true);
       });
     });
 
@@ -615,7 +548,6 @@
       close: closeModal,
       syncDdLabel: syncDdLabel,
       closeAllDropdowns: closeAllDropdowns,
-      setSectionOpen: setSectionOpen,
       clearExtraDrivers: clearExtraDrivers,
       setExtraDrivers: setExtraDrivers,
       addExtraDriver: addExtraDriver,
@@ -669,12 +601,6 @@
       if (dlEl) dlEl.value = card.getAttribute('data-dl-number') || '';
       var dobEl = document.getElementById('iqpEditDob');
       if (dobEl) dobEl.value = card.getAttribute('data-date-of-birth') || '';
-      var carSection = document.getElementById('iqpEditCarSection');
-      var dlSection = document.getElementById('iqpEditDlSection');
-      if (editApi && editApi.setSectionOpen) {
-        editApi.setSectionOpen(carSection, true);
-        editApi.setSectionOpen(dlSection, true);
-      }
       var extras = [];
       try {
         extras = JSON.parse(card.getAttribute('data-extra-drivers') || '[]');
