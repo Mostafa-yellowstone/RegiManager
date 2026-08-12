@@ -99,7 +99,7 @@ class InsuranceQuoteLead(models.Model):
     stage = models.CharField(
         max_length=20,
         choices=Stage.choices,
-        default=Stage.NEW,
+        default=Stage.ASSIGNED,
         db_index=True,
     )
     assigned_to = models.ForeignKey(

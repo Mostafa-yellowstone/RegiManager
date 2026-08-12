@@ -1,26 +1,11 @@
 <div class="iqp-live" id="iqpLiveRegion">
   <div class="iqp-pipeline">
-    <div class="iqp-pipeline__toolbar">
-      <div class="iqp-pipeline__toolbar-top">
-        <span class="iqp-pipeline__aside-stat">
-          <em>{{ quote_kpis.unassigned }}</em> unassigned
-        </span>
-        <div class="iqp-pipeline__aside">
-          <a class="iqp-btn iqp-btn--ghost iqp-btn--browse" href="{% url 'quote-records' %}">Quote records</a>
-        </div>
-      </div>
-      <div class="iqp-metrics" role="list">
-        {% for stage in quote_stages %}
-        <a
-          class="iqp-metric{% if stage.key == 'quoting' %} iqp-metric--focus{% endif %}"
-          role="listitem"
-          href="{% url 'quote-records' %}?stage={{ stage.key }}"
-          title="Open {{ stage.label }} records"
-        >
-          <span class="iqp-metric__label">{{ stage.label }}</span>
-          <strong class="iqp-metric__value">{{ stage.total_count }}</strong>
-        </a>
-        {% endfor %}
+    <div class="iqp-pipeline__toolbar-top">
+      <span class="iqp-pipeline__aside-stat">
+        <em>{{ quote_kpis.unassigned }}</em> waiting for assignment
+      </span>
+      <div class="iqp-pipeline__aside">
+        <a class="iqp-btn iqp-btn--ghost iqp-btn--browse" href="{% url 'quote-records' %}">All quote records</a>
       </div>
     </div>
 
@@ -28,11 +13,13 @@
       {% for stage in quote_stages %}
       <section class="iqp-column iqp-column--{{ stage.key }}{% if stage.key == 'quoting' %} iqp-column--focus{% endif %}">
         <header class="iqp-column__header">
-          <div class="iqp-column__title-wrap">
-            <span class="iqp-stage-dot iqp-stage-dot--{{ stage.key }}" aria-hidden="true"></span>
-            <h3>{{ stage.label }}</h3>
-          </div>
-          <span class="iqp-column__count-badge">{{ stage.total_count }}</span>
+          <a class="iqp-column__metric" href="{% url 'quote-records' %}?stage={{ stage.key }}" title="Open {{ stage.label }} records">
+            <span class="iqp-column__title-wrap">
+              <span class="iqp-stage-dot iqp-stage-dot--{{ stage.key }}" aria-hidden="true"></span>
+              <h3>{{ stage.label }}</h3>
+            </span>
+            <strong class="iqp-column__count-badge">{{ stage.total_count }}</strong>
+          </a>
         </header>
 
         <ul class="iqp-column__cards">
@@ -120,7 +107,7 @@
                 {% csrf_token %}
                 <select name="stage" onchange="this.form.submit()" aria-label="Lead stage">
                   {% for value, label in quote_stage_choices %}
-                  <option value="{{ value }}" {% if lead.stage == value %}selected{% endif %}>{{ label }}</option>
+                  <option value="{{ value }}" {% if lead.stage == value or lead.stage == 'new' and value == 'assigned' %}selected{% endif %}>{{ label }}</option>
                   {% endfor %}
                 </select>
               </form>
@@ -138,25 +125,25 @@
             </div>
           </li>
           {% empty %}
-          <li class="iqp-empty">No leads here yet.</li>
+          <li class="iqp-empty">No leads in {{ stage.label }}.</li>
           {% endfor %}
         </ul>
 
-        {% if stage.has_more %}
         <footer class="iqp-column__footer">
+          {% if stage.has_more %}
           <a class="iqp-pager" href="{% url 'quote-records' %}?stage={{ stage.key }}">
-            <span class="iqp-pager__range">Showing {{ stage.latest_leads|length }} of {{ stage.total_count }}</span>
+            <span class="iqp-pager__range">{{ stage.latest_leads|length }} of {{ stage.total_count }} in {{ stage.label }}</span>
             <span class="iqp-pager__cta">
-              View {{ stage.more_count }} more
+              {{ stage.more_count }} more
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14"/><path d="M13 5l7 7-7 7"/></svg>
             </span>
           </a>
+          {% elif stage.total_count %}
+          <span class="iqp-pager iqp-pager--static">All {{ stage.total_count }} in {{ stage.label }}</span>
+          {% else %}
+          <span class="iqp-pager iqp-pager--static">Empty stage</span>
+          {% endif %}
         </footer>
-        {% elif stage.total_count %}
-        <footer class="iqp-column__footer iqp-column__footer--complete">
-          <span class="iqp-pager iqp-pager--static">All {{ stage.total_count }} shown</span>
-        </footer>
-        {% endif %}
       </section>
       {% endfor %}
     </div>

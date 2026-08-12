@@ -172,7 +172,7 @@ class QuotePipelineDistributionTests(TestCase):
             created_by=self.owner_user,
             client_name="Edit Me",
             phone="5551112222",
-            stage=InsuranceQuoteLead.Stage.NEW,
+            stage=InsuranceQuoteLead.Stage.ASSIGNED,
         )
         self.client.login(username="qowner", password="password123")
         session = self.client.session
@@ -225,7 +225,7 @@ class QuotePipelineDistributionTests(TestCase):
             created_by=self.owner_user,
             client_name="Reassign Me",
             phone="5552223333",
-            stage=InsuranceQuoteLead.Stage.NEW,
+            stage=InsuranceQuoteLead.Stage.ASSIGNED,
         )
         assign_lead(
             lead,

@@ -59,6 +59,33 @@ def _active_org(request) -> Organization | None:
     return orgs.first()
 
 
+def _board_stage_keys():
+    return [
+        InsuranceQuoteLead.Stage.ASSIGNED,
+        InsuranceQuoteLead.Stage.QUOTING,
+        InsuranceQuoteLead.Stage.QUOTED,
+        InsuranceQuoteLead.Stage.WON,
+        InsuranceQuoteLead.Stage.LOST,
+    ]
+
+
+def _normalize_board_stage(raw: str) -> str:
+    """Map legacy 'new' into Assigned; ignore cancelled for board moves."""
+    value = (raw or "").strip()
+    if value in {"", InsuranceQuoteLead.Stage.NEW}:
+        return InsuranceQuoteLead.Stage.ASSIGNED
+    if value in {c.value for c in InsuranceQuoteLead.Stage}:
+        if value == InsuranceQuoteLead.Stage.CANCELLED:
+            return InsuranceQuoteLead.Stage.LOST
+        return value
+    return InsuranceQuoteLead.Stage.ASSIGNED
+
+
+def _board_stage_choices():
+    labels = dict(InsuranceQuoteLead.Stage.choices)
+    return [(key, labels[key]) for key in _board_stage_keys()]
+
+
 def _insurance_space(org: Organization) -> Space | None:
     return Space.objects.filter(organization=org, key="insurance").first()
 
@@ -100,28 +127,31 @@ def build_quote_pipeline_context(request, organization, membership):
         leads_qs = leads_qs.filter(assigned_to=membership)
 
     leads = list(leads_qs[:200])
-    stage_keys = [
-        InsuranceQuoteLead.Stage.NEW,
-        InsuranceQuoteLead.Stage.ASSIGNED,
-        InsuranceQuoteLead.Stage.QUOTING,
-        InsuranceQuoteLead.Stage.QUOTED,
-        InsuranceQuoteLead.Stage.WON,
-        InsuranceQuoteLead.Stage.LOST,
-    ]
+    # Board skips "New" — leads enter via distribution into Assigned.
+    stage_keys = _board_stage_keys()
     stage_label_map = dict(InsuranceQuoteLead.Stage.choices)
+    board_stage_choices = _board_stage_choices()
     stages = []
     for key in stage_keys:
-        if not key:
-            continue
-        stage_leads = [l for l in leads if l.stage == key]
+        if key == InsuranceQuoteLead.Stage.ASSIGNED:
+            stage_leads = [
+                l
+                for l in leads
+                if l.stage in {
+                    InsuranceQuoteLead.Stage.ASSIGNED,
+                    InsuranceQuoteLead.Stage.NEW,
+                }
+            ]
+        else:
+            stage_leads = [l for l in leads if l.stage == key]
         stages.append({
             "key": key,
             "label": stage_label_map.get(key, key.title()),
             "leads": stage_leads,
-            "latest_leads": stage_leads[:3],
+            "latest_leads": stage_leads[:5],
             "total_count": len(stage_leads),
-            "has_more": len(stage_leads) > 3,
-            "more_count": max(0, len(stage_leads) - 3),
+            "has_more": len(stage_leads) > 5,
+            "more_count": max(0, len(stage_leads) - 5),
         })
     unassigned = [l for l in leads if not l.assigned_to_id]
     status = distribution_status(organization)
@@ -168,7 +198,7 @@ def build_quote_pipeline_context(request, organization, membership):
         "can_view_quote_pipeline": can_view_quote_pipeline(
             request.user, organization, membership=membership
         ),
-        "quote_stage_choices": InsuranceQuoteLead.Stage.choices,
+        "quote_stage_choices": board_stage_choices,
         "quote_vehicle_ownership_choices": InsuranceQuoteLead.VehicleOwnership.choices,
         "quote_coverage_type_choices": InsuranceQuoteLead.CoverageType.choices,
         "quote_heard_about_choices": InsuranceQuoteLead.HeardAbout.choices,
@@ -374,7 +404,7 @@ def create_quote_lead(request):
         dl_number=(request.POST.get("dl_number") or "").strip()[:40],
         date_of_birth=_parse_date_of_birth(request.POST.get("date_of_birth")),
         notes=(request.POST.get("notes") or "").strip(),
-        stage=InsuranceQuoteLead.Stage.NEW,
+        stage=InsuranceQuoteLead.Stage.ASSIGNED,
         assignment_mode=InsuranceQuoteLead.AssignmentMode.UNASSIGNED,
     )
     company_ids = request.POST.getlist("recommended_companies")
@@ -483,7 +513,8 @@ def update_quote_lead_stage(request, lead_id: int):
         deny_access("You cannot update this lead.")
 
     stage = (request.POST.get("stage") or "").strip()
-    valid = {c.value for c in InsuranceQuoteLead.Stage}
+    stage = _normalize_board_stage(stage)
+    valid = set(_board_stage_keys())
     if stage not in valid:
         messages.error(request, "Invalid stage.")
         return _redirect_pipeline(request, org)
@@ -553,9 +584,8 @@ def _apply_lead_fields(request, lead, org):
     lead.notes = (request.POST.get("notes") or "").strip()
 
     stage = (request.POST.get("stage") or "").strip()
-    valid_stages = {c.value for c in InsuranceQuoteLead.Stage}
-    if stage in valid_stages:
-        lead.stage = stage
+    if stage:
+        lead.stage = _normalize_board_stage(stage)
 
     lead.save()
     company_ids = request.POST.getlist("recommended_companies")
@@ -802,8 +832,16 @@ def quote_records(request):
     if not is_leader and membership is not None:
         leads_qs = leads_qs.filter(assigned_to=membership)
 
-    valid_stages = {c.value for c in InsuranceQuoteLead.Stage}
-    if stage in valid_stages:
+    valid_stages = set(_board_stage_keys())
+    if stage in {InsuranceQuoteLead.Stage.ASSIGNED, InsuranceQuoteLead.Stage.NEW}:
+        leads_qs = leads_qs.filter(
+            stage__in=[
+                InsuranceQuoteLead.Stage.ASSIGNED,
+                InsuranceQuoteLead.Stage.NEW,
+            ]
+        )
+        stage = InsuranceQuoteLead.Stage.ASSIGNED
+    elif stage in valid_stages:
         leads_qs = leads_qs.filter(stage=stage)
     if agent == "unassigned":
         leads_qs = leads_qs.filter(assigned_to__isnull=True)
