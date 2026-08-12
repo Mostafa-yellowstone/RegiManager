@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=9">
+<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=10">
 
 <section class="iqp" id="quotePipelineRoot" data-org-id="{{ organization.id }}" data-snapshot-url="{% url 'portal-quote-pipeline-snapshot' %}?org={{ organization.id }}">
   <header class="iqp-hero">
@@ -94,6 +94,16 @@
     </header>
 
     <div class="iqp-modal__body">
+      <label class="iqp-field">
+        <span>How did you hear about us?</span>
+        <select name="heard_about">
+          <option value="">Select…</option>
+          {% for value, label in quote_heard_about_choices %}
+          <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
       <div class="iqp-modal__grid">
         <label class="iqp-field">
           <span>Client name</span>
@@ -249,6 +259,16 @@
     </header>
 
     <div class="iqp-modal__body">
+      <label class="iqp-field">
+        <span>How did you hear about us?</span>
+        <select name="heard_about" id="iqpEditHeardAbout">
+          <option value="">Select…</option>
+          {% for value, label in quote_heard_about_choices %}
+          <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
       <div class="iqp-modal__grid">
         <label class="iqp-field">
           <span>Client name</span>
@@ -579,6 +599,8 @@
       document.getElementById('iqpEditClientName').value = card.getAttribute('data-client-name') || '';
       document.getElementById('iqpEditPhone').value = card.getAttribute('data-phone') || '';
       document.getElementById('iqpEditEmail').value = card.getAttribute('data-email') || '';
+      var heardEl = document.getElementById('iqpEditHeardAbout');
+      if (heardEl) heardEl.value = card.getAttribute('data-heard-about') || '';
       document.getElementById('iqpEditType').value = card.getAttribute('data-insurance-type') || '';
       document.getElementById('iqpEditStage').value = card.getAttribute('data-stage') || 'new';
       document.getElementById('iqpEditNotes').value = card.getAttribute('data-notes') || '';

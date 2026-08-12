@@ -32,6 +32,16 @@ class InsuranceQuoteLead(models.Model):
         LIABILITY = "liability", "Liability only"
         FULL = "full", "Full coverage"
 
+    class HeardAbout(models.TextChoices):
+        GOOGLE_SEARCH = "google_search", "Google Search"
+        WALK_IN = "walk_in", "Walk-In"
+        META_PLATFORM = "meta_platform", "Meta Platform"
+        GOOGLE_CAMPAIGNS = "google_campaigns", "Google Campaigns"
+        EXISTING_CLIENT = "existing_client", "Existing Client"
+        DEALER = "dealer", "Dealer / Referral"
+        COLD_CALLING = "cold_calling", "Cold Calling"
+        OTHER = "other", "Other"
+
     organization = models.ForeignKey(
         "Organization",
         on_delete=models.CASCADE,
@@ -47,6 +57,12 @@ class InsuranceQuoteLead(models.Model):
     client_name = models.CharField(max_length=200)
     phone = models.CharField(max_length=30)
     email = models.EmailField(blank=True, default="")
+    heard_about = models.CharField(
+        max_length=40,
+        choices=HeardAbout.choices,
+        blank=True,
+        default="",
+    )
     insurance_type = models.CharField(max_length=40, blank=True, default="")
     has_prior = models.BooleanField(default=False)
     is_experienced = models.BooleanField(default=False)

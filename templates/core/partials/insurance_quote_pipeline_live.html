@@ -21,6 +21,7 @@
           data-client-name="{{ lead.client_name }}"
           data-phone="{{ lead.phone }}"
           data-email="{{ lead.email }}"
+          data-heard-about="{{ lead.heard_about }}"
           data-insurance-type="{{ lead.insurance_type }}"
           data-vehicle-ownership="{{ lead.vehicle_ownership }}"
           data-coverage-type="{{ lead.coverage_type }}"
@@ -47,6 +48,9 @@
             <span class="iqp-badge">{{ lead.insurance_type|default:"General"|cut:"_"|title }}</span>
           </div>
           <p class="iqp-card__meta">{{ lead.phone }}{% if lead.email %} · {{ lead.email }}{% endif %}</p>
+          {% if lead.heard_about %}
+          <p class="iqp-card__meta iqp-card__meta--secondary">Heard about us: {{ lead.get_heard_about_display }}</p>
+          {% endif %}
           {% if lead.vehicle_ownership or lead.coverage_type or lead.vehicle_make or lead.vehicle_model or lead.vehicle_year or lead.vin %}
           <p class="iqp-card__meta iqp-card__meta--secondary">
             {% if lead.vehicle_year or lead.vehicle_make or lead.vehicle_model %}

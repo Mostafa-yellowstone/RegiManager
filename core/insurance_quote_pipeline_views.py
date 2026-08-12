@@ -134,6 +134,7 @@ def build_quote_pipeline_context(request, organization, membership):
         "quote_stage_choices": InsuranceQuoteLead.Stage.choices,
         "quote_vehicle_ownership_choices": InsuranceQuoteLead.VehicleOwnership.choices,
         "quote_coverage_type_choices": InsuranceQuoteLead.CoverageType.choices,
+        "quote_heard_about_choices": InsuranceQuoteLead.HeardAbout.choices,
         "can_edit_quote_leads": can_create_quote_leads(
             request.user, organization, membership=membership
         )
@@ -152,6 +153,12 @@ def _parse_vehicle_ownership(raw: str) -> str:
 def _parse_coverage_type(raw: str) -> str:
     value = (raw or "").strip()
     valid = {c.value for c in InsuranceQuoteLead.CoverageType}
+    return value if value in valid else ""
+
+
+def _parse_heard_about(raw: str) -> str:
+    value = (raw or "").strip()
+    valid = {c.value for c in InsuranceQuoteLead.HeardAbout}
     return value if value in valid else ""
 
 
@@ -274,6 +281,7 @@ def create_quote_lead(request):
         client_name=client_name,
         phone=phone,
         email=(request.POST.get("email") or "").strip(),
+        heard_about=_parse_heard_about(request.POST.get("heard_about")),
         insurance_type=(request.POST.get("insurance_type") or "").strip(),
         has_prior=request.POST.get("has_prior") in {"1", "true", "on", "yes"},
         is_experienced=request.POST.get("is_experienced") in {"1", "true", "on", "yes"},
@@ -453,6 +461,7 @@ def _apply_lead_fields(request, lead, org):
     lead.client_name = client_name
     lead.phone = phone
     lead.email = (request.POST.get("email") or "").strip()
+    lead.heard_about = _parse_heard_about(request.POST.get("heard_about"))
     lead.insurance_type = (request.POST.get("insurance_type") or "").strip()
     lead.has_prior = request.POST.get("has_prior") in {"1", "true", "on", "yes"}
     lead.is_experienced = request.POST.get("is_experienced") in {"1", "true", "on", "yes"}

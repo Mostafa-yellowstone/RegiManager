@@ -130,6 +130,8 @@ def _lead_task_description(lead: InsuranceQuoteLead) -> str:
         f"Profile: {', '.join(flags)}",
         f"Recommended carriers: {companies}",
     ]
+    if lead.heard_about:
+        parts.insert(2, f"Heard about us: {lead.get_heard_about_display()}")
     if lead.vehicle_ownership:
         parts.append(f"Ownership: {lead.get_vehicle_ownership_display()}")
     if lead.coverage_type:
