@@ -40,6 +40,7 @@ from .insurance_quote_pipeline_models import (
 from .insurance_targets_metrics import insurance_type_catalog
 from .models import InsuranceCompany, Organization, OrganizationMembership, Space
 from .policies import redirect_back
+from .us_states import US_STATES, normalize_state_code
 
 
 def _active_org(request) -> Organization | None:
@@ -135,6 +136,7 @@ def build_quote_pipeline_context(request, organization, membership):
         "quote_vehicle_ownership_choices": InsuranceQuoteLead.VehicleOwnership.choices,
         "quote_coverage_type_choices": InsuranceQuoteLead.CoverageType.choices,
         "quote_heard_about_choices": InsuranceQuoteLead.HeardAbout.choices,
+        "quote_us_states": US_STATES,
         "can_edit_quote_leads": can_create_quote_leads(
             request.user, organization, membership=membership
         )
@@ -186,6 +188,14 @@ def _apply_car_and_dl_fields(request, lead: InsuranceQuoteLead) -> None:
     lead.vin = (request.POST.get("vin") or "").strip().upper()[:32]
     lead.dl_number = (request.POST.get("dl_number") or "").strip()[:40]
     lead.date_of_birth = _parse_date_of_birth(request.POST.get("date_of_birth"))
+
+
+def _apply_address_fields(request, lead: InsuranceQuoteLead) -> None:
+    lead.street_address = (request.POST.get("street_address") or "").strip()[:200]
+    lead.apartment = (request.POST.get("apartment") or "").strip()[:50]
+    lead.city = (request.POST.get("city") or "").strip()[:100]
+    lead.state = normalize_state_code(request.POST.get("state") or "NY")
+    lead.zip_code = (request.POST.get("zip_code") or "").strip()[:10]
 
 
 def _save_additional_drivers(request, lead: InsuranceQuoteLead) -> int:
@@ -282,6 +292,11 @@ def create_quote_lead(request):
         phone=phone,
         email=(request.POST.get("email") or "").strip(),
         heard_about=_parse_heard_about(request.POST.get("heard_about")),
+        street_address=(request.POST.get("street_address") or "").strip()[:200],
+        apartment=(request.POST.get("apartment") or "").strip()[:50],
+        city=(request.POST.get("city") or "").strip()[:100],
+        state=normalize_state_code(request.POST.get("state") or "NY"),
+        zip_code=(request.POST.get("zip_code") or "").strip()[:10],
         insurance_type=(request.POST.get("insurance_type") or "").strip(),
         has_prior=request.POST.get("has_prior") in {"1", "true", "on", "yes"},
         is_experienced=request.POST.get("is_experienced") in {"1", "true", "on", "yes"},
@@ -462,6 +477,7 @@ def _apply_lead_fields(request, lead, org):
     lead.phone = phone
     lead.email = (request.POST.get("email") or "").strip()
     lead.heard_about = _parse_heard_about(request.POST.get("heard_about"))
+    _apply_address_fields(request, lead)
     lead.insurance_type = (request.POST.get("insurance_type") or "").strip()
     lead.has_prior = request.POST.get("has_prior") in {"1", "true", "on", "yes"}
     lead.is_experienced = request.POST.get("is_experienced") in {"1", "true", "on", "yes"}

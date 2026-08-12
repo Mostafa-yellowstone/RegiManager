@@ -132,6 +132,19 @@ def _lead_task_description(lead: InsuranceQuoteLead) -> str:
     ]
     if lead.heard_about:
         parts.insert(2, f"Heard about us: {lead.get_heard_about_display()}")
+    addr_bits = [
+        x
+        for x in [
+            lead.street_address,
+            lead.apartment,
+            lead.city,
+            lead.state,
+            lead.zip_code,
+        ]
+        if x
+    ]
+    if addr_bits:
+        parts.insert(3 if lead.heard_about else 2, f"Address: {', '.join(addr_bits)}")
     if lead.vehicle_ownership:
         parts.append(f"Ownership: {lead.get_vehicle_ownership_display()}")
     if lead.coverage_type:

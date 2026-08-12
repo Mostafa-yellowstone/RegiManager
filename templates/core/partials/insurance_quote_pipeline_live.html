@@ -22,6 +22,11 @@
           data-phone="{{ lead.phone }}"
           data-email="{{ lead.email }}"
           data-heard-about="{{ lead.heard_about }}"
+          data-street-address="{{ lead.street_address }}"
+          data-apartment="{{ lead.apartment }}"
+          data-city="{{ lead.city }}"
+          data-state="{{ lead.state }}"
+          data-zip-code="{{ lead.zip_code }}"
           data-insurance-type="{{ lead.insurance_type }}"
           data-vehicle-ownership="{{ lead.vehicle_ownership }}"
           data-coverage-type="{{ lead.coverage_type }}"
@@ -50,6 +55,16 @@
           <p class="iqp-card__meta">{{ lead.phone }}{% if lead.email %} · {{ lead.email }}{% endif %}</p>
           {% if lead.heard_about %}
           <p class="iqp-card__meta iqp-card__meta--secondary">Heard about us: {{ lead.get_heard_about_display }}</p>
+          {% endif %}
+          {% if lead.street_address or lead.city or lead.zip_code %}
+          <p class="iqp-card__meta iqp-card__meta--secondary">
+            {% if lead.street_address %}{{ lead.street_address }}{% endif %}
+            {% if lead.apartment %}{% if lead.street_address %}, {% endif %}{{ lead.apartment }}{% endif %}
+            {% if lead.city or lead.state or lead.zip_code %}
+              {% if lead.street_address or lead.apartment %} · {% endif %}
+              {{ lead.city }}{% if lead.city and lead.state %}, {% endif %}{{ lead.state }} {{ lead.zip_code }}
+            {% endif %}
+          </p>
           {% endif %}
           {% if lead.vehicle_ownership or lead.coverage_type or lead.vehicle_make or lead.vehicle_model or lead.vehicle_year or lead.vin %}
           <p class="iqp-card__meta iqp-card__meta--secondary">

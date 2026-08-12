@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=10">
+<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=11">
 
 <section class="iqp" id="quotePipelineRoot" data-org-id="{{ organization.id }}" data-snapshot-url="{% url 'portal-quote-pipeline-snapshot' %}?org={{ organization.id }}">
   <header class="iqp-hero">
@@ -144,6 +144,36 @@
             {% endfor %}
           </select>
         </label>
+      </div>
+
+      <div class="iqp-block">
+        <h4 class="iqp-block__title">Address</h4>
+        <div class="iqp-modal__grid">
+          <label class="iqp-field" style="grid-column: 1 / -1;">
+            <span>Street address</span>
+            <input name="street_address" maxlength="200" placeholder="Street address" autocomplete="street-address">
+          </label>
+          <label class="iqp-field">
+            <span>Apt / Unit</span>
+            <input name="apartment" maxlength="50" placeholder="Optional" autocomplete="address-line2">
+          </label>
+          <label class="iqp-field">
+            <span>City</span>
+            <input name="city" maxlength="100" placeholder="City" autocomplete="address-level2">
+          </label>
+          <label class="iqp-field">
+            <span>State</span>
+            <select name="state">
+              {% for code, label in quote_us_states %}
+              <option value="{{ code }}" {% if code == "NY" %}selected{% endif %}>{{ code }} — {{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="iqp-field">
+            <span>ZIP</span>
+            <input name="zip_code" maxlength="10" placeholder="ZIP code" autocomplete="postal-code">
+          </label>
+        </div>
       </div>
 
       <div class="iqp-block">
@@ -317,6 +347,36 @@
             {% endfor %}
           </select>
         </label>
+      </div>
+
+      <div class="iqp-block">
+        <h4 class="iqp-block__title">Address</h4>
+        <div class="iqp-modal__grid">
+          <label class="iqp-field" style="grid-column: 1 / -1;">
+            <span>Street address</span>
+            <input name="street_address" id="iqpEditStreet" maxlength="200" autocomplete="street-address">
+          </label>
+          <label class="iqp-field">
+            <span>Apt / Unit</span>
+            <input name="apartment" id="iqpEditApt" maxlength="50" autocomplete="address-line2">
+          </label>
+          <label class="iqp-field">
+            <span>City</span>
+            <input name="city" id="iqpEditCity" maxlength="100" autocomplete="address-level2">
+          </label>
+          <label class="iqp-field">
+            <span>State</span>
+            <select name="state" id="iqpEditState">
+              {% for code, label in quote_us_states %}
+              <option value="{{ code }}">{{ code }} — {{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="iqp-field">
+            <span>ZIP</span>
+            <input name="zip_code" id="iqpEditZip" maxlength="10" autocomplete="postal-code">
+          </label>
+        </div>
       </div>
 
       <div class="iqp-block">
@@ -601,6 +661,16 @@
       document.getElementById('iqpEditEmail').value = card.getAttribute('data-email') || '';
       var heardEl = document.getElementById('iqpEditHeardAbout');
       if (heardEl) heardEl.value = card.getAttribute('data-heard-about') || '';
+      var streetEl = document.getElementById('iqpEditStreet');
+      if (streetEl) streetEl.value = card.getAttribute('data-street-address') || '';
+      var aptEl = document.getElementById('iqpEditApt');
+      if (aptEl) aptEl.value = card.getAttribute('data-apartment') || '';
+      var cityEl = document.getElementById('iqpEditCity');
+      if (cityEl) cityEl.value = card.getAttribute('data-city') || '';
+      var stateEl = document.getElementById('iqpEditState');
+      if (stateEl) stateEl.value = card.getAttribute('data-state') || 'NY';
+      var zipEl = document.getElementById('iqpEditZip');
+      if (zipEl) zipEl.value = card.getAttribute('data-zip-code') || '';
       document.getElementById('iqpEditType').value = card.getAttribute('data-insurance-type') || '';
       document.getElementById('iqpEditStage').value = card.getAttribute('data-stage') || 'new';
       document.getElementById('iqpEditNotes').value = card.getAttribute('data-notes') || '';

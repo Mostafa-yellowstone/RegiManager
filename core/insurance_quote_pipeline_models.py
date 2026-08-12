@@ -63,6 +63,11 @@ class InsuranceQuoteLead(models.Model):
         blank=True,
         default="",
     )
+    street_address = models.CharField(max_length=200, blank=True, default="")
+    apartment = models.CharField(max_length=50, blank=True, default="")
+    city = models.CharField(max_length=100, blank=True, default="")
+    state = models.CharField(max_length=2, blank=True, default="NY")
+    zip_code = models.CharField(max_length=10, blank=True, default="")
     insurance_type = models.CharField(max_length=40, blank=True, default="")
     has_prior = models.BooleanField(default=False)
     is_experienced = models.BooleanField(default=False)
