@@ -1,0 +1,243 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}Quote records | RegiManager{% endblock %}
+
+{% block portal_head %}
+<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=17">
+{% endblock %}
+
+{% block portal_content %}
+<main class="dashboard-shell iqp iqp-records-page">
+  <div class="iqp-records">
+    <header class="iqp-records__header">
+      <div>
+        {% if insurance_space %}
+        <a class="iqp-records__back" href="/dashboard/inventory/{{ insurance_space.id }}/?tab=quote-pipeline">← Back to pipeline</a>
+        {% endif %}
+        <h1>Quote records</h1>
+        <p>Search, filter, assign, and manage every quote lead in one place.</p>
+      </div>
+      <div class="iqp-records__header-actions">
+        {% if can_create_quote_leads %}
+        <button type="button" class="iqp-btn iqp-btn--primary" data-iqp-open-create>+ New quote lead</button>
+        {% endif %}
+        {% if insurance_space %}
+        <a class="iqp-btn iqp-btn--ghost" href="/dashboard/inventory/{{ insurance_space.id }}/?tab=quote-pipeline">Pipeline board</a>
+        {% endif %}
+      </div>
+    </header>
+
+    <form method="get" class="iqp-records__filters" id="iqpRecordsFilters">
+      <label class="iqp-adv-field iqp-adv-field--search">
+        <span>Search</span>
+        <input type="search" name="q" value="{{ filter_q }}" placeholder="Name, phone, email, VIN, city…">
+      </label>
+      <label class="iqp-adv-field">
+        <span>Stage</span>
+        <select name="stage">
+          <option value="all" {% if filter_stage == 'all' %}selected{% endif %}>All stages</option>
+          {% for value, label in quote_stage_choices %}
+          <option value="{{ value }}" {% if filter_stage == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="iqp-adv-field">
+        <span>Agent</span>
+        <select name="agent">
+          <option value="all" {% if filter_agent == 'all' %}selected{% endif %}>All agents</option>
+          <option value="unassigned" {% if filter_agent == 'unassigned' %}selected{% endif %}>Unassigned</option>
+          {% for agent in quote_agents %}
+          <option value="{{ agent.id }}" {% if filter_agent == agent.id|stringformat:'s' %}selected{% endif %}>
+            {{ agent.user.get_full_name|default:agent.user.username }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="iqp-adv-field">
+        <span>Type</span>
+        <select name="type">
+          <option value="all" {% if filter_type == 'all' %}selected{% endif %}>All types</option>
+          {% for opt in quote_type_options %}
+          <option value="{{ opt.key }}" {% if filter_type == opt.key %}selected{% endif %}>{{ opt.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="iqp-records__filter-flags">
+        <label class="iqp-check-pill">
+          <input type="checkbox" name="prior" value="1" {% if filter_prior %}checked{% endif %}>
+          <span>Prior insurance</span>
+        </label>
+        <label class="iqp-check-pill">
+          <input type="checkbox" name="accident" value="1" {% if filter_accident %}checked{% endif %}>
+          <span>Accident history</span>
+        </label>
+      </div>
+      <div class="iqp-records__filter-actions">
+        <button type="submit" class="iqp-btn iqp-btn--primary">Apply</button>
+        <a class="iqp-btn iqp-btn--ghost" href="{% url 'quote-records' %}">Reset</a>
+      </div>
+    </form>
+
+    <div class="iqp-records__meta">
+      <span>{{ page_obj.paginator.count }} record{{ page_obj.paginator.count|pluralize }}</span>
+      <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    </div>
+
+    <div class="iqp-records__table-wrap">
+      <table class="iqp-records__table">
+        <thead>
+          <tr>
+            <th>Client</th>
+            <th>Contact</th>
+            <th>Vehicle</th>
+            <th>Stage</th>
+            <th>Assigned</th>
+            <th>Flags</th>
+            <th>Added</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lead in page_obj %}
+          <tr
+            class="iqp-records__row"
+            data-lead-id="{{ lead.id }}"
+            data-client-name="{{ lead.client_name }}"
+            data-phone="{{ lead.phone }}"
+            data-email="{{ lead.email }}"
+            data-heard-about="{{ lead.heard_about }}"
+            data-street-address="{{ lead.street_address }}"
+            data-apartment="{{ lead.apartment }}"
+            data-city="{{ lead.city }}"
+            data-state="{{ lead.state }}"
+            data-zip-code="{{ lead.zip_code }}"
+            data-insurance-type="{{ lead.insurance_type }}"
+            data-vehicle-ownership="{{ lead.vehicle_ownership }}"
+            data-coverage-type="{{ lead.coverage_type }}"
+            data-vehicle-make="{{ lead.vehicle_make }}"
+            data-vehicle-model="{{ lead.vehicle_model }}"
+            data-vehicle-year="{{ lead.vehicle_year }}"
+            data-vin="{{ lead.vin }}"
+            data-dl-number="{{ lead.dl_number }}"
+            data-date-of-birth="{% if lead.date_of_birth %}{{ lead.date_of_birth|date:'Y-m-d' }}{% endif %}"
+            data-extra-drivers='[{% for d in lead.additional_drivers.all %}{"name":"{{ d.full_name|escapejs }}","dl":"{{ d.dl_number|escapejs }}","dob":"{% if d.date_of_birth %}{{ d.date_of_birth|date:'Y-m-d' }}{% endif %}"}{% if not forloop.last %},{% endif %}{% endfor %}]'
+            data-extra-cars='[{% for v in lead.additional_vehicles.all %}{"make":"{{ v.make|escapejs }}","model":"{{ v.model|escapejs }}","year":"{{ v.year|escapejs }}","vin":"{{ v.vin|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]'
+            data-has-prior="{% if lead.has_prior %}1{% else %}0{% endif %}"
+            data-is-experienced="{% if lead.is_experienced %}1{% else %}0{% endif %}"
+            data-has-accident="{% if lead.has_accident %}1{% else %}0{% endif %}"
+            data-notes="{{ lead.notes }}"
+            data-stage="{{ lead.stage }}"
+            data-assigned-to="{{ lead.assigned_to_id|default:'' }}"
+            data-company-ids="{% for co in lead.recommended_companies.all %}{{ co.id }}{% if not forloop.last %},{% endif %}{% endfor %}"
+            data-docs='[{% for doc in lead.documents.all %}{"id":{{ doc.id }},"name":"{{ doc.original_name|default:doc.file.name|escapejs }}","url":"{% url "download-quote-lead-document" doc.id %}"}{% if not forloop.last %},{% endif %}{% endfor %}]'
+            data-edit-url="{% url 'edit-quote-lead' lead.id %}"
+          >
+            <td>
+              <strong class="iqp-records__name">{{ lead.client_name }}</strong>
+              <span class="iqp-badge iqp-badge--type">{{ lead.insurance_type|default:"General"|cut:"_"|title }}</span>
+              {% if lead.city or lead.state %}
+              <div class="iqp-records__sub">{{ lead.city }}{% if lead.state %}, {{ lead.state }}{% endif %}</div>
+              {% endif %}
+            </td>
+            <td>
+              <div><a href="tel:{{ lead.phone }}">{{ lead.phone }}</a></div>
+              {% if lead.email %}<div class="iqp-records__sub"><a href="mailto:{{ lead.email }}">{{ lead.email }}</a></div>{% endif %}
+            </td>
+            <td>
+              {% if lead.vehicle_year or lead.vehicle_make or lead.vehicle_model or lead.vin %}
+              <div>{{ lead.vehicle_year }} {{ lead.vehicle_make }} {{ lead.vehicle_model }}</div>
+              {% if lead.vin %}<code class="iqp-records__vin">{{ lead.vin }}</code>{% endif %}
+              {% else %}
+              <span class="iqp-records__muted">—</span>
+              {% endif %}
+              {% for v in lead.additional_vehicles.all %}
+              <div class="iqp-records__sub">+ {{ v.year }} {{ v.make }} {{ v.model }}</div>
+              {% endfor %}
+            </td>
+            <td>
+              <form method="post" action="{% url 'update-quote-lead-stage' lead.id %}" class="iqp-records__inline-form">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ quote_form_next }}">
+                <select name="stage" onchange="this.form.submit()" aria-label="Stage for {{ lead.client_name }}">
+                  {% for value, label in quote_stage_choices %}
+                  <option value="{{ value }}" {% if lead.stage == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </form>
+            </td>
+            <td>
+              {% if can_manage_quote_distribution %}
+              <form method="post" action="{% url 'assign-quote-lead' lead.id %}" class="iqp-records__inline-form">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ quote_form_next }}">
+                <select name="assigned_to" required onchange="this.form.submit()" aria-label="Assign {{ lead.client_name }}">
+                  <option value="">Assign…</option>
+                  {% for agent in quote_agents %}
+                  <option value="{{ agent.id }}" {% if lead.assigned_to_id == agent.id %}selected{% endif %}>
+                    {{ agent.user.get_full_name|default:agent.user.username }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </form>
+              {% else %}
+                {% if lead.assigned_to %}
+                {{ lead.assigned_to.user.get_full_name|default:lead.assigned_to.user.username }}
+                {% else %}
+                <span class="iqp-assignee-unassigned">Unassigned</span>
+                {% endif %}
+              {% endif %}
+            </td>
+            <td>
+              <div class="iqp-flags">
+                <span class="iqp-flag {% if lead.has_prior %}is-on{% endif %}">{% if lead.has_prior %}Prior{% else %}No prior{% endif %}</span>
+                <span class="iqp-flag {% if lead.is_experienced %}is-on{% endif %}">{% if lead.is_experienced %}Exp{% else %}New{% endif %}</span>
+                <span class="iqp-flag {% if lead.has_accident %}is-warn{% endif %}">{% if lead.has_accident %}Accident{% else %}Clean{% endif %}</span>
+              </div>
+              {% if lead.notes %}<div class="iqp-records__notes">{{ lead.notes|truncatechars:60 }}</div>{% endif %}
+            </td>
+            <td>
+              <div>{{ lead.created_at|date:"M j, Y" }}</div>
+              <div class="iqp-records__sub">{{ lead.created_at|timesince }} ago</div>
+            </td>
+            <td>
+              <div class="iqp-records__actions">
+                {% if can_edit_quote_leads %}
+                <button type="button" class="iqp-btn iqp-btn--tiny iqp-btn--ghost" data-iqp-edit-lead>Edit</button>
+                {% endif %}
+                {% if can_delete_quote_leads %}
+                <form method="post" action="{% url 'delete-quote-lead' lead.id %}" onsubmit="return confirm('Remove this quote lead?');">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="{{ quote_form_next }}">
+                  <button type="submit" class="iqp-btn iqp-btn--tiny iqp-btn--danger">Delete</button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="iqp-records__empty">No quote records match these filters.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="iqp-records__pagination" aria-label="Records pagination">
+      {% if page_obj.has_previous %}
+      <a class="iqp-btn iqp-btn--ghost" href="?{% if records_query_string %}{{ records_query_string }}&{% endif %}page={{ page_obj.previous_page_number }}">Previous</a>
+      {% endif %}
+      <span class="iqp-records__page-label">Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+      <a class="iqp-btn iqp-btn--ghost" href="?{% if records_query_string %}{{ records_query_string }}&{% endif %}page={{ page_obj.next_page_number }}">Next</a>
+      {% endif %}
+    </nav>
+    {% endif %}
+  </div>
+</main>
+
+{% include "core/partials/insurance_quote_pipeline_modals.html" %}
+{% include "core/partials/insurance_quote_pipeline_modals_script.html" %}
+{% endblock %}

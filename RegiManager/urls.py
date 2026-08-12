@@ -40,6 +40,7 @@ from core.insurance_quote_pipeline_views import (
     delete_quote_lead,
     download_quote_lead_document,
     edit_quote_lead,
+    quote_records,
     save_quote_distribution_config,
     update_quote_lead_stage,
 )
@@ -470,6 +471,11 @@ urlpatterns = [
     path("intake/<int:intake_id>/mv82-preview/", intake_mv82_pdf, name="intake-mv82-pdf"),
 
     # Fundamental Quote Pipeline (Insurance Space)
+    path(
+        "dashboard/insurance-quotes/records/",
+        quote_records,
+        name="quote-records",
+    ),
     path(
         "dashboard/insurance-quotes/create/",
         create_quote_lead,

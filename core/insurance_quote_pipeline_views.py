@@ -6,8 +6,11 @@ from datetime import datetime
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
+from django.db.models import Q
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from .access import organizations_for_user
@@ -58,7 +61,17 @@ def _insurance_space(org: Organization) -> Space | None:
     return Space.objects.filter(organization=org, key="insurance").first()
 
 
+def _safe_quote_next(request) -> str | None:
+    nxt = (request.POST.get("next") or request.GET.get("next") or "").strip()
+    if nxt.startswith("/dashboard/insurance-quotes/"):
+        return nxt
+    return None
+
+
 def _redirect_pipeline(request, org: Organization):
+    nxt = _safe_quote_next(request)
+    if nxt:
+        return redirect(nxt)
     space = _insurance_space(org)
     if space:
         return redirect(f"/dashboard/inventory/{space.id}/?tab=quote-pipeline")
@@ -742,3 +755,93 @@ def delete_insurance_agent_off_day(request, off_day_id: int):
     off.delete()
     messages.success(request, "Off day removed.")
     return _redirect_pipeline(request, org)
+
+
+@login_required
+@require_GET
+def quote_records(request):
+    """Dedicated Quote Records page — searchable, filterable, paginated table."""
+    org = _active_org(request)
+    if org is None:
+        deny_access("Organization required.")
+    membership = membership_for_org(request.user, org)
+    if not can_view_quote_pipeline(request.user, org, membership=membership):
+        deny_access("You cannot view quote records.")
+
+    ctx = build_quote_pipeline_context(request, org, membership)
+    space = _insurance_space(org)
+
+    q = (request.GET.get("q") or "").strip()
+    stage = (request.GET.get("stage") or "all").strip()
+    agent = (request.GET.get("agent") or "all").strip()
+    insurance_type = (request.GET.get("type") or "all").strip()
+    prior = request.GET.get("prior") in {"1", "true", "on"}
+    accident = request.GET.get("accident") in {"1", "true", "on"}
+
+    leads_qs = (
+        InsuranceQuoteLead.objects.filter(organization=org)
+        .select_related("assigned_to__user", "created_by")
+        .prefetch_related(
+            "recommended_companies",
+            "documents",
+            "additional_drivers",
+            "additional_vehicles",
+        )
+        .order_by("-created_at")
+    )
+    is_leader = can_manage_quote_distribution(
+        request.user, org, membership=membership
+    )
+    if not is_leader and membership is not None:
+        leads_qs = leads_qs.filter(assigned_to=membership)
+
+    valid_stages = {c.value for c in InsuranceQuoteLead.Stage}
+    if stage in valid_stages:
+        leads_qs = leads_qs.filter(stage=stage)
+    if agent == "unassigned":
+        leads_qs = leads_qs.filter(assigned_to__isnull=True)
+    elif agent.isdigit():
+        leads_qs = leads_qs.filter(assigned_to_id=int(agent))
+    if insurance_type and insurance_type != "all":
+        leads_qs = leads_qs.filter(insurance_type=insurance_type)
+    if prior:
+        leads_qs = leads_qs.filter(has_prior=True)
+    if accident:
+        leads_qs = leads_qs.filter(has_accident=True)
+    if q:
+        leads_qs = leads_qs.filter(
+            Q(client_name__icontains=q)
+            | Q(phone__icontains=q)
+            | Q(email__icontains=q)
+            | Q(vin__icontains=q)
+            | Q(vehicle_make__icontains=q)
+            | Q(vehicle_model__icontains=q)
+            | Q(city__icontains=q)
+            | Q(notes__icontains=q)
+        )
+
+    paginator = Paginator(leads_qs, 25)
+    page_obj = paginator.get_page(request.GET.get("page") or 1)
+    records_url = reverse("quote-records")
+    query = request.GET.copy()
+    query.pop("page", None)
+    query_string = query.urlencode()
+
+    ctx.update(
+        {
+            "page_obj": page_obj,
+            "filter_q": q,
+            "filter_stage": stage if stage in valid_stages else "all",
+            "filter_agent": agent,
+            "filter_type": insurance_type,
+            "filter_prior": prior,
+            "filter_accident": accident,
+            "insurance_space": space,
+            "quote_form_next": (
+                f"{records_url}?{query_string}" if query_string else records_url
+            ),
+            "records_query_string": query_string,
+        }
+    )
+    return render(request, "core/insurance_quote_records.html", ctx)
+

@@ -1,0 +1,411 @@
+﻿{% if can_create_quote_leads %}
+<div class="iqp-modal" id="iqpCreateModal" role="dialog" aria-modal="true" aria-labelledby="iqpCreateTitle" hidden>
+  <div class="iqp-modal__scrim" data-iqp-close></div>
+  <form method="post" action="{% url 'create-quote-lead' %}" class="iqp-modal__panel" enctype="multipart/form-data">
+    {% csrf_token %}
+    {% if quote_form_next %}<input type="hidden" name="next" value="{{ quote_form_next }}">{% endif %}
+    <header class="iqp-modal__header">
+      <div>
+        <p class="iqp-modal__eyebrow">Quote Pipeline</p>
+        <h3 id="iqpCreateTitle">New quote lead</h3>
+      </div>
+      <button type="button" class="iqp-modal__close" data-iqp-close aria-label="Close">&times;</button>
+    </header>
+
+    <div class="iqp-modal__body">
+      <label class="iqp-field">
+        <span>How did you hear about us?</span>
+        <select name="heard_about">
+          <option value="">Select…</option>
+          {% for value, label in quote_heard_about_choices %}
+          <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <div class="iqp-modal__grid">
+        <label class="iqp-field">
+          <span>Client name</span>
+          <input name="client_name" required maxlength="200" placeholder="Full name" autocomplete="name">
+        </label>
+        <label class="iqp-field">
+          <span>Phone</span>
+          <input name="phone" required maxlength="30" placeholder="Mobile number" autocomplete="tel">
+        </label>
+        <label class="iqp-field">
+          <span>Email</span>
+          <input type="email" name="email" maxlength="254" placeholder="Optional" autocomplete="email">
+        </label>
+        <label class="iqp-field">
+          <span>Insurance type</span>
+          <select name="insurance_type">
+            <option value="">Select type</option>
+            {% for opt in quote_type_options %}
+            <option value="{{ opt.key }}">{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="iqp-field">
+          <span>Ownership</span>
+          <select name="vehicle_ownership">
+            <option value="">Blank / Owned / Financed</option>
+            {% for value, label in quote_vehicle_ownership_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="iqp-field">
+          <span>Coverage</span>
+          <select name="coverage_type">
+            <option value="">Liability / Full</option>
+            {% for value, label in quote_coverage_type_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div class="iqp-block">
+        <h4 class="iqp-block__title">Address</h4>
+        <div class="iqp-modal__grid">
+          <label class="iqp-field" style="grid-column: 1 / -1;">
+            <span>Street address</span>
+            <input name="street_address" maxlength="200" placeholder="Street address" autocomplete="street-address">
+          </label>
+          <label class="iqp-field">
+            <span>Apt / Unit</span>
+            <input name="apartment" maxlength="50" placeholder="Optional" autocomplete="address-line2">
+          </label>
+          <label class="iqp-field">
+            <span>City</span>
+            <input name="city" maxlength="100" placeholder="City" autocomplete="address-level2">
+          </label>
+          <label class="iqp-field">
+            <span>State</span>
+            <select name="state">
+              {% for code, label in quote_us_states %}
+              <option value="{{ code }}" {% if code == "NY" %}selected{% endif %}>{{ code }} — {{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="iqp-field">
+            <span>ZIP</span>
+            <input name="zip_code" maxlength="10" placeholder="ZIP code" autocomplete="postal-code">
+          </label>
+        </div>
+      </div>
+
+      <div class="iqp-block">
+        <h4 class="iqp-block__title">Car info</h4>
+        <div class="iqp-modal__grid">
+          <label class="iqp-field">
+            <span>Make</span>
+            <input name="vehicle_make" maxlength="80" placeholder="e.g. Toyota" autocomplete="off">
+          </label>
+          <label class="iqp-field">
+            <span>Model</span>
+            <input name="vehicle_model" maxlength="80" placeholder="e.g. Camry" autocomplete="off">
+          </label>
+          <label class="iqp-field">
+            <span>Year</span>
+            <input name="vehicle_year" maxlength="4" inputmode="numeric" placeholder="YYYY" autocomplete="off">
+          </label>
+          <label class="iqp-field">
+            <span>VIN</span>
+            <input name="vin" maxlength="32" placeholder="Vehicle identification number" autocomplete="off">
+          </label>
+        </div>
+        <div class="iqp-extra-cars" data-iqp-extra-cars>
+          <div class="iqp-extra-cars__list" data-iqp-extra-cars-list></div>
+          <button type="button" class="iqp-btn iqp-btn--ghost" data-iqp-add-car>+ Add additional car</button>
+        </div>
+      </div>
+
+      <div class="iqp-block">
+        <h4 class="iqp-block__title">Driver license</h4>
+        <div class="iqp-modal__grid">
+          <label class="iqp-field">
+            <span>DL number</span>
+            <input name="dl_number" maxlength="40" placeholder="License number" autocomplete="off">
+          </label>
+          <label class="iqp-field">
+            <span>Date of birth</span>
+            <input type="date" name="date_of_birth" autocomplete="bday">
+          </label>
+        </div>
+        <div class="iqp-extra-drivers" data-iqp-extra-drivers>
+          <div class="iqp-extra-drivers__list" data-iqp-extra-drivers-list></div>
+          <button type="button" class="iqp-btn iqp-btn--ghost" data-iqp-add-driver>+ Add additional driver</button>
+        </div>
+      </div>
+
+      <div class="iqp-toggles">
+        <label class="iqp-check"><input type="checkbox" name="has_prior"><span>Has prior insurance</span></label>
+        <label class="iqp-check"><input type="checkbox" name="is_experienced"><span>Experienced</span></label>
+        <label class="iqp-check"><input type="checkbox" name="has_accident"><span>Has accident history</span></label>
+      </div>
+
+      <div class="iqp-field">
+        <span>Recommended companies</span>
+        <div class="iqp-dd" data-iqp-dd>
+          <button type="button" class="iqp-dd__trigger" data-iqp-dd-trigger aria-haspopup="listbox" aria-expanded="false">
+            <span data-iqp-dd-label>Select companies…</span>
+            <span class="iqp-dd__chev" aria-hidden="true"></span>
+          </button>
+          <div class="iqp-dd__menu" data-iqp-dd-menu hidden role="listbox" aria-multiselectable="true">
+            {% for co in quote_companies %}
+            <label class="iqp-dd__option">
+              <input type="checkbox" name="recommended_companies" value="{{ co.id }}">
+              <span>{{ co.name }}</span>
+            </label>
+            {% empty %}
+            <p class="iqp-dd__empty">Add companies in the Companies tab first.</p>
+            {% endfor %}
+          </div>
+        </div>
+        <small class="iqp-field__hint">Pick one or more carriers to recommend for quoting.</small>
+      </div>
+
+      <label class="iqp-field">
+        <span>Notes</span>
+        <textarea name="notes" rows="3" placeholder="Anything the agent should know"></textarea>
+      </label>
+
+      <label class="iqp-field">
+        <span>Upload documents</span>
+        <input type="file" name="documents" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.heic">
+        <small class="iqp-field__hint">Visible only to the agent assigned to work this lead (and owners/managers).</small>
+      </label>
+
+      {% if can_manage_quote_distribution %}
+      <label class="iqp-field">
+        <span>Manual assign (optional)</span>
+        <select name="assigned_to">
+          <option value="">Auto distribute</option>
+          {% for agent in quote_agents %}
+          <option value="{{ agent.id }}">{{ agent.user.get_full_name|default:agent.user.username }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% endif %}
+    </div>
+
+    <footer class="iqp-modal__footer">
+      <button type="button" class="iqp-btn iqp-btn--ghost" data-iqp-close>Cancel</button>
+      <button type="submit" class="iqp-btn iqp-btn--primary">Create &amp; route lead</button>
+    </footer>
+  </form>
+</div>
+{% endif %}
+
+{% if can_edit_quote_leads %}
+<div class="iqp-modal" id="iqpEditModal" role="dialog" aria-modal="true" aria-labelledby="iqpEditTitle" hidden>
+  <div class="iqp-modal__scrim" data-iqp-close></div>
+  <form method="post" action="" class="iqp-modal__panel" id="iqpEditForm" enctype="multipart/form-data">
+    {% csrf_token %}
+    {% if quote_form_next %}<input type="hidden" name="next" value="{{ quote_form_next }}">{% endif %}
+    <header class="iqp-modal__header">
+      <div>
+        <p class="iqp-modal__eyebrow">Quote Pipeline</p>
+        <h3 id="iqpEditTitle">Edit quote lead</h3>
+      </div>
+      <button type="button" class="iqp-modal__close" data-iqp-close aria-label="Close">&times;</button>
+    </header>
+
+    <div class="iqp-modal__body">
+      <label class="iqp-field">
+        <span>How did you hear about us?</span>
+        <select name="heard_about" id="iqpEditHeardAbout">
+          <option value="">Select…</option>
+          {% for value, label in quote_heard_about_choices %}
+          <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <div class="iqp-modal__grid">
+        <label class="iqp-field">
+          <span>Client name</span>
+          <input name="client_name" required maxlength="200" id="iqpEditClientName">
+        </label>
+        <label class="iqp-field">
+          <span>Phone</span>
+          <input name="phone" required maxlength="30" id="iqpEditPhone">
+        </label>
+        <label class="iqp-field">
+          <span>Email</span>
+          <input type="email" name="email" maxlength="254" id="iqpEditEmail">
+        </label>
+        <label class="iqp-field">
+          <span>Insurance type</span>
+          <select name="insurance_type" id="iqpEditType">
+            <option value="">Select type</option>
+            {% for opt in quote_type_options %}
+            <option value="{{ opt.key }}">{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="iqp-field">
+          <span>Ownership</span>
+          <select name="vehicle_ownership" id="iqpEditVehicle">
+            <option value="">Blank / Owned / Financed</option>
+            {% for value, label in quote_vehicle_ownership_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="iqp-field">
+          <span>Coverage</span>
+          <select name="coverage_type" id="iqpEditCoverage">
+            <option value="">Liability / Full</option>
+            {% for value, label in quote_coverage_type_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="iqp-field">
+          <span>Stage</span>
+          <select name="stage" id="iqpEditStage">
+            {% for value, label in quote_stage_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div class="iqp-block">
+        <h4 class="iqp-block__title">Address</h4>
+        <div class="iqp-modal__grid">
+          <label class="iqp-field" style="grid-column: 1 / -1;">
+            <span>Street address</span>
+            <input name="street_address" id="iqpEditStreet" maxlength="200" autocomplete="street-address">
+          </label>
+          <label class="iqp-field">
+            <span>Apt / Unit</span>
+            <input name="apartment" id="iqpEditApt" maxlength="50" autocomplete="address-line2">
+          </label>
+          <label class="iqp-field">
+            <span>City</span>
+            <input name="city" id="iqpEditCity" maxlength="100" autocomplete="address-level2">
+          </label>
+          <label class="iqp-field">
+            <span>State</span>
+            <select name="state" id="iqpEditState">
+              {% for code, label in quote_us_states %}
+              <option value="{{ code }}">{{ code }} — {{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="iqp-field">
+            <span>ZIP</span>
+            <input name="zip_code" id="iqpEditZip" maxlength="10" autocomplete="postal-code">
+          </label>
+        </div>
+      </div>
+
+      <div class="iqp-block">
+        <h4 class="iqp-block__title">Car info</h4>
+        <div class="iqp-modal__grid">
+          <label class="iqp-field">
+            <span>Make</span>
+            <input name="vehicle_make" id="iqpEditMake" maxlength="80" autocomplete="off">
+          </label>
+          <label class="iqp-field">
+            <span>Model</span>
+            <input name="vehicle_model" id="iqpEditModel" maxlength="80" autocomplete="off">
+          </label>
+          <label class="iqp-field">
+            <span>Year</span>
+            <input name="vehicle_year" id="iqpEditYear" maxlength="4" inputmode="numeric" autocomplete="off">
+          </label>
+          <label class="iqp-field">
+            <span>VIN</span>
+            <input name="vin" id="iqpEditVin" maxlength="32" autocomplete="off">
+          </label>
+        </div>
+        <div class="iqp-extra-cars" data-iqp-extra-cars>
+          <div class="iqp-extra-cars__list" data-iqp-extra-cars-list id="iqpEditExtraCars"></div>
+          <button type="button" class="iqp-btn iqp-btn--ghost" data-iqp-add-car>+ Add additional car</button>
+        </div>
+      </div>
+
+      <div class="iqp-block">
+        <h4 class="iqp-block__title">Driver license</h4>
+        <div class="iqp-modal__grid">
+          <label class="iqp-field">
+            <span>DL number</span>
+            <input name="dl_number" id="iqpEditDlNumber" maxlength="40" autocomplete="off">
+          </label>
+          <label class="iqp-field">
+            <span>Date of birth</span>
+            <input type="date" name="date_of_birth" id="iqpEditDob" autocomplete="bday">
+          </label>
+        </div>
+        <div class="iqp-extra-drivers" data-iqp-extra-drivers>
+          <div class="iqp-extra-drivers__list" data-iqp-extra-drivers-list id="iqpEditExtraDrivers"></div>
+          <button type="button" class="iqp-btn iqp-btn--ghost" data-iqp-add-driver>+ Add additional driver</button>
+        </div>
+      </div>
+
+      <div class="iqp-toggles">
+        <label class="iqp-check"><input type="checkbox" name="has_prior" id="iqpEditPrior"><span>Has prior insurance</span></label>
+        <label class="iqp-check"><input type="checkbox" name="is_experienced" id="iqpEditExperienced"><span>Experienced</span></label>
+        <label class="iqp-check"><input type="checkbox" name="has_accident" id="iqpEditAccident"><span>Has accident history</span></label>
+      </div>
+
+      <div class="iqp-field">
+        <span>Recommended companies</span>
+        <div class="iqp-dd" data-iqp-dd>
+          <button type="button" class="iqp-dd__trigger" data-iqp-dd-trigger aria-haspopup="listbox" aria-expanded="false">
+            <span data-iqp-dd-label>Select companies…</span>
+            <span class="iqp-dd__chev" aria-hidden="true"></span>
+          </button>
+          <div class="iqp-dd__menu" data-iqp-dd-menu hidden role="listbox" aria-multiselectable="true">
+            {% for co in quote_companies %}
+            <label class="iqp-dd__option">
+              <input type="checkbox" name="recommended_companies" value="{{ co.id }}">
+              <span>{{ co.name }}</span>
+            </label>
+            {% empty %}
+            <p class="iqp-dd__empty">Add companies in the Companies tab first.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <label class="iqp-field">
+        <span>Notes</span>
+        <textarea name="notes" rows="3" id="iqpEditNotes"></textarea>
+      </label>
+
+      <div class="iqp-field" id="iqpEditExistingDocsWrap" hidden>
+        <span>Existing documents</span>
+        <div class="iqp-docs-edit" id="iqpEditExistingDocs"></div>
+        <small class="iqp-field__hint">Check to remove on save.</small>
+      </div>
+
+      <label class="iqp-field">
+        <span>Upload more documents</span>
+        <input type="file" name="documents" id="iqpEditDocuments" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.heic">
+      </label>
+
+      {% if can_manage_quote_distribution %}
+      <label class="iqp-field">
+        <span>Assigned agent</span>
+        <select name="assigned_to" id="iqpEditAssignee">
+          <option value="">Keep current / unassigned</option>
+          {% for agent in quote_agents %}
+          <option value="{{ agent.id }}">{{ agent.user.get_full_name|default:agent.user.username }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% endif %}
+    </div>
+
+    <footer class="iqp-modal__footer">
+      <button type="button" class="iqp-btn iqp-btn--ghost" data-iqp-close>Cancel</button>
+      <button type="submit" class="iqp-btn iqp-btn--primary">Save changes</button>
+    </footer>
+  </form>
+</div>
+{% endif %}

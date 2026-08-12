@@ -1,0 +1,381 @@
+﻿<script>
+(function () {
+  function wireModal(modal) {
+    if (!modal) return null;
+
+    function openModal() {
+      modal.hidden = false;
+      modal.removeAttribute('hidden');
+      modal.classList.add('is-open');
+      document.body.classList.add('iqp-modal-open');
+      var body = modal.querySelector('.iqp-modal__body');
+      if (body) body.scrollTop = 0;
+    }
+    function closeModal() {
+      modal.hidden = true;
+      modal.setAttribute('hidden', '');
+      modal.classList.remove('is-open');
+      if (!document.querySelector('.iqp-modal.is-open')) {
+        document.body.classList.remove('iqp-modal-open');
+      }
+      closeAllDropdowns(modal);
+    }
+    function closeAllDropdowns(root) {
+      (root || modal).querySelectorAll('[data-iqp-dd]').forEach(function (dd) {
+        var menu = dd.querySelector('[data-iqp-dd-menu]');
+        var trigger = dd.querySelector('[data-iqp-dd-trigger]');
+        if (menu) menu.hidden = true;
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        dd.classList.remove('is-open');
+      });
+    }
+    function syncDdLabel(dd) {
+      var label = dd.querySelector('[data-iqp-dd-label]');
+      var checked = Array.prototype.slice.call(dd.querySelectorAll('input[type="checkbox"]:checked'));
+      if (!label) return;
+      if (!checked.length) {
+        label.textContent = 'Select companies…';
+        return;
+      }
+      var names = checked.map(function (c) {
+        var span = c.parentElement && c.parentElement.querySelector('span');
+        return span ? span.textContent.trim() : c.value;
+      });
+      label.textContent = names.length <= 2
+        ? names.join(', ')
+        : names.slice(0, 2).join(', ') + ' +' + (names.length - 2) + ' more';
+    }
+
+    modal.querySelectorAll('[data-iqp-close]').forEach(function (el) {
+      el.addEventListener('click', closeModal);
+    });
+
+    modal.querySelectorAll('[data-iqp-dd]').forEach(function (dd) {
+      var trigger = dd.querySelector('[data-iqp-dd-trigger]');
+      var menu = dd.querySelector('[data-iqp-dd-menu]');
+      if (!trigger || !menu) return;
+      trigger.addEventListener('click', function (e) {
+        e.preventDefault();
+        var willOpen = menu.hidden;
+        closeAllDropdowns(modal);
+        if (willOpen) {
+          menu.hidden = false;
+          trigger.setAttribute('aria-expanded', 'true');
+          dd.classList.add('is-open');
+        }
+      });
+      dd.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+        cb.addEventListener('change', function () { syncDdLabel(dd); });
+      });
+      syncDdLabel(dd);
+    });
+
+    function makeExtraDriverRow(data) {
+      data = data || {};
+      var row = document.createElement('div');
+      row.className = 'iqp-extra-driver';
+      row.setAttribute('data-iqp-extra-driver', '');
+      row.innerHTML =
+        '<div class="iqp-extra-driver__head">' +
+          '<strong>Additional driver</strong>' +
+          '<button type="button" class="iqp-btn iqp-btn--tiny iqp-btn--ghost" data-iqp-remove-driver aria-label="Remove driver">Remove</button>' +
+        '</div>' +
+        '<div class="iqp-modal__grid">' +
+          '<label class="iqp-field"><span>Full name</span>' +
+            '<input name="extra_driver_name" maxlength="200" placeholder="Driver name" autocomplete="off">' +
+          '</label>' +
+          '<label class="iqp-field"><span>DL number</span>' +
+            '<input name="extra_driver_dl" maxlength="40" placeholder="License number" autocomplete="off">' +
+          '</label>' +
+          '<label class="iqp-field"><span>Date of birth</span>' +
+            '<input type="date" name="extra_driver_dob" autocomplete="bday">' +
+          '</label>' +
+        '</div>';
+      var nameInput = row.querySelector('input[name="extra_driver_name"]');
+      var dlInput = row.querySelector('input[name="extra_driver_dl"]');
+      var dobInput = row.querySelector('input[name="extra_driver_dob"]');
+      if (nameInput) nameInput.value = data.name || '';
+      if (dlInput) dlInput.value = data.dl || '';
+      if (dobInput) dobInput.value = data.dob || '';
+      return row;
+    }
+
+    function extraDriversList() {
+      return modal.querySelector('[data-iqp-extra-drivers-list]');
+    }
+
+    function clearExtraDrivers() {
+      var list = extraDriversList();
+      if (list) list.innerHTML = '';
+    }
+
+    function setExtraDrivers(drivers) {
+      var list = extraDriversList();
+      if (!list) return;
+      list.innerHTML = '';
+      (drivers || []).forEach(function (driver) {
+        list.appendChild(makeExtraDriverRow(driver));
+      });
+    }
+
+    function addExtraDriver(data) {
+      var list = extraDriversList();
+      if (!list) return;
+      list.appendChild(makeExtraDriverRow(data));
+    }
+
+    modal.querySelectorAll('[data-iqp-add-driver]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        addExtraDriver();
+      });
+    });
+
+    function makeExtraCarRow(data) {
+      data = data || {};
+      var row = document.createElement('div');
+      row.className = 'iqp-extra-car';
+      row.setAttribute('data-iqp-extra-car', '');
+      row.innerHTML =
+        '<div class="iqp-extra-car__head">' +
+          '<strong>Additional car</strong>' +
+          '<button type="button" class="iqp-btn iqp-btn--tiny iqp-btn--ghost" data-iqp-remove-car aria-label="Remove car">Remove</button>' +
+        '</div>' +
+        '<div class="iqp-modal__grid">' +
+          '<label class="iqp-field"><span>Make</span>' +
+            '<input name="extra_vehicle_make" maxlength="80" placeholder="e.g. Honda" autocomplete="off">' +
+          '</label>' +
+          '<label class="iqp-field"><span>Model</span>' +
+            '<input name="extra_vehicle_model" maxlength="80" placeholder="e.g. Accord" autocomplete="off">' +
+          '</label>' +
+          '<label class="iqp-field"><span>Year</span>' +
+            '<input name="extra_vehicle_year" maxlength="4" inputmode="numeric" placeholder="YYYY" autocomplete="off">' +
+          '</label>' +
+          '<label class="iqp-field"><span>VIN</span>' +
+            '<input name="extra_vehicle_vin" maxlength="32" placeholder="Vehicle identification number" autocomplete="off">' +
+          '</label>' +
+        '</div>';
+      var makeInput = row.querySelector('input[name="extra_vehicle_make"]');
+      var modelInput = row.querySelector('input[name="extra_vehicle_model"]');
+      var yearInput = row.querySelector('input[name="extra_vehicle_year"]');
+      var vinInput = row.querySelector('input[name="extra_vehicle_vin"]');
+      if (makeInput) makeInput.value = data.make || '';
+      if (modelInput) modelInput.value = data.model || '';
+      if (yearInput) yearInput.value = data.year || '';
+      if (vinInput) vinInput.value = data.vin || '';
+      return row;
+    }
+
+    function extraCarsList() {
+      return modal.querySelector('[data-iqp-extra-cars-list]');
+    }
+
+    function clearExtraCars() {
+      var list = extraCarsList();
+      if (list) list.innerHTML = '';
+    }
+
+    function setExtraCars(cars) {
+      var list = extraCarsList();
+      if (!list) return;
+      list.innerHTML = '';
+      (cars || []).forEach(function (car) {
+        list.appendChild(makeExtraCarRow(car));
+      });
+    }
+
+    function addExtraCar(data) {
+      var list = extraCarsList();
+      if (!list) return;
+      list.appendChild(makeExtraCarRow(data));
+    }
+
+    modal.querySelectorAll('[data-iqp-add-car]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        addExtraCar();
+      });
+    });
+
+    modal.addEventListener('click', function (e) {
+      var removeDriver = e.target.closest('[data-iqp-remove-driver]');
+      if (removeDriver && modal.contains(removeDriver)) {
+        e.preventDefault();
+        var driverRow = removeDriver.closest('[data-iqp-extra-driver]');
+        if (driverRow) driverRow.remove();
+        return;
+      }
+      var removeCar = e.target.closest('[data-iqp-remove-car]');
+      if (removeCar && modal.contains(removeCar)) {
+        e.preventDefault();
+        var carRow = removeCar.closest('[data-iqp-extra-car]');
+        if (carRow) carRow.remove();
+      }
+    });
+
+    return {
+      open: openModal,
+      close: closeModal,
+      syncDdLabel: syncDdLabel,
+      closeAllDropdowns: closeAllDropdowns,
+      clearExtraDrivers: clearExtraDrivers,
+      setExtraDrivers: setExtraDrivers,
+      addExtraDriver: addExtraDriver,
+      clearExtraCars: clearExtraCars,
+      setExtraCars: setExtraCars,
+      addExtraCar: addExtraCar,
+    };
+  }
+
+  var createModal = document.getElementById('iqpCreateModal');
+  var editModal = document.getElementById('iqpEditModal');
+  var createApi = wireModal(createModal);
+  var editApi = wireModal(editModal);
+
+  if (createApi) {
+    document.querySelectorAll('[data-iqp-open-create]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (createApi.clearExtraDrivers) createApi.clearExtraDrivers();
+        if (createApi.clearExtraCars) createApi.clearExtraCars();
+        createApi.open();
+      });
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    var editBtn = e.target.closest('[data-iqp-edit-lead]');
+    if (editBtn && editApi && editModal) {
+      e.preventDefault();
+      var card = editBtn.closest('[data-edit-url]');
+      if (!card) return;
+      var form = document.getElementById('iqpEditForm');
+      form.action = card.getAttribute('data-edit-url') || '';
+      document.getElementById('iqpEditClientName').value = card.getAttribute('data-client-name') || '';
+      document.getElementById('iqpEditPhone').value = card.getAttribute('data-phone') || '';
+      document.getElementById('iqpEditEmail').value = card.getAttribute('data-email') || '';
+      var heardEl = document.getElementById('iqpEditHeardAbout');
+      if (heardEl) heardEl.value = card.getAttribute('data-heard-about') || '';
+      var streetEl = document.getElementById('iqpEditStreet');
+      if (streetEl) streetEl.value = card.getAttribute('data-street-address') || '';
+      var aptEl = document.getElementById('iqpEditApt');
+      if (aptEl) aptEl.value = card.getAttribute('data-apartment') || '';
+      var cityEl = document.getElementById('iqpEditCity');
+      if (cityEl) cityEl.value = card.getAttribute('data-city') || '';
+      var stateEl = document.getElementById('iqpEditState');
+      if (stateEl) stateEl.value = card.getAttribute('data-state') || 'NY';
+      var zipEl = document.getElementById('iqpEditZip');
+      if (zipEl) zipEl.value = card.getAttribute('data-zip-code') || '';
+      document.getElementById('iqpEditType').value = card.getAttribute('data-insurance-type') || '';
+      document.getElementById('iqpEditStage').value = card.getAttribute('data-stage') || 'new';
+      document.getElementById('iqpEditNotes').value = card.getAttribute('data-notes') || '';
+      document.getElementById('iqpEditPrior').checked = card.getAttribute('data-has-prior') === '1';
+      document.getElementById('iqpEditExperienced').checked = card.getAttribute('data-is-experienced') === '1';
+      document.getElementById('iqpEditAccident').checked = card.getAttribute('data-has-accident') === '1';
+      var vehicleEl = document.getElementById('iqpEditVehicle');
+      if (vehicleEl) vehicleEl.value = card.getAttribute('data-vehicle-ownership') || '';
+      var coverageEl = document.getElementById('iqpEditCoverage');
+      if (coverageEl) coverageEl.value = card.getAttribute('data-coverage-type') || '';
+      var makeEl = document.getElementById('iqpEditMake');
+      if (makeEl) makeEl.value = card.getAttribute('data-vehicle-make') || '';
+      var modelEl = document.getElementById('iqpEditModel');
+      if (modelEl) modelEl.value = card.getAttribute('data-vehicle-model') || '';
+      var yearEl = document.getElementById('iqpEditYear');
+      if (yearEl) yearEl.value = card.getAttribute('data-vehicle-year') || '';
+      var vinEl = document.getElementById('iqpEditVin');
+      if (vinEl) vinEl.value = card.getAttribute('data-vin') || '';
+      var dlEl = document.getElementById('iqpEditDlNumber');
+      if (dlEl) dlEl.value = card.getAttribute('data-dl-number') || '';
+      var dobEl = document.getElementById('iqpEditDob');
+      if (dobEl) dobEl.value = card.getAttribute('data-date-of-birth') || '';
+      var extras = [];
+      try {
+        extras = JSON.parse(card.getAttribute('data-extra-drivers') || '[]');
+      } catch (err) {
+        extras = [];
+      }
+      if (editApi && editApi.setExtraDrivers) {
+        editApi.setExtraDrivers(extras);
+      }
+      var extraCars = [];
+      try {
+        extraCars = JSON.parse(card.getAttribute('data-extra-cars') || '[]');
+      } catch (err) {
+        extraCars = [];
+      }
+      if (editApi && editApi.setExtraCars) {
+        editApi.setExtraCars(extraCars);
+      }
+      var docsWrap = document.getElementById('iqpEditExistingDocsWrap');
+      var docsBox = document.getElementById('iqpEditExistingDocs');
+      if (docsWrap && docsBox) {
+        docsBox.innerHTML = '';
+        var docs = [];
+        try {
+          docs = JSON.parse(card.getAttribute('data-docs') || '[]');
+        } catch (err) {
+          docs = [];
+        }
+        if (docs.length) {
+          docs.forEach(function (doc) {
+            var label = document.createElement('label');
+            label.className = 'iqp-docs-edit__row';
+            label.innerHTML =
+              '<input type="checkbox" name="remove_documents" value="' + String(doc.id) + '">' +
+              '<a href="' + String(doc.url || '#') + '" target="_blank" rel="noopener">' +
+              String(doc.name || 'Document') +
+              '</a>';
+            docsBox.appendChild(label);
+          });
+          docsWrap.hidden = false;
+        } else {
+          docsWrap.hidden = true;
+        }
+      }
+      var fileInput = document.getElementById('iqpEditDocuments');
+      if (fileInput) fileInput.value = '';
+      var assignee = document.getElementById('iqpEditAssignee');
+      if (assignee) assignee.value = card.getAttribute('data-assigned-to') || '';
+      var ids = (card.getAttribute('data-company-ids') || '').split(',').filter(Boolean);
+      editModal.querySelectorAll('input[name="recommended_companies"]').forEach(function (cb) {
+        cb.checked = ids.indexOf(String(cb.value)) !== -1;
+      });
+      editModal.querySelectorAll('[data-iqp-dd]').forEach(function (dd) {
+        editApi.syncDdLabel(dd);
+      });
+      editApi.open();
+      return;
+    }
+
+    var openModal = document.querySelector('.iqp-modal.is-open');
+    if (!openModal) return;
+    if (e.target.closest('[data-iqp-dd]')) return;
+    openModal.querySelectorAll('[data-iqp-dd]').forEach(function (dd) {
+      var menu = dd.querySelector('[data-iqp-dd-menu]');
+      var trigger = dd.querySelector('[data-iqp-dd-trigger]');
+      if (menu) menu.hidden = true;
+      if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      dd.classList.remove('is-open');
+    });
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    var openModal = document.querySelector('.iqp-modal.is-open');
+    if (!openModal) return;
+    var openDd = openModal.querySelector('[data-iqp-dd].is-open');
+    if (openDd) {
+      var menu = openDd.querySelector('[data-iqp-dd-menu]');
+      var trigger = openDd.querySelector('[data-iqp-dd-trigger]');
+      if (menu) menu.hidden = true;
+      if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      openDd.classList.remove('is-open');
+      return;
+    }
+    openModal.hidden = true;
+    openModal.classList.remove('is-open');
+    if (!document.querySelector('.iqp-modal.is-open')) {
+      document.body.classList.remove('iqp-modal-open');
+    }
+  });
+})();
+</script>
