@@ -149,6 +149,29 @@ class InsuranceQuoteLeadDocument(models.Model):
         return self.original_name or self.file.name
 
 
+class InsuranceQuoteLeadDriver(models.Model):
+    """Additional driver on a quote lead (beyond the primary client DL/DOB)."""
+
+    lead = models.ForeignKey(
+        InsuranceQuoteLead,
+        on_delete=models.CASCADE,
+        related_name="additional_drivers",
+    )
+    full_name = models.CharField(max_length=200, blank=True, default="")
+    dl_number = models.CharField(max_length=40, blank=True, default="")
+    date_of_birth = models.DateField(null=True, blank=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+        verbose_name = "Quote lead additional driver"
+        verbose_name_plural = "Quote lead additional drivers"
+
+    def __str__(self):
+        return self.full_name or self.dl_number or f"Driver {self.pk}"
+
+
 class InsuranceQuoteDistributionConfig(models.Model):
     """Per-org smart distribution settings for quote leads."""
 

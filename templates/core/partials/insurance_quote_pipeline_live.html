@@ -30,6 +30,7 @@
           data-vin="{{ lead.vin }}"
           data-dl-number="{{ lead.dl_number }}"
           data-date-of-birth="{% if lead.date_of_birth %}{{ lead.date_of_birth|date:'Y-m-d' }}{% endif %}"
+          data-extra-drivers='[{% for d in lead.additional_drivers.all %}{"name":"{{ d.full_name|escapejs }}","dl":"{{ d.dl_number|escapejs }}","dob":"{% if d.date_of_birth %}{{ d.date_of_birth|date:'Y-m-d' }}{% endif %}"}{% if not forloop.last %},{% endif %}{% endfor %}]'
           data-has-prior="{% if lead.has_prior %}1{% else %}0{% endif %}"
           data-is-experienced="{% if lead.is_experienced %}1{% else %}0{% endif %}"
           data-has-accident="{% if lead.has_accident %}1{% else %}0{% endif %}"
@@ -61,11 +62,18 @@
           {% endif %}
           {% if lead.dl_number or lead.date_of_birth %}
           <p class="iqp-card__meta iqp-card__meta--secondary">
-            {% if lead.dl_number %}DL {{ lead.dl_number }}{% endif %}
-            {% if lead.dl_number and lead.date_of_birth %} · {% endif %}
-            {% if lead.date_of_birth %}DOB {{ lead.date_of_birth|date:"M j, Y" }}{% endif %}
+            Primary
+            {% if lead.dl_number %} · DL {{ lead.dl_number }}{% endif %}
+            {% if lead.date_of_birth %} · DOB {{ lead.date_of_birth|date:"M j, Y" }}{% endif %}
           </p>
           {% endif %}
+          {% for d in lead.additional_drivers.all %}
+          <p class="iqp-card__meta iqp-card__meta--secondary">
+            {% if d.full_name %}{{ d.full_name }}{% else %}Additional driver{% endif %}
+            {% if d.dl_number %} · DL {{ d.dl_number }}{% endif %}
+            {% if d.date_of_birth %} · DOB {{ d.date_of_birth|date:"M j, Y" }}{% endif %}
+          </p>
+          {% endfor %}
           <div class="iqp-flags">
             <span class="{% if lead.has_prior %}is-on{% endif %}">{% if lead.has_prior %}Prior{% else %}No prior{% endif %}</span>
             <span class="{% if lead.is_experienced %}is-on{% endif %}">{% if lead.is_experienced %}Experienced{% else %}New{% endif %}</span>

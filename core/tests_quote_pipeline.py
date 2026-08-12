@@ -319,6 +319,40 @@ class QuotePipelineDistributionTests(TestCase):
         self.assertIn("Full coverage", lead.agent_task.description)
         self.assertIn("Toyota", lead.agent_task.description)
         self.assertIn("D1234567", lead.agent_task.description)
+        self.assertEqual(lead.additional_drivers.count(), 0)
+
+        # Re-save with an additional driver via edit.
+        self.client.login(username="qmgr", password="password123")
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+        edit = self.client.post(
+            reverse("edit-quote-lead", args=[lead.id]),
+            {
+                "client_name": "Doc Client",
+                "phone": "5554445555",
+                "insurance_type": "personal_auto",
+                "vehicle_ownership": "financed",
+                "coverage_type": "full",
+                "vehicle_make": "Toyota",
+                "vehicle_model": "Camry",
+                "vehicle_year": "2021",
+                "vin": "1HGCM82633A004352",
+                "dl_number": "D1234567",
+                "date_of_birth": "1990-05-12",
+                "stage": "assigned",
+                "extra_driver_name": ["Jane Extra"],
+                "extra_driver_dl": ["E998877"],
+                "extra_driver_dob": ["1988-01-02"],
+            },
+        )
+        self.assertEqual(edit.status_code, 302)
+        lead.refresh_from_db()
+        self.assertEqual(lead.additional_drivers.count(), 1)
+        extra = lead.additional_drivers.first()
+        self.assertEqual(extra.full_name, "Jane Extra")
+        self.assertEqual(extra.dl_number, "E998877")
+        self.assertIn("Jane Extra", lead.agent_task.description)
 
         doc = lead.documents.first()
         self.assertTrue(

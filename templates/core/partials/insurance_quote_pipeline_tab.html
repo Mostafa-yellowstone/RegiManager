@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=6">
+<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=7">
 
 <section class="iqp" id="quotePipelineRoot" data-org-id="{{ organization.id }}" data-snapshot-url="{% url 'portal-quote-pipeline-snapshot' %}?org={{ organization.id }}">
   <header class="iqp-hero">
@@ -181,6 +181,7 @@
           <span class="iqp-section__chev" aria-hidden="true"></span>
         </button>
         <div class="iqp-section__body" data-iqp-section-panel>
+          <p class="iqp-section__label">Primary driver</p>
           <div class="iqp-modal__grid">
             <label class="iqp-field">
               <span>DL number</span>
@@ -190,6 +191,10 @@
               <span>Date of birth</span>
               <input type="date" name="date_of_birth" autocomplete="bday">
             </label>
+          </div>
+          <div class="iqp-extra-drivers" data-iqp-extra-drivers>
+            <div class="iqp-extra-drivers__list" data-iqp-extra-drivers-list></div>
+            <button type="button" class="iqp-btn iqp-btn--ghost iqp-btn--tiny" data-iqp-add-driver>+ Add additional driver</button>
           </div>
         </div>
       </div>
@@ -356,6 +361,7 @@
           <span class="iqp-section__chev" aria-hidden="true"></span>
         </button>
         <div class="iqp-section__body" data-iqp-section-panel hidden>
+          <p class="iqp-section__label">Primary driver</p>
           <div class="iqp-modal__grid">
             <label class="iqp-field">
               <span>DL number</span>
@@ -365,6 +371,10 @@
               <span>Date of birth</span>
               <input type="date" name="date_of_birth" id="iqpEditDob" autocomplete="bday">
             </label>
+          </div>
+          <div class="iqp-extra-drivers" data-iqp-extra-drivers>
+            <div class="iqp-extra-drivers__list" data-iqp-extra-drivers-list id="iqpEditExtraDrivers"></div>
+            <button type="button" class="iqp-btn iqp-btn--ghost iqp-btn--tiny" data-iqp-add-driver>+ Add additional driver</button>
           </div>
         </div>
       </div>
@@ -503,6 +513,60 @@
       if (panel) panel.hidden = !open;
     }
 
+    function makeExtraDriverRow(data) {
+      data = data || {};
+      var row = document.createElement('div');
+      row.className = 'iqp-extra-driver';
+      row.setAttribute('data-iqp-extra-driver', '');
+      row.innerHTML =
+        '<div class="iqp-extra-driver__head">' +
+          '<strong>Additional driver</strong>' +
+          '<button type="button" class="iqp-btn iqp-btn--tiny iqp-btn--ghost" data-iqp-remove-driver aria-label="Remove driver">Remove</button>' +
+        '</div>' +
+        '<div class="iqp-modal__grid">' +
+          '<label class="iqp-field"><span>Full name</span>' +
+            '<input name="extra_driver_name" maxlength="200" placeholder="Driver name" autocomplete="off">' +
+          '</label>' +
+          '<label class="iqp-field"><span>DL number</span>' +
+            '<input name="extra_driver_dl" maxlength="40" placeholder="License number" autocomplete="off">' +
+          '</label>' +
+          '<label class="iqp-field"><span>Date of birth</span>' +
+            '<input type="date" name="extra_driver_dob" autocomplete="bday">' +
+          '</label>' +
+        '</div>';
+      var nameInput = row.querySelector('input[name="extra_driver_name"]');
+      var dlInput = row.querySelector('input[name="extra_driver_dl"]');
+      var dobInput = row.querySelector('input[name="extra_driver_dob"]');
+      if (nameInput) nameInput.value = data.name || '';
+      if (dlInput) dlInput.value = data.dl || '';
+      if (dobInput) dobInput.value = data.dob || '';
+      return row;
+    }
+
+    function extraDriversList() {
+      return modal.querySelector('[data-iqp-extra-drivers-list]');
+    }
+
+    function clearExtraDrivers() {
+      var list = extraDriversList();
+      if (list) list.innerHTML = '';
+    }
+
+    function setExtraDrivers(drivers) {
+      var list = extraDriversList();
+      if (!list) return;
+      list.innerHTML = '';
+      (drivers || []).forEach(function (driver) {
+        list.appendChild(makeExtraDriverRow(driver));
+      });
+    }
+
+    function addExtraDriver(data) {
+      var list = extraDriversList();
+      if (!list) return;
+      list.appendChild(makeExtraDriverRow(data));
+    }
+
     modal.querySelectorAll('[data-iqp-section]').forEach(function (section) {
       var toggle = section.querySelector('[data-iqp-section-toggle]');
       if (!toggle) return;
@@ -514,12 +578,32 @@
       });
     });
 
+    modal.querySelectorAll('[data-iqp-add-driver]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        addExtraDriver();
+        var dlSection = btn.closest('[data-iqp-section]');
+        if (dlSection) setSectionOpen(dlSection, true);
+      });
+    });
+
+    modal.addEventListener('click', function (e) {
+      var removeBtn = e.target.closest('[data-iqp-remove-driver]');
+      if (!removeBtn || !modal.contains(removeBtn)) return;
+      e.preventDefault();
+      var row = removeBtn.closest('[data-iqp-extra-driver]');
+      if (row) row.remove();
+    });
+
     return {
       open: openModal,
       close: closeModal,
       syncDdLabel: syncDdLabel,
       closeAllDropdowns: closeAllDropdowns,
       setSectionOpen: setSectionOpen,
+      clearExtraDrivers: clearExtraDrivers,
+      setExtraDrivers: setExtraDrivers,
+      addExtraDriver: addExtraDriver,
     };
   }
 
@@ -530,7 +614,10 @@
 
   if (createApi) {
     document.querySelectorAll('[data-iqp-open-create]').forEach(function (btn) {
-      btn.addEventListener('click', createApi.open);
+      btn.addEventListener('click', function () {
+        if (createApi.clearExtraDrivers) createApi.clearExtraDrivers();
+        createApi.open();
+      });
     });
   }
 
@@ -572,6 +659,15 @@
       if (editApi && editApi.setSectionOpen) {
         editApi.setSectionOpen(carSection, true);
         editApi.setSectionOpen(dlSection, true);
+      }
+      var extras = [];
+      try {
+        extras = JSON.parse(card.getAttribute('data-extra-drivers') || '[]');
+      } catch (err) {
+        extras = [];
+      }
+      if (editApi && editApi.setExtraDrivers) {
+        editApi.setExtraDrivers(extras);
       }
       var docsWrap = document.getElementById('iqpEditExistingDocsWrap');
       var docsBox = document.getElementById('iqpEditExistingDocs');

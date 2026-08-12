@@ -154,7 +154,18 @@ def _lead_task_description(lead: InsuranceQuoteLead) -> str:
             dl_bits.append(f"DL {lead.dl_number}")
         if lead.date_of_birth:
             dl_bits.append(f"DOB {lead.date_of_birth.isoformat()}")
-        parts.append("Driver: " + " · ".join(dl_bits))
+        parts.append("Primary driver: " + " · ".join(dl_bits))
+    extras = list(lead.additional_drivers.all()[:8])
+    for idx, driver in enumerate(extras, start=2):
+        bits = []
+        if driver.full_name:
+            bits.append(driver.full_name)
+        if driver.dl_number:
+            bits.append(f"DL {driver.dl_number}")
+        if driver.date_of_birth:
+            bits.append(f"DOB {driver.date_of_birth.isoformat()}")
+        if bits:
+            parts.append(f"Driver {idx}: " + " · ".join(bits))
     if lead.notes:
         parts.append(f"Notes: {lead.notes[:500]}")
     docs = list(lead.documents.all()[:12])

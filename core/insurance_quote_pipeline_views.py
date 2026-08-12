@@ -35,6 +35,7 @@ from .insurance_quote_pipeline_models import (
     InsuranceAgentOffDay,
     InsuranceQuoteLead,
     InsuranceQuoteLeadDocument,
+    InsuranceQuoteLeadDriver,
 )
 from .insurance_targets_metrics import insurance_type_catalog
 from .models import InsuranceCompany, Organization, OrganizationMembership, Space
@@ -67,7 +68,7 @@ def build_quote_pipeline_context(request, organization, membership):
     leads_qs = (
         InsuranceQuoteLead.objects.filter(organization=organization)
         .select_related("assigned_to__user", "created_by", "agent_task")
-        .prefetch_related("recommended_companies", "documents")
+        .prefetch_related("recommended_companies", "documents", "additional_drivers")
         .order_by("-created_at")
     )
     is_leader = can_manage_quote_distribution(
@@ -180,6 +181,31 @@ def _apply_car_and_dl_fields(request, lead: InsuranceQuoteLead) -> None:
     lead.date_of_birth = _parse_date_of_birth(request.POST.get("date_of_birth"))
 
 
+def _save_additional_drivers(request, lead: InsuranceQuoteLead) -> int:
+    """Replace additional drivers from parallel POST lists."""
+    names = request.POST.getlist("extra_driver_name")
+    dls = request.POST.getlist("extra_driver_dl")
+    dobs = request.POST.getlist("extra_driver_dob")
+    count = max(len(names), len(dls), len(dobs))
+    lead.additional_drivers.all().delete()
+    created = 0
+    for idx in range(count):
+        name = (names[idx] if idx < len(names) else "").strip()[:200]
+        dl = (dls[idx] if idx < len(dls) else "").strip()[:40]
+        dob = _parse_date_of_birth(dobs[idx] if idx < len(dobs) else "")
+        if not name and not dl and not dob:
+            continue
+        InsuranceQuoteLeadDriver.objects.create(
+            lead=lead,
+            full_name=name,
+            dl_number=dl,
+            date_of_birth=dob,
+            sort_order=created,
+        )
+        created += 1
+    return created
+
+
 def _save_uploaded_documents(request, lead: InsuranceQuoteLead) -> int:
     files = request.FILES.getlist("documents")
     count = 0
@@ -271,6 +297,7 @@ def create_quote_lead(request):
         )
         lead.recommended_companies.set(companies)
 
+    _save_additional_drivers(request, lead)
     _save_uploaded_documents(request, lead)
 
     manual_agent_id = (request.POST.get("assigned_to") or "").strip()
@@ -445,6 +472,7 @@ def _apply_lead_fields(request, lead, org):
     companies = InsuranceCompany.objects.filter(organization=org, id__in=company_ids)
     lead.recommended_companies.set(companies)
 
+    _save_additional_drivers(request, lead)
     _remove_documents(request, lead)
     _save_uploaded_documents(request, lead)
     _refresh_linked_task_description(lead)
