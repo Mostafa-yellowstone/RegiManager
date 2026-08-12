@@ -357,8 +357,8 @@ body.iqp-modal-open { overflow: hidden; }
 .iqp-modal__panel {
   position: relative;
   z-index: 1;
-  width: min(640px, 100%);
-  max-height: min(88vh, 820px);
+  width: min(720px, 100%);
+  max-height: min(92vh, 920px);
   display: flex;
   flex-direction: column;
   border-radius: 20px;
@@ -380,6 +380,7 @@ body.iqp-modal-open { overflow: hidden; }
   padding: 1.15rem 1.25rem 0.85rem;
   border-bottom: 1px solid #e2e8f0;
   background: #fff;
+  flex: 0 0 auto;
 }
 .iqp-modal__eyebrow {
   margin: 0 0 0.2rem;
@@ -414,10 +415,14 @@ body.iqp-modal-open { overflow: hidden; }
 
 .iqp-modal__body {
   padding: 1rem 1.25rem 0.5rem;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   display: grid;
   gap: 0.9rem;
   background: #fff;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .iqp-modal__footer {
@@ -427,6 +432,7 @@ body.iqp-modal-open { overflow: hidden; }
   padding: 0.9rem 1.25rem 1.15rem;
   border-top: 1px solid #e2e8f0;
   background: #f8fafc;
+  flex: 0 0 auto;
 }
 
 .iqp-modal__grid {

@@ -1,5 +1,5 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=7">
+<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=8">
 
 <section class="iqp" id="quotePipelineRoot" data-org-id="{{ organization.id }}" data-snapshot-url="{% url 'portal-quote-pipeline-snapshot' %}?org={{ organization.id }}">
   <header class="iqp-hero">
@@ -441,13 +441,37 @@
   function wireModal(modal) {
     if (!modal) return null;
 
+    function setSectionOpen(section, open) {
+      if (!section) return;
+      var toggle = section.querySelector('[data-iqp-section-toggle]');
+      var panel = section.querySelector('[data-iqp-section-panel]');
+      section.classList.toggle('is-open', !!open);
+      if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (panel) {
+        if (open) {
+          panel.removeAttribute('hidden');
+          panel.hidden = false;
+        } else {
+          panel.setAttribute('hidden', '');
+          panel.hidden = true;
+        }
+      }
+    }
+
     function openModal() {
       modal.hidden = false;
+      modal.removeAttribute('hidden');
       modal.classList.add('is-open');
       document.body.classList.add('iqp-modal-open');
+      modal.querySelectorAll('[data-iqp-section]').forEach(function (section) {
+        setSectionOpen(section, true);
+      });
+      var body = modal.querySelector('.iqp-modal__body');
+      if (body) body.scrollTop = 0;
     }
     function closeModal() {
       modal.hidden = true;
+      modal.setAttribute('hidden', '');
       modal.classList.remove('is-open');
       if (!document.querySelector('.iqp-modal.is-open')) {
         document.body.classList.remove('iqp-modal-open');
@@ -503,15 +527,6 @@
       });
       syncDdLabel(dd);
     });
-
-    function setSectionOpen(section, open) {
-      if (!section) return;
-      var toggle = section.querySelector('[data-iqp-section-toggle]');
-      var panel = section.querySelector('[data-iqp-section-panel]');
-      section.classList.toggle('is-open', !!open);
-      if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-      if (panel) panel.hidden = !open;
-    }
 
     function makeExtraDriverRow(data) {
       data = data || {};
