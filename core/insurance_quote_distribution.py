@@ -48,6 +48,20 @@ def insurance_agent_pool(organization):
     return [m for m in qs if can_receive_quote_distribution(m)]
 
 
+def manual_assign_agent_pool(organization):
+    """Agents shown in owner/manager Assign controls (manual routing)."""
+    return list(
+        OrganizationMembership.objects.filter(
+            organization=organization,
+            is_active=True,
+            can_deal_with_insurance=True,
+            user__is_active=True,
+        )
+        .select_related("user")
+        .order_by("user__first_name", "user__last_name", "user__username", "id")
+    )
+
+
 def agent_is_present(membership, work_date: date) -> bool:
     session = (
         AgentAttendanceSession.objects.filter(

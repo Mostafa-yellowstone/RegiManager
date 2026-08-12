@@ -1,5 +1,5 @@
 ﻿{% load static %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=17">
+<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=19">
 
 <section class="iqp" id="quotePipelineRoot" data-org-id="{{ organization.id }}" data-snapshot-url="{% url 'portal-quote-pipeline-snapshot' %}?org={{ organization.id }}">
   <header class="iqp-hero">
@@ -55,7 +55,7 @@
         {% csrf_token %}
         <select name="membership_id" required>
           <option value="">Insurance agent</option>
-          {% for agent in quote_agents %}
+          {% for agent in quote_auto_agents|default:quote_agents %}
           <option value="{{ agent.id }}">{{ agent.user.get_full_name|default:agent.user.username }}</option>
           {% endfor %}
         </select>

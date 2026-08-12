@@ -92,15 +92,22 @@ ASSIGNABLE_ROLES = (
 
 
 def normalize_role(role: str | None) -> str:
-    if role == LEGACY_MEMBER:
+    if not role:
         return Role.AGENT
-    if role in dict(Role.choices):
-        return role
+    value = str(role).strip().lower()
+    if value == LEGACY_MEMBER:
+        return Role.AGENT
+    if value in dict(Role.choices):
+        return value
     return Role.AGENT
 
 
 def is_owner_role(role: str | None) -> bool:
-    return role == Role.OWNER
+    return normalize_role(role) == Role.OWNER
+
+
+def is_owner_or_manager_role(role: str | None) -> bool:
+    return normalize_role(role) in {Role.OWNER, Role.MANAGER}
 
 
 def is_insurance_agent_role(membership: OrganizationMembership | None) -> bool:

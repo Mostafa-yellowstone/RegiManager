@@ -21,9 +21,11 @@ from .insurance_quote_distribution import (
     distribution_status,
     get_or_create_distribution_config,
     insurance_agent_pool,
+    manual_assign_agent_pool,
     ny_work_date,
 )
 from .insurance_quote_permissions import (
+    can_assign_quote_leads,
     can_create_quote_leads,
     can_delete_quote_lead,
     can_edit_quote_lead,
@@ -128,6 +130,7 @@ def build_quote_pipeline_context(request, organization, membership):
     )
     type_options = insurance_type_catalog(organization)
     agents = insurance_agent_pool(organization)
+    assign_agents = manual_assign_agent_pool(organization)
     off_days = list(
         InsuranceAgentOffDay.objects.filter(
             organization=organization,
@@ -152,12 +155,16 @@ def build_quote_pipeline_context(request, organization, membership):
         "quote_distribution": status,
         "quote_companies": companies,
         "quote_type_options": type_options,
-        "quote_agents": agents,
+        "quote_agents": assign_agents,
+        "quote_auto_agents": agents,
         "quote_off_days": off_days,
         "can_create_quote_leads": can_create_quote_leads(
             request.user, organization, membership=membership
         ),
         "can_manage_quote_distribution": is_leader,
+        "can_assign_quote_leads": can_assign_quote_leads(
+            request.user, organization, membership=membership
+        ),
         "can_view_quote_pipeline": can_view_quote_pipeline(
             request.user, organization, membership=membership
         ),
@@ -391,7 +398,7 @@ def create_quote_lead(request):
             organization=org,
             is_active=True,
         )
-        if can_receive_quote_distribution(agent):
+        if agent.can_deal_with_insurance:
             assign_lead(
                 lead,
                 agent,
@@ -400,7 +407,7 @@ def create_quote_lead(request):
             )
             messages.success(request, f"Lead created and assigned to {agent.user.get_full_name() or agent.user.username}.")
         else:
-            messages.warning(request, "Lead created but assignee is not an insurance agent.")
+            messages.warning(request, "Lead created but assignee cannot deal with insurance.")
     else:
         auto_distribute_lead(lead, actor=request.user)
         lead.refresh_from_db()
@@ -450,8 +457,8 @@ def assign_quote_lead(request, lead_id: int):
         organization=org,
         is_active=True,
     )
-    if not can_receive_quote_distribution(agent):
-        messages.error(request, "Leads can only be distributed to insurance agents.")
+    if not agent.can_deal_with_insurance:
+        messages.error(request, "Leads can only be assigned to insurance-capable team members.")
         return _redirect_pipeline(request, org)
 
     assign_lead(
@@ -609,7 +616,7 @@ def edit_quote_lead(request, lead_id: int):
                 organization=org,
                 is_active=True,
             ).first()
-            if agent and can_receive_quote_distribution(agent):
+            if agent and agent.can_deal_with_insurance:
                 if lead.assigned_to_id != agent.id:
                     assign_lead(
                         lead,

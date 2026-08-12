@@ -4,7 +4,7 @@
 {% block title %}Quote records | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=17">
+<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=19">
 {% endblock %}
 
 {% block portal_content %}
@@ -167,18 +167,24 @@
               </form>
             </td>
             <td>
-              {% if can_manage_quote_distribution %}
-              <form method="post" action="{% url 'assign-quote-lead' lead.id %}" class="iqp-records__inline-form">
+              {% if can_assign_quote_leads or can_manage_quote_distribution %}
+              <form method="post" action="{% url 'assign-quote-lead' lead.id %}" class="iqp-assign-box iqp-records__assign-form">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ quote_form_next }}">
-                <select name="assigned_to" required onchange="this.form.submit()" aria-label="Assign {{ lead.client_name }}">
-                  <option value="">Assign…</option>
-                  {% for agent in quote_agents %}
-                  <option value="{{ agent.id }}" {% if lead.assigned_to_id == agent.id %}selected{% endif %}>
-                    {{ agent.user.get_full_name|default:agent.user.username }}
-                  </option>
-                  {% endfor %}
-                </select>
+                <label class="iqp-assign-label" for="iqp-rec-assign-{{ lead.id }}">Assign to agent</label>
+                <div class="iqp-assign-row">
+                  <select name="assigned_to" id="iqp-rec-assign-{{ lead.id }}" required>
+                    <option value="" disabled {% if not lead.assigned_to_id %}selected{% endif %}>Select agent</option>
+                    {% for agent in quote_agents %}
+                    <option value="{{ agent.id }}" {% if lead.assigned_to_id == agent.id %}selected{% endif %}>
+                      {{ agent.user.get_full_name|default:agent.user.username }}
+                    </option>
+                    {% empty %}
+                    <option value="" disabled>No agents available</option>
+                    {% endfor %}
+                  </select>
+                  <button type="submit" class="iqp-btn iqp-btn--tiny iqp-btn--primary">Assign</button>
+                </div>
               </form>
               {% else %}
                 {% if lead.assigned_to %}

@@ -1,6 +1,14 @@
 <div class="iqp-live" id="iqpLiveRegion">
   <div class="iqp-pipeline">
     <div class="iqp-pipeline__toolbar">
+      <div class="iqp-pipeline__toolbar-top">
+        <span class="iqp-pipeline__aside-stat">
+          <em>{{ quote_kpis.unassigned }}</em> unassigned
+        </span>
+        <div class="iqp-pipeline__aside">
+          <a class="iqp-btn iqp-btn--ghost iqp-btn--browse" href="{% url 'quote-records' %}">Quote records</a>
+        </div>
+      </div>
       <div class="iqp-metrics" role="list">
         {% for stage in quote_stages %}
         <a
@@ -13,12 +21,6 @@
           <strong class="iqp-metric__value">{{ stage.total_count }}</strong>
         </a>
         {% endfor %}
-      </div>
-      <div class="iqp-pipeline__aside">
-        <span class="iqp-pipeline__aside-stat">
-          <em>{{ quote_kpis.unassigned }}</em> unassigned
-        </span>
-        <a class="iqp-btn iqp-btn--ghost iqp-btn--browse" href="{% url 'quote-records' %}">Quote records</a>
       </div>
     </div>
 
@@ -84,18 +86,23 @@
               <a href="tel:{{ lead.phone }}">{{ lead.phone }}</a>
             </p>
 
-            {% if can_manage_quote_distribution %}
-            <form method="post" action="{% url 'assign-quote-lead' lead.id %}" class="iqp-card__assign">
+            {% if can_assign_quote_leads or can_manage_quote_distribution %}
+            <form method="post" action="{% url 'assign-quote-lead' lead.id %}" class="iqp-assign-box">
               {% csrf_token %}
-              <label class="iqp-sr-only" for="iqp-assign-{{ lead.id }}">Assign agent</label>
-              <select name="assigned_to" id="iqp-assign-{{ lead.id }}" required onchange="this.form.submit()">
-                <option value="">Assign agent…</option>
-                {% for agent in quote_agents %}
-                <option value="{{ agent.id }}" {% if lead.assigned_to_id == agent.id %}selected{% endif %}>
-                  {{ agent.user.get_full_name|default:agent.user.username }}
-                </option>
-                {% endfor %}
-              </select>
+              <label class="iqp-assign-label" for="iqp-assign-{{ lead.id }}">Assign to agent</label>
+              <div class="iqp-assign-row">
+                <select name="assigned_to" id="iqp-assign-{{ lead.id }}" required>
+                  <option value="" disabled {% if not lead.assigned_to_id %}selected{% endif %}>Select agent</option>
+                  {% for agent in quote_agents %}
+                  <option value="{{ agent.id }}" {% if lead.assigned_to_id == agent.id %}selected{% endif %}>
+                    {{ agent.user.get_full_name|default:agent.user.username }}
+                  </option>
+                  {% empty %}
+                  <option value="" disabled>No insurance agents available</option>
+                  {% endfor %}
+                </select>
+                <button type="submit" class="iqp-btn iqp-btn--tiny iqp-btn--primary">Assign</button>
+              </div>
             </form>
             {% else %}
             <div class="iqp-card__assignee">

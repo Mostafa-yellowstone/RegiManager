@@ -26,8 +26,9 @@ def is_owner_or_manager(membership: OrganizationMembership | None, *, user=None)
         return True
     if membership is None:
         return False
-    role = normalize_role(membership.role)
-    return role in {Role.OWNER, Role.MANAGER}
+    from .role_permissions import is_owner_or_manager_role
+
+    return is_owner_or_manager_role(membership.role)
 
 
 def can_create_quote_leads(user, organization, *, membership=None) -> bool:
@@ -48,6 +49,11 @@ def can_manage_quote_distribution(user, organization, *, membership=None) -> boo
         return True
     membership = membership or membership_for_org(user, organization)
     return is_owner_or_manager(membership, user=user)
+
+
+def can_assign_quote_leads(user, organization, *, membership=None) -> bool:
+    """Owner/Manager Assign UI — same gate as distribution management."""
+    return can_manage_quote_distribution(user, organization, membership=membership)
 
 
 def can_receive_quote_distribution(membership: OrganizationMembership | None) -> bool:
