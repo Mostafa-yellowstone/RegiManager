@@ -97,6 +97,9 @@ class InsuranceLedgerPdfTests(TestCase):
         self.assertIn("Jose Palacios", text)
         self.assertIn("Progressive", text)
         self.assertIn("PMT-", text)
+        self.assertNotIn("License PSB-8899", text)
+        self.assertNotIn("Principal Owner Name", text)
+        self.assertNotIn("PSB-8899", text)
 
     def _login(self):
         self.assertTrue(self.client.login(username="gl_owner", password="pass"))
@@ -119,11 +122,13 @@ class InsuranceLedgerPdfTests(TestCase):
         return text
 
     def test_reporting_center_pdfs(self):
-        self._assert_pdf(
+        remittance = self._assert_pdf(
             "export-insurance-remittance-pdf",
             {"start_date": "2026-08-01", "end_date": "2026-08-31"},
             must_contain=("Carrier remittance", "Progressive", "Jose Palacios"),
         )
+        self.assertNotIn("License PSB-8899", remittance)
+        self.assertNotIn("Principal Owner Name", remittance)
         self._assert_pdf(
             "export-insurance-payment-receipt-pdf",
             args=[self.payment.id],

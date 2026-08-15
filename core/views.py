@@ -6391,6 +6391,15 @@ def inventory_detail(request, inventory_id):
         daily_transactions = enrich_daily_transactions(list(daily_tx_qs))
         daily_method_cards, daily_grand_total = summarize_daily_payments(daily_transactions)
         daily_payable_total = compute_payable_total(active_org)
+        today_local = timezone.localdate()
+        mtd_collections = (
+            DailyPaymentTransaction.objects.filter(
+                organization=active_org,
+                transaction_date__gte=today_local.replace(day=1),
+                transaction_date__lte=today_local,
+            ).aggregate(t=Sum("amount"))["t"]
+            or Decimal("0.00")
+        )
 
         daily_available_dates = list(
             DailyPaymentTransaction.objects.filter(organization=active_org)
@@ -6548,6 +6557,7 @@ def inventory_detail(request, inventory_id):
             "daily_method_cards": daily_method_cards,
             "daily_grand_total": daily_grand_total,
             "daily_payable_total": daily_payable_total,
+            "mtd_collections": mtd_collections,
             "daily_available_dates": daily_available_dates,
             "daily_method_filter": daily_method_filter,
             "daily_type_filter": daily_type_filter,

@@ -298,14 +298,7 @@ def _header_footer(canvas, doc, brand, period_label, prepared_by):
     contact = "  ·  ".join(
         part for part in [brand.get("address"), brand.get("phone"), brand.get("email")] if part
     )
-    canvas.drawString(x, PAGE_H - 0.50 * inch, contact[:120])
-    license_bits = []
-    if brand.get("license"):
-        license_bits.append(f"License {brand['license']}")
-    if brand.get("owner"):
-        license_bits.append(f"Principal {brand['owner']}")
-    if license_bits:
-        canvas.drawString(x, PAGE_H - 0.64 * inch, "  ·  ".join(license_bits)[:120])
+    canvas.drawString(x, PAGE_H - 0.54 * inch, contact[:120])
 
     canvas.setFont("Helvetica-Bold", 12)
     canvas.drawRightString(PAGE_W - MARGIN_X, PAGE_H - 0.32 * inch, "GENERAL LEDGER")

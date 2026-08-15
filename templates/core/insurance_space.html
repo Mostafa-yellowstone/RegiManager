@@ -1390,60 +1390,106 @@ html.portal-theme-dark .ins-license-crm-alert__row {
     <div id="tab-reporting" class="tab-panel" style="display: none;">
       <div class="ins-reports-hero">
         <p class="ins-reports-kicker">Insurance Space · Official documents</p>
-        <h3 class="ins-section-title ins-section-title--lg">Reporting Center</h3>
-        <p class="portal-space-subtitle" style="margin: 0;">
-          Branded PDFs using this space’s logo, address, phone, email, and license — for carriers, the bank, producers, and compliance.
+        <h3>Reporting Center</h3>
+        <p class="ins-reports-hero__lede">
+          Live book snapshot plus branded PDFs using this space’s logo, address, phone, and email — for carriers, the bank, producers, and compliance.
         </p>
+        <div class="ins-reports-metrics">
+          <div class="ins-reports-metric">
+            <div class="ins-reports-metric__label">Active policies</div>
+            <div class="ins-reports-metric__value">{{ active_policies_count|default:0 }}</div>
+            <div class="ins-reports-metric__hint">In-force book</div>
+          </div>
+          <div class="ins-reports-metric is-premium">
+            <div class="ins-reports-metric__label">Premium in force</div>
+            <div class="ins-reports-metric__value">${{ total_premium|floatformat:2 }}</div>
+            <div class="ins-reports-metric__hint">Active bound policies</div>
+          </div>
+          <div class="ins-reports-metric is-cash">
+            <div class="ins-reports-metric__label">MTD collections</div>
+            <div class="ins-reports-metric__value">${{ mtd_collections|floatformat:2 }}</div>
+            <div class="ins-reports-metric__hint">Receipts this month</div>
+          </div>
+          {% if user_can_view_banking %}
+          <div class="ins-reports-metric is-held">
+            <div class="ins-reports-metric__label">Held / payable</div>
+            <div class="ins-reports-metric__value">${{ daily_payable_total|floatformat:2 }}</div>
+            <div class="ins-reports-metric__hint">Uncleared receipts</div>
+          </div>
+          {% endif %}
+          <div class="ins-reports-metric is-pipeline">
+            <div class="ins-reports-metric__label">Open quotes</div>
+            <div class="ins-reports-metric__value">{{ quote_kpis.total|default:0 }}</div>
+            <div class="ins-reports-metric__hint">Quote pipeline</div>
+          </div>
+        </div>
       </div>
 
       <section class="ins-report-group">
         <h4>Carrier evidence</h4>
         <div class="ins-reports-grid ins-reports-grid--3">
           <article class="ins-report-card ins-report-card--ledger">
-            <div class="ins-report-card__badge">Core</div>
-            <h3>Payment general ledger</h3>
+            <div class="ins-report-card__head">
+              <span class="ins-report-card__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+              </span>
+              <div>
+                <div class="ins-report-card__badge">Core</div>
+                <h3>Payment general ledger</h3>
+              </div>
+            </div>
             <p>Cash-receipts journal grouped by date, with GL accounts and carrier totals.</p>
             <form method="GET" action="{% url 'export-insurance-ledger-pdf' %}" target="_blank" class="ins-report-form">
               <div class="ins-report-form__dates">
-                <label class="field-label">From <input type="date" name="start_date" class="field-input" value="{{ ledger_default_from }}"></label>
-                <label class="field-label">To <input type="date" name="end_date" class="field-input" value="{{ ledger_default_to }}"></label>
+                <label class="ins-report-field"><span>From</span><input type="date" name="start_date" class="field-input" value="{{ ledger_default_from }}"></label>
+                <label class="ins-report-field"><span>To</span><input type="date" name="end_date" class="field-input" value="{{ ledger_default_to }}"></label>
               </div>
-              <label class="field-label">Carrier
+              <label class="ins-report-field"><span>Carrier</span>
                 <select name="company" class="field-input">
                   <option value="">All companies</option>
                   {% for company in insurance_companies %}<option value="{{ company.id }}">{{ company.name }}</option>{% endfor %}
                 </select>
               </label>
-              <button type="submit" class="btn-submit">Open ledger PDF</button>
+              <button type="submit" class="ins-report-btn">Open ledger PDF</button>
             </form>
           </article>
 
           <article class="ins-report-card">
-            <h3>Carrier remittance pack</h3>
+            <div class="ins-report-card__head">
+              <span class="ins-report-card__icon ins-report-card__icon--indigo" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M6 21V8l6-4 6 4v13M9 21v-6h6v6"/></svg>
+              </span>
+              <div><h3>Carrier remittance pack</h3></div>
+            </div>
             <p>Receipts grouped by insurance company for remittance packages.</p>
             <form method="GET" action="{% url 'export-insurance-remittance-pdf' %}" target="_blank" class="ins-report-form">
               <div class="ins-report-form__dates">
-                <label class="field-label">From <input type="date" name="start_date" class="field-input" value="{{ ledger_default_from }}"></label>
-                <label class="field-label">To <input type="date" name="end_date" class="field-input" value="{{ ledger_default_to }}"></label>
+                <label class="ins-report-field"><span>From</span><input type="date" name="start_date" class="field-input" value="{{ ledger_default_from }}"></label>
+                <label class="ins-report-field"><span>To</span><input type="date" name="end_date" class="field-input" value="{{ ledger_default_to }}"></label>
               </div>
-              <label class="field-label">Carrier
+              <label class="ins-report-field"><span>Carrier</span>
                 <select name="company" class="field-input">
                   <option value="">All companies</option>
                   {% for company in insurance_companies %}<option value="{{ company.id }}">{{ company.name }}</option>{% endfor %}
                 </select>
               </label>
-              <button type="submit" class="btn-submit">Open remittance PDF</button>
+              <button type="submit" class="ins-report-btn">Open remittance PDF</button>
             </form>
           </article>
 
           <article class="ins-report-card">
-            <h3>Payment receipt</h3>
+            <div class="ins-report-card__head">
+              <span class="ins-report-card__icon ins-report-card__icon--sky" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7V3h8v4M8 21h8a2 2 0 0 0 2-2V7H6v12a2 2 0 0 0 2 2z"/><path d="M9 12h6M9 16h4"/></svg>
+              </span>
+              <div><h3>Payment receipt</h3></div>
+            </div>
             <p>One branded receipt per collection. Print from Daily Payments → Receipt on any row.</p>
             <form method="GET" action="{% url 'export-insurance-cashout-pdf' %}" target="_blank" class="ins-report-form">
-              <label class="field-label">Or print today’s cash-out / deposit slip
+              <label class="ins-report-field"><span>Or print today’s cash-out / deposit slip</span>
                 <input type="date" name="date" class="field-input" value="{{ ledger_default_to }}">
               </label>
-              <button type="submit" class="btn-submit">Open cash-out PDF</button>
+              <button type="submit" class="ins-report-btn">Open cash-out PDF</button>
             </form>
           </article>
         </div>
@@ -1453,47 +1499,72 @@ html.portal-theme-dark .ins-license-crm-alert__row {
         <h4>Agency books</h4>
         <div class="ins-reports-grid ins-reports-grid--3">
           <article class="ins-report-card">
-            <h3>Commission production</h3>
+            <div class="ins-report-card__head">
+              <span class="ins-report-card__icon ins-report-card__icon--emerald" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M17 8c0-1.7-2.2-3-5-3s-5 1.3-5 3 2.2 3 5 3 5 1.3 5 3-2.2 3-5 3-5-1.3-5-3"/></svg>
+              </span>
+              <div><h3>Commission production</h3></div>
+            </div>
             <p>Policy premiums, rates, and commission for the effective-date range.</p>
             <form method="GET" action="{% url 'export-insurance-commission-register-pdf' %}" target="_blank" class="ins-report-form">
               <div class="ins-report-form__dates">
-                <label class="field-label">From <input type="date" name="start_date" class="field-input"></label>
-                <label class="field-label">To <input type="date" name="end_date" class="field-input"></label>
+                <label class="ins-report-field"><span>From</span><input type="date" name="start_date" class="field-input" value="{{ ledger_default_from }}"></label>
+                <label class="ins-report-field"><span>To</span><input type="date" name="end_date" class="field-input" value="{{ ledger_default_to }}"></label>
               </div>
-              <button type="submit" class="btn-submit">Open commission PDF</button>
+              <button type="submit" class="ins-report-btn">Open commission PDF</button>
             </form>
           </article>
           <article class="ins-report-card">
-            <h3>Unearned / cancelled</h3>
+            <div class="ins-report-card__head">
+              <span class="ins-report-card__icon ins-report-card__icon--rose" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+              </span>
+              <div><h3>Unearned / cancelled</h3></div>
+            </div>
             <p>Commission due back after cancellations, after refunds already posted.</p>
             <form method="GET" action="{% url 'export-insurance-unearned-pdf' %}" target="_blank" class="ins-report-form">
               <div class="ins-report-form__dates">
-                <label class="field-label">From <input type="date" name="start_date" class="field-input"></label>
-                <label class="field-label">To <input type="date" name="end_date" class="field-input"></label>
+                <label class="ins-report-field"><span>From</span><input type="date" name="start_date" class="field-input" value="{{ ledger_default_from }}"></label>
+                <label class="ins-report-field"><span>To</span><input type="date" name="end_date" class="field-input" value="{{ ledger_default_to }}"></label>
               </div>
-              <button type="submit" class="btn-submit">Open unearned PDF</button>
+              <button type="submit" class="ins-report-btn">Open unearned PDF</button>
             </form>
           </article>
           <article class="ins-report-card">
-            <h3>Daily cash-out</h3>
+            <div class="ins-report-card__head">
+              <span class="ins-report-card__icon ins-report-card__icon--amber" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2M12 12v3"/></svg>
+              </span>
+              <div><h3>Daily cash-out</h3></div>
+            </div>
             <p>One-day deposit slip: cash, checks, Zelle, cards, held vs cleared.</p>
             <form method="GET" action="{% url 'export-insurance-cashout-pdf' %}" target="_blank" class="ins-report-form">
-              <label class="field-label">Day <input type="date" name="date" class="field-input" value="{{ ledger_default_to }}"></label>
-              <button type="submit" class="btn-submit">Open deposit slip</button>
+              <label class="ins-report-field"><span>Day</span><input type="date" name="date" class="field-input" value="{{ ledger_default_to }}"></label>
+              <button type="submit" class="ins-report-btn">Open deposit slip</button>
             </form>
           </article>
           <article class="ins-report-card">
-            <h3>Book of business</h3>
+            <div class="ins-report-card__head">
+              <span class="ins-report-card__icon ins-report-card__icon--navy" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              </span>
+              <div><h3>Book of business</h3></div>
+            </div>
             <p>In-force policies by line and carrier — premium in force snapshot.</p>
             <form method="GET" action="{% url 'export-insurance-book-pdf' %}" target="_blank" class="ins-report-form">
-              <button type="submit" class="btn-submit">Open book snapshot</button>
+              <button type="submit" class="ins-report-btn">Open book snapshot</button>
             </form>
           </article>
           <article class="ins-report-card">
-            <h3>Installment aging</h3>
+            <div class="ins-report-card__head">
+              <span class="ins-report-card__icon ins-report-card__icon--orange" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></svg>
+              </span>
+              <div><h3>Installment aging</h3></div>
+            </div>
             <p>Unpaid installments: current, 1–30, 31–60, and 61+ days past due.</p>
             <form method="GET" action="{% url 'export-insurance-aging-pdf' %}" target="_blank" class="ins-report-form">
-              <button type="submit" class="btn-submit">Open aging PDF</button>
+              <button type="submit" class="ins-report-btn">Open aging PDF</button>
             </form>
           </article>
         </div>
@@ -1503,25 +1574,35 @@ html.portal-theme-dark .ins-license-crm-alert__row {
         <h4>People &amp; pipeline</h4>
         <div class="ins-reports-grid ins-reports-grid--3">
           <article class="ins-report-card">
-            <h3>Producer production</h3>
+            <div class="ins-report-card__head">
+              <span class="ins-report-card__icon ins-report-card__icon--violet" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </span>
+              <div><h3>Producer production</h3></div>
+            </div>
             <p>Quotes, binds, premium, commission, and broker fee by agent.</p>
             <form method="GET" action="{% url 'export-insurance-agent-production-pdf' %}" target="_blank" class="ins-report-form">
               <div class="ins-report-form__dates">
-                <label class="field-label">From <input type="date" name="start_date" class="field-input" value="{{ ledger_default_from }}"></label>
-                <label class="field-label">To <input type="date" name="end_date" class="field-input" value="{{ ledger_default_to }}"></label>
+                <label class="ins-report-field"><span>From</span><input type="date" name="start_date" class="field-input" value="{{ ledger_default_from }}"></label>
+                <label class="ins-report-field"><span>To</span><input type="date" name="end_date" class="field-input" value="{{ ledger_default_to }}"></label>
               </div>
-              <button type="submit" class="btn-submit">Open producer PDF</button>
+              <button type="submit" class="ins-report-btn">Open producer PDF</button>
             </form>
           </article>
           <article class="ins-report-card">
-            <h3>Quote conversion</h3>
+            <div class="ins-report-card__head">
+              <span class="ins-report-card__icon ins-report-card__icon--cyan" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18l-7 8v6l-4 2v-8z"/></svg>
+              </span>
+              <div><h3>Quote conversion</h3></div>
+            </div>
             <p>Assigned → quoting → quoted → won/lost, overall and by producer.</p>
             <form method="GET" action="{% url 'export-insurance-quote-conversion-pdf' %}" target="_blank" class="ins-report-form">
               <div class="ins-report-form__dates">
-                <label class="field-label">From <input type="date" name="start_date" class="field-input" value="{{ ledger_default_from }}"></label>
-                <label class="field-label">To <input type="date" name="end_date" class="field-input" value="{{ ledger_default_to }}"></label>
+                <label class="ins-report-field"><span>From</span><input type="date" name="start_date" class="field-input" value="{{ ledger_default_from }}"></label>
+                <label class="ins-report-field"><span>To</span><input type="date" name="end_date" class="field-input" value="{{ ledger_default_to }}"></label>
               </div>
-              <button type="submit" class="btn-submit">Open conversion PDF</button>
+              <button type="submit" class="ins-report-btn">Open conversion PDF</button>
             </form>
           </article>
         </div>
@@ -1531,20 +1612,30 @@ html.portal-theme-dark .ins-license-crm-alert__row {
         <h4>Compliance &amp; goals</h4>
         <div class="ins-reports-grid ins-reports-grid--3">
           <article class="ins-report-card">
-            <h3>License calendar</h3>
+            <div class="ins-report-card__head">
+              <span class="ins-report-card__icon ins-report-card__icon--slate" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
+              </span>
+              <div><h3>License calendar</h3></div>
+            </div>
             <p>Carrier licenses plus the agency PSB license, with expired / expiring flags.</p>
             <form method="GET" action="{% url 'export-insurance-compliance-pdf' %}" target="_blank" class="ins-report-form">
-              <button type="submit" class="btn-submit">Open compliance PDF</button>
+              <button type="submit" class="ins-report-btn">Open compliance PDF</button>
             </form>
           </article>
           <article class="ins-report-card">
-            <h3>Targets vs actual</h3>
+            <div class="ins-report-card__head">
+              <span class="ins-report-card__icon ins-report-card__icon--fuchsia" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>
+              </span>
+              <div><h3>Targets vs actual</h3></div>
+            </div>
             <p>Monthly premium and commission goals against binds, by line of business.</p>
             <form method="GET" action="{% url 'export-insurance-targets-pdf' %}" target="_blank" class="ins-report-form">
-              <label class="field-label">Month
+              <label class="ins-report-field"><span>Month</span>
                 <input type="month" name="month" class="field-input" value="{{ ledger_default_from|slice:':7' }}">
               </label>
-              <button type="submit" class="btn-submit">Open targets PDF</button>
+              <button type="submit" class="ins-report-btn">Open targets PDF</button>
             </form>
           </article>
         </div>
