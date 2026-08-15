@@ -116,6 +116,7 @@
     </div>
     <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
       <button type="button" onclick="openDailyDateDrawer()" style="padding: 0.55rem 1rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.1); color: white; font-weight: 700; font-size: 0.85rem; cursor: pointer;">📅 Select Day</button>
+      <a href="{% url 'export-insurance-cashout-pdf' %}?date={{ daily_payment_date|date:'Y-m-d' }}" target="_blank" style="padding: 0.55rem 1rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.1); color: white; font-weight: 700; font-size: 0.85rem; text-decoration: none;">Deposit slip</a>
       {% if not daily_is_today %}
       <a href="?tab=daily-payments" style="padding: 0.55rem 1rem; border-radius: 10px; background: #093de6; color: white; font-weight: 700; font-size: 0.85rem; text-decoration: none;">↩ Today</a>
       {% endif %}
@@ -279,6 +280,7 @@
           </td>
           {% endif %}
           <td style="text-align: right; white-space: nowrap;">
+            <a href="{% url 'export-insurance-payment-receipt-pdf' tx.id %}" target="_blank" class="dpt-edit-btn" style="margin-right: 0.25rem;">Receipt</a>
             {% if user_can_clear_daily_payments %}
             <button type="button" class="dpt-edit-btn" onclick="openEditDailyPayment(this)">Edit</button>
             {% endif %}

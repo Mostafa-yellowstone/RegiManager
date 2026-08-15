@@ -6538,6 +6538,8 @@ def inventory_detail(request, inventory_id):
             "insurance_source_choices": INSURANCE_SOURCE_CHOICES,
             "user_can_view_banking": user_can_view_banking,
             "user_can_clear_daily_payments": user_can_view_banking,
+            "ledger_default_from": timezone.localdate().replace(day=1).isoformat(),
+            "ledger_default_to": timezone.localdate().isoformat(),
 
             # Daily payments tab
             "daily_payment_date": daily_payment_date,
@@ -8021,6 +8023,32 @@ def export_insurance_report_pdf(request):
         pdf.drawString(current_x, y, status_label)
         
     pdf.save()
+    return response
+
+
+@login_required
+def export_insurance_ledger_pdf(request):
+    """Branded payment general ledger for Insurance Space (carrier evidence)."""
+    from .insurance_ledger_pdf import parse_ledger_filters, render_insurance_ledger_pdf
+
+    organizations = _get_user_organizations(request)
+    active_org_id = request.session.get("active_org_id")
+    org = get_object_or_404(organizations, id=active_org_id)
+    start, end, company_id, method = parse_ledger_filters(request)
+    prepared_by = request.user.get_full_name() or request.user.username
+    pdf_bytes = render_insurance_ledger_pdf(
+        org,
+        start=start,
+        end=end,
+        company_id=company_id,
+        method=method,
+        prepared_by=prepared_by,
+    )
+    start_label = start.isoformat() if start else "all"
+    end_label = end.isoformat() if end else "all"
+    filename = f"insurance-payment-ledger-{org.id}-{start_label}-to-{end_label}.pdf"
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
     return response
 
 

@@ -4592,13 +4592,102 @@ html.portal-theme-dark .portal-automation-title {
 }
 
 .ins-report-card {
-    max-width: 580px;
-    margin: 0 auto;
+    max-width: none;
+    margin: 0;
     background: var(--portal-surface);
     border-radius: 20px;
-    padding: 2.5rem;
+    padding: 1.75rem 1.85rem 1.9rem;
     border: 1px solid var(--portal-border);
     box-shadow: var(--portal-shadow-md);
+    display: grid;
+    gap: 0.85rem;
+    align-content: start;
+}
+
+.ins-reports-hero {
+    margin-bottom: 1.15rem;
+}
+
+.ins-reports-kicker {
+    margin: 0 0 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #0f766e;
+}
+
+.ins-reports-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    gap: 1.1rem;
+    align-items: stretch;
+}
+
+.ins-report-card h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: var(--portal-text);
+}
+
+.ins-report-card > p {
+    margin: 0;
+    color: var(--portal-text-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.ins-report-card--ledger {
+    border-color: color-mix(in srgb, #0f766e 28%, var(--portal-border));
+    background:
+        radial-gradient(ellipse 80% 70% at 0% 0%, rgba(15, 118, 110, 0.1), transparent 55%),
+        var(--portal-surface);
+}
+
+.ins-report-card__badge {
+    width: fit-content;
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(15, 118, 110, 0.12);
+    color: #0f766e;
+    font-size: 0.68rem;
+    font-weight: 850;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.ins-report-form {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.ins-report-form__dates {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.ins-reports-grid--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ins-report-group {
+    margin-bottom: 1.5rem;
+}
+
+.ins-report-group h4 {
+    margin: 0 0 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 850;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #0f766e;
+}
+
+@media (max-width: 1100px) {
+    .ins-reports-grid--3 {
+        grid-template-columns: 1fr 1fr;
+    }
 }
 
 .ins-report-includes {
