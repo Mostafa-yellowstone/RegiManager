@@ -91,7 +91,10 @@ class InsuranceLedgerPdfTests(TestCase):
         from io import BytesIO
 
         reader = PdfReader(BytesIO(body))
-        text = "\n".join((page.extract_text() or "") for page in reader.pages)
+        page = reader.pages[0]
+        self.assertEqual(page.rotation or 0, 0)
+        self.assertGreater(float(page.mediabox.height), float(page.mediabox.width))
+        text = "\n".join((p.extract_text() or "") for p in reader.pages)
         self.assertIn("GENERAL LEDGER", text)
         self.assertIn("Xpress Insurance Solutions Inc.", text)
         self.assertIn("Jose Palacios", text)

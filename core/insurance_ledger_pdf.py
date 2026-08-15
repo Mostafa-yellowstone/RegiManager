@@ -11,7 +11,7 @@ from io import BytesIO
 from django.utils import timezone
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import (
@@ -39,7 +39,7 @@ WARN = colors.HexColor("#B45309")
 WHITE = colors.white
 ZERO = Decimal("0.00")
 
-PAGE = landscape(letter)
+PAGE = letter
 PAGE_W, PAGE_H = PAGE
 MARGIN_X = 0.5 * inch
 MARGIN_TOP = 1.18 * inch
@@ -269,6 +269,7 @@ def build_ledger_dataset(org, *, start=None, end=None, company_id=None, method="
 
 def _header_footer(canvas, doc, brand, period_label, prepared_by):
     canvas.saveState()
+    canvas.setPageSize(PAGE)
     canvas.setFillColor(NAVY)
     canvas.rect(0, PAGE_H - 0.78 * inch, PAGE_W, 0.78 * inch, fill=1, stroke=0)
     canvas.setFillColor(TEAL)
@@ -298,7 +299,7 @@ def _header_footer(canvas, doc, brand, period_label, prepared_by):
     contact = "  ·  ".join(
         part for part in [brand.get("address"), brand.get("phone"), brand.get("email")] if part
     )
-    canvas.drawString(x, PAGE_H - 0.54 * inch, contact[:120])
+    canvas.drawString(x, PAGE_H - 0.54 * inch, contact[:78])
 
     canvas.setFont("Helvetica-Bold", 12)
     canvas.drawRightString(PAGE_W - MARGIN_X, PAGE_H - 0.32 * inch, "GENERAL LEDGER")
@@ -317,7 +318,7 @@ def _header_footer(canvas, doc, brand, period_label, prepared_by):
     canvas.drawString(
         MARGIN_X,
         0.18 * inch,
-        f"Official payment record for insurance carriers  ·  Prepared {stamp} by {prepared_by}",
+        f"Official payment record  ·  Prepared {stamp} by {prepared_by}",
     )
     canvas.drawRightString(PAGE_W - MARGIN_X, 0.18 * inch, f"Page {doc.page}")
     canvas.restoreState()
@@ -332,24 +333,28 @@ def _kpi_table(data, styles):
         ("Bank income postings", _money(data["bank_in"])),
         ("Bank disbursements", _money(data["bank_out"])),
     ]
-    col_w = CONTENT_W / len(cards)
-    row = [
-        Table(
+    col_w = CONTENT_W / 3
+
+    def _card(label, value):
+        return Table(
             [[_p(label, styles["kpi_label"])], [_p(value, styles["kpi_value"])]],
             colWidths=[col_w - 6],
         )
-        for label, value in cards
+
+    rows = [
+        [_card(label, value) for label, value in cards[i:i + 3]]
+        for i in range(0, len(cards), 3)
     ]
-    table = Table([row], colWidths=[col_w] * len(cards))
+    table = Table(rows, colWidths=[col_w] * 3)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), SOFT),
         ("BOX", (0, 0), (-1, -1), 0.6, LINE),
         ("INNERGRID", (0, 0), (-1, -1), 0.4, LINE),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 7),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
     ]))
     return table
 
@@ -357,25 +362,21 @@ def _kpi_table(data, styles):
 def _receipt_table(receipts, styles):
     headers = [
         _p("Ref #", styles["th"]),
-        _p("Txn date", styles["th"]),
-        _p("Posted", styles["th"]),
+        _p("Date", styles["th"]),
         _p("Payer / insured", styles["th"]),
         _p("Carrier", styles["th"]),
-        _p("GL account", styles["th"]),
-        _p("Type / method", styles["th"]),
+        _p("GL / type", styles["th"]),
         _p("Amount", styles["th_right"]),
         _p("Clearing", styles["th"]),
     ]
     col_w = [
-        0.72 * inch,
-        0.78 * inch,
-        0.78 * inch,
-        1.55 * inch,
-        1.45 * inch,
-        1.85 * inch,
-        1.35 * inch,
-        0.85 * inch,
-        0.87 * inch,
+        CONTENT_W * 0.10,
+        CONTENT_W * 0.10,
+        CONTENT_W * 0.18,
+        CONTENT_W * 0.15,
+        CONTENT_W * 0.25,
+        CONTENT_W * 0.11,
+        CONTENT_W * 0.11,
     ]
     rows = [headers]
     grouped = defaultdict(list)
@@ -391,7 +392,7 @@ def _receipt_table(receipts, styles):
         ("TOPPADDING", (0, 0), (-1, -1), 4),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ("GRID", (0, 0), (-1, -1), 0.3, LINE),
-        ("ALIGN", (7, 1), (7, -1), "RIGHT"),
+        ("ALIGN", (5, 1), (5, -1), "RIGHT"),
     ]
     row_index = 1
     for txn_date in sorted(grouped):
@@ -401,7 +402,7 @@ def _receipt_table(receipts, styles):
                 f"Posting date {txn_date.strftime('%A, %B %d, %Y')}  ·  {len(grouped[txn_date])} receipt(s)  ·  {_money(day_total)}",
                 styles["group"],
             ),
-            "", "", "", "", "", "", "", "",
+            "", "", "", "", "", "",
         ])
         style_cmds.append(("SPAN", (0, row_index), (-1, row_index)))
         style_cmds.append(("BACKGROUND", (0, row_index), (-1, row_index), BAND))
@@ -413,11 +414,13 @@ def _receipt_table(receipts, styles):
             method_no, method_name = METHOD_ACCOUNTS.get(
                 tx.payment_method, ("1090", "Other receipts")
             )
-            posted = timezone.localtime(tx.created_at).date() if tx.created_at else txn_date
             notes = (tx.notes or "").strip()
-            desc = f"<b>{acct_no}</b> {acct_name}"
+            desc = (
+                f"<b>{acct_no}</b> {acct_name}"
+                f"<br/><font color='#64748B'>{tx.get_payment_type_display()} · {method_no} {tx.get_payment_method_display()}</font>"
+            )
             if notes:
-                desc += f"<br/><font color='#64748B'>{_safe(notes)[:90]}</font>"
+                desc += f"<br/><font color='#64748B'>{_safe(notes)[:80]}</font>"
             clearing = "Cleared" if tx.is_cleared else "Held"
             if tx.is_cleared and tx.cleared_date:
                 clearing += f"<br/>{tx.cleared_date.strftime('%m/%d/%Y')}"
@@ -427,20 +430,14 @@ def _receipt_table(receipts, styles):
             recorded = ""
             if tx.recorded_by_id:
                 recorded = tx.recorded_by.get_full_name() or tx.recorded_by.username
-            type_line = tx.get_payment_type_display()
-            method_line = tx.get_payment_method_display()
+            if recorded:
+                desc += f"<br/><font color='#64748B'>{_safe(recorded)}</font>"
             rows.append([
                 _p(f"PMT-{tx.id:06d}", styles["body_bold"]),
                 _p(txn_date.strftime("%m/%d/%Y"), styles["body"]),
-                _p(posted.strftime("%m/%d/%Y"), styles["body"]),
                 Paragraph(_safe(payer), styles["body"]),
                 _p(tx.insurance_company.name if tx.insurance_company_id else "—", styles["body"]),
                 Paragraph(desc, styles["body"]),
-                Paragraph(
-                    f"{type_line}<br/><font color='#64748B'>{method_no} {method_line}"
-                    f"{('<br/>' + recorded) if recorded else ''}</font>",
-                    styles["body"],
-                ),
                 _p(_money(tx.amount), styles["body_right"]),
                 Paragraph(
                     f"<font color='{'#047857' if tx.is_cleared else '#B45309'}'><b>{clearing}</b></font>",
@@ -464,7 +461,13 @@ def _carrier_table(by_carrier, styles):
         _p("Collected", styles["th_right"]),
         _p("Evidence use", styles["th"]),
     ]
-    col_w = [2.6 * inch, 1.6 * inch, 1.1 * inch, 1.4 * inch, 3.5 * inch]
+    col_w = [
+        CONTENT_W * 0.24,
+        CONTENT_W * 0.16,
+        CONTENT_W * 0.12,
+        CONTENT_W * 0.16,
+        CONTENT_W * 0.32,
+    ]
     rows = [headers]
     for key, bucket in sorted(by_carrier.items(), key=lambda item: item[1]["name"].lower()):
         rows.append([
@@ -503,7 +506,13 @@ def _bank_table(bank_rows, styles):
         _p("Amount", styles["th_right"]),
     ]
     col_w = [
-        0.9 * inch, 1.7 * inch, 1.6 * inch, 1.5 * inch, 3.0 * inch, 0.9 * inch, 0.9 * inch,
+        CONTENT_W * 0.11,
+        CONTENT_W * 0.16,
+        CONTENT_W * 0.15,
+        CONTENT_W * 0.14,
+        CONTENT_W * 0.22,
+        CONTENT_W * 0.11,
+        CONTENT_W * 0.11,
     ]
     rows = [headers]
     for row in bank_rows:
@@ -548,8 +557,9 @@ def _method_type_tables(data, styles):
             _p(f"{acct_no}  {acct_name}", styles["body"]),
             _p(_money(data["by_type"].get(key, ZERO)), styles["body_right"]),
         ])
-    left = Table(method_rows, colWidths=[1.4 * inch, 3.0 * inch, 1.1 * inch])
-    right = Table(type_rows, colWidths=[1.6 * inch, 2.8 * inch, 1.1 * inch])
+    half = CONTENT_W / 2 - 8
+    left = Table(method_rows, colWidths=[half * 0.28, half * 0.50, half * 0.22])
+    right = Table(type_rows, colWidths=[half * 0.32, half * 0.46, half * 0.22])
     grid = TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), NAVY),
         ("GRID", (0, 0), (-1, -1), 0.3, LINE),
@@ -621,6 +631,7 @@ def render_insurance_ledger_pdf(
         PageTemplate(
             id="ledger",
             frames=[frame],
+            pagesize=PAGE,
             onPage=lambda c, d: _header_footer(c, d, brand, period_label, prepared_by),
         )
     ])
