@@ -302,13 +302,19 @@
       setStatus("Place the signature boxes first, then send.");
       return;
     }
-    setStatus("Creating signing link…");
+    const email = (document.getElementById("esignSignerEmail")?.value || "").trim();
+    if (!email) {
+      setStatus("Enter the signer email address to send the request.");
+      document.getElementById("esignSignerEmail")?.focus();
+      return;
+    }
+    setStatus("Sending signature request to " + email + "…");
     try {
       const data = await postJson(cfg.requestUrl, payload());
       if (data.link) {
         await navigator.clipboard.writeText(data.link).catch(() => {});
-        setStatus("Link copied: " + data.link);
       }
+      setStatus((data.message || "Email sent.") + " Link also copied.");
     } catch (err) {
       setStatus(err.message);
     }

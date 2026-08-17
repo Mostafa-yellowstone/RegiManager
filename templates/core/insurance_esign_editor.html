@@ -37,7 +37,7 @@
       {% if not is_public %}
       <label style="display:grid;gap:0.2rem;font-size:0.68rem;font-weight:800;text-transform:uppercase;color:#94a3b8;">
         Email
-        <input id="esignSignerEmail" type="email" value="{{ envelope.signer_email }}" placeholder="optional" style="min-height:2.2rem;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;padding:0.3rem 0.55rem;">
+        <input id="esignSignerEmail" type="email" value="{{ envelope.signer_email }}" placeholder="required to send" style="min-height:2.2rem;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;padding:0.3rem 0.55rem;">
       </label>
       <button type="button" class="esign-action" id="esignRequest">Request signature</button>
       {% endif %}
@@ -99,5 +99,5 @@ window.ESIGN_CONFIG = {
   fields: JSON.parse(document.getElementById("esign-fields").textContent || "[]")
 };
 </script>
-<script src="{% static 'core/js/insurance_esign.js' %}?v=1"></script>
+<script src="{% static 'core/js/insurance_esign.js' %}?v=2"></script>
 {% endblock %}

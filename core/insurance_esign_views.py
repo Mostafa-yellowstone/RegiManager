@@ -5,10 +5,15 @@ from __future__ import annotations
 import json
 import os
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
+from django.core.mail import EmailMultiAlternatives
+from django.core.validators import validate_email
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import get_valid_filename
@@ -22,6 +27,43 @@ from .insurance_permissions import is_org_owner, membership_for_org
 from .models import Space
 
 MAX_PDF_BYTES = 15 * 1024 * 1024
+
+def _send_esign_request_email(envelope, sign_url: str) -> tuple[bool, str]:
+    to_email = (envelope.signer_email or "").strip()
+    if not to_email:
+        return False, "Enter the signer email address."
+    try:
+        validate_email(to_email)
+    except ValidationError:
+        return False, "That signer email address is not valid."
+    agency = envelope.organization.name
+    subject = f"Please sign: {envelope.title}"[:180]
+    text_body = (
+        f"Hello {envelope.signer_name or ''}\n\n"
+        f"{agency} asked you to electronically sign “{envelope.title}”.\n\n"
+        f"Open this link, click each signature box, then Finish & sign:\n{sign_url}\n"
+    )
+    html_body = render_to_string(
+        "core/emails/esign_request.html",
+        {
+            "signer_name": envelope.signer_name,
+            "agency_name": agency,
+            "document_title": envelope.title,
+            "sign_url": sign_url,
+        },
+    )
+    try:
+        message = EmailMultiAlternatives(
+            subject,
+            text_body,
+            settings.DEFAULT_FROM_EMAIL,
+            [to_email],
+        )
+        message.attach_alternative(html_body, "text/html")
+        message.send(fail_silently=False)
+        return True, f"Sent to {to_email}."
+    except Exception:
+        return False, "Could not send the email. Check mail settings, or share the copied link."
 
 
 def _redirect_esign_tab(org, request=None):
@@ -291,17 +333,29 @@ def request_esign_signature(request, envelope_id):
         envelope.fields_json = _fields_without_images(fields)
     envelope.signer_name = str(payload.get("signer_name") or request.POST.get("signer_name") or envelope.signer_name)[:160]
     envelope.signer_email = str(payload.get("signer_email") or request.POST.get("signer_email") or envelope.signer_email)[:254]
+    if not (envelope.signer_email or "").strip():
+        return JsonResponse({"ok": False, "error": "Enter the signer email address to send the request."}, status=400)
     envelope.status = InsuranceESignEnvelope.Status.AWAITING
+    envelope.save()
+    link = request.build_absolute_uri(reverse("public-esign-sign", args=[envelope.signer_token]))
+    emailed, mail_status = _send_esign_request_email(envelope, link)
     envelope.audit_json = list(envelope.audit_json or []) + [{
         "event": "sent",
         "at": timezone.localtime().isoformat(),
         "signer": envelope.signer_name,
+        "email": envelope.signer_email,
+        "emailed": emailed,
+        "mail_status": mail_status,
     }]
-    envelope.save()
-    link = request.build_absolute_uri(f"/sign/{envelope.signer_token}/")
-    if request.headers.get("x-requested-with") == "XMLHttpRequest" or request.content_type == "application/json":
-        return JsonResponse({"ok": True, "link": link})
-    messages.success(request, f"Signature request ready. Share this link: {link}")
+    envelope.save(update_fields=["audit_json", "updated_at"])
+    if request.headers.get("x-requested-with") == "XMLHttpRequest" or "application/json" in (request.content_type or ""):
+        if not emailed:
+            return JsonResponse({"ok": False, "error": mail_status, "link": link, "emailed": False}, status=400)
+        return JsonResponse({"ok": True, "link": link, "emailed": True, "message": mail_status})
+    if emailed:
+        messages.success(request, f"{mail_status} Link: {link}")
+    else:
+        messages.error(request, mail_status)
     return redirect("insurance-esign-editor", envelope_id=envelope.id)
 
 

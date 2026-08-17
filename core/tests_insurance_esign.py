@@ -113,3 +113,41 @@ class InsuranceESignTests(TestCase):
         file_response = self.client.get(reverse("public-esign-file", args=[envelope.signer_token]))
         self.assertEqual(file_response.status_code, 200)
         self.assertEqual(file_response["Content-Type"], "application/pdf")
+
+    def test_request_signature_emails_the_signer(self):
+        self._login()
+        envelope = InsuranceESignEnvelope.objects.create(
+            organization=self.org,
+            title="Auto application",
+            original_file=SimpleUploadedFile("doc.pdf", _pdf_bytes(), content_type="application/pdf"),
+            created_by=self.owner,
+        )
+        import json
+        from django.core import mail
+        from django.test import override_settings
+
+        with override_settings(
+            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+            DEFAULT_FROM_EMAIL="RegiManager <test@example.com>",
+        ):
+            response = self.client.post(
+                reverse("insurance-esign-request", args=[envelope.id]),
+                data=json.dumps({
+                    "fields": [{"id": "f1", "type": "signature", "page": 1, "x": 0.1, "y": 0.8, "w": 0.3, "h": 0.08}],
+                    "signer_name": "Jose Palacios",
+                    "signer_email": "jose@example.com",
+                }),
+                content_type="application/json",
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+        self.assertEqual(response.status_code, 200, response.content)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertTrue(payload["emailed"])
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["jose@example.com"])
+        self.assertIn("Auto application", mail.outbox[0].subject)
+        self.assertIn("/sign/", mail.outbox[0].body)
+        envelope.refresh_from_db()
+        self.assertEqual(envelope.status, InsuranceESignEnvelope.Status.AWAITING)
+        self.assertEqual(envelope.signer_email, "jose@example.com")
