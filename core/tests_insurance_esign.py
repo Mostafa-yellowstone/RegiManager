@@ -248,7 +248,7 @@ class InsuranceESignTests(TestCase):
         self.assertTrue(response.json()["ok"])
         self.assertEqual(len(mail.outbox), 1)
 
-    def test_view_role_can_open_and_download_signed_pdf(self):
+    def test_space_user_can_upload_and_download_signed_pdf(self):
         viewer = User.objects.create_user(username="esign_viewer", password="pass")
         membership = OrganizationMembership.objects.create(
             user=viewer,
@@ -274,15 +274,17 @@ class InsuranceESignTests(TestCase):
         view = self.client.get(reverse("insurance-esign-editor", args=[envelope.id]))
         self.assertEqual(view.status_code, 200)
         self.assertContains(view, reverse("insurance-esign-signed", args=[envelope.id]))
-        self.assertNotContains(view, reverse("insurance-esign-file", args=[envelope.id]))
         download = self.client.get(reverse("insurance-esign-signed", args=[envelope.id]) + "?download=1")
         self.assertEqual(download.status_code, 200)
         self.assertEqual(download["Content-Type"], "application/pdf")
-        denied = self.client.post(
+        upload = self.client.post(
             reverse("insurance-esign-upload"),
-            {"file": SimpleUploadedFile("app.pdf", _pdf_bytes(), content_type="application/pdf"), "title": "Nope"},
+            {"file": SimpleUploadedFile("app.pdf", _pdf_bytes(), content_type="application/pdf"), "title": "Viewer upload"},
         )
-        self.assertEqual(denied.status_code, 403)
+        self.assertEqual(upload.status_code, 302)
+        created = InsuranceESignEnvelope.objects.get(title="Viewer upload")
+        self.assertEqual(created.created_by_id, viewer.id)
+        self.assertIn(reverse("insurance-esign-editor", args=[created.id]), upload["Location"])
 
     def test_admin_can_delete_signed_envelope(self):
         self.owner.is_staff = True

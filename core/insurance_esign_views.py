@@ -124,7 +124,7 @@ def _org(request):
 
 
 def _can_view_esign(request, org) -> bool:
-    """Any member who can open Insurance Space can view and download envelopes."""
+    """Any member who can open Insurance Space can use e-signature."""
     if request.user.is_superuser:
         return True
     membership = membership_for_org(request.user, org)
@@ -139,10 +139,7 @@ def _can_view_esign(request, org) -> bool:
 
 
 def _can_manage_esign(request, org) -> bool:
-    membership = membership_for_org(request.user, org)
-    if is_org_owner(request.user, org, membership):
-        return True
-    return bool(membership and membership.is_active and membership.can_deal_with_insurance)
+    return _can_view_esign(request, org)
 
 
 def _can_access_insurance(request, org) -> bool:
@@ -156,8 +153,6 @@ def _require_insurance(request, org):
 
 def _require_manage_esign(request, org):
     _require_insurance(request, org)
-    if not _can_manage_esign(request, org):
-        deny_access("You can view and download signed documents, but you cannot create or change envelopes.")
 
 
 def _envelope_for_user(request, envelope_id):
@@ -196,9 +191,9 @@ def build_esign_tab_context(org, request=None, membership=None, is_owner=False):
     )
     can_manage = True
     if request is not None:
-        can_manage = _can_manage_esign(request, org)
+        can_manage = _can_view_esign(request, org)
     elif membership is not None:
-        can_manage = bool(is_owner or membership.can_deal_with_insurance)
+        can_manage = bool(is_owner or (membership.is_active and membership.can_view_spaces))
     return {
         "esign_envelopes": envelopes,
         "esign_draft_count": sum(1 for row in envelopes if row.status == InsuranceESignEnvelope.Status.DRAFT),
