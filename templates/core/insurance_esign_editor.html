@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if is_public %}Sign {{ envelope.title }}{% else %}E-sign {{ envelope.title }}{% endif %} | RegiManager{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/insurance_esign.css' %}?v=1">
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="esign-app">
+  <header class="esign-top">
+    <div>
+      {% if is_public %}
+      <p>Insurance Space e-signature</p>
+      {% elif insurance_space %}
+      <a class="esign-back" href="/dashboard/inventory/{{ insurance_space.id }}/?tab=esign">← Back to E-Signature</a>
+      {% endif %}
+      <h1>{{ envelope.title }}</h1>
+      <p id="esignStatus" class="esign-note"></p>
+    </div>
+    {% if not is_signed %}
+    <div class="esign-tools">
+      {% if not is_public %}
+      <button type="button" class="esign-tool is-active" data-esign-tool="signature">Sign</button>
+      <button type="button" class="esign-tool" data-esign-tool="initials">Initials</button>
+      <button type="button" class="esign-tool" data-esign-tool="date">Date</button>
+      <button type="button" class="esign-tool" data-esign-tool="text">Text</button>
+      {% endif %}
+    </div>
+    <div class="esign-tools">
+      <label style="display:grid;gap:0.2rem;font-size:0.68rem;font-weight:800;text-transform:uppercase;color:#94a3b8;">
+        Full name
+        <input id="esignSignerName" type="text" value="{{ envelope.signer_name }}" placeholder="Signer name" style="min-height:2.2rem;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;padding:0.3rem 0.55rem;">
+      </label>
+      {% if not is_public %}
+      <label style="display:grid;gap:0.2rem;font-size:0.68rem;font-weight:800;text-transform:uppercase;color:#94a3b8;">
+        Email
+        <input id="esignSignerEmail" type="email" value="{{ envelope.signer_email }}" placeholder="optional" style="min-height:2.2rem;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#fff;padding:0.3rem 0.55rem;">
+      </label>
+      <button type="button" class="esign-action" id="esignRequest">Request signature</button>
+      {% endif %}
+      <button type="button" class="esign-action is-success" id="esignFinish">Finish &amp; sign</button>
+    </div>
+    {% else %}
+    <div class="esign-tools">
+      {% if is_public %}
+      <p>This document has been signed.</p>
+      {% else %}
+      <a class="esign-action is-primary" href="{% url 'insurance-esign-signed' envelope.id %}">Download signed PDF</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </header>
+  <div class="esign-workspace" id="esignPages"></div>
+</div>
+
+<div class="esign-modal" id="esignModal">
+  <div class="esign-modal__box">
+    <strong>Create your signature</strong>
+    <div class="esign-tabs">
+      <button type="button" class="is-active" data-sign-tab="draw">Draw</button>
+      <button type="button" data-sign-tab="type">Type</button>
+      {% if saved_signature_data_url %}<button type="button" data-sign-tab="saved">Saved</button>{% endif %}
+    </div>
+    <div data-sign-panel="draw">
+      <canvas id="esignPad" width="480" height="140"></canvas>
+      <button type="button" class="esign-tool" id="esignPadClear" style="margin-top:0.5rem;color:#0f172a;background:#f8fafc;">Clear</button>
+    </div>
+    <div data-sign-panel="type" style="display:none;">
+      <input id="esignTypeInput" type="text" placeholder="Type your name">
+    </div>
+    {% if saved_signature_data_url %}
+    <div data-sign-panel="saved" style="display:none;">
+      <img src="{{ saved_signature_data_url }}" alt="Saved signature" style="max-width:100%;max-height:90px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;">
+    </div>
+    {% endif %}
+    <div class="esign-modal__actions">
+      <button type="button" class="esign-tool" id="esignModalClose" style="color:#0f172a;background:#f8fafc;">Cancel</button>
+      <button type="button" class="esign-action is-primary" id="esignApplyMark">Apply</button>
+    </div>
+  </div>
+</div>
+
+{{ envelope.fields_json|json_script:"esign-fields" }}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+window.ESIGN_CONFIG = {
+  pdfUrl: "{% if is_public %}{% url 'public-esign-file' envelope.signer_token %}{% else %}{% url 'insurance-esign-file' envelope.id %}{% endif %}",
+  applyUrl: "{% if is_public %}{% url 'public-esign-sign' envelope.signer_token %}{% else %}{% url 'insurance-esign-apply' envelope.id %}{% endif %}",
+  requestUrl: "{% if is_public %}{% else %}{% url 'insurance-esign-request' envelope.id %}{% endif %}",
+  workerUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
+  csrf: "{{ csrf_token }}",
+  isPublic: {% if is_public %}true{% else %}false{% endif %},
+  isSigned: {% if is_signed %}true{% else %}false{% endif %},
+  savedSignature: "{{ saved_signature_data_url|escapejs }}",
+  signerName: "{{ envelope.signer_name|escapejs }}",
+  fields: JSON.parse(document.getElementById("esign-fields").textContent || "[]")
+};
+</script>
+<script src="{% static 'core/js/insurance_esign.js' %}?v=1"></script>
+{% endblock %}

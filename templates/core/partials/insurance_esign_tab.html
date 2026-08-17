@@ -1,0 +1,68 @@
+<div class="ins-esign-hero">
+  <h3>E-Signature</h3>
+  <p>Upload a PDF, place signature boxes like Adobe Acrobat Fill &amp; Sign, then sign now or send a link for the client to sign.</p>
+  <div class="ins-esign-metrics">
+    <div class="ins-esign-metric"><span>Drafts</span><strong>{{ esign_draft_count|default:0 }}</strong></div>
+    <div class="ins-esign-metric"><span>Awaiting</span><strong>{{ esign_awaiting_count|default:0 }}</strong></div>
+    <div class="ins-esign-metric"><span>Completed</span><strong>{{ esign_signed_count|default:0 }}</strong></div>
+  </div>
+</div>
+
+<div class="ins-esign-upload">
+  <div>
+    <h4>Start a document</h4>
+    <p>PDF only, up to 15 MB. Applications, ACORD forms, disclosures, and policy packets all work.</p>
+  </div>
+  <form method="post" action="{% url 'insurance-esign-upload' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <label>Document name
+      <input type="text" name="title" placeholder="e.g. Auto application — Palacios">
+    </label>
+    <label>PDF file
+      <input type="file" name="file" accept="application/pdf,.pdf" required>
+    </label>
+    <button type="submit" class="ins-esign-btn">Open in e-sign</button>
+  </form>
+</div>
+
+{% if esign_envelopes %}
+<table class="ins-esign-table">
+  <thead>
+    <tr>
+      <th>Document</th>
+      <th>Status</th>
+      <th>Signer</th>
+      <th>Updated</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in esign_envelopes %}
+    <tr>
+      <td>{{ row.title }}</td>
+      <td><span class="ins-esign-status {{ row.status }}">{{ row.get_status_display }}</span></td>
+      <td>{{ row.signer_name|default:"—" }}</td>
+      <td>{{ row.updated_at|date:"M j, Y g:i A" }}</td>
+      <td>
+        <div class="ins-esign-actions">
+          {% if row.status != "void" %}
+          <a href="{% url 'insurance-esign-editor' row.id %}">{% if row.status == "signed" %}View{% else %}Open{% endif %}</a>
+          {% endif %}
+          {% if row.status == "signed" %}
+          <a href="{% url 'insurance-esign-signed' row.id %}">Download</a>
+          {% endif %}
+          {% if row.status != "signed" and row.status != "void" %}
+          <form method="post" action="{% url 'insurance-esign-void' row.id %}" onsubmit="return confirm('Void this envelope?');">
+            {% csrf_token %}
+            <button type="submit">Void</button>
+          </form>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p style="color:var(--portal-text-muted);font-weight:600;">No e-signature documents yet. Upload a PDF to place a signature.</p>
+{% endif %}

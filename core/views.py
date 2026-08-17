@@ -6468,6 +6468,8 @@ def inventory_detail(request, inventory_id):
         can_edit_insurance_targets = bool(
             is_owner or user_can_view_banking
         )
+        from .insurance_esign_views import build_esign_tab_context
+        esign_tab = build_esign_tab_context(active_org)
 
         context = {
             "card": card,
@@ -6573,6 +6575,7 @@ def inventory_detail(request, inventory_id):
             **quote_pipeline,
             "insurance_targets": insurance_targets,
             "can_edit_insurance_targets": can_edit_insurance_targets,
+            **esign_tab,
         }
         return render(request, "core/insurance_space.html", context)
 

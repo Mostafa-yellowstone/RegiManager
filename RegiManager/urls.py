@@ -291,6 +291,17 @@ from core.agent_api import (
     OwnerAgentWorkboardView,
     OwnerAgentsListView,
 )
+from core.insurance_esign_views import (
+    apply_esign_document,
+    esign_editor,
+    esign_original_file,
+    esign_signed_file,
+    public_esign_file,
+    public_esign_sign,
+    request_esign_signature,
+    upload_esign_document,
+    void_esign_document,
+)
 from core.insurance_targets_views import (
     save_insurance_line_target,
     save_insurance_market_assumption,
@@ -484,6 +495,8 @@ urlpatterns = [
     path("dashboard/intake/<int:intake_id>/approve/", approve_intake, name="approve-intake"),
     path("dashboard/intake/<int:intake_id>/reject/", reject_intake, name="reject-intake"),
     path("intake/<int:intake_id>/mv82-preview/", intake_mv82_pdf, name="intake-mv82-pdf"),
+    path("sign/<str:token>/", public_esign_sign, name="public-esign-sign"),
+    path("sign/<str:token>/file/", public_esign_file, name="public-esign-file"),
 
     # Fundamental Quote Pipeline (Insurance Space)
     path(
@@ -619,6 +632,13 @@ urlpatterns = [
     path("dashboard/spaces/insurance/reports/compliance.pdf", export_insurance_compliance_pdf, name="export-insurance-compliance-pdf"),
     path("dashboard/spaces/insurance/reports/targets.pdf", export_insurance_targets_pdf, name="export-insurance-targets-pdf"),
     path("dashboard/spaces/insurance/reports/commission.pdf", export_insurance_commission_register_pdf, name="export-insurance-commission-register-pdf"),
+    path("dashboard/spaces/insurance/esign/upload/", upload_esign_document, name="insurance-esign-upload"),
+    path("dashboard/spaces/insurance/esign/<int:envelope_id>/", esign_editor, name="insurance-esign-editor"),
+    path("dashboard/spaces/insurance/esign/<int:envelope_id>/file/", esign_original_file, name="insurance-esign-file"),
+    path("dashboard/spaces/insurance/esign/<int:envelope_id>/signed/", esign_signed_file, name="insurance-esign-signed"),
+    path("dashboard/spaces/insurance/esign/<int:envelope_id>/apply/", apply_esign_document, name="insurance-esign-apply"),
+    path("dashboard/spaces/insurance/esign/<int:envelope_id>/request/", request_esign_signature, name="insurance-esign-request"),
+    path("dashboard/spaces/insurance/esign/<int:envelope_id>/void/", void_esign_document, name="insurance-esign-void"),
     path(
         "dashboard/spaces/insurance/targets/monthly/",
         save_insurance_monthly_target,

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}E-signature | RegiManager{% endblock %}
+
+{% block content %}
+<div class="esign-app" style="display:flex;align-items:center;justify-content:center;padding:2rem;">
+  <div style="background:#fff;color:#0f172a;border-radius:16px;padding:2rem;max-width:28rem;text-align:center;">
+    {% if already_signed %}
+    <h1 style="margin:0 0 0.5rem;">Already signed</h1>
+    <p style="color:#64748b;">This document is complete.</p>
+    {% if envelope %}<p><a href="{% url 'public-esign-file' envelope.signer_token %}">Download signed PDF</a></p>{% endif %}
+    {% else %}
+    <h1 style="margin:0 0 0.5rem;">Link unavailable</h1>
+    <p style="color:#64748b;">{{ message|default:"This signing link is not valid." }}</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

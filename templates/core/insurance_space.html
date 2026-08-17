@@ -3,6 +3,10 @@
 
 {% block title %}{{ card.label }} | RegiManager{% endblock %}
 
+{% block portal_head %}
+<link rel="stylesheet" href="{% static 'core/css/insurance_esign.css' %}?v=1">
+{% endblock %}
+
 {% block portal_content %}
 
 <style>
@@ -921,7 +925,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
           </button>
           {% endif %}
         </div>
-        <p style="color: #64748b; margin: 0.25rem 0 0; font-weight: 500; font-size: 0.95rem;">Policy CRM · Companies · Banking & Financials · Reporting Center</p>
+        <p style="color: #64748b; margin: 0.25rem 0 0; font-weight: 500; font-size: 0.95rem;">Policy CRM · Quote Pipeline · Reporting Center · E-Signature</p>
       </div>
       <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
         <a href="{% url 'spaces-home' %}" style="text-decoration: none; padding: 9px 16px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; font-weight: 700; color: #475569; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 4px;">&larr; Back to Spaces</a>
@@ -935,6 +939,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       {% if user_can_view_banking %}<button type="button" class="tab-btn" id="tab-companies-btn" onclick="switchTab('companies')">🏢 Companies</button>{% endif %}
       {% if user_can_view_banking %}<button type="button" class="tab-btn" id="tab-banking-btn" onclick="switchTab('banking')">💳 Finance</button>{% endif %}
       <button type="button" class="tab-btn" id="tab-reporting-btn" onclick="switchTab('reporting')">📊 Reporting Center</button>
+      <button type="button" class="tab-btn" id="tab-esign-btn" onclick="switchTab('esign')">✍️ E-Signature</button>
       <button type="button" class="tab-btn" id="tab-targets-btn" onclick="switchTab('targets')">🎯 Targets &amp; Forecast</button>
       <button type="button" class="tab-btn" id="tab-daily-payments-btn" onclick="switchTab('daily-payments')">💳 Daily Payments</button>
       <button type="button" class="tab-btn" id="tab-agents-btn" onclick="switchTab('agents')">👥 Agent Auditing</button>
@@ -1642,6 +1647,11 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       </section>
     </div>
 
+    <!-- E-SIGNATURE TAB -->
+    <div id="tab-esign" class="tab-panel" style="display: none;">
+      {% include "core/partials/insurance_esign_tab.html" %}
+    </div>
+
     <!-- TARGETS & FORECAST TAB -->
     <div id="tab-targets" class="tab-panel" style="display: none;">
       {% include "core/partials/insurance_targets_tab.html" %}
@@ -2187,7 +2197,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
 <!-- REJECT INSURANCE INTAKE MODAL -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const tabs = ['insurance', 'quote-pipeline'{% if user_can_view_banking %}, 'companies', 'banking'{% endif %}, 'reporting', 'targets', 'daily-payments', 'agents'];
+const tabs = ['insurance', 'quote-pipeline'{% if user_can_view_banking %}, 'companies', 'banking'{% endif %}, 'reporting', 'esign', 'targets', 'daily-payments', 'agents'];
 let premiumChart = null;
 let profitChart = null;
 
