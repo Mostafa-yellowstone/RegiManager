@@ -156,7 +156,7 @@ class EmailMarketingAccessTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(EmailMarketingList.objects.filter(name="Dup").count(), 1)
 
-    def test_bulk_assign_shows_each_contact_record_on_agent_board(self):
+    def test_bulk_assign_creates_a_separate_task_per_contact(self):
         from core.agent_portal_models import AgentTask
 
         target = User.objects.create_user(username="insagent", password="pass12345")
@@ -201,15 +201,23 @@ class EmailMarketingAccessTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 302)
-        task = AgentTask.objects.get(title="Follow selected leads")
-        self.assertEqual(task.email_marketing_contacts.count(), 2)
+        tasks = list(AgentTask.objects.filter(assigned_to=target_mem).order_by("id"))
+        self.assertEqual(len(tasks), 2)
+        self.assertEqual(tasks[0].title, "Follow selected leads: Ada Lopez")
+        self.assertEqual(tasks[1].title, "Follow selected leads: Ben Ortiz")
+        self.assertEqual(list(tasks[0].email_marketing_contacts.values_list("name", flat=True)), ["Ada Lopez"])
+        self.assertEqual(list(tasks[1].email_marketing_contacts.values_list("name", flat=True)), ["Ben Ortiz"])
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(first.assigned_task_id, tasks[0].id)
+        self.assertEqual(second.assigned_task_id, tasks[1].id)
         self.client.login(username="insagent", password="pass12345")
         session = self.client.session
         session["active_org_id"] = self.org.id
         session.save()
         board = self.client.get(reverse("agent-portal-tasks-board"))
         self.assertEqual(board.status_code, 200)
-        self.assertContains(board, "Record 1 of 2")
+        self.assertNotContains(board, "Record 1 of 2")
         self.assertContains(board, "Ada Lopez")
         self.assertContains(board, "555-1111")
         self.assertContains(board, "10 Pine St")

@@ -275,76 +275,88 @@ def email_marketing_assign_task(request, list_id):
     now = timezone.now()
     agent_name = agent.user.get_full_name().strip() or agent.user.username
 
-    if len(contacts) > 1:
-        # One shared task; each contact stays linked so the agent sees a full record card.
-        note_lines = []
-        if description:
-            note_lines.append(description.strip())
-        note_lines.append(
-            f"{len(contacts)} CRM records from {marketing_list.name} — open this task to work each lead."
-        )
-        task = AgentTask.objects.create(
-            organization=org,
-            assigned_to=agent,
-            created_by=request.user,
-            title=title if title != "Follow up CRM lead" else f"Follow up · {len(contacts)} CRM leads",
-            description="\n\n".join(note_lines),
-            due_date=due_date,
-        )
-        EmailMarketingContact.objects.filter(
-            pk__in=[c.id for c in contacts]
-        ).update(
-            assigned_agent=agent,
-            assigned_at=now,
-            assigned_task=task,
-            updated_at=now,
-        )
+    if not contacts:
+        task = form.save(commit=False)
+        task.organization = org
+        task.assigned_to = agent
+        task.created_by = request.user
+        task.save()
+        _notify_agent_task(agent.user, org, task)
+        messages.success(request, f"Task assigned to {agent_name}. It will show in their agent portal.")
+        return redirect(redirect_url)
+
+    contacts_by_id = {contact.id: contact for contact in contacts}
+    ordered_contacts = [contacts_by_id[cid] for cid in contact_ids if cid in contacts_by_id]
+    bulk = len(ordered_contacts) > 1
+    created_tasks = []
+    with transaction.atomic():
+        for contact in ordered_contacts:
+            task_title = _task_title_for_contact(title, contact, bulk=bulk)
+            label = contact.name if bulk or not contact_label else contact_label
+            task = AgentTask.objects.create(
+                organization=org,
+                assigned_to=agent,
+                created_by=request.user,
+                title=task_title,
+                description=_task_description_for_contact(description, label, marketing_list.name),
+                due_date=due_date,
+            )
+            contact.assigned_agent = agent
+            contact.assigned_at = now
+            contact.assigned_task = task
+            contact.save(update_fields=["assigned_agent", "assigned_at", "assigned_task", "updated_at"])
+            created_tasks.append(task)
+
+    if bulk:
         Notification.objects.create(
             user=agent.user,
             organization=org,
             event_type="agent_task_assigned",
             level=Notification.Level.INFO,
-            title="New bulk task assigned",
-            message=task.title[:200],
-            action_url=f"/dashboard/agent-portal/tasks/?task={task.id}",
+            title=f"{len(created_tasks)} new tasks assigned",
+            message=created_tasks[0].title[:200],
+            action_url="/dashboard/agent-portal/tasks/",
         )
         messages.success(
             request,
-            f"{len(contacts)} contacts assigned to {agent_name}.",
+            f"{len(created_tasks)} separate tasks assigned to {agent_name}.",
         )
-        return redirect(redirect_url)
+    else:
+        _notify_agent_task(agent.user, org, created_tasks[0])
+        messages.success(request, f"Task assigned to {agent_name}. It will show in their agent portal.")
+    return redirect(redirect_url)
 
-    task = form.save(commit=False)
-    task.organization = org
-    task.assigned_to = agent
-    task.created_by = request.user
-    task.save()
 
-    contact = contacts[0] if contacts else None
-    if contact and not contact_label:
-        contact_label = contact.name
+def _is_generic_crm_title(title: str) -> bool:
+    text = (title or "").strip().lower()
+    if text in {"follow up crm lead", "follow up"}:
+        return True
+    return text.startswith("follow up ·") and text.endswith("crm leads")
 
+
+def _task_title_for_contact(title: str, contact, *, bulk: bool) -> str:
+    name = (contact.name or "CRM lead").strip()
+    if not bulk:
+        return (title or f"Follow up: {name}")[:200]
+    if _is_generic_crm_title(title):
+        return f"Follow up: {name}"[:200]
+    return f"{title}: {name}"[:200]
+
+
+def _task_description_for_contact(description: str, contact_label: str, list_name: str) -> str:
     note_bits = []
     if contact_label:
         note_bits.append(f"CRM contact: {contact_label}")
-    if marketing_list.name:
-        note_bits.append(f"List: {marketing_list.name}")
-    if note_bits:
-        context_line = f"— {' · '.join(note_bits)}"
-        if task.description:
-            task.description = f"{task.description.strip()}\n\n{context_line}"
-        else:
-            task.description = context_line
-        task.save(update_fields=["description", "updated_at"])
+    if list_name:
+        note_bits.append(f"List: {list_name}")
+    context_line = f"— {' · '.join(note_bits)}" if note_bits else ""
+    parts = [part for part in (description.strip(), context_line) if part]
+    return "\n\n".join(parts)
 
-    if contact is not None:
-        contact.assigned_agent = agent
-        contact.assigned_at = now
-        contact.assigned_task = task
-        contact.save(update_fields=["assigned_agent", "assigned_at", "assigned_task", "updated_at"])
 
+def _notify_agent_task(user, org, task):
     Notification.objects.create(
-        user=agent.user,
+        user=user,
         organization=org,
         event_type="agent_task_assigned",
         level=Notification.Level.INFO,
@@ -352,8 +364,6 @@ def email_marketing_assign_task(request, list_id):
         message=task.title[:200],
         action_url=f"/dashboard/agent-portal/tasks/?task={task.id}",
     )
-    messages.success(request, f"Task assigned to {agent_name}. It will show in their agent portal.")
-    return redirect(redirect_url)
 
 
 @login_required

@@ -162,18 +162,18 @@
         if (bulkIds && bulkIds.length > 1) {
             if (cids) cids.value = bulkIds.join(",");
             if (cid) cid.value = "";
-            if (clabel) clabel.value = bulkIds.length + " CRM contacts";
-            if (titleInput) titleInput.value = "Follow up · " + bulkIds.length + " CRM leads";
+            if (clabel) clabel.value = "";
+            if (titleInput) titleInput.value = "Follow up";
             if (noteInput) {
-                noteInput.value = "Please work these CRM leads from Email Marketing.\n" +
-                    (bulkNames || []).slice(0, 12).map(function (n) { return "• " + n; }).join("\n") +
-                    (bulkNames && bulkNames.length > 12 ? "\n• …and " + (bulkNames.length - 12) + " more" : "");
+                noteInput.value = "Please take action on this CRM lead.";
             }
             if (ctx) {
-                ctx.textContent = "Bulk assign: " + bulkIds.length + " selected contacts on this page.";
+                ctx.textContent = bulkIds.length + " selected contacts — each one becomes its own task.";
                 ctx.hidden = false;
             }
-            if (modalTitle) modalTitle.textContent = "Bulk assign · " + bulkIds.length + " contacts";
+            if (modalTitle) modalTitle.textContent = "Assign " + bulkIds.length + " tasks";
+            var submitBtn = document.getElementById("em-assign-task-submit");
+            if (submitBtn) submitBtn.textContent = "Assign " + bulkIds.length + " tasks";
         } else if (fromContactBtn) {
             var d = fromContactBtn.dataset;
             var name = d.name || "Contact";

@@ -73,7 +73,7 @@
             <div class="em-bulk-bar" id="em-bulk-bar" hidden>
                 <div class="em-bulk-bar__copy">
                     <strong id="em-bulk-bar-label">0 selected</strong>
-                    <span>Assign selected CRM records to one agent without losing your page or filters.</span>
+                    <span>Each selected contact becomes its own task for one agent — your page and filters stay put.</span>
                 </div>
                 <button type="button" class="em-btn em-btn--soft" id="em-bulk-assign-open">Assign selected…</button>
                 <button type="button" class="em-btn em-btn--ghost" id="em-bulk-clear">Clear</button>
@@ -576,5 +576,5 @@ window.EM_CONFIG = {
     csrfToken: "{{ csrf_token }}"
 };
 </script>
-<script src="{% static 'core/js/email_marketing.js' %}?v=7" defer></script>
+<script src="{% static 'core/js/email_marketing.js' %}?v=8" defer></script>
 {% endblock %}
