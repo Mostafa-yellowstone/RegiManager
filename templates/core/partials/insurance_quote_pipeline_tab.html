@@ -1,5 +1,5 @@
 ﻿{% load static %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=24">
+<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=25">
 
 <section class="iqp" id="quotePipelineRoot" data-org-id="{{ organization.id }}" data-snapshot-url="{% url 'portal-quote-pipeline-snapshot' %}?org={{ organization.id }}">
   <header class="iqp-hero">
@@ -25,6 +25,8 @@
       {% endif %}
     </div>
   </header>
+
+  {% include "core/partials/insurance_quote_distribution_channel.html" %}
 
   {% if can_manage_quote_distribution %}
   <section class="iqp-control">

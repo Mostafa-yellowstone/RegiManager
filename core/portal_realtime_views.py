@@ -12,7 +12,11 @@ from django.urls import reverse
 from django.views.decorators.http import require_GET
 
 from .access import organizations_for_user
-from .insurance_quote_permissions import can_view_quote_pipeline, membership_for_org
+from .insurance_quote_permissions import (
+    can_manage_quote_distribution,
+    can_view_quote_pipeline,
+    membership_for_org,
+)
 from .insurance_quote_pipeline_views import build_quote_pipeline_context
 from .models import Notification, Organization
 from .realtime import iter_events, org_quote_channel, user_channel, wait_user_wake
@@ -150,6 +154,25 @@ def portal_quote_pipeline_snapshot(request):
         ctx,
     ).content.decode("utf-8")
     return JsonResponse({"html": html, "org_id": org.id})
+
+
+@login_required
+@require_GET
+def portal_quote_distribution_channel(request):
+    """Live next-up payload for Owner/Manager smart distribution."""
+    org_id = request.GET.get("org") or request.session.get("active_org_id")
+    orgs = organizations_for_user(request)
+    org = orgs.filter(id=org_id).first() if org_id else orgs.first()
+    if org is None:
+        return JsonResponse({"error": "organization_required"}, status=400)
+    membership = membership_for_org(request.user, org)
+    if not can_manage_quote_distribution(request.user, org, membership=membership):
+        return JsonResponse({"error": "forbidden"}, status=403)
+    from .insurance_quote_distribution import distribution_channel_payload
+
+    payload = distribution_channel_payload(org)
+    payload["org_id"] = org.id
+    return JsonResponse(payload)
 
 
 @login_required

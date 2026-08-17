@@ -1,0 +1,74 @@
+{% if can_manage_quote_distribution and quote_channel %}
+<section
+  class="iqp-channel {% if quote_channel.live %}is-live{% elif quote_channel.paused %}is-paused{% else %}is-waiting{% endif %}"
+  id="iqpDistChannel"
+  data-channel-url="{% url 'portal-quote-distribution-channel' %}?org={{ organization.id }}"
+  data-next-id="{{ quote_channel.next.id|default:'' }}"
+  aria-live="polite"
+>
+  <div class="iqp-channel__aurora" aria-hidden="true"></div>
+  <div class="iqp-channel__sparkles" aria-hidden="true"></div>
+
+  <header class="iqp-channel__head">
+    <div class="iqp-channel__live-wrap">
+      <span class="iqp-channel__pulse" aria-hidden="true"><i></i></span>
+      <span class="iqp-channel__live-label">{% if quote_channel.live %}Live channel{% elif quote_channel.paused %}Channel paused{% else %}Waiting for agents{% endif %}</span>
+    </div>
+    <div class="iqp-channel__head-copy">
+      <h3>Who gets the next quote?</h3>
+      <p>Auto-distribution round-robin among eligible insurance agents.</p>
+    </div>
+    <span class="iqp-channel__count">
+      <em data-channel-count>{{ quote_channel.eligible_count }}</em>
+      eligible
+    </span>
+  </header>
+
+  <div class="iqp-channel__body" data-channel-body>
+    {% if quote_channel.live and quote_channel.next %}
+    <article class="iqp-channel__next">
+      <p class="iqp-channel__kicker">Next quote goes to</p>
+      <div class="iqp-channel__hero">
+        <div class="iqp-channel__avatar" data-channel-avatar>
+          {% if quote_channel.next.photo %}
+          <img src="{{ quote_channel.next.photo }}" alt="">
+          {% else %}
+          <span>{{ quote_channel.next.initial }}</span>
+          {% endif %}
+        </div>
+        <div class="iqp-channel__hero-copy">
+          <strong data-channel-next-name>{{ quote_channel.next.name }}</strong>
+          <span>Standing by for the next auto-assigned lead</span>
+        </div>
+      </div>
+    </article>
+
+    <div class="iqp-channel__rail">
+      {% if quote_channel.last_assigned %}
+      <div class="iqp-channel__last">
+        <span>Just received</span>
+        <strong data-channel-last-name>{{ quote_channel.last_assigned.name }}</strong>
+      </div>
+      {% endif %}
+      {% if quote_channel.upcoming %}
+      <ol class="iqp-channel__queue" data-channel-upcoming>
+        {% for agent in quote_channel.upcoming %}
+        <li style="--i:{{ forloop.counter0 }}">
+          <b>{{ agent.initial }}</b>
+          <span>{{ agent.name }}</span>
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="iqp-channel__solo">Only eligible agent in the rotation right now.</p>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="iqp-channel__empty">
+      <strong>{% if quote_channel.paused %}Auto is paused{% else %}Nobody in the channel{% endif %}</strong>
+      <p data-channel-reason>{{ quote_channel.reason }}</p>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}

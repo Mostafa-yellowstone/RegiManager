@@ -24,6 +24,7 @@
     '/api/portal/notifications/',
     '/api/portal/events/',
     '/api/portal/quote-pipeline/',
+    '/api/portal/quote-distribution/',
   ];
 
   function ensureDom() {

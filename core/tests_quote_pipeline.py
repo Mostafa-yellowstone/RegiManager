@@ -11,8 +11,11 @@ from core.agent_portal_models import AgentAttendanceSession, AgentTask
 from core.insurance_quote_distribution import (
     assign_lead,
     auto_distribute_lead,
+    distribution_channel_payload,
     eligible_agents_for_auto,
     is_sunday_ny,
+    ny_work_date,
+    pick_next_agent,
 )
 from core.insurance_quote_permissions import (
     can_create_quote_leads,
@@ -130,6 +133,62 @@ class QuotePipelineDistributionTests(TestCase):
         self.assertEqual(lead.assigned_to_id, self.agent2.id)
         self.assertEqual(lead.assignment_mode, InsuranceQuoteLead.AssignmentMode.AUTO)
         self.assertTrue(AgentTask.objects.filter(id=lead.agent_task_id).exists())
+
+    def test_live_channel_shows_who_gets_the_next_quote(self):
+        work = date(2026, 8, 10)
+        self.agent_user.first_name = "Amina"
+        self.agent_user.save()
+        self.agent2_user.first_name = "Diego"
+        self.agent2_user.save()
+        _open_attendance(self.agent, self.org, work)
+        _open_attendance(self.agent2, self.org, work)
+        first = pick_next_agent(self.org, work_date=work)
+        lead = InsuranceQuoteLead.objects.create(
+            organization=self.org,
+            created_by=self.owner_user,
+            client_name="Channel Client",
+            phone="5557778888",
+            insurance_type="personal_auto",
+        )
+        auto_distribute_lead(lead, actor=self.owner_user, work_date=work)
+        lead.refresh_from_db()
+        self.assertEqual(lead.assigned_to_id, first.id)
+        payload = distribution_channel_payload(self.org, work_date=work)
+        self.assertTrue(payload["live"])
+        self.assertIsNotNone(payload["next"])
+        self.assertNotEqual(payload["next"]["id"], first.id)
+        self.assertEqual(payload["last_assigned"]["id"], first.id)
+        self.assertEqual(payload["next"]["name"], "Diego" if first.id == self.agent.id else "Amina")
+
+    def test_owner_can_fetch_distribution_channel_json(self):
+        work = ny_work_date()
+        self.agent_user.first_name = "Amina"
+        self.agent_user.save()
+        _open_attendance(self.agent, self.org, work)
+        self.client.login(username="qowner", password="password123")
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+        resp = self.client.get(
+            reverse("portal-quote-distribution-channel"),
+            {"org": self.org.id},
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data["live"] or data["paused"] or data["waiting"])
+        if data["live"]:
+            self.assertEqual(data["next"]["name"], "Amina")
+
+    def test_agent_cannot_fetch_distribution_channel_json(self):
+        self.client.login(username="qagent", password="password123")
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+        resp = self.client.get(
+            reverse("portal-quote-distribution-channel"),
+            {"org": self.org.id},
+        )
+        self.assertEqual(resp.status_code, 403)
 
     def test_create_lead_endpoint_auto_assigns(self):
         work = date(2026, 8, 11)

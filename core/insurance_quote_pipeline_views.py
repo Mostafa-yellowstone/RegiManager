@@ -18,6 +18,7 @@ from .http import deny_access
 from .insurance_quote_distribution import (
     assign_lead,
     auto_distribute_lead,
+    distribution_channel_payload,
     distribution_status,
     get_or_create_distribution_config,
     insurance_agent_pool,
@@ -207,6 +208,7 @@ def build_quote_pipeline_context(request, organization, membership):
             "won": sum(1 for l in leads if l.stage == InsuranceQuoteLead.Stage.WON),
         },
         "quote_distribution": status,
+        "quote_channel": distribution_channel_payload(organization) if is_leader else None,
         "quote_companies": companies,
         "quote_type_options": type_options,
         "quote_agents": assign_agents,

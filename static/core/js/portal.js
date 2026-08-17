@@ -18,6 +18,7 @@
             this.initSiteNewsAlert();
             this.preserveCrmFilters();
             this.initRealtime();
+            this.initQuoteDistributionChannel();
         },
 
         applyTheme(theme) {
@@ -653,6 +654,110 @@
         },
 
         refreshQuotePipeline() {},
+
+        initQuoteDistributionChannel() {
+            const root = document.getElementById('iqpDistChannel');
+            if (!root) return;
+            const url = root.dataset.channelUrl;
+            if (!url) return;
+
+            const escapeHtml = (value) => String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+
+            const avatarHtml = (agent) => {
+                if (!agent) return '';
+                if (agent.photo) {
+                    return '<img src="' + escapeHtml(agent.photo) + '" alt="">';
+                }
+                return '<span>' + escapeHtml(agent.initial || '?') + '</span>';
+            };
+
+            const render = (data, { animate } = {}) => {
+                if (!data) return;
+                const nextId = data.next && data.next.id ? String(data.next.id) : '';
+                const upcomingIds = (Array.isArray(data.upcoming) ? data.upcoming : []).map((a) => a.id).join(',');
+                const lastId = data.last_assigned && data.last_assigned.id ? String(data.last_assigned.id) : '';
+                const fingerprint = [data.live, data.paused, nextId, lastId, upcomingIds, data.eligible_count, data.reason].join('|');
+                if (root.dataset.fp === fingerprint) return;
+                root.dataset.fp = fingerprint;
+                const prevId = root.dataset.nextId || '';
+                const live = !!data.live;
+                const paused = !!data.paused;
+                root.classList.toggle('is-live', live);
+                root.classList.toggle('is-paused', paused && !live);
+                root.classList.toggle('is-waiting', !live && !paused);
+                const liveLabel = root.querySelector('.iqp-channel__live-label');
+                if (liveLabel) {
+                    liveLabel.textContent = live ? 'Live channel' : (paused ? 'Channel paused' : 'Waiting for agents');
+                }
+                const count = root.querySelector('[data-channel-count]');
+                if (count) count.textContent = String(data.eligible_count || 0);
+
+                const body = root.querySelector('[data-channel-body]');
+                if (!body) return;
+
+                if (live && data.next) {
+                    const upcoming = Array.isArray(data.upcoming) ? data.upcoming : [];
+                    const last = data.last_assigned;
+                    body.innerHTML =
+                        '<article class="iqp-channel__next">' +
+                          '<p class="iqp-channel__kicker">Next quote goes to</p>' +
+                          '<div class="iqp-channel__hero">' +
+                            '<div class="iqp-channel__avatar" data-channel-avatar>' + avatarHtml(data.next) + '</div>' +
+                            '<div class="iqp-channel__hero-copy">' +
+                              '<strong data-channel-next-name>' + escapeHtml(data.next.name) + '</strong>' +
+                              '<span>Standing by for the next auto-assigned lead</span>' +
+                            '</div>' +
+                          '</div>' +
+                        '</article>' +
+                        '<div class="iqp-channel__rail">' +
+                          (last
+                            ? '<div class="iqp-channel__last"><span>Just received</span><strong>' + escapeHtml(last.name) + '</strong></div>'
+                            : '') +
+                          (upcoming.length
+                            ? '<ol class="iqp-channel__queue">' + upcoming.map(function (agent, idx) {
+                                return '<li style="--i:' + idx + '"><b>' + escapeHtml(agent.initial || '?') + '</b><span>' + escapeHtml(agent.name) + '</span></li>';
+                            }).join('') + '</ol>'
+                            : '<p class="iqp-channel__solo">Only eligible agent in the rotation right now.</p>') +
+                        '</div>';
+                } else {
+                    body.innerHTML =
+                        '<div class="iqp-channel__empty">' +
+                          '<strong>' + (paused ? 'Auto is paused' : 'Nobody in the channel') + '</strong>' +
+                          '<p>' + escapeHtml(data.reason || '') + '</p>' +
+                        '</div>';
+                }
+
+                if (animate && nextId && nextId !== prevId) {
+                    root.classList.remove('is-handoff');
+                    void root.offsetWidth;
+                    root.classList.add('is-handoff');
+                    setTimeout(() => root.classList.remove('is-handoff'), 700);
+                }
+                root.dataset.nextId = nextId;
+            };
+
+            const pull = (animate) => {
+                if (document.hidden) return Promise.resolve();
+                return fetch(url, {
+                    credentials: 'same-origin',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+                    cache: 'no-store',
+                })
+                    .then((res) => (res.ok ? res.json() : null))
+                    .then((data) => render(data, { animate: !!animate }))
+                    .catch(() => null);
+            };
+
+            if (this._quoteChannelTimer) clearInterval(this._quoteChannelTimer);
+            this._quoteChannelTimer = setInterval(() => pull(true), 4000);
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) pull(true);
+            });
+        },
 
         replaceNotificationList(items) {
             const body = document.querySelector('#notifDropdown .notif-dropdown-body');

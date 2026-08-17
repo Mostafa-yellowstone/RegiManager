@@ -19,9 +19,17 @@ from .models import OrganizationMembership
 
 
 def get_or_create_distribution_config(organization) -> InsuranceQuoteDistributionConfig:
-    config, _ = InsuranceQuoteDistributionConfig.objects.get_or_create(
-        organization=organization
+    config = (
+        InsuranceQuoteDistributionConfig.objects.select_related(
+            "last_assigned_membership__user"
+        )
+        .filter(organization=organization)
+        .first()
     )
+    if config is None:
+        config, _ = InsuranceQuoteDistributionConfig.objects.get_or_create(
+            organization=organization
+        )
     return config
 
 
@@ -121,6 +129,81 @@ def pick_next_agent(
     if cursor in ids:
         start_idx = (ids.index(cursor) + 1) % len(ids)
     return eligible[start_idx]
+
+
+def _membership_channel_card(membership) -> dict | None:
+    if membership is None or not getattr(membership, "user_id", None):
+        return None
+    user = membership.user
+    name = (user.get_full_name() or "").strip() or user.username
+    photo = ""
+    photo_field = getattr(membership, "profile_photo", None)
+    if photo_field:
+        try:
+            photo = photo_field.url
+        except ValueError:
+            photo = ""
+    return {
+        "id": membership.id,
+        "name": name,
+        "initial": (name[:1] or "?").upper(),
+        "photo": photo,
+    }
+
+
+def rotation_queue(
+    organization,
+    *,
+    work_date: date | None = None,
+    config: InsuranceQuoteDistributionConfig | None = None,
+) -> list[OrganizationMembership]:
+    """Eligible agents in the order the next quotes will land, next-up first."""
+    config = config or get_or_create_distribution_config(organization)
+    eligible = eligible_agents_for_auto(
+        organization, work_date=work_date, config=config
+    )
+    next_agent = pick_next_agent(
+        organization, work_date=work_date, config=config
+    )
+    if not eligible or next_agent is None:
+        return []
+    ids = [m.id for m in eligible]
+    start = ids.index(next_agent.id) if next_agent.id in ids else 0
+    return eligible[start:] + eligible[:start]
+
+
+def distribution_channel_payload(organization, *, work_date: date | None = None) -> dict:
+    """Live next-up payload for Owner/Manager distribution channel UI."""
+    status = distribution_status(organization, work_date=work_date)
+    config = status["config"]
+    paused = status["auto_paused"]
+    queue_members = [] if paused else rotation_queue(
+        organization, work_date=status["work_date"], config=config
+    )
+    queue = [card for card in (_membership_channel_card(m) for m in queue_members) if card]
+    last_card = _membership_channel_card(config.last_assigned_membership)
+    if not config.is_auto_enabled:
+        reason = "Auto distribution is turned off."
+    elif config.skip_sundays and status["is_sunday"]:
+        reason = "Paused on Sundays — assign manually today."
+    elif not status["eligible"]:
+        reason = "No eligible agents right now. Check attendance and days off."
+    else:
+        reason = ""
+    waiting = (not paused) and not queue
+    return {
+        "paused": paused,
+        "waiting": waiting,
+        "live": bool(queue) and not paused,
+        "reason": reason,
+        "is_sunday": status["is_sunday"],
+        "eligible_count": status["eligible_count"],
+        "next": queue[0] if queue else None,
+        "upcoming": queue[1:],
+        "queue": queue,
+        "last_assigned": last_card,
+        "work_date": status["work_date"].isoformat(),
+    }
 
 
 def _type_label(insurance_type: str) -> str:
@@ -436,6 +519,9 @@ def distribution_status(organization, *, work_date: date | None = None) -> dict:
     auto_paused = (not config.is_auto_enabled) or (
         config.skip_sundays and sunday
     )
+    next_agent = None if auto_paused else pick_next_agent(
+        organization, work_date=work_date, config=config
+    )
     return {
         "work_date": work_date,
         "is_sunday": sunday,
@@ -445,4 +531,5 @@ def distribution_status(organization, *, work_date: date | None = None) -> dict:
         "eligible_count": len(eligible),
         "eligible": eligible,
         "pool": pool,
+        "next_agent": next_agent,
     }
