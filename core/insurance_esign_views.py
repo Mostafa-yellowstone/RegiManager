@@ -20,6 +20,7 @@ from django.utils.text import get_valid_filename
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from .access import organizations_for_user
+from .email_branding import attach_brand_logo, email_brand_for_org, wrap_email_html
 from .http import deny_access
 from .insurance_esign_models import InsuranceESignEnvelope, new_signer_token
 from .insurance_esign_pdf import stamp_envelope_pdf
@@ -36,22 +37,25 @@ def _send_esign_request_email(envelope, sign_url: str) -> tuple[bool, str]:
         validate_email(to_email)
     except ValidationError:
         return False, "That signer email address is not valid."
-    agency = envelope.organization.name
+    brand = email_brand_for_org(envelope.organization)
     subject = f"Please sign: {envelope.title}"[:180]
     text_body = (
         f"Hello {envelope.signer_name or ''}\n\n"
-        f"{agency} asked you to electronically sign “{envelope.title}”.\n\n"
-        f"Open this link, click each signature box, then Finish & sign:\n{sign_url}\n"
+        f"{brand['name']} asked you to electronically sign “{envelope.title}”.\n\n"
+        f"Open this link, click each signature box, then Finish & sign:\n{sign_url}\n\n"
+        f"{brand.get('phone', '')} {brand.get('email', '')}\n"
+        f"{brand['copyright_line']}\n"
     )
-    html_body = render_to_string(
+    inner = render_to_string(
         "core/emails/esign_request.html",
         {
             "signer_name": envelope.signer_name,
-            "agency_name": agency,
+            "agency_name": brand["name"],
             "document_title": envelope.title,
             "sign_url": sign_url,
         },
     )
+    html_body = wrap_email_html(inner, brand, logo_mode="cid")
     try:
         message = EmailMultiAlternatives(
             subject,
@@ -60,6 +64,7 @@ def _send_esign_request_email(envelope, sign_url: str) -> tuple[bool, str]:
             [to_email],
         )
         message.attach_alternative(html_body, "text/html")
+        attach_brand_logo(message, brand)
         message.send(fail_silently=False)
         return True, f"Sent to {to_email}."
     except Exception:
@@ -89,16 +94,41 @@ def _org(request):
     return org
 
 
-def _can_access_insurance(request, org) -> bool:
+def _can_view_esign(request, org) -> bool:
+    """Any member who can open Insurance Space can view and download envelopes."""
+    if request.user.is_superuser:
+        return True
+    membership = membership_for_org(request.user, org)
+    if is_org_owner(request.user, org, membership):
+        return True
+    if not membership or not membership.is_active or not membership.can_view_spaces:
+        return False
+    space = Space.objects.filter(organization=org, key="insurance").first()
+    if space is None:
+        return False
+    return membership.accessible_spaces.filter(id=space.id).exists()
+
+
+def _can_manage_esign(request, org) -> bool:
     membership = membership_for_org(request.user, org)
     if is_org_owner(request.user, org, membership):
         return True
     return bool(membership and membership.is_active and membership.can_deal_with_insurance)
 
 
+def _can_access_insurance(request, org) -> bool:
+    return _can_view_esign(request, org)
+
+
 def _require_insurance(request, org):
-    if not _can_access_insurance(request, org):
+    if not _can_view_esign(request, org):
         deny_access("You do not have access to Insurance Space e-signature.")
+
+
+def _require_manage_esign(request, org):
+    _require_insurance(request, org)
+    if not _can_manage_esign(request, org):
+        deny_access("You can view and download signed documents, but you cannot create or change envelopes.")
 
 
 def _envelope_for_user(request, envelope_id):
@@ -130,16 +160,22 @@ def _saved_signature_data_url(request, org) -> str:
         return ""
 
 
-def build_esign_tab_context(org):
+def build_esign_tab_context(org, request=None, membership=None, is_owner=False):
     envelopes = list(
         InsuranceESignEnvelope.objects.filter(organization=org)
         .select_related("created_by", "signed_by")[:80]
     )
+    can_manage = True
+    if request is not None:
+        can_manage = _can_manage_esign(request, org)
+    elif membership is not None:
+        can_manage = bool(is_owner or membership.can_deal_with_insurance)
     return {
         "esign_envelopes": envelopes,
         "esign_draft_count": sum(1 for row in envelopes if row.status == InsuranceESignEnvelope.Status.DRAFT),
         "esign_awaiting_count": sum(1 for row in envelopes if row.status == InsuranceESignEnvelope.Status.AWAITING),
         "esign_signed_count": sum(1 for row in envelopes if row.status == InsuranceESignEnvelope.Status.SIGNED),
+        "can_manage_esign": can_manage,
     }
 
 
@@ -147,7 +183,7 @@ def build_esign_tab_context(org):
 @require_POST
 def upload_esign_document(request):
     org = _org(request)
-    _require_insurance(request, org)
+    _require_manage_esign(request, org)
     upload = request.FILES.get("file")
     if not upload:
         messages.error(request, "Choose a PDF to sign.")
@@ -190,6 +226,7 @@ def esign_editor(request, envelope_id):
             "envelope": envelope,
             "is_public": False,
             "is_signed": envelope.status == InsuranceESignEnvelope.Status.SIGNED,
+            "can_manage_esign": _can_manage_esign(request, envelope.organization),
             "insurance_space": space,
             "saved_signature_data_url": _saved_signature_data_url(request, envelope.organization),
             "request_sign_url": request.build_absolute_uri(
@@ -216,9 +253,10 @@ def esign_signed_file(request, envelope_id):
     if not envelope.signed_file:
         raise Http404()
     filename = os.path.basename(envelope.signed_file.name) or f"signed-{envelope.id}.pdf"
+    as_attachment = request.GET.get("download") == "1"
     return FileResponse(
         envelope.signed_file.open("rb"),
-        as_attachment=True,
+        as_attachment=as_attachment,
         content_type="application/pdf",
         filename=filename,
     )
@@ -285,6 +323,7 @@ def _complete_envelope(envelope, fields, *, signer_name, signer_email, request, 
 @require_POST
 def apply_esign_document(request, envelope_id):
     envelope = _envelope_for_user(request, envelope_id)
+    _require_manage_esign(request, envelope.organization)
     if envelope.status == InsuranceESignEnvelope.Status.SIGNED:
         return JsonResponse({"ok": True, "redirect": str(request.path)})
     if envelope.status == InsuranceESignEnvelope.Status.VOID:
@@ -312,7 +351,7 @@ def apply_esign_document(request, envelope_id):
     space = Space.objects.filter(organization=envelope.organization, key="insurance").first()
     return JsonResponse({
         "ok": True,
-        "download": reverse("insurance-esign-signed", args=[envelope.id]),
+        "download": reverse("insurance-esign-signed", args=[envelope.id]) + "?download=1",
         "redirect": (reverse("inventory-detail", kwargs={"inventory_id": space.id}) + "?tab=esign") if space else "/",
     })
 
@@ -321,6 +360,7 @@ def apply_esign_document(request, envelope_id):
 @require_POST
 def request_esign_signature(request, envelope_id):
     envelope = _envelope_for_user(request, envelope_id)
+    _require_manage_esign(request, envelope.organization)
     if envelope.status == InsuranceESignEnvelope.Status.SIGNED:
         messages.info(request, "This document is already signed.")
         return redirect("insurance-esign-editor", envelope_id=envelope.id)
@@ -363,6 +403,7 @@ def request_esign_signature(request, envelope_id):
 @require_POST
 def void_esign_document(request, envelope_id):
     envelope = _envelope_for_user(request, envelope_id)
+    _require_manage_esign(request, envelope.organization)
     envelope.status = InsuranceESignEnvelope.Status.VOID
     envelope.save(update_fields=["status", "updated_at"])
     messages.success(request, "Envelope voided.")
@@ -427,6 +468,7 @@ def public_esign_sign(request, token):
             "envelope": envelope,
             "is_public": True,
             "is_signed": False,
+            "can_manage_esign": True,
             "saved_signature_data_url": "",
             "request_sign_url": "",
         },

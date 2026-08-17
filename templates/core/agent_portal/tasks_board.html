@@ -4,8 +4,8 @@
 {% block title %}My Tasks | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=12">
-<link rel="stylesheet" href="{% static 'core/css/agent_tasks_board.css' %}?v=6">
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=13">
+<link rel="stylesheet" href="{% static 'core/css/agent_tasks_board.css' %}?v=7">
 {% endblock %}
 
 {% block portal_content %}
@@ -80,7 +80,8 @@
                     <li class="atb-card agent-task {% if task.is_done %}is-done{% endif %}" data-task-id="{{ task.id }}" data-status="{{ task.status }}" style="--i: {{ forloop.counter0 }}">
                         <div class="atb-card__body">
                             <strong class="atb-card__title">{{ task.title }}</strong>
-                            {% if task.description %}<p class="atb-card__desc">{{ task.description|truncatechars:140 }}</p>{% endif %}
+                            {% if task.description %}<p class="atb-card__desc">{{ task.description|linebreaksbr }}</p>{% endif %}
+                            {% include "core/partials/agent_task_crm_records.html" %}
                             {% for lead in task.quote_leads.all %}
                               {% if lead.documents.all %}
                               <div class="atb-card__docs">
@@ -133,7 +134,8 @@
                 <li class="atb-list-row agent-task {% if task.is_done %}is-done{% endif %}" data-task-id="{{ task.id }}" data-status="{{ task.status }}" style="--i: {{ forloop.counter0 }}">
                     <div class="atb-list-row__main">
                         <strong>{{ task.title }}</strong>
-                        {% if task.description %}<small>{{ task.description|truncatechars:160 }}</small>{% endif %}
+                        {% if task.description %}<small>{{ task.description|linebreaksbr }}</small>{% endif %}
+                        {% include "core/partials/agent_task_crm_records.html" %}
                         {% for lead in task.quote_leads.all %}
                           {% if lead.documents.all %}
                           <div class="atb-card__docs">

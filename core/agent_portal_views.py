@@ -360,6 +360,7 @@ def agent_portal_manage_tasks(request):
     tasks = (
         AgentTask.objects.filter(organization=organization)
         .select_related("assigned_to__user", "created_by")
+        .prefetch_related("email_marketing_contacts")
         .order_by("-created_at")
     )
     if selected_agent.isdigit():

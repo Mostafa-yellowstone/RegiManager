@@ -4,7 +4,7 @@
 {% block title %}Portal · {{ agent_membership.user.get_full_name|default:agent_membership.user.username }} | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=12">
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=13">
 {% endblock %}
 
 {% block portal_content %}
@@ -524,7 +524,8 @@ html.portal-theme-dark .ior-page .agent-timeline__domain {
               <li class="agent-task {% if task.is_done %}is-done{% endif %}" data-task-id="{{ task.id }}">
                 <div class="agent-check__label" style="padding:0.55rem 0.35rem;">
                   <strong>{{ task.title }}</strong>
-                  {% if task.description %}<small>{{ task.description }}</small>{% endif %}
+                  {% if task.description %}<small>{{ task.description|linebreaksbr }}</small>{% endif %}
+                  {% include "core/partials/agent_task_crm_records.html" %}
                   {% if task.completion_note %}<small style="color:#047857;font-weight:700;">Note: {{ task.completion_note }}</small>{% endif %}
                   {% if task.due_date %}<em>Due {{ task.due_date|date:"M j" }}</em>{% endif %}
                   {% if task.completed_at %}<em>Done {{ task.completed_at|timezone:"America/New_York"|date:"M j · g:i A" }}</em>{% endif %}

@@ -1,32 +1,8 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #0f172a; }
-        .container { max-width: 600px; margin: 20px auto; padding: 0; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
-        .header { background: #312e81; color: white; padding: 22px 24px; }
-        .content { padding: 24px; }
-        .footer { font-size: 0.8rem; color: #64748b; text-align: center; padding: 16px 24px 24px; }
-        .btn { display: inline-block; padding: 12px 24px; background: #4f46e5; color: white !important; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 8px; }
-        .link { word-break: break-all; color: #4338ca; font-size: 0.85rem; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1 style="margin:0;font-size:1.25rem;">Signature requested</h1>
-        </div>
-        <div class="content">
-            <p>Hello{% if signer_name %} {{ signer_name }}{% endif %},</p>
-            <p><strong>{{ agency_name }}</strong> asked you to review and electronically sign:</p>
-            <p style="font-size:1.05rem;font-weight:700;">{{ document_title }}</p>
-            <p>Open the document, click each highlighted signature box, then choose <strong>Finish &amp; sign</strong>.</p>
-            <p><a href="{{ sign_url }}" class="btn">Review and sign</a></p>
-            <p class="link">{{ sign_url }}</p>
-        </div>
-        <div class="footer">
-            <p>Sent by {{ agency_name }} through RegiManager Insurance Space e-signature.</p>
-        </div>
-    </div>
-</body>
-</html>
+<p style="margin:0 0 12px;">Hello{% if signer_name %} {{ signer_name }}{% endif %},</p>
+<p style="margin:0 0 12px;"><strong>{{ agency_name }}</strong> asked you to review and electronically sign:</p>
+<p style="margin:0 0 16px;font-size:1.05rem;font-weight:700;">{{ document_title }}</p>
+<p style="margin:0 0 16px;">Open the document, click each highlighted signature box, then choose <strong>Finish &amp; sign</strong>.</p>
+<p style="margin:0 0 16px;">
+    <a href="{{ sign_url }}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:700;">Review and sign</a>
+</p>
+<p style="margin:0;word-break:break-all;color:#4338ca;font-size:0.85rem;">{{ sign_url }}</p>

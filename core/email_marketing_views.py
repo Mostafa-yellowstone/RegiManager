@@ -21,6 +21,7 @@ from .agent_portal_models import AgentTask
 from .agent_portal_services import can_manage_agent_tasks
 from .email_marketing_import import parse_contact_import_file
 from .email_marketing_permissions import can_manage_email_marketing
+from .email_branding import email_brand_for_org
 from .email_marketing_personalize import render_campaign_html
 from .email_marketing_tasks import dispatch_email_campaign_batch, email_delivery_configured
 from .http import deny_access
@@ -189,6 +190,8 @@ def email_marketing_workspace(request, list_id):
             active_campaign.html_content,
             active_campaign.css_content,
             sample_contact,
+            brand=email_brand_for_org(org),
+            logo_mode="data",
         )
 
     membership = _membership(request.user, org)
@@ -273,24 +276,19 @@ def email_marketing_assign_task(request, list_id):
     agent_name = agent.user.get_full_name().strip() or agent.user.username
 
     if len(contacts) > 1:
-        # One shared task for bulk assign; each contact is marked assigned.
-        lines = [f"Bulk CRM assign · {len(contacts)} contacts from {marketing_list.name}:"]
-        for c in contacts:
-            bits = [c.name]
-            if c.email:
-                bits.append(c.email)
-            if c.phone:
-                bits.append(c.phone)
-            lines.append(" · ".join(bits))
+        # One shared task; each contact stays linked so the agent sees a full record card.
+        note_lines = []
         if description:
-            lines.append("")
-            lines.append(description)
+            note_lines.append(description.strip())
+        note_lines.append(
+            f"{len(contacts)} CRM records from {marketing_list.name} — open this task to work each lead."
+        )
         task = AgentTask.objects.create(
             organization=org,
             assigned_to=agent,
             created_by=request.user,
             title=title if title != "Follow up CRM lead" else f"Follow up · {len(contacts)} CRM leads",
-            description="\n".join(lines),
+            description="\n\n".join(note_lines),
             due_date=due_date,
         )
         EmailMarketingContact.objects.filter(
@@ -634,7 +632,13 @@ def email_marketing_preview_campaign(request, list_id, campaign_id):
 
     html_content = request.GET.get("html_content", campaign.html_content)
     css_content = request.GET.get("css_content", campaign.css_content)
-    rendered = render_campaign_html(html_content, css_content, contact)
+    rendered = render_campaign_html(
+        html_content,
+        css_content,
+        contact,
+        brand=email_brand_for_org(org),
+        logo_mode="data",
+    )
     return JsonResponse({"html": rendered})
 
 

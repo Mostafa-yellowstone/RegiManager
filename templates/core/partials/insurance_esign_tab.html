@@ -8,6 +8,7 @@
   </div>
 </div>
 
+{% if can_manage_esign %}
 <div class="ins-esign-upload">
   <div>
     <h4>Start a document</h4>
@@ -24,6 +25,7 @@
     <button type="submit" class="ins-esign-btn">Open in e-sign</button>
   </form>
 </div>
+{% endif %}
 
 {% if esign_envelopes %}
 <table class="ins-esign-table">
@@ -49,9 +51,9 @@
           <a href="{% url 'insurance-esign-editor' row.id %}">{% if row.status == "signed" %}View{% else %}Open{% endif %}</a>
           {% endif %}
           {% if row.status == "signed" %}
-          <a href="{% url 'insurance-esign-signed' row.id %}">Download</a>
+          <a href="{% url 'insurance-esign-signed' row.id %}?download=1">Download</a>
           {% endif %}
-          {% if row.status != "signed" and row.status != "void" %}
+          {% if can_manage_esign and row.status != "signed" and row.status != "void" %}
           <form method="post" action="{% url 'insurance-esign-void' row.id %}" onsubmit="return confirm('Void this envelope?');">
             {% csrf_token %}
             <button type="submit">Void</button>
@@ -64,5 +66,5 @@
   </tbody>
 </table>
 {% else %}
-<p style="color:var(--portal-text-muted);font-weight:600;">No e-signature documents yet. Upload a PDF to place a signature.</p>
+<p style="color:var(--portal-text-muted);font-weight:600;">{% if can_manage_esign %}No e-signature documents yet. Upload a PDF to place a signature.{% else %}No e-signature documents yet.{% endif %}</p>
 {% endif %}

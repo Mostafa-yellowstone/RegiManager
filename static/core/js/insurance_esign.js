@@ -7,7 +7,7 @@
   pdfjsLib.GlobalWorkerOptions.workerSrc = cfg.workerUrl;
 
   const state = {
-    tool: cfg.isPublic ? null : "signature",
+    tool: cfg.isPublic || cfg.canManage === false ? null : "signature",
     fields: Array.isArray(cfg.fields) ? cfg.fields.map(cloneField) : [],
     selectedId: null,
     drag: null,
@@ -42,6 +42,10 @@
     if (statusEl) statusEl.textContent = text || "";
   }
 
+  function isReadOnly() {
+    return !!cfg.isSigned || (!cfg.isPublic && cfg.canManage === false);
+  }
+
   document.querySelectorAll("[data-esign-tool]").forEach((btn) => {
     btn.addEventListener("click", () => {
       state.tool = btn.getAttribute("data-esign-tool");
@@ -52,7 +56,7 @@
   });
 
   pagesEl.addEventListener("click", (event) => {
-    if (cfg.isSigned) return;
+    if (isReadOnly()) return;
     const page = event.target.closest(".esign-page");
     if (!page || event.target.closest(".esign-field")) return;
     if (cfg.isPublic) return;
@@ -85,6 +89,7 @@
   });
 
   function renderFields() {
+    if (cfg.isSigned) return;
     document.querySelectorAll(".esign-page").forEach((page) => {
       page.querySelectorAll(".esign-field").forEach((node) => node.remove());
       const pageNo = Number(page.dataset.page);
@@ -106,7 +111,7 @@
           span.textContent = field.text || field.type;
           el.appendChild(span);
         }
-        if (!cfg.isPublic && !cfg.isSigned) {
+        if (!isReadOnly() && !cfg.isPublic) {
           const handle = document.createElement("div");
           handle.className = "esign-resize";
           el.appendChild(handle);
@@ -114,6 +119,7 @@
         el.addEventListener("mousedown", onFieldDown);
         el.addEventListener("click", (event) => {
           event.stopPropagation();
+          if (isReadOnly()) return;
           state.selectedId = field.id;
           renderFields();
           if (cfg.isPublic || field.type === "signature" || field.type === "initials") {
@@ -126,7 +132,7 @@
   }
 
   function onFieldDown(event) {
-    if (cfg.isPublic || cfg.isSigned) return;
+    if (isReadOnly() || cfg.isPublic) return;
     const el = event.currentTarget;
     const field = state.fields.find((row) => row.id === el.dataset.id);
     if (!field) return;
@@ -162,7 +168,7 @@
   window.addEventListener("mouseup", () => { state.drag = null; });
 
   window.addEventListener("keydown", (event) => {
-    if (cfg.isPublic || cfg.isSigned) return;
+    if (isReadOnly() || cfg.isPublic) return;
     if ((event.key === "Delete" || event.key === "Backspace") && state.selectedId && !event.target.matches("input,textarea")) {
       state.fields = state.fields.filter((field) => field.id !== state.selectedId);
       state.selectedId = null;
@@ -328,7 +334,7 @@
       const page = await pdf.getPage(n);
       const viewport = page.getViewport({ scale: 1.25 });
       const wrap = document.createElement("div");
-      wrap.className = "esign-page";
+      wrap.className = "esign-page" + (isReadOnly() ? " is-readonly" : "");
       wrap.dataset.page = String(n);
       wrap.style.width = viewport.width + "px";
       wrap.style.height = viewport.height + "px";
@@ -340,7 +346,15 @@
       pagesEl.appendChild(wrap);
     }
     renderFields();
-    setStatus(cfg.isPublic ? "Click a yellow box to sign, then Finish." : "Click the page to place a signature, like Acrobat Fill & Sign.");
+    if (cfg.isSigned) {
+      setStatus("Signed document — the signature is on the page. Use Download if you need a copy.");
+    } else if (cfg.isPublic) {
+      setStatus("Click a yellow box to sign, then Finish.");
+    } else if (isReadOnly()) {
+      setStatus("View only.");
+    } else {
+      setStatus("Click the page to place a signature, like Acrobat Fill & Sign.");
+    }
   }
 
   renderPdf().catch(() => setStatus("Could not open this PDF in the browser."));

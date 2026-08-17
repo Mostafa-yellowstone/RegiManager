@@ -4,7 +4,7 @@
 {% block title %}{% if is_public %}Sign {{ envelope.title }}{% else %}E-sign {{ envelope.title }}{% endif %} | RegiManager{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_esign.css' %}?v=1">
+<link rel="stylesheet" href="{% static 'core/css/insurance_esign.css' %}?v=2">
 {% endblock %}
 
 {% block content %}
@@ -20,7 +20,7 @@
       <h1>{{ envelope.title }}</h1>
       <p id="esignStatus" class="esign-note"></p>
     </div>
-    {% if not is_signed %}
+    {% if not is_signed and can_manage_esign|default:True %}
     <div class="esign-tools">
       {% if not is_public %}
       <button type="button" class="esign-tool is-active" data-esign-tool="signature">Sign</button>
@@ -43,13 +43,17 @@
       {% endif %}
       <button type="button" class="esign-action is-success" id="esignFinish">Finish &amp; sign</button>
     </div>
-    {% else %}
+    {% elif is_signed %}
     <div class="esign-tools">
       {% if is_public %}
       <p>This document has been signed.</p>
       {% else %}
-      <a class="esign-action is-primary" href="{% url 'insurance-esign-signed' envelope.id %}">Download signed PDF</a>
+      <a class="esign-action is-primary" href="{% url 'insurance-esign-signed' envelope.id %}?download=1">Download signed PDF</a>
       {% endif %}
+    </div>
+    {% else %}
+    <div class="esign-tools">
+      <p class="esign-note">View only — you can open and download completed signatures.</p>
     </div>
     {% endif %}
   </header>
@@ -87,17 +91,18 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 window.ESIGN_CONFIG = {
-  pdfUrl: "{% if is_public %}{% url 'public-esign-file' envelope.signer_token %}{% else %}{% url 'insurance-esign-file' envelope.id %}{% endif %}",
+  pdfUrl: "{% if is_public %}{% url 'public-esign-file' envelope.signer_token %}{% elif is_signed %}{% url 'insurance-esign-signed' envelope.id %}{% else %}{% url 'insurance-esign-file' envelope.id %}{% endif %}",
   applyUrl: "{% if is_public %}{% url 'public-esign-sign' envelope.signer_token %}{% else %}{% url 'insurance-esign-apply' envelope.id %}{% endif %}",
   requestUrl: "{% if is_public %}{% else %}{% url 'insurance-esign-request' envelope.id %}{% endif %}",
   workerUrl: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
   csrf: "{{ csrf_token }}",
   isPublic: {% if is_public %}true{% else %}false{% endif %},
   isSigned: {% if is_signed %}true{% else %}false{% endif %},
+  canManage: {% if is_public or can_manage_esign|default:True %}true{% else %}false{% endif %},
   savedSignature: "{{ saved_signature_data_url|escapejs }}",
   signerName: "{{ envelope.signer_name|escapejs }}",
   fields: JSON.parse(document.getElementById("esign-fields").textContent || "[]")
 };
 </script>
-<script src="{% static 'core/js/insurance_esign.js' %}?v=2"></script>
+<script src="{% static 'core/js/insurance_esign.js' %}?v=3"></script>
 {% endblock %}

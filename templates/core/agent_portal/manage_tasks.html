@@ -4,8 +4,8 @@
 {% block title %}Tasks CRM | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=11">
-<link rel="stylesheet" href="{% static 'core/css/agent_tasks_board.css' %}?v=5">
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=13">
+<link rel="stylesheet" href="{% static 'core/css/agent_tasks_board.css' %}?v=7">
 {% endblock %}
 
 {% block portal_content %}
@@ -119,7 +119,8 @@
                     <div class="atb-card__body">
                         <span class="atc-card-agent">{{ task.assigned_to.user.get_full_name|default:task.assigned_to.user.username }}</span>
                         <strong class="atb-card__title">{{ task.title }}</strong>
-                        {% if task.description %}<p class="atb-card__desc">{{ task.description|truncatechars:120 }}</p>{% endif %}
+                        {% if task.description %}<p class="atb-card__desc">{{ task.description|linebreaksbr }}</p>{% endif %}
+                        {% include "core/partials/agent_task_crm_records.html" %}
                         {% if task.completion_note %}
                         <p class="atb-card__note"><span>Progress note</span>{{ task.completion_note|truncatechars:160 }}</p>
                         {% endif %}
@@ -186,7 +187,8 @@
             <li class="atb-list-row {% if task.is_done %}is-done{% endif %}" style="--i:{{ forloop.counter0 }};">
                 <div class="atb-list-row__main">
                     <strong>{{ task.title }}</strong>
-                    {% if task.description %}<small>{{ task.description|truncatechars:120 }}</small>{% endif %}
+                    {% if task.description %}<small>{{ task.description|linebreaksbr }}</small>{% endif %}
+                    {% include "core/partials/agent_task_crm_records.html" %}
                     {% if task.completion_note %}<small class="atb-list-note">{{ task.completion_note|truncatechars:140 }}</small>{% endif %}
                 </div>
                 <div class="atb-list-row__side">

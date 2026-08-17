@@ -147,7 +147,47 @@ class InsuranceESignTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["jose@example.com"])
         self.assertIn("Auto application", mail.outbox[0].subject)
+        html = mail.outbox[0].alternatives[0][0]
+        self.assertIn("Esign Org", html)
+        self.assertIn("RegiManager", html)
+        self.assertIn("©", html)
         self.assertIn("/sign/", mail.outbox[0].body)
         envelope.refresh_from_db()
         self.assertEqual(envelope.status, InsuranceESignEnvelope.Status.AWAITING)
         self.assertEqual(envelope.signer_email, "jose@example.com")
+
+    def test_view_role_can_open_and_download_signed_pdf(self):
+        viewer = User.objects.create_user(username="esign_viewer", password="pass")
+        membership = OrganizationMembership.objects.create(
+            user=viewer,
+            organization=self.org,
+            role=OrganizationMembership.Role.AGENT,
+            can_deal_with_insurance=False,
+            can_view_spaces=True,
+            is_active=True,
+        )
+        membership.accessible_spaces.add(self.space)
+        envelope = InsuranceESignEnvelope.objects.create(
+            organization=self.org,
+            title="Signed app",
+            original_file=SimpleUploadedFile("doc.pdf", _pdf_bytes(), content_type="application/pdf"),
+            signed_file=SimpleUploadedFile("signed.pdf", _pdf_bytes("Signed copy"), content_type="application/pdf"),
+            status=InsuranceESignEnvelope.Status.SIGNED,
+            created_by=self.owner,
+        )
+        self.assertTrue(self.client.login(username="esign_viewer", password="pass"))
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+        view = self.client.get(reverse("insurance-esign-editor", args=[envelope.id]))
+        self.assertEqual(view.status_code, 200)
+        self.assertContains(view, reverse("insurance-esign-signed", args=[envelope.id]))
+        self.assertNotContains(view, reverse("insurance-esign-file", args=[envelope.id]))
+        download = self.client.get(reverse("insurance-esign-signed", args=[envelope.id]) + "?download=1")
+        self.assertEqual(download.status_code, 200)
+        self.assertEqual(download["Content-Type"], "application/pdf")
+        denied = self.client.post(
+            reverse("insurance-esign-upload"),
+            {"file": SimpleUploadedFile("app.pdf", _pdf_bytes(), content_type="application/pdf"), "title": "Nope"},
+        )
+        self.assertEqual(denied.status_code, 403)

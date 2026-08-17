@@ -34,6 +34,34 @@ class EmailMarketingPersonalizeTests(TestCase):
         self.assertIn("Albany", html)
         self.assertIn("color: blue", html)
 
+    def test_render_wraps_space_branding_and_copyright(self):
+        org = Organization.objects.create(
+            name="Brand PSB",
+            city="Albany",
+            state="NY",
+            email="hello@brand.test",
+            phone_number="555-0100",
+        )
+        from core.email_branding import email_brand_for_org
+
+        contact = EmailMarketingContact(
+            name="Jane Doe",
+            email="jane@example.com",
+        )
+        html = render_campaign_html(
+            "<p>Hello {{name}}</p>",
+            "",
+            contact,
+            brand=email_brand_for_org(org),
+            logo_mode="data",
+        )
+        self.assertIn("Hello Jane Doe", html)
+        self.assertIn("Brand PSB", html)
+        self.assertIn("hello@brand.test", html)
+        self.assertIn("555-0100", html)
+        self.assertIn("RegiManager", html)
+        self.assertIn("©", html)
+
 
 @override_settings(DEBUG=True)
 class EmailMarketingAccessTests(TestCase):
@@ -116,3 +144,64 @@ class EmailMarketingAccessTests(TestCase):
         response = self.client.post(url, {"action": "create_list", "name": "Dup", "accent_color": "#2563eb"})
         self.assertEqual(response.status_code, 302)
         self.assertEqual(EmailMarketingList.objects.filter(name="Dup").count(), 1)
+
+    def test_bulk_assign_shows_each_contact_record_on_agent_board(self):
+        from core.agent_portal_models import AgentTask
+
+        target = User.objects.create_user(username="insagent", password="pass12345")
+        target_mem = OrganizationMembership.objects.create(
+            organization=self.org,
+            user=target,
+            role=OrganizationMembership.Role.INSURANCE_AGENT,
+            is_active=True,
+            can_deal_with_insurance=True,
+            can_view_spaces=True,
+        )
+        first = EmailMarketingContact.objects.create(
+            organization=self.org,
+            marketing_list=self.list,
+            name="Ada Lopez",
+            email="ada@test.com",
+            phone="555-1111",
+            address_line1="10 Pine St",
+            city="Albany",
+            state="NY",
+            zip_code="12207",
+            website="https://ada.example",
+            notes="Prefers afternoon calls",
+        )
+        second = EmailMarketingContact.objects.create(
+            organization=self.org,
+            marketing_list=self.list,
+            name="Ben Ortiz",
+            email="ben@test.com",
+            phone="555-2222",
+            city="Troy",
+            state="NY",
+        )
+        self.client.login(username="owner", password="pass12345")
+        response = self.client.post(
+            reverse("email-marketing-assign-task", args=[self.list.id]),
+            {
+                "assigned_to": target_mem.id,
+                "title": "Follow selected leads",
+                "description": "Call each record this week",
+                "contact_ids": f"{first.id},{second.id}",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        task = AgentTask.objects.get(title="Follow selected leads")
+        self.assertEqual(task.email_marketing_contacts.count(), 2)
+        self.client.login(username="insagent", password="pass12345")
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+        board = self.client.get(reverse("agent-portal-tasks-board"))
+        self.assertEqual(board.status_code, 200)
+        self.assertContains(board, "Record 1 of 2")
+        self.assertContains(board, "Ada Lopez")
+        self.assertContains(board, "555-1111")
+        self.assertContains(board, "10 Pine St")
+        self.assertContains(board, "Prefers afternoon calls")
+        self.assertContains(board, "Ben Ortiz")
+        self.assertContains(board, "555-2222")

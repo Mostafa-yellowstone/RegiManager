@@ -1,0 +1,33 @@
+{% with records=task.email_marketing_contacts.all %}
+{% if records %}
+<div class="atb-crm">
+  <span class="atb-crm__kicker">{{ records|length }} CRM record{{ records|length|pluralize }}</span>
+  {% for contact in records %}
+  <article class="atb-crm-record">
+    <header>
+      <strong>Record {{ forloop.counter }} of {{ records|length }}</strong>
+      <span>{{ contact.name }}</span>
+    </header>
+    <dl>
+      {% for label, value in contact.record_fields %}
+      <div>
+        <dt>{{ label }}</dt>
+        <dd>
+          {% if label == "Email" %}
+          <a href="mailto:{{ value }}">{{ value }}</a>
+          {% elif label == "Phone" %}
+          <a href="tel:{{ value }}">{{ value }}</a>
+          {% elif label == "Website" %}
+          <a href="{{ value }}" target="_blank" rel="noopener">{{ value }}</a>
+          {% else %}
+          {{ value }}
+          {% endif %}
+        </dd>
+      </div>
+      {% endfor %}
+    </dl>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
+{% endwith %}

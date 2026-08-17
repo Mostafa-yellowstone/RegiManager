@@ -1562,3 +1562,63 @@
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1);
 }
 
+.atb-crm {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.65rem;
+}
+.atb-crm__kicker {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+.atb-crm-record {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+}
+.atb-crm-record header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  align-items: baseline;
+  margin-bottom: 0.45rem;
+}
+.atb-crm-record header strong {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.atb-crm-record header span {
+  font-weight: 800;
+  color: #0f172a;
+}
+.atb-crm-record dl {
+  margin: 0;
+  display: grid;
+  gap: 0.28rem;
+}
+.atb-crm-record dl > div {
+  display: grid;
+  grid-template-columns: 5.2rem minmax(0, 1fr);
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+.atb-crm-record dt {
+  margin: 0;
+  color: #64748b;
+  font-weight: 700;
+}
+.atb-crm-record dd {
+  margin: 0;
+  color: #0f172a;
+  font-weight: 650;
+  word-break: break-word;
+}
+.atb-crm-record a { color: #0f766e; }
+

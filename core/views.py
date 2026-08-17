@@ -6469,7 +6469,9 @@ def inventory_detail(request, inventory_id):
             is_owner or user_can_view_banking
         )
         from .insurance_esign_views import build_esign_tab_context
-        esign_tab = build_esign_tab_context(active_org)
+        esign_tab = build_esign_tab_context(
+            active_org, request=request, membership=membership, is_owner=is_owner
+        )
 
         context = {
             "card": card,

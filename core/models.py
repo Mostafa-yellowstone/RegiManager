@@ -2586,6 +2586,19 @@ class EmailMarketingContact(models.Model):
         ]
         return ", ".join(part for part in parts if part)
 
+    @property
+    def record_fields(self):
+        """Labeled CRM fields for agent task breakdowns."""
+        pairs = [
+            ("Name", self.name),
+            ("Phone", self.phone),
+            ("Email", self.email),
+            ("Address", self.full_address),
+            ("Website", self.website),
+            ("Notes", self.notes),
+        ]
+        return [(label, value.strip()) for label, value in pairs if (value or "").strip()]
+
 
 class EmailMarketingAsset(models.Model):
     organization = models.ForeignKey(

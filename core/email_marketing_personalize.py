@@ -38,7 +38,14 @@ def personalize_text(text: str, contact: EmailMarketingContact | None) -> str:
     return TOKEN_PATTERN.sub(replace_token, text or "")
 
 
-def render_campaign_html(html_content: str, css_content: str, contact: EmailMarketingContact | None) -> str:
+def render_campaign_html(
+    html_content: str,
+    css_content: str,
+    contact: EmailMarketingContact | None,
+    brand: dict | None = None,
+    *,
+    logo_mode: str = "cid",
+) -> str:
     tokens = contact_token_map(contact)
 
     def replace_token(match):
@@ -47,4 +54,9 @@ def render_campaign_html(html_content: str, css_content: str, contact: EmailMark
 
     body = TOKEN_PATTERN.sub(replace_token, html_content or "")
     style_block = f"<style>{css_content or ''}</style>" if (css_content or "").strip() else ""
-    return f"<!DOCTYPE html><html><head><meta charset='utf-8'>{style_block}</head><body>{body}</body></html>"
+    inner = f"{style_block}{body}"
+    if brand:
+        from .email_branding import wrap_email_html
+
+        return wrap_email_html(inner, brand, logo_mode=logo_mode)
+    return f"<!DOCTYPE html><html><head><meta charset='utf-8'></head><body>{inner}</body></html>"

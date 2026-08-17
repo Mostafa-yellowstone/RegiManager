@@ -10,6 +10,7 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.utils import timezone
 
+from .email_branding import attach_brand_logo, email_brand_for_org
 from .email_marketing_personalize import personalize_text, render_campaign_html
 from .models import EmailCampaign, EmailCampaignBatch, EmailCampaignRecipient
 
@@ -51,6 +52,7 @@ def execute_email_campaign_batch(batch_id: int) -> dict:
 
     from_email = _from_email_for_campaign(campaign)
     reply_to = [org.email] if getattr(org, "email", "") else None
+    brand = email_brand_for_org(org)
 
     sent = 0
     failed = 0
@@ -63,7 +65,13 @@ def execute_email_campaign_batch(batch_id: int) -> dict:
             failed += 1
             continue
 
-        html_body = render_campaign_html(campaign.html_content, campaign.css_content, contact)
+        html_body = render_campaign_html(
+            campaign.html_content,
+            campaign.css_content,
+            contact,
+            brand=brand,
+            logo_mode="cid",
+        )
         subject = personalize_text(campaign.subject or campaign.name, contact)
         plain = f"{subject}\n\nView this message in an HTML-capable email client."
         try:
@@ -75,6 +83,7 @@ def execute_email_campaign_batch(batch_id: int) -> dict:
                 reply_to=reply_to,
             )
             message.attach_alternative(html_body, "text/html")
+            attach_brand_logo(message, brand)
             message.send(fail_silently=False)
             log.status = EmailCampaignRecipient.Status.SENT
             log.sent_at = timezone.now()
