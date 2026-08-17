@@ -83,13 +83,13 @@ def execute_email_campaign_batch(batch_id: int) -> dict:
                 reply_to=reply_to,
             )
             message.attach_alternative(html_body, "text/html")
-            if not attach_brand_logo(message, brand) and brand.get("logo_bytes"):
+            if not attach_brand_logo(message, brand) and brand.get("logo_data_uri"):
                 html_body = render_campaign_html(
                     campaign.html_content,
                     campaign.css_content,
                     contact,
-                    brand={**brand, "logo_bytes": b""},
-                    logo_mode="cid",
+                    brand=brand,
+                    logo_mode="data",
                 )
                 message.alternatives = [(html_body, "text/html")]
             message.send(fail_silently=False)

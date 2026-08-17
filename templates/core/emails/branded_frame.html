@@ -10,35 +10,35 @@
             <td align="center">
                 <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
                     <tr>
-                        <td style="background:#312e81;color:#ffffff;padding:22px 24px;">
-                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                                <tr>
-                                    {% if logo_src %}
-                                    <td style="width:72px;vertical-align:middle;padding-right:14px;">
-                                        <img src="{{ logo_src }}" alt="{{ brand.name }}" width="64" style="display:block;max-width:64px;max-height:64px;border-radius:8px;background:#ffffff;">
-                                    </td>
-                                    {% endif %}
-                                    <td style="vertical-align:middle;">
-                                        <p style="margin:0 0 4px;font-size:1.15rem;font-weight:800;color:#ffffff;">{{ brand.name }}</p>
-                                        {% if brand.phone or brand.email %}
-                                        <p style="margin:0;font-size:0.85rem;color:#c7d2fe;line-height:1.45;">
-                                            {% if brand.phone %}{{ brand.phone }}{% endif %}
-                                            {% if brand.phone and brand.email %} · {% endif %}
-                                            {% if brand.email %}{{ brand.email }}{% endif %}
-                                        </p>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            </table>
+                        <td style="background:#312e81;color:#ffffff;padding:22px 24px;text-align:center;">
+                            {% if logo_src %}
+                            <img src="{{ logo_src }}" alt="{{ brand.name }}" width="72" height="72" style="display:block;margin:0 auto 12px;width:72px;height:72px;object-fit:contain;border-radius:12px;background:#ffffff;padding:6px;">
+                            {% endif %}
+                            <p style="margin:0 0 4px;font-size:1.2rem;font-weight:800;color:#ffffff;">{{ brand.name }}</p>
+                            {% if brand.phone or brand.email %}
+                            <p style="margin:0;font-size:0.85rem;color:#c7d2fe;line-height:1.45;">
+                                {% if brand.phone %}{{ brand.phone }}{% endif %}
+                                {% if brand.phone and brand.email %} · {% endif %}
+                                {% if brand.email %}{{ brand.email }}{% endif %}
+                            </p>
+                            {% endif %}
                         </td>
                     </tr>
                     <tr>
-                        <td style="padding:24px;font-size:1rem;line-height:1.6;color:#0f172a;">
+                        <td style="padding:28px 24px 24px;font-size:1rem;line-height:1.6;color:#0f172a;">
                             {{ inner_html|safe }}
                         </td>
                     </tr>
                     <tr>
                         <td style="padding:16px 24px 22px;text-align:center;font-size:0.8rem;color:#64748b;border-top:1px solid #e2e8f0;">
+                            <p style="margin:0 0 4px;font-weight:700;color:#334155;">{{ brand.name }}</p>
+                            {% if brand.phone or brand.email %}
+                            <p style="margin:0 0 6px;color:#64748b;">
+                                {% if brand.phone %}{{ brand.phone }}{% endif %}
+                                {% if brand.phone and brand.email %} · {% endif %}
+                                {% if brand.email %}{{ brand.email }}{% endif %}
+                            </p>
+                            {% endif %}
                             <p style="margin:0;">{{ brand.copyright_line }}</p>
                         </td>
                     </tr>

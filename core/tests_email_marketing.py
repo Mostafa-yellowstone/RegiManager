@@ -41,6 +41,7 @@ class EmailMarketingPersonalizeTests(TestCase):
             state="NY",
             email="hello@brand.test",
             phone_number="555-0100",
+            insurance_intake_display_name="Xpress Insurance Solutions",
         )
         from core.email_branding import email_brand_for_org
 
@@ -56,7 +57,7 @@ class EmailMarketingPersonalizeTests(TestCase):
             logo_mode="data",
         )
         self.assertIn("Hello Jane Doe", html)
-        self.assertIn("Brand PSB", html)
+        self.assertIn("Xpress Insurance Solutions", html)
         self.assertIn("hello@brand.test", html)
         self.assertIn("555-0100", html)
         self.assertIn("RegiManager", html)

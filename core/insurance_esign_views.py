@@ -17,6 +17,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import get_valid_filename
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from .access import organizations_for_user
@@ -44,8 +45,16 @@ def _build_esign_message(subject, text_body, to_email, inner, brand, *, include_
         [to_email],
     )
     attached = bool(include_logo and attach_brand_logo(message, brand))
-    html_brand = brand if attached else {**brand, "logo_bytes": b""}
-    message.attach_alternative(wrap_email_html(inner, html_brand, logo_mode="cid"), "text/html")
+    if attached:
+        logo_mode = "cid"
+        html_brand = brand
+    elif include_logo and brand.get("logo_data_uri"):
+        logo_mode = "data"
+        html_brand = brand
+    else:
+        logo_mode = "cid"
+        html_brand = {**brand, "logo_bytes": b"", "logo_cid": "", "logo_data_uri": ""}
+    message.attach_alternative(wrap_email_html(inner, html_brand, logo_mode=logo_mode), "text/html")
     return message
 
 
@@ -305,7 +314,7 @@ def _parse_fields(raw) -> list[dict]:
             "w": item.get("w") or 0.2,
             "h": item.get("h") or 0.06,
             "text": str(item.get("text") or "")[:120],
-            "image": str(item.get("image") or "")[:900000],
+            "image": str(item.get("image") or "")[:2000000],
         })
     return cleaned
 
@@ -430,6 +439,7 @@ def void_esign_document(request, envelope_id):
     return _redirect_esign_tab(envelope.organization, request=request)
 
 
+@csrf_exempt
 @require_http_methods(["GET", "POST"])
 def public_esign_sign(request, token):
     envelope = get_object_or_404(
@@ -479,6 +489,7 @@ def public_esign_sign(request, token):
                 signed_user=request.user if request.user.is_authenticated else None,
             )
         except Exception:
+            logger.exception("Public e-sign complete failed for envelope %s", envelope.id)
             return JsonResponse({"ok": False, "error": "Could not complete this signature."}, status=400)
         return JsonResponse({"ok": True})
     return render(
@@ -495,6 +506,7 @@ def public_esign_sign(request, token):
     )
 
 
+@csrf_exempt
 @require_GET
 def public_esign_file(request, token):
     envelope = get_object_or_404(InsuranceESignEnvelope, signer_token=token)

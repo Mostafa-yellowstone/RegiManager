@@ -271,7 +271,7 @@
       body: JSON.stringify(body),
     });
     const data = await response.json().catch(() => ({ ok: false, error: "Request failed." }));
-    if (!response.ok || !data.ok) throw new Error(data.error || "Request failed.");
+    if (!response.ok || !data.ok) throw new Error(data.error || data.message || "Request failed.");
     return data;
   }
 

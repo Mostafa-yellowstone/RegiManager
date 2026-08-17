@@ -26,7 +26,12 @@ def _pdf_bytes(text="Sample application"):
 
 class InsuranceESignTests(TestCase):
     def setUp(self):
-        self.org = Organization.objects.create(name="Esign Org", city="NY", state="NY")
+        self.org = Organization.objects.create(
+            name="Esign Org",
+            city="NY",
+            state="NY",
+            insurance_intake_display_name="Xpress Insurance Solutions",
+        )
         self.space = Space.objects.create(organization=self.org, key="insurance", label="Insurance")
         self.owner = User.objects.create_user(username="esign_owner", password="pass")
         OrganizationMembership.objects.create(
@@ -114,6 +119,52 @@ class InsuranceESignTests(TestCase):
         self.assertEqual(file_response.status_code, 200)
         self.assertEqual(file_response["Content-Type"], "application/pdf")
 
+    def test_public_signer_can_complete_with_drawn_signature(self):
+        from PIL import Image, ImageDraw
+
+        buf = BytesIO()
+        image = Image.new("RGB", (240, 80), "white")
+        draw = ImageDraw.Draw(image)
+        draw.line((12, 40, 220, 44), fill="black", width=4)
+        image.save(buf, format="PNG")
+        import base64
+
+        drawn = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        envelope = InsuranceESignEnvelope.objects.create(
+            organization=self.org,
+            title="Client app",
+            original_file=SimpleUploadedFile("doc.pdf", _pdf_bytes(), content_type="application/pdf"),
+            status=InsuranceESignEnvelope.Status.AWAITING,
+            signer_name="Jose Palacios",
+            signer_email="jose@example.com",
+            fields_json=[{"id": "f1", "type": "signature", "page": 1, "x": 0.1, "y": 0.8, "w": 0.3, "h": 0.08}],
+        )
+        import json
+
+        response = self.client.post(
+            reverse("public-esign-sign", args=[envelope.signer_token]),
+            data=json.dumps({
+                "fields": [{
+                    "id": "f1",
+                    "type": "signature",
+                    "page": 1,
+                    "x": 0.1,
+                    "y": 0.8,
+                    "w": 0.3,
+                    "h": 0.08,
+                    "image": drawn,
+                }],
+                "signer_name": "Jose Palacios",
+            }),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()["ok"])
+        envelope.refresh_from_db()
+        self.assertEqual(envelope.status, InsuranceESignEnvelope.Status.SIGNED)
+        self.assertTrue(envelope.signed_file)
+
     def test_request_signature_emails_the_signer(self):
         self._login()
         envelope = InsuranceESignEnvelope.objects.create(
@@ -148,9 +199,12 @@ class InsuranceESignTests(TestCase):
         self.assertEqual(mail.outbox[0].to, ["jose@example.com"])
         self.assertIn("Auto application", mail.outbox[0].subject)
         html = mail.outbox[0].alternatives[0][0]
-        self.assertIn("Esign Org", html)
+        self.assertIn("Xpress Insurance Solutions", html)
         self.assertIn("RegiManager", html)
         self.assertIn("©", html)
+        self.assertIn("Review and sign", html)
+        self.assertIn("/sign/", html)
+        self.assertNotIn("word-break:break-all", html)
         self.assertIn("/sign/", mail.outbox[0].body)
         envelope.refresh_from_db()
         self.assertEqual(envelope.status, InsuranceESignEnvelope.Status.AWAITING)

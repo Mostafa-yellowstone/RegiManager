@@ -35,7 +35,20 @@ def mail_is_configured() -> bool:
     return bool(getattr(settings, "EMAIL_HOST_USER", "") and outbound_from_email())
 
 
-def _logo_bytes(path: str) -> bytes:
+def _read_logo_field(field) -> bytes:
+    if not field:
+        return b""
+    try:
+        field.open("rb")
+        try:
+            return field.read() or b""
+        finally:
+            field.close()
+    except Exception:
+        return b""
+
+
+def _logo_bytes_from_path(path: str) -> bytes:
     if not path or not os.path.isfile(path):
         return b""
     try:
@@ -45,54 +58,63 @@ def _logo_bytes(path: str) -> bytes:
         return b""
 
 
+def _logo_bytes_for_brand(org, space: Space | None, path: str = "") -> bytes:
+    for candidate in (
+        getattr(space, "logo", None) if space else None,
+        getattr(org, "logo", None),
+    ):
+        raw = _read_logo_field(candidate)
+        if raw:
+            return raw
+    return _logo_bytes_from_path(path)
+
+
 def _png_bytes_for_email(raw: bytes) -> bytes:
     from PIL import Image
 
     image = Image.open(BytesIO(raw))
     if image.mode not in ("RGB", "RGBA"):
         image = image.convert("RGBA")
-    image.thumbnail((160, 160), Image.Resampling.LANCZOS)
+    image.thumbnail((240, 240), Image.Resampling.LANCZOS)
     buf = BytesIO()
     image.save(buf, format="PNG")
     return buf.getvalue()
 
 
-def _logo_data_uri(path: str, raw: bytes) -> str:
-    png = b""
+def _logo_data_uri(raw: bytes) -> str:
+    if not raw:
+        return ""
     try:
-        png = _png_bytes_for_email(raw) if raw else b""
+        png = _png_bytes_for_email(raw)
     except Exception:
-        png = raw if raw else b""
-    if not png:
         return ""
     payload = base64.b64encode(png).decode("ascii")
     return f"data:image/png;base64,{payload}"
 
 
 def email_brand_for_org(org, space: Space | None = None) -> dict:
-    """Letterhead for a space: logo, name, email, phone, plus org copyright next to RegiManager."""
+    """Letterhead for a space: logo, name, email, phone, plus space copyright next to RegiManager."""
+    space = space or Space.objects.filter(organization=org, key="insurance").first()
     brand = agency_branding(org, space)
-    path = brand.get("logo_path") or ""
-    raw = _logo_bytes(path)
+    raw = _logo_bytes_for_brand(org, space, brand.get("logo_path") or "")
     year = timezone.now().year
-    org_name = (getattr(org, "name", "") or brand.get("name") or "this agency").strip()
+    space_name = (brand.get("name") or getattr(org, "name", "") or "this agency").strip()
     return {
         **brand,
-        "org_name": org_name,
+        "org_name": (getattr(org, "name", "") or space_name).strip(),
         "logo_bytes": raw,
         "logo_cid": LOGO_CID if raw else "",
-        "logo_data_uri": _logo_data_uri(path, raw),
-        "copyright_line": f"© {year} {org_name} · RegiManager",
+        "logo_data_uri": _logo_data_uri(raw),
+        "copyright_line": f"© {year} {space_name} · RegiManager",
     }
 
 
 def wrap_email_html(inner_html: str, brand: dict, *, logo_mode: str = "cid") -> str:
     logo_src = ""
-    if brand.get("logo_bytes"):
-        if logo_mode == "data":
-            logo_src = brand.get("logo_data_uri") or ""
-        else:
-            logo_src = f"cid:{LOGO_CID}"
+    if logo_mode == "data":
+        logo_src = brand.get("logo_data_uri") or ""
+    elif brand.get("logo_bytes") or brand.get("logo_cid"):
+        logo_src = f"cid:{LOGO_CID}"
     return render_to_string(
         "core/emails/branded_frame.html",
         {

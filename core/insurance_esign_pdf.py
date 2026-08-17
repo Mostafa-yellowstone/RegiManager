@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import logging
 import re
 from datetime import datetime
 from io import BytesIO
@@ -15,6 +16,8 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 from PIL import Image
+
+logger = logging.getLogger(__name__)
 
 NAVY = colors.HexColor("#0B3A6E")
 TEAL = colors.HexColor("#0F766E")
@@ -38,14 +41,22 @@ def decode_data_url(raw: str) -> bytes | None:
 def _image_reader(raw_bytes: bytes) -> ImageReader | None:
     try:
         image = Image.open(BytesIO(raw_bytes))
-        if image.mode not in ("RGB", "RGBA"):
-            image = image.convert("RGBA")
+        image = image.convert("RGBA")
         image.thumbnail((900, 360), Image.Resampling.LANCZOS)
+        pixels = list(image.getdata())
+        cleaned = []
+        for r, g, b, a in pixels:
+            if r > 245 and g > 245 and b > 245:
+                cleaned.append((255, 255, 255, 0))
+            else:
+                cleaned.append((r, g, b, a))
+        image.putdata(cleaned)
         buf = BytesIO()
         image.save(buf, format="PNG")
         buf.seek(0)
         return ImageReader(buf)
     except Exception:
+        logger.exception("Could not prepare a signature image for PDF stamping")
         return None
 
 
@@ -72,16 +83,19 @@ def _draw_fields(c, page_w, page_h, fields):
         if image_bytes and kind in {"signature", "initials"}:
             reader = _image_reader(image_bytes)
             if reader:
-                c.drawImage(
-                    reader,
-                    x,
-                    y,
-                    width=width,
-                    height=height,
-                    preserveAspectRatio=True,
-                    mask="auto",
-                )
-                continue
+                try:
+                    c.drawImage(
+                        reader,
+                        x,
+                        y,
+                        width=width,
+                        height=height,
+                        preserveAspectRatio=True,
+                        mask="auto",
+                    )
+                    continue
+                except Exception:
+                    logger.exception("Could not draw signature image; falling back to text")
         text = str(field.get("text") or "").strip()
         if not text:
             continue
@@ -164,9 +178,18 @@ def _wrap(text: str, width: int) -> list[str]:
 
 def stamp_envelope_pdf(envelope, fields: list[dict]) -> ContentFile:
     source = envelope.original_file
+    if not source:
+        raise ValueError("The original PDF is missing.")
     with source.open("rb") as handle:
         original_bytes = handle.read()
-    reader = PdfReader(BytesIO(original_bytes))
+    if not original_bytes.startswith(b"%PDF"):
+        raise ValueError("The original file is not a valid PDF.")
+    reader = PdfReader(BytesIO(original_bytes), strict=False)
+    if getattr(reader, "is_encrypted", False):
+        try:
+            reader.decrypt("")
+        except Exception:
+            logger.exception("Could not decrypt PDF for envelope %s", envelope.id)
 
     by_page: dict[int, list[dict]] = {}
     for field in fields or []:
@@ -189,15 +212,18 @@ def stamp_envelope_pdf(envelope, fields: list[dict]) -> ContentFile:
         _draw_fields(c, page_w, page_h, by_page.get(index, []))
         c.save()
         overlay.seek(0)
-        overlay_page = PdfReader(overlay).pages[0]
-        page.merge_page(overlay_page)
+        try:
+            overlay_page = PdfReader(overlay, strict=False).pages[0]
+            page.merge_page(overlay_page)
+        except Exception:
+            logger.exception("Could not merge signature overlay on page %s", index)
         writer.add_page(page)
 
-    cert = PdfReader(BytesIO(_certificate_page(envelope, timezone.localtime())))
+    cert = PdfReader(BytesIO(_certificate_page(envelope, timezone.localtime())), strict=False)
     writer.add_page(cert.pages[0])
     writer.add_metadata({
         "/Title": f"Signed — {envelope.title}"[:180],
-        "/Author": envelope.organization.name,
+        "/Author": str(getattr(envelope.organization, "name", "") or "Insurance Space")[:120],
         "/Subject": "Insurance Space e-signature",
     })
     out = BytesIO()

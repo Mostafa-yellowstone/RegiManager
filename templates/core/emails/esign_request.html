@@ -1,8 +1,7 @@
 <p style="margin:0 0 12px;">Hello{% if signer_name %} {{ signer_name }}{% endif %},</p>
 <p style="margin:0 0 12px;"><strong>{{ agency_name }}</strong> asked you to review and electronically sign:</p>
 <p style="margin:0 0 16px;font-size:1.05rem;font-weight:700;">{{ document_title }}</p>
-<p style="margin:0 0 16px;">Open the document, click each highlighted signature box, then choose <strong>Finish &amp; sign</strong>.</p>
-<p style="margin:0 0 16px;">
-    <a href="{{ sign_url }}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:700;">Review and sign</a>
+<p style="margin:0 0 20px;">Open the document, click each highlighted signature box, then choose <strong>Finish &amp; sign</strong>.</p>
+<p style="margin:0;text-align:center;">
+    <a href="{{ sign_url }}" style="display:inline-block;padding:14px 28px;background:#4f46e5;color:#ffffff;text-decoration:none;border-radius:10px;font-weight:800;font-size:1rem;letter-spacing:0.01em;">Review and sign</a>
 </p>
-<p style="margin:0;word-break:break-all;color:#4338ca;font-size:0.85rem;">{{ sign_url }}</p>
