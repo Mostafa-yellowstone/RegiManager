@@ -68,6 +68,8 @@ class InsuranceESignEnvelope(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        verbose_name = "E-signature envelope"
+        verbose_name_plural = "E-signature envelopes"
 
     def __str__(self):
         return f"{self.title} ({self.status})"
@@ -76,3 +78,13 @@ class InsuranceESignEnvelope(models.Model):
         if not self.signer_token:
             self.signer_token = new_signer_token()
         super().save(*args, **kwargs)
+
+    def delete(self, using=None, keep_parents=False):
+        files = [field for field in (self.original_file, self.signed_file) if field]
+        result = super().delete(using=using, keep_parents=keep_parents)
+        for stored in files:
+            try:
+                stored.delete(save=False)
+            except Exception:
+                pass
+        return result

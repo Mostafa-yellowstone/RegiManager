@@ -42,6 +42,7 @@ CORE_ADMIN_GROUPS = (
             "DocumentFolder",
             "SpaceDocumentType",
             "SpaceDocumentRecord",
+            "InsuranceESignEnvelope",
         ),
     ),
     (

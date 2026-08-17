@@ -283,3 +283,24 @@ class InsuranceESignTests(TestCase):
             {"file": SimpleUploadedFile("app.pdf", _pdf_bytes(), content_type="application/pdf"), "title": "Nope"},
         )
         self.assertEqual(denied.status_code, 403)
+
+    def test_admin_can_delete_signed_envelope(self):
+        self.owner.is_staff = True
+        self.owner.is_superuser = True
+        self.owner.save()
+        envelope = InsuranceESignEnvelope.objects.create(
+            organization=self.org,
+            title="Signed app",
+            original_file=SimpleUploadedFile("doc.pdf", _pdf_bytes(), content_type="application/pdf"),
+            signed_file=SimpleUploadedFile("signed.pdf", _pdf_bytes("Signed copy"), content_type="application/pdf"),
+            status=InsuranceESignEnvelope.Status.SIGNED,
+            created_by=self.owner,
+        )
+        envelope_id = envelope.id
+        self._login()
+        response = self.client.post(
+            reverse("admin:core_insuranceesignenvelope_delete", args=[envelope_id]),
+            {"post": "yes"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(InsuranceESignEnvelope.objects.filter(id=envelope_id).exists())
