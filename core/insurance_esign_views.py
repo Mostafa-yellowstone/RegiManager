@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
@@ -20,7 +20,12 @@ from django.utils.text import get_valid_filename
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from .access import organizations_for_user
-from .email_branding import attach_brand_logo, email_brand_for_org, wrap_email_html
+from .email_branding import (
+    attach_brand_logo,
+    email_brand_for_org,
+    outbound_from_email,
+    wrap_email_html,
+)
 from .http import deny_access
 from .insurance_esign_models import InsuranceESignEnvelope, new_signer_token
 from .insurance_esign_pdf import stamp_envelope_pdf
@@ -28,6 +33,21 @@ from .insurance_permissions import is_org_owner, membership_for_org
 from .models import Space
 
 MAX_PDF_BYTES = 15 * 1024 * 1024
+logger = logging.getLogger(__name__)
+
+
+def _build_esign_message(subject, text_body, to_email, inner, brand, *, include_logo: bool):
+    message = EmailMultiAlternatives(
+        subject,
+        text_body,
+        outbound_from_email(),
+        [to_email],
+    )
+    attached = bool(include_logo and attach_brand_logo(message, brand))
+    html_brand = brand if attached else {**brand, "logo_bytes": b""}
+    message.attach_alternative(wrap_email_html(inner, html_brand, logo_mode="cid"), "text/html")
+    return message
+
 
 def _send_esign_request_email(envelope, sign_url: str) -> tuple[bool, str]:
     to_email = (envelope.signer_email or "").strip()
@@ -37,37 +57,37 @@ def _send_esign_request_email(envelope, sign_url: str) -> tuple[bool, str]:
         validate_email(to_email)
     except ValidationError:
         return False, "That signer email address is not valid."
-    brand = email_brand_for_org(envelope.organization)
-    subject = f"Please sign: {envelope.title}"[:180]
-    text_body = (
-        f"Hello {envelope.signer_name or ''}\n\n"
-        f"{brand['name']} asked you to electronically sign “{envelope.title}”.\n\n"
-        f"Open this link, click each signature box, then Finish & sign:\n{sign_url}\n\n"
-        f"{brand.get('phone', '')} {brand.get('email', '')}\n"
-        f"{brand['copyright_line']}\n"
-    )
-    inner = render_to_string(
-        "core/emails/esign_request.html",
-        {
-            "signer_name": envelope.signer_name,
-            "agency_name": brand["name"],
-            "document_title": envelope.title,
-            "sign_url": sign_url,
-        },
-    )
-    html_body = wrap_email_html(inner, brand, logo_mode="cid")
     try:
-        message = EmailMultiAlternatives(
-            subject,
-            text_body,
-            settings.DEFAULT_FROM_EMAIL,
-            [to_email],
+        brand = email_brand_for_org(envelope.organization)
+        subject = f"Please sign: {envelope.title}"[:180]
+        text_body = (
+            f"Hello {envelope.signer_name or ''}\n\n"
+            f"{brand['name']} asked you to electronically sign \"{envelope.title}\".\n\n"
+            f"Open this link, click each signature box, then Finish & sign:\n{sign_url}\n\n"
+            f"{brand.get('phone', '')} {brand.get('email', '')}\n"
+            f"{brand['copyright_line']}\n"
         )
-        message.attach_alternative(html_body, "text/html")
-        attach_brand_logo(message, brand)
-        message.send(fail_silently=False)
+        inner = render_to_string(
+            "core/emails/esign_request.html",
+            {
+                "signer_name": envelope.signer_name,
+                "agency_name": brand["name"],
+                "document_title": envelope.title,
+                "sign_url": sign_url,
+            },
+        )
+        message = _build_esign_message(subject, text_body, to_email, inner, brand, include_logo=True)
+        try:
+            message.send(fail_silently=False)
+        except Exception:
+            logger.exception("E-sign email with logo failed; retrying without logo")
+            fallback = _build_esign_message(
+                subject, text_body, to_email, inner, brand, include_logo=False
+            )
+            fallback.send(fail_silently=False)
         return True, f"Sent to {to_email}."
     except Exception:
+        logger.exception("E-sign request email failed for %s", to_email)
         return False, "Could not send the email. Check mail settings, or share the copied link."
 
 

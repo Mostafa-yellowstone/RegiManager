@@ -83,7 +83,15 @@ def execute_email_campaign_batch(batch_id: int) -> dict:
                 reply_to=reply_to,
             )
             message.attach_alternative(html_body, "text/html")
-            attach_brand_logo(message, brand)
+            if not attach_brand_logo(message, brand) and brand.get("logo_bytes"):
+                html_body = render_campaign_html(
+                    campaign.html_content,
+                    campaign.css_content,
+                    contact,
+                    brand={**brand, "logo_bytes": b""},
+                    logo_mode="cid",
+                )
+                message.alternatives = [(html_body, "text/html")]
             message.send(fail_silently=False)
             log.status = EmailCampaignRecipient.Status.SENT
             log.sent_at = timezone.now()

@@ -156,6 +156,44 @@ class InsuranceESignTests(TestCase):
         self.assertEqual(envelope.status, InsuranceESignEnvelope.Status.AWAITING)
         self.assertEqual(envelope.signer_email, "jose@example.com")
 
+    def test_request_signature_still_sends_when_logo_bytes_are_invalid(self):
+        self._login()
+        envelope = InsuranceESignEnvelope.objects.create(
+            organization=self.org,
+            title="Auto application",
+            original_file=SimpleUploadedFile("doc.pdf", _pdf_bytes(), content_type="application/pdf"),
+            created_by=self.owner,
+        )
+        import json
+        from django.core import mail
+        from django.test import override_settings
+        from unittest.mock import patch
+
+        with override_settings(
+            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+            DEFAULT_FROM_EMAIL="RegiManager <test@example.com>",
+        ), patch("core.insurance_esign_views.email_brand_for_org") as brand_fn:
+            brand_fn.return_value = {
+                "name": "Esign Org",
+                "phone": "555-0100",
+                "email": "agency@test.com",
+                "copyright_line": "© 2026 Esign Org · RegiManager",
+                "logo_bytes": b"not-an-image",
+            }
+            response = self.client.post(
+                reverse("insurance-esign-request", args=[envelope.id]),
+                data=json.dumps({
+                    "fields": [{"id": "f1", "type": "signature", "page": 1, "x": 0.1, "y": 0.8, "w": 0.3, "h": 0.08}],
+                    "signer_name": "Jose Palacios",
+                    "signer_email": "jose@example.com",
+                }),
+                content_type="application/json",
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()["ok"])
+        self.assertEqual(len(mail.outbox), 1)
+
     def test_view_role_can_open_and_download_signed_pdf(self):
         viewer = User.objects.create_user(username="esign_viewer", password="pass")
         membership = OrganizationMembership.objects.create(

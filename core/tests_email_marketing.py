@@ -63,6 +63,16 @@ class EmailMarketingPersonalizeTests(TestCase):
         self.assertIn("©", html)
 
 
+class EmailBrandingAttachTests(TestCase):
+    def test_invalid_logo_bytes_do_not_raise(self):
+        from django.core.mail import EmailMultiAlternatives
+
+        from core.email_branding import attach_brand_logo
+
+        message = EmailMultiAlternatives("Hi", "body", "from@test.com", ["to@test.com"])
+        self.assertFalse(attach_brand_logo(message, {"logo_bytes": b"not-an-image"}))
+
+
 @override_settings(DEBUG=True)
 class EmailMarketingAccessTests(TestCase):
     def setUp(self):
