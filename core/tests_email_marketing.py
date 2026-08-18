@@ -34,7 +34,7 @@ class EmailMarketingPersonalizeTests(TestCase):
         self.assertIn("Albany", html)
         self.assertIn("color: blue", html)
 
-    def test_render_wraps_space_branding_and_copyright(self):
+    def test_render_does_not_wrap_space_letterhead(self):
         org = Organization.objects.create(
             name="Brand PSB",
             city="Albany",
@@ -57,11 +57,9 @@ class EmailMarketingPersonalizeTests(TestCase):
             logo_mode="data",
         )
         self.assertIn("Hello Jane Doe", html)
-        self.assertIn("Xpress Insurance Solutions", html)
-        self.assertIn("hello@brand.test", html)
-        self.assertIn("555-0100", html)
-        self.assertIn("RegiManager", html)
-        self.assertIn("©", html)
+        self.assertNotIn("Xpress Insurance Solutions", html)
+        self.assertNotIn("hello@brand.test", html)
+        self.assertNotIn("©", html)
 
 
 class EmailBrandingAttachTests(TestCase):

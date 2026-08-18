@@ -42,7 +42,7 @@ def render_campaign_html(
     html_content: str,
     css_content: str,
     contact: EmailMarketingContact | None,
-    brand: dict | None = None,
+    brand: dict | None = None,  # unused; space letterhead is e-sign only
     *,
     logo_mode: str = "cid",
 ) -> str:
@@ -55,8 +55,4 @@ def render_campaign_html(
     body = TOKEN_PATTERN.sub(replace_token, html_content or "")
     style_block = f"<style>{css_content or ''}</style>" if (css_content or "").strip() else ""
     inner = f"{style_block}{body}"
-    if brand:
-        from .email_branding import wrap_email_html
-
-        return wrap_email_html(inner, brand, logo_mode=logo_mode)
     return f"<!DOCTYPE html><html><head><meta charset='utf-8'></head><body>{inner}</body></html>"

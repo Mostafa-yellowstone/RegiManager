@@ -21,7 +21,6 @@ from .agent_portal_models import AgentTask
 from .agent_portal_services import can_manage_agent_tasks
 from .email_marketing_import import parse_contact_import_file
 from .email_marketing_permissions import can_manage_email_marketing
-from .email_branding import email_brand_for_org
 from .email_marketing_personalize import render_campaign_html
 from .email_marketing_tasks import dispatch_email_campaign_batch, email_delivery_configured
 from .http import deny_access
@@ -190,8 +189,6 @@ def email_marketing_workspace(request, list_id):
             active_campaign.html_content,
             active_campaign.css_content,
             sample_contact,
-            brand=email_brand_for_org(org),
-            logo_mode="data",
         )
 
     membership = _membership(request.user, org)
@@ -646,8 +643,6 @@ def email_marketing_preview_campaign(request, list_id, campaign_id):
         html_content,
         css_content,
         contact,
-        brand=email_brand_for_org(org),
-        logo_mode="data",
     )
     return JsonResponse({"html": rendered})
 

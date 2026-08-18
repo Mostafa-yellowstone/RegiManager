@@ -10,7 +10,6 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.utils import timezone
 
-from .email_branding import attach_brand_logo, email_brand_for_org
 from .email_marketing_personalize import personalize_text, render_campaign_html
 from .models import EmailCampaign, EmailCampaignBatch, EmailCampaignRecipient
 
@@ -48,15 +47,11 @@ def _build_campaign_message(
     reply_to,
     campaign,
     contact,
-    brand,
-    logo_mode: str,
 ):
     html_body = render_campaign_html(
         campaign.html_content,
         campaign.css_content,
         contact,
-        brand=brand,
-        logo_mode=logo_mode,
     )
     message = EmailMultiAlternatives(
         subject=subject,
@@ -66,15 +61,6 @@ def _build_campaign_message(
         reply_to=reply_to,
     )
     message.attach_alternative(html_body, "text/html")
-    if logo_mode == "cid" and not attach_brand_logo(message, brand) and brand.get("logo_data_uri"):
-        html_body = render_campaign_html(
-            campaign.html_content,
-            campaign.css_content,
-            contact,
-            brand=brand,
-            logo_mode="data",
-        )
-        message.alternatives = [(html_body, "text/html")]
     return message
 
 
@@ -91,7 +77,6 @@ def execute_email_campaign_batch(batch_id: int) -> dict:
 
     from_email = _from_email_for_campaign(campaign)
     reply_to = [org.email] if getattr(org, "email", "") else None
-    brand = email_brand_for_org(org)
 
     sent = 0
     failed = 0
@@ -115,31 +100,8 @@ def execute_email_campaign_batch(batch_id: int) -> dict:
                 reply_to=reply_to,
                 campaign=campaign,
                 contact=contact,
-                brand=brand,
-                logo_mode="cid",
             )
-            try:
-                message.send(fail_silently=False)
-            except Exception:
-                if not brand.get("logo_data_uri"):
-                    raise
-                logger.exception(
-                    "Campaign email with CID logo failed; retrying with inlined logo batch=%s recipient=%s",
-                    batch_id,
-                    log.id,
-                )
-                retry = _build_campaign_message(
-                    subject=subject,
-                    plain=plain,
-                    from_email=from_email,
-                    to_email=log.email,
-                    reply_to=reply_to,
-                    campaign=campaign,
-                    contact=contact,
-                    brand=brand,
-                    logo_mode="data",
-                )
-                retry.send(fail_silently=False)
+            message.send(fail_silently=False)
             log.status = EmailCampaignRecipient.Status.SENT
             log.sent_at = timezone.now()
             log.error_message = ""
