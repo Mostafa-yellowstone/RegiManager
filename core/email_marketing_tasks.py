@@ -39,6 +39,45 @@ def _from_email_for_campaign(campaign: EmailCampaign) -> str:
     return getattr(settings, "DEFAULT_FROM_EMAIL", "") or "noreply@regimanager.local"
 
 
+def _build_campaign_message(
+    *,
+    subject,
+    plain,
+    from_email,
+    to_email,
+    reply_to,
+    campaign,
+    contact,
+    brand,
+    logo_mode: str,
+):
+    html_body = render_campaign_html(
+        campaign.html_content,
+        campaign.css_content,
+        contact,
+        brand=brand,
+        logo_mode=logo_mode,
+    )
+    message = EmailMultiAlternatives(
+        subject=subject,
+        body=plain,
+        from_email=from_email,
+        to=[to_email],
+        reply_to=reply_to,
+    )
+    message.attach_alternative(html_body, "text/html")
+    if logo_mode == "cid" and not attach_brand_logo(message, brand) and brand.get("logo_data_uri"):
+        html_body = render_campaign_html(
+            campaign.html_content,
+            campaign.css_content,
+            contact,
+            brand=brand,
+            logo_mode="data",
+        )
+        message.alternatives = [(html_body, "text/html")]
+    return message
+
+
 def execute_email_campaign_batch(batch_id: int) -> dict:
     """Send all pending recipients for a campaign batch."""
     batch = EmailCampaignBatch.objects.select_related("campaign", "campaign__organization").get(pk=batch_id)
@@ -65,34 +104,42 @@ def execute_email_campaign_batch(batch_id: int) -> dict:
             failed += 1
             continue
 
-        html_body = render_campaign_html(
-            campaign.html_content,
-            campaign.css_content,
-            contact,
-            brand=brand,
-            logo_mode="cid",
-        )
         subject = personalize_text(campaign.subject or campaign.name, contact)
         plain = f"{subject}\n\nView this message in an HTML-capable email client."
         try:
-            message = EmailMultiAlternatives(
+            message = _build_campaign_message(
                 subject=subject,
-                body=plain,
+                plain=plain,
                 from_email=from_email,
-                to=[log.email],
+                to_email=log.email,
                 reply_to=reply_to,
+                campaign=campaign,
+                contact=contact,
+                brand=brand,
+                logo_mode="cid",
             )
-            message.attach_alternative(html_body, "text/html")
-            if not attach_brand_logo(message, brand) and brand.get("logo_data_uri"):
-                html_body = render_campaign_html(
-                    campaign.html_content,
-                    campaign.css_content,
-                    contact,
+            try:
+                message.send(fail_silently=False)
+            except Exception:
+                if not brand.get("logo_data_uri"):
+                    raise
+                logger.exception(
+                    "Campaign email with CID logo failed; retrying with inlined logo batch=%s recipient=%s",
+                    batch_id,
+                    log.id,
+                )
+                retry = _build_campaign_message(
+                    subject=subject,
+                    plain=plain,
+                    from_email=from_email,
+                    to_email=log.email,
+                    reply_to=reply_to,
+                    campaign=campaign,
+                    contact=contact,
                     brand=brand,
                     logo_mode="data",
                 )
-                message.alternatives = [(html_body, "text/html")]
-            message.send(fail_silently=False)
+                retry.send(fail_silently=False)
             log.status = EmailCampaignRecipient.Status.SENT
             log.sent_at = timezone.now()
             log.error_message = ""

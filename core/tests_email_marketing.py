@@ -73,6 +73,27 @@ class EmailBrandingAttachTests(TestCase):
         message = EmailMultiAlternatives("Hi", "body", "from@test.com", ["to@test.com"])
         self.assertFalse(attach_brand_logo(message, {"logo_bytes": b"not-an-image"}))
 
+    def test_valid_logo_attaches_and_sends(self):
+        from io import BytesIO
+
+        from django import VERSION
+        from django.core import mail
+        from django.core.mail import EmailMultiAlternatives
+        from PIL import Image
+
+        from core.email_branding import LOGO_CID, attach_brand_logo
+
+        buf = BytesIO()
+        Image.new("RGB", (8, 8), "#0d9488").save(buf, format="PNG")
+        message = EmailMultiAlternatives("Hi", "body", "from@test.com", ["to@test.com"])
+        message.attach_alternative(f'<img src="cid:{LOGO_CID}">', "text/html")
+        self.assertTrue(attach_brand_logo(message, {"logo_bytes": buf.getvalue()}))
+        self.assertEqual(len(message.attachments), 1)
+        if VERSION[0] >= 6:
+            self.assertNotIn("mixed_subtype", message.__dict__)
+        message.send()
+        self.assertEqual(len(mail.outbox), 1)
+
 
 @override_settings(DEBUG=True)
 class EmailMarketingAccessTests(TestCase):

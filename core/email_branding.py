@@ -5,9 +5,11 @@ from __future__ import annotations
 import base64
 import logging
 import os
+from email.message import MIMEPart
 from email.mime.image import MIMEImage
 from io import BytesIO
 
+from django import VERSION as DJANGO_VERSION
 from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -132,14 +134,32 @@ def attach_brand_logo(message, brand: dict) -> bool:
         return False
     try:
         png = _png_bytes_for_email(raw)
-        image = MIMEImage(png, _subtype="png")
-        if "Content-ID" in image:
-            del image["Content-ID"]
-        image.add_header("Content-ID", f"<{LOGO_CID}>")
-        image.add_header("Content-Disposition", "inline", filename="logo.png")
-        message.attach(image)
-        message.mixed_subtype = "related"
+        _attach_inline_png(message, png)
         return True
     except Exception:
         logger.exception("Could not attach space logo to outbound email")
         return False
+
+
+def _attach_inline_png(message, png: bytes) -> None:
+    """Django 6 dropped mixed_subtype; use MIMEPart there and MIMEImage on Django 5."""
+    cid = f"<{LOGO_CID}>"
+    if DJANGO_VERSION[0] >= 6:
+        image = MIMEPart()
+        image.set_content(
+            png,
+            maintype="image",
+            subtype="png",
+            disposition="inline",
+            cid=cid,
+        )
+        message.attach(image)
+        return
+    image = MIMEImage(png, _subtype="png")
+    if "Content-ID" in image:
+        del image["Content-ID"]
+    image.add_header("Content-ID", cid)
+    image.add_header("Content-Disposition", "inline", filename="logo.png")
+    message.attach(image)
+    message.mixed_subtype = "related"
+
