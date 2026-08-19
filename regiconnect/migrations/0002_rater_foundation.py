@@ -1,7 +1,16 @@
+import inspect
+
 import django.db.models.deletion
 import regiconnect.models
 from django.conf import settings
 from django.db import migrations, models
+from django.db.models.constraints import CheckConstraint
+
+
+def _check_constraint(q, name):
+    if "condition" in inspect.signature(CheckConstraint.__init__).parameters:
+        return models.CheckConstraint(condition=q, name=name)
+    return models.CheckConstraint(check=q, name=name)
 
 
 class Migration(migrations.Migration):
@@ -483,9 +492,9 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name="canonicalquote",
-            constraint=models.CheckConstraint(
-                check=models.Q(("submission__isnull", False)) | models.Q(("rating_job__isnull", False)),
-                name="regiconnect_quote_has_parent",
+            constraint=_check_constraint(
+                models.Q(("submission__isnull", False)) | models.Q(("rating_job__isnull", False)),
+                "regiconnect_quote_has_parent",
             ),
         ),
         migrations.AddConstraint(

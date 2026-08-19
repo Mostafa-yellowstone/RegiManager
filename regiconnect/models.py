@@ -12,6 +12,14 @@ def _uuid():
     return str(uuid.uuid4())
 
 
+def _check_constraint(*, name: str, q):
+    """Django 5.0 uses check=; Django 5.1+ (including 6.0) uses condition=."""
+    try:
+        return models.CheckConstraint(condition=q, name=name)
+    except TypeError:
+        return models.CheckConstraint(check=q, name=name)
+
+
 class MarketProfile(models.Model):
     class MarketType(models.TextChoices):
         CARRIER = "carrier", "Carrier"
@@ -502,9 +510,9 @@ class CanonicalQuote(models.Model):
     class Meta:
         ordering = ["-version"]
         constraints = [
-            models.CheckConstraint(
-                check=models.Q(submission__isnull=False) | models.Q(rating_job__isnull=False),
+            _check_constraint(
                 name="regiconnect_quote_has_parent",
+                q=models.Q(submission__isnull=False) | models.Q(rating_job__isnull=False),
             ),
             models.UniqueConstraint(
                 fields=["submission", "version"],
