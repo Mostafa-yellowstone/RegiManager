@@ -17,9 +17,9 @@ Tabs (native `switchTab`, persisted in `localStorage`):
 | `agents` | Agent Auditing | Space access |
 | `regi-markets` | Markets & Access | `can_view_regiconnect` (owners bypass) |
 | `regi-connectivity` | Connectivity | same |
-| `regi-submissions` | Submissions | same; **one market per submit**, mock-labeled quotes |
+| `regi-rater` | Regi Rater | same; comparative quoting desk (CRM/OCR capture → shop markets → compare → Quote Pipeline). Legacy `?tab=regi-submissions` redirects here. |
 
-**Regi Rater** tab is **not** shipped. Phase 2 orchestrator exists in `regiconnect/rater/orchestrator.py` (no UI yet).
+**Regi Rater** is the single agent quoting tab. One-market `Submission` still exists for tests and bind MOCK; agents do not use a separate Submissions tab.
 
 ## Module responsibilities (preserve)
 
@@ -47,10 +47,10 @@ Tabs (native `switchTab`, persisted in `localStorage`):
 - **TLC Space** has its own policy/carrier-name registry (`TLCCarrier`). Do not merge into RegiConnect Markets.
 - **Email marketing** can assign CRM contacts to insurance agents; it is not quoting.
 
-## Quote systems (two, plus connectivity — still not a rater)
+## Quote systems (do not duplicate)
 
 1. Pipeline lead (`InsuranceQuoteLead`) — work queue / agent distribution. No premium column.
 2. CRM policy with `stage=quote` — book of business.
-3. `regiconnect.CanonicalQuote` — result of **one** `Submission` to **one** connection (mock today).
+3. `regiconnect.CanonicalQuote` — rating/submission result (versioned). Comparative shop happens in Regi Rater; select feeds (1). Mock bind can still create a labeled MOCK policy in (2).
 
-Won pipeline leads do **not** create policies. Regi Rater must not invent a fourth quote board; it must feed (1) after compare/select and bind into (2).
+Won pipeline leads do **not** create policies. Do not invent a fourth quote board.

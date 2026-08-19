@@ -974,7 +974,6 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       {% if user_can_view_regiconnect %}
       <button type="button" class="tab-btn" id="tab-regi-markets-btn" onclick="switchTab('regi-markets')">Markets &amp; Access</button>
       <button type="button" class="tab-btn" id="tab-regi-connectivity-btn" onclick="switchTab('regi-connectivity')">Connectivity</button>
-      <button type="button" class="tab-btn" id="tab-regi-submissions-btn" onclick="switchTab('regi-submissions')">Submissions</button>
       {% endif %}
     </nav>
 
@@ -1828,9 +1827,6 @@ html.portal-theme-dark .ins-license-crm-alert__row {
     <div id="tab-regi-connectivity" class="tab-panel" style="display: none;">
       {% include "regiconnect/connectivity_tab.html" %}
     </div>
-    <div id="tab-regi-submissions" class="tab-panel" style="display: none;">
-      {% include "regiconnect/submissions_tab.html" %}
-    </div>
     {% endif %}
 </main>
 
@@ -2243,7 +2239,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
 <!-- REJECT INSURANCE INTAKE MODAL -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const tabs = ['insurance', 'quote-pipeline'{% if user_can_view_regiconnect %}, 'regi-rater'{% endif %}{% if user_can_view_banking %}, 'companies', 'banking'{% endif %}, 'reporting', 'esign', 'targets', 'daily-payments', 'agents'{% if user_can_view_regiconnect %}, 'regi-markets', 'regi-connectivity', 'regi-submissions'{% endif %}];
+const tabs = ['insurance', 'quote-pipeline'{% if user_can_view_regiconnect %}, 'regi-rater'{% endif %}{% if user_can_view_banking %}, 'companies', 'banking'{% endif %}, 'reporting', 'esign', 'targets', 'daily-payments', 'agents'{% if user_can_view_regiconnect %}, 'regi-markets', 'regi-connectivity'{% endif %}];
 let premiumChart = null;
 let profitChart = null;
 
@@ -2331,6 +2327,7 @@ function renderAgentCharts() {
 }
 
 function switchTab(name) {
+  if (name === 'regi-submissions') name = 'regi-rater';
   localStorage.setItem('active_insurance_tab', name);
   tabs.forEach(t => {
     const el = document.getElementById('tab-'+t);
@@ -2362,6 +2359,9 @@ window.addEventListener('DOMContentLoaded', () => {
   let activeTab = urlParams.get('tab');
   if (!activeTab) {
     activeTab = localStorage.getItem('active_insurance_tab') || 'insurance';
+  }
+  if (activeTab === 'regi-submissions') {
+    activeTab = 'regi-rater';
   }
   if (!tabs.includes(activeTab)) {
     activeTab = 'insurance';

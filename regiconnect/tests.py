@@ -224,7 +224,8 @@ class RegiConnectTests(TestCase):
         self.assertContains(response, "Regi Rater")
         self.assertContains(response, "Markets &amp; Access")
         self.assertContains(response, "Connectivity")
-        self.assertContains(response, "Submissions")
+        self.assertContains(response, "Get quotes")
+        self.assertNotContains(response, 'id="tab-regi-submissions-btn"')
         self.assertContains(response, "not free access")
 
     def test_api_requires_membership_org(self):

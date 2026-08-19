@@ -57,6 +57,98 @@ def _posted_rows(request, keys):
     return rows
 
 
+def _quote_intake(request, org):
+    """Build CRM client/vehicle + rating extra from the unified Rater form."""
+    driver_data = {
+        "client_id": _posted(request, "client_id"),
+        "first_name": _posted(request, "first_name"),
+        "middle_name": _posted(request, "middle_name"),
+        "last_name": _posted(request, "last_name"),
+        "driver_license": _posted(request, "driver_license"),
+        "dob": _posted(request, "dob"),
+        "gender": _posted(request, "gender"),
+        "phone_number": _posted(request, "phone_number"),
+        "email": _posted(request, "email"),
+        "building_no": _posted(request, "building_no"),
+        "street_address": _posted(request, "street_address"),
+        "apartment": _posted(request, "apartment"),
+        "city": _posted(request, "city"),
+        "state": _posted(request, "state") or "NY",
+        "zip_code": _posted(request, "zip_code"),
+        "county": _posted(request, "county"),
+    }
+    vehicle_data = {
+        "vin": _posted(request, "vin"),
+        "year": _posted(request, "year"),
+        "make": _posted(request, "make"),
+        "model": _posted(request, "model"),
+        "plate_number": _posted(request, "plate_number"),
+    }
+    extra_drivers = [
+        {
+            "name": row["extra_driver_name"],
+            "driver_license": row["extra_driver_dl"],
+            "dob": row["extra_driver_dob"],
+            "mvr_points": row["extra_driver_mvr_points"],
+        }
+        for row in _posted_rows(
+            request, ("extra_driver_name", "extra_driver_dl", "extra_driver_dob", "extra_driver_mvr_points")
+        )
+    ]
+    extra_vehicles = [
+        {
+            "vin": row["extra_vehicle_vin"],
+            "year": row["extra_vehicle_year"],
+            "make": row["extra_vehicle_make"],
+            "model": row["extra_vehicle_model"],
+            "plate_number": row["extra_vehicle_plate"],
+        }
+        for row in _posted_rows(
+            request,
+            ("extra_vehicle_vin", "extra_vehicle_year", "extra_vehicle_make", "extra_vehicle_model", "extra_vehicle_plate"),
+        )
+    ]
+    has_driver_fields = any(
+        driver_data[key]
+        for key in ("first_name", "last_name", "driver_license", "street_address", "phone_number")
+    )
+    client = None
+    if driver_data["client_id"]:
+        client = get_object_or_404(Client, id=driver_data["client_id"], organization=org)
+    if has_driver_fields:
+        client, _ = upsert_client_from_scan(organization=org, data=driver_data, overwrite=True)
+    if client is None:
+        raise ValidationError("Select an existing client or enter / extract driver details.")
+    vehicle = None
+    if _posted(request, "vehicle_id"):
+        vehicle = get_object_or_404(Vehicle, id=_posted(request, "vehicle_id"), client=client)
+    if vehicle_data["vin"]:
+        vehicle, _ = upsert_vehicle_from_scan(client=client, data=vehicle_data)
+    if vehicle is None and client.vehicles.exists():
+        vehicle = client.vehicles.order_by("-id").first()
+    if vehicle is None:
+        raise ValidationError("Select a vehicle or enter / extract a VIN.")
+    for extra in extra_vehicles:
+        if extra.get("vin"):
+            upsert_vehicle_from_scan(client=client, data=extra)
+    extra = {
+        "name": client.name,
+        "coverage_type": _posted(request, "coverage_type") or "liability",
+        "has_prior": request.POST.get("has_prior"),
+        "has_accident": request.POST.get("has_accident"),
+        "is_experienced": request.POST.get("is_experienced"),
+        "vehicle_ownership": _posted(request, "vehicle_ownership"),
+        "mvr_status": _posted(request, "mvr_status") or "not_requested",
+        "mvr_points": _posted(request, "mvr_points"),
+        "mvr_date": _posted(request, "mvr_date"),
+        "mvr_notes": _posted(request, "mvr_notes"),
+        "additional_drivers": extra_drivers,
+        "additional_vehicles": extra_vehicles,
+        "scenario": _posted(request, "mock_scenario") or _posted(request, "scenario") or "",
+    }
+    return client, vehicle, extra, driver_data["state"] or client.state or "NY"
+
+
 @login_required
 @require_POST
 def create_mock_market_bundle(request):
@@ -135,91 +227,9 @@ def submit_to_market(request):
         id=request.POST.get("connection_id"),
         organization=org,
     )
-    driver_data = {
-        "client_id": _posted(request, "client_id"),
-        "first_name": _posted(request, "first_name"),
-        "middle_name": _posted(request, "middle_name"),
-        "last_name": _posted(request, "last_name"),
-        "driver_license": _posted(request, "driver_license"),
-        "dob": _posted(request, "dob"),
-        "gender": _posted(request, "gender"),
-        "phone_number": _posted(request, "phone_number"),
-        "email": _posted(request, "email"),
-        "building_no": _posted(request, "building_no"),
-        "street_address": _posted(request, "street_address"),
-        "apartment": _posted(request, "apartment"),
-        "city": _posted(request, "city"),
-        "state": _posted(request, "state") or "NY",
-        "zip_code": _posted(request, "zip_code"),
-        "county": _posted(request, "county"),
-    }
-    vehicle_data = {
-        "vin": _posted(request, "vin"),
-        "year": _posted(request, "year"),
-        "make": _posted(request, "make"),
-        "model": _posted(request, "model"),
-        "plate_number": _posted(request, "plate_number"),
-    }
-    extra_drivers = [
-        {
-            "name": row["extra_driver_name"],
-            "driver_license": row["extra_driver_dl"],
-            "dob": row["extra_driver_dob"],
-            "mvr_points": row["extra_driver_mvr_points"],
-        }
-        for row in _posted_rows(
-            request, ("extra_driver_name", "extra_driver_dl", "extra_driver_dob", "extra_driver_mvr_points")
-        )
-    ]
-    extra_vehicles = [
-        {
-            "vin": row["extra_vehicle_vin"],
-            "year": row["extra_vehicle_year"],
-            "make": row["extra_vehicle_make"],
-            "model": row["extra_vehicle_model"],
-            "plate_number": row["extra_vehicle_plate"],
-        }
-        for row in _posted_rows(
-            request,
-            ("extra_vehicle_vin", "extra_vehicle_year", "extra_vehicle_make", "extra_vehicle_model", "extra_vehicle_plate"),
-        )
-    ]
-    has_driver_fields = any(
-        driver_data[key]
-        for key in ("first_name", "last_name", "driver_license", "street_address", "phone_number")
-    )
-    client = None
-    if driver_data["client_id"]:
-        client = get_object_or_404(Client, id=driver_data["client_id"], organization=org)
     try:
-        if has_driver_fields:
-            client, _ = upsert_client_from_scan(organization=org, data=driver_data, overwrite=True)
-        if client is None:
-            raise ValidationError("Enter driver details or extract a license first.")
-        vehicle = None
-        if _posted(request, "vehicle_id"):
-            vehicle = get_object_or_404(Vehicle, id=_posted(request, "vehicle_id"), client=client)
-        if vehicle_data["vin"]:
-            vehicle, _ = upsert_vehicle_from_scan(client=client, data=vehicle_data)
-        if vehicle is None:
-            raise ValidationError("Enter a VIN or extract a title first.")
-        for extra in extra_vehicles:
-            if extra.get("vin"):
-                upsert_vehicle_from_scan(client=client, data=extra)
-        extra = {
-            "name": client.name,
-            "coverage_type": _posted(request, "coverage_type") or "liability",
-            "has_prior": request.POST.get("has_prior"),
-            "has_accident": request.POST.get("has_accident"),
-            "is_experienced": request.POST.get("is_experienced"),
-            "vehicle_ownership": _posted(request, "vehicle_ownership"),
-            "mvr_status": _posted(request, "mvr_status") or "not_requested",
-            "mvr_points": _posted(request, "mvr_points"),
-            "mvr_date": _posted(request, "mvr_date"),
-            "mvr_notes": _posted(request, "mvr_notes"),
-            "additional_drivers": extra_drivers,
-            "additional_vehicles": extra_vehicles,
-        }
+        client, vehicle, extra, state = _quote_intake(request, org)
+        extra["scenario"] = _posted(request, "scenario") or extra.get("scenario") or "quote"
         submission = create_submission(
             organization=org,
             market=connection.market,
@@ -227,10 +237,10 @@ def submit_to_market(request):
             actor=request.user,
             client=client,
             vehicle=vehicle,
-            state=driver_data["state"] or client.state or "NY",
+            state=state,
             line_of_business=_posted(request, "line_of_business") or "auto_personal",
             extra=extra,
-            scenario=_posted(request, "scenario") or "quote",
+            scenario=extra.get("scenario") or "quote",
         )
         submit_and_quote(submission)
         submission.refresh_from_db()
@@ -250,7 +260,7 @@ def submit_to_market(request):
         messages.error(request, str(exc))
     except Exception as exc:
         messages.error(request, f"Submit failed: {exc}")
-    return _space_redirect(org, "regi-submissions")
+    return _space_redirect(org, "regi-rater")
 
 
 @login_required
@@ -278,7 +288,7 @@ def bind_quote(request, quote_id):
     if space:
         from django.urls import reverse
 
-        return redirect(f"{reverse('inventory-detail', args=[space.id])}?tab=regi-submissions")
+        return redirect(f"{reverse('inventory-detail', args=[space.id])}?tab=regi-rater")
     return redirect("spaces-home")
 
 
@@ -293,18 +303,11 @@ def start_rater(request):
     membership = require_insurance_space(request, org)
     if not can_manage_regiconnect(request.user, org, membership):
         deny_access("You cannot run Regi Rater.")
-    client = get_object_or_404(Client, id=request.POST.get("client_id"), organization=org)
-    vehicle = None
-    vehicle_id = _posted(request, "vehicle_id")
-    if vehicle_id:
-        vehicle = get_object_or_404(Vehicle, id=vehicle_id, client=client)
-    extra = {
-        "coverage_type": _posted(request, "coverage_type") or "liability",
-        "has_prior": bool(request.POST.get("has_prior")),
-        "has_accident": bool(request.POST.get("has_accident")),
-        "is_experienced": bool(request.POST.get("is_experienced")),
-        "scenario": _posted(request, "mock_scenario"),
-    }
+    try:
+        client, vehicle, extra, state = _quote_intake(request, org)
+    except ValidationError as exc:
+        messages.error(request, str(exc))
+        return _rater_redirect(org)
     effective = None
     raw_effective = _posted(request, "effective_date")
     if raw_effective:
@@ -318,8 +321,8 @@ def start_rater(request):
         client=client,
         actor=request.user,
         vehicles=[vehicle] if vehicle else None,
-        coverage={"type": extra["coverage_type"]},
-        state=_posted(request, "state") or client.state or "NY",
+        coverage={"type": extra.get("coverage_type") or "liability"},
+        state=state,
         line_of_business=_posted(request, "line_of_business") or "auto_personal",
         effective_date=effective,
         extra=extra,

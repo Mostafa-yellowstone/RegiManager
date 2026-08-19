@@ -21,7 +21,7 @@ CRM (Client / Vehicle)
 - Per-market `Submission` + `CanonicalQuote` + `QuoteLeadConnectivity` (1:1 on a lead).
 - Market access + appetite evaluation.
 - Celery `ConnectorJob` with mock inline fallback.
-- Insurance Space tabs: Markets & Access, Connectivity, Submissions.
+- Insurance Space tabs: Markets & Access, Connectivity, Regi Rater (Submissions merged into Rater).
 - Mock connector that **must stay labeled MOCK / TEST**. Its premium is not a carrier rate.
 - EZLynx: org URL field only. Not a rating provider. Must not become required.
 
@@ -74,7 +74,7 @@ Until official NYAIP documentation and producer authorization exist: track eligi
 
 ## Status
 
-Phase 2 orchestrator is in `regiconnect/rater/orchestrator.py`. Comparison UI and real carriers are **not** in this phase.
+Phase 2 orchestrator is in `regiconnect/rater/orchestrator.py`. Comparison UI and pipeline select are shipped. Real carriers are **not**.
 
 Mock quotes must use `quote_source=MOCK`, `premium_class=ESTIMATED`, and never appear as a carrier rate.
 

@@ -29,7 +29,7 @@ Document metadata + FileField, inbound transaction parser hook, webhook receiver
 
 ## Phase 6 — UI
 
-Native tabs on `insurance_space.html`: Markets & Access, Connectivity, Submissions. Company detail: connectivity section. Policy detail: four optional fields. Copy must not claim free access to every carrier.
+Native tabs on `insurance_space.html`: Markets & Access, Connectivity, Regi Rater (quoting desk). Company detail: connectivity section. Policy detail: four optional fields. Copy must not claim free access to every carrier.
 
 ## Phase 7 — Real carrier
 

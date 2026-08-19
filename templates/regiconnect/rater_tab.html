@@ -1,37 +1,42 @@
+{% include "regiconnect/_quote_styles.html" %}
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem;margin-bottom:1.5rem;">
   <div class="spaces-metric"><div class="spaces-metric-label">In progress</div><div class="spaces-metric-value">{{ regi_rater_stats.in_progress }}</div></div>
   <div class="spaces-metric"><div class="spaces-metric-label">Completed</div><div class="spaces-metric-value">{{ regi_rater_stats.completed }}</div></div>
   <div class="spaces-metric"><div class="spaces-metric-label">Partial</div><div class="spaces-metric-value">{{ regi_rater_stats.partial }}</div></div>
-  <div class="spaces-metric"><div class="spaces-metric-label">Referred</div><div class="spaces-metric-value">{{ regi_rater_stats.referred }}</div></div>
   <div class="spaces-metric"><div class="spaces-metric-label">Failed</div><div class="spaces-metric-value">{{ regi_rater_stats.failed }}</div></div>
 </div>
-<p class="rcq-card__hint" style="margin:0 0 1rem;">Regi Rater compares quotes from authorized connections. Mock results are labeled MOCK / TEST and are not carrier premiums. Quote Pipeline still distributes work to agents.</p>
+<p class="rcq-card__hint" style="margin:0 0 1rem;">{{ regiconnect_disclaimer }} One quoting desk: capture the risk, shop eligible markets, compare, then send the chosen quote to Quote Pipeline. Mock results are labeled MOCK / TEST and are not carrier rates.</p>
 
-{% if user_can_manage_regiconnect %}
+{% if user_can_manage_regiconnect and not regiconnect_connections %}
+<p style="margin:0 0 1rem;font-weight:700;color:#92400e;">Enable a mock sandbox on a company in Markets &amp; Access before rating.</p>
+{% elif user_can_manage_regiconnect %}
 <form method="post" action="{% url 'regiconnect:rater-start' %}" class="rcq" id="regi-rater-form">
   {% csrf_token %}
   <input type="hidden" name="organization" value="{{ active_org.id }}">
+  <input type="hidden" name="client_id" id="rc-client-id" value="">
+  <input type="hidden" name="vehicle_id" id="rc-vehicle-id" value="">
+
   <section class="rcq-card">
     <div class="rcq-card__head">
       <div>
-        <h3 class="rcq-card__title">New rating</h3>
-        <p class="rcq-card__hint">Uses existing CRM client and vehicle records. Carrier-specific questions stay off the CRM.</p>
+        <h3 class="rcq-card__title">Risk and markets</h3>
+        <p class="rcq-card__hint">Leave markets unchecked to evaluate every appointment. Assigned Risk is never shopped as a voluntary carrier.</p>
       </div>
     </div>
     <div class="rcq-grid">
       <div class="span-2">
-        <label class="field-label">Client</label>
-        <select name="client_id" id="rr-client" class="field-input" required>
-          <option value="">Select client</option>
+        <label class="field-label">Existing CRM client (optional)</label>
+        <select id="rr-existing-client" class="field-input">
+          <option value="">New or extract from license</option>
           {% for c in clients %}
           <option value="{{ c.id }}">{{ c.name }}</option>
           {% endfor %}
         </select>
       </div>
       <div class="span-2">
-        <label class="field-label">Vehicle</label>
-        <select name="vehicle_id" id="rr-vehicle" class="field-input">
-          <option value="">Select client first</option>
+        <label class="field-label">Existing vehicle</label>
+        <select id="rr-vehicle" class="field-input">
+          <option value="">Select client first, or extract a VIN below</option>
         </select>
       </div>
       <div>
@@ -56,20 +61,16 @@
     </div>
     <div class="rcq-checks">
       <label class="rcq-check"><input type="checkbox" name="has_prior"> Prior insurance</label>
+      <label class="rcq-check"><input type="checkbox" name="is_experienced"> Experienced driver</label>
       <label class="rcq-check"><input type="checkbox" name="has_accident"> Accident history</label>
     </div>
     {% if regiconnect_markets %}
-    <div style="margin-top:1rem;">
-      <label class="field-label">Markets</label>
-      <p class="rcq-card__hint">Leave unchecked to evaluate every market. Assigned Risk is never shopped as a voluntary carrier.</p>
-      <div class="rcq-checks">
-        {% for m in regiconnect_markets %}
-        <label class="rcq-check"><input type="checkbox" name="market_id" value="{{ m.id }}"> {{ m.company.name }} · {{ m.get_market_channel_display }}</label>
-        {% endfor %}
-      </div>
+    <div class="rcq-checks" style="margin-top:0.85rem;">
+      {% for m in regiconnect_markets %}
+      <label class="rcq-check"><input type="checkbox" name="market_id" value="{{ m.id }}"> {{ m.company.name }} · {{ m.get_market_channel_display }}</label>
+      {% endfor %}
     </div>
     {% endif %}
-    {% if user_can_manage_regiconnect %}
     <div style="margin-top:1rem;max-width:280px;">
       <label class="field-label">Sandbox scenario (MOCK / TEST)</label>
       <select name="mock_scenario" class="field-input">
@@ -82,16 +83,105 @@
         <option value="error">Carrier error</option>
       </select>
     </div>
-    {% endif %}
-    <div class="rcq-foot">
-      <button type="submit" class="btn-submit rcq-submit">Run Regi Rater</button>
+  </section>
+
+  <section class="rcq-card">
+    <div class="rcq-card__head">
+      <div>
+        <h3 class="rcq-card__title">Primary driver</h3>
+        <p class="rcq-card__hint">Reuse CRM, type the details, or extract from a license photo / barcode.</p>
+      </div>
+      <div class="rcq-actions">
+        <label class="rcq-file">Upload license<input type="file" id="rc-dl-file" accept="image/*"></label>
+        <button type="button" class="rcq-btn" id="rc-dl-save">Extract license</button>
+      </div>
+    </div>
+    <div class="rcq-grid">
+      <div><label class="field-label">First name</label><input name="first_name" id="rc-first-name" class="field-input"></div>
+      <div><label class="field-label">Middle</label><input name="middle_name" id="rc-middle-name" class="field-input"></div>
+      <div><label class="field-label">Last name</label><input name="last_name" id="rc-last-name" class="field-input"></div>
+      <div><label class="field-label">Driver license</label><input name="driver_license" id="rc-driver-license" class="field-input"></div>
+      <div><label class="field-label">Date of birth</label><input type="date" name="dob" id="rc-dob" class="field-input"></div>
+      <div><label class="field-label">Phone</label><input name="phone_number" id="rc-phone" class="field-input"></div>
+      <div class="span-2"><label class="field-label">Street</label><input name="street_address" id="rc-street" class="field-input"></div>
+      <div><label class="field-label">Apt</label><input name="apartment" id="rc-apt" class="field-input"></div>
+      <div><label class="field-label">City</label><input name="city" id="rc-city" class="field-input"></div>
+      <div><label class="field-label">ZIP</label><input name="zip_code" id="rc-zip" class="field-input"></div>
+      <div class="span-2"><label class="field-label">License barcode</label><input type="text" id="rc-dl-barcode" class="field-input" placeholder="Optional — scan then Extract license"></div>
+    </div>
+    <div class="rcq-extras">
+      <div class="rcq-extras__list" id="rc-extra-drivers"></div>
+      <div class="rcq-extras__bar">
+        <button type="button" class="rcq-btn rcq-btn--ghost" id="rc-add-driver">+ Extra driver</button>
+      </div>
     </div>
   </section>
+
+  <section class="rcq-card">
+    <div class="rcq-card__head">
+      <div>
+        <h3 class="rcq-card__title">Primary vehicle</h3>
+        <p class="rcq-card__hint">Use the CRM vehicle above, type a VIN, or extract from a title photo.</p>
+      </div>
+      <div class="rcq-actions">
+        <label class="rcq-file">Upload title<input type="file" id="rc-title-file" accept="image/*"></label>
+        <button type="button" class="rcq-btn" id="rc-vin-save">Extract / decode VIN</button>
+      </div>
+    </div>
+    <div class="rcq-grid">
+      <div class="span-2"><label class="field-label">VIN</label><input name="vin" id="rc-vin" class="field-input" maxlength="17"></div>
+      <div><label class="field-label">Year</label><input name="year" id="rc-year" class="field-input" maxlength="4" inputmode="numeric"></div>
+      <div><label class="field-label">Make</label><input name="make" id="rc-make" class="field-input"></div>
+      <div><label class="field-label">Model</label><input name="model" id="rc-model" class="field-input"></div>
+      <div><label class="field-label">Plate</label><input name="plate_number" id="rc-plate" class="field-input"></div>
+    </div>
+    <div class="rcq-extras">
+      <div class="rcq-extras__list" id="rc-extra-vehicles"></div>
+      <div class="rcq-extras__bar">
+        <button type="button" class="rcq-btn rcq-btn--ghost" id="rc-add-vehicle">+ Extra vehicle</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="rcq-card">
+    <div class="rcq-card__head">
+      <div>
+        <h3 class="rcq-card__title">MVR points</h3>
+        <p class="rcq-card__hint">Record points from an MVR you already have. Live DMV retrieval is not connected.</p>
+      </div>
+    </div>
+    <div class="rcq-grid">
+      <div>
+        <label class="field-label">Status</label>
+        <select name="mvr_status" class="field-input">
+          <option value="not_requested">Not pulled</option>
+          <option value="recorded">Recorded manually</option>
+          <option value="requested">Requested (pending)</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">Points</label>
+        <input name="mvr_points" class="field-input" inputmode="numeric" maxlength="2" placeholder="0">
+      </div>
+      <div>
+        <label class="field-label">MVR date</label>
+        <input type="date" name="mvr_date" class="field-input">
+      </div>
+      <div class="span-2">
+        <label class="field-label">Violations / notes</label>
+        <input name="mvr_notes" class="field-input" placeholder="Speeding, suspension, etc.">
+      </div>
+    </div>
+  </section>
+
+  <div class="rcq-foot">
+    <button type="submit" class="btn-submit rcq-submit">Get quotes</button>
+  </div>
 </form>
 {% endif %}
 
 <div class="ins-surface-card" style="overflow-x:auto;">
-  <h3 class="ins-section-title ins-section-title--sm">Recent rating requests</h3>
+  <h3 class="ins-section-title ins-section-title--sm">Recent rating sessions</h3>
   <table class="spaces-table">
     <thead><tr><th>When</th><th>Client</th><th>Status</th><th>State</th><th></th></tr></thead>
     <tbody>
@@ -104,7 +194,7 @@
         <td><a href="?tab=regi-rater&rater={{ row.id }}">Open</a></td>
       </tr>
       {% empty %}
-      <tr><td colspan="5">No rating requests yet.</td></tr>
+      <tr><td colspan="5">No rating sessions yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -115,8 +205,8 @@
   <section class="rcq-card" style="margin-top:1rem;" id="rr-session">
     <div class="rcq-card__head">
       <div>
-        <h3 class="rcq-card__title">Rating session #{{ row.id }} · {{ row.client.name }}</h3>
-        <p class="rcq-card__hint">Status: {{ row.get_status_display }}. Coverage {{ row.coverage.type|default:"—" }}. Effective {{ row.effective_date|default:"—" }}.</p>
+        <h3 class="rcq-card__title">Session #{{ row.id }} · {{ row.client.name }}</h3>
+        <p class="rcq-card__hint">{{ row.get_status_display }} · {{ row.coverage.type|default:"—" }} · effective {{ row.effective_date|default:"—" }}</p>
       </div>
       {% if user_can_manage_regiconnect %}{% if row.status == "rating" or row.status == "partial_results" %}
       <form method="post" action="{% url 'regiconnect:rater-session' row.id %}">
@@ -126,7 +216,7 @@
       </form>
       {% endif %}{% endif %}
     </div>
-    <h4 class="ins-section-title ins-section-title--sm">Markets</h4>
+    <h4 class="ins-section-title ins-section-title--sm">Market eligibility</h4>
     <table class="spaces-table">
       <thead><tr><th>Market</th><th>Channel</th><th>Eligibility</th><th>Status</th><th>Why</th></tr></thead>
       <tbody>
@@ -143,9 +233,9 @@
     </table>
     {% with quotes=row.quotes.all %}
     {% if quotes %}
-    <h4 class="ins-section-title ins-section-title--sm" style="margin-top:1rem;">Quote comparison</h4>
-    <p class="rcq-card__hint">Do not treat different coverage as the same product. Missing values show as —.</p>
-    <table class="spaces-table" id="rr-compare">
+    <h4 class="ins-section-title ins-section-title--sm" style="margin-top:1rem;">Compare quotes</h4>
+    <p class="rcq-card__hint">Different coverage is not the same product. Missing values show as —.</p>
+    <table class="spaces-table">
       <thead>
         <tr>
           <th>Carrier</th>
@@ -177,13 +267,22 @@
           <td>{{ quote.expiration_date|default:"—" }}</td>
           <td>{{ quote.get_status_display }}</td>
           <td>
+            <div class="rcq-actions-cell">
             {% if user_can_manage_regiconnect and quote.status != "selected" %}
             <form method="post" action="{% url 'regiconnect:rater-select' quote.id %}">
               {% csrf_token %}
               <input type="hidden" name="organization" value="{{ active_org.id }}">
-              <button type="submit" class="rcq-btn">Select quote</button>
+              <button type="submit" class="rcq-btn">Send to pipeline</button>
             </form>
             {% endif %}
+            {% if user_can_manage_regiconnect and quote.quote_source == "mock" %}
+            <form method="post" action="{% url 'regiconnect:bind' quote.id %}">
+              {% csrf_token %}
+              <input type="hidden" name="organization" value="{{ active_org.id }}">
+              <button type="submit" class="rcq-btn">Bind MOCK</button>
+            </form>
+            {% endif %}
+            </div>
           </td>
         </tr>
         {% endfor %}
@@ -198,20 +297,232 @@
 {{ regiconnect_client_vehicles|json_script:"rr-vehicle-map" }}
 <script>
 (function () {
-  const map = JSON.parse(document.getElementById('rr-vehicle-map').textContent);
-  const client = document.getElementById('rr-client');
-  const vehicle = document.getElementById('rr-vehicle');
-  if (!client || !vehicle) return;
+  const mapEl = document.getElementById("rr-vehicle-map");
+  const map = mapEl ? JSON.parse(mapEl.textContent) : {};
+  const existing = document.getElementById("rr-existing-client");
+  const vehicle = document.getElementById("rr-vehicle");
+  const clientId = document.getElementById("rc-client-id");
+  const vehicleId = document.getElementById("rc-vehicle-id");
   function fillVehicles() {
-    const rows = map[String(client.value)] || [];
-    vehicle.innerHTML = rows.length ? '' : '<option value="">No vehicles on this client</option>';
+    if (!vehicle) return;
+    const rows = map[String((existing && existing.value) || (clientId && clientId.value) || "")] || [];
+    vehicle.innerHTML = rows.length ? '<option value="">Select vehicle</option>' : '<option value="">No vehicles — extract a VIN below</option>';
     rows.forEach(function (row) {
-      const opt = document.createElement('option');
+      const opt = document.createElement("option");
       opt.value = row.id;
       opt.textContent = row.label;
       vehicle.appendChild(opt);
     });
+    if (vehicleId) vehicleId.value = vehicle.value || "";
   }
-  client.addEventListener('change', fillVehicles);
+  if (existing) {
+    existing.addEventListener("change", function () {
+      if (clientId) clientId.value = existing.value || "";
+      fillVehicles();
+    });
+  }
+  if (vehicle) {
+    vehicle.addEventListener("change", function () {
+      if (vehicleId) vehicleId.value = vehicle.value || "";
+    });
+  }
+
+  const form = document.getElementById("regi-rater-form");
+  if (!form) return;
+  const orgId = "{{ active_org.id }}";
+  const csrf = "{{ csrf_token }}";
+  const driverBox = document.getElementById("rc-extra-drivers");
+  const vehicleBox = document.getElementById("rc-extra-vehicles");
+
+  function setVal(id, value) {
+    const el = document.getElementById(id);
+    if (el && value) el.value = value;
+  }
+  function postForm(url, data) {
+    const body = new URLSearchParams(data);
+    body.append("csrfmiddlewaretoken", csrf);
+    body.append("organization", orgId);
+    return fetch(url, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrf, "Content-Type": "application/x-www-form-urlencoded" },
+      body
+    }).then(function (r) { return r.json(); });
+  }
+  function uploadOcr(url, file, extra) {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("csrfmiddlewaretoken", csrf);
+    Object.keys(extra || {}).forEach(function (k) { fd.append(k, extra[k]); });
+    return fetch(url, { method: "POST", body: fd }).then(function (r) { return r.json(); });
+  }
+  function applyDriver(d) {
+    setVal("rc-first-name", d.first_name);
+    setVal("rc-middle-name", d.middle_name);
+    setVal("rc-last-name", d.last_name);
+    setVal("rc-driver-license", d.driver_license);
+    setVal("rc-dob", d.dob);
+    setVal("rc-street", d.street_address);
+    setVal("rc-apt", d.apartment);
+    setVal("rc-city", d.city);
+    setVal("rc-zip", d.zip_code);
+    if (d.state) {
+      const state = form.querySelector("[name=state]");
+      if (state) state.value = d.state;
+    }
+  }
+  function applyVehicle(d, decoded) {
+    decoded = decoded || {};
+    setVal("rc-vin", d.vin);
+    setVal("rc-year", d.year || decoded.year || "");
+    setVal("rc-make", d.make || decoded.make || "");
+    setVal("rc-model", d.model || decoded.model || "");
+    setVal("rc-plate", d.plate_number || "");
+  }
+  function toast(ok, title, text) {
+    if (window.Swal) Swal.fire(title, text, ok ? "success" : "error");
+  }
+  function savePrimaryDriver(data) {
+    return postForm("{% url 'regiconnect:capture-client' %}", data).then(function (res) {
+      if (!res.ok) throw new Error(res.error || "Could not save driver");
+      document.getElementById("rc-client-id").value = res.client_id;
+      return res;
+    });
+  }
+  function savePrimaryVehicle(data) {
+    const id = document.getElementById("rc-client-id").value;
+    if (!id) throw new Error("Extract or enter the driver first.");
+    data.client_id = id;
+    return postForm("{% url 'regiconnect:capture-vehicle' %}", data).then(function (res) {
+      if (!res.ok) throw new Error(res.error || "Could not save vehicle");
+      document.getElementById("rc-vehicle-id").value = res.vehicle_id;
+      return res;
+    });
+  }
+  function decodeVin(vin) {
+    const id = document.getElementById("rc-client-id").value || "";
+    const url = "{% url 'check-vin' %}?vin=" + encodeURIComponent(vin) + "&org_id=" + encodeURIComponent(orgId) + "&client_id=" + encodeURIComponent(id);
+    return fetch(url).then(function (r) { return r.json(); }).then(function (res) { return res.decoded || {}; });
+  }
+  document.getElementById("rc-dl-save").addEventListener("click", function () {
+    const file = document.getElementById("rc-dl-file").files[0];
+    const barcode = (document.getElementById("rc-dl-barcode").value || "").trim();
+    const run = file
+      ? (window.compressImage ? window.compressImage(file) : Promise.resolve(file)).then(function (img) {
+          return uploadOcr("{% url 'ocr-dl' %}", img);
+        })
+      : (barcode.length > 10
+          ? fetch("{% url 'ocr-dl' %}", {
+              method: "POST",
+              headers: { "X-CSRFToken": csrf, "Content-Type": "application/x-www-form-urlencoded" },
+              body: new URLSearchParams({ barcode_data: barcode, csrfmiddlewaretoken: csrf })
+            }).then(function (r) { return r.json(); })
+          : Promise.reject(new Error("Upload a license photo or paste a barcode.")));
+    run.then(function (res) {
+      if (res.status !== "success" || !res.data || res.data.status_msg) {
+        throw new Error((res.data && res.data.status_msg) || res.message || "Could not read the license.");
+      }
+      applyDriver(res.data);
+      return savePrimaryDriver(res.data);
+    }).then(function () { toast(true, "Driver saved", "Fields filled from the license."); })
+      .catch(function (err) { toast(false, "License extract failed", err.message || String(err)); });
+  });
+  document.getElementById("rc-vin-save").addEventListener("click", function () {
+    const file = document.getElementById("rc-title-file").files[0];
+    const typedVin = (document.getElementById("rc-vin").value || "").trim();
+    const start = file
+      ? (window.compressImage ? window.compressImage(file) : Promise.resolve(file)).then(function (img) {
+          return uploadOcr("{% url 'ocr-vehicle-title' %}", img);
+        })
+      : Promise.resolve({ status: "success", data: { vin: typedVin } });
+    start.then(function (res) {
+      const d = (res && res.data) || {};
+      const vin = d.vin || typedVin;
+      if (!vin) throw new Error("Enter a VIN or upload a title photo.");
+      return decodeVin(vin).then(function (decoded) {
+        applyVehicle(d, decoded);
+        return savePrimaryVehicle({
+          vin: vin,
+          year: document.getElementById("rc-year").value,
+          make: document.getElementById("rc-make").value,
+          model: document.getElementById("rc-model").value,
+          plate_number: document.getElementById("rc-plate").value
+        });
+      });
+    }).then(function () { toast(true, "Vehicle saved", "VIN decoded into the vehicle fields."); })
+      .catch(function (err) { toast(false, "VIN extract failed", err.message || String(err)); });
+  });
+  function extraDriverRow() {
+    const wrap = document.createElement("div");
+    wrap.className = "rcq-row";
+    wrap.innerHTML =
+      '<div class="rcq-row__top"><strong>Extra driver</strong><div class="rcq-actions">' +
+      '<label class="rcq-file">Upload license<input type="file" accept="image/*" data-extra-dl-file></label>' +
+      '<button type="button" class="rcq-btn" data-extra-dl-extract>Extract</button>' +
+      '<button type="button" class="rcq-btn rcq-btn--danger" data-remove>Remove</button></div></div>' +
+      '<div class="rcq-grid">' +
+      '<div><label class="field-label">Name</label><input name="extra_driver_name" class="field-input" data-name></div>' +
+      '<div><label class="field-label">Driver license</label><input name="extra_driver_dl" class="field-input" data-dl></div>' +
+      '<div><label class="field-label">Date of birth</label><input type="date" name="extra_driver_dob" class="field-input" data-dob></div>' +
+      '<div><label class="field-label">MVR points</label><input name="extra_driver_mvr_points" class="field-input" inputmode="numeric" maxlength="2" placeholder="0"></div>' +
+      '</div>';
+    wrap.querySelector("[data-remove]").addEventListener("click", function () { wrap.remove(); });
+    wrap.querySelector("[data-extra-dl-extract]").addEventListener("click", function () {
+      const file = wrap.querySelector("[data-extra-dl-file]").files[0];
+      if (!file) { toast(false, "License needed", "Upload a license photo for this driver."); return; }
+      const compress = window.compressImage ? window.compressImage(file) : Promise.resolve(file);
+      compress.then(function (img) { return uploadOcr("{% url 'ocr-dl' %}", img); }).then(function (res) {
+        const d = res.data || {};
+        if (res.status !== "success" || d.status_msg) throw new Error(d.status_msg || res.message || "Could not read license.");
+        const name = [d.first_name, d.middle_name, d.last_name].filter(Boolean).join(" ");
+        if (name) wrap.querySelector("[data-name]").value = name;
+        if (d.driver_license) wrap.querySelector("[data-dl]").value = d.driver_license;
+        if (d.dob) wrap.querySelector("[data-dob]").value = d.dob;
+        toast(true, "Extra driver", "License fields filled.");
+      }).catch(function (err) { toast(false, "Extract failed", err.message || String(err)); });
+    });
+    driverBox.appendChild(wrap);
+  }
+  function extraVehicleRow() {
+    const wrap = document.createElement("div");
+    wrap.className = "rcq-row";
+    wrap.innerHTML =
+      '<div class="rcq-row__top"><strong>Extra vehicle</strong><div class="rcq-actions">' +
+      '<label class="rcq-file">Upload title<input type="file" accept="image/*" data-extra-title-file></label>' +
+      '<button type="button" class="rcq-btn" data-extra-vin-extract>Extract / decode</button>' +
+      '<button type="button" class="rcq-btn rcq-btn--danger" data-remove>Remove</button></div></div>' +
+      '<div class="rcq-grid">' +
+      '<div class="span-2"><label class="field-label">VIN</label><input name="extra_vehicle_vin" class="field-input" maxlength="17" data-vin></div>' +
+      '<div><label class="field-label">Year</label><input name="extra_vehicle_year" class="field-input" maxlength="4" data-year></div>' +
+      '<div><label class="field-label">Make</label><input name="extra_vehicle_make" class="field-input" data-make></div>' +
+      '<div><label class="field-label">Model</label><input name="extra_vehicle_model" class="field-input" data-model></div>' +
+      '<div><label class="field-label">Plate</label><input name="extra_vehicle_plate" class="field-input" data-plate></div>' +
+      '</div>';
+    wrap.querySelector("[data-remove]").addEventListener("click", function () { wrap.remove(); });
+    wrap.querySelector("[data-extra-vin-extract]").addEventListener("click", function () {
+      const file = wrap.querySelector("[data-extra-title-file]").files[0];
+      const typedVin = (wrap.querySelector("[data-vin]").value || "").trim();
+      const start = file
+        ? (window.compressImage ? window.compressImage(file) : Promise.resolve(file)).then(function (img) {
+            return uploadOcr("{% url 'ocr-vehicle-title' %}", img);
+          })
+        : Promise.resolve({ status: "success", data: { vin: typedVin } });
+      start.then(function (res) {
+        const d = (res && res.data) || {};
+        const vin = d.vin || typedVin;
+        if (!vin) throw new Error("Enter a VIN or upload a title photo.");
+        wrap.querySelector("[data-vin]").value = vin;
+        return decodeVin(vin).then(function (decoded) {
+          wrap.querySelector("[data-year]").value = d.year || decoded.year || "";
+          wrap.querySelector("[data-make]").value = d.make || decoded.make || "";
+          wrap.querySelector("[data-model]").value = d.model || decoded.model || "";
+          if (d.plate_number) wrap.querySelector("[data-plate]").value = d.plate_number;
+          toast(true, "Extra vehicle", "VIN decoded into these fields.");
+        });
+      }).catch(function (err) { toast(false, "Extract failed", err.message || String(err)); });
+    });
+    vehicleBox.appendChild(wrap);
+  }
+  document.getElementById("rc-add-driver").addEventListener("click", extraDriverRow);
+  document.getElementById("rc-add-vehicle").addEventListener("click", extraVehicleRow);
 })();
 </script>

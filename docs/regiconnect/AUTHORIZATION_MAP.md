@@ -37,7 +37,7 @@ Vehicles: always join `client__organization`.
 
 Keep the same pattern (two flags, not dotted permission strings):
 
-- `can_view_regiconnect` — Markets/Connectivity/Submissions read.
+- `can_view_regiconnect` — Markets/Connectivity/Regi Rater read.
 - `can_manage_regiconnect` — appointments, connections, submit/retry, certification (owners/managers).
 
 Never expose credential material to any of these flags. Secrets stay in the secret backend.
