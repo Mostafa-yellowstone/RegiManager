@@ -251,6 +251,37 @@ html.portal-theme-dark .rcq-row {
     </div>
   </section>
 
+  <section class="rcq-card">
+    <div class="rcq-card__head">
+      <div>
+        <h3 class="rcq-card__title">MVR points</h3>
+        <p class="rcq-card__hint">Record points from an MVR you already have. Live DMV retrieval is not connected yet.</p>
+      </div>
+    </div>
+    <div class="rcq-grid">
+      <div>
+        <label class="field-label">Status</label>
+        <select name="mvr_status" class="field-input">
+          <option value="not_requested">Not pulled</option>
+          <option value="recorded">Recorded manually</option>
+          <option value="requested">Requested (pending)</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">Points</label>
+        <input name="mvr_points" class="field-input" inputmode="numeric" maxlength="2" placeholder="0">
+      </div>
+      <div>
+        <label class="field-label">MVR date</label>
+        <input type="date" name="mvr_date" class="field-input">
+      </div>
+      <div class="span-2">
+        <label class="field-label">Violations / notes</label>
+        <input name="mvr_notes" class="field-input" placeholder="Speeding, suspension, etc.">
+      </div>
+    </div>
+  </section>
+
   <div class="rcq-foot">
     <button type="submit" class="btn-submit rcq-submit">Submit quote</button>
   </div>
@@ -402,6 +433,7 @@ html.portal-theme-dark .rcq-row {
       '<div><label class="field-label">Name</label><input name="extra_driver_name" class="field-input" data-name></div>' +
       '<div><label class="field-label">Driver license</label><input name="extra_driver_dl" class="field-input" data-dl></div>' +
       '<div><label class="field-label">Date of birth</label><input type="date" name="extra_driver_dob" class="field-input" data-dob></div>' +
+      '<div><label class="field-label">MVR points</label><input name="extra_driver_mvr_points" class="field-input" inputmode="numeric" maxlength="2" placeholder="0"></div>' +
       '</div>';
     wrap.querySelector("[data-remove]").addEventListener("click", function () { wrap.remove(); });
     wrap.querySelector("[data-extra-dl-extract]").addEventListener("click", function () {
@@ -480,7 +512,7 @@ html.portal-theme-dark .rcq-row {
         <td>
           {% for q in s.quotes.all %}${{ q.premium }}{% empty %}—{% endfor %}
         </td>
-        <td>{{ s.canonical_payload.vehicle.vin|default:"—" }}</td>
+        <td>{{ s.canonical_payload.vehicle.vin|default:"—" }}{% if s.canonical_payload.risk.mvr_points %} · {{ s.canonical_payload.risk.mvr_points }} pts{% endif %}</td>
         <td>
           {% if user_can_manage_regiconnect %}
             {% for q in s.quotes.all %}

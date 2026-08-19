@@ -14,6 +14,14 @@ def _iso(value) -> str:
     return str(value)
 
 
+def _int(value, default=0, maximum=99) -> int:
+    try:
+        number = int(str(value).strip() or default)
+    except (TypeError, ValueError):
+        return default
+    return max(0, min(number, maximum))
+
+
 def _bool(value, default=False) -> bool:
     if value is None:
         return default
@@ -127,6 +135,9 @@ def build_canonical_payload(
                 extra.get("is_experienced"), quote_lead.is_experienced if quote_lead else False
             ),
             "mvr_status": extra.get("mvr_status") or "not_requested",
+            "mvr_points": _int(extra.get("mvr_points")),
+            "mvr_date": extra.get("mvr_date") or "",
+            "mvr_notes": extra.get("mvr_notes") or "",
         },
         "scenario": extra.get("scenario") or "",
     }

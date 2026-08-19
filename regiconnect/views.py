@@ -165,8 +165,11 @@ def submit_to_market(request):
             "name": row["extra_driver_name"],
             "driver_license": row["extra_driver_dl"],
             "dob": row["extra_driver_dob"],
+            "mvr_points": row["extra_driver_mvr_points"],
         }
-        for row in _posted_rows(request, ("extra_driver_name", "extra_driver_dl", "extra_driver_dob"))
+        for row in _posted_rows(
+            request, ("extra_driver_name", "extra_driver_dl", "extra_driver_dob", "extra_driver_mvr_points")
+        )
     ]
     extra_vehicles = [
         {
@@ -210,7 +213,10 @@ def submit_to_market(request):
             "has_accident": request.POST.get("has_accident"),
             "is_experienced": request.POST.get("is_experienced"),
             "vehicle_ownership": _posted(request, "vehicle_ownership"),
-            "mvr_status": "not_requested",
+            "mvr_status": _posted(request, "mvr_status") or "not_requested",
+            "mvr_points": _posted(request, "mvr_points"),
+            "mvr_date": _posted(request, "mvr_date"),
+            "mvr_notes": _posted(request, "mvr_notes"),
             "additional_drivers": extra_drivers,
             "additional_vehicles": extra_vehicles,
         }

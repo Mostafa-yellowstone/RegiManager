@@ -102,4 +102,10 @@ def _mock_premium(payload: dict) -> Decimal:
     risk = payload.get("risk") or {}
     if risk.get("has_accident"):
         premium += Decimal("200.00")
+    try:
+        points = int(risk.get("mvr_points") or 0)
+    except (TypeError, ValueError):
+        points = 0
+    if points > 0:
+        premium += Decimal(str(min(points, 20) * 25))
     return premium

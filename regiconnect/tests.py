@@ -331,6 +331,9 @@ class RegiConnectTests(TestCase):
                 "has_accident": True,
                 "additional_drivers": [{"name": "Sam Doe", "driver_license": "111", "dob": "2000-01-01"}],
                 "additional_vehicles": [{"vin": "1HGCM82633A004352", "year": "2018", "make": "Honda", "model": "Civic"}],
+                "mvr_status": "recorded",
+                "mvr_points": 4,
+                "mvr_notes": "Speeding",
             },
         )
         payload = submission.canonical_payload
@@ -339,9 +342,10 @@ class RegiConnectTests(TestCase):
         self.assertEqual(payload["coverage"]["type"], "full")
         self.assertEqual(payload["additional_drivers"][0]["name"], "Sam Doe")
         self.assertEqual(payload["additional_vehicles"][0]["make"], "Honda")
+        self.assertEqual(payload["risk"]["mvr_points"], 4)
         submit_and_quote(submission)
         quote = submission.quotes.get()
-        self.assertEqual(str(quote.premium), "1850.00")
+        self.assertEqual(str(quote.premium), "1950.00")
         self.assertEqual(quote.coverage.get("vin"), "1FTFW1ET1EFA00001")
 
     def test_capture_client_and_vehicle_from_extracted_fields(self):

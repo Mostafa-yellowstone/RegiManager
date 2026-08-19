@@ -12,15 +12,25 @@
 <style>
 .ins-tab-nav {
   display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 0.35rem;
-  flex-wrap: wrap;
-  padding: 0.4rem;
+  padding: 0.4rem 0.45rem;
   margin-bottom: 1.5rem;
   background: var(--portal-surface);
   border: 1px solid #c7d2fe;
   border-radius: 14px;
   box-shadow: var(--portal-shadow-sm);
   overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #a5b4fc transparent;
+}
+.ins-tab-nav::-webkit-scrollbar { height: 6px; }
+.ins-tab-nav::-webkit-scrollbar-thumb {
+  background: #a5b4fc;
+  border-radius: 999px;
 }
 .ins-tab-nav .tab-btn {
   padding: 0.7rem 1.2rem;
@@ -34,6 +44,7 @@
   color: #334155;
   margin-bottom: 0 !important;
   white-space: nowrap;
+  flex: 0 0 auto;
   transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   position: relative;
 }
@@ -50,6 +61,10 @@
 html.portal-theme-dark .ins-tab-nav {
   background: var(--portal-surface-muted);
   border-color: var(--portal-border-strong);
+  scrollbar-color: rgba(165, 180, 252, 0.55) transparent;
+}
+html.portal-theme-dark .ins-tab-nav::-webkit-scrollbar-thumb {
+  background: rgba(165, 180, 252, 0.55);
 }
 html.portal-theme-dark .ins-tab-nav .tab-btn {
   color: #cbd5e1;
