@@ -1,0 +1,57 @@
+<section class="spaces-metric" style="margin-bottom:1rem;">
+  <p style="margin:0;font-size:0.85rem;font-weight:600;color:var(--portal-text-muted);">{{ regiconnect_disclaimer }}</p>
+</section>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin-bottom:1.5rem;">
+  <div class="spaces-metric"><div class="spaces-metric-label">Active connections</div><div class="spaces-metric-value">{{ regiconnect_stats.active_connections }}</div></div>
+  <div class="spaces-metric"><div class="spaces-metric-label">Failed</div><div class="spaces-metric-value">{{ regiconnect_stats.failed_connections }}</div></div>
+  <div class="spaces-metric"><div class="spaces-metric-label">Pending jobs</div><div class="spaces-metric-value">{{ regiconnect_stats.pending_jobs }}</div></div>
+  <div class="spaces-metric"><div class="spaces-metric-label">Failed jobs</div><div class="spaces-metric-value">{{ regiconnect_stats.failed_jobs }}</div></div>
+  <div class="spaces-metric"><div class="spaces-metric-label">Dead letter</div><div class="spaces-metric-value">{{ regiconnect_stats.dlq_open }}</div></div>
+</div>
+<div class="ins-surface-card" style="overflow-x:auto;">
+  <h3 class="ins-section-title ins-section-title--sm">Connections</h3>
+  <table class="spaces-table">
+    <thead><tr><th>Market</th><th>Connector</th><th>Env</th><th>Status</th><th>Last success</th><th>Last failure</th><th></th></tr></thead>
+    <tbody>
+      {% for c in regiconnect_connections %}
+      <tr>
+        <td>{{ c.market.company.name }}</td>
+        <td>{{ c.connector.slug }}</td>
+        <td>{{ c.environment }}</td>
+        <td>{{ c.status }}</td>
+        <td>{{ c.last_success_at|date:"M j, H:i"|default:"—" }}</td>
+        <td>{{ c.last_failure_at|date:"M j, H:i"|default:"—" }}</td>
+        <td>
+          {% if user_can_manage_regiconnect %}
+          <form method="post" action="{% url 'regiconnect:certify' c.id %}">{% csrf_token %}
+            <input type="hidden" name="organization" value="{{ active_org.id }}">
+            <button class="btn-outline" type="submit">Certify</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7">No connections.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="ins-surface-card" style="overflow-x:auto;margin-top:1rem;">
+  <h3 class="ins-section-title ins-section-title--sm">Jobs</h3>
+  <table class="spaces-table">
+    <thead><tr><th>When</th><th>Op</th><th>Status</th><th>Correlation</th><th>Error</th></tr></thead>
+    <tbody>
+      {% for j in regiconnect_jobs %}
+      <tr>
+        <td>{{ j.created_at|date:"M j, H:i" }}</td>
+        <td>{{ j.operation }}</td>
+        <td>{{ j.status }}</td>
+        <td><code>{{ j.correlation_id }}</code></td>
+        <td>{{ j.last_error|truncatechars:80|default:"—" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">No jobs yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

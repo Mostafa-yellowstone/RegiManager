@@ -943,6 +943,11 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       <button type="button" class="tab-btn" id="tab-targets-btn" onclick="switchTab('targets')">🎯 Targets &amp; Forecast</button>
       <button type="button" class="tab-btn" id="tab-daily-payments-btn" onclick="switchTab('daily-payments')">💳 Daily Payments</button>
       <button type="button" class="tab-btn" id="tab-agents-btn" onclick="switchTab('agents')">👥 Agent Auditing</button>
+      {% if user_can_view_regiconnect %}
+      <button type="button" class="tab-btn" id="tab-regi-markets-btn" onclick="switchTab('regi-markets')">Markets &amp; Access</button>
+      <button type="button" class="tab-btn" id="tab-regi-connectivity-btn" onclick="switchTab('regi-connectivity')">Connectivity</button>
+      <button type="button" class="tab-btn" id="tab-regi-submissions-btn" onclick="switchTab('regi-submissions')">Submissions</button>
+      {% endif %}
     </nav>
 
     <!-- INSURANCE CRM TAB -->
@@ -1785,7 +1790,17 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       </div>
     </div>
 
-  </div>
+    {% if user_can_view_regiconnect %}
+    <div id="tab-regi-markets" class="tab-panel" style="display: none;">
+      {% include "regiconnect/markets_tab.html" %}
+    </div>
+    <div id="tab-regi-connectivity" class="tab-panel" style="display: none;">
+      {% include "regiconnect/connectivity_tab.html" %}
+    </div>
+    <div id="tab-regi-submissions" class="tab-panel" style="display: none;">
+      {% include "regiconnect/submissions_tab.html" %}
+    </div>
+    {% endif %}
 </main>
 
 <!-- BRANDING MODAL -->
@@ -2197,7 +2212,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
 <!-- REJECT INSURANCE INTAKE MODAL -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const tabs = ['insurance', 'quote-pipeline'{% if user_can_view_banking %}, 'companies', 'banking'{% endif %}, 'reporting', 'esign', 'targets', 'daily-payments', 'agents'];
+const tabs = ['insurance', 'quote-pipeline'{% if user_can_view_banking %}, 'companies', 'banking'{% endif %}, 'reporting', 'esign', 'targets', 'daily-payments', 'agents'{% if user_can_view_regiconnect %}, 'regi-markets', 'regi-connectivity', 'regi-submissions'{% endif %}];
 let premiumChart = null;
 let profitChart = null;
 

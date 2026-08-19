@@ -1,0 +1,63 @@
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin-bottom:1.5rem;">
+  <div class="spaces-metric"><div class="spaces-metric-label">Submissions today</div><div class="spaces-metric-value">{{ regiconnect_stats.submissions_today }}</div></div>
+  <div class="spaces-metric"><div class="spaces-metric-label">Quotes today</div><div class="spaces-metric-value">{{ regiconnect_stats.quotes_today }}</div></div>
+  <div class="spaces-metric"><div class="spaces-metric-label">Binds today</div><div class="spaces-metric-value">{{ regiconnect_stats.binds_today }}</div></div>
+  <div class="spaces-metric"><div class="spaces-metric-label">Documents today</div><div class="spaces-metric-value">{{ regiconnect_stats.documents_today }}</div></div>
+</div>
+{% if user_can_manage_regiconnect and regiconnect_connections %}
+<form method="post" action="{% url 'regiconnect:submit' %}" style="margin-bottom:1.25rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.75rem;align-items:end;">
+  {% csrf_token %}
+  <input type="hidden" name="organization" value="{{ active_org.id }}">
+  <div>
+    <label class="field-label">Connection</label>
+    <select name="connection_id" class="field-input" required>
+      {% for c in regiconnect_connections %}<option value="{{ c.id }}">{{ c.market.company.name }} · {{ c.connector.slug }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="field-label">CRM client</label>
+    <select name="client_id" class="field-input">
+      <option value="">— Optional —</option>
+      {% for cl in clients %}<option value="{{ cl.id }}">{{ cl.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="field-label">State</label>
+    <input name="state" value="NY" class="field-input" maxlength="2">
+  </div>
+  <div>
+    <label class="field-label">Line</label>
+    <input name="line_of_business" value="auto_personal" class="field-input">
+  </div>
+  <button type="submit" class="btn-submit" style="width:auto;padding:10px 16px;">Submit to mock/market</button>
+</form>
+{% endif %}
+<div class="ins-surface-card" style="overflow-x:auto;">
+  <h3 class="ins-section-title ins-section-title--sm">Submissions</h3>
+  <table class="spaces-table">
+    <thead><tr><th>ID</th><th>Market</th><th>Status</th><th>External</th><th>Correlation</th><th></th></tr></thead>
+    <tbody>
+      {% for s in regiconnect_submissions %}
+      <tr>
+        <td>{{ s.id }}</td>
+        <td>{{ s.market.company.name }}</td>
+        <td>{{ s.get_status_display }}</td>
+        <td>{{ s.external_reference|default:"—" }}</td>
+        <td><code>{{ s.correlation_id }}</code></td>
+        <td>
+          {% if user_can_manage_regiconnect %}
+            {% for q in s.quotes.all %}
+            <form method="post" action="{% url 'regiconnect:bind' q.id %}" style="display:inline;">{% csrf_token %}
+              <input type="hidden" name="organization" value="{{ active_org.id }}">
+              <button class="btn-outline" type="submit">Bind quote v{{ q.version }}</button>
+            </form>
+            {% endfor %}
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">No submissions.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

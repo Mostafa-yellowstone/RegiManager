@@ -222,6 +222,14 @@ class OrganizationMembership(models.Model):
         default=False,
         help_text="Can this agent manage email marketing lists, CRM contacts, and campaigns?",
     )
+    can_view_regiconnect = models.BooleanField(
+        default=False,
+        help_text="Can this member view Markets & Access, Connectivity, and Submissions in Insurance Space?",
+    )
+    can_manage_regiconnect = models.BooleanField(
+        default=False,
+        help_text="Can this member manage appointments, connections, submissions, retries, and certification?",
+    )
     accessible_spaces = models.ManyToManyField(
         "Space",
         blank=True,

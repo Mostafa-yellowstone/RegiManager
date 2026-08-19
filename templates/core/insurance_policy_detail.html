@@ -183,6 +183,11 @@ html.portal-theme-dark .ins-overview-table.ins-table td {
           <dt>Effective</dt><dd>{{ policy.start_date|date:"M j, Y"|default:"—" }}</dd>
           <dt>Expiration</dt><dd>{{ policy.end_date|date:"M j, Y"|default:"—" }}</dd>
           <dt>Renewal</dt><dd>{% if policy.renewal_date %}{{ policy.renewal_date|date:"M j, Y" }}{% else %}{{ policy.end_date|date:"M j, Y"|default:"—" }}{% endif %}</dd>
+          {% if policy_connectivity %}
+          <dt>External Policy #</dt><dd>{{ policy_connectivity.external_policy_number|default:"—" }}</dd>
+          <dt>Connectivity</dt><dd>{{ policy_connectivity.connectivity_status|default:"—" }}</dd>
+          <dt>Last Sync</dt><dd>{{ policy_connectivity.last_sync_at|date:"M j, Y H:i"|default:"—" }}</dd>
+          {% endif %}
         </dl>
       </div>
       <div class="ins-overview-card">

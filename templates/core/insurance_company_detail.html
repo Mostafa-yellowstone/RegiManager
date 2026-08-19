@@ -516,6 +516,24 @@ html.portal-theme-dark .company-license-box__title { color: var(--portal-text); 
       <div class="metric-card"><div class="metric-label">Unearned (Return)</div><div class="metric-value" style="color: var(--red); font-size: 1.4rem;">${{ total_unearned|floatformat:2 }}</div></div>
     </div>
 
+    {% if company_market %}
+    <div class="section-card" style="margin-bottom: 1.5rem;">
+      <div class="section-header">
+        <h2 class="section-title">Market Access &amp; Connectivity</h2>
+      </div>
+      <div style="padding:1.15rem 1.5rem;">
+        <p style="margin:0 0 0.75rem;font-size:0.85rem;color:var(--muted);font-weight:600;">{{ regiconnect_disclaimer }}</p>
+        <dl class="ins-overview-dl" style="display:grid;grid-template-columns:auto 1fr;gap:0.4rem 1rem;">
+          <dt>Type</dt><dd>{{ company_market.get_market_type_display }}</dd>
+          <dt>Market status</dt><dd>{{ company_market.get_status_display }}</dd>
+          <dt>NAIC</dt><dd>{{ company_market.naic|default:"—" }}</dd>
+          <dt>States</dt><dd>{{ company_market.states|default:"—" }}</dd>
+          <dt>Connection</dt><dd>{{ company_connection.status|default:"Not connected" }}{% if company_connection %} · {{ company_connection.environment }}{% endif %}</dd>
+        </dl>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Policies CRM -->
     <div class="section-card company-policies-crm">
       <div class="section-header">

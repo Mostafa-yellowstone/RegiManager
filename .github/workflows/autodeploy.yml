@@ -25,7 +25,7 @@ jobs:
           DEBUG: "True"
           CELERY_TASK_ALWAYS_EAGER: "True"
           USE_REDIS_CACHE: "False"
-        run: python manage.py test core --verbosity=1
+        run: python manage.py test core regiconnect --verbosity=1
 
   deploy:
     needs: test

@@ -20,6 +20,8 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
 
+from regiconnect.urls import api_urlpatterns
+
 from core.agent_portal_views import (
     agent_attendance_tracker,
     agent_portal_create_task,
@@ -388,6 +390,8 @@ urlpatterns = [
     path('api/agent/activity/', AgentActivityView.as_view(), name='api-agent-activity'),
     path('api/agent/attendance/', AgentAttendanceView.as_view(), name='api-agent-attendance'),
     path('api/push/register/', MobilePushDeviceRegisterView.as_view(), name='api-push-register'),
+    path("regiconnect/", include("regiconnect.urls")),
+    path("api/regiconnect/", include((api_urlpatterns, "regiconnect"), namespace="regiconnect-api")),
     path('api/schema/', AuthenticatedSpectacularAPIView.as_view(), name='schema'),
     path('api/docs/swagger/', AuthenticatedSpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/docs/redoc/', AuthenticatedSpectacularRedocView.as_view(url_name='schema'), name='redoc'),

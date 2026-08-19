@@ -29,6 +29,8 @@ ROLE_FLAG_FIELDS = (
     "can_manage_knowledge_hub",
     "can_manage_documents",
     "can_manage_email_marketing",
+    "can_view_regiconnect",
+    "can_manage_regiconnect",
 )
 
 _FALSE_PACK = {field: False for field in ROLE_FLAG_FIELDS}
@@ -44,6 +46,8 @@ ROLE_PACKS: dict[str, dict[str, bool]] = {
         "can_manage_news": True,
         "can_manage_knowledge_hub": True,
         "can_manage_email_marketing": True,
+        "can_view_regiconnect": True,
+        "can_manage_regiconnect": True,
         "can_delete_receipt": True,
         "can_issue_refund": True,
         # Pack B: Finance/Reports overview only — no banking edits
@@ -60,6 +64,8 @@ ROLE_PACKS: dict[str, dict[str, bool]] = {
         "can_view_spaces": True,
         "can_deal_with_insurance": False,
         "can_assign_agent_tasks": False,
+        "can_view_regiconnect": True,
+        "can_manage_regiconnect": False,
     },
     Role.INSURANCE_AGENT: {
         **_FALSE_PACK,
@@ -69,6 +75,8 @@ ROLE_PACKS: dict[str, dict[str, bool]] = {
         "can_deal_with_tlc": True,
         "can_view_banking": False,
         "can_assign_agent_tasks": False,
+        "can_view_regiconnect": True,
+        "can_manage_regiconnect": False,
     },
     Role.AGENT: {
         **_FALSE_PACK,

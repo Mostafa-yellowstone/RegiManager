@@ -52,7 +52,7 @@ def insurance_policy_detail(request, policy_id):
     organizations = _user_orgs(request)
     policy = get_object_or_404(
         InsurancePolicy.objects.select_related(
-            "client", "insurance_company", "added_by", "organization"
+            "client", "insurance_company", "added_by", "organization", "regi_connectivity"
         ),
         id=policy_id,
         organization__in=organizations,
@@ -67,6 +67,9 @@ def insurance_policy_detail(request, policy_id):
     space = _insurance_space_for_org(policy.organization)
     membership = membership_for_org(request.user, policy.organization)
     is_owner = is_org_owner(request.user, policy.organization, membership)
+    from regiconnect.models import PolicyConnectivity
+
+    policy_connectivity = PolicyConnectivity.objects.filter(policy=policy).first()
 
     overview_named_insured = (
         policy.named_insured
@@ -98,6 +101,7 @@ def insurance_policy_detail(request, policy_id):
                 membership=membership,
                 is_owner=is_owner,
             ),
+            "policy_connectivity": policy_connectivity,
         },
     )
 

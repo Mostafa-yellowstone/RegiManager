@@ -86,6 +86,12 @@
                 <dd>{{ lead.get_heard_about_display }}</dd>
               </div>
               {% endif %}
+              {% if lead.regi_connectivity %}
+              <div class="iqp-card__meta-row">
+                <dt>Market quote</dt>
+                <dd>{{ lead.regi_connectivity.get_quote_source_display }}{% if lead.regi_connectivity.premium %} · ${{ lead.regi_connectivity.premium }}{% endif %}{% if lead.regi_connectivity.external_reference %} · {{ lead.regi_connectivity.external_reference }}{% endif %}</dd>
+              </div>
+              {% endif %}
             </dl>
 
             <div class="iqp-card__grid">

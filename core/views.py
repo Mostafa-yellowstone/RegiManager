@@ -6579,6 +6579,17 @@ def inventory_detail(request, inventory_id):
             "can_edit_insurance_targets": can_edit_insurance_targets,
             **esign_tab,
         }
+        from regiconnect.permissions import can_manage_regiconnect, can_view_regiconnect
+        from regiconnect.dashboard import space_context as regi_space_context
+
+        context["user_can_view_regiconnect"] = can_view_regiconnect(
+            request.user, active_org, membership=membership
+        )
+        context["user_can_manage_regiconnect"] = can_manage_regiconnect(
+            request.user, active_org, membership=membership
+        )
+        if context["user_can_view_regiconnect"]:
+            context.update(regi_space_context(active_org))
         return render(request, "core/insurance_space.html", context)
 
     if card.key == "custom_inventory":
@@ -8225,6 +8236,15 @@ def insurance_company_detail(request, company_id):
         pass
     license_status = company_license_status(company)
 
+    from regiconnect.models import Connection, MarketProfile
+
+    company_market = MarketProfile.objects.filter(company=company).first()
+    company_connection = None
+    if company_market:
+        company_connection = (
+            Connection.objects.filter(market=company_market).order_by("-updated_at").first()
+        )
+
     return render(request, "core/insurance_company_detail.html", {
         "company": company,
         "active_org": active_org,
@@ -8261,6 +8281,12 @@ def insurance_company_detail(request, company_id):
         "insurance_source_choices": INSURANCE_SOURCE_CHOICES,
         "can_manage_commission": can_manage_commission,
         "license_status": license_status,
+        "company_market": company_market,
+        "company_connection": company_connection,
+        "regiconnect_disclaimer": (
+            "RegiConnect provides connectivity infrastructure. Actual carrier access requires "
+            "appointment, contract, and authorization from the market."
+        ),
         "broker_arrangement_choices": InsuranceCompany.BrokerArrangement.choices,
     })
 
