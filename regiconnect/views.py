@@ -12,8 +12,9 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from core.access import organizations_for_user
 from core.http import deny_access
-from core.models import Client, InsuranceCompany, Space
+from core.models import Client, InsuranceCompany, Space, Vehicle
 
+from .capture import upsert_client_from_scan, upsert_vehicle_from_scan
 from .catalog import ensure_builtin_connectors
 from .certification import run_certification
 from .engines import create_submission, request_bind, submit_and_quote, ValidationError
@@ -32,6 +33,13 @@ def _org(request, org_id=None):
             deny_access("Organization not found.")
         return org
     return orgs.first()
+
+
+def _space_redirect(org, tab):
+    space = Space.objects.filter(organization=org, key="insurance").first()
+    if space:
+        return redirect(f"{reverse('inventory-detail', args=[space.id])}?tab={tab}")
+    return redirect("spaces-home")
 
 
 @login_required
@@ -98,10 +106,7 @@ def create_mock_market_bundle(request):
         request,
         f"تم تجهيز التجربة الوهمية لـ {company.name}. المفروض تلاقي صف للشركة في الجدول تحت.",
     )
-    space = Space.objects.filter(organization=org, key="insurance").first()
-    if space:
-        return redirect(f"{reverse('inventory-detail', args=[space.id])}?tab=regi-markets")
-    return redirect("spaces-home")
+    return _space_redirect(org, "regi-markets")
 
 
 @login_required
@@ -118,9 +123,24 @@ def submit_to_market(request):
         id=request.POST.get("connection_id"),
         organization=org,
     )
-    client = None
-    if request.POST.get("client_id"):
-        client = get_object_or_404(Client, id=request.POST.get("client_id"), organization=org)
+    client = get_object_or_404(Client, id=request.POST.get("client_id"), organization=org)
+    vehicle = get_object_or_404(Vehicle, id=request.POST.get("vehicle_id"), client=client)
+    extra_drivers = []
+    extra_name = (request.POST.get("extra_driver_name") or "").strip()
+    extra_dl = (request.POST.get("extra_driver_dl") or "").strip()
+    extra_dob = (request.POST.get("extra_driver_dob") or "").strip()
+    if extra_name or extra_dl:
+        extra_drivers.append({"name": extra_name, "driver_license": extra_dl, "dob": extra_dob})
+    extra = {
+        "name": client.name,
+        "coverage_type": request.POST.get("coverage_type") or "liability",
+        "has_prior": request.POST.get("has_prior"),
+        "has_accident": request.POST.get("has_accident"),
+        "is_experienced": request.POST.get("is_experienced"),
+        "vehicle_ownership": request.POST.get("vehicle_ownership") or "",
+        "mvr_status": "not_requested",
+        "additional_drivers": extra_drivers,
+    }
     try:
         submission = create_submission(
             organization=org,
@@ -128,9 +148,10 @@ def submit_to_market(request):
             connection=connection,
             actor=request.user,
             client=client,
-            state=request.POST.get("state") or "NY",
+            vehicle=vehicle,
+            state=request.POST.get("state") or client.state or "NY",
             line_of_business=request.POST.get("line_of_business") or "auto_personal",
-            extra={"name": request.POST.get("name") or (client.name if client else "Quote")},
+            extra=extra,
             scenario=request.POST.get("scenario") or "quote",
         )
         submit_and_quote(submission)
@@ -151,12 +172,7 @@ def submit_to_market(request):
         messages.error(request, str(exc))
     except Exception as exc:
         messages.error(request, f"فشل الإرسال: {exc}")
-    space = Space.objects.filter(organization=org, key="insurance").first()
-    if space:
-        from django.urls import reverse
-
-        return redirect(f"{reverse('inventory-detail', args=[space.id])}?tab=regi-submissions")
-    return redirect("spaces-home")
+    return _space_redirect(org, "regi-submissions")
 
 
 @login_required
@@ -219,12 +235,68 @@ def certify_connection(request, connection_id):
         messages.success(request, f"Certification {run.status}.")
     except MissingCarrierSpec as exc:
         messages.error(request, str(exc))
-    space = Space.objects.filter(organization=org, key="insurance").first()
-    if space:
-        from django.urls import reverse
+    return _space_redirect(org, "regi-connectivity")
 
-        return redirect(f"{reverse('inventory-detail', args=[space.id])}?tab=regi-connectivity")
-    return redirect("spaces-home")
+
+@login_required
+def client_vehicles(request):
+    org = _org(request, request.GET.get("organization"))
+    membership = require_insurance_space(request, org)
+    if not can_view_regiconnect(request.user, org, membership):
+        deny_access("You cannot view connectivity.")
+    client = get_object_or_404(Client, id=request.GET.get("client_id"), organization=org)
+    rows = [
+        {
+            "id": vehicle.id,
+            "label": f"{vehicle.year or ''} {vehicle.make} {vehicle.model} · {vehicle.vin}".strip(),
+        }
+        for vehicle in client.vehicles.all()
+    ]
+    return JsonResponse({"vehicles": rows})
+
+
+@login_required
+@require_POST
+def capture_client(request):
+    org = _org(request, request.POST.get("organization"))
+    membership = require_insurance_space(request, org)
+    if not can_manage_regiconnect(request.user, org, membership):
+        deny_access("You cannot manage connectivity.")
+    try:
+        client, created = upsert_client_from_scan(organization=org, data=request.POST)
+    except ValueError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+    return JsonResponse(
+        {
+            "ok": True,
+            "created": created,
+            "client_id": client.id,
+            "label": client.name,
+        }
+    )
+
+
+@login_required
+@require_POST
+def capture_vehicle(request):
+    org = _org(request, request.POST.get("organization"))
+    membership = require_insurance_space(request, org)
+    if not can_manage_regiconnect(request.user, org, membership):
+        deny_access("You cannot manage connectivity.")
+    client = get_object_or_404(Client, id=request.POST.get("client_id"), organization=org)
+    try:
+        vehicle, created = upsert_vehicle_from_scan(client=client, data=request.POST)
+    except ValueError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+    return JsonResponse(
+        {
+            "ok": True,
+            "created": created,
+            "vehicle_id": vehicle.id,
+            "client_id": client.id,
+            "label": f"{vehicle.year or ''} {vehicle.make} {vehicle.model} · {vehicle.vin}".strip(),
+        }
+    )
 
 
 @csrf_exempt

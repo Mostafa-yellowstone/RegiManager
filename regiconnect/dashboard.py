@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from django.utils import timezone
 
+from core.models import Vehicle
+
 from .catalog import ensure_builtin_connectors
 from .models import (
     Appointment,
@@ -34,6 +36,16 @@ def space_context(organization) -> dict:
         .order_by("-created_at")[:50]
     )
     jobs = ConnectorJob.objects.filter(organization=organization)
+    vehicle_map = {}
+    for vehicle in Vehicle.objects.filter(client__organization=organization).only(
+        "id", "client_id", "year", "make", "model", "vin"
+    )[:800]:
+        vehicle_map.setdefault(str(vehicle.client_id), []).append(
+            {
+                "id": vehicle.id,
+                "label": f"{vehicle.year or ''} {vehicle.make} {vehicle.model} · {vehicle.vin}".strip(),
+            }
+        )
     return {
         "regiconnect_markets": list(
             MarketProfile.objects.filter(organization=organization)
@@ -83,6 +95,7 @@ def space_context(organization) -> dict:
             ).count(),
         },
         "regiconnect_jobs": list(jobs.select_related("connection__connector").order_by("-created_at")[:40]),
+        "regiconnect_client_vehicles": vehicle_map,
         "regiconnect_disclaimer": (
             "RegiConnect provides connectivity infrastructure. Actual carrier access requires "
             "appointment, contract, and authorization from the market. This is not free access "

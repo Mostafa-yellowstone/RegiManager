@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from django.utils import timezone
 
 from core.insurance_quote_distribution import assign_lead
 from core.insurance_quote_pipeline_models import InsuranceQuoteLead
-from core.models import Client, DailyPaymentTransaction, InsurancePolicy
+from core.models import Client, DailyPaymentTransaction, InsurancePolicy, InsurancePolicyDriver, InsurancePolicyVehicle
 
 from .models import (
     BindTransaction,
@@ -43,6 +43,7 @@ def ingest_quote(quote: CanonicalQuote) -> InsuranceQuoteLead:
             stage=InsuranceQuoteLead.Stage.QUOTED,
             notes="Created from RegiConnect quote.",
         )
+        _apply_canonical_to_lead(lead, submission.canonical_payload or {})
         submission.quote_lead = lead
         submission.save(update_fields=["quote_lead", "updated_at"])
         if submission.created_by_id:
@@ -116,6 +117,7 @@ def ingest_bind(bind: BindTransaction, *, policy_number: str) -> InsurancePolicy
         end_date=end,
         added_by=submission.created_by,
     )
+    _copy_canonical_onto_policy(policy, submission.canonical_payload or {}, start, end)
     PolicyConnectivity.objects.update_or_create(
         policy=policy,
         defaults={
@@ -164,6 +166,90 @@ def ingest_bind(bind: BindTransaction, *, policy_number: str) -> InsurancePolicy
         correlation_id=bind.correlation_id,
     )
     return policy
+
+
+def _apply_canonical_to_lead(lead, payload: dict) -> None:
+    driver = payload.get("driver") or {}
+    vehicle = payload.get("vehicle") or {}
+    risk = payload.get("risk") or {}
+    coverage = payload.get("coverage") or {}
+    fields = []
+    if not lead.dl_number and driver.get("driver_license"):
+        lead.dl_number = str(driver["driver_license"])[:40]
+        fields.append("dl_number")
+    if not lead.date_of_birth and driver.get("dob"):
+        raw = driver["dob"]
+        parsed = raw if hasattr(raw, "year") else None
+        if parsed is None:
+            try:
+                parsed = datetime.strptime(str(raw)[:10], "%Y-%m-%d").date()
+            except ValueError:
+                parsed = None
+        if parsed:
+            lead.date_of_birth = parsed
+            fields.append("date_of_birth")
+    if not lead.vin and vehicle.get("vin"):
+        lead.vin = str(vehicle["vin"])[:32]
+        fields.append("vin")
+    if not lead.vehicle_year and vehicle.get("year"):
+        lead.vehicle_year = str(vehicle["year"])[:4]
+        fields.append("vehicle_year")
+    if not lead.vehicle_make and vehicle.get("make"):
+        lead.vehicle_make = str(vehicle["make"])[:80]
+        fields.append("vehicle_make")
+    if not lead.vehicle_model and vehicle.get("model"):
+        lead.vehicle_model = str(vehicle["model"])[:80]
+        fields.append("vehicle_model")
+    if not lead.coverage_type and coverage.get("type"):
+        lead.coverage_type = str(coverage["type"])[:20]
+        fields.append("coverage_type")
+    if risk.get("has_accident") and not lead.has_accident:
+        lead.has_accident = True
+        fields.append("has_accident")
+    if risk.get("has_prior") and not lead.has_prior:
+        lead.has_prior = True
+        fields.append("has_prior")
+    addr = driver.get("address") or {}
+    if not lead.zip_code and addr.get("zip_code"):
+        lead.zip_code = str(addr["zip_code"])[:10]
+        fields.append("zip_code")
+    if not lead.city and addr.get("city"):
+        lead.city = str(addr["city"])[:100]
+        fields.append("city")
+    if not lead.street_address and addr.get("street"):
+        lead.street_address = str(addr["street"])[:200]
+        fields.append("street_address")
+    if fields:
+        lead.save(update_fields=fields + ["updated_at"])
+
+
+def _copy_canonical_onto_policy(policy, payload: dict, start, end) -> None:
+    vehicle = payload.get("vehicle") or {}
+    driver = payload.get("driver") or {}
+    if vehicle.get("vin") or vehicle.get("make") or vehicle.get("year"):
+        year = vehicle.get("year")
+        try:
+            year_int = int(year) if year else None
+        except (TypeError, ValueError):
+            year_int = None
+        InsurancePolicyVehicle.objects.create(
+            policy=policy,
+            auto_number=1,
+            year=year_int,
+            make=(vehicle.get("make") or "")[:60],
+            vin=(vehicle.get("vin") or "")[:17],
+            plate_number=(vehicle.get("plate_number") or "")[:50],
+            effective_date=start,
+            expiration_date=end,
+        )
+    name = driver.get("name") or payload.get("name") or ""
+    if name:
+        InsurancePolicyDriver.objects.create(
+            policy=policy,
+            name=str(name)[:200],
+            effective_date=start,
+            expiry_date=end,
+        )
 
 
 def store_documents(submission, docs: list) -> None:

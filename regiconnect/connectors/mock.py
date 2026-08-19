@@ -39,7 +39,11 @@ class MockCarrierConnector(InsuranceConnector):
             return {"status": "declined", "reason": "Mock decline"}
         if scenario == "refer":
             return {"status": "referred", "reason": "Mock referral"}
-        premium = Decimal("1200.00")
+        payload = submission.canonical_payload or {}
+        premium = _mock_premium(payload)
+        vehicle = payload.get("vehicle") or {}
+        driver = payload.get("driver") or {}
+        coverage = payload.get("coverage") or {}
         return {
             "status": "quoted",
             "external_reference": f"MOCK-Q-{submission.id}",
@@ -49,7 +53,12 @@ class MockCarrierConnector(InsuranceConnector):
             "total": str(premium + Decimal("39.00")),
             "effective_date": str(date.today()),
             "expiration_date": str(date.today() + timedelta(days=180)),
-            "coverage": {"type": submission.line_of_business or "auto_personal"},
+            "coverage": {
+                "type": coverage.get("type") or submission.line_of_business or "auto_personal",
+                "vin": vehicle.get("vin") or "",
+                "driver_license": driver.get("driver_license") or "",
+                "mock": True,
+            },
         }
 
     def request_bind(self, connection, bind) -> dict[str, Any]:
@@ -73,3 +82,24 @@ def _scenario(submission) -> str:
     extra = getattr(getattr(submission, "extension", None), "scenario", "") or ""
     notes = (submission.canonical_payload or {}).get("scenario") or ""
     return (extra or notes or "quote").lower()
+
+
+def _mock_premium(payload: dict) -> Decimal:
+    """Sandbox illustration only — not a real underwriting rate."""
+    premium = Decimal("1200.00")
+    vehicle = payload.get("vehicle") or {}
+    try:
+        year = int(vehicle.get("year") or 0)
+    except (TypeError, ValueError):
+        year = 0
+    if year >= 2022:
+        premium += Decimal("150.00")
+    elif year and year <= 2010:
+        premium -= Decimal("100.00")
+    coverage = payload.get("coverage") or {}
+    if (coverage.get("type") or "").lower() == "full":
+        premium += Decimal("300.00")
+    risk = payload.get("risk") or {}
+    if risk.get("has_accident"):
+        premium += Decimal("200.00")
+    return premium

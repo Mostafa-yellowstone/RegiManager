@@ -18,6 +18,7 @@ from .models import (
     Submission,
     SubmissionExtension,
 )
+from .canonical import build_canonical_payload
 from .runtime import audit, dispatch_job, enqueue_job, enqueue_outbox, remember_idempotency
 
 
@@ -27,14 +28,12 @@ class ValidationError(TerminalConnectorError):
 
 def canonical_from_client(client, *, state="", line_of_business="", extra=None) -> dict:
     extra = extra or {}
-    return {
-        "client_id": client.id if client else None,
-        "name": getattr(client, "name", "") if client else extra.get("name") or "",
-        "state": (state or getattr(client, "state", "") or extra.get("state") or "").upper(),
-        "zip_code": getattr(client, "zip_code", "") if client else extra.get("zip_code") or "",
-        "line_of_business": line_of_business or extra.get("line_of_business") or "",
-        "scenario": extra.get("scenario") or "",
-    }
+    return build_canonical_payload(
+        client=client,
+        extra=extra,
+        state=state,
+        line_of_business=line_of_business,
+    )
 
 
 def create_submission(
@@ -44,6 +43,7 @@ def create_submission(
     connection: Connection,
     actor,
     client=None,
+    vehicle=None,
     quote_lead=None,
     state="",
     line_of_business="",
@@ -51,11 +51,13 @@ def create_submission(
     scenario="",
 ) -> Submission:
     extra = extra or {}
-    canonical = canonical_from_client(
-        client,
+    canonical = build_canonical_payload(
+        client=client,
+        vehicle=vehicle,
+        quote_lead=quote_lead,
+        extra=extra,
         state=state or (quote_lead.state if quote_lead else ""),
         line_of_business=line_of_business or (getattr(quote_lead, "insurance_type", "") if quote_lead else ""),
-        extra=extra,
     )
     if scenario:
         canonical["scenario"] = scenario

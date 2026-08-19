@@ -3,7 +3,10 @@ from django.urls import path
 from .api import ConnectionListView, ConnectivityDashboardView, SubmissionListView
 from .views import (
     bind_quote,
+    capture_client,
+    capture_vehicle,
     certify_connection,
+    client_vehicles,
     create_mock_market_bundle,
     inbound_webhook,
     retry_dlq_item,
@@ -15,6 +18,9 @@ app_name = "regiconnect"
 urlpatterns = [
     path("markets/mock-bundle/", create_mock_market_bundle, name="mock-bundle"),
     path("submissions/create/", submit_to_market, name="submit"),
+    path("capture/client/", capture_client, name="capture-client"),
+    path("capture/vehicle/", capture_vehicle, name="capture-vehicle"),
+    path("clients/vehicles/", client_vehicles, name="client-vehicles"),
     path("quotes/<int:quote_id>/bind/", bind_quote, name="bind"),
     path("dlq/<int:item_id>/retry/", retry_dlq_item, name="dlq-retry"),
     path("connections/<int:connection_id>/certify/", certify_connection, name="certify"),

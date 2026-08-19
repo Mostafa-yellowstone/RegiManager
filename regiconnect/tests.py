@@ -2,8 +2,9 @@ from django.test import TestCase, override_settings
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django.utils import timezone
+from datetime import date
 
-from core.models import Client, InsuranceCompany, InsurancePolicy, Organization, OrganizationMembership, Space
+from core.models import Client, InsuranceCompany, InsurancePolicy, Organization, OrganizationMembership, Space, Vehicle
 from core.role_permissions import apply_role_permission_pack
 from core.insurance_quote_pipeline_models import InsuranceQuoteLead
 
@@ -76,6 +77,13 @@ class RegiConnectTests(TestCase):
             code="P-99",
             state="NY",
             line_of_business="auto_personal",
+        )
+        self.car = Vehicle.objects.create(
+            client=self.insured,
+            vin="1HGCM82633A004352",
+            year=2015,
+            make="Honda",
+            model="Accord",
         )
         self.connector = Connector.objects.get(slug="mock")
         self.connection = Connection.objects.create(
@@ -260,6 +268,7 @@ class RegiConnectTests(TestCase):
                     "organization": self.org.id,
                     "connection_id": self.connection.id,
                     "client_id": self.insured.id,
+                    "vehicle_id": self.car.id,
                     "state": "NY",
                     "line_of_business": "auto_personal",
                 },
@@ -289,3 +298,82 @@ class RegiConnectTests(TestCase):
                 organization=self.org, market=self.market, status=Appointment.Status.ACTIVE
             ).exists()
         )
+
+    def test_canonical_payload_includes_driver_and_vehicle(self):
+        self.insured.driver_license = "123456789"
+        self.insured.dob = date(1990, 5, 5)
+        self.insured.save(update_fields=["driver_license", "dob"])
+        car = Vehicle.objects.create(
+            client=self.insured,
+            vin="1FTFW1ET1EFA00001",
+            year=2023,
+            make="Ford",
+            model="F150",
+        )
+        submission = create_submission(
+            organization=self.org,
+            market=self.market,
+            connection=self.connection,
+            actor=self.owner_user,
+            client=self.insured,
+            vehicle=car,
+            extra={
+                "idempotency_key": "payload-1",
+                "coverage_type": "full",
+                "has_accident": True,
+                "additional_drivers": [{"name": "Sam Doe", "driver_license": "111", "dob": "2000-01-01"}],
+            },
+        )
+        payload = submission.canonical_payload
+        self.assertEqual(payload["vehicle"]["vin"], "1FTFW1ET1EFA00001")
+        self.assertEqual(payload["driver"]["driver_license"], "123456789")
+        self.assertEqual(payload["coverage"]["type"], "full")
+        self.assertEqual(payload["additional_drivers"][0]["name"], "Sam Doe")
+        submit_and_quote(submission)
+        quote = submission.quotes.get()
+        self.assertEqual(str(quote.premium), "1850.00")
+        self.assertEqual(quote.coverage.get("vin"), "1FTFW1ET1EFA00001")
+
+    def test_capture_client_and_vehicle_from_extracted_fields(self):
+        self.client.login(username="rcowner", password="password123")
+        created = self.client.post(
+            reverse("regiconnect:capture-client"),
+            {
+                "organization": self.org.id,
+                "first_name": "Omar",
+                "last_name": "Ali",
+                "driver_license": "987654321",
+                "dob": "1991-05-05",
+                "state": "NY",
+                "city": "Bronx",
+            },
+        )
+        self.assertEqual(created.status_code, 200)
+        body = created.json()
+        self.assertTrue(body["ok"])
+        client = Client.objects.get(id=body["client_id"])
+        self.assertEqual(client.driver_license, "987654321")
+        vehicle_resp = self.client.post(
+            reverse("regiconnect:capture-vehicle"),
+            {
+                "organization": self.org.id,
+                "client_id": client.id,
+                "vin": "1HGCM82633A004352",
+                "year": "2018",
+                "make": "Honda",
+                "model": "Civic",
+            },
+        )
+        self.assertEqual(vehicle_resp.status_code, 200)
+        self.assertTrue(vehicle_resp.json()["ok"])
+        denied = self.client.post(
+            reverse("regiconnect:capture-vehicle"),
+            {
+                "organization": self.org.id,
+                "client_id": Client.objects.create(
+                    organization=self.other, first_name="Other", last_name="Person"
+                ).id,
+                "vin": "1HGCM82633A004352",
+            },
+        )
+        self.assertEqual(denied.status_code, 404)
