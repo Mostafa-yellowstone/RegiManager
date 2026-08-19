@@ -33,16 +33,19 @@ def _fill(instance, field, value):
     return False
 
 
-def upsert_client_from_scan(*, organization, data: dict) -> tuple[Client, bool]:
+def upsert_client_from_scan(*, organization, data: dict, overwrite: bool = False) -> tuple[Client, bool]:
     first = (data.get("first_name") or "").strip()
     last = (data.get("last_name") or "").strip()
     license_no = (data.get("driver_license") or "").replace(" ", "").strip()
     if not first and not last and not license_no:
         raise ValueError("Scan did not include a name or driver license.")
 
+    pk = str(data.get("client_id") or data.get("id") or "").strip()
     client = None
     created = False
-    if license_no:
+    if pk.isdigit():
+        client = Client.objects.filter(organization=organization, id=int(pk)).first()
+    if client is None and license_no:
         client = Client.objects.filter(organization=organization, driver_license=license_no).first()
     if client is None:
         client = Client(
@@ -89,12 +92,18 @@ def upsert_client_from_scan(*, organization, data: dict) -> tuple[Client, bool]:
             setattr(client, field, value)
             updates.append(field)
             continue
+        if overwrite and value not in (None, ""):
+            if getattr(client, field) != value:
+                setattr(client, field, value)
+                updates.append(field)
+            continue
         if _fill(client, field, value):
             updates.append(field)
     dob = parse_date(data.get("dob"))
-    if dob and not client.dob:
-        client.dob = dob
-        updates.append("dob")
+    if dob and (overwrite or not client.dob):
+        if client.dob != dob:
+            client.dob = dob
+            updates.append("dob")
     if updates:
         client.save(update_fields=list(dict.fromkeys(updates)))
     return client, False

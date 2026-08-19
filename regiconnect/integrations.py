@@ -242,6 +242,25 @@ def _copy_canonical_onto_policy(policy, payload: dict, start, end) -> None:
             effective_date=start,
             expiration_date=end,
         )
+    auto_n = 2
+    for extra in payload.get("additional_vehicles") or []:
+        if not (extra.get("vin") or extra.get("make") or extra.get("year")):
+            continue
+        try:
+            extra_year = int(extra.get("year")) if extra.get("year") else None
+        except (TypeError, ValueError):
+            extra_year = None
+        InsurancePolicyVehicle.objects.create(
+            policy=policy,
+            auto_number=auto_n,
+            year=extra_year,
+            make=(extra.get("make") or "")[:60],
+            vin=(extra.get("vin") or "")[:17],
+            plate_number=(extra.get("plate_number") or "")[:50],
+            effective_date=start,
+            expiration_date=end,
+        )
+        auto_n += 1
     name = driver.get("name") or payload.get("name") or ""
     if name:
         InsurancePolicyDriver.objects.create(
@@ -250,6 +269,15 @@ def _copy_canonical_onto_policy(policy, payload: dict, start, end) -> None:
             effective_date=start,
             expiry_date=end,
         )
+    for extra in payload.get("additional_drivers") or []:
+        extra_name = extra.get("name") or extra.get("driver_license")
+        if extra_name:
+            InsurancePolicyDriver.objects.create(
+                policy=policy,
+                name=str(extra_name)[:200],
+                effective_date=start,
+                expiry_date=end,
+            )
 
 
 def store_documents(submission, docs: list) -> None:

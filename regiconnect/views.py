@@ -42,6 +42,21 @@ def _space_redirect(org, tab):
     return redirect("spaces-home")
 
 
+def _posted(request, key):
+    return (request.POST.get(key) or "").strip()
+
+
+def _posted_rows(request, keys):
+    lists = {key: request.POST.getlist(key) for key in keys}
+    count = max((len(values) for values in lists.values()), default=0)
+    rows = []
+    for index in range(count):
+        row = {key: (lists[key][index] if index < len(lists[key]) else "").strip() for key in keys}
+        if any(row.values()):
+            rows.append(row)
+    return rows
+
+
 @login_required
 @require_POST
 def create_mock_market_bundle(request):
@@ -102,10 +117,7 @@ def create_mock_market_bundle(request):
     if connection.status != Connection.Status.ACTIVE:
         connection.status = Connection.Status.ACTIVE
         connection.save(update_fields=["status", "updated_at"])
-    messages.success(
-        request,
-        f"تم تجهيز التجربة الوهمية لـ {company.name}. المفروض تلاقي صف للشركة في الجدول تحت.",
-    )
+    messages.success(request, f"Mock sandbox is ready for {company.name}.")
     return _space_redirect(org, "regi-markets")
 
 
@@ -123,25 +135,85 @@ def submit_to_market(request):
         id=request.POST.get("connection_id"),
         organization=org,
     )
-    client = get_object_or_404(Client, id=request.POST.get("client_id"), organization=org)
-    vehicle = get_object_or_404(Vehicle, id=request.POST.get("vehicle_id"), client=client)
-    extra_drivers = []
-    extra_name = (request.POST.get("extra_driver_name") or "").strip()
-    extra_dl = (request.POST.get("extra_driver_dl") or "").strip()
-    extra_dob = (request.POST.get("extra_driver_dob") or "").strip()
-    if extra_name or extra_dl:
-        extra_drivers.append({"name": extra_name, "driver_license": extra_dl, "dob": extra_dob})
-    extra = {
-        "name": client.name,
-        "coverage_type": request.POST.get("coverage_type") or "liability",
-        "has_prior": request.POST.get("has_prior"),
-        "has_accident": request.POST.get("has_accident"),
-        "is_experienced": request.POST.get("is_experienced"),
-        "vehicle_ownership": request.POST.get("vehicle_ownership") or "",
-        "mvr_status": "not_requested",
-        "additional_drivers": extra_drivers,
+    driver_data = {
+        "client_id": _posted(request, "client_id"),
+        "first_name": _posted(request, "first_name"),
+        "middle_name": _posted(request, "middle_name"),
+        "last_name": _posted(request, "last_name"),
+        "driver_license": _posted(request, "driver_license"),
+        "dob": _posted(request, "dob"),
+        "gender": _posted(request, "gender"),
+        "phone_number": _posted(request, "phone_number"),
+        "email": _posted(request, "email"),
+        "building_no": _posted(request, "building_no"),
+        "street_address": _posted(request, "street_address"),
+        "apartment": _posted(request, "apartment"),
+        "city": _posted(request, "city"),
+        "state": _posted(request, "state") or "NY",
+        "zip_code": _posted(request, "zip_code"),
+        "county": _posted(request, "county"),
     }
+    vehicle_data = {
+        "vin": _posted(request, "vin"),
+        "year": _posted(request, "year"),
+        "make": _posted(request, "make"),
+        "model": _posted(request, "model"),
+        "plate_number": _posted(request, "plate_number"),
+    }
+    extra_drivers = [
+        {
+            "name": row["extra_driver_name"],
+            "driver_license": row["extra_driver_dl"],
+            "dob": row["extra_driver_dob"],
+        }
+        for row in _posted_rows(request, ("extra_driver_name", "extra_driver_dl", "extra_driver_dob"))
+    ]
+    extra_vehicles = [
+        {
+            "vin": row["extra_vehicle_vin"],
+            "year": row["extra_vehicle_year"],
+            "make": row["extra_vehicle_make"],
+            "model": row["extra_vehicle_model"],
+            "plate_number": row["extra_vehicle_plate"],
+        }
+        for row in _posted_rows(
+            request,
+            ("extra_vehicle_vin", "extra_vehicle_year", "extra_vehicle_make", "extra_vehicle_model", "extra_vehicle_plate"),
+        )
+    ]
+    has_driver_fields = any(
+        driver_data[key]
+        for key in ("first_name", "last_name", "driver_license", "street_address", "phone_number")
+    )
+    client = None
+    if driver_data["client_id"]:
+        client = get_object_or_404(Client, id=driver_data["client_id"], organization=org)
     try:
+        if has_driver_fields:
+            client, _ = upsert_client_from_scan(organization=org, data=driver_data, overwrite=True)
+        if client is None:
+            raise ValidationError("Enter driver details or extract a license first.")
+        vehicle = None
+        if _posted(request, "vehicle_id"):
+            vehicle = get_object_or_404(Vehicle, id=_posted(request, "vehicle_id"), client=client)
+        if vehicle_data["vin"]:
+            vehicle, _ = upsert_vehicle_from_scan(client=client, data=vehicle_data)
+        if vehicle is None:
+            raise ValidationError("Enter a VIN or extract a title first.")
+        for extra in extra_vehicles:
+            if extra.get("vin"):
+                upsert_vehicle_from_scan(client=client, data=extra)
+        extra = {
+            "name": client.name,
+            "coverage_type": _posted(request, "coverage_type") or "liability",
+            "has_prior": request.POST.get("has_prior"),
+            "has_accident": request.POST.get("has_accident"),
+            "is_experienced": request.POST.get("is_experienced"),
+            "vehicle_ownership": _posted(request, "vehicle_ownership"),
+            "mvr_status": "not_requested",
+            "additional_drivers": extra_drivers,
+            "additional_vehicles": extra_vehicles,
+        }
         submission = create_submission(
             organization=org,
             market=connection.market,
@@ -149,10 +221,10 @@ def submit_to_market(request):
             actor=request.user,
             client=client,
             vehicle=vehicle,
-            state=request.POST.get("state") or client.state or "NY",
-            line_of_business=request.POST.get("line_of_business") or "auto_personal",
+            state=driver_data["state"] or client.state or "NY",
+            line_of_business=_posted(request, "line_of_business") or "auto_personal",
             extra=extra,
-            scenario=request.POST.get("scenario") or "quote",
+            scenario=_posted(request, "scenario") or "quote",
         )
         submit_and_quote(submission)
         submission.refresh_from_db()
@@ -160,18 +232,18 @@ def submit_to_market(request):
         if quote:
             messages.success(
                 request,
-                f"الكوت الوهمي جاهز: ${quote.premium} — شوف الجدول تحت، وبعدين Quote Pipeline.",
+                f"Mock quote ready: ${quote.premium}. Review the table below, then Quote Pipeline.",
             )
         else:
             messages.warning(
                 request,
-                f"الطلب اتسجل بحالة {submission.get_status_display()}."
-                + (f" السبب: {submission.last_error}" if submission.last_error else ""),
+                f"Submission status is {submission.get_status_display()}."
+                + (f" {submission.last_error}" if submission.last_error else ""),
             )
     except ValidationError as exc:
         messages.error(request, str(exc))
     except Exception as exc:
-        messages.error(request, f"فشل الإرسال: {exc}")
+        messages.error(request, f"Submit failed: {exc}")
     return _space_redirect(org, "regi-submissions")
 
 
@@ -187,11 +259,11 @@ def bind_quote(request, quote_id):
         bind = request_bind(quote, actor=request.user)
         bind.refresh_from_db()
         if bind.status == bind.Status.BOUND:
-            messages.success(request, "البوليسي اتسجلت في Insurance CRM (رقم MOCK-POL).")
+            messages.success(request, "Policy saved in Insurance CRM (MOCK-POL).")
         else:
             messages.warning(
                 request,
-                f"الربط لسه {bind.get_status_display()}."
+                f"Bind is still {bind.get_status_display()}."
                 + (f" {bind.last_error}" if bind.last_error else ""),
             )
     except ValidationError as exc:

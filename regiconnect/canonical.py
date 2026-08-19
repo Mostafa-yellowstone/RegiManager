@@ -118,6 +118,7 @@ def build_canonical_payload(
         "driver": driver,
         "vehicle": veh,
         "additional_drivers": extra_drivers,
+        "additional_vehicles": list(extra.get("additional_vehicles") or []),
         "coverage": {"type": coverage_type or "liability"},
         "risk": {
             "has_prior": _bool(extra.get("has_prior"), quote_lead.has_prior if quote_lead else False),

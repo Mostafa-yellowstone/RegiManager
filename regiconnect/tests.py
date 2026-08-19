@@ -269,6 +269,12 @@ class RegiConnectTests(TestCase):
                     "connection_id": self.connection.id,
                     "client_id": self.insured.id,
                     "vehicle_id": self.car.id,
+                    "extra_driver_name": "Sam Doe",
+                    "extra_driver_dl": "111222333",
+                    "extra_vehicle_vin": "1FTFW1ET1EFA00001",
+                    "extra_vehicle_year": "2018",
+                    "extra_vehicle_make": "Ford",
+                    "extra_vehicle_model": "F150",
                     "state": "NY",
                     "line_of_business": "auto_personal",
                 },
@@ -279,6 +285,8 @@ class RegiConnectTests(TestCase):
         self.assertEqual(submission.status, Submission.Status.QUOTED)
         quote = submission.quotes.get()
         self.assertEqual(str(quote.premium), "1200.00")
+        self.assertEqual(submission.canonical_payload["additional_drivers"][0]["name"], "Sam Doe")
+        self.assertEqual(submission.canonical_payload["additional_vehicles"][0]["vin"], "1FTFW1ET1EFA00001")
 
     def test_mock_bundle_activates_existing_pending_rows(self):
         Appointment.objects.filter(organization=self.org).update(status=Appointment.Status.PENDING)
@@ -322,6 +330,7 @@ class RegiConnectTests(TestCase):
                 "coverage_type": "full",
                 "has_accident": True,
                 "additional_drivers": [{"name": "Sam Doe", "driver_license": "111", "dob": "2000-01-01"}],
+                "additional_vehicles": [{"vin": "1HGCM82633A004352", "year": "2018", "make": "Honda", "model": "Civic"}],
             },
         )
         payload = submission.canonical_payload
@@ -329,6 +338,7 @@ class RegiConnectTests(TestCase):
         self.assertEqual(payload["driver"]["driver_license"], "123456789")
         self.assertEqual(payload["coverage"]["type"], "full")
         self.assertEqual(payload["additional_drivers"][0]["name"], "Sam Doe")
+        self.assertEqual(payload["additional_vehicles"][0]["make"], "Honda")
         submit_and_quote(submission)
         quote = submission.quotes.get()
         self.assertEqual(str(quote.premium), "1850.00")
