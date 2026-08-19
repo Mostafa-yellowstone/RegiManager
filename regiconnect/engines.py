@@ -49,16 +49,20 @@ def create_submission(
     line_of_business="",
     extra=None,
     scenario="",
+    canonical=None,
 ) -> Submission:
     extra = extra or {}
-    canonical = build_canonical_payload(
-        client=client,
-        vehicle=vehicle,
-        quote_lead=quote_lead,
-        extra=extra,
-        state=state or (quote_lead.state if quote_lead else ""),
-        line_of_business=line_of_business or (getattr(quote_lead, "insurance_type", "") if quote_lead else ""),
-    )
+    if canonical is None:
+        canonical = build_canonical_payload(
+            client=client,
+            vehicle=vehicle,
+            quote_lead=quote_lead,
+            extra=extra,
+            state=state or (quote_lead.state if quote_lead else ""),
+            line_of_business=line_of_business or (getattr(quote_lead, "insurance_type", "") if quote_lead else ""),
+        )
+    else:
+        canonical = dict(canonical)
     if scenario:
         canonical["scenario"] = scenario
     idem = extra.get("idempotency_key") or f"sub-{organization.id}-{uuid.uuid4().hex}"
@@ -228,6 +232,27 @@ def apply_connector_result(job, result: dict) -> None:
         return
     if op == "quote":
         submission = Submission.objects.select_related("market", "connection").get(pk=payload["submission_id"])
+        if payload.get("rating_job_id"):
+            from regiconnect.rater.orchestrator import on_connector_job_update
+
+            status = (result.get("status") or "quoted").lower()
+            if status == "declined":
+                submission.status = Submission.Status.DECLINED
+                submission.last_error = str(result.get("reason") or "Declined")
+                submission.save(update_fields=["status", "last_error", "updated_at"])
+            elif status == "referred":
+                submission.status = Submission.Status.REFERRED
+                submission.save(update_fields=["status", "updated_at"])
+            elif status in {"pending", "queued", "rating"}:
+                submission.status = Submission.Status.SUBMITTING
+                submission.last_error = str(result.get("reason") or "")
+                submission.save(update_fields=["status", "last_error", "updated_at"])
+            else:
+                submission.status = Submission.Status.QUOTED
+                submission.external_reference = str(result.get("external_reference") or submission.external_reference)
+                submission.save(update_fields=["status", "external_reference", "updated_at"])
+            on_connector_job_update(job, result=result)
+            return
         status = (result.get("status") or "quoted").lower()
         if status == "declined":
             submission.status = Submission.Status.DECLINED
@@ -243,9 +268,12 @@ def apply_connector_result(job, result: dict) -> None:
         taxes = Decimal(str(result.get("taxes") or "0"))
         fees = Decimal(str(result.get("fees") or "0"))
         total = Decimal(str(result.get("total") or (premium + taxes + fees)))
+        connector_slug = getattr(getattr(submission.connection, "connector", None), "slug", "") or ""
+        is_mock = connector_slug == "mock"
         quote = CanonicalQuote.objects.create(
             organization=submission.organization,
             submission=submission,
+            connection=submission.connection,
             market=submission.market,
             version=version,
             premium=premium,
@@ -255,6 +283,14 @@ def apply_connector_result(job, result: dict) -> None:
             coverage=result.get("coverage") or {},
             effective_date=result.get("effective_date") or None,
             expiration_date=result.get("expiration_date") or None,
+            quoted_at=timezone.now(),
+            status=CanonicalQuote.Status.QUOTED,
+            quote_source=(
+                CanonicalQuote.QuoteSource.MOCK if is_mock else CanonicalQuote.QuoteSource.OTHER
+            ),
+            premium_class=CanonicalQuote.PremiumClass.ESTIMATED,
+            environment=submission.connection.environment,
+            provider_slug=connector_slug,
             external_reference=str(result.get("external_reference") or ""),
         )
         submission.status = Submission.Status.QUOTED

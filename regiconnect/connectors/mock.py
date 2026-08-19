@@ -16,6 +16,18 @@ class MockCarrierConnector(InsuranceConnector):
     version = "1.0"
     missing_carrier_spec = False
 
+    def capabilities(self) -> dict[str, bool]:
+        caps = super().capabilities()
+        caps.update(
+            {
+                "supportsRating": True,
+                "supportsQuote": True,
+                "supportsRealTimeRating": True,
+                "supportsAsyncRating": True,
+            }
+        )
+        return caps
+
     def health_check(self, connection) -> dict[str, Any]:
         return {"ok": True, "connector": self.slug, "environment": connection.environment}
 
@@ -39,6 +51,18 @@ class MockCarrierConnector(InsuranceConnector):
             return {"status": "declined", "reason": "Mock decline"}
         if scenario == "refer":
             return {"status": "referred", "reason": "Mock referral"}
+        if scenario == "invalid":
+            raise TerminalConnectorError("Mock carrier rejected invalid request.")
+        if scenario == "error":
+            raise TerminalConnectorError("Mock carrier error")
+        if scenario == "delay":
+            payload = dict(submission.canonical_payload or {})
+            seen = int(payload.get("_mock_quote_calls") or 0) + 1
+            payload["_mock_quote_calls"] = seen
+            submission.canonical_payload = payload
+            submission.save(update_fields=["canonical_payload", "updated_at"])
+            if seen < 2:
+                return {"status": "pending", "reason": "Mock delayed quote"}
         payload = submission.canonical_payload or {}
         premium = _mock_premium(payload)
         vehicle = payload.get("vehicle") or {}

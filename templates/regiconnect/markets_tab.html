@@ -24,18 +24,19 @@
 <div class="ins-surface-card" style="overflow-x:auto;">
   <h3 class="ins-section-title ins-section-title--sm">My markets</h3>
   <table class="spaces-table">
-    <thead><tr><th>Company</th><th>Type</th><th>Status</th><th>NAIC</th><th>States</th></tr></thead>
+    <thead><tr><th>Company</th><th>Type</th><th>Channel</th><th>Status</th><th>NAIC</th><th>States</th></tr></thead>
     <tbody>
       {% for m in regiconnect_markets %}
       <tr>
         <td>{{ m.company.name }}</td>
         <td>{{ m.get_market_type_display }}</td>
+        <td>{{ m.get_market_channel_display }}</td>
         <td>{{ m.get_status_display }}</td>
         <td>{{ m.naic|default:"—" }}</td>
         <td>{{ m.states|default:"—" }}</td>
       </tr>
       {% empty %}
-      <tr><td colspan="5">No market profiles yet. Existing Companies stay as they are until a profile is attached.</td></tr>
+      <tr><td colspan="6">No market profiles yet. Existing Companies stay as they are until a profile is attached.</td></tr>
       {% endfor %}
     </tbody>
   </table>

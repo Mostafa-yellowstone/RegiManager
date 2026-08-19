@@ -17,6 +17,7 @@ from .models import (
     DocumentExchange,
     MarketProfile,
     ProducerCode,
+    RatingRequest,
     Submission,
 )
 
@@ -96,6 +97,39 @@ def space_context(organization) -> dict:
         },
         "regiconnect_jobs": list(jobs.select_related("connection__connector").order_by("-created_at")[:40]),
         "regiconnect_client_vehicles": vehicle_map,
+        "regi_rater_requests": list(
+            RatingRequest.objects.filter(organization=organization)
+            .select_related("client")
+            .prefetch_related("jobs__market__company", "quotes__market__company")
+            .order_by("-created_at")[:40]
+        ),
+        "regi_rater_stats": {
+            "in_progress": RatingRequest.objects.filter(
+                organization=organization,
+                status__in=[
+                    RatingRequest.Status.RATING,
+                    RatingRequest.Status.PARTIAL_RESULTS,
+                    RatingRequest.Status.VALIDATING,
+                    RatingRequest.Status.ELIGIBILITY_CHECK,
+                    RatingRequest.Status.READY,
+                ],
+            ).count(),
+            "completed": RatingRequest.objects.filter(
+                organization=organization, status=RatingRequest.Status.COMPLETED
+            ).count(),
+            "partial": RatingRequest.objects.filter(
+                organization=organization, status=RatingRequest.Status.PARTIAL_RESULTS
+            ).count(),
+            "referred": RatingRequest.objects.filter(
+                organization=organization, status=RatingRequest.Status.REFERRED
+            ).count(),
+            "failed": RatingRequest.objects.filter(
+                organization=organization, status=RatingRequest.Status.FAILED
+            ).count(),
+            "expired": RatingRequest.objects.filter(
+                organization=organization, status=RatingRequest.Status.EXPIRED
+            ).count(),
+        },
         "regiconnect_disclaimer": (
             "RegiConnect provides connectivity infrastructure. Actual carrier access requires "
             "appointment, contract, and authorization from the market. This is not free access "

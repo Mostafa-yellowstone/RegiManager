@@ -15,6 +15,11 @@ Tabs (native `switchTab`, persisted in `localStorage`):
 | `targets` | Targets & Forecast | Space access |
 | `daily-payments` | Daily Payments | Space access (clear requires banking) |
 | `agents` | Agent Auditing | Space access |
+| `regi-markets` | Markets & Access | `can_view_regiconnect` (owners bypass) |
+| `regi-connectivity` | Connectivity | same |
+| `regi-submissions` | Submissions | same; **one market per submit**, mock-labeled quotes |
+
+**Regi Rater** tab is **not** shipped. Phase 2 orchestrator exists in `regiconnect/rater/orchestrator.py` (no UI yet).
 
 ## Module responsibilities (preserve)
 
@@ -42,9 +47,10 @@ Tabs (native `switchTab`, persisted in `localStorage`):
 - **TLC Space** has its own policy/carrier-name registry (`TLCCarrier`). Do not merge into RegiConnect Markets.
 - **Email marketing** can assign CRM contacts to insurance agents; it is not quoting.
 
-## Quote systems (two, disconnected)
+## Quote systems (two, plus connectivity — still not a rater)
 
-1. Pipeline lead (`InsuranceQuoteLead`) — work queue.
+1. Pipeline lead (`InsuranceQuoteLead`) — work queue / agent distribution. No premium column.
 2. CRM policy with `stage=quote` — book of business.
+3. `regiconnect.CanonicalQuote` — result of **one** `Submission` to **one** connection (mock today).
 
-Won pipeline leads do **not** create policies. RegiConnect must not invent a third quote board; it must feed (1) and optionally bind into (2).
+Won pipeline leads do **not** create policies. Regi Rater must not invent a fourth quote board; it must feed (1) after compare/select and bind into (2).

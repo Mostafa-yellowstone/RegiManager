@@ -7,7 +7,7 @@ from .models import Connector
 
 def ensure_builtin_connectors():
     mock = MockCarrierConnector()
-    Connector.objects.get_or_create(
+    Connector.objects.update_or_create(
         slug=mock.slug,
         defaults={
             "display_name": mock.display_name,

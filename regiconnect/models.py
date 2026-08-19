@@ -21,6 +21,10 @@ class MarketProfile(models.Model):
         DISTRIBUTION_PARTNER = "distribution_partner", "Distribution Partner"
         OTHER = "other", "Other"
 
+    class MarketChannel(models.TextChoices):
+        VOLUNTARY = "voluntary", "Voluntary"
+        ASSIGNED_RISK = "assigned_risk", "Assigned Risk"
+
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         ACTIVE = "active", "Active"
@@ -39,6 +43,12 @@ class MarketProfile(models.Model):
         related_name="market_profile",
     )
     market_type = models.CharField(max_length=32, choices=MarketType.choices, default=MarketType.CARRIER)
+    market_channel = models.CharField(
+        max_length=20,
+        choices=MarketChannel.choices,
+        default=MarketChannel.VOLUNTARY,
+        help_text="Assigned Risk (e.g. NYAIP) is not a voluntary carrier the agent can shop like Progressive.",
+    )
     naic = models.CharField(max_length=20, blank=True, default="")
     states = models.JSONField(default=list, blank=True)
     lines_of_business = models.JSONField(default=list, blank=True)
@@ -402,16 +412,64 @@ class SubmissionExtension(models.Model):
 class CanonicalQuote(models.Model):
     class Status(models.TextChoices):
         RECEIVED = "received", "Received"
+        QUOTED = "quoted", "Quoted"
         UPDATED = "updated", "Updated"
+        REFERRED = "referred", "Referred"
+        DECLINED = "declined", "Declined"
+        ERROR = "error", "Error"
         EXPIRED = "expired", "Expired"
         SELECTED = "selected", "Selected"
+        BOUND = "bound", "Bound"
+        CANCELLED = "cancelled", "Cancelled"
+
+    class QuoteSource(models.TextChoices):
+        MOCK = "mock", "Mock / Test"
+        DIRECT_CARRIER = "direct_carrier", "Direct carrier"
+        MGA = "mga", "MGA"
+        AUTHORIZED_PROVIDER = "authorized_provider", "Authorized provider"
+        EZLYNX = "ezlynx", "EZLynx (optional)"
+        MANUAL = "manual", "Manual"
+        OTHER = "other", "Other"
+
+    class PremiumClass(models.TextChoices):
+        ESTIMATED = "estimated", "Estimated"
+        INDICATIVE = "indicative", "Indicative"
+        FINAL = "final", "Final"
+        BOUND = "bound", "Bound"
 
     organization = models.ForeignKey(
         "core.Organization",
         on_delete=models.CASCADE,
         related_name="regiconnect_quotes",
     )
-    submission = models.ForeignKey(Submission, on_delete=models.CASCADE, related_name="quotes")
+    submission = models.ForeignKey(
+        Submission,
+        on_delete=models.CASCADE,
+        related_name="quotes",
+        null=True,
+        blank=True,
+    )
+    rating_request = models.ForeignKey(
+        "RatingRequest",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="quotes",
+    )
+    rating_job = models.ForeignKey(
+        "RatingJob",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="quotes",
+    )
+    connection = models.ForeignKey(
+        "Connection",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="quotes",
+    )
     market = models.ForeignKey(MarketProfile, on_delete=models.CASCADE, related_name="quotes")
     version = models.PositiveIntegerField(default=1)
     premium = models.DecimalField(max_digits=12, decimal_places=2)
@@ -421,13 +479,259 @@ class CanonicalQuote(models.Model):
     coverage = models.JSONField(default=dict, blank=True)
     effective_date = models.DateField(null=True, blank=True)
     expiration_date = models.DateField(null=True, blank=True)
+    quoted_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.RECEIVED)
+    quote_source = models.CharField(
+        max_length=32,
+        choices=QuoteSource.choices,
+        default=QuoteSource.OTHER,
+        help_text="Mock quotes must use MOCK and must never be shown as a carrier rate.",
+    )
+    premium_class = models.CharField(
+        max_length=20,
+        choices=PremiumClass.choices,
+        default=PremiumClass.ESTIMATED,
+    )
+    environment = models.CharField(max_length=20, blank=True, default="")
+    mapping_version = models.CharField(max_length=40, blank=True, default="")
+    provider_slug = models.CharField(max_length=80, blank=True, default="")
     external_reference = models.CharField(max_length=120, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-version"]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(submission__isnull=False) | models.Q(rating_job__isnull=False),
+                name="regiconnect_quote_has_parent",
+            ),
+            models.UniqueConstraint(
+                fields=["submission", "version"],
+                condition=models.Q(submission__isnull=False),
+                name="regiconnect_quote_submission_version",
+            ),
+            models.UniqueConstraint(
+                fields=["rating_job", "version"],
+                condition=models.Q(rating_job__isnull=False),
+                name="regiconnect_quote_rating_job_version",
+            ),
+        ]
+
+
+class RatingRequest(models.Model):
+    """Comparative rating session. Does not replace InsuranceQuoteLead or Client."""
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        VALIDATING = "validating", "Validating"
+        ELIGIBILITY_CHECK = "eligibility_check", "Eligibility check"
+        READY = "ready", "Ready"
+        RATING = "rating", "Rating"
+        PARTIAL_RESULTS = "partial_results", "Partial results"
+        COMPLETED = "completed", "Completed"
+        REFERRED = "referred", "Referred"
+        NO_MARKET = "no_market", "No market"
+        FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
+        EXPIRED = "expired", "Expired"
+
+    class RatingMode(models.TextChoices):
+        REAL_TIME = "real_time", "Real time"
+        ASYNC = "async", "Asynchronous"
+        MIXED = "mixed", "Mixed"
+
+    class TransactionType(models.TextChoices):
+        NEW_BUSINESS = "new_business", "New business"
+        ENDORSEMENT = "endorsement", "Endorsement"
+        RENEWAL = "renewal", "Renewal"
+
+    organization = models.ForeignKey(
+        "core.Organization",
+        on_delete=models.CASCADE,
+        related_name="regi_rater_requests",
+    )
+    client = models.ForeignKey(
+        "core.Client",
+        on_delete=models.PROTECT,
+        related_name="regi_rater_requests",
+    )
+    quote_lead = models.ForeignKey(
+        "core.InsuranceQuoteLead",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="regi_rater_requests",
+        help_text="Optional link to the existing Quote Pipeline lead after select, or a seed lead.",
+    )
+    state = models.CharField(max_length=2, blank=True, default="")
+    line_of_business = models.CharField(max_length=40, blank=True, default="auto_personal")
+    effective_date = models.DateField(null=True, blank=True)
+    transaction_type = models.CharField(
+        max_length=20,
+        choices=TransactionType.choices,
+        default=TransactionType.NEW_BUSINESS,
+    )
+    rating_mode = models.CharField(
+        max_length=20,
+        choices=RatingMode.choices,
+        default=RatingMode.MIXED,
+    )
+    status = models.CharField(max_length=24, choices=Status.choices, default=Status.DRAFT)
+    canonical_snapshot = models.JSONField(default=dict, blank=True)
+    coverage = models.JSONField(default=dict, blank=True)
+    correlation_id = models.CharField(max_length=64, default=_uuid, db_index=True)
+    idempotency_key = models.CharField(max_length=120, db_index=True)
+    last_error = models.TextField(blank=True, default="")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="regi_rater_requests_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "idempotency_key"],
+                name="regiconnect_rating_request_idempotent",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["organization", "status", "-created_at"]),
+            models.Index(fields=["organization", "client"]),
+        ]
+
+
+class RatingJob(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        EXCLUDED = "excluded", "Excluded"
+        QUEUED = "queued", "Queued"
+        RATING = "rating", "Rating"
+        QUOTED = "quoted", "Quoted"
+        REFERRED = "referred", "Referred"
+        DECLINED = "declined", "Declined"
+        FAILED = "failed", "Failed"
+        CANCELLED = "cancelled", "Cancelled"
+        EXPIRED = "expired", "Expired"
+
+    class Eligibility(models.TextChoices):
+        ELIGIBLE = "eligible", "Eligible"
+        INELIGIBLE = "ineligible", "Ineligible"
+        REFER = "refer", "Refer"
+        UNKNOWN = "unknown", "Unknown"
+        UNAVAILABLE = "unavailable", "Unavailable"
+
+    organization = models.ForeignKey(
+        "core.Organization",
+        on_delete=models.CASCADE,
+        related_name="regi_rater_jobs",
+    )
+    rating_request = models.ForeignKey(RatingRequest, on_delete=models.CASCADE, related_name="jobs")
+    market = models.ForeignKey(MarketProfile, on_delete=models.CASCADE, related_name="rating_jobs")
+    connection = models.ForeignKey(
+        Connection,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="rating_jobs",
+    )
+    submission = models.ForeignKey(
+        Submission,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="rating_jobs",
+    )
+    connector_job = models.ForeignKey(
+        ConnectorJob,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="rating_jobs",
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    eligibility = models.CharField(
+        max_length=20,
+        choices=Eligibility.choices,
+        default=Eligibility.UNKNOWN,
+    )
+    eligibility_reason = models.TextField(blank=True, default="")
+    error_category = models.CharField(max_length=40, blank=True, default="")
+    last_error = models.TextField(blank=True, default="")
+    correlation_id = models.CharField(max_length=64, default=_uuid, db_index=True)
+    idempotency_key = models.CharField(max_length=120, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["rating_request", "market"],
+                name="regiconnect_rating_job_request_market",
+            )
+        ]
+        indexes = [models.Index(fields=["organization", "status"])]
+
+
+class RatingExtension(models.Model):
+    """Carrier-specific answers. Do not add these fields to Client."""
+
+    rating_request = models.ForeignKey(RatingRequest, on_delete=models.CASCADE, related_name="extensions")
+    market = models.ForeignKey(MarketProfile, on_delete=models.CASCADE, related_name="rating_extensions")
+    extra = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["rating_request", "market"],
+                name="regiconnect_rating_extension_unique",
+            )
+        ]
+
+
+class RatingError(models.Model):
+    class Category(models.TextChoices):
+        VALIDATION_ERROR = "validation_error", "Validation"
+        AUTHENTICATION_ERROR = "authentication_error", "Authentication"
+        AUTHORIZATION_ERROR = "authorization_error", "Authorization"
+        RATE_LIMIT = "rate_limit", "Rate limit"
+        TIMEOUT = "timeout", "Timeout"
+        CARRIER_ERROR = "carrier_error", "Carrier"
+        UNSUPPORTED = "unsupported", "Unsupported"
+        DECLINE = "decline", "Decline"
+        REFERRAL = "referral", "Referral"
+        SYSTEM_ERROR = "system_error", "System"
+        NETWORK_ERROR = "network_error", "Network"
+
+    organization = models.ForeignKey(
+        "core.Organization",
+        on_delete=models.CASCADE,
+        related_name="regi_rater_errors",
+    )
+    rating_request = models.ForeignKey(RatingRequest, on_delete=models.CASCADE, related_name="errors")
+    rating_job = models.ForeignKey(
+        RatingJob,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="errors",
+    )
+    category = models.CharField(max_length=40, choices=Category.choices, default=Category.SYSTEM_ERROR)
+    message = models.TextField()
+    agent_message = models.TextField(blank=True, default="")
+    retryable = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ("submission", "version")
-        ordering = ["-version"]
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["organization", "rating_request"])]
 
 
 class BindTransaction(models.Model):
@@ -468,6 +772,7 @@ class QuoteLeadConnectivity(models.Model):
     class QuoteSource(models.TextChoices):
         MANUAL = "manual", "Manual"
         REGI_CONNECT = "regi_connect", "RegiConnect"
+        REGI_RATER = "regi_rater", "Regi Rater"
         CARRIER_API = "carrier_api", "Carrier API"
         MGA = "mga", "MGA"
         SFTP = "sftp", "SFTP"

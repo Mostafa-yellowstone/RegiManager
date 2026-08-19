@@ -21,11 +21,11 @@
 
 ## Absent (must not be faked)
 
-- Carrier REST/SOAP rating or bind APIs
-- Inbound carrier webhooks
-- SFTP/FTPS
-- ACORD transaction engine
-- IVANS / comparative raters
+- Carrier REST/SOAP **rating** or bind APIs (RegiConnect mock is not a rating source)
+- EZLynx rating API (URL embed only)
+- NYAIP electronic application / assignment API
+- Inbound carrier webhooks used for rating
+- IVANS / licensed comparative rater SDK
 - Plaid / bank sync
 - Twilio SMS (TLC comments “not configured”)
 

@@ -19,7 +19,7 @@ from .catalog import ensure_builtin_connectors
 from .certification import run_certification
 from .engines import create_submission, request_bind, submit_and_quote, ValidationError
 from .exceptions import MissingCarrierSpec, TerminalConnectorError
-from .models import CanonicalQuote, Connection, DeadLetterItem, MarketProfile
+from .models import CanonicalQuote, Connection, DeadLetterItem, MarketProfile, RatingRequest
 from .permissions import can_manage_regiconnect, can_view_regiconnect, require_insurance_space
 from .runtime import retry_dead_letter
 from .webhooks import verify_and_store
@@ -279,6 +279,121 @@ def bind_quote(request, quote_id):
         from django.urls import reverse
 
         return redirect(f"{reverse('inventory-detail', args=[space.id])}?tab=regi-submissions")
+    return redirect("spaces-home")
+
+
+@login_required
+@require_POST
+def start_rater(request):
+    from datetime import datetime
+
+    from .rater import create_rating_request, start_rating
+
+    org = _org(request, request.POST.get("organization"))
+    membership = require_insurance_space(request, org)
+    if not can_manage_regiconnect(request.user, org, membership):
+        deny_access("You cannot run Regi Rater.")
+    client = get_object_or_404(Client, id=request.POST.get("client_id"), organization=org)
+    vehicle = None
+    vehicle_id = _posted(request, "vehicle_id")
+    if vehicle_id:
+        vehicle = get_object_or_404(Vehicle, id=vehicle_id, client=client)
+    extra = {
+        "coverage_type": _posted(request, "coverage_type") or "liability",
+        "has_prior": bool(request.POST.get("has_prior")),
+        "has_accident": bool(request.POST.get("has_accident")),
+        "is_experienced": bool(request.POST.get("is_experienced")),
+        "scenario": _posted(request, "mock_scenario"),
+    }
+    effective = None
+    raw_effective = _posted(request, "effective_date")
+    if raw_effective:
+        try:
+            effective = datetime.strptime(raw_effective, "%Y-%m-%d").date()
+        except ValueError:
+            effective = None
+    market_ids = [int(value) for value in request.POST.getlist("market_id") if str(value).isdigit()]
+    rating_request = create_rating_request(
+        organization=org,
+        client=client,
+        actor=request.user,
+        vehicles=[vehicle] if vehicle else None,
+        coverage={"type": extra["coverage_type"]},
+        state=_posted(request, "state") or client.state or "NY",
+        line_of_business=_posted(request, "line_of_business") or "auto_personal",
+        effective_date=effective,
+        extra=extra,
+    )
+    started = start_rating(rating_request, actor=request.user, market_ids=market_ids or None)
+    started.refresh_from_db()
+    messages.success(
+        request,
+        f"Regi Rater status: {started.get_status_display()}. Mock results are labeled MOCK / TEST and are not carrier rates.",
+    )
+    return _rater_redirect(org, started.id)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def rater_session(request, request_id):
+    from .rater import rating_results, resume_pending_jobs
+
+    org = _org(request, request.GET.get("organization") or request.POST.get("organization"))
+    membership = require_insurance_space(request, org)
+    if not can_view_regiconnect(request.user, org, membership):
+        deny_access("You cannot view Regi Rater.")
+    rating_request = get_object_or_404(RatingRequest, id=request_id, organization=org)
+    if request.method == "POST":
+        if not can_manage_regiconnect(request.user, org, membership):
+            deny_access("You cannot refresh rating jobs.")
+        resume_pending_jobs(rating_request, actor=request.user)
+        rating_request.refresh_from_db()
+        if request.headers.get("X-Requested-With") != "XMLHttpRequest" and "application/json" not in (
+            request.headers.get("Accept") or ""
+        ):
+            return _rater_redirect(org, rating_request.id)
+    payload = rating_results(rating_request)
+    payload["status_display"] = rating_request.get_status_display()
+    return JsonResponse(payload)
+
+
+@login_required
+@require_POST
+def select_rater_quote(request, quote_id):
+    from django.core.exceptions import ValidationError as DjangoValidationError
+
+    from .rater import select_quote
+
+    org = _org(request, request.POST.get("organization"))
+    membership = require_insurance_space(request, org)
+    if not can_manage_regiconnect(request.user, org, membership):
+        deny_access("You cannot select quotes.")
+    quote = get_object_or_404(CanonicalQuote, id=quote_id, organization=org)
+    try:
+        lead = select_quote(quote, actor=request.user)
+        messages.success(
+            request,
+            f"Quote sent to Quote Pipeline (lead #{lead.id}). "
+            + (
+                "MOCK / TEST estimated premium — not a bindable carrier rate."
+                if quote.quote_source == CanonicalQuote.QuoteSource.MOCK
+                else "Continue distribution in Quote Pipeline."
+            ),
+        )
+    except DjangoValidationError as exc:
+        messages.error(request, str(exc))
+        return _rater_redirect(org, quote.rating_request_id)
+    space = Space.objects.filter(organization=org, key="insurance").first()
+    if space:
+        return redirect(f"{reverse('inventory-detail', args=[space.id])}?tab=quote-pipeline")
+    return redirect("spaces-home")
+
+
+def _rater_redirect(org, request_id=None):
+    space = Space.objects.filter(organization=org, key="insurance").first()
+    extra = f"&rater={request_id}" if request_id else ""
+    if space:
+        return redirect(f"{reverse('inventory-detail', args=[space.id])}?tab=regi-rater{extra}")
     return redirect("spaces-home")
 
 

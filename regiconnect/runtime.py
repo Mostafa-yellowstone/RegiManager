@@ -138,14 +138,45 @@ def execute_job(job_id: int) -> dict:
         ).update(status=OutboxEvent.Status.PUBLISHED, published_at=timezone.now())
         return {"ok": True, "job_id": job.id}
     except RetryableConnectorError as exc:
-        return _retry_or_dead(job, str(exc))
+        outcome = _retry_or_dead(job, str(exc))
+        _notify_rater(
+            job.id,
+            error=str(exc),
+            retry=bool(outcome.get("retry")),
+            terminal=bool(outcome.get("dead")),
+        )
+        return outcome
     except TerminalConnectorError as exc:
-        return _fail_terminal(job, str(exc))
+        outcome = _fail_terminal(job, str(exc))
+        _notify_rater(job.id, error=str(exc), terminal=True)
+        return outcome
     except Exception as exc:
         logger.exception("Connector job %s crashed", job.id)
         if any(h in str(exc).lower() for h in RETRYABLE_HINTS):
-            return _retry_or_dead(job, str(exc))
-        return _fail_terminal(job, str(exc))
+            outcome = _retry_or_dead(job, str(exc))
+            _notify_rater(
+                job.id,
+                error=str(exc),
+                retry=bool(outcome.get("retry")),
+                terminal=bool(outcome.get("dead")),
+            )
+            return outcome
+        outcome = _fail_terminal(job, str(exc))
+        _notify_rater(job.id, error=str(exc), terminal=True)
+        return outcome
+
+
+def _notify_rater(job_id: int, *, error="", retry=False, terminal=False):
+    from .models import ConnectorJob
+    from .rater.orchestrator import on_connector_job_update
+
+    try:
+        job = ConnectorJob.objects.get(pk=job_id)
+    except ConnectorJob.DoesNotExist:
+        return
+    if not (job.payload or {}).get("rating_job_id"):
+        return
+    on_connector_job_update(job, error=error, retry=retry, terminal=terminal)
 
 
 def _invoke(connector, job: ConnectorJob):

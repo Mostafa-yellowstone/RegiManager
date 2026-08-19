@@ -1,0 +1,217 @@
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem;margin-bottom:1.5rem;">
+  <div class="spaces-metric"><div class="spaces-metric-label">In progress</div><div class="spaces-metric-value">{{ regi_rater_stats.in_progress }}</div></div>
+  <div class="spaces-metric"><div class="spaces-metric-label">Completed</div><div class="spaces-metric-value">{{ regi_rater_stats.completed }}</div></div>
+  <div class="spaces-metric"><div class="spaces-metric-label">Partial</div><div class="spaces-metric-value">{{ regi_rater_stats.partial }}</div></div>
+  <div class="spaces-metric"><div class="spaces-metric-label">Referred</div><div class="spaces-metric-value">{{ regi_rater_stats.referred }}</div></div>
+  <div class="spaces-metric"><div class="spaces-metric-label">Failed</div><div class="spaces-metric-value">{{ regi_rater_stats.failed }}</div></div>
+</div>
+<p class="rcq-card__hint" style="margin:0 0 1rem;">Regi Rater compares quotes from authorized connections. Mock results are labeled MOCK / TEST and are not carrier premiums. Quote Pipeline still distributes work to agents.</p>
+
+{% if user_can_manage_regiconnect %}
+<form method="post" action="{% url 'regiconnect:rater-start' %}" class="rcq" id="regi-rater-form">
+  {% csrf_token %}
+  <input type="hidden" name="organization" value="{{ active_org.id }}">
+  <section class="rcq-card">
+    <div class="rcq-card__head">
+      <div>
+        <h3 class="rcq-card__title">New rating</h3>
+        <p class="rcq-card__hint">Uses existing CRM client and vehicle records. Carrier-specific questions stay off the CRM.</p>
+      </div>
+    </div>
+    <div class="rcq-grid">
+      <div class="span-2">
+        <label class="field-label">Client</label>
+        <select name="client_id" id="rr-client" class="field-input" required>
+          <option value="">Select client</option>
+          {% for c in clients %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="span-2">
+        <label class="field-label">Vehicle</label>
+        <select name="vehicle_id" id="rr-vehicle" class="field-input">
+          <option value="">Select client first</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">Coverage</label>
+        <select name="coverage_type" class="field-input">
+          <option value="liability">Liability only</option>
+          <option value="full">Full coverage</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">Effective date</label>
+        <input type="date" name="effective_date" class="field-input">
+      </div>
+      <div>
+        <label class="field-label">State</label>
+        <input name="state" value="NY" maxlength="2" class="field-input">
+      </div>
+      <div>
+        <label class="field-label">Line</label>
+        <input name="line_of_business" value="auto_personal" class="field-input">
+      </div>
+    </div>
+    <div class="rcq-checks">
+      <label class="rcq-check"><input type="checkbox" name="has_prior"> Prior insurance</label>
+      <label class="rcq-check"><input type="checkbox" name="has_accident"> Accident history</label>
+    </div>
+    {% if regiconnect_markets %}
+    <div style="margin-top:1rem;">
+      <label class="field-label">Markets</label>
+      <p class="rcq-card__hint">Leave unchecked to evaluate every market. Assigned Risk is never shopped as a voluntary carrier.</p>
+      <div class="rcq-checks">
+        {% for m in regiconnect_markets %}
+        <label class="rcq-check"><input type="checkbox" name="market_id" value="{{ m.id }}"> {{ m.company.name }} · {{ m.get_market_channel_display }}</label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% if user_can_manage_regiconnect %}
+    <div style="margin-top:1rem;max-width:280px;">
+      <label class="field-label">Sandbox scenario (MOCK / TEST)</label>
+      <select name="mock_scenario" class="field-input">
+        <option value="">Successful mock quote</option>
+        <option value="decline">Decline</option>
+        <option value="refer">Referral</option>
+        <option value="timeout">Timeout (retry)</option>
+        <option value="delay">Delayed quote</option>
+        <option value="invalid">Invalid request</option>
+        <option value="error">Carrier error</option>
+      </select>
+    </div>
+    {% endif %}
+    <div class="rcq-foot">
+      <button type="submit" class="btn-submit rcq-submit">Run Regi Rater</button>
+    </div>
+  </section>
+</form>
+{% endif %}
+
+<div class="ins-surface-card" style="overflow-x:auto;">
+  <h3 class="ins-section-title ins-section-title--sm">Recent rating requests</h3>
+  <table class="spaces-table">
+    <thead><tr><th>When</th><th>Client</th><th>Status</th><th>State</th><th></th></tr></thead>
+    <tbody>
+      {% for row in regi_rater_requests %}
+      <tr>
+        <td>{{ row.created_at|date:"M j, g:i a" }}</td>
+        <td>{{ row.client.name }}</td>
+        <td>{{ row.get_status_display }}</td>
+        <td>{{ row.state }}</td>
+        <td><a href="?tab=regi-rater&rater={{ row.id }}">Open</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">No rating requests yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% for row in regi_rater_requests %}
+  {% if request.GET.rater == row.id|stringformat:"s" %}
+  <section class="rcq-card" style="margin-top:1rem;" id="rr-session">
+    <div class="rcq-card__head">
+      <div>
+        <h3 class="rcq-card__title">Rating session #{{ row.id }} · {{ row.client.name }}</h3>
+        <p class="rcq-card__hint">Status: {{ row.get_status_display }}. Coverage {{ row.coverage.type|default:"—" }}. Effective {{ row.effective_date|default:"—" }}.</p>
+      </div>
+      {% if user_can_manage_regiconnect %}{% if row.status == "rating" or row.status == "partial_results" %}
+      <form method="post" action="{% url 'regiconnect:rater-session' row.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="organization" value="{{ active_org.id }}">
+        <button type="submit" class="rcq-btn">Refresh delayed results</button>
+      </form>
+      {% endif %}{% endif %}
+    </div>
+    <h4 class="ins-section-title ins-section-title--sm">Markets</h4>
+    <table class="spaces-table">
+      <thead><tr><th>Market</th><th>Channel</th><th>Eligibility</th><th>Status</th><th>Why</th></tr></thead>
+      <tbody>
+        {% for job in row.jobs.all %}
+        <tr>
+          <td>{{ job.market.company.name }}</td>
+          <td>{{ job.market.get_market_channel_display }}</td>
+          <td>{{ job.get_eligibility_display }}</td>
+          <td>{{ job.get_status_display }}</td>
+          <td>{{ job.eligibility_reason|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% with quotes=row.quotes.all %}
+    {% if quotes %}
+    <h4 class="ins-section-title ins-section-title--sm" style="margin-top:1rem;">Quote comparison</h4>
+    <p class="rcq-card__hint">Do not treat different coverage as the same product. Missing values show as —.</p>
+    <table class="spaces-table" id="rr-compare">
+      <thead>
+        <tr>
+          <th>Carrier</th>
+          <th>Source</th>
+          <th>Class</th>
+          <th>Premium</th>
+          <th>Taxes</th>
+          <th>Fees</th>
+          <th>Total</th>
+          <th>Coverage</th>
+          <th>Effective</th>
+          <th>Expires</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for quote in quotes %}
+        <tr>
+          <td>{{ quote.market.company.name }}</td>
+          <td>{% if quote.quote_source == "mock" %}<strong>MOCK / TEST</strong>{% else %}{{ quote.get_quote_source_display }}{% endif %}</td>
+          <td>{{ quote.get_premium_class_display }}</td>
+          <td>${{ quote.premium }}</td>
+          <td>${{ quote.taxes }}</td>
+          <td>${{ quote.fees }}</td>
+          <td>${{ quote.total }}</td>
+          <td>{{ quote.coverage.type|default:"—" }}</td>
+          <td>{{ quote.effective_date|default:"—" }}</td>
+          <td>{{ quote.expiration_date|default:"—" }}</td>
+          <td>{{ quote.get_status_display }}</td>
+          <td>
+            {% if user_can_manage_regiconnect and quote.status != "selected" %}
+            <form method="post" action="{% url 'regiconnect:rater-select' quote.id %}">
+              {% csrf_token %}
+              <input type="hidden" name="organization" value="{{ active_org.id }}">
+              <button type="submit" class="rcq-btn">Select quote</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+    {% endwith %}
+  </section>
+  {% endif %}
+{% endfor %}
+
+{{ regiconnect_client_vehicles|json_script:"rr-vehicle-map" }}
+<script>
+(function () {
+  const map = JSON.parse(document.getElementById('rr-vehicle-map').textContent);
+  const client = document.getElementById('rr-client');
+  const vehicle = document.getElementById('rr-vehicle');
+  if (!client || !vehicle) return;
+  function fillVehicles() {
+    const rows = map[String(client.value)] || [];
+    vehicle.innerHTML = rows.length ? '' : '<option value="">No vehicles on this client</option>';
+    rows.forEach(function (row) {
+      const opt = document.createElement('option');
+      opt.value = row.id;
+      opt.textContent = row.label;
+      vehicle.appendChild(opt);
+    });
+  }
+  client.addEventListener('change', fillVehicles);
+})();
+</script>

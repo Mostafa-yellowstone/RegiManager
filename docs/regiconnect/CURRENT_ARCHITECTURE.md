@@ -29,7 +29,7 @@ Background: Celery workers consume Redis. Beat runs a small settings dict (regis
 
 A `Space` row with `key="insurance"`. Access: `can_view_spaces` plus that space in `accessible_spaces` (`core/space_access.py`). Opening the card does not by itself grant policy work; that uses `can_deal_with_insurance` (and `can_view_banking` for Companies/Finance).
 
-There is **no** carrier connectivity bounded context today. EZLynx is an org URL field only. DEC import is a PDF parser. E-sign is first-party PDF overlay.
+There is **no** real carrier rating API. EZLynx is an org URL field only. DEC import is a PDF parser. E-sign is first-party PDF overlay. `regiconnect` is a connectivity + single-market mock quote path, not a comparative rater.
 
 ## Non-goals of this document
 

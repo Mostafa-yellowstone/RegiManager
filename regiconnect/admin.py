@@ -9,6 +9,8 @@ from .models import (
     DeadLetterItem,
     MarketProfile,
     ProducerCode,
+    RatingJob,
+    RatingRequest,
     Submission,
 )
 
@@ -20,8 +22,8 @@ class ConnectorAdmin(admin.ModelAdmin):
 
 @admin.register(MarketProfile)
 class MarketProfileAdmin(admin.ModelAdmin):
-    list_display = ("id", "organization", "company", "market_type", "status")
-    list_filter = ("status", "market_type")
+    list_display = ("id", "organization", "company", "market_type", "market_channel", "status")
+    list_filter = ("status", "market_type", "market_channel")
 
 
 @admin.register(Appointment)
@@ -59,3 +61,15 @@ class DeadLetterAdmin(admin.ModelAdmin):
 @admin.register(CertificationRun)
 class CertificationRunAdmin(admin.ModelAdmin):
     list_display = ("id", "connection", "status", "started_at")
+
+
+@admin.register(RatingRequest)
+class RatingRequestAdmin(admin.ModelAdmin):
+    list_display = ("id", "organization", "client", "status", "state", "created_at")
+    list_filter = ("status",)
+
+
+@admin.register(RatingJob)
+class RatingJobAdmin(admin.ModelAdmin):
+    list_display = ("id", "rating_request", "market", "status", "eligibility")
+    list_filter = ("status", "eligibility")

@@ -27,7 +27,8 @@ class InsuranceConnector(ABC):
             "supportsWebhooks": True,
             "supportsSFTP": False,
             "supportsACORD": False,
-            "supportsRealTimeRating": True,
+            "supportsRealTimeRating": False,
+            "supportsAsyncRating": True,
         }
 
     def _require(self, key: str) -> None:

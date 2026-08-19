@@ -20,3 +20,8 @@
 | R16 | EZLynx URL mistaken for API | Leave branding field alone; do not call it a connector. |
 | R17 | PII in raw payloads | Restrict payload views to manage flag; never log SSN/DL/PAN. |
 | R18 | Production deploy by push-to-main | Connectivity code is additive and gated; do not enable mock as a real market. |
+| R19 | Mock premium mistaken for carrier rate | UI + `quote_source=MOCK` + environment SANDBOX; never map mock to Progressive/NG/NYAIP names. |
+| R20 | Treat NYAIP as a voluntary carrier | Distinct ASSIGNED_RISK channel; no agent-picked servicing carrier; no fake AIP filing. |
+| R21 | EZLynx as permanent rater backbone | Keep URL for public intake only; Regi Rater → RegiConnect → authorized market. |
+| R22 | QuoteLeadConnectivity 1:1 vs many quotes | Select one canonical quote per handoff; do not overwrite history; version CanonicalQuote. |
+| R23 | Building a second pipeline named Rater | Rater compares; `assign_lead` stays the only distributor. |

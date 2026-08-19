@@ -7,8 +7,9 @@ from rest_framework.response import Response
 from core.owner_api import OwnerAPIBase
 
 from .dashboard import space_context
-from .models import Connection, Submission
+from .models import Connection, RatingRequest, Submission
 from .permissions import can_view_regiconnect
+from .rater import rating_results
 
 
 class ConnectivityDashboardView(OwnerAPIBase):
@@ -58,3 +59,16 @@ class ConnectionListView(OwnerAPIBase):
                 }
             )
         return Response({"results": rows})
+
+
+class RaterRequestView(OwnerAPIBase):
+    def get(self, request, request_id):
+        org, membership, *_ = self.resolve_context(request)
+        if not can_view_regiconnect(request.user, org, membership):
+            from rest_framework.exceptions import PermissionDenied
+
+            raise PermissionDenied("RegiConnect view access is required.")
+        row = RatingRequest.objects.filter(organization=org, pk=request_id).first()
+        if row is None:
+            return Response({"detail": "Not found."}, status=404)
+        return Response(rating_results(row))

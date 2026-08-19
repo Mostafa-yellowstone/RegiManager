@@ -46,4 +46,13 @@ Commissions live **on the policy**, not a commission table.
 
 Market access, appointments, producer codes, connectors, connections, submissions, canonical quotes, binds, webhooks, SFTP jobs, ACORD maps, reconciliation, certification runs, secret references, outbox, DLQ.
 
-Do **not** create `RegiCustomer`, `RegiDriver`, `RegiVehicle`, `RegiPolicy`, or a second quote pipeline.
+## Regi Rater (Phase 1)
+
+- `RatingRequest` — org + existing `Client` FK, canonical snapshot JSON, status machine, idempotency + correlation.
+- `RatingJob` — per market on a request (eligible or excluded with reason). Optional `Connection` / `Submission`.
+- `RatingExtension` — carrier-specific answers (JSON), not CRM columns.
+- `RatingError` — normalized error category for agents vs internals.
+- `CanonicalQuote` — optional `rating_job` / `rating_request`; version unique per submission **or** rating job; `quote_source` (MOCK vs carrier); `premium_class` ESTIMATED/FINAL; never overwrite versions.
+- `MarketProfile.market_channel` — VOLUNTARY vs ASSIGNED_RISK (NYAIP is not a shoppable voluntary carrier).
+
+Reuse: `Connector` + `Connection.capabilities` as the provider/capability matrix. Do not add a second RatingProvider table.

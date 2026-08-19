@@ -37,8 +37,42 @@ Only after official docs + authorization. Certification checklist must pass befo
 
 ## Status in this repository
 
-The `regiconnect` Django app implements Phases 1–6 against the **mock** connector, plus a Phase 7 **gate**: the `unspecified` skeleton raises `MissingCarrierSpec`, and production cannot be enabled without a passing certification run plus explicit approval. No real carrier URLs or credentials are invented.
+RegiConnect Phases 1–6 exist against the **mock** connector, with a Phase 7 **gate** (`MissingCarrierSpec`, certification before production). No real carrier URLs or credentials are invented.
 
-Discovery maps in this folder remain the source of truth for what already existed in Insurance Space.
+**Regi Rater is not implemented.** Discovery for the rater is `REGI_RATER_ARCHITECTURE.md`. Do not start rater models until explicit approval after the Phase 0 assessment.
+
+## Regi Rater phases (after approval)
+
+### Rater Phase 0 — Discovery (this folder)
+
+Maps updated; `REGI_RATER_ARCHITECTURE.md` added. No rater tables yet.
+
+### Rater Phase 1 — Foundation (in repo)
+
+`RatingRequest`, `RatingJob`, `RatingExtension`, `RatingError`; `CanonicalQuote` source/premium class/versioning; `MarketProfile.market_channel`; state machine + audit. **No** concurrent live UI. **No** real carrier connector.
+
+### Rater Phase 2 — Orchestrator (in repo)
+
+Eligibility uses existing access/appetite; assigned risk and unspecified connectors are excluded with reasons; concurrent job dispatch via existing `ConnectorJob`; partial vs completed status; mock quotes are not ingested into Quote Pipeline; retryable errors stay in-flight. **No** comparison UI. **No** real carrier connector.
+
+### Rater Phase 3 — Mock providers (in repo)
+
+Mock scenarios: quote, decline, refer, timeout, delay, invalid, error. Delayed quotes stay in-flight until resume. Duplicate versions never overwrite.
+
+### Rater Phase 4 — Insurance Space UI (in repo)
+
+Native **Regi Rater** tab. CRM client/vehicle reuse. Comparison table with MOCK / TEST labels. Select quote hands off to existing Quote Pipeline (`quote_source=regi_rater`). Bind is hidden for estimated/mock premiums.
+
+### Rater Phase 5 — Real connectivity reuse
+
+Use existing connector runtime, secrets, certification. Capability matrix drives the UI.
+
+### Rater Phase 6 — First real market
+
+Only with official docs + authorization + sandbox + certification + production approval.
+
+### Rater Phase 7 — Additional markets + NYAIP
+
+Isolated connectors. NYAIP only if official Plan integration exists; otherwise tracking/DEC only.
 
 Official spec, appointment, sandbox, auth/submit/quote/bind/download/docs/webhook tests as supported, idempotency, rate limits, security review, explicit production approval. Software cannot create contractual access.
