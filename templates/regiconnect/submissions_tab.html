@@ -4,17 +4,22 @@
   background: var(--portal-surface);
   border: 1px solid #c7d2fe;
   border-radius: 18px;
-  padding: 1.15rem 1.25rem 1.25rem;
+  padding: 1.2rem 1.3rem 1.35rem;
   box-shadow: var(--portal-shadow-sm);
-  margin-bottom: 1rem;
+  margin-bottom: 1.1rem;
 }
-html.portal-theme-dark .rcq-card { border-color: rgba(165, 180, 252, 0.28); }
+html.portal-theme-dark .rcq-card {
+  background: var(--portal-surface);
+  border-color: rgba(165, 180, 252, 0.28);
+  box-shadow: none;
+}
 .rcq-card__head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
+  align-items: flex-start;
+  gap: 0.85rem;
+  margin-bottom: 1.05rem;
+  flex-wrap: wrap;
 }
 .rcq-card__title {
   margin: 0;
@@ -23,11 +28,17 @@ html.portal-theme-dark .rcq-card { border-color: rgba(165, 180, 252, 0.28); }
   letter-spacing: 0.02em;
   color: var(--portal-text);
 }
-.rcq-card__hint { margin: 0.15rem 0 0; font-size: 0.8rem; color: var(--portal-text-muted); font-weight: 600; }
+.rcq-card__hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: var(--portal-text-muted);
+  font-weight: 600;
+  line-height: 1.4;
+}
 .rcq-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 0.75rem 0.9rem;
+  gap: 0.85rem 0.95rem;
 }
 .rcq-grid .span-2 { grid-column: span 2; }
 @media (max-width: 720px) { .rcq-grid .span-2 { grid-column: span 1; } }
@@ -42,10 +53,14 @@ html.portal-theme-dark .rcq-card { border-color: rgba(165, 180, 252, 0.28); }
   background: #eef2ff;
   border: 1px solid #c7d2fe;
   border-radius: 999px;
-  padding: 0.4rem 0.75rem;
+  padding: 0.45rem 0.8rem;
   cursor: pointer;
 }
-html.portal-theme-dark .rcq-file { color: #c7d2fe; background: rgba(99,102,241,0.15); border-color: rgba(165,180,252,0.3); }
+html.portal-theme-dark .rcq-file {
+  color: #c7d2fe;
+  background: rgba(99, 102, 241, 0.16);
+  border-color: rgba(165, 180, 252, 0.32);
+}
 .rcq-file input { display: none; }
 .rcq-btn {
   border: 1px solid #c7d2fe;
@@ -54,24 +69,76 @@ html.portal-theme-dark .rcq-file { color: #c7d2fe; background: rgba(99,102,241,0
   font-weight: 800;
   font-size: 0.8rem;
   border-radius: 10px;
-  padding: 0.5rem 0.85rem;
+  padding: 0.52rem 0.9rem;
   cursor: pointer;
 }
-html.portal-theme-dark .rcq-btn { background: transparent; color: #e0e7ff; border-color: rgba(165,180,252,0.35); }
-.rcq-btn:hover { background: #eef2ff; }
-.rcq-btn--ghost { background: transparent; }
-.rcq-btn--danger { color: #9f1239; border-color: #fecaca; }
-.rcq-row {
-  border: 1px dashed #c7d2fe;
-  border-radius: 14px;
-  padding: 0.85rem;
-  margin-bottom: 0.75rem;
-  background: var(--portal-surface-muted);
+html.portal-theme-dark .rcq-btn {
+  background: rgba(15, 23, 42, 0.35);
+  color: #e0e7ff;
+  border-color: rgba(165, 180, 252, 0.35);
 }
-.rcq-row__top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.7rem; }
-.rcq-checks { display: flex; flex-wrap: wrap; gap: 0.85rem 1.25rem; margin-top: 0.35rem; }
+.rcq-btn:hover { background: #eef2ff; }
+html.portal-theme-dark .rcq-btn:hover { background: rgba(129, 140, 248, 0.16); }
+.rcq-btn--ghost {
+  background: transparent;
+  width: auto;
+}
+html.portal-theme-dark .rcq-btn--ghost { background: transparent; }
+.rcq-btn--danger { color: #9f1239; border-color: #fecaca; }
+.rcq-btn--danger:hover { background: #fff1f2; }
+html.portal-theme-dark .rcq-btn--danger {
+  color: #fda4af;
+  border-color: rgba(251, 113, 133, 0.38);
+}
+html.portal-theme-dark .rcq-btn--danger:hover { background: rgba(244, 63, 94, 0.14); }
+.rcq-extras {
+  margin-top: 1.35rem;
+  padding-top: 1.15rem;
+  border-top: 1px solid #e0e7ff;
+}
+html.portal-theme-dark .rcq-extras {
+  border-top-color: rgba(165, 180, 252, 0.22);
+}
+.rcq-extras__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.rcq-extras__list:not(:empty) {
+  margin-bottom: 1rem;
+}
+.rcq-extras__bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+.rcq-row {
+  border: 1px solid #c7d2fe;
+  border-radius: 14px;
+  padding: 1rem 1.05rem 1.05rem;
+  background: #f8fafc;
+}
+html.portal-theme-dark .rcq-row {
+  background: rgba(15, 23, 42, 0.42);
+  border-color: rgba(165, 180, 252, 0.28);
+}
+.rcq-row__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+.rcq-row__top strong {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--portal-text-muted);
+}
+.rcq-checks { display: flex; flex-wrap: wrap; gap: 0.85rem 1.25rem; margin-top: 1rem; }
 .rcq-check { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 700; font-size: 0.88rem; color: var(--portal-text); }
-.rcq-foot { display: flex; justify-content: flex-end; margin-top: 0.25rem; }
+.rcq-foot { display: flex; justify-content: flex-end; margin-top: 0.35rem; }
 .rcq-submit { width: auto; min-width: 180px; padding: 0.85rem 1.4rem; }
 </style>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin-bottom:1.5rem;">
@@ -150,8 +217,12 @@ html.portal-theme-dark .rcq-btn { background: transparent; color: #e0e7ff; borde
       <div><label class="field-label">ZIP</label><input name="zip_code" id="rc-zip" class="field-input"></div>
       <div class="span-2"><label class="field-label">License barcode</label><input type="text" id="rc-dl-barcode" class="field-input" placeholder="Optional — scan then Extract license"></div>
     </div>
-    <div id="rc-extra-drivers"></div>
-    <button type="button" class="rcq-btn rcq-btn--ghost" id="rc-add-driver">+ Extra driver</button>
+    <div class="rcq-extras">
+      <div class="rcq-extras__list" id="rc-extra-drivers"></div>
+      <div class="rcq-extras__bar">
+        <button type="button" class="rcq-btn rcq-btn--ghost" id="rc-add-driver">+ Extra driver</button>
+      </div>
+    </div>
   </section>
 
   <section class="rcq-card">
@@ -172,8 +243,12 @@ html.portal-theme-dark .rcq-btn { background: transparent; color: #e0e7ff; borde
       <div><label class="field-label">Model</label><input name="model" id="rc-model" class="field-input"></div>
       <div><label class="field-label">Plate</label><input name="plate_number" id="rc-plate" class="field-input"></div>
     </div>
-    <div id="rc-extra-vehicles"></div>
-    <button type="button" class="rcq-btn rcq-btn--ghost" id="rc-add-vehicle">+ Extra vehicle</button>
+    <div class="rcq-extras">
+      <div class="rcq-extras__list" id="rc-extra-vehicles"></div>
+      <div class="rcq-extras__bar">
+        <button type="button" class="rcq-btn rcq-btn--ghost" id="rc-add-vehicle">+ Extra vehicle</button>
+      </div>
+    </div>
   </section>
 
   <div class="rcq-foot">
