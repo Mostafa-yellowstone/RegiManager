@@ -247,3 +247,45 @@ class RegiConnectTests(TestCase):
         )
         appetite = evaluate_appetite(self.market, {"state": "NY"})
         self.assertEqual(appetite.result, "eligible")
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=False)
+    def test_mock_submit_runs_inline_without_celery_worker(self):
+        from unittest.mock import patch
+
+        self.client.login(username="rcowner", password="password123")
+        with patch("regiconnect.tasks.run_connector_job.delay") as delay:
+            response = self.client.post(
+                reverse("regiconnect:submit"),
+                {
+                    "organization": self.org.id,
+                    "connection_id": self.connection.id,
+                    "client_id": self.insured.id,
+                    "state": "NY",
+                    "line_of_business": "auto_personal",
+                },
+            )
+        delay.assert_not_called()
+        self.assertEqual(response.status_code, 302)
+        submission = Submission.objects.get(organization=self.org)
+        self.assertEqual(submission.status, Submission.Status.QUOTED)
+        quote = submission.quotes.get()
+        self.assertEqual(str(quote.premium), "1200.00")
+
+    def test_mock_bundle_activates_existing_pending_rows(self):
+        Appointment.objects.filter(organization=self.org).update(status=Appointment.Status.PENDING)
+        self.connection.status = Connection.Status.PENDING
+        self.connection.save(update_fields=["status"])
+        self.client.login(username="rcowner", password="password123")
+        response = self.client.post(
+            reverse("regiconnect:mock-bundle"),
+            {"organization": self.org.id, "company_id": self.company.id},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("tab=regi-markets", response["Location"])
+        self.connection.refresh_from_db()
+        self.assertEqual(self.connection.status, Connection.Status.ACTIVE)
+        self.assertTrue(
+            Appointment.objects.filter(
+                organization=self.org, market=self.market, status=Appointment.Status.ACTIVE
+            ).exists()
+        )

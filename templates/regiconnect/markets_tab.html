@@ -6,7 +6,9 @@
   <div class="spaces-metric"><div class="spaces-metric-label">Appointments</div><div class="spaces-metric-value">{{ regiconnect_appointments|length }}</div></div>
   <div class="spaces-metric"><div class="spaces-metric-label">Producer codes</div><div class="spaces-metric-value">{{ regiconnect_producer_codes|length }}</div></div>
 </div>
-{% if user_can_manage_regiconnect %}
+{% if user_can_manage_regiconnect and not insurance_companies %}
+<p style="margin:0 0 1rem;font-weight:700;color:#92400e;">ضيف شركة من تبويب Companies الأول، بعدين ارجع هنا واضغط Enable mock sandbox.</p>
+{% elif user_can_manage_regiconnect %}
 <form method="post" action="{% url 'regiconnect:mock-bundle' %}" style="margin-bottom:1.25rem;display:flex;gap:0.75rem;flex-wrap:wrap;align-items:end;">
   {% csrf_token %}
   <input type="hidden" name="organization" value="{{ active_org.id }}">

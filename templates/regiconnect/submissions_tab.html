@@ -4,14 +4,16 @@
   <div class="spaces-metric"><div class="spaces-metric-label">Binds today</div><div class="spaces-metric-value">{{ regiconnect_stats.binds_today }}</div></div>
   <div class="spaces-metric"><div class="spaces-metric-label">Documents today</div><div class="spaces-metric-value">{{ regiconnect_stats.documents_today }}</div></div>
 </div>
-{% if user_can_manage_regiconnect and regiconnect_connections %}
+{% if user_can_manage_regiconnect and not regiconnect_connections %}
+<p style="margin:0 0 1rem;font-weight:700;color:#92400e;">مفيش اتصال جاهز. روح تبويب Markets &amp; Access واضغط Enable mock sandbox for company الأول.</p>
+{% elif user_can_manage_regiconnect and regiconnect_connections %}
 <form method="post" action="{% url 'regiconnect:submit' %}" style="margin-bottom:1.25rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.75rem;align-items:end;">
   {% csrf_token %}
   <input type="hidden" name="organization" value="{{ active_org.id }}">
   <div>
     <label class="field-label">Connection</label>
     <select name="connection_id" class="field-input" required>
-      {% for c in regiconnect_connections %}<option value="{{ c.id }}">{{ c.market.company.name }} · {{ c.connector.slug }}</option>{% endfor %}
+      {% for c in regiconnect_connections %}<option value="{{ c.id }}">{{ c.market.company.name }} · {{ c.connector.slug }} · {{ c.get_status_display }}</option>{% endfor %}
     </select>
   </div>
   <div>
@@ -35,15 +37,17 @@
 <div class="ins-surface-card" style="overflow-x:auto;">
   <h3 class="ins-section-title ins-section-title--sm">Submissions</h3>
   <table class="spaces-table">
-    <thead><tr><th>ID</th><th>Market</th><th>Status</th><th>External</th><th>Correlation</th><th></th></tr></thead>
+    <thead><tr><th>ID</th><th>Market</th><th>Status</th><th>Premium</th><th>External</th><th></th></tr></thead>
     <tbody>
       {% for s in regiconnect_submissions %}
       <tr>
         <td>{{ s.id }}</td>
         <td>{{ s.market.company.name }}</td>
-        <td>{{ s.get_status_display }}</td>
+        <td>{{ s.get_status_display }}{% if s.last_error %} — {{ s.last_error }}{% endif %}</td>
+        <td>
+          {% for q in s.quotes.all %}${{ q.premium }}{% empty %}—{% endfor %}
+        </td>
         <td>{{ s.external_reference|default:"—" }}</td>
-        <td><code>{{ s.correlation_id }}</code></td>
         <td>
           {% if user_can_manage_regiconnect %}
             {% for q in s.quotes.all %}
@@ -51,6 +55,8 @@
               <input type="hidden" name="organization" value="{{ active_org.id }}">
               <button class="btn-outline" type="submit">Bind quote v{{ q.version }}</button>
             </form>
+            {% empty %}
+            <span style="color:var(--portal-text-muted);font-size:0.85rem;">لسه مفيش كوت</span>
             {% endfor %}
           {% endif %}
         </td>

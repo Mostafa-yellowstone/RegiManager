@@ -65,13 +65,17 @@ def create_mock_market_bundle(request):
     if profile.status != MarketProfile.Status.ACTIVE:
         profile.status = MarketProfile.Status.ACTIVE
         profile.save(update_fields=["status"])
-    Appointment.objects.get_or_create(
+    appt, _ = Appointment.objects.get_or_create(
         organization=org,
         market=profile,
         state="NY",
         line_of_business="auto_personal",
         defaults={"status": Appointment.Status.ACTIVE, "effective_date": timezone.localdate()},
     )
+    if appt.status != Appointment.Status.ACTIVE:
+        appt.status = Appointment.Status.ACTIVE
+        appt.effective_date = appt.effective_date or timezone.localdate()
+        appt.save(update_fields=["status", "effective_date"])
     ProducerCode.objects.get_or_create(
         organization=org,
         market=profile,
@@ -80,22 +84,23 @@ def create_mock_market_bundle(request):
         line_of_business="auto_personal",
     )
     connector = Connector.objects.get(slug="mock")
-    Connection.objects.get_or_create(
+    connection, _ = Connection.objects.get_or_create(
         organization=org,
         market=profile,
         connector=connector,
         environment=Connection.Environment.SANDBOX,
         defaults={"status": Connection.Status.ACTIVE, "capabilities": connector.capabilities},
     )
+    if connection.status != Connection.Status.ACTIVE:
+        connection.status = Connection.Status.ACTIVE
+        connection.save(update_fields=["status", "updated_at"])
     messages.success(
         request,
-        f"Mock sandbox connection is ready for {company.name}. Appointments were recorded explicitly — not inferred.",
+        f"تم تجهيز التجربة الوهمية لـ {company.name}. المفروض تلاقي صف للشركة في الجدول تحت.",
     )
-    from django.urls import reverse
-
     space = Space.objects.filter(organization=org, key="insurance").first()
     if space:
-        return redirect(f"{reverse('inventory-detail', args=[space.id])}?tab=regi-connectivity")
+        return redirect(f"{reverse('inventory-detail', args=[space.id])}?tab=regi-markets")
     return redirect("spaces-home")
 
 
@@ -129,9 +134,23 @@ def submit_to_market(request):
             scenario=request.POST.get("scenario") or "quote",
         )
         submit_and_quote(submission)
-        messages.success(request, f"Submission {submission.id} sent through RegiConnect.")
+        submission.refresh_from_db()
+        quote = submission.quotes.order_by("-version").first()
+        if quote:
+            messages.success(
+                request,
+                f"الكوت الوهمي جاهز: ${quote.premium} — شوف الجدول تحت، وبعدين Quote Pipeline.",
+            )
+        else:
+            messages.warning(
+                request,
+                f"الطلب اتسجل بحالة {submission.get_status_display()}."
+                + (f" السبب: {submission.last_error}" if submission.last_error else ""),
+            )
     except ValidationError as exc:
         messages.error(request, str(exc))
+    except Exception as exc:
+        messages.error(request, f"فشل الإرسال: {exc}")
     space = Space.objects.filter(organization=org, key="insurance").first()
     if space:
         from django.urls import reverse
@@ -150,7 +169,15 @@ def bind_quote(request, quote_id):
     quote = get_object_or_404(CanonicalQuote, id=quote_id, organization=org)
     try:
         bind = request_bind(quote, actor=request.user)
-        messages.success(request, f"Bind {bind.id} requested.")
+        bind.refresh_from_db()
+        if bind.status == bind.Status.BOUND:
+            messages.success(request, "البوليسي اتسجلت في Insurance CRM (رقم MOCK-POL).")
+        else:
+            messages.warning(
+                request,
+                f"الربط لسه {bind.get_status_display()}."
+                + (f" {bind.last_error}" if bind.last_error else ""),
+            )
     except ValidationError as exc:
         messages.error(request, str(exc))
     space = Space.objects.filter(organization=org, key="insurance").first()

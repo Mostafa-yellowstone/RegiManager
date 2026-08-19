@@ -81,13 +81,37 @@ def enqueue_job(*, organization, connection, operation, payload, idempotency_key
 
 
 def dispatch_job(job: ConnectorJob):
+    """Run mock/sandbox work immediately. Queue only when a worker is actually listening."""
+    from django.conf import settings
+
+    slug = ""
+    try:
+        slug = job.connection.connector.slug
+    except Exception:
+        slug = ""
+
+    if slug == "mock" or getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False):
+        execute_job(job.id)
+        return
+
     from .tasks import run_connector_job
 
+    workers = False
     try:
-        run_connector_job.delay(job.id)
+        from core.email_marketing_tasks import _celery_workers_available
+
+        workers = bool(_celery_workers_available())
     except Exception:
-        logger.exception("Celery dispatch failed; running job %s inline", job.id)
-        run_connector_job(job.id)
+        workers = False
+
+    if workers:
+        try:
+            run_connector_job.delay(job.id)
+            return
+        except Exception:
+            logger.exception("Celery dispatch failed; running job %s inline", job.id)
+
+    execute_job(job.id)
 
 
 def execute_job(job_id: int) -> dict:

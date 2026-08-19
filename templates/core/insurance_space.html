@@ -932,6 +932,16 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       </div>
     </div>
 
+    {% if messages %}
+    <div class="portal-messages" style="margin:0 0 1.25rem;">
+      {% for message in messages %}
+      <div class="alert" style="padding:0.9rem 1rem;border-radius:12px;font-weight:700;{% if 'error' in message.tags %}background:#fef2f2;color:#991b1b;border:1px solid #fecaca;{% elif 'warning' in message.tags %}background:#fffbeb;color:#92400e;border:1px solid #fde68a;{% else %}background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;{% endif %}">
+        {{ message }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
     <!-- Tabs -->
     <nav class="ins-tab-nav" aria-label="Insurance space sections">
       <button type="button" class="tab-btn active" id="tab-insurance-btn" onclick="switchTab('insurance')">🛡️ Insurance CRM</button>
