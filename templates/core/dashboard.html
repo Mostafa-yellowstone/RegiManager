@@ -241,131 +241,6 @@
         </div>
 
         <style>
-        /* ── NY Fee Tools (inline so styles apply before static cache refresh) ── */
-        .dashboard-ny-fee-tools {
-            margin: 1.75rem 0 2rem;
-            padding: 1.1rem 1.2rem;
-            border-radius: 18px;
-            background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 55%, #eff6ff 100%);
-            border: 1px solid #dbeafe;
-            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
-        }
-        .dashboard-ny-fee-tools__head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-            margin-bottom: 0.9rem;
-        }
-        .dashboard-ny-fee-tools__title {
-            margin: 0;
-            font-size: 0.92rem;
-            font-weight: 800;
-            color: #0f172a;
-            letter-spacing: 0.01em;
-        }
-        .dashboard-ny-fee-tools__meta {
-            font-size: 0.76rem;
-            font-weight: 600;
-            color: #64748b;
-        }
-        .dashboard-ny-fee-tools__grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.85rem;
-        }
-        .dashboard-ny-fee-tool-btn {
-            display: flex;
-            align-items: center;
-            gap: 0.85rem;
-            padding: 0.95rem 1.05rem;
-            border-radius: 14px;
-            border: 1px solid transparent;
-            text-decoration: none !important;
-            color: inherit !important;
-            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-            min-height: 72px;
-        }
-        .dashboard-ny-fee-tool-btn:hover {
-            transform: translateY(-1px);
-            text-decoration: none !important;
-            color: inherit !important;
-        }
-        .dashboard-ny-fee-tool-btn--tax {
-            background: linear-gradient(135deg, #ffffff 0%, #ecfdf5 100%);
-            border-color: #bbf7d0;
-            box-shadow: 0 8px 20px rgba(34, 197, 94, 0.08);
-        }
-        .dashboard-ny-fee-tool-btn--tax:hover {
-            border-color: #22c55e;
-            box-shadow: 0 12px 28px rgba(34, 197, 94, 0.14);
-        }
-        .dashboard-ny-fee-tool-btn--dmv {
-            background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
-            border-color: #bfdbfe;
-            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.08);
-        }
-        .dashboard-ny-fee-tool-btn--dmv:hover {
-            border-color: #3b82f6;
-            box-shadow: 0 12px 28px rgba(59, 130, 246, 0.14);
-        }
-        .dashboard-ny-fee-tool-btn__icon {
-            flex-shrink: 0;
-            width: 42px;
-            height: 42px;
-            border-radius: 12px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.82rem;
-            font-weight: 800;
-        }
-        .dashboard-ny-fee-tool-btn--tax .dashboard-ny-fee-tool-btn__icon {
-            background: #dcfce7;
-            color: #15803d;
-        }
-        .dashboard-ny-fee-tool-btn--dmv .dashboard-ny-fee-tool-btn__icon {
-            background: #dbeafe;
-            color: #1d4ed8;
-        }
-        .dashboard-ny-fee-tool-btn__body {
-            display: flex;
-            flex-direction: column;
-            gap: 0.2rem;
-            min-width: 0;
-        }
-        .dashboard-ny-fee-tool-btn__label {
-            font-size: 0.9rem;
-            font-weight: 800;
-            color: #0f172a;
-            line-height: 1.25;
-        }
-        .dashboard-ny-fee-tool-btn__hint {
-            font-size: 0.74rem;
-            font-weight: 600;
-            color: #64748b;
-            line-height: 1.35;
-        }
-        .dashboard-ny-fee-tool-btn__cta {
-            margin-left: auto;
-            flex-shrink: 0;
-            font-size: 0.72rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #475569;
-            white-space: nowrap;
-        }
-        @media (max-width: 760px) {
-            .dashboard-ny-fee-tools__grid {
-                grid-template-columns: 1fr;
-            }
-            .dashboard-ny-fee-tool-btn__cta {
-                display: none;
-            }
-        }
-
         /* ── Command Bar ──────────────────────────────────────────────── */
         .dash-cmd-bar {
             display: flex;
@@ -631,12 +506,12 @@
         </script>
 
 
-        <section class="service-cards-grid" id="services" style="scroll-margin-top: 100px;">
+        <section class="service-cards-grid" id="services">
             {% for card in service_cards %}
-                <a href="{% url 'service-list' card.key %}" class="service-stat-card-link" style="text-decoration: none; color: inherit;">
+                <a href="{% url 'service-list' card.key %}" class="service-stat-card-link">
                     <article class="service-stat-card">
                         {% if card.is_custom %}
-                        <div class="service-card-image" style="display: flex; align-items: center; justify-content: center; background: #e0e7ff; color: #4338ca; border-radius: 12px; margin-bottom: 1rem;">
+                        <div class="service-card-image service-card-image--custom">
                             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
                         </div>
                         {% else %}
@@ -651,18 +526,18 @@
                 </a>
             {% endfor %}
             {% if show_all_services_card %}
-                <a href="{% url 'all-service-types' %}" class="service-stat-card-link" style="text-decoration: none; color: inherit;">
-                    <article class="service-stat-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border: 2px dashed #cbd5e1; background: #f8fafc; cursor: pointer; height: 100%;">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 0.5rem;"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                        <h3 style="color: #475569; margin: 0;">All Services</h3>
-                        <p style="color: #64748b; font-size: 0.9rem;">View entire list</p>
+                <a href="{% url 'all-service-types' %}" class="service-stat-card-link">
+                    <article class="service-stat-card service-stat-card--catalog">
+                        <svg class="service-stat-card__icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                        <h3>All Services</h3>
+                        <p>View entire list</p>
                     </article>
                 </a>
             {% elif is_owner %}
-                <article class="service-stat-card" onclick="openAddServiceModal()" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border: 2px dashed #93c5fd; background: #eff6ff; cursor: pointer; transition: all 0.2s; height: 100%;">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 0.5rem;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    <h3 style="color: #2563eb; margin: 0;">Add Service</h3>
-                    <p style="color: #3b82f6; font-size: 0.9rem;">Create custom type</p>
+                <article class="service-stat-card service-stat-card--add" onclick="openAddServiceModal()" role="button" tabindex="0" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openAddServiceModal(); }">
+                    <svg class="service-stat-card__icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <h3>Add Service</h3>
+                    <p>Create custom type</p>
                 </article>
             {% endif %}
         </section>

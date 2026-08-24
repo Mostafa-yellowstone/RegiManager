@@ -2,17 +2,16 @@
 {% load static i18n %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-5">
+<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-7">
 <style>
-    /* Custom overrides for the hero image path */
     .site-hero-visual {
-        background: url('/static/core/img/dmv_enterprise_hero.png') center/cover no-repeat;
+        background: url('{% static "core/img/dmv-hero.svg" %}') center/contain no-repeat;
         min-height: 500px;
         display: flex;
         align-items: center;
         justify-content: center;
     }
-    
+
     .hero-bg-overlay {
         position: absolute;
         inset: 0;
@@ -52,48 +51,51 @@
 
     <div class="capabilities-wrapper">
         <section class="site-section reveal" id="solutions">
+            <div class="site-shell-inner">
             <div class="section-heading">
                 <span class="brand-pill">Capabilities</span>
                 <h2>Built for Professional PSB Operations.</h2>
                 <p>Comprehensive tools to manage every aspect of your DMV psb operations.</p>
             </div>
             <div class="solution-grid">
-                <article class="reveal">
+                <article class="capability-card reveal">
                     <div class="feature-icon">⚡</div>
                     <h3>Rapid Processing</h3>
                     <p>Automated VIN decoding and real-time validation to minimize errors and maximize speed.</p>
                 </article>
-                <article class="reveal">
+                <article class="capability-card reveal">
                     <div class="feature-icon">👥</div>
                     <h3>Team Control</h3>
                     <p>Easily manage staff permissions and track every action with full activity history.</p>
                 </article>
-                <article class="reveal">
+                <article class="capability-card reveal">
                     <div class="feature-icon">📊</div>
                     <h3>Financial Intel</h3>
                     <p>Professional financial reporting, ledger-based transaction tracking, and automated receipts.</p>
                 </article>
-                <article class="reveal">
+                <article class="capability-card reveal">
                     <div class="feature-icon">🏢</div>
                     <h3>Referral Portal</h3>
                     <p>Dedicated workflows for car referralships with automated balance tracking and partner tools.</p>
                 </article>
-                <article class="reveal">
+                <article class="capability-card reveal">
                     <div class="feature-icon">👤</div>
                     <h3>Client Profiles</h3>
                     <p>Access everything in one place: client details, vehicle lists, and a full history of every transaction.</p>
                 </article>
-                <article class="reveal">
+                <article class="capability-card reveal">
                     <div class="feature-icon">📁</div>
                     <h3>Smart Docs</h3>
                     <p>Secure document management with OCR capabilities for instant data extraction from IDs.</p>
                 </article>
+            </div>
             </div>
         </section>
     </div>
 
     <div class="pricing-wrapper">
         <section class="site-section pricing-section reveal" id="pricing">
+            <div class="site-shell-inner">
             <div class="section-heading">
                 <span class="brand-pill">Plans</span>
                 <h2>Feature &amp; Volume Optimized.</h2>
@@ -202,16 +204,21 @@
             </div>
 
             <p class="pricing-footnote reveal">All plans include secure cloud hosting, SSL encryption, and regular platform updates. Annual billing available — <a href="{% url 'contact' %}">contact us</a> for volume discounts.</p>
+            </div>
         </section>
     </div>
 
-    <section class="site-section reveal" style="text-align: center; padding: 10rem 2rem;">
-        <h2 style="font-size: 3.5rem; margin-bottom: 2rem;">Ready to modernize your operations?</h2>
-        <div class="hero-actions" style="justify-content: center;">
-            <a href="{% url 'member-signup' %}" class="btn btn-primary">Create Your Account</a>
-            <a href="{% url 'contact' %}" class="btn btn-secondary">Talk to an Expert</a>
-        </div>
-    </section>
+    <div class="site-cta-wrapper">
+        <section class="site-section site-cta-final reveal">
+            <div class="site-shell-inner">
+                <h2>Ready to modernize your operations?</h2>
+                <div class="hero-actions hero-actions--center">
+                    <a href="{% url 'member-signup' %}" class="btn btn-primary">Create Your Account</a>
+                    <a href="{% url 'contact' %}" class="btn btn-secondary">Talk to an Expert</a>
+                </div>
+            </div>
+        </section>
+    </div>
 </main>
 
 <script>
