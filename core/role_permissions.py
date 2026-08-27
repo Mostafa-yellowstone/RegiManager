@@ -22,6 +22,7 @@ ROLE_FLAG_FIELDS = (
     "can_deal_with_tlc",
     "can_assign_agent_tasks",
     "can_delete_receipt",
+    "can_delete_vehicle",
     "can_issue_refund",
     "can_view_commission",
     "can_view_banking",
@@ -49,6 +50,7 @@ ROLE_PACKS: dict[str, dict[str, bool]] = {
         "can_view_regiconnect": True,
         "can_manage_regiconnect": True,
         "can_delete_receipt": True,
+        "can_delete_vehicle": True,
         "can_issue_refund": True,
         # Pack B: Finance/Reports overview only — no banking edits
         "can_view_banking": False,

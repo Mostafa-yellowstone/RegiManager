@@ -30,6 +30,113 @@
     html.portal-theme-dark .cpp-motorclub-card .cpp-motorclub-icon {
         color: #fb923c;
     }
+
+    .cpp-vehicle-card {
+        display: flex;
+        align-items: stretch;
+        gap: 0.45rem;
+    }
+    .cpp-vehicle-card__link {
+        flex: 1;
+        min-width: 0;
+        background: #10b981;
+        color: white;
+        border: none;
+        padding: 1rem;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        text-decoration: none;
+        transition: transform 0.2s, background 0.2s;
+        box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.1);
+    }
+    .cpp-vehicle-card__link:hover {
+        background: #059669;
+        transform: translateY(-1px);
+        color: white;
+    }
+    .cpp-vehicle-card__icon {
+        background: rgba(255,255,255,0.2);
+        padding: 0.5rem;
+        border-radius: 8px;
+        display: flex;
+        flex-shrink: 0;
+    }
+    .cpp-vehicle-card__copy { text-align: left; min-width: 0; }
+    .cpp-vehicle-card__title {
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: white;
+    }
+    .cpp-vehicle-card__meta {
+        font-size: 0.75rem;
+        opacity: 0.9;
+        font-weight: 500;
+        color: white;
+    }
+    .cpp-vehicle-card__chevron { margin-left: auto; flex-shrink: 0; opacity: 0.9; }
+    .cpp-vehicle-card__delete {
+        width: 44px;
+        border: 1px solid #fca5a5;
+        border-radius: 12px;
+        background: #fef2f2;
+        color: #dc2626;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: background 0.15s, transform 0.15s;
+    }
+    .cpp-vehicle-card__delete:hover {
+        background: #fee2e2;
+        transform: scale(1.04);
+    }
+    html.portal-theme-dark .cpp-vehicle-card__delete {
+        background: rgba(220, 38, 38, 0.16);
+        border-color: rgba(248, 113, 113, 0.4);
+        color: #fca5a5;
+    }
+    html.portal-theme-dark .cpp-vehicle-card__delete:hover {
+        background: rgba(220, 38, 38, 0.28);
+        color: #fecaca;
+    }
+
+    .cpp-doc-actions {
+        display: flex;
+        gap: 0.4rem;
+        align-items: center;
+    }
+    .cpp-doc-icon-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid var(--portal-border, #cbd5e1);
+        background: var(--portal-surface-muted, #f8fafc);
+        color: var(--portal-text-secondary, #475569);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 0;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .cpp-doc-icon-btn--edit:hover {
+        background: #eef2ff;
+        border-color: #a5b4fc;
+        color: #4338ca;
+    }
+    html.portal-theme-dark .cpp-doc-icon-btn {
+        background: var(--portal-surface);
+        border-color: var(--portal-border);
+        color: var(--portal-text-muted);
+    }
+    html.portal-theme-dark .cpp-doc-icon-btn--edit:hover {
+        background: rgba(99, 102, 241, 0.18);
+        border-color: rgba(165, 180, 252, 0.4);
+        color: #c7d2fe;
+    }
 </style>
 <main class="dashboard-shell client-profile-page">
     <section class="dashboard-layout">
@@ -318,30 +425,39 @@
                     </h3>
                     <div style="padding: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
                         {% for vehicle in vehicles %}
-                        <a href="{% url 'vehicle-detail' vehicle.id %}" class="btn"
-                            style="background: #10b981; color: white; border: none; padding: 1rem; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; text-decoration: none; transition: transform 0.2s, background 0.2s; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.1);">
-                            <div style="display: flex; align-items: center; gap: 1rem;">
-                                <div style="background: rgba(255,255,255,0.2); padding: 0.5rem; border-radius: 8px;">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                        stroke-width="2">
-                                        <path
-                                            d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2">
-                                        </path>
+                        <div class="cpp-vehicle-card">
+                            <a href="{% url 'vehicle-detail' vehicle.id %}" class="cpp-vehicle-card__link">
+                                <div class="cpp-vehicle-card__icon" aria-hidden="true">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path>
                                         <circle cx="7" cy="17" r="2"></circle>
                                         <path d="M9 17h6"></path>
                                         <circle cx="17" cy="17" r="2"></circle>
                                     </svg>
                                 </div>
-                                <div style="text-align: left;">
-                                    <div style="font-weight: 700; font-size: 0.95rem;">{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</div>
-                                    <div style="font-size: 0.75rem; opacity: 0.9; font-weight: 500;">Plate: {{ vehicle.plate_number|default:"N/A" }}</div>
+                                <div class="cpp-vehicle-card__copy">
+                                    <div class="cpp-vehicle-card__title">{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</div>
+                                    <div class="cpp-vehicle-card__meta">Plate: {{ vehicle.plate_number|default:"N/A" }}</div>
                                 </div>
-                            </div>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.5">
-                                <polyline points="9 18 15 12 9 6"></polyline>
-                            </svg>
-                        </a>
+                                <svg class="cpp-vehicle-card__chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                                    <polyline points="9 18 15 12 9 6"></polyline>
+                                </svg>
+                            </a>
+                            {% if can_delete_vehicle %}
+                            <button type="button"
+                                class="cpp-vehicle-card__delete"
+                                title="Remove vehicle"
+                                aria-label="Remove {{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}"
+                                onclick="deleteVehicle({{ vehicle.id }}, this)">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                                    <path d="M10 11v6"></path><path d="M14 11v6"></path>
+                                    <path d="M9 6V4h6v2"></path>
+                                </svg>
+                            </button>
+                            {% endif %}
+                        </div>
                         {% empty %}
                         <p class="cpp-empty-message">No vehicles registered.</p>
                         {% endfor %}
@@ -362,12 +478,22 @@
                             {% for doc in documents %}
                             <li class="cpp-doc-row">
                                 <div>
-                                    <div class="cpp-doc-name">{{ doc.display_name }}</div>
+                                    <div class="cpp-doc-name" data-doc-name>{{ doc.display_name }}</div>
                                     <div class="cpp-doc-meta">
                                         {% if doc.vehicle %}{{ doc.vehicle.make }} - {% endif %}{{ doc.uploaded_at|date:"M d, Y" }}
                                     </div>
                                 </div>
-                                <div style="display: flex; gap: 0.4rem; align-items: center;">
+                                <div class="cpp-doc-actions">
+                                    <button type="button"
+                                        class="cpp-doc-icon-btn cpp-doc-icon-btn--edit"
+                                        title="Edit document title"
+                                        aria-label="Edit document title"
+                                        onclick="renameDocument({{ doc.id }}, this)">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M12 20h9"></path>
+                                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3 2.1 2.1 0 0 1 0 3L7 19l-4 1 1-4 12.5-12.5z"></path>
+                                        </svg>
+                                    </button>
                                     {% if doc.file %}
                                         <a href="{{ doc.file.url }}" target="_blank" class="btn btn-secondary btn-sm" style="min-height: auto; padding: 0.3rem 0.6rem; font-size: 0.8rem; margin: 0;">View</a>
                                     {% else %}
@@ -517,6 +643,89 @@
         if (searchInput) searchInput.addEventListener('keyup', filterTransactions);
         if (statusFilter) statusFilter.addEventListener('change', filterTransactions);
     });
+
+    function deleteVehicle(vehicleId, btn) {
+        const card = btn.closest('.cpp-vehicle-card');
+        const label = card ? (card.querySelector('.cpp-vehicle-card__title')?.textContent || 'this vehicle').trim() : 'this vehicle';
+        if (!confirm(`Remove ${label} from this client profile?`)) return;
+
+        btn.disabled = true;
+        fetch(`/dashboard/vehicles/${vehicleId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.status === 'ok') {
+                if (card) card.remove();
+                const wrap = btn.closest('section')?.querySelector('div[style*="padding: 1.5rem"]');
+                if (wrap && !wrap.querySelector('.cpp-vehicle-card') && !wrap.querySelector('.cpp-empty-message')) {
+                    const empty = document.createElement('p');
+                    empty.className = 'cpp-empty-message';
+                    empty.textContent = 'No vehicles registered.';
+                    wrap.appendChild(empty);
+                }
+                if (window.Swal) {
+                    Swal.fire({ title: 'Removed', text: 'Vehicle has been removed.', icon: 'success', timer: 2000, showConfirmButton: false });
+                }
+            } else {
+                btn.disabled = false;
+                if (window.Swal) Swal.fire('Error', res.message || 'Failed to remove vehicle.', 'error');
+                else alert(res.message || 'Failed to remove vehicle.');
+            }
+        })
+        .catch(() => {
+            btn.disabled = false;
+            if (window.Swal) Swal.fire('Error', 'An error occurred while removing the vehicle.', 'error');
+            else alert('An error occurred while removing the vehicle.');
+        });
+    }
+
+    function renameDocument(docId, btn) {
+        const row = btn.closest('li');
+        const nameEl = row ? row.querySelector('[data-doc-name]') : null;
+        const current = nameEl ? nameEl.textContent.trim() : '';
+        const next = prompt('Document title', current);
+        if (next === null) return;
+        const title = String(next).trim();
+        if (!title) {
+            if (window.Swal) Swal.fire('Title required', 'Please enter a document title.', 'warning');
+            else alert('Please enter a document title.');
+            return;
+        }
+
+        btn.disabled = true;
+        const body = new URLSearchParams({ custom_name: title });
+        fetch(`/dashboard/docs/${docId}/rename/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body
+        })
+        .then(r => r.json())
+        .then(res => {
+            btn.disabled = false;
+            if (res.status === 'ok') {
+                if (nameEl) nameEl.textContent = res.display_name || title;
+                if (window.Swal) {
+                    Swal.fire({ title: 'Updated', text: 'Document title saved.', icon: 'success', timer: 1600, showConfirmButton: false });
+                }
+            } else {
+                if (window.Swal) Swal.fire('Error', res.message || 'Failed to rename document.', 'error');
+                else alert(res.message || 'Failed to rename document.');
+            }
+        })
+        .catch(() => {
+            btn.disabled = false;
+            if (window.Swal) Swal.fire('Error', 'An error occurred while renaming.', 'error');
+            else alert('An error occurred while renaming.');
+        });
+    }
 
     function deleteDocument(docId, btn) {
         if (!confirm('Are you sure you want to delete this document?')) return;

@@ -42,6 +42,22 @@ def user_can_delete_receipt(user, organization_id):
     )
 
 
+def user_can_delete_vehicle(user, organization_id):
+    """Owners and agents with can_delete_vehicle may remove client vehicles."""
+    membership = OrganizationMembership.objects.filter(
+        user=user,
+        organization_id=organization_id,
+        is_active=True,
+        organization__is_active=True,
+    ).first()
+    if not membership:
+        return False
+    return (
+        membership.role == OrganizationMembership.Role.OWNER
+        or membership.can_delete_vehicle
+    )
+
+
 def user_can_issue_refund(user, organization_id):
     """Owners and agents with can_issue_refund may refund service receipts."""
     membership = OrganizationMembership.objects.filter(

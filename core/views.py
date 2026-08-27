@@ -33,6 +33,7 @@ from .access import (
     has_active_owner_access as _has_active_owner_access,
     organizations_for_user as _get_user_organizations,
     user_can_delete_receipt,
+    user_can_delete_vehicle,
     user_can_issue_refund,
 )
 from .constants import (
@@ -847,6 +848,7 @@ def client_detail(request, client_id):
     show_motorclub_card = bool(motorclub_memberships)
 
     can_delete_receipt = user_can_delete_receipt(request.user, client.organization_id)
+    can_delete_vehicle = user_can_delete_vehicle(request.user, client.organization_id)
 
     return render(request, "core/client_profile.html", {
         "client": client,
@@ -864,6 +866,7 @@ def client_detail(request, client_id):
         "total_services": total_services,
         "last_service_date": last_service_date,
         "can_delete_receipt": can_delete_receipt,
+        "can_delete_vehicle": can_delete_vehicle,
     })
 
 
@@ -3347,6 +3350,10 @@ def update_agent_permissions(request):
             membership.can_manage_email_marketing = value
         elif field == "can_issue_refund":
             membership.can_issue_refund = value
+        elif field == "can_delete_receipt":
+            membership.can_delete_receipt = value
+        elif field == "can_delete_vehicle":
+            membership.can_delete_vehicle = value
         membership.save()
         
         return JsonResponse({"status": "success"})
@@ -7087,6 +7094,79 @@ def delete_document(request, doc_id):
     
     doc.delete()
     return JsonResponse({"status": "ok", "message": "Document deleted."})
+
+
+@login_required
+@require_POST
+def rename_document(request, doc_id):
+    """Update only the display title (custom_name) of a ServiceDocument."""
+    doc = get_object_or_404(ServiceDocument, id=doc_id)
+
+    org = None
+    if doc.vehicle_id:
+        org = doc.vehicle.client.organization
+    elif doc.service_record_id:
+        org = doc.service_record.organization
+
+    if not org or not _has_active_org_access(request.user, org.id):
+        return JsonResponse({"status": "error", "message": "Access denied."}, status=403)
+
+    title = (request.POST.get("custom_name") or request.POST.get("title") or "").strip()
+    if not title:
+        try:
+            import json
+
+            payload = json.loads(request.body.decode() or "{}")
+            title = (payload.get("custom_name") or payload.get("title") or "").strip()
+        except Exception:
+            title = ""
+
+    if not title:
+        return JsonResponse({"status": "error", "message": "Document title is required."}, status=400)
+    if len(title) > 150:
+        return JsonResponse({"status": "error", "message": "Title must be 150 characters or fewer."}, status=400)
+
+    doc.custom_name = title
+    doc.save(update_fields=["custom_name"])
+    return JsonResponse({"status": "ok", "message": "Document title updated.", "display_name": doc.display_name})
+
+
+@login_required
+@require_POST
+def delete_vehicle(request, vehicle_id):
+    """Soft-delete a vehicle. Owners or agents with can_delete_vehicle may do this."""
+    vehicle = get_object_or_404(Vehicle, id=vehicle_id)
+    org_id = vehicle.client.organization_id
+
+    if not _has_active_org_access(request.user, org_id):
+        return JsonResponse({"status": "error", "message": "Access denied."}, status=403)
+
+    if not user_can_delete_vehicle(request.user, org_id):
+        return JsonResponse(
+            {"status": "error", "message": "You do not have permission to remove vehicles."},
+            status=403,
+        )
+
+    label = f"{vehicle.year or ''} {vehicle.make or ''} {vehicle.model or ''}".strip() or f"Vehicle #{vehicle.id}"
+    client_id = vehicle.client_id
+    vehicle.delete()
+
+    import logging
+
+    logging.getLogger(__name__).info(
+        "Vehicle %s (ID %s) deleted by %s",
+        label,
+        vehicle_id,
+        request.user.username,
+    )
+    return JsonResponse(
+        {
+            "status": "ok",
+            "message": "Vehicle removed.",
+            "client_id": client_id,
+            "label": label,
+        }
+    )
 
 
 @login_required

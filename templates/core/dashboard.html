@@ -707,6 +707,7 @@
                                 <th title="Manage Documents Space">Docs</th>
                                 <th title="Email Marketing lists, CRM, and campaigns">Email</th>
                                 <th title="Issue refunds on vehicle transactions">Refund</th>
+                                <th title="Remove vehicles from client profiles">Vehicles</th>
                                 <th>Audit</th>
                             </tr>
                         </thead>
@@ -801,6 +802,12 @@
                                     <td>
                                         <label class="switch" title="Issue refunds on vehicle transactions">
                                             <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_issue_refund" {% if agent_mem.can_issue_refund %}checked{% endif %}>
+                                            <span class="slider round"></span>
+                                        </label>
+                                    </td>
+                                    <td>
+                                        <label class="switch" title="Remove vehicles from client profiles">
+                                            <input type="checkbox" class="agent-permission-toggle" data-id="{{ agent_mem.id }}" data-field="can_delete_vehicle" {% if agent_mem.can_delete_vehicle %}checked{% endif %}>
                                             <span class="slider round"></span>
                                         </label>
                                     </td>

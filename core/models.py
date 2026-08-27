@@ -197,6 +197,10 @@ class OrganizationMembership(models.Model):
         help_text="Agent profile photo shown on the agent portal home.",
     )
     can_delete_receipt = models.BooleanField(default=False, help_text="Can this agent delete/remove receipt records from the service list?")
+    can_delete_vehicle = models.BooleanField(
+        default=False,
+        help_text="Can this agent remove vehicles from a client profile?",
+    )
     can_issue_refund = models.BooleanField(
         default=False,
         help_text="Can this agent issue refunds from vehicle transaction history?",
@@ -953,14 +957,20 @@ class ServiceDocument(models.Model):
         null=True, blank=True
     )
     document_type = models.CharField(max_length=30, choices=DOCUMENT_TYPES)
-    custom_name = models.CharField(max_length=150, blank=True, default="", help_text="Custom name for 'other' document types")
+    custom_name = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        help_text="Optional display title for this document (overrides the type label when set).",
+    )
     file = models.FileField(upload_to="service_documents/")
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     @property
     def display_name(self):
-        if self.document_type == "other" and self.custom_name:
-            return self.custom_name
+        name = (self.custom_name or "").strip()
+        if name:
+            return name
         return self.get_document_type_display()
 
     class Meta:
