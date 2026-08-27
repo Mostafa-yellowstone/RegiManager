@@ -68,8 +68,8 @@ class InsuranceESignEnvelope(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
-        verbose_name = "E-signature envelope"
-        verbose_name_plural = "E-signature envelopes"
+        verbose_name = "Insurance e-signature envelope"
+        verbose_name_plural = "Insurance e-signature envelopes"
 
     def __str__(self):
         return f"{self.title} ({self.status})"

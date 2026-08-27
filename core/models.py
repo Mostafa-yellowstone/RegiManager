@@ -315,6 +315,8 @@ class InsuranceTypeOption(models.Model):
     class Meta:
         unique_together = ("organization", "key")
         ordering = ["label"]
+        verbose_name = "Insurance type option"
+        verbose_name_plural = "Insurance type options"
 
     def __str__(self):
         return self.label
@@ -1837,6 +1839,8 @@ class InsuranceCompany(models.Model):
     class Meta:
         ordering = ["name"]
         unique_together = ("organization", "name")
+        verbose_name = "Insurance company"
+        verbose_name_plural = "Insurance companies"
 
     def __str__(self):
         return self.name
@@ -1974,6 +1978,8 @@ class InsurancePolicy(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        verbose_name = "Insurance policy"
+        verbose_name_plural = "Insurance policies"
 
     def __str__(self):
         return f"{self.policy_number} - {self.client.name if self.client else 'Unknown'}"
@@ -2056,6 +2062,8 @@ class InsurancePolicyDocument(models.Model):
 
     class Meta:
         ordering = ["-uploaded_at"]
+        verbose_name = "Insurance policy document"
+        verbose_name_plural = "Insurance policy documents"
 
     def __str__(self):
         return self.title
@@ -2085,6 +2093,8 @@ class InsurancePolicyInstallment(models.Model):
     class Meta:
         ordering = ["due_date", "installment_number"]
         unique_together = ("policy", "installment_number")
+        verbose_name = "Insurance policy installment"
+        verbose_name_plural = "Insurance policy installments"
 
     @property
     def total_due(self):
@@ -2204,6 +2214,8 @@ class DailyPaymentTransaction(models.Model):
 
     class Meta:
         ordering = ["-transaction_date", "-created_at"]
+        verbose_name = "Daily payment"
+        verbose_name_plural = "Daily payments"
 
     def __str__(self):
         return f"{self.transaction_date} — {self.client} — ${self.amount}"
@@ -2219,6 +2231,8 @@ class BankAccount(models.Model):
 
     class Meta:
         ordering = ["account_name"]
+        verbose_name = "Bank account"
+        verbose_name_plural = "Bank accounts"
 
     def __str__(self):
         return f"{self.account_name} ({self.bank_name}) - ${self.balance}"
@@ -2246,6 +2260,8 @@ class BankTransaction(models.Model):
 
     class Meta:
         ordering = ["-date", "-created_at"]
+        verbose_name = "Bank transaction"
+        verbose_name_plural = "Bank transactions"
 
     def __str__(self):
         return f"{self.transaction_type.upper()}: ${self.amount} ({self.category})"
@@ -2313,6 +2329,8 @@ class InsuranceCompanyDocument(models.Model):
 
     class Meta:
         ordering = ["-uploaded_at"]
+        verbose_name = "Insurance company document"
+        verbose_name_plural = "Insurance company documents"
 
     def __str__(self):
         return f"{self.insurance_company.name} — {self.title or self.document.name}"
