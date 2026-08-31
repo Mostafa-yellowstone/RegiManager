@@ -3433,6 +3433,25 @@ class DmvDocumentsStateTests(TestCase):
         for slug in get_prefill_slugs_for_state("NY"):
             self.assertTrue(slug_has_prefill_template(slug, "NY"), slug)
 
+    def test_ny_prefill_templates_use_current_official_revisions(self):
+        from pathlib import Path
+        from pypdf import PdfReader
+
+        from core.dmv_documents import get_document_by_slug, get_prefill_template_path
+
+        expected_revisions = {
+            "mv82": "2/26",
+            "mv82b": "8/24",
+            "dtf802": "5/15",
+            "dtf803": "4/14",
+        }
+        for slug, revision in expected_revisions.items():
+            document = get_document_by_slug("NY", slug)
+            self.assertEqual(document.revision, revision, slug)
+            template_path = Path(get_prefill_template_path(slug, "NY"))
+            text = "\n".join(page.extract_text() or "" for page in PdfReader(str(template_path)).pages)
+            self.assertIn(revision, text, slug)
+
     def test_hub_prefill_flag_requires_local_template(self):
         from core.dmv_documents import build_vehicle_document_hub
 

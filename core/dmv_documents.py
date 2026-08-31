@@ -19,6 +19,7 @@ class DmvDocument:
     name: str
     description: str
     category: str
+    revision: str = ""
     prefill: bool = False
     upload_type: str | None = None
     dmv_url: str = ""
@@ -156,6 +157,7 @@ NY_DOCUMENTS: tuple[DmvDocument, ...] = (
         name="Vehicle Registration / Title Application",
         description="Primary NYS application for new registration, renewal, transfer, or plate changes.",
         category="registration",
+        revision="2/26",
         prefill=True,
         upload_type="mv82",
         dmv_url=f"{DMV_NYS_FORMS_BASE}/mv82.pdf",
@@ -167,6 +169,7 @@ NY_DOCUMENTS: tuple[DmvDocument, ...] = (
         name="Boat Registration Application",
         description="Application to register or transfer a boat trailer and marine vessel.",
         category="registration",
+        revision="8/24",
         prefill=True,
         dmv_url=f"{DMV_NYS_FORMS_BASE}/mv82b.pdf",
         tags=("boat", "marine", "trailer"),
@@ -258,6 +261,7 @@ NY_DOCUMENTS: tuple[DmvDocument, ...] = (
         name="Sales Tax Paid on Motor Vehicle",
         description="Report sales tax collected or paid at purchase for DMV processing.",
         category="tax",
+        revision="5/15",
         prefill=True,
         upload_type="dtf802",
         dmv_url=f"{DMV_TAX_FORMS_BASE}/dtf802.pdf",
@@ -269,6 +273,7 @@ NY_DOCUMENTS: tuple[DmvDocument, ...] = (
         name="Sales Tax Exemption / Credit",
         description="Claim exemption, credit, or out-of-state tax paid on a vehicle purchase.",
         category="tax",
+        revision="4/14",
         prefill=True,
         dmv_url=f"{DMV_TAX_FORMS_BASE}/dtf803.pdf",
         tags=("exemption", "credit", "out of state"),
@@ -705,6 +710,7 @@ def build_vehicle_document_hub(
                     "name": entry.name,
                     "description": entry.description,
                     "prefill": can_prefill,
+                    "revision": entry.revision,
                     "upload_type": entry.upload_type,
                     "dmv_url": entry.dmv_url,
                     "tags": entry.tags,

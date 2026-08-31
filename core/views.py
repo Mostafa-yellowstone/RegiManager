@@ -337,6 +337,7 @@ def _build_form_prefill_payload(service, client, vehicle):
         "year": str(vehicle.year) if vehicle and vehicle.year else "",
         "make": (vehicle.make or "").upper() if vehicle else "",
         "model": (vehicle.model or "").upper() if vehicle else "",
+        "color": (vehicle.color or "").upper() if vehicle else "",
         "vin": (vehicle.vin if vehicle else "").upper(),
         "plate_number": (vehicle.plate_number if vehicle else "") or "",
         "county": (client.county.upper() if client and client.county else "") or "",
@@ -348,8 +349,15 @@ def _build_form_prefill_payload(service, client, vehicle):
         "odometer_status": vehicle.odometer_status if vehicle else "",
         "mgw": vehicle.max_gross_weight if vehicle else "",
         "axles": vehicle.num_axles if vehicle else "",
-        "owner_name": vehicle.owner_name if vehicle else "",
-        "owner_nys_id": vehicle.owner_nys_id if vehicle else "",
+        "owner_name": (
+            vehicle.owner_name if vehicle and vehicle.owner_name
+            else (client.business_name if client and client.is_commercial else
+                  f"{client.last_name}, {client.first_name} {client.middle_name or ''}" if client else "")
+        ),
+        "owner_nys_id": (
+            vehicle.owner_nys_id if vehicle and vehicle.owner_nys_id
+            else (client.driver_license if client else "")
+        ),
         "co_registrant_name": vehicle.co_registrant_name if vehicle else "",
         "co_registrant_nys_id": vehicle.co_registrant_nys_id if vehicle else "",
         "lienholder_name": vehicle.lienholder_name if vehicle else "",
@@ -367,39 +375,34 @@ def _build_acroform_prefill_fields(form_type, prefill):
     """
     if form_type == "mv82":
         return {
-            "NYS New York State driver license ID Identification number of PRIMARY REGISTRANT": prefill["driver_license"],
-            "PRIMARY REGISTRANT DATE OF BIRTH Month": prefill["dob_m"],
-            "PRIMARY REGISTRANT DATE OF BIRTH Day": prefill["dob_d"],
+            "NYS driver license ID number of PRIMARY REGISTRANT": prefill["driver_license"],
+            "PRIMARY REGISTRANT Date of Birth Month": prefill["dob_m"],
+            "PRIMARY REGISTRANT Date of Birth Day": prefill["dob_d"],
             "PRIMARY REGISTRANT DATE OF BIRTH Year": prefill["dob_y"],
             "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL": prefill["street_address"],
             "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL City or Town": prefill["city"],
             "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL State": prefill["state"],
             "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL Zip Code": prefill["zip_code"],
-            
-            # MV-82B keys remain here too; harmless for non-matching forms.
-            "NAME OF PRIMARY REGISTRANT Last First Middle": prefill["name_full"],
-            "NYS driver license number of PRIMARY": prefill["driver_license"],
-            "STREET ADDRESS": prefill["street_address"],
-            "CITY OR TOWN": prefill["city"],
-            "STATE": prefill["state"],
-            "ZIP CODE": prefill["zip_code"],
-            "YEAR": prefill["year"],
-            "MAKE": prefill["make"],
-            "MODEL": prefill["model"],
-            "HIN": prefill["vin"],
-            # Technical
-            "Odometer Reading": prefill["odometer"],
-            "Max Gross Weight": prefill["mgw"],
+            "PRIMARY REGISTRANT TELEPHONE or MOBILE PHONE NUMBER": prefill["phone_digits"],
+            "COREGISTRANT EMAIL": prefill["email"],
+
+            "NAME OF PRIMARY REGISTRANT Last First Middle or Business Name": prefill["name_full"],
+            "VEHICLE IDENTIFICATION NUMBER": prefill["vin"],
+            "VEHICLE DESCRIPTION Year": prefill["year"],
+            "VEHICLE DESCRIPTION Make": prefill["make"],
+            "Color": prefill.get("color", ""),
+            "Current Plate Number": prefill["plate_number"],
+            "County of Residence": prefill["county"],
+            # Technical fields added/renamed in MV-82 (2/26).
+            "Odometer Reading in Miles": prefill["odometer"],
+            "Maximum Gross Weight": prefill["mgw"],
             "Axles": prefill["axles"],
-            # Ownership
-            "OWNER NAME": prefill["owner_name"],
-            "OWNER NYS ID": prefill["owner_nys_id"],
-            "CO-REGISTRANT NAME": prefill["co_registrant_name"],
-            "CO-REGISTRANT NYS ID": prefill["co_registrant_nys_id"],
-            # Liens
-            "Lienholder Name": prefill["lienholder_name"],
-            "Lienholder Address": prefill["lienholder_address"],
-            "Lien Filing Code": prefill["lien_filing_code"],
+
+            "NAME OF COREGISTRANT Last First Middle": prefill["co_registrant_name"],
+            "NYS driver license ID number of COREGISTRANT": prefill["co_registrant_nys_id"],
+            "THE ADDRESS WHERE PRIMARY OWNER GETS MAIL": prefill["street_address"],
+            "PRIMARY OWNER NYS License Number": prefill["owner_nys_id"],
+            "NAME OF PRIMARY OWNER Last First Middle or Business Name": prefill["owner_name"],
         }
 
     if form_type == "mv82b":

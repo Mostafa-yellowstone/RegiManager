@@ -5852,6 +5852,18 @@ html.portal-theme-dark .agent-profile-page .chip[style*="background:#f1f5f9"] {
     line-height: 1.3;
 }
 
+.vd-dmv-row__revision {
+    display: inline-block;
+    margin-left: 0.35rem;
+    padding: 0.1rem 0.35rem;
+    border: 1px solid var(--portal-border);
+    border-radius: 999px;
+    color: var(--portal-text-muted);
+    font-size: 0.65rem;
+    font-weight: 700;
+    vertical-align: middle;
+}
+
 .vd-dmv-row__desc {
     display: block;
     font-size: 0.72rem;

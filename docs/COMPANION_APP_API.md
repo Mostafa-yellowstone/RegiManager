@@ -12,6 +12,21 @@ Official REST reference for **mobile / desktop companion apps** (iOS, Android, R
 
 ---
 
+## DMV form template revisions
+
+The bundled New York form PDFs are official downloads and are kept at the latest revision published by the NY DMV or NY Tax Department:
+
+| Form | Bundled revision | Official source |
+|------|------------------|-----------------|
+| MV-82 | **2/26** | `https://dmv.ny.gov/forms/mv82.pdf` |
+| MV-82B | **8/24** | `https://dmv.ny.gov/forms/mv82b.pdf` |
+| DTF-802 | **5/15** | `https://www.tax.ny.gov/pdf/current_forms/st/dtf802.pdf` |
+| DTF-803 | **4/14** | `https://www.tax.ny.gov/pdf/current_forms/st/dtf803.pdf` |
+
+Only MV-82 currently has a 2026 revision. The other three forms do not have newer 2026 editions published, so their official revision dates remain unchanged.
+
+---
+
 ## Table of contents
 
 1. [Quick start](#quick-start)

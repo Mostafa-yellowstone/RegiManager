@@ -60,7 +60,10 @@
                                 data-vd-dmv-search="{{ doc.search_text }}">
                                 <td class="vd-dmv-row__code">{{ doc.code }}</td>
                                 <td class="vd-dmv-row__info">
-                                    <span class="vd-dmv-row__name">{{ doc.name }}</span>
+                                    <span class="vd-dmv-row__name">
+                                        {{ doc.name }}
+                                        {% if doc.revision %}<small class="vd-dmv-row__revision">Rev. {{ doc.revision }}</small>{% endif %}
+                                    </span>
                                     <span class="vd-dmv-row__desc">{{ doc.description }}</span>
                                 </td>
                                 <td class="vd-dmv-row__status">
