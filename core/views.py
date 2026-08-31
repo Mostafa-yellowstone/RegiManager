@@ -349,15 +349,8 @@ def _build_form_prefill_payload(service, client, vehicle):
         "odometer_status": vehicle.odometer_status if vehicle else "",
         "mgw": vehicle.max_gross_weight if vehicle else "",
         "axles": vehicle.num_axles if vehicle else "",
-        "owner_name": (
-            vehicle.owner_name if vehicle and vehicle.owner_name
-            else (client.business_name if client and client.is_commercial else
-                  f"{client.last_name}, {client.first_name} {client.middle_name or ''}" if client else "")
-        ),
-        "owner_nys_id": (
-            vehicle.owner_nys_id if vehicle and vehicle.owner_nys_id
-            else (client.driver_license if client else "")
-        ),
+        "owner_name": vehicle.owner_name if vehicle else "",
+        "owner_nys_id": vehicle.owner_nys_id if vehicle else "",
         "co_registrant_name": vehicle.co_registrant_name if vehicle else "",
         "co_registrant_nys_id": vehicle.co_registrant_nys_id if vehicle else "",
         "lienholder_name": vehicle.lienholder_name if vehicle else "",
@@ -383,8 +376,8 @@ def _build_acroform_prefill_fields(form_type, prefill):
             "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL City or Town": prefill["city"],
             "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL State": prefill["state"],
             "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL Zip Code": prefill["zip_code"],
-            "PRIMARY REGISTRANT TELEPHONE or MOBILE PHONE NUMBER": prefill["phone_digits"],
-            "COREGISTRANT EMAIL": prefill["email"],
+            "PRIMARY REGISTRANT TELEPHONE or MOBILE PHONE NUMBER": prefill.get("phone_digits", ""),
+            "COREGISTRANT EMAIL": prefill.get("email", ""),
 
             "NAME OF PRIMARY REGISTRANT Last First Middle or Business Name": prefill["name_full"],
             "VEHICLE IDENTIFICATION NUMBER": prefill["vin"],
@@ -392,7 +385,7 @@ def _build_acroform_prefill_fields(form_type, prefill):
             "VEHICLE DESCRIPTION Make": prefill["make"],
             "Color": prefill.get("color", ""),
             "Current Plate Number": prefill["plate_number"],
-            "County of Residence": prefill["county"],
+            "County of Residence": prefill.get("county", ""),
             # Technical fields added/renamed in MV-82 (2/26).
             "Odometer Reading in Miles": prefill["odometer"],
             "Maximum Gross Weight": prefill["mgw"],
@@ -400,9 +393,6 @@ def _build_acroform_prefill_fields(form_type, prefill):
 
             "NAME OF COREGISTRANT Last First Middle": prefill["co_registrant_name"],
             "NYS driver license ID number of COREGISTRANT": prefill["co_registrant_nys_id"],
-            "THE ADDRESS WHERE PRIMARY OWNER GETS MAIL": prefill["street_address"],
-            "PRIMARY OWNER NYS License Number": prefill["owner_nys_id"],
-            "NAME OF PRIMARY OWNER Last First Middle or Business Name": prefill["owner_name"],
         }
 
     if form_type == "mv82b":
@@ -525,27 +515,25 @@ def _render_prefilled_dmv_pdf(form_type, org_state, *, service=None, vehicle=Non
         prefill = _build_form_prefill_payload(None, client, vehicle)
         vin_or_id = vehicle.vin or vehicle.id
 
-    packet = io.BytesIO()
-    can = canvas.Canvas(packet, pagesize=letter)
-    can.setFont("Helvetica-Bold", 10)
-
-    if form_type == "mv82":
-        _fill_mv82_overlay(can, service, client, vehicle)
-    elif form_type == "dtf802":
-        _fill_dtf802_overlay(can, service, client, vehicle)
-    elif form_type == "dtf803":
-        _fill_dtf803_overlay(can, service, client, vehicle)
-    elif form_type == "mv82b":
-        _fill_mv82b_overlay(can, service, client, vehicle)
-
-    can.save()
-    packet.seek(0)
-    new_pdf = PdfReader(packet)
     template_pdf = PdfReader(template_path)
     output = PdfWriter()
 
     page1 = template_pdf.pages[0]
-    page1.merge_page(new_pdf.pages[0])
+    # MV-82's official 2/26 PDF has AcroForm fields. Use those fields once;
+    # drawing a second ReportLab overlay duplicates values and can fill Section 3.
+    if form_type != "mv82":
+        packet = io.BytesIO()
+        can = canvas.Canvas(packet, pagesize=letter)
+        can.setFont("Helvetica-Bold", 10)
+        if form_type == "dtf802":
+            _fill_dtf802_overlay(can, service, client, vehicle)
+        elif form_type == "dtf803":
+            _fill_dtf803_overlay(can, service, client, vehicle)
+        elif form_type == "mv82b":
+            _fill_mv82b_overlay(can, service, client, vehicle)
+        can.save()
+        packet.seek(0)
+        page1.merge_page(PdfReader(packet).pages[0])
     output.add_page(page1)
     if len(template_pdf.pages) > 1:
         output.add_page(template_pdf.pages[1])
@@ -2592,57 +2580,6 @@ def generate_dmv_form_vehicle(request, form_type, vehicle_id):
     return _render_prefilled_dmv_pdf(form_type, org_state, vehicle=vehicle)
 
 
-def _fill_mv82_overlay(can, service, client, vehicle):
-    st = service.service_type if service else ""
-    plate_str = (service.plate_number if service else None) or (vehicle.plate_number if vehicle else "")
-    if plate_str:
-        can.drawString(465, 615, plate_str.upper())
-    if client and client.is_commercial:
-        name_str = client.business_name or client.last_name
-    else:
-        name_str = f"{client.last_name if client else ''}, {client.first_name if client else ''} {client.middle_name or ''}"
-    can.drawString(40, 588, name_str.upper())
-    phone = (client.phone_number if client and client.phone_number else "").replace("-", "").replace("(", "").replace(")", "").replace(" ", "")
-    for i, char in enumerate(phone[:3]): can.drawString(463 + (i * 9), 560, char)
-    for i, char in enumerate(phone[3:10]): can.drawString(493 + (i * 14.5), 560, char)
-    if client and client.email:
-        can.setFont("Helvetica", 8)
-        can.drawString(398, 535, client.email)
-        can.setFont("Helvetica-Bold", 10)
-    can.drawString(535, 442, client.county.upper() if client else "")
-    can.setFont("Courier-Bold", 12)
-    vin_str = ((service.vin or "") if service else (vehicle.vin or "") if vehicle else "").upper()
-    for i, char in enumerate(vin_str[:17]): can.drawString(38 + (i * 18.4), 407, char)
-    can.setFont("Helvetica-Bold", 10)
-    can.drawString(358, 407, str(vehicle.year) if vehicle and vehicle.year else "")
-    can.drawString(400, 407, (vehicle.make or "").upper() if vehicle else "")
-    # Body type checkboxes intentionally left blank (no X marks)
-    can.drawString(40, 381, (vehicle.color or "").upper() if vehicle else "")
-    can.drawString(90, 381, str(vehicle.weight) if vehicle else "")
-    can.drawString(34, 355, str(vehicle.cylinders) if vehicle else "")
-    
-    # Technical specs
-    if vehicle:
-        if vehicle.odometer_reading:
-            can.drawString(110, 355, vehicle.odometer_reading)
-        if vehicle.max_gross_weight:
-            can.drawString(180, 355, vehicle.max_gross_weight)
-        if vehicle.num_axles:
-            can.drawString(240, 355, vehicle.num_axles)
-            
-    # Co-Registrant
-    if vehicle and vehicle.co_registrant_name:
-        can.drawString(40, 510, vehicle.co_registrant_name.upper())
-        if vehicle.co_registrant_nys_id:
-            can.drawString(463, 510, vehicle.co_registrant_nys_id)
-            
-    # Owner (if different)
-    if vehicle and vehicle.owner_name:
-        can.drawString(40, 320, vehicle.owner_name.upper())
-        if vehicle.owner_nys_id:
-            can.drawString(463, 320, vehicle.owner_nys_id)
-
-
 def _fill_dtf802_overlay(can, service, client, vehicle):
     """
     DTF-802 Overlay cleared per user request.
@@ -2685,18 +2622,11 @@ def regenerate_mv82_document(service_document):
     if not os.path.exists(template_path):
         return
     
-    packet = io.BytesIO()
-    can = canvas.Canvas(packet, pagesize=letter)
-    _fill_mv82_overlay(can, service, client, vehicle)
-    can.save()
-    packet.seek(0)
-    
-    new_pdf = PdfReader(packet)
     template_pdf = PdfReader(template_path)
     output = PdfWriter()
 
     page1 = template_pdf.pages[0]
-    page1.merge_page(new_pdf.pages[0])
+    # Keep the official MV-82 fields as the single source of prefilled data.
     output.add_page(page1)
     if len(template_pdf.pages) > 1:
         output.add_page(template_pdf.pages[1])
@@ -2765,29 +2695,12 @@ def intake_mv82_pdf(request, intake_id):
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
     template_path = os.path.join(current_dir, "static/core/pdf/mv82_template.pdf")
-    packet = io.BytesIO()
-    can = canvas.Canvas(packet, pagesize=letter)
-    can.setFont("Helvetica-Bold", 10)
-    
-    # Simple overlay for preview
-    name_str = prefill["name_full"]
-    can.drawString(40, 588, name_str.upper())
-    vin_str = (intake.vin or "").upper()
-    can.setFont("Courier-Bold", 12)
-    for i, char in enumerate(vin_str[:17]): can.drawString(38 + (i * 18.4), 407, char)
-    can.setFont("Helvetica-Bold", 10)
-    can.drawString(358, 407, prefill["year"])
-    can.drawString(400, 407, (prefill["make"] or "").upper())
-    
-    can.save()
-    packet.seek(0)
-    new_pdf = PdfReader(packet)
     template_pdf = PdfReader(template_path)
     output = PdfWriter()
     from pypdf.generic import NameObject
 
     page1 = template_pdf.pages[0]
-    page1.merge_page(new_pdf.pages[0])
+    # Use the official form fields once; do not overlay the same values.
     output.add_page(page1)
     if len(template_pdf.pages) > 1:
         output.add_page(template_pdf.pages[1])

@@ -3452,6 +3452,38 @@ class DmvDocumentsStateTests(TestCase):
             text = "\n".join(page.extract_text() or "" for page in PdfReader(str(template_path)).pages)
             self.assertIn(revision, text, slug)
 
+    def test_mv82_prefill_leaves_section_three_empty(self):
+        from core.views import _build_acroform_prefill_fields
+
+        fields = _build_acroform_prefill_fields(
+            "mv82",
+            {
+                "driver_license": "A123",
+                "dob_m": "01",
+                "dob_d": "02",
+                "dob_y": "1980",
+                "street_address": "1 MAIN ST",
+                "city": "ALBANY",
+                "state": "NY",
+                "zip_code": "12207",
+                "name_full": "DOE, JANE",
+                "year": "2020",
+                "make": "HONDA",
+                "vin": "1HGBH41JXMN109186",
+                "plate_number": "ABC1234",
+                "axles": "2",
+                "odometer": "100",
+                "mgw": "3500",
+                "co_registrant_name": "",
+                "co_registrant_nys_id": "",
+            },
+        )
+
+        self.assertIn("NAME OF PRIMARY REGISTRANT Last First Middle or Business Name", fields)
+        self.assertNotIn("NAME OF PRIMARY OWNER Last First Middle or Business Name", fields)
+        self.assertNotIn("PRIMARY OWNER NYS License Number", fields)
+        self.assertNotIn("THE ADDRESS WHERE PRIMARY OWNER GETS MAIL", fields)
+
     def test_hub_prefill_flag_requires_local_template(self):
         from core.dmv_documents import build_vehicle_document_hub
 
