@@ -3526,6 +3526,65 @@ class DmvDocumentsStateTests(TestCase):
             if slug == "dtf802":
                 self.assertNotIn("MV-82", disposition)
 
+    def test_generate_mv82_populates_name_year_and_phone_area_code_once(self):
+        import io
+
+        from pypdf import PdfReader
+
+        org = Organization.objects.create(name="MV82 Field PSB", city="Albany", state="NY")
+        OrganizationMembership.objects.create(
+            user=self.user,
+            organization=org,
+            is_active=True,
+            role=OrganizationMembership.Role.OWNER,
+        )
+        client = Client.objects.create(
+            organization=org,
+            first_name="John",
+            last_name="Smith",
+            driver_license="123456789",
+            phone_number="5185550100",
+        )
+        vehicle = Vehicle.objects.create(
+            client=client,
+            vin="1HGBH41JXMN109186",
+            year=2020,
+            make="Honda",
+            model="Civic",
+        )
+
+        response = self.http_client.get(
+            reverse("generate-dmv-form-vehicle", args=["mv82", vehicle.id])
+        )
+        self.assertEqual(response.status_code, 200)
+
+        reader = PdfReader(io.BytesIO(response.content))
+        values = {}
+        for page in reader.pages:
+            for annotation in page.get("/Annots", []):
+                widget = annotation.get_object()
+                parent = widget.get("/Parent")
+                field = parent.get_object() if parent else widget
+                field_name = field.get("/T") or widget.get("/T")
+                if field_name:
+                    values[field_name] = field.get("/V") or widget.get("/V")
+
+        self.assertEqual(
+            values["NAME OF PRIMARY REGISTRANT Last First Middle or Business Name"].strip(),
+            "SMITH, JOHN",
+        )
+        self.assertEqual(values["VEHICLE DESCRIPTION Year"], "2020")
+        self.assertEqual(values["PRIMARY REGISTRANT Area Code"], "518")
+        self.assertEqual(
+            values["PRIMARY REGISTRANT TELEPHONE or MOBILE PHONE NUMBER"],
+            "5550100",
+        )
+        self.assertIn("NAME OF PRIMARY OWNER Last First Middle or Business Name", values)
+        self.assertIn(
+            values["NAME OF PRIMARY OWNER Last First Middle or Business Name"],
+            (None, ""),
+        )
+
     def test_missing_prefill_template_redirects_to_official_blank(self):
         from unittest.mock import patch
 

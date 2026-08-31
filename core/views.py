@@ -367,6 +367,7 @@ def _build_acroform_prefill_fields(form_type, prefill):
     Avoid broad aliases that can write into unrelated fields.
     """
     if form_type == "mv82":
+        phone_digits = prefill.get("phone_digits", "")
         return {
             "NYS driver license ID number of PRIMARY REGISTRANT": prefill["driver_license"],
             "PRIMARY REGISTRANT Date of Birth Month": prefill["dob_m"],
@@ -376,7 +377,8 @@ def _build_acroform_prefill_fields(form_type, prefill):
             "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL City or Town": prefill["city"],
             "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL State": prefill["state"],
             "THE ADDRESS WHERE PRIMARY REGISTRANT GETS MAIL Zip Code": prefill["zip_code"],
-            "PRIMARY REGISTRANT TELEPHONE or MOBILE PHONE NUMBER": prefill.get("phone_digits", ""),
+            "PRIMARY REGISTRANT Area Code": phone_digits[:3],
+            "PRIMARY REGISTRANT TELEPHONE or MOBILE PHONE NUMBER": phone_digits[3:10],
             "COREGISTRANT EMAIL": prefill.get("email", ""),
 
             "NAME OF PRIMARY REGISTRANT Last First Middle or Business Name": prefill["name_full"],
@@ -493,7 +495,6 @@ def _build_dtf_token_prefill_fields(pdf_reader, prefill):
 def _render_prefilled_dmv_pdf(form_type, org_state, *, service=None, vehicle=None):
     """Build a prefilled DMV PDF for the requested form slug (never falls back to another form)."""
     from pypdf import PdfReader, PdfWriter
-    from pypdf.generic import NameObject
 
     template_path = get_prefill_template_path(form_type, org_state)
     if not template_path:
@@ -517,8 +518,10 @@ def _render_prefilled_dmv_pdf(form_type, org_state, *, service=None, vehicle=Non
 
     template_pdf = PdfReader(template_path)
     output = PdfWriter()
+    # append() preserves the parent/child hierarchy used by MV-82's name and
+    # year fields; add_page() detaches those widgets from their form fields.
+    output.append(template_pdf)
 
-    page1 = template_pdf.pages[0]
     # MV-82's official 2/26 PDF has AcroForm fields. Use those fields once;
     # drawing a second ReportLab overlay duplicates values and can fill Section 3.
     if form_type != "mv82":
@@ -533,22 +536,14 @@ def _render_prefilled_dmv_pdf(form_type, org_state, *, service=None, vehicle=Non
             _fill_mv82b_overlay(can, service, client, vehicle)
         can.save()
         packet.seek(0)
-        page1.merge_page(PdfReader(packet).pages[0])
-    output.add_page(page1)
-    if len(template_pdf.pages) > 1:
-        output.add_page(template_pdf.pages[1])
+        output.pages[0].merge_page(PdfReader(packet).pages[0])
 
-    if "/AcroForm" in template_pdf.trailer["/Root"]:
-        output._root_object.update({
-            NameObject("/AcroForm"): template_pdf.trailer["/Root"]["/AcroForm"]
-        })
-
-        fields = _build_acroform_prefill_fields(form_type, prefill)
-        if not fields and form_type in ("dtf802", "dtf803"):
-            fields = _build_dtf_token_prefill_fields(template_pdf, prefill)
-        if fields:
-            for page in output.pages:
-                output.update_page_form_field_values(page, fields)
+    fields = _build_acroform_prefill_fields(form_type, prefill)
+    if not fields and form_type in ("dtf802", "dtf803"):
+        fields = _build_dtf_token_prefill_fields(template_pdf, prefill)
+    if fields:
+        for page in output.pages:
+            output.update_page_form_field_values(page, fields, auto_regenerate=True)
 
     final_output = io.BytesIO()
     output.write(final_output)
@@ -2604,7 +2599,6 @@ def regenerate_mv82_document(service_document):
     from reportlab.pdfgen import canvas
     from reportlab.lib.pagesizes import letter
     from pypdf import PdfReader, PdfWriter
-    from pypdf.generic import NameObject
     import io
     import os
     from django.utils import timezone
@@ -2624,21 +2618,12 @@ def regenerate_mv82_document(service_document):
     
     template_pdf = PdfReader(template_path)
     output = PdfWriter()
-
-    page1 = template_pdf.pages[0]
     # Keep the official MV-82 fields as the single source of prefilled data.
-    output.add_page(page1)
-    if len(template_pdf.pages) > 1:
-        output.add_page(template_pdf.pages[1])
-
-    if "/AcroForm" in template_pdf.trailer["/Root"]:
-        output._root_object.update({
-            NameObject("/AcroForm"): template_pdf.trailer["/Root"]["/AcroForm"]
-        })
-        fields = _build_acroform_prefill_fields("mv82", prefill)
-        if fields:
-            for page in output.pages:
-                output.update_page_form_field_values(page, fields)
+    output.append(template_pdf)
+    fields = _build_acroform_prefill_fields("mv82", prefill)
+    if fields:
+        for page in output.pages:
+            output.update_page_form_field_values(page, fields, auto_regenerate=True)
 
     final_output = io.BytesIO()
     output.write(final_output)
@@ -2697,22 +2682,12 @@ def intake_mv82_pdf(request, intake_id):
     template_path = os.path.join(current_dir, "static/core/pdf/mv82_template.pdf")
     template_pdf = PdfReader(template_path)
     output = PdfWriter()
-    from pypdf.generic import NameObject
-
-    page1 = template_pdf.pages[0]
     # Use the official form fields once; do not overlay the same values.
-    output.add_page(page1)
-    if len(template_pdf.pages) > 1:
-        output.add_page(template_pdf.pages[1])
-
-    if "/AcroForm" in template_pdf.trailer["/Root"]:
-        output._root_object.update({
-            NameObject("/AcroForm"): template_pdf.trailer["/Root"]["/AcroForm"]
-        })
-        fields = _build_acroform_prefill_fields("mv82", prefill)
-        if fields:
-            for page in output.pages:
-                output.update_page_form_field_values(page, fields)
+    output.append(template_pdf)
+    fields = _build_acroform_prefill_fields("mv82", prefill)
+    if fields:
+        for page in output.pages:
+            output.update_page_form_field_values(page, fields, auto_regenerate=True)
 
     final_output = io.BytesIO()
     output.write(final_output)
