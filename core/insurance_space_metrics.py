@@ -272,21 +272,39 @@ def resolve_bank_period_bounds(period="month", date_from="", date_to="", *, toda
 
 
 def bank_cashflow_metrics(transactions_qs, start=None, end=None):
-    """Income / expense / net for an optional inclusive date window."""
+    """Income, expense, net profit, transfers, and net cash flow for a date window."""
     qs = transactions_qs
     if start is not None:
         qs = qs.filter(date__gte=start)
     if end is not None:
         qs = qs.filter(date__lte=end)
-    income = qs.filter(transaction_type=BankTransaction.TransactionType.INCOME).aggregate(
-        total=Sum("amount")
-    )["total"] or Decimal("0.00")
-    expense = qs.filter(transaction_type=BankTransaction.TransactionType.EXPENSE).aggregate(
-        total=Sum("amount")
-    )["total"] or Decimal("0.00")
+
+    income_types = list(BankTransaction.income_metric_types())
+    expense_types = list(BankTransaction.expense_metric_types())
+    credit_types = list(BankTransaction.credit_transfer_metric_types())
+    debit_types = list(BankTransaction.debit_transfer_metric_types())
+
+    income = qs.filter(transaction_type__in=income_types).aggregate(total=Sum("amount"))["total"] or Decimal(
+        "0.00"
+    )
+    expense = qs.filter(transaction_type__in=expense_types).aggregate(total=Sum("amount"))["total"] or Decimal(
+        "0.00"
+    )
+    credit_transfer = qs.filter(transaction_type__in=credit_types).aggregate(total=Sum("amount"))[
+        "total"
+    ] or Decimal("0.00")
+    debit_transfer = qs.filter(transaction_type__in=debit_types).aggregate(total=Sum("amount"))[
+        "total"
+    ] or Decimal("0.00")
+    net_profit = income - expense
+    net_cash_flow = credit_transfer - debit_transfer
     return {
         "income": income,
         "expense": expense,
-        "net": income - expense,
+        "net_profit": net_profit,
+        "net": net_profit,
+        "credit_transfer": credit_transfer,
+        "debit_transfer": debit_transfer,
+        "net_cash_flow": net_cash_flow,
         "count": qs.count(),
     }

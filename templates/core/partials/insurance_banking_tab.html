@@ -79,10 +79,25 @@
         <strong>−${{ bank_cashflow.expense|floatformat:2 }}</strong>
         <em>Outbound cash</em>
       </article>
-      <article class="ifx-metric ifx-metric--net {% if bank_cashflow.net >= 0 %}is-pos{% else %}is-neg{% endif %}">
-        <span>Net cashflow</span>
-        <strong>{% if bank_cashflow.net >= 0 %}+{% endif %}${{ bank_cashflow.net|floatformat:2 }}</strong>
+      <article class="ifx-metric ifx-metric--profit {% if bank_cashflow.net_profit >= 0 %}is-pos{% else %}is-neg{% endif %}">
+        <span>Net profit</span>
+        <strong>{% if bank_cashflow.net_profit >= 0 %}+{% endif %}${{ bank_cashflow.net_profit|floatformat:2 }}</strong>
         <em>Income − expenses</em>
+      </article>
+      <article class="ifx-metric ifx-metric--credit">
+        <span>Credit transfer</span>
+        <strong>+${{ bank_cashflow.credit_transfer|floatformat:2 }}</strong>
+        <em>Inbound transfers</em>
+      </article>
+      <article class="ifx-metric ifx-metric--debit">
+        <span>Debit transfer</span>
+        <strong>−${{ bank_cashflow.debit_transfer|floatformat:2 }}</strong>
+        <em>Outbound transfers</em>
+      </article>
+      <article class="ifx-metric ifx-metric--net {% if bank_cashflow.net_cash_flow >= 0 %}is-pos{% else %}is-neg{% endif %}">
+        <span>Net cash flow</span>
+        <strong>{% if bank_cashflow.net_cash_flow >= 0 %}+{% endif %}${{ bank_cashflow.net_cash_flow|floatformat:2 }}</strong>
+        <em>Credit transfer − debit transfer</em>
       </article>
     </div>
   </section>
@@ -118,8 +133,12 @@
             <label>Type
               <select name="bank_type">
                 <option value="">All types</option>
-                <option value="income" {% if bank_type_filter == 'income' %}selected{% endif %}>Income</option>
-                <option value="expense" {% if bank_type_filter == 'expense' %}selected{% endif %}>Expense</option>
+                <option value="income_credit_transfer" {% if bank_type_filter == 'income_credit_transfer' %}selected{% endif %}>Income + Credit Transfer</option>
+                <option value="expense_debit_transfer" {% if bank_type_filter == 'expense_debit_transfer' %}selected{% endif %}>Expenses + Debit Transfer</option>
+                <option value="credit_transfer" {% if bank_type_filter == 'credit_transfer' %}selected{% endif %}>Credit Transfer</option>
+                <option value="debit_transfer" {% if bank_type_filter == 'debit_transfer' %}selected{% endif %}>Debit Transfer</option>
+                <option value="income" {% if bank_type_filter == 'income' %}selected{% endif %}>Income (legacy)</option>
+                <option value="expense" {% if bank_type_filter == 'expense' %}selected{% endif %}>Expense (legacy)</option>
               </select>
             </label>
             <label>Category
@@ -167,7 +186,9 @@
           <tr class="ifx-row">
             <td class="ifx-muted">{{ tx.date|date:"M j, Y" }}</td>
             <td class="ifx-strong">{{ tx.bank_account.account_name }}</td>
-            <td>{% if tx.transaction_type == 'income' %}<span class="chip-active">Income</span>{% else %}<span class="chip-inactive">Expense</span>{% endif %}</td>
+            <td>
+              <span class="{% if tx.is_credit %}chip-active{% else %}chip-inactive{% endif %}">{{ tx.get_transaction_type_display }}</span>
+            </td>
             <td>{{ tx.category }}</td>
             <td class="ifx-muted">{{ tx.description|default:"—"|truncatechars:42 }}</td>
             <td>
@@ -177,8 +198,8 @@
               <span class="ifx-muted">—</span>
               {% endif %}
             </td>
-            <td class="{% if tx.transaction_type == 'income' %}ifx-amt is-pos{% else %}ifx-amt is-neg{% endif %}" style="color:{% if tx.transaction_type == 'income' %}#16a34a{% else %}#dc2626{% endif %};font-weight:900;">
-              {% if tx.transaction_type == 'income' %}+{% else %}−{% endif %}${{ tx.amount }}
+            <td class="{% if tx.is_credit %}ifx-amt is-pos{% else %}ifx-amt is-neg{% endif %}" style="color:{% if tx.is_credit %}#16a34a{% else %}#dc2626{% endif %};font-weight:900;">
+              {% if tx.is_credit %}+{% else %}−{% endif %}${{ tx.amount }}
             </td>
             <td>
               <div class="ifx-actions">

@@ -2240,12 +2240,18 @@ class BankAccount(models.Model):
 
 class BankTransaction(models.Model):
     class TransactionType(models.TextChoices):
+        # Legacy types (existing rows + commission refund modal).
         INCOME = "income", "Income"
         EXPENSE = "expense", "Expense"
+        # Primary log-transaction types for Insurance Finance CRM.
+        INCOME_CREDIT_TRANSFER = "income_credit_transfer", "Income + Credit Transfer"
+        EXPENSE_DEBIT_TRANSFER = "expense_debit_transfer", "Expenses + Debit Transfer"
+        CREDIT_TRANSFER = "credit_transfer", "Credit Transfer"
+        DEBIT_TRANSFER = "debit_transfer", "Debit Transfer"
 
     bank_account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name="transactions")
     insurance_company = models.ForeignKey(InsuranceCompany, on_delete=models.SET_NULL, null=True, blank=True, related_name="transactions")
-    transaction_type = models.CharField(max_length=20, choices=TransactionType.choices)
+    transaction_type = models.CharField(max_length=30, choices=TransactionType.choices)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     category = models.CharField(max_length=100)
     description = models.TextField(blank=True, default="")
@@ -2266,6 +2272,54 @@ class BankTransaction(models.Model):
     def __str__(self):
         return f"{self.transaction_type.upper()}: ${self.amount} ({self.category})"
 
+    @classmethod
+    def income_metric_types(cls):
+        return {cls.TransactionType.INCOME, cls.TransactionType.INCOME_CREDIT_TRANSFER}
+
+    @classmethod
+    def expense_metric_types(cls):
+        return {cls.TransactionType.EXPENSE, cls.TransactionType.EXPENSE_DEBIT_TRANSFER}
+
+    @classmethod
+    def credit_transfer_metric_types(cls):
+        return {
+            cls.TransactionType.CREDIT_TRANSFER,
+            cls.TransactionType.INCOME_CREDIT_TRANSFER,
+        }
+
+    @classmethod
+    def debit_transfer_metric_types(cls):
+        return {
+            cls.TransactionType.DEBIT_TRANSFER,
+            cls.TransactionType.EXPENSE_DEBIT_TRANSFER,
+        }
+
+    @classmethod
+    def credit_transaction_types(cls):
+        return cls.income_metric_types() | cls.credit_transfer_metric_types()
+
+    @classmethod
+    def debit_transaction_types(cls):
+        return cls.expense_metric_types() | cls.debit_transfer_metric_types()
+
+    @classmethod
+    def log_transaction_types(cls):
+        """Types offered in the Insurance Finance log-transaction modal."""
+        return {
+            cls.TransactionType.INCOME_CREDIT_TRANSFER,
+            cls.TransactionType.EXPENSE_DEBIT_TRANSFER,
+            cls.TransactionType.CREDIT_TRANSFER,
+            cls.TransactionType.DEBIT_TRANSFER,
+        }
+
+    @classmethod
+    def is_credit_type(cls, transaction_type):
+        return transaction_type in cls.credit_transaction_types()
+
+    @property
+    def is_credit(self):
+        return self.is_credit_type(self.transaction_type)
+
     @property
     def attachment_name(self):
         if not self.attachment:
@@ -2284,7 +2338,7 @@ class BankTransaction(models.Model):
             old_account_id = old_obj.bank_account_id
             # Revert previous balance effect on the original account.
             old_account = old_obj.bank_account
-            if old_type == self.TransactionType.INCOME:
+            if self.is_credit_type(old_type):
                 old_account.balance -= old_amount
             else:
                 old_account.balance += old_amount
@@ -2296,7 +2350,7 @@ class BankTransaction(models.Model):
         if old_account_id and old_account_id == account.id:
             # Reload after revert so we apply against the reverted balance.
             account.refresh_from_db(fields=["balance"])
-        if self.transaction_type == self.TransactionType.INCOME:
+        if self.is_credit:
             account.balance += self.amount
         else:
             account.balance -= self.amount
@@ -2304,7 +2358,7 @@ class BankTransaction(models.Model):
 
     def delete(self, *args, **kwargs):
         account = self.bank_account
-        if self.transaction_type == self.TransactionType.INCOME:
+        if self.is_credit:
             account.balance -= self.amount
         else:
             account.balance += self.amount

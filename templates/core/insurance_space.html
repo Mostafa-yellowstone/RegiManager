@@ -454,6 +454,8 @@ html.portal-theme-dark .ins-pager-btn.is-current {
 .ifx-metric:nth-child(2) { animation-delay: 0.05s; }
 .ifx-metric:nth-child(3) { animation-delay: 0.1s; }
 .ifx-metric:nth-child(4) { animation-delay: 0.15s; }
+.ifx-metric:nth-child(5) { animation-delay: 0.2s; }
+.ifx-metric:nth-child(6) { animation-delay: 0.25s; }
 @keyframes ifxMetricIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }
@@ -484,6 +486,10 @@ html.portal-theme-dark .ins-pager-btn.is-current {
 }
 .ifx-metric--income strong { color: #86efac; }
 .ifx-metric--expense strong { color: #fda4af; }
+.ifx-metric--profit.is-pos strong { color: #93c5fd; }
+.ifx-metric--profit.is-neg strong { color: #fdba74; }
+.ifx-metric--credit strong { color: #86efac; }
+.ifx-metric--debit strong { color: #fda4af; }
 .ifx-metric--net.is-pos strong { color: #93c5fd; }
 .ifx-metric--net.is-neg strong { color: #fdba74; }
 .ifx-metric--balance strong { color: #e0e7ff; }
@@ -2088,8 +2094,10 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       <div class="grid-2" style="margin-bottom: 1rem;">
         <div><label class="field-label">Type</label>
           <select name="transaction_type" id="txType" required class="field-input" onchange="updateCategories()">
-            <option value="income">Income (+)</option>
-            <option value="expense">Expense (−)</option>
+            <option value="income_credit_transfer">Income + Credit Transfer (+)</option>
+            <option value="expense_debit_transfer">Expenses + Debit Transfer (−)</option>
+            <option value="credit_transfer">Credit Transfer only (+)</option>
+            <option value="debit_transfer">Debit Transfer only (−)</option>
           </select>
         </div>
         <div><label class="field-label">Amount ($)</label><input type="number" step="0.01" name="amount" required class="field-input" placeholder="0.00"></div>
@@ -2149,8 +2157,12 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       <div class="grid-2" style="margin-bottom: 1rem;">
         <div><label class="field-label">Type</label>
           <select name="transaction_type" id="editTxType" required class="field-input" onchange="updateEditCategories()">
-            <option value="income">Income (+)</option>
-            <option value="expense">Expense (−)</option>
+            <option value="income_credit_transfer">Income + Credit Transfer (+)</option>
+            <option value="expense_debit_transfer">Expenses + Debit Transfer (−)</option>
+            <option value="credit_transfer">Credit Transfer only (+)</option>
+            <option value="debit_transfer">Debit Transfer only (−)</option>
+            <option value="income">Income (legacy)</option>
+            <option value="expense">Expense (legacy)</option>
           </select>
         </div>
         <div><label class="field-label">Amount ($)</label><input type="number" step="0.01" name="amount" id="editTxAmount" required class="field-input"></div>
@@ -2506,11 +2518,30 @@ function openEditAccountModal(accountId, accountName, bankName, accountNumber, b
 
 const incomeCats = {{ income_categories|safe }};
 const expenseCats = {{ expense_categories|safe }};
+const bankTxTypeLabels = {
+  income: 'Income',
+  expense: 'Expense',
+  income_credit_transfer: 'Income + Credit Transfer',
+  expense_debit_transfer: 'Expenses + Debit Transfer',
+  credit_transfer: 'Credit Transfer',
+  debit_transfer: 'Debit Transfer',
+};
+function isCreditBankType(type) {
+  return type === 'income'
+    || type === 'credit_transfer'
+    || type === 'income_credit_transfer';
+}
+function categoryPoolForType(type) {
+  if (type === 'expense_debit_transfer' || type === 'debit_transfer' || type === 'expense') {
+    return expenseCats;
+  }
+  return incomeCats;
+}
 function updateCategories() {
   const type = document.getElementById('txType').value;
   const sel = document.getElementById('txCategory');
   sel.innerHTML = '';
-  (type==='income' ? incomeCats : expenseCats).forEach(c => {
+  categoryPoolForType(type).forEach(c => {
     const o = document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o);
   });
 }
@@ -2519,7 +2550,7 @@ updateCategories();
 function fillCategorySelect(selectEl, type, preferred) {
   if (!selectEl) return;
   selectEl.innerHTML = '';
-  (type === 'income' ? incomeCats : expenseCats).forEach(c => {
+  categoryPoolForType(type).forEach(c => {
     const o = document.createElement('option');
     o.value = c;
     o.textContent = c;
@@ -2541,10 +2572,11 @@ function updateEditCategories() {
 }
 
 function openViewTransactionModal(btn) {
+  const txType = btn.dataset.type || '';
   document.getElementById('viewTxDate').textContent = btn.dataset.date || '—';
   document.getElementById('viewTxAccount').textContent = btn.dataset.account || '—';
-  document.getElementById('viewTxType').textContent = (btn.dataset.type || '—').toUpperCase();
-  document.getElementById('viewTxAmount').textContent = (btn.dataset.type === 'income' ? '+' : '−') + '$' + (btn.dataset.amount || '0');
+  document.getElementById('viewTxType').textContent = bankTxTypeLabels[txType] || txType || '—';
+  document.getElementById('viewTxAmount').textContent = (isCreditBankType(txType) ? '+' : '−') + '$' + (btn.dataset.amount || '0');
   document.getElementById('viewTxCategory').textContent = btn.dataset.category || '—';
   document.getElementById('viewTxCompany').textContent = btn.dataset.company || '—';
   document.getElementById('viewTxDescription').textContent = btn.dataset.description || '—';

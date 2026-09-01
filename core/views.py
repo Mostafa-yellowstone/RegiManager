@@ -984,7 +984,7 @@ def open_notification(request, notification_id):
 
     if notif.client_id:
         anchor = f"#note-{notif.note_id}" if notif.note_id else ""
-        return redirect(f"{redirect('client-detail', client_id=notif.client_id).url}{anchor}")
+    return redirect(f"{redirect('client-detail', client_id=notif.client_id).url}{anchor}")
 
     if notif.event_type in {"agent_task_assigned", "quote_lead_assigned"}:
         return redirect(task_board_action_url())
@@ -1086,7 +1086,7 @@ def all_clients(request):
             clients = clients.filter(build_full_client_search_q(query)).distinct()
     else:
         clients = clients.distinct()
-
+    
     if selected_source:
         clients = clients.filter(source_filter_q(selected_source))
         
@@ -1140,11 +1140,11 @@ def add_vehicle(request, client_id):
         form = VehicleForm(request.POST, client=client)
         if form.is_valid():
             try:
-                vehicle = form.save(commit=False)
-                vehicle.client = client
-                vehicle.save()
-                messages.success(request, f"Vehicle {vehicle} added for {client}.")
-                return redirect("client-detail", client_id=client.id)
+            vehicle = form.save(commit=False)
+            vehicle.client = client
+            vehicle.save()
+            messages.success(request, f"Vehicle {vehicle} added for {client}.")
+            return redirect("client-detail", client_id=client.id)
             except IntegrityError:
                 messages.error(
                     request,
@@ -1294,7 +1294,7 @@ def check_client_name_ajax(request):
     is_commercial = request.GET.get("is_commercial", "").strip().lower() in {"1", "true", "yes", "on"}
     org_id = request.GET.get("org_id", "").strip()
     exclude_client_id = request.GET.get("exclude_client_id", "").strip()
-
+    
     if not org_id.isdigit() or not _has_active_org_access(request.user, int(org_id)):
         return JsonResponse({"exists": False})
 
@@ -1303,7 +1303,7 @@ def check_client_name_ajax(request):
     organization = Organization.objects.filter(id=int(org_id)).first()
     if not organization:
         return JsonResponse({"exists": False})
-
+    
     exclude_id = int(exclude_client_id) if exclude_client_id.isdigit() else None
 
     if is_commercial:
@@ -1412,7 +1412,7 @@ def start_process(request, vehicle_id):
             client_source = (vehicle.client.source or "").strip()
             if client_source:
                 record.source = client_source
-
+            
             # Logic for payment and balance
             total_paid = form.cleaned_data.get('paid_amount')
             if total_paid is None:
@@ -2321,7 +2321,7 @@ def service_receipt_pdf(request, service_id):
     pdf.setFont("Helvetica-Bold", 16)
     org_name = org.name.upper()
     pdf.drawString(margin_x, y, org_name)
-
+    
     y -= 25
     pdf.setFont("Helvetica-Bold", 10)
     address_parts = [
@@ -2352,7 +2352,7 @@ def service_receipt_pdf(request, service_id):
         y -= 6
 
     y -= 12
-
+    
     def draw_box(x, y_pos, w, h, label, val):
         pdf.setFont("Helvetica", 8)
         pdf.drawString(x, y_pos + 3, label)
@@ -2364,7 +2364,7 @@ def service_receipt_pdf(request, service_id):
     dt = service_record.transaction_date or service_record.created_at.date()
     date_str = dt.strftime("%b %d, %Y")
     time_str = service_record.created_at.strftime("%I:%M %p")
-
+    
     x = margin_x
     draw_box(x, y, 80, 16, "Transaction Date", date_str)
     x += 85
@@ -2410,7 +2410,7 @@ def service_receipt_pdf(request, service_id):
     pdf.setFont("Helvetica-Bold", 8.5)
     pdf.drawRightString(margin_x + 380, y, "Dollars")
     y -= 25
-
+    
     pdf.setFont("Helvetica-Bold", 9)
     pdf.drawString(margin_x, y, "SERVICES PROVIDED")
     pdf.drawString(margin_x + 220, y, "DMV FEE")
@@ -2434,10 +2434,10 @@ def service_receipt_pdf(request, service_id):
     for label, type_key in fixed_rows:
         pdf.setFont("Helvetica", 9)
         pdf.drawString(margin_x, y - 8, label)
-
+        
         dmv_val = "$ 0.00"
         org_val = "$ 0.00"
-
+        
         if service_record.service_type == type_key:
             dmv_val = _currency(service_record.dmv_fee)
             org_val = _currency(service_record.processing_fee)
@@ -2447,7 +2447,7 @@ def service_receipt_pdf(request, service_id):
 
         pdf.rect(margin_x + 340, y - 16, 80, 16)
         pdf.drawRightString(margin_x + 416, y - 11, org_val)
-
+        
         y -= 25
 
     pdf.setFont("Helvetica", 9)
@@ -2474,7 +2474,7 @@ def service_receipt_pdf(request, service_id):
     pdf.setFont("Helvetica-Bold", 9)
     total_dmv = service_record.dmv_fee + service_record.dmv_sales_tax + service_record.other_dmv_fee
     pdf.drawRightString(margin_x + 296, y - 11, _currency(total_dmv))
-
+    
     pdf.rect(margin_x + 340, y - 16, 80, 16)
     total_psb = service_record.processing_fee + service_record.sales_tax + service_record.other_fees
     pdf.drawRightString(margin_x + 416, y - 11, _currency(total_psb))
@@ -2482,15 +2482,15 @@ def service_receipt_pdf(request, service_id):
     y -= 40
     pdf.setFont("Helvetica-Bold", 14)
     pdf.drawString(margin_x, y - 6, "GRAND TOTAL")
-
+    
     pdf.setLineWidth(1.5)
     pdf.setFillColorRGB(0.92, 0.92, 0.92)
     pdf.rect(margin_x + 220, y - 18, 200, 24, fill=1)
-
+    
     pdf.setFillColorRGB(0, 0, 0)
     pdf.setFont("Helvetica-Bold", 14)
     pdf.drawCentredString(margin_x + 320, y - 12, _currency(service_record.service_fee))
-
+    
     pdf.setLineWidth(1)
 
     sig_y = height - 510
@@ -2620,9 +2620,9 @@ def regenerate_mv82_document(service_document):
     output = PdfWriter()
     # Keep the official MV-82 fields as the single source of prefilled data.
     output.append(template_pdf)
-    fields = _build_acroform_prefill_fields("mv82", prefill)
-    if fields:
-        for page in output.pages:
+        fields = _build_acroform_prefill_fields("mv82", prefill)
+        if fields:
+            for page in output.pages:
             output.update_page_form_field_values(page, fields, auto_regenerate=True)
 
     final_output = io.BytesIO()
@@ -2684,9 +2684,9 @@ def intake_mv82_pdf(request, intake_id):
     output = PdfWriter()
     # Use the official form fields once; do not overlay the same values.
     output.append(template_pdf)
-    fields = _build_acroform_prefill_fields("mv82", prefill)
-    if fields:
-        for page in output.pages:
+        fields = _build_acroform_prefill_fields("mv82", prefill)
+        if fields:
+            for page in output.pages:
             output.update_page_form_field_values(page, fields, auto_regenerate=True)
 
     final_output = io.BytesIO()
@@ -3173,7 +3173,7 @@ def update_agent_role(request):
     membership_id = request.POST.get("membership_id")
     new_role = request.POST.get("role")
     from .role_permissions import ASSIGNABLE_ROLES, apply_role_permission_pack, normalize_role
-
+    
     new_role = normalize_role(new_role)
     if new_role not in ASSIGNABLE_ROLES:
         return JsonResponse({"status": "error", "message": "Invalid role"})
@@ -3468,7 +3468,7 @@ def agent_profile(request, membership_id):
     period = request.GET.get("period", "today").strip()
     start_date_str = request.GET.get("start_date", "").strip()
     end_date_str = request.GET.get("end_date", "").strip()
-
+    
     if start_date_str and end_date_str:
         start_date = timezone.datetime.strptime(start_date_str, "%Y-%m-%d").date()
         end_date = timezone.datetime.strptime(end_date_str, "%Y-%m-%d").date()
@@ -3500,7 +3500,7 @@ def agent_profile(request, membership_id):
         records_qs = records_qs.filter(
             transaction_date__gte=start_date,
             transaction_date__lte=end_date,
-        )
+    )
 
     total_records = records_qs.count()
     failed_records = records_qs.filter(status="failed").count()
@@ -3508,7 +3508,7 @@ def agent_profile(request, membership_id):
     total_profit = round(
         records_qs.aggregate(prof=Sum("processing_fee"))["prof"] or Decimal("0"), 2
     )
-
+    
     badges = []
     if error_rate > 10:
         badges.append({"label": "Needs Improvement", "type": "danger", "icon": "!"})
@@ -3576,7 +3576,7 @@ def agent_profile(request, membership_id):
         request,
         "core/agent_profile.html",
         {
-            "agent_membership": membership,
+        "agent_membership": membership,
             "viewer": viewer,
             "is_self_profile": is_self,
             "tab": tab,
@@ -3591,16 +3591,16 @@ def agent_profile(request, membership_id):
             "period": period,
             "start_date": start_date.strftime("%Y-%m-%d") if start_date else "",
             "end_date": end_date.strftime("%Y-%m-%d") if end_date else "",
-            "total_records": total_records,
-            "error_rate": round(error_rate, 1),
-            "total_profit": total_profit,
-            "badges": badges,
-            "instructions": instructions,
-            "chart_dates": json.dumps(chart_dates),
-            "chart_counts": json.dumps(chart_counts),
-            "pie_labels": json.dumps(pie_labels),
-            "pie_counts": json.dumps(pie_counts),
-            "page_obj": page_obj,
+        "total_records": total_records,
+        "error_rate": round(error_rate, 1),
+        "total_profit": total_profit,
+        "badges": badges,
+        "instructions": instructions,
+        "chart_dates": json.dumps(chart_dates),
+        "chart_counts": json.dumps(chart_counts),
+        "pie_labels": json.dumps(pie_labels),
+        "pie_counts": json.dumps(pie_counts),
+        "page_obj": page_obj,
         },
     )
 
@@ -5210,15 +5210,15 @@ def edit_vehicle(request, vehicle_id):
         form = VehicleForm(request.POST, instance=vehicle, client=vehicle.client)
         if form.is_valid():
             try:
-                vehicle = form.save()
-                from .models import ServiceDocument
-                for doc in ServiceDocument.objects.filter(vehicle=vehicle, document_type="mv82"):
-                    try:
-                        regenerate_mv82_document(doc)
-                    except Exception:
-                        pass
+            vehicle = form.save()
+            from .models import ServiceDocument
+            for doc in ServiceDocument.objects.filter(vehicle=vehicle, document_type="mv82"):
+                try:
+                    regenerate_mv82_document(doc)
+                except Exception:
+                    pass
                 messages.success(request, "Vehicle updated successfully.")
-                return redirect('vehicle-detail', vehicle_id=vehicle.id)
+            return redirect('vehicle-detail', vehicle_id=vehicle.id)
             except IntegrityError:
                 messages.error(
                     request,
@@ -5231,10 +5231,10 @@ def edit_vehicle(request, vehicle_id):
     else:
         form = VehicleForm(instance=vehicle, client=vehicle.client)
     
-    from .vin_validation import VIN_DECODE_VEHICLE_TYPES
-    import json
+        from .vin_validation import VIN_DECODE_VEHICLE_TYPES
+        import json
 
-    return render(request, 'core/add_vehicle.html', {
+        return render(request, 'core/add_vehicle.html', {
         'form': form,
         'edit_mode': True,
         'vehicle': vehicle,
@@ -5953,9 +5953,9 @@ def inventory_detail(request, inventory_id):
         try:
             card.label = label
             card.description = description
-            card.business_address = request.POST.get("business_address", "").strip()
-            card.business_phone = request.POST.get("business_phone", "").strip()
-            card.business_email = request.POST.get("business_email", "").strip()
+                card.business_address = request.POST.get("business_address", "").strip()
+                card.business_phone = request.POST.get("business_phone", "").strip()
+                card.business_email = request.POST.get("business_email", "").strip()
             if request.FILES.get("logo"):
                 card.logo = request.FILES["logo"]
             if request.POST.get("clear_logo") == "on":
@@ -7512,9 +7512,9 @@ def edit_daily_payment(request, transaction_id):
         client = resolve_client_for_display_name(org, client_name, source="insurance")
     except DuplicateClientError as exc:
         messages.error(request, exc.message)
-        return _redirect_to_insurance_detail(
-            org,
-            tab="daily-payments",
+    return _redirect_to_insurance_detail(
+        org,
+        tab="daily-payments",
             query_params=[f"daily_date={tx.transaction_date}"],
             request=request,
         )
@@ -7739,6 +7739,12 @@ def add_bank_transaction(request):
     if company_id:
         company = get_object_or_404(InsuranceCompany, id=company_id, organization=org)
     
+    transaction_type = request.POST.get("transaction_type", "").strip()
+    valid_types = {choice.value for choice in BankTransaction.TransactionType}
+    if transaction_type not in valid_types:
+        messages.error(request, "Invalid transaction type.")
+        return _redirect_to_insurance_detail(org, tab="banking", request=request)
+
     try:
         tx = BankTransaction(
             bank_account=account,
@@ -7781,10 +7787,8 @@ def edit_bank_transaction(request, transaction_id):
         transaction.bank_account = account
 
     transaction_type = request.POST.get("transaction_type", "").strip()
-    if transaction_type in {
-        BankTransaction.TransactionType.INCOME,
-        BankTransaction.TransactionType.EXPENSE,
-    }:
+    valid_types = {choice.value for choice in BankTransaction.TransactionType}
+    if transaction_type in valid_types:
         transaction.transaction_type = transaction_type
 
     amount = request.POST.get("amount", "").strip()

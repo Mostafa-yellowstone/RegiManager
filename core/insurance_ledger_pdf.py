@@ -249,8 +249,18 @@ def build_ledger_dataset(org, *, start=None, end=None, company_id=None, method="
             tx.insurance_company.license_number if tx.insurance_company_id else ""
         )
 
-    bank_in = sum((row.amount for row in bank_rows if row.transaction_type == "income"), ZERO)
-    bank_out = sum((row.amount for row in bank_rows if row.transaction_type == "expense"), ZERO)
+    bank_in = sum(
+        (row.amount for row in bank_rows if BankTransaction.is_credit_type(row.transaction_type)),
+        ZERO,
+    )
+    bank_out = sum(
+        (
+            row.amount
+            for row in bank_rows
+            if not BankTransaction.is_credit_type(row.transaction_type)
+        ),
+        ZERO,
+    )
 
     return {
         "receipts": receipts,
@@ -516,7 +526,7 @@ def _bank_table(bank_rows, styles):
     ]
     rows = [headers]
     for row in bank_rows:
-        signed = row.amount if row.transaction_type == "income" else -row.amount
+        signed = row.amount if BankTransaction.is_credit_type(row.transaction_type) else -row.amount
         rows.append([
             _p(row.date.strftime("%m/%d/%Y"), styles["body"]),
             _p(row.bank_account.account_name if row.bank_account_id else "—", styles["body"]),

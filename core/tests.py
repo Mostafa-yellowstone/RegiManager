@@ -1002,6 +1002,114 @@ class CompanyProfileCommissionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["total_received_commission"], Decimal("0.00"))
 
+    def test_bank_cashflow_metrics_net_profit_and_transfer_flow(self):
+        from core.insurance_space_metrics import bank_cashflow_metrics
+        from .models import BankAccount, BankTransaction
+
+        bank_account = BankAccount.objects.create(
+            organization=self.org,
+            account_name="Treasury",
+            bank_name="Chase",
+            balance=Decimal("0.00"),
+        )
+        BankTransaction.objects.create(
+            bank_account=bank_account,
+            transaction_type=BankTransaction.TransactionType.INCOME_CREDIT_TRANSFER,
+            amount=Decimal("100.00"),
+            category="Commission Payment",
+        )
+        BankTransaction.objects.create(
+            bank_account=bank_account,
+            transaction_type=BankTransaction.TransactionType.EXPENSE_DEBIT_TRANSFER,
+            amount=Decimal("30.00"),
+            category="Payroll",
+        )
+        BankTransaction.objects.create(
+            bank_account=bank_account,
+            transaction_type=BankTransaction.TransactionType.CREDIT_TRANSFER,
+            amount=Decimal("200.00"),
+            category="Internal Transfer",
+        )
+        BankTransaction.objects.create(
+            bank_account=bank_account,
+            transaction_type=BankTransaction.TransactionType.DEBIT_TRANSFER,
+            amount=Decimal("50.00"),
+            category="Internal Transfer",
+        )
+        metrics = bank_cashflow_metrics(BankTransaction.objects.filter(bank_account=bank_account))
+        self.assertEqual(metrics["income"], Decimal("100.00"))
+        self.assertEqual(metrics["expense"], Decimal("30.00"))
+        self.assertEqual(metrics["net_profit"], Decimal("70.00"))
+        self.assertEqual(metrics["credit_transfer"], Decimal("300.00"))
+        self.assertEqual(metrics["debit_transfer"], Decimal("80.00"))
+        self.assertEqual(metrics["net_cash_flow"], Decimal("220.00"))
+
+    def test_income_credit_transfer_counts_in_income_and_credit_only(self):
+        from core.insurance_space_metrics import bank_cashflow_metrics
+        from .models import BankAccount, BankTransaction
+
+        bank_account = BankAccount.objects.create(
+            organization=self.org,
+            account_name="Treasury",
+            bank_name="Chase",
+            balance=Decimal("0.00"),
+        )
+        BankTransaction.objects.create(
+            bank_account=bank_account,
+            transaction_type=BankTransaction.TransactionType.INCOME_CREDIT_TRANSFER,
+            amount=Decimal("75.00"),
+            category="Commission Payment",
+        )
+        metrics = bank_cashflow_metrics(BankTransaction.objects.filter(bank_account=bank_account))
+        self.assertEqual(metrics["income"], Decimal("75.00"))
+        self.assertEqual(metrics["credit_transfer"], Decimal("75.00"))
+        self.assertEqual(metrics["expense"], Decimal("0.00"))
+        self.assertEqual(metrics["debit_transfer"], Decimal("0.00"))
+
+    def test_credit_transfer_only_not_counted_in_income(self):
+        from core.insurance_space_metrics import bank_cashflow_metrics
+        from .models import BankAccount, BankTransaction
+
+        bank_account = BankAccount.objects.create(
+            organization=self.org,
+            account_name="Treasury",
+            bank_name="Chase",
+            balance=Decimal("0.00"),
+        )
+        BankTransaction.objects.create(
+            bank_account=bank_account,
+            transaction_type=BankTransaction.TransactionType.CREDIT_TRANSFER,
+            amount=Decimal("40.00"),
+            category="Internal Transfer",
+        )
+        metrics = bank_cashflow_metrics(BankTransaction.objects.filter(bank_account=bank_account))
+        self.assertEqual(metrics["income"], Decimal("0.00"))
+        self.assertEqual(metrics["credit_transfer"], Decimal("40.00"))
+
+    def test_credit_and_debit_transfer_update_account_balance(self):
+        from .models import BankAccount, BankTransaction
+
+        bank_account = BankAccount.objects.create(
+            organization=self.org,
+            account_name="Treasury",
+            bank_name="Chase",
+            balance=Decimal("100.00"),
+        )
+        BankTransaction.objects.create(
+            bank_account=bank_account,
+            transaction_type=BankTransaction.TransactionType.INCOME_CREDIT_TRANSFER,
+            amount=Decimal("40.00"),
+            category="Internal Transfer",
+        )
+        BankTransaction.objects.create(
+            bank_account=bank_account,
+            transaction_type=BankTransaction.TransactionType.EXPENSE_DEBIT_TRANSFER,
+            amount=Decimal("15.00"),
+            category="Internal Transfer",
+        )
+        bank_account.refresh_from_db()
+        self.assertEqual(bank_account.balance, Decimal("125.00"))
+
     def test_policy_checkbox_updates_received_commission(self):
         response = self.client.get(reverse("insurance-company-detail", args=[self.company.id]))
         self.assertEqual(response.context["total_received_commission"], Decimal("0.00"))

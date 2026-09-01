@@ -730,7 +730,7 @@ html.portal-theme-dark .company-license-box__title { color: var(--portal-text); 
               <td style="color: var(--muted); font-size: 0.82rem; white-space: nowrap;">{{ tx.date }}</td>
               <td style="font-weight: 700; font-size: 0.85rem;">{{ tx.bank_account.account_name }}</td>
               <td>
-                {% if tx.transaction_type == 'income' %}
+                {% if tx.is_credit %}
                   <span class="chip chip-active">IN</span>
                 {% else %}
                   <span class="chip chip-inactive">OUT</span>
@@ -738,8 +738,8 @@ html.portal-theme-dark .company-license-box__title { color: var(--portal-text); 
               </td>
               <td style="font-size: 0.85rem; font-weight: 600;">{{ tx.category }}</td>
               <td style="font-size: 0.82rem; color: var(--muted);">{{ tx.description|default:"—"|truncatechars:45 }}</td>
-              <td style="text-align: right; font-weight: 800; color: {% if tx.transaction_type == 'income' %}var(--green){% else %}var(--red){% endif %};">
-                {% if tx.transaction_type == 'income' %}+{% else %}−{% endif %}${{ tx.amount }}
+              <td style="text-align: right; font-weight: 800; color: {% if tx.is_credit %}var(--green){% else %}var(--red){% endif %};">
+                {% if tx.is_credit %}+{% else %}−{% endif %}${{ tx.amount }}
               </td>
             </tr>
             {% empty %}
@@ -860,9 +860,9 @@ html.portal-theme-dark .company-license-box__title { color: var(--portal-text); 
           <tr>
             <td style="font-size: 0.82rem; color: var(--muted);">{{ tx.date }}</td>
             <td style="font-size: 0.85rem;">{{ tx.bank_account.account_name }}</td>
-            <td>{% if tx.transaction_type == 'income' %}<span class="chip chip-active" style="font-size: 0.65rem;">IN</span>{% else %}<span class="chip chip-inactive" style="font-size: 0.65rem;">OUT</span>{% endif %}</td>
+            <td>{% if tx.is_credit %}<span class="chip chip-active" style="font-size: 0.65rem;">IN</span>{% else %}<span class="chip chip-inactive" style="font-size: 0.65rem;">OUT</span>{% endif %}</td>
             <td style="font-size: 0.85rem;">{{ tx.category }}</td>
-            <td style="text-align: right; font-weight: 800; color: {% if tx.transaction_type == 'income' %}var(--green){% else %}var(--red){% endif %};">{% if tx.transaction_type == 'income' %}+{% else %}−{% endif %}${{ tx.amount }}</td>
+            <td style="text-align: right; font-weight: 800; color: {% if tx.is_credit %}var(--green){% else %}var(--red){% endif %};">{% if tx.is_credit %}+{% else %}−{% endif %}${{ tx.amount }}</td>
           </tr>
           {% empty %}
           <tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--muted);">No transactions yet.</td></tr>
