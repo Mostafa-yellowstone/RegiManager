@@ -1140,11 +1140,11 @@ def add_vehicle(request, client_id):
         form = VehicleForm(request.POST, client=client)
         if form.is_valid():
             try:
-            vehicle = form.save(commit=False)
-            vehicle.client = client
-            vehicle.save()
-            messages.success(request, f"Vehicle {vehicle} added for {client}.")
-            return redirect("client-detail", client_id=client.id)
+                vehicle = form.save(commit=False)
+                vehicle.client = client
+                vehicle.save()
+                messages.success(request, f"Vehicle {vehicle} added for {client}.")
+                return redirect("client-detail", client_id=client.id)
             except IntegrityError:
                 messages.error(
                     request,
@@ -2620,9 +2620,9 @@ def regenerate_mv82_document(service_document):
     output = PdfWriter()
     # Keep the official MV-82 fields as the single source of prefilled data.
     output.append(template_pdf)
-        fields = _build_acroform_prefill_fields("mv82", prefill)
-        if fields:
-            for page in output.pages:
+    fields = _build_acroform_prefill_fields("mv82", prefill)
+    if fields:
+        for page in output.pages:
             output.update_page_form_field_values(page, fields, auto_regenerate=True)
 
     final_output = io.BytesIO()
@@ -2684,9 +2684,9 @@ def intake_mv82_pdf(request, intake_id):
     output = PdfWriter()
     # Use the official form fields once; do not overlay the same values.
     output.append(template_pdf)
-        fields = _build_acroform_prefill_fields("mv82", prefill)
-        if fields:
-            for page in output.pages:
+    fields = _build_acroform_prefill_fields("mv82", prefill)
+    if fields:
+        for page in output.pages:
             output.update_page_form_field_values(page, fields, auto_regenerate=True)
 
     final_output = io.BytesIO()
@@ -5210,15 +5210,15 @@ def edit_vehicle(request, vehicle_id):
         form = VehicleForm(request.POST, instance=vehicle, client=vehicle.client)
         if form.is_valid():
             try:
-            vehicle = form.save()
-            from .models import ServiceDocument
-            for doc in ServiceDocument.objects.filter(vehicle=vehicle, document_type="mv82"):
-                try:
-                    regenerate_mv82_document(doc)
-                except Exception:
-                    pass
+                vehicle = form.save()
+                from .models import ServiceDocument
+                for doc in ServiceDocument.objects.filter(vehicle=vehicle, document_type="mv82"):
+                    try:
+                        regenerate_mv82_document(doc)
+                    except Exception:
+                        pass
                 messages.success(request, "Vehicle updated successfully.")
-            return redirect('vehicle-detail', vehicle_id=vehicle.id)
+                return redirect('vehicle-detail', vehicle_id=vehicle.id)
             except IntegrityError:
                 messages.error(
                     request,
@@ -5953,9 +5953,9 @@ def inventory_detail(request, inventory_id):
         try:
             card.label = label
             card.description = description
-                card.business_address = request.POST.get("business_address", "").strip()
-                card.business_phone = request.POST.get("business_phone", "").strip()
-                card.business_email = request.POST.get("business_email", "").strip()
+            card.business_address = request.POST.get("business_address", "").strip()
+            card.business_phone = request.POST.get("business_phone", "").strip()
+            card.business_email = request.POST.get("business_email", "").strip()
             if request.FILES.get("logo"):
                 card.logo = request.FILES["logo"]
             if request.POST.get("clear_logo") == "on":
