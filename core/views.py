@@ -7210,6 +7210,7 @@ def add_insurance_type_option(request):
 @login_required
 @require_POST
 def add_insurance_company(request):
+    from datetime import datetime
     from .models import InsuranceCompany
     org_id = request.POST.get("organization")
     organizations = _get_user_organizations(request)
@@ -7219,14 +7220,66 @@ def add_insurance_company(request):
     _require_insurance_finance(request, org, membership=membership, is_owner=is_owner)
 
     name = request.POST.get("name", "").strip()
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest" or "application/json" in request.headers.get("accept", "")
+
     if not name:
-        return JsonResponse({"success": False, "error": "Company name cannot be empty."}, status=400)
+        if is_ajax:
+            return JsonResponse({"success": False, "error": "Company name cannot be empty."}, status=400)
+        messages.error(request, "Company name cannot be empty.")
+        return _redirect_to_insurance_detail(org, tab="companies", request=request)
+
+    def _parse_date(val):
+        val = (val or "").strip()
+        if not val:
+            return None
+        try:
+            return datetime.strptime(val, "%Y-%m-%d").date()
+        except ValueError:
+            return None
+
+    license_number = (request.POST.get("license_number") or "").strip()[:80]
+    effective = _parse_date(request.POST.get("license_effective_date"))
+    expiration = _parse_date(request.POST.get("license_expiration_date"))
+    broker_arrangement = (request.POST.get("broker_arrangement") or "").strip().lower()
+    if broker_arrangement not in (InsuranceCompany.BrokerArrangement.BR, InsuranceCompany.BrokerArrangement.BC):
+        broker_arrangement = ""
 
     try:
-        company, created = InsuranceCompany.objects.get_or_create(organization=org, name=name)
-        return JsonResponse({"success": True, "id": company.id, "name": company.name, "created": created})
+        company, created = InsuranceCompany.objects.get_or_create(
+            organization=org,
+            name=name,
+            defaults={
+                "license_number": license_number,
+                "license_effective_date": effective,
+                "license_expiration_date": expiration,
+                "broker_arrangement": broker_arrangement,
+            },
+        )
+        if not created and (license_number or effective or expiration or broker_arrangement):
+            if license_number:
+                company.license_number = license_number
+            if effective:
+                company.license_effective_date = effective
+            if expiration:
+                company.license_expiration_date = expiration
+            if broker_arrangement:
+                company.broker_arrangement = broker_arrangement
+            company.save()
+
+        if is_ajax:
+            return JsonResponse({"success": True, "id": company.id, "name": company.name, "created": created})
+
+        if created:
+            messages.success(request, f"Insurance company '{company.name}' added successfully.")
+        else:
+            messages.info(request, f"Insurance company '{company.name}' updated.")
+        return _redirect_to_insurance_detail(org, tab="companies", request=request)
     except Exception as e:
-        return JsonResponse({"success": False, "error": str(e)}, status=500)
+        if is_ajax:
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+        messages.error(request, f"Error adding company: {e}")
+        return _redirect_to_insurance_detail(org, tab="companies", request=request)
+
 
 
 @login_required
@@ -7497,14 +7550,11 @@ def edit_daily_payment(request, transaction_id):
             tab="daily-payments",
             query_params=[f"daily_date={tx.transaction_date}"], request=request)
 
-    company = None
+    company = tx.insurance_company
     if company_id.isdigit():
-        company = InsuranceCompany.objects.filter(organization=org, id=int(company_id)).first()
-    if not company:
-        messages.error(request, "Company name is required.")
-        return _redirect_to_insurance_detail(org,
-            tab="daily-payments",
-            query_params=[f"daily_date={tx.transaction_date}"], request=request)
+        found_co = InsuranceCompany.objects.filter(organization=org, id=int(company_id)).first()
+        if found_co:
+            company = found_co
 
     from .client_matching import DuplicateClientError, resolve_client_for_display_name
 
@@ -7512,9 +7562,9 @@ def edit_daily_payment(request, transaction_id):
         client = resolve_client_for_display_name(org, client_name, source="insurance")
     except DuplicateClientError as exc:
         messages.error(request, exc.message)
-    return _redirect_to_insurance_detail(
-        org,
-        tab="daily-payments",
+        return _redirect_to_insurance_detail(
+            org,
+            tab="daily-payments",
             query_params=[f"daily_date={tx.transaction_date}"],
             request=request,
         )

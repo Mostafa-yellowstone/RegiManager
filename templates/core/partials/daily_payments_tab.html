@@ -80,7 +80,8 @@
     line-height: 1.35;
     word-break: break-word;
   }
-  .dpt-edit-btn {
+  .dpt-edit-btn,
+  .dpt-receipt-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -94,7 +95,8 @@
     cursor: pointer;
     text-decoration: none;
   }
-  .dpt-edit-btn:hover { background: #dbeafe; }
+  .dpt-edit-btn:hover,
+  .dpt-receipt-btn:hover { background: #dbeafe; }
   .dpt-editor-meta {
     font-size: 0.68rem;
     color: #94a3b8;
@@ -280,7 +282,7 @@
           </td>
           {% endif %}
           <td style="text-align: right; white-space: nowrap;">
-            <a href="{% url 'export-insurance-payment-receipt-pdf' tx.id %}" target="_blank" class="dpt-edit-btn" style="margin-right: 0.25rem;">Receipt</a>
+            <a href="{% url 'export-insurance-payment-receipt-pdf' tx.id %}" target="_blank" class="dpt-receipt-btn" style="margin-right: 0.25rem;">Receipt</a>
             {% if user_can_clear_daily_payments %}
             <button type="button" class="dpt-edit-btn" onclick="openEditDailyPayment(this)">Edit</button>
             {% endif %}
