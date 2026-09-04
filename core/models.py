@@ -288,6 +288,40 @@ class Referral(SoftDeleteModel):
         return f"{self.name} ({self.get_category_display()})"
 
 
+def referral_document_upload_path(instance, filename):
+    return f"referral_documents/{instance.referral.organization_id}/{instance.referral_id}/{filename}"
+
+
+class ReferralDocument(models.Model):
+    referral = models.ForeignKey(
+        Referral,
+        on_delete=models.CASCADE,
+        related_name="documents",
+    )
+    title = models.CharField(max_length=200, blank=True, default="")
+    document = models.FileField(upload_to=referral_document_upload_path)
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_referral_documents",
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+        verbose_name = "Referral document"
+        verbose_name_plural = "Referral documents"
+
+    def __str__(self):
+        return f"{self.referral.name} — {self.title or self.document.name}"
+
+    @property
+    def filename(self):
+        return self.document.name.rsplit("/", 1)[-1] if self.document else ""
+
+
 class ReferralCategoryOption(models.Model):
     organization = models.ForeignKey(
         Organization, on_delete=models.CASCADE, related_name="referral_category_options"

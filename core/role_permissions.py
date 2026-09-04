@@ -42,6 +42,7 @@ ROLE_PACKS: dict[str, dict[str, bool]] = {
         **_FALSE_PACK,
         "can_view_reports": True,
         "can_view_net_profit": True,
+        "can_manage_referrals": True,
         "can_view_spaces": True,
         "can_assign_agent_tasks": True,
         "can_manage_news": True,

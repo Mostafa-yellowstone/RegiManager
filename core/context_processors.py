@@ -31,7 +31,10 @@ def _membership_context(request):
     from .role_permissions import Role, nav_role_label, normalize_role
 
     user_nav_role = nav_role_label(active_memberships)
-    can_view_partners = is_owner or any(m.can_manage_referrals for m in active_memberships)
+    can_view_partners = is_owner or any(
+        m.can_manage_referrals or m.role == OrganizationMembership.Role.MANAGER
+        for m in active_memberships
+    )
     can_view_finance_bi = is_owner or any(m.can_view_reports for m in active_memberships)
     can_view_spaces = request.user.is_superuser or any(
         m.can_view_spaces for m in active_memberships

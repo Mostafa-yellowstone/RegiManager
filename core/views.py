@@ -3690,7 +3690,10 @@ def all_referrals(request):
         )
     )
     is_owner = bool(owner_org_ids)
-    user_can_manage_referrals = any(m.can_manage_referrals for m in memberships)
+    user_can_manage_referrals = any(
+        m.can_manage_referrals or m.role == OrganizationMembership.Role.MANAGER
+        for m in memberships
+    )
 
     if not is_owner and not user_can_manage_referrals:
         deny_access("You do not have permission to manage referral entities.")
@@ -3754,7 +3757,10 @@ def toggle_referral_partner(request):
         organization__is_active=True,
     )
     is_owner = memberships.filter(role=OrganizationMembership.Role.OWNER).exists()
-    user_can_manage_referrals = any(m.can_manage_referrals for m in memberships)
+    user_can_manage_referrals = any(
+        m.can_manage_referrals or m.role == OrganizationMembership.Role.MANAGER
+        for m in memberships
+    )
 
     if not is_owner and not user_can_manage_referrals:
         return JsonResponse({"status": "error", "message": "Permission denied"}, status=403)
@@ -3777,7 +3783,10 @@ def referral_profile(request, referral_id):
         return redirect("home")
 
     is_owner = memberships.filter(role=OrganizationMembership.Role.OWNER).exists()
-    user_can_manage_referrals = any(m.can_manage_referrals for m in memberships)
+    user_can_manage_referrals = any(
+        m.can_manage_referrals or m.role == OrganizationMembership.Role.MANAGER
+        for m in memberships
+    )
 
     if not is_owner and not user_can_manage_referrals:
         deny_access("You do not have permission to view referral profiles.")
@@ -3786,9 +3795,40 @@ def referral_profile(request, referral_id):
     referral = get_object_or_404(Referral, id=referral_id, organization__in=organizations)
 
     if request.method == "POST":
+        if "upload_referral_document" in request.POST:
+            from pathlib import Path
+            from .models import ReferralDocument
+
+            uploaded = request.FILES.get("document")
+            title = request.POST.get("document_title", "").strip()[:200]
+            allowed_extensions = {
+                ".pdf", ".png", ".jpg", ".jpeg", ".webp",
+                ".doc", ".docx", ".xls", ".xlsx", ".csv",
+            }
+            max_upload_bytes = 20 * 1024 * 1024
+
+            if not uploaded:
+                messages.error(request, "Please select a document to upload.")
+            elif uploaded.size > max_upload_bytes:
+                messages.error(request, "Document must be 20 MB or smaller.")
+            elif Path(uploaded.name).suffix.lower() not in allowed_extensions:
+                messages.error(
+                    request,
+                    "Unsupported file type. Upload a PDF, image, Word, Excel, or CSV file.",
+                )
+            else:
+                ReferralDocument.objects.create(
+                    referral=referral,
+                    title=title,
+                    document=uploaded,
+                    uploaded_by=request.user,
+                )
+                messages.success(request, "Partner document uploaded successfully.")
+            return redirect("referral-profile", referral_id=referral.id)
+
         if "update_referral_fee" in request.POST:
-            if not is_owner:
-                messages.error(request, "Only PSB owners can set or change referral fees.")
+            if not (is_owner or user_can_manage_referrals):
+                messages.error(request, "You do not have permission to change referral fees.")
                 return redirect("referral-profile", referral_id=referral.id)
 
             fee_str = request.POST.get("referral_fee", "0").strip()
@@ -3964,6 +4004,7 @@ def referral_profile(request, referral_id):
     
     # Payment Ledger
     payments = ReferralPayment.objects.filter(referral=referral).order_by("-payment_date", "-created_at")
+    documents = referral.documents.select_related("uploaded_by").all()
 
     return render(
         request,
@@ -3982,13 +4023,49 @@ def referral_profile(request, referral_id):
             "chart_labels": json.dumps(chart_labels),
             "chart_data": json.dumps(chart_data),
             "payments": payments,
+            "documents": documents,
             "is_owner": is_owner,
+            "can_edit_referral_fee": is_owner or user_can_manage_referrals,
         }
     )
 
 
 
 
+
+
+@login_required
+@require_POST
+def delete_referral_document(request, document_id):
+    from .models import ReferralDocument
+
+    memberships = request.user.organization_memberships.filter(
+        is_active=True,
+        organization__is_active=True,
+    )
+    organizations = [membership.organization for membership in memberships]
+    can_manage = (
+        memberships.filter(role=OrganizationMembership.Role.OWNER).exists()
+        or any(
+            membership.can_manage_referrals
+            or membership.role == OrganizationMembership.Role.MANAGER
+            for membership in memberships
+        )
+    )
+    if not can_manage:
+        deny_access("You do not have permission to manage partner documents.")
+
+    document = get_object_or_404(
+        ReferralDocument,
+        id=document_id,
+        referral__organization__in=organizations,
+    )
+    referral_id = document.referral_id
+    if document.document:
+        document.document.delete(save=False)
+    document.delete()
+    messages.success(request, "Partner document deleted.")
+    return redirect("referral-profile", referral_id=referral_id)
 
 
 @login_required
