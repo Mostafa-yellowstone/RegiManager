@@ -84,6 +84,7 @@ from .insurance_space_metrics import (
     build_adjusted_unearned_for_org,
     build_agent_stats,
     build_company_summaries,
+    build_insurance_policy_search_q,
     decorate_policies,
     filter_policies_by_quote_period,
     period_stats,
@@ -6101,12 +6102,7 @@ def inventory_detail(request, inventory_id):
         # Filter policies for the CRM table (selected period uses quote date)
         policies = filter_policies_by_quote_period(all_policies, comp_start, comp_end)
         if search_query:
-            from django.db.models import Q
-            policies = policies.filter(
-                Q(policy_number__icontains=search_query) |
-                Q(client__first_name__icontains=search_query) |
-                Q(client__last_name__icontains=search_query)
-            )
+            policies = policies.filter(build_insurance_policy_search_q(search_query))
         if stage_filter:
             policies = policies.filter(stage=stage_filter)
         if status_filter:
@@ -6258,6 +6254,10 @@ def inventory_detail(request, inventory_id):
             policy.can_edit = can_edit_insurance_policy(
                 request.user, policy, membership=membership
             )
+        can_delete_insurance_policies = bool(
+            request.user.is_superuser
+            or (membership and is_owner_or_manager_role(membership.role))
+        )
 
         insurance_policies_query = request.GET.copy()
         insurance_policies_query.pop("page", None)
@@ -6542,6 +6542,7 @@ def inventory_detail(request, inventory_id):
             "insurance_source_choices": INSURANCE_SOURCE_CHOICES,
             "user_can_view_banking": user_can_view_banking,
             "user_can_clear_daily_payments": user_can_view_banking,
+            "can_delete_insurance_policies": can_delete_insurance_policies,
             "ledger_default_from": timezone.localdate().replace(day=1).isoformat(),
             "ledger_default_to": timezone.localdate().isoformat(),
 
@@ -7057,7 +7058,7 @@ def delete_insurance_policy(request, policy_id):
         request.user.is_superuser
         or (membership and is_owner_or_manager_role(membership.role))
     ):
-        deny_access("Policy deletion from CRM is disabled.")
+        deny_access("You do not have permission to delete this policy.")
     policy.delete()
     messages.success(request, "Policy deleted.")
     return _redirect_to_insurance_detail(org, request=request)
@@ -8272,12 +8273,7 @@ def insurance_company_detail(request, company_id):
     ).select_related("client", "added_by")
 
     if search_query:
-        from django.db.models import Q
-        policies = policies.filter(
-            Q(policy_number__icontains=search_query) |
-            Q(client__first_name__icontains=search_query) |
-            Q(client__last_name__icontains=search_query)
-        )
+        policies = policies.filter(build_insurance_policy_search_q(search_query))
     if stage_filter:
         policies = policies.filter(stage=stage_filter)
     if status_filter:
@@ -8622,12 +8618,7 @@ def insurance_agent_detail(request, user_id):
 
     policies = all_agent_policies
     if search_query:
-        from django.db.models import Q
-        policies = policies.filter(
-            Q(policy_number__icontains=search_query) |
-            Q(client__first_name__icontains=search_query) |
-            Q(client__last_name__icontains=search_query)
-        )
+        policies = policies.filter(build_insurance_policy_search_q(search_query))
     if stage_filter:
         policies = policies.filter(stage=stage_filter)
     if status_filter:

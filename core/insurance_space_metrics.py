@@ -99,6 +99,20 @@ def filter_policies_by_quote_period(policy_qs, start, end):
     )
 
 
+def build_insurance_policy_search_q(query: str) -> Q:
+    """Case-insensitive match on policy number, named insured, or client full name."""
+    from .client_search import build_client_name_search_q
+
+    q = (query or "").strip()
+    if not q:
+        return Q()
+    return (
+        Q(policy_number__icontains=q)
+        | Q(named_insured__icontains=q)
+        | build_client_name_search_q(q, prefix="client__")
+    )
+
+
 def quote_period_ordering():
     return ["-bound_date", "-created_at"]
 

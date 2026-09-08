@@ -1086,7 +1086,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
           <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
             <div style="flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 0.3rem;">
               <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Search Policies</label>
-              <input type="text" name="q" value="{{ search_query }}" placeholder="Search by Client name, Policy #..." style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; width: 100%;">
+              <input type="text" name="q" value="{{ search_query }}" placeholder="Search by full name or policy #..." style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; width: 100%;">
             </div>
             <div style="display: flex; gap: 0.8rem; align-items: flex-end;">
               <button type="submit" style="padding: 8px 20px; background: #0f172a; color: white; border: none; font-weight: 700; border-radius: 8px; cursor: pointer;">Search</button>
@@ -1322,6 +1322,9 @@ html.portal-theme-dark .ins-license-crm-alert__row {
                   <button type="button" onclick="viewPolicy({{ policy.id }})" title="View Policy" style="padding: 5px 8px; border: 1px solid #c7d2fe; border-radius: 6px; background: linear-gradient(135deg, #eef2ff, #e0e7ff); cursor: pointer; font-weight: 700; font-size: 0.95rem; line-height: 1; color: #4338ca;">👁️</button>
                   {% if policy.can_edit %}
                   <button onclick="editPolicy({{ policy.id }})" style="padding: 4px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; cursor: pointer; font-weight: 700; font-size: 0.8rem;">Edit</button>
+                  {% endif %}
+                  {% if can_delete_insurance_policies %}
+                  <a href="{% url 'delete-insurance-policy' policy.id %}" onclick="return confirm('Delete this policy?')" style="padding: 4px 10px; border: 1px solid #fee2e2; border-radius: 6px; background: #fff5f5; color: #dc2626; text-decoration: none; font-weight: 700; font-size: 0.8rem; text-align: center;">Del</a>
                   {% endif %}
                 </div>
               </td>

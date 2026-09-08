@@ -335,13 +335,21 @@ class InsurancePolicyEditPermissionTests(TestCase):
         response = self.http.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance")
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, f"editPolicy({self.policy.id})")
-        self.assertNotContains(response, "delete-insurance-policy")
+        self.assertNotContains(response, f"/policy/{self.policy.id}/delete/")
         self.http.logout()
         self._login("polagent")
         response = self.http.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, f"editPolicy({self.policy.id})")
-        self.assertNotContains(response, "delete-insurance-policy")
+        self.assertNotContains(response, f"/policy/{self.policy.id}/delete/")
+        self.http.logout()
+        self._login("polowner")
+        response = self.http.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance")
+        self.assertContains(response, f"/policy/{self.policy.id}/delete/")
+        self.http.logout()
+        self._login("polmgr")
+        response = self.http.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance")
+        self.assertContains(response, f"/policy/{self.policy.id}/delete/")
 
     def test_finance_toggle_lets_agent_edit_any_policy(self):
         self.other.can_view_banking = True
@@ -364,6 +372,39 @@ class InsurancePolicyEditPermissionTests(TestCase):
         response = self.http.get(reverse("delete-insurance-policy", args=[self.policy.id]))
         self.assertEqual(response.status_code, 403)
         self.assertTrue(InsurancePolicy.objects.filter(id=self.policy.id).exists())
+
+    def test_manager_and_owner_can_delete_policy(self):
+        extra = InsurancePolicy.objects.create(
+            organization=self.org,
+            client=self.insured,
+            insurance_company=self.company,
+            policy_number="POL-DEL-MGR",
+            premium=Decimal("100.00"),
+            commission_rate=Decimal("10.00"),
+            start_date="2026-06-01",
+            end_date="2026-12-01",
+            bound_date=date.today(),
+            stage="bound",
+            status="active",
+            added_by=self.agent_user,
+        )
+        self._login("polmgr")
+        response = self.http.get(reverse("delete-insurance-policy", args=[extra.id]))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(InsurancePolicy.objects.filter(id=extra.id).exists())
+
+        self._login("polowner")
+        response = self.http.get(reverse("delete-insurance-policy", args=[self.policy.id]))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(InsurancePolicy.objects.filter(id=self.policy.id).exists())
+
+    def test_crm_search_matches_full_name_case_and_policy_number(self):
+        self._login("polowner")
+        url = reverse("inventory-detail", args=[self.space.id])
+        for query in ("Pat Policy", "pat policy", "PAT POLICY", "POL-OWN", "pol-own"):
+            response = self.http.get(url, {"tab": "insurance", "q": query})
+            self.assertEqual(response.status_code, 200, query)
+            self.assertContains(response, "POL-OWN", msg_prefix=query)
 
 
 class AddVehicleViewTests(TestCase):
@@ -3329,6 +3370,12 @@ class ClientSearchQueryTests(TestCase):
 
     def test_build_client_name_search_q_matches_single_token(self):
         qs = Client.objects.filter(build_client_name_search_q("Gamma"))
+        self.assertEqual(qs.count(), 1)
+
+    def test_build_client_name_search_q_matches_full_name_any_case(self):
+        qs = Client.objects.filter(build_client_name_search_q("alpha beta"))
+        self.assertEqual(qs.count(), 1)
+        qs = Client.objects.filter(build_client_name_search_q("ALPHA BETA"))
         self.assertEqual(qs.count(), 1)
 
 
