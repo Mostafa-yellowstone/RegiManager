@@ -806,12 +806,12 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #a5b
       <div class="iap-pager">
         <span style="font-size: 0.82rem; color: var(--muted); font-weight: 600;">Showing {{ policies_page.start_index }}–{{ policies_page.end_index }} of {{ policies_page.paginator.count }}</span>
         <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
-          {% if policies_page.has_previous %}<a href="?page={{ policies_page.previous_page_number }}&period={{ period }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">← Prev</a>{% endif %}
+          {% if policies_page.has_previous %}<a href="?page={{ policies_page.previous_page_number }}{% if policies_query_string %}&{{ policies_query_string }}{% endif %}" class="page-btn">← Prev</a>{% endif %}
           {% for i in policies_page.paginator.page_range %}
             {% if policies_page.number == i %}<span class="page-btn active">{{ i }}</span>
-            {% elif i > policies_page.number|add:"-3" and i < policies_page.number|add:"3" %}<a href="?page={{ i }}&period={{ period }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">{{ i }}</a>{% endif %}
+            {% elif i > policies_page.number|add:"-3" and i < policies_page.number|add:"3" %}<a href="?page={{ i }}{% if policies_query_string %}&{{ policies_query_string }}{% endif %}" class="page-btn">{{ i }}</a>{% endif %}
           {% endfor %}
-          {% if policies_page.has_next %}<a href="?page={{ policies_page.next_page_number }}&period={{ period }}{% if search_query %}&q={{ search_query }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-btn">Next →</a>{% endif %}
+          {% if policies_page.has_next %}<a href="?page={{ policies_page.next_page_number }}{% if policies_query_string %}&{{ policies_query_string }}{% endif %}" class="page-btn">Next →</a>{% endif %}
         </div>
       </div>
       {% endif %}

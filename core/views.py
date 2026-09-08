@@ -118,6 +118,16 @@ def _require_insurance_finance(request, organization, *, membership=None, is_own
         deny_access("You do not have permission to manage insurance finance data.")
 
 
+def _query_string_without_page(request, extra=None):
+    query = request.GET.copy()
+    query.pop("page", None)
+    if extra:
+        for key, value in extra.items():
+            if value not in (None, "") and key not in query:
+                query[key] = value
+    return query.urlencode()
+
+
 def _referral_category_options_for_org(org):
     from .models import ReferralCategoryOption
 
@@ -8380,6 +8390,7 @@ def insurance_company_detail(request, company_id):
         "date_to": date_to,
         "min_premium": min_premium,
         "max_premium": max_premium,
+        "policies_query_string": _query_string_without_page(request),
         "insurance_source_choices": INSURANCE_SOURCE_CHOICES,
         "can_manage_commission": can_manage_commission,
         "license_status": license_status,
@@ -8711,6 +8722,7 @@ def insurance_agent_detail(request, user_id):
         "company_filter": company_filter,
         "table_date_from": table_date_from,
         "table_date_to": table_date_to,
+        "policies_query_string": _query_string_without_page(request, extra={"period": period}),
         "insurance_source_choices": INSURANCE_SOURCE_CHOICES,
     })
 

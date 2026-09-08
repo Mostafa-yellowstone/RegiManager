@@ -1145,6 +1145,80 @@ class CompanyProfileCommissionTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    def test_policies_crm_query_string_keeps_filters_without_page(self):
+        from django.test import RequestFactory
+        from core.views import _query_string_without_page
+
+        request = RequestFactory().get(
+            "/company/?page=2&q=POL-CRM&stage=bound&status=active"
+            "&business_type=renewal&source=referral&min_premium=2500&agent=9"
+        )
+        qs = _query_string_without_page(request)
+        self.assertIn("q=POL-CRM", qs)
+        self.assertIn("stage=bound", qs)
+        self.assertIn("status=active", qs)
+        self.assertIn("business_type=renewal", qs)
+        self.assertIn("source=referral", qs)
+        self.assertIn("min_premium=2500", qs)
+        self.assertIn("agent=9", qs)
+        self.assertNotIn("page=", qs)
+
+    def test_policies_crm_pagination_preserves_filters(self):
+        from django.test import override_settings
+
+        for idx in range(16):
+            InsurancePolicy.objects.create(
+                organization=self.org,
+                client=self.client_obj,
+                policy_number=f"POL-CRM-{idx}",
+                insurance_company=self.company,
+                premium=Decimal("3000.00"),
+                broker_fee=Decimal("50.00"),
+                commission_rate=Decimal("10.00"),
+                stage="bound",
+                status="active",
+                added_by=self.owner,
+                business_type="renewal",
+                source="referral",
+                start_date="2026-06-01",
+                end_date="2026-12-01",
+                insurance_period_months=6,
+            )
+
+        query = (
+            "?q=POL-CRM&stage=bound&status=active&business_type=renewal"
+            "&source=referral&min_premium=2500&agent=" + str(self.owner.id) + "&page=2"
+        )
+        with override_settings(
+            SECURE_SSL_REDIRECT=False,
+            SESSION_COOKIE_SECURE=False,
+            CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+        ):
+            response = self.client.get(
+                reverse("insurance-company-detail", args=[self.company.id]) + query
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["search_query"], "POL-CRM")
+        self.assertEqual(response.context["stage_filter"], "bound")
+        self.assertEqual(response.context["status_filter"], "active")
+        self.assertEqual(response.context["business_type_filter"], "renewal")
+        self.assertEqual(response.context["source_filter"], "referral")
+        self.assertEqual(response.context["min_premium"], "2500")
+        self.assertEqual(response.context["agent_filter"], str(self.owner.id))
+        self.assertEqual(response.context["policies_page"].number, 2)
+        qs = response.context["policies_query_string"]
+        self.assertIn("q=POL-CRM", qs)
+        self.assertIn("stage=bound", qs)
+        self.assertIn("status=active", qs)
+        self.assertIn("business_type=renewal", qs)
+        self.assertIn("source=referral", qs)
+        self.assertIn("min_premium=2500", qs)
+        self.assertIn(f"agent={self.owner.id}", qs)
+        self.assertNotIn("page=", qs)
+        self.assertContains(response, "?page=1&")
+        self.assertContains(response, "business_type=renewal")
+        self.assertContains(response, "min_premium=2500")
+
 
 class SplitPaymentTests(TestCase):
     def setUp(self):
