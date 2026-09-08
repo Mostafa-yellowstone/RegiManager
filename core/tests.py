@@ -406,6 +406,19 @@ class InsurancePolicyEditPermissionTests(TestCase):
             self.assertEqual(response.status_code, 200, query)
             self.assertContains(response, "POL-OWN", msg_prefix=query)
 
+    def test_crm_live_search_partial_returns_matching_rows(self):
+        self._login("polowner")
+        url = reverse("inventory-detail", args=[self.space.id])
+        response = self.http.get(
+            url,
+            {"tab": "insurance", "q": "pat policy", "partial": "crm_policies"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "POL-OWN")
+        self.assertContains(response, "Pat Policy")
+        self.assertNotContains(response, "Search Policies")
+        self.assertNotContains(response, "id=\"insCrmSearchForm\"")
+
 
 class AddVehicleViewTests(TestCase):
     def setUp(self):

@@ -6132,6 +6132,35 @@ def inventory_detail(request, inventory_id):
             except Exception:
                 pass
 
+        if request.GET.get("partial") == "crm_policies":
+            crm_page_num = request.GET.get("page", 1)
+            crm_policies_page = Paginator(
+                policies.order_by(*quote_period_ordering()), 12
+            ).get_page(crm_page_num)
+            decorate_policies(crm_policies_page, {})
+            for policy in crm_policies_page:
+                policy.can_edit = can_edit_insurance_policy(
+                    request.user, policy, membership=membership
+                )
+            query = request.GET.copy()
+            query.pop("page", None)
+            query.pop("partial", None)
+            query["tab"] = "insurance"
+            return render(
+                request,
+                "core/partials/insurance_crm_policies_table.html",
+                {
+                    "policies": crm_policies_page,
+                    "crm_policies_page": crm_policies_page,
+                    "user_can_view_banking": user_can_view_banking,
+                    "can_delete_insurance_policies": bool(
+                        request.user.is_superuser
+                        or (membership and is_owner_or_manager_role(membership.role))
+                    ),
+                    "insurance_policies_query_string": query.urlencode(),
+                },
+            )
+
         # ── Banking period hero + advanced filters ────────────────────────────
         bank_period_raw = request.GET.get("bank_period", "month").strip()
         bank_search = request.GET.get("bq", "").strip()
