@@ -213,7 +213,7 @@ class OrganizationMembership(models.Model):
         default=False,
         help_text=(
             "Can this agent access Banking & Companies in the insurance space, "
-            "manage commission fields, and mark daily bank payments as cleared?"
+            "manage commission fields, edit any insurance policy, and mark daily bank payments as cleared?"
         ),
     )
     can_manage_news = models.BooleanField(default=False, help_text="Can this agent add, edit, or delete news/announcements?")

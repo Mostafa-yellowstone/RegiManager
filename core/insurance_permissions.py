@@ -37,12 +37,15 @@ def can_edit_added_org_record(user, organization, added_by_id, *, membership=Non
 
 
 def can_edit_insurance_policy(user, policy, *, membership=None) -> bool:
-  return can_edit_added_org_record(
+  membership = membership or membership_for_org(user, policy.organization)
+  if can_edit_added_org_record(
       user,
       policy.organization,
       getattr(policy, "added_by_id", None),
       membership=membership,
-  )
+  ):
+      return True
+  return bool(membership and membership.can_view_banking)
 
 
 def can_manage_insurance_finance(user, organization, *, membership=None, is_owner=None) -> bool:

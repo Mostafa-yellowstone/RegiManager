@@ -335,11 +335,35 @@ class InsurancePolicyEditPermissionTests(TestCase):
         response = self.http.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance")
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, f"editPolicy({self.policy.id})")
+        self.assertNotContains(response, "delete-insurance-policy")
         self.http.logout()
         self._login("polagent")
         response = self.http.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, f"editPolicy({self.policy.id})")
+        self.assertNotContains(response, "delete-insurance-policy")
+
+    def test_finance_toggle_lets_agent_edit_any_policy(self):
+        self.other.can_view_banking = True
+        self.other.save(update_fields=["can_view_banking"])
+        self._login("polother")
+        response = self.http.get(reverse("edit-insurance-policy", args=[self.policy.id]))
+        self.assertEqual(response.status_code, 200)
+        post = self.http.post(
+            reverse("edit-insurance-policy", args=[self.policy.id]),
+            self._edit_payload(premium="720.00"),
+        )
+        self.assertEqual(post.status_code, 302)
+        self.policy.refresh_from_db()
+        self.assertEqual(self.policy.premium, Decimal("720.00"))
+        crm = self.http.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance")
+        self.assertContains(crm, f"editPolicy({self.policy.id})")
+
+    def test_agent_cannot_delete_policy_from_crm_url(self):
+        self._login("polagent")
+        response = self.http.get(reverse("delete-insurance-policy", args=[self.policy.id]))
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(InsurancePolicy.objects.filter(id=self.policy.id).exists())
 
 
 class AddVehicleViewTests(TestCase):

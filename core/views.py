@@ -108,6 +108,7 @@ from .insurance_permissions import (
     is_org_owner,
     membership_for_org,
 )
+from .role_permissions import is_owner_or_manager_role
 import io
 from django.utils.text import slugify
 
@@ -7051,6 +7052,12 @@ def delete_insurance_policy(request, policy_id):
     organizations = _get_user_organizations(request)
     policy = get_object_or_404(InsurancePolicy, id=policy_id, organization__in=organizations)
     org = policy.organization
+    membership = membership_for_org(request.user, org)
+    if not (
+        request.user.is_superuser
+        or (membership and is_owner_or_manager_role(membership.role))
+    ):
+        deny_access("Policy deletion from CRM is disabled.")
     policy.delete()
     messages.success(request, "Policy deleted.")
     return _redirect_to_insurance_detail(org, request=request)
