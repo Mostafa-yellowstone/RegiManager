@@ -103,6 +103,7 @@ from .dmv_documents import (
 )
 from .http import deny_access
 from .insurance_permissions import (
+    can_edit_insurance_policy,
     can_manage_insurance_finance,
     is_org_owner,
     membership_for_org,
@@ -6252,6 +6253,10 @@ def inventory_detail(request, inventory_id):
         crm_page_num = request.GET.get("page", 1)
         crm_policies_page = Paginator(policies.order_by(*quote_period_ordering()), 12).get_page(crm_page_num)
         decorate_policies(crm_policies_page, adjusted_unearned_map)
+        for policy in crm_policies_page:
+            policy.can_edit = can_edit_insurance_policy(
+                request.user, policy, membership=membership
+            )
 
         insurance_policies_query = request.GET.copy()
         insurance_policies_query.pop("page", None)
@@ -6933,6 +6938,14 @@ def edit_insurance_policy(request, policy_id):
     policy = get_object_or_404(InsurancePolicy, id=policy_id, organization__in=organizations)
     membership = membership_for_org(request.user, policy.organization)
     is_owner = is_org_owner(request.user, policy.organization, membership)
+    if not can_edit_insurance_policy(request.user, policy, membership=membership):
+        if request.method == "POST":
+            messages.error(request, "You can only edit policies you added.")
+            return _redirect_to_insurance_detail(policy.organization, request=request)
+        return JsonResponse(
+            {"error": "You can only edit policies you added."},
+            status=403,
+        )
     can_edit_commission = can_manage_insurance_finance(
         request.user, policy.organization, membership=membership, is_owner=is_owner
     )

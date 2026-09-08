@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .models import OrganizationMembership
+from .role_permissions import is_owner_or_manager_role
 
 
 def membership_for_org(user, organization):
@@ -21,6 +22,27 @@ def is_org_owner(user, organization, membership=None) -> bool:
       return True
   membership = membership or membership_for_org(user, organization)
   return bool(membership and membership.role == OrganizationMembership.Role.OWNER)
+
+
+def can_edit_added_org_record(user, organization, added_by_id, *, membership=None) -> bool:
+  """Owner/manager (and superuser) may edit; otherwise only the user who added it."""
+  if getattr(user, "is_superuser", False):
+      return True
+  membership = membership or membership_for_org(user, organization)
+  if membership is None:
+      return False
+  if is_owner_or_manager_role(membership.role):
+      return True
+  return bool(added_by_id and added_by_id == user.id)
+
+
+def can_edit_insurance_policy(user, policy, *, membership=None) -> bool:
+  return can_edit_added_org_record(
+      user,
+      policy.organization,
+      getattr(policy, "added_by_id", None),
+      membership=membership,
+  )
 
 
 def can_manage_insurance_finance(user, organization, *, membership=None, is_owner=None) -> bool:

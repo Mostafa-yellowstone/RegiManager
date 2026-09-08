@@ -11,10 +11,12 @@ from django.views.decorators.http import require_POST
 from .access import organizations_for_user
 from .http import deny_access
 from .insurance_permissions import (
+    can_edit_insurance_policy,
     can_manage_insurance_finance,
     is_org_owner,
     membership_for_org,
 )
+from .role_permissions import is_owner_or_manager_role
 from .insurance_policy_schedule import summarize_insurance_schedule
 from .models import (
     InsurancePolicy,
@@ -36,6 +38,8 @@ def _insurance_space_for_org(org):
 def _can_access_insurance(request, org) -> bool:
     membership = membership_for_org(request.user, org)
     if is_org_owner(request.user, org, membership):
+        return True
+    if membership and is_owner_or_manager_role(membership.role):
         return True
     return bool(membership and membership.is_active and membership.can_deal_with_insurance)
 
@@ -67,6 +71,9 @@ def insurance_policy_detail(request, policy_id):
     space = _insurance_space_for_org(policy.organization)
     membership = membership_for_org(request.user, policy.organization)
     is_owner = is_org_owner(request.user, policy.organization, membership)
+    can_edit_policy = can_edit_insurance_policy(
+        request.user, policy, membership=membership
+    )
     from regiconnect.models import PolicyConnectivity
 
     policy_connectivity = PolicyConnectivity.objects.filter(policy=policy).first()
@@ -95,6 +102,7 @@ def insurance_policy_detail(request, policy_id):
             "overview_named_insured": overview_named_insured,
             "overview_address": overview_address,
             "is_owner": is_owner,
+            "can_edit_policy": can_edit_policy,
             "can_manage_finance": can_manage_insurance_finance(
                 request.user,
                 policy.organization,
@@ -188,6 +196,10 @@ def import_insurance_dec_to_policy(request, policy_id):
     )
     if not _can_access_insurance(request, policy.organization):
         deny_access("Permission denied.")
+    membership = membership_for_org(request.user, policy.organization)
+    if not can_edit_insurance_policy(request.user, policy, membership=membership):
+        messages.error(request, "You can only update policies you added.")
+        return redirect(reverse("insurance-policy-detail", args=[policy.id]))
 
     upload = request.FILES.get("dec_page")
     detail_url = reverse("insurance-policy-detail", args=[policy.id])

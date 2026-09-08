@@ -3,7 +3,7 @@
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from core.models import Client, Organization, OrganizationMembership, Space
@@ -169,3 +169,89 @@ class TLCSpaceTests(TestCase):
         detail = self.client.get(reverse("tlc-policy-detail", args=[self.space.id, policy.id]))
         self.assertContains(detail, "Collect Payment")
         self.assertContains(detail, "Invoices")
+
+    @override_settings(
+        SECURE_SSL_REDIRECT=False,
+        SESSION_COOKIE_SECURE=False,
+        CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+    )
+    def test_only_creator_manager_or_owner_can_edit_policy(self):
+        from core.role_permissions import apply_role_permission_pack
+
+        agent = User.objects.create_user(username="tlcagent", password="pass12345")
+        other = User.objects.create_user(username="tlcother", password="pass12345")
+        manager = User.objects.create_user(username="tlcmgr", password="pass12345")
+        agent_mem = OrganizationMembership.objects.create(
+            user=agent,
+            organization=self.org,
+            role=OrganizationMembership.Role.INSURANCE_AGENT,
+            is_active=True,
+        )
+        apply_role_permission_pack(agent_mem)
+        other_mem = OrganizationMembership.objects.create(
+            user=other,
+            organization=self.org,
+            role=OrganizationMembership.Role.INSURANCE_AGENT,
+            is_active=True,
+        )
+        apply_role_permission_pack(other_mem)
+        manager_mem = OrganizationMembership.objects.create(
+            user=manager,
+            organization=self.org,
+            role=OrganizationMembership.Role.MANAGER,
+            is_active=True,
+        )
+        apply_role_permission_pack(manager_mem)
+        for membership in (agent_mem, other_mem, manager_mem):
+            membership.accessible_spaces.add(self.space)
+
+        policy = TLCPolicy.objects.create(
+            organization=self.org,
+            space=self.space,
+            policy_number="TLC-LOCK",
+            named_insured="Original Insured",
+            added_by=agent,
+        )
+
+        def _login(username):
+            self.client.logout()
+            self.client.login(username=username, password="pass12345")
+            session = self.client.session
+            session["active_organization_id"] = self.org.id
+            session.save()
+
+        _login("tlcother")
+        self.client.post(
+            reverse("edit-tlc-policy", args=[policy.id]),
+            {"named_insured": "Hacked Insured"},
+        )
+        policy.refresh_from_db()
+        self.assertEqual(policy.named_insured, "Original Insured")
+        other_detail = self.client.get(reverse("tlc-policy-detail", args=[self.space.id, policy.id]))
+        self.assertNotContains(other_detail, "Edit Policy")
+
+        _login("tlcagent")
+        self.client.post(
+            reverse("edit-tlc-policy", args=[policy.id]),
+            {"named_insured": "Creator Update"},
+        )
+        policy.refresh_from_db()
+        self.assertEqual(policy.named_insured, "Creator Update")
+        agent_detail = self.client.get(reverse("tlc-policy-detail", args=[self.space.id, policy.id]))
+        self.assertContains(agent_detail, "Edit Policy")
+
+        _login("tlcmgr")
+        self.client.post(
+            reverse("edit-tlc-policy", args=[policy.id]),
+            {"named_insured": "Manager Update"},
+        )
+        policy.refresh_from_db()
+        self.assertEqual(policy.named_insured, "Manager Update")
+
+        _login("tlcowner")
+        self.client.post(
+            reverse("edit-tlc-policy", args=[policy.id]),
+            {"named_insured": "Owner Update"},
+        )
+        policy.refresh_from_db()
+        self.assertEqual(policy.named_insured, "Owner Update")

@@ -12,6 +12,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from .http import deny_access
+from .insurance_permissions import can_edit_added_org_record
 from .models import Client, OrganizationMembership, Space, Vehicle
 from .space_access import require_space_access
 from .tlc_carriers import ensure_tlc_carrier, get_tlc_carrier_names
@@ -210,6 +211,12 @@ def build_tlc_policy_detail_context(request, card, policy, is_owner, membership)
     sync_installment_commissions(policy)
     profit = build_policy_profitability(policy)
     can_manage = is_owner or (membership and membership.can_deal_with_tlc)
+    can_edit_policy = can_edit_added_org_record(
+        request.user,
+        card.organization,
+        policy.added_by_id,
+        membership=membership,
+    )
     from .tlc_models import TLCPaymentTransaction
 
     installments = annotate_installment_display_numbers(list(policy.installments.all()))
@@ -221,6 +228,7 @@ def build_tlc_policy_detail_context(request, card, policy, is_owner, membership)
         "profit": profit,
         "is_owner": is_owner,
         "can_manage_tlc": can_manage,
+        "can_edit_policy": can_edit_policy,
         "installments": installments,
         "reinstatements": policy.reinstatements.select_related("processed_by"),
         "endorsements": policy.endorsements.select_related("processed_by"),
@@ -427,8 +435,13 @@ def import_tlc_dec_to_policy(request, policy_id):
     """Refresh an existing TLC policy from a declaration page PDF."""
     policy = get_object_or_404(TLCPolicy, id=policy_id)
     card, is_owner, membership = _resolve_tlc_access(request, card=policy.space)
-    if not (is_owner or (membership and membership.can_deal_with_tlc)):
-        messages.error(request, "Permission denied.")
+    if not can_edit_added_org_record(
+        request.user,
+        card.organization,
+        policy.added_by_id,
+        membership=membership,
+    ):
+        messages.error(request, "You can only update policies you added.")
         return redirect("tlc-policy-detail", space_id=card.id, policy_id=policy.id)
 
     upload = request.FILES.get("dec_page")

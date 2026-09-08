@@ -8,6 +8,7 @@ from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
+from .insurance_permissions import can_edit_added_org_record
 from .models import Client, Vehicle
 from .tlc_carriers import ensure_tlc_carrier
 from .tlc_client_sync import apply_client_to_policy
@@ -64,7 +65,12 @@ def _sync_endorsement_balance(policy: TLCPolicy) -> None:
 def edit_tlc_policy(request, policy_id):
     policy = get_object_or_404(TLCPolicy.objects.select_related("premium_breakdown"), id=policy_id)
     card, is_owner, membership = _resolve_tlc_access(request, card=policy.space)
-    if not (is_owner or (membership and membership.can_deal_with_tlc)):
+    if not can_edit_added_org_record(
+        request.user,
+        card.organization,
+        policy.added_by_id,
+        membership=membership,
+    ):
         return _deny_manage(request, card, membership, is_owner, policy_id=policy.id)
 
     client_id = request.POST.get("client") or None

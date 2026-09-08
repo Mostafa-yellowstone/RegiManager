@@ -1,6 +1,6 @@
 from datetime import date
 
-from django.test import TestCase, Client as TestClient
+from django.test import TestCase, Client as TestClient, override_settings
 from django.urls import reverse
 from django.contrib.auth.models import User
 from decimal import Decimal
@@ -195,6 +195,151 @@ class InsuranceSpaceTests(TestCase):
         self.assertEqual(response.context["bound_count"], 1)
         self.assertEqual(response.context["total_premium"], Decimal("100.00"))
 
+
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    SESSION_COOKIE_SECURE=False,
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+)
+class InsurancePolicyEditPermissionTests(TestCase):
+    def setUp(self):
+        from core.role_permissions import apply_role_permission_pack
+
+        self.org = Organization.objects.create(name="Edit Org", city="NYC")
+        self.space = Space.objects.create(organization=self.org, label="Insurance", key="insurance")
+        self.company = InsuranceCompany.objects.create(organization=self.org, name="Allstate")
+        self.insured = Client.objects.create(organization=self.org, first_name="Pat", last_name="Policy")
+        self.owner_user = User.objects.create_user(username="polowner", password="password123")
+        self.manager_user = User.objects.create_user(username="polmgr", password="password123")
+        self.agent_user = User.objects.create_user(username="polagent", password="password123")
+        self.other_user = User.objects.create_user(username="polother", password="password123")
+
+        self.owner = OrganizationMembership.objects.create(
+            user=self.owner_user,
+            organization=self.org,
+            role=OrganizationMembership.Role.OWNER,
+            is_active=True,
+        )
+        apply_role_permission_pack(self.owner)
+        self.manager = OrganizationMembership.objects.create(
+            user=self.manager_user,
+            organization=self.org,
+            role=OrganizationMembership.Role.MANAGER,
+            is_active=True,
+        )
+        apply_role_permission_pack(self.manager)
+        self.agent = OrganizationMembership.objects.create(
+            user=self.agent_user,
+            organization=self.org,
+            role=OrganizationMembership.Role.INSURANCE_AGENT,
+            is_active=True,
+        )
+        apply_role_permission_pack(self.agent)
+        self.other = OrganizationMembership.objects.create(
+            user=self.other_user,
+            organization=self.org,
+            role=OrganizationMembership.Role.INSURANCE_AGENT,
+            is_active=True,
+        )
+        apply_role_permission_pack(self.other)
+        for membership in (self.owner, self.manager, self.agent, self.other):
+            membership.accessible_spaces.add(self.space)
+
+        self.policy = InsurancePolicy.objects.create(
+            organization=self.org,
+            client=self.insured,
+            insurance_company=self.company,
+            policy_number="POL-OWN",
+            premium=Decimal("800.00"),
+            commission_rate=Decimal("15.00"),
+            start_date="2026-06-01",
+            end_date="2026-12-01",
+            bound_date=date.today(),
+            stage="bound",
+            status="active",
+            added_by=self.agent_user,
+        )
+        self.http = TestClient()
+
+    def _edit_payload(self, **overrides):
+        data = {
+            "insurance_company": self.company.id,
+            "client_name": "Pat Policy",
+            "policy_number": "POL-OWN",
+            "premium": "999.00",
+            "commission_rate": "15.00",
+            "stage": "bound",
+            "status": "active",
+            "insurance_type": "commercial_auto",
+            "source": "walk_in",
+            "business_type": "new_business",
+            "bound_date": date.today().isoformat(),
+            "start_date": "2026-06-01",
+            "end_date": "2026-12-01",
+            "insurance_period_months": "6",
+        }
+        data.update(overrides)
+        return data
+
+    def _login(self, username):
+        self.http.login(username=username, password="password123")
+        session = self.http.session
+        session["active_organization_id"] = self.org.id
+        session.save()
+
+    def test_creator_agent_can_edit(self):
+        self._login("polagent")
+        response = self.http.get(reverse("edit-insurance-policy", args=[self.policy.id]))
+        self.assertEqual(response.status_code, 200)
+        post = self.http.post(
+            reverse("edit-insurance-policy", args=[self.policy.id]),
+            self._edit_payload(),
+        )
+        self.assertEqual(post.status_code, 302)
+        self.policy.refresh_from_db()
+        self.assertEqual(self.policy.premium, Decimal("999.00"))
+
+    def test_other_agent_cannot_edit(self):
+        self._login("polother")
+        response = self.http.get(reverse("edit-insurance-policy", args=[self.policy.id]))
+        self.assertEqual(response.status_code, 403)
+        self.http.post(
+            reverse("edit-insurance-policy", args=[self.policy.id]),
+            self._edit_payload(premium="50.00"),
+        )
+        self.policy.refresh_from_db()
+        self.assertEqual(self.policy.premium, Decimal("800.00"))
+
+    def test_manager_can_edit(self):
+        self._login("polmgr")
+        post = self.http.post(
+            reverse("edit-insurance-policy", args=[self.policy.id]),
+            self._edit_payload(premium="875.00"),
+        )
+        self.assertEqual(post.status_code, 302)
+        self.policy.refresh_from_db()
+        self.assertEqual(self.policy.premium, Decimal("875.00"))
+
+    def test_owner_can_edit(self):
+        self._login("polowner")
+        post = self.http.post(
+            reverse("edit-insurance-policy", args=[self.policy.id]),
+            self._edit_payload(premium="910.00"),
+        )
+        self.assertEqual(post.status_code, 302)
+        self.policy.refresh_from_db()
+        self.assertEqual(self.policy.premium, Decimal("910.00"))
+
+    def test_crm_hides_edit_for_other_agent(self):
+        self._login("polother")
+        response = self.http.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, f"editPolicy({self.policy.id})")
+        self.http.logout()
+        self._login("polagent")
+        response = self.http.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f"editPolicy({self.policy.id})")
 
 
 class AddVehicleViewTests(TestCase):
