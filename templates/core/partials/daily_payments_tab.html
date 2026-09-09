@@ -337,7 +337,7 @@
 <div class="modal-overlay" id="addDailyPaymentModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-      <h3 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 1.2rem;">💰 Add Daily Payment</h3>
+      <h3 class="portal-modal-title" style="margin: 0; font-weight: 800; font-size: 1.2rem;">💰 Add Daily Payment</h3>
       <button onclick="document.getElementById('addDailyPaymentModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
     </div>
     <form method="POST" action="{% url 'add-daily-payment' %}">
@@ -407,7 +407,7 @@
 <div class="modal-overlay" id="editDailyPaymentModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-      <h3 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 1.2rem;">✏️ Edit Daily Payment</h3>
+      <h3 class="portal-modal-title" style="margin: 0; font-weight: 800; font-size: 1.2rem;">✏️ Edit Daily Payment</h3>
       <button type="button" onclick="document.getElementById('editDailyPaymentModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
     </div>
     <form method="POST" id="editDailyPaymentForm" action="">

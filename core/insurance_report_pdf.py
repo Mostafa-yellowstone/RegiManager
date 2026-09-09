@@ -560,10 +560,15 @@ def render_cashout_pdf(org, *, day: date, prepared_by="Staff") -> bytes:
     )
 
 
-def render_book_of_business_pdf(org, prepared_by="Staff") -> bytes:
+def render_book_of_business_pdf(org, prepared_by="Staff", start=None, end=None) -> bytes:
     styles = _styles()
     width = _content_w(True)
-    policies = list(_policies(org).filter(stage__in=InsurancePolicy.BOUND_STAGES, status="active"))
+    policies_qs = _policies(org).filter(stage__in=InsurancePolicy.BOUND_STAGES, status="active")
+    if start:
+        policies_qs = policies_qs.filter(start_date__gte=start)
+    if end:
+        policies_qs = policies_qs.filter(start_date__lte=end)
+    policies = list(policies_qs)
     by_type = defaultdict(lambda: {"count": 0, "premium": ZERO, "commission": ZERO})
     by_company = defaultdict(lambda: {"count": 0, "premium": ZERO, "name": ""})
     rows = []
@@ -594,6 +599,18 @@ def render_book_of_business_pdf(org, prepared_by="Staff") -> bytes:
         for b in sorted(by_company.values(), key=lambda i: -i["premium"])
     ]
     total_prem = sum((p.premium for p in policies), ZERO)
+    if start and end:
+        period = f"{start.strftime('%b %d, %Y')} – {end.strftime('%b %d, %Y')}"
+        subtitle = "In-force bound policies effective in the selected timeframe."
+    elif start:
+        period = f"From {start.strftime('%b %d, %Y')}"
+        subtitle = "In-force bound policies effective on or after the selected start date."
+    elif end:
+        period = f"Through {end.strftime('%b %d, %Y')}"
+        subtitle = "In-force bound policies effective on or before the selected end date."
+    else:
+        period = timezone.localdate().strftime("%b %d, %Y")
+        subtitle = "Full in-force book by line and carrier as of today."
     flow = [
         kpi_row([
             ("Active policies", str(len(policies))),
@@ -614,19 +631,16 @@ def render_book_of_business_pdf(org, prepared_by="Staff") -> bytes:
         Spacer(1, 4),
         data_table(
             ["Insured", "Policy #", "Carrier", "Type", "Effective", "Expiration", "Premium"],
-            rows[:200] or [["—", "—", "—", "—", "—", "—", "$0.00"]],
+            rows or [["—", "—", "—", "—", "—", "—", "$0.00"]],
             [1.6*inch, 1.2*inch, 1.5*inch, 1.4*inch, 0.9*inch, 0.95*inch, 1.0*inch],
             styles,
         ),
     ]
-    if len(rows) > 200:
-        flow.append(Spacer(1, 6))
-        flow.append(_p(f"Showing first 200 of {len(rows)} active policies.", styles["muted"]))
     return build_pdf(
         org,
         title="Book of business snapshot",
-        subtitle="In-force bound policies by line and carrier as of today.",
-        period=timezone.localdate().strftime("%b %d, %Y"),
+        subtitle=subtitle,
+        period=period,
         prepared_by=prepared_by,
         flowables=flow,
     )

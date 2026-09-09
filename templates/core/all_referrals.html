@@ -9,6 +9,41 @@
     .alert-danger, .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
     .d-none { display: none; }
 
+    .partners-pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin: 1.5rem 0 0.5rem;
+        padding: 0.85rem 1rem;
+        border-radius: 12px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+    }
+    .partners-pagination__label {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #475569;
+    }
+    .partners-pagination .btn-secondary {
+        background: #fff;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+    }
+    html.portal-theme-dark .partners-pagination {
+        background: var(--portal-surface-muted);
+        border-color: var(--portal-border);
+    }
+    html.portal-theme-dark .partners-pagination__label {
+        color: #e2e8f0;
+    }
+    html.portal-theme-dark .partners-pagination .btn-secondary {
+        background: #0f172a !important;
+        border-color: #334155 !important;
+        color: #e2e8f0 !important;
+    }
+
     /* ── Search/Filter bar ───────────────────────────────────────────── */
     .ref-filter-bar {
         display: flex;
@@ -328,11 +363,11 @@
                     {% endfor %}
 
                     {% if page_obj.has_other_pages %}
-                    <div style="display:flex;justify-content:center;align-items:center;gap:1rem;padding:1.5rem 0;grid-column:1/-1;">
+                    <div class="partners-pagination">
                         {% if page_obj.has_previous %}
                         <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-secondary btn-sm">Previous</a>
                         {% endif %}
-                        <span style="font-size:0.85rem;color:#64748b;font-weight:600;">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                        <span class="partners-pagination__label">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
                         {% if page_obj.has_next %}
                         <a href="?page={{ page_obj.next_page_number }}" class="btn btn-secondary btn-sm">Next</a>
                         {% endif %}

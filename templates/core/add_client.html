@@ -10,6 +10,22 @@
     .alert-msg.success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
     #name-warning { padding: 0.8rem 1.2rem; border-radius: 10px; margin-bottom: 1.5rem; background: var(--portal-warning-bg, #fff7ed); color: #9a3412; border: 1px solid #ffedd5; font-weight: 600; font-size: 0.9rem; border-left: 4px solid #f97316; }
 
+    .form-actions .btn.btn-secondary {
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+        font-weight: 600;
+    }
+    html.portal-theme-dark .form-actions .btn.btn-secondary,
+    html.portal-theme-dark #scannerModal .btn.btn-secondary {
+        background: #0f172a !important;
+        border-color: #334155 !important;
+        color: #e2e8f0 !important;
+    }
+    html.portal-theme-dark .form-actions {
+        border-top-color: var(--portal-border) !important;
+    }
+
     .referral-connection-panel {
         display: none;
         background: linear-gradient(135deg, var(--portal-surface-muted, #f8fafc) 0%, var(--portal-bg, #f1f5f9) 100%);

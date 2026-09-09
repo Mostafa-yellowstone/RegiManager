@@ -140,6 +140,118 @@ html.portal-theme-dark .ins-tab-nav .tab-btn.active {
 .spaces-table tr:hover td { background: var(--portal-surface-muted); }
 .ins-crm-search-field { position: relative; }
 .ins-crm-search-field input { padding-right: 2.4rem; box-sizing: border-box; }
+.ins-crm-toolbar {
+  background: #f8fafc;
+  border-radius: 16px;
+  padding: 1.25rem;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 1.5rem;
+}
+.ins-crm-toolbar__form { display: flex; flex-direction: column; gap: 0.8rem; }
+.ins-crm-toolbar__row {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.ins-crm-toolbar__search {
+  flex: 1;
+  min-width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.ins-crm-toolbar__label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #475569;
+}
+.ins-crm-toolbar__input {
+  padding: 8px 36px 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+  color: #0f172a;
+  min-height: 40px;
+}
+.ins-crm-toolbar__actions {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+}
+.ins-crm-toolbar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+}
+.ins-crm-toolbar__btn--search {
+  background: #0f172a;
+  color: #fff;
+  border-color: #0f172a;
+}
+.ins-crm-toolbar__btn--clear {
+  background: #e2e8f0;
+  color: #1e293b;
+  border-color: #cbd5e1;
+}
+.ins-crm-advanced { width: 100%; }
+.ins-crm-advanced__summary {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e3a8a;
+  margin-top: 0.2rem;
+  outline: none;
+  user-select: none;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  list-style: none;
+}
+.ins-crm-advanced__summary::-webkit-details-marker { display: none; }
+html.portal-theme-dark .ins-crm-toolbar {
+  background: var(--portal-surface-muted);
+  border-color: var(--portal-border);
+}
+html.portal-theme-dark .ins-crm-toolbar__label {
+  color: var(--portal-text-muted);
+}
+html.portal-theme-dark .ins-crm-toolbar__input {
+  background: var(--portal-surface);
+  border-color: var(--portal-border);
+  color: var(--portal-text);
+}
+html.portal-theme-dark .ins-crm-toolbar__btn--search {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+html.portal-theme-dark .ins-crm-toolbar__btn--clear {
+  background: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+html.portal-theme-dark .ins-crm-advanced__summary {
+  color: #e2e8f0;
+  background: #0f172a;
+  border-color: #334155;
+}
 .ins-crm-search-spin {
   position: absolute;
   right: 12px;
@@ -1108,8 +1220,8 @@ html.portal-theme-dark .ins-license-crm-alert__row {
         </div>
       </div>
       <!-- Search & Filters -->
-      <div style="background: #f8fafc; border-radius: 16px; padding: 1.25rem; border: 1px solid #e2e8f0; margin-bottom: 1.5rem;">
-        <form method="GET" id="insCrmSearchForm" style="display: flex; flex-direction: column; gap: 0.8rem;">
+      <div class="ins-crm-toolbar">
+        <form method="GET" id="insCrmSearchForm" class="ins-crm-toolbar__form">
           <input type="hidden" name="tab" value="insurance">
           <input type="hidden" name="comp_mode" value="{{ comp_mode }}">
           <input type="hidden" name="comp_month_offset" value="{{ comp_month_offset }}">
@@ -1117,21 +1229,21 @@ html.portal-theme-dark .ins-license-crm-alert__row {
           <input type="hidden" name="comp_from" value="{{ comp_custom_from }}">
           <input type="hidden" name="comp_to" value="{{ comp_custom_to }}">
           {% endif %}
-          <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 0.3rem;">
-              <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Search Policies</label>
+          <div class="ins-crm-toolbar__row">
+            <div class="ins-crm-toolbar__search">
+              <label class="ins-crm-toolbar__label" for="insCrmSearch">Search Policies</label>
               <div class="ins-crm-search-field" id="insCrmSearchField">
-                <input type="text" name="q" id="insCrmSearch" value="{{ search_query }}" placeholder="Search by full name or policy #..." autocomplete="off" style="padding: 8px 36px 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; width: 100%; box-sizing: border-box;">
+                <input type="text" name="q" id="insCrmSearch" value="{{ search_query }}" placeholder="Search by full name or policy #..." autocomplete="off" class="ins-crm-toolbar__input">
                 <span class="ins-crm-search-spin" aria-hidden="true"></span>
               </div>
             </div>
-            <div style="display: flex; gap: 0.8rem; align-items: flex-end;">
-              <button type="submit" style="padding: 8px 20px; background: #0f172a; color: white; border: none; font-weight: 700; border-radius: 8px; cursor: pointer;">Search</button>
-              <a href="{% url 'inventory-detail' card.id %}" style="padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 8px; text-decoration: none; color: #475569; background: white; font-weight: 700; font-size: 0.9rem; text-align: center;">Clear</a>
+            <div class="ins-crm-toolbar__actions">
+              <button type="submit" class="ins-crm-toolbar__btn ins-crm-toolbar__btn--search">Search</button>
+              <a href="{% url 'inventory-detail' card.id %}?tab=insurance" class="ins-crm-toolbar__btn ins-crm-toolbar__btn--clear">Clear</a>
             </div>
           </div>
-          <details {% if stage_filter or status_filter or type_filter or source_filter or business_type_filter or company_filter or agent_filter or date_from or date_to or min_premium or max_premium %}open{% endif %} style="width: 100%;">
-            <summary style="cursor: pointer; font-size: 0.85rem; font-weight: 700; color: #093de6; margin-top: 0.2rem; outline: none; user-select: none;">🔍 Advanced Filters</summary>
+          <details class="ins-crm-advanced" {% if stage_filter or status_filter or type_filter or source_filter or business_type_filter or company_filter or agent_filter or date_from or date_to or min_premium or max_premium %}open{% endif %}>
+            <summary class="ins-crm-advanced__summary">🔍 Advanced Filters</summary>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 0.8rem;">
               <div style="display: flex; flex-direction: column; gap: 0.3rem;">
                 <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Stage</label>
@@ -1518,8 +1630,10 @@ html.portal-theme-dark .ins-license-crm-alert__row {
               </span>
               <div><h3>Book of business</h3></div>
             </div>
-            <p>In-force policies by line and carrier — premium in force snapshot.</p>
+            <p>In-force policies by line and carrier. Leave dates blank for the full book.</p>
             <form method="GET" action="{% url 'export-insurance-book-pdf' %}" target="_blank" class="ins-report-form">
+              <label class="ins-report-field"><span>From</span><input type="date" name="start_date" class="field-input"></label>
+              <label class="ins-report-field"><span>To</span><input type="date" name="end_date" class="field-input"></label>
               <button type="submit" class="ins-report-btn">Open book snapshot</button>
             </form>
           </article>

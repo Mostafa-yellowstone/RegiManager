@@ -290,29 +290,6 @@
     </section>
   </div>
 
-  {% if can_edit_insurance_targets %}
-  <section class="ift-panel ift-assumptions">
-    <header class="ift-panel__head">
-      <h3>Market premium assumptions</h3>
-      <span>Planner fuel</span>
-    </header>
-    <div class="ift-assume-grid">
-      {% for opt in insurance_targets.type_options %}
-      <form method="post" action="{% url 'save-insurance-market-assumption' %}" class="ift-assume-card">
-        {% csrf_token %}
-        <input type="hidden" name="organization_id" value="{{ active_org.id }}">
-        <input type="hidden" name="insurance_type" value="{{ opt.key }}">
-        <input type="hidden" name="next" value="?tab=targets&target_month={{ insurance_targets.month_key }}">
-        <label>{{ opt.label }}
-          <input type="number" step="0.01" min="0" name="avg_premium" placeholder="Avg premium"
-            value="{% for a in insurance_targets.market_assumptions %}{% if a.insurance_type == opt.key %}{{ a.avg_premium }}{% endif %}{% endfor %}">
-        </label>
-        <button type="submit" class="ift-btn ift-btn--ghost">Save</button>
-      </form>
-      {% endfor %}
-    </div>
-  </section>
-  {% endif %}
 </section>
 
 {% if can_edit_insurance_targets %}

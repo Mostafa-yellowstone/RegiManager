@@ -31,6 +31,22 @@
         cursor: pointer;
     }
 
+    .form-actions .btn.btn-secondary {
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+        font-weight: 600;
+    }
+    html.portal-theme-dark .form-actions .btn.btn-secondary,
+    html.portal-theme-dark #vehicleScannerModal .btn.btn-secondary {
+        background: #0f172a !important;
+        border-color: #334155 !important;
+        color: #e2e8f0 !important;
+    }
+    html.portal-theme-dark .form-actions {
+        border-top-color: var(--portal-border) !important;
+    }
+
     @media (max-width: 768px) {
         .form-row {
             grid-template-columns: 1fr !important;

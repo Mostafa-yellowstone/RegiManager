@@ -46,7 +46,11 @@
 .company-search-input { padding: 7px 10px; }
 .company-search-btn { padding: 7px 16px; background: var(--dark); color: white; border: none; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
 .company-clear-btn { padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--muted); background: white; font-weight: 700; font-size: 0.85rem; }
-html.portal-theme-dark .company-profile-page { --dark: #f1f5f9; --muted: #94a3b8; --border: #2d3a4d; --bg: #0b1220; }
+html.portal-theme-dark .company-profile-page,
+html.portal-theme-dark .modal-overlay { --dark: #f1f5f9; --muted: #94a3b8; --border: #2d3a4d; --bg: #0b1220; }
+html.portal-theme-dark .modal-overlay .modal-box h3 {
+  color: #f1f5f9 !important;
+}
 html.portal-theme-dark .company-profile-page .company-type-badge { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border-color: rgba(99, 102, 241, 0.35); }
 html.portal-theme-dark .company-profile-page .company-policy-filters { background: var(--portal-surface-muted); }
 html.portal-theme-dark .company-profile-page .company-search-input { background: #ffffff !important; color: #0f172a !important; border-color: #d5dceb !important; }
@@ -739,7 +743,7 @@ html.portal-theme-dark .company-license-box__title { color: var(--portal-text); 
 <div class="modal-overlay" id="licenseModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box" style="max-width:640px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-      <h3 style="margin: 0; font-weight: 800; color: var(--dark); font-size: 1.15rem;">🪪 License &amp; Broker Arrangement</h3>
+      <h3 class="portal-modal-title" style="margin: 0; font-weight: 800; color: var(--dark); font-size: 1.15rem;">🪪 License &amp; Broker Arrangement</h3>
       <button type="button" onclick="document.getElementById('licenseModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
     </div>
     <form method="POST" action="{% url 'edit-insurance-company-license' company.id %}">
@@ -782,7 +786,7 @@ html.portal-theme-dark .company-license-box__title { color: var(--portal-text); 
 <div class="modal-overlay" id="depositModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-      <h3 style="margin: 0; font-weight: 800; color: var(--dark); font-size: 1.15rem;">💰 Log Transaction for {{ company.name }}</h3>
+      <h3 class="portal-modal-title" style="margin: 0; font-weight: 800; color: var(--dark); font-size: 1.15rem;">💰 Log Transaction for {{ company.name }}</h3>
       <button onclick="document.getElementById('depositModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
     </div>
     <form method="POST" action="{% url 'add-bank-transaction' %}">
@@ -831,7 +835,7 @@ html.portal-theme-dark .company-license-box__title { color: var(--portal-text); 
 <div class="modal-overlay" id="ledgerModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box" style="max-width: 700px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-      <h3 style="margin: 0; font-weight: 800; color: var(--dark); font-size: 1.1rem;">📒 {{ company.name }} Ledger</h3>
+      <h3 class="portal-modal-title" style="margin: 0; font-weight: 800; color: var(--dark); font-size: 1.1rem;">📒 {{ company.name }} Ledger</h3>
       <button onclick="document.getElementById('ledgerModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
     </div>
     <div style="overflow-x: auto; max-height: 60vh; overflow-y: auto;">
@@ -859,7 +863,7 @@ html.portal-theme-dark .company-license-box__title { color: var(--portal-text); 
 <div class="modal-overlay" id="uploadDocModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-      <h3 style="margin: 0; font-weight: 800; color: var(--dark); font-size: 1.15rem;">📎 Upload Document</h3>
+      <h3 class="portal-modal-title" style="margin: 0; font-weight: 800; color: var(--dark); font-size: 1.15rem;">📎 Upload Document</h3>
       <button onclick="document.getElementById('uploadDocModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
     </div>
     <form method="POST" action="{% url 'insurance-company-upload-doc' company.id %}" enctype="multipart/form-data">

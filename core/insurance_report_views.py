@@ -114,7 +114,10 @@ def export_insurance_cashout_pdf(request):
 @require_GET
 def export_insurance_book_pdf(request):
     org = _org(request)
-    pdf = render_book_of_business_pdf(org, prepared_by=_prepared_by(request))
+    start, end = _range(request)
+    pdf = render_book_of_business_pdf(
+        org, prepared_by=_prepared_by(request), start=start, end=end
+    )
     return _pdf(pdf, f"book-of-business-{org.id}.pdf")
 
 

@@ -4,6 +4,16 @@
 {% block title %}Automation History | RegiManager{% endblock %}
 
 {% block portal_content %}
+<style>
+    .auto-log-date { font-weight: 700; color: #0f172a; }
+    .auto-log-time { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
+    .auto-log-client { font-weight: 700; color: #0f172a; }
+    .auto-log-vehicle { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
+    html.portal-theme-dark .auto-log-date,
+    html.portal-theme-dark .auto-log-client { color: #f1f5f9; }
+    html.portal-theme-dark .auto-log-time,
+    html.portal-theme-dark .auto-log-vehicle { color: #94a3b8; }
+</style>
 <main class="dashboard-shell automation-logs-page">
     <section class="dashboard-layout">
         <header class="dashboard-hero" style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 3rem 2rem; border-radius: 24px; margin-bottom: 2rem;">
@@ -41,8 +51,8 @@
                         {% for log in page_obj %}
                         <tr style="transition: transform 0.2s; cursor: default;">
                             <td style="padding: 1.2rem 1rem; border-bottom: 1px solid #f1f5f9;">
-                                <div style="font-weight: 600; color: #0f172a;">{{ log.timestamp|date:"M d, Y" }}</div>
-                                <div style="font-size: 0.8rem; color: #94a3b8;">{{ log.timestamp|date:"H:i" }}</div>
+                                <div class="auto-log-date">{{ log.timestamp|date:"M d, Y" }}</div>
+                                <div class="auto-log-time">{{ log.timestamp|date:"H:i" }}</div>
                             </td>
                             <td style="padding: 1.2rem 1rem; border-bottom: 1px solid #f1f5f9;">
                                 <div style="background: #eff6ff; color: #1e40af; padding: 4px 10px; border-radius: 6px; display: inline-block; font-size: 0.8rem; font-weight: 700;">
@@ -50,8 +60,8 @@
                                 </div>
                             </td>
                             <td style="padding: 1.2rem 1rem; border-bottom: 1px solid #f1f5f9;">
-                                <div style="font-weight: 600; color: #334155;">{{ log.client.name }}</div>
-                                <div style="font-size: 0.8rem; color: #64748b;">{{ log.vehicle|default:"General Scan" }}</div>
+                                <div class="auto-log-client">{{ log.client.name }}</div>
+                                <div class="auto-log-vehicle">{{ log.vehicle|default:"General Scan" }}</div>
                             </td>
                             <td style="padding: 1.2rem 1rem; border-bottom: 1px solid #f1f5f9;">
                                 <code style="background: #f8fafc; padding: 2px 6px; border-radius: 4px; color: #475569;">{{ log.sent_to }}</code>

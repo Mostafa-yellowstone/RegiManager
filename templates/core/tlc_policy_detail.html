@@ -229,6 +229,42 @@ html.portal-theme-dark .tlc-overview-table.tlc-table td {
   margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px solid #e2e8f0;
   font-size: 0.72rem; color: #64748b; text-align: center;
 }
+html.portal-theme-dark .tlc-report {
+  background: var(--portal-surface);
+  border-color: var(--portal-border);
+  color: var(--portal-text);
+}
+html.portal-theme-dark .tlc-report-header {
+  border-bottom-color: #60a5fa;
+}
+html.portal-theme-dark .tlc-report-brand,
+html.portal-theme-dark .tlc-report h3 {
+  color: #93c5fd;
+}
+html.portal-theme-dark .tlc-report-meta,
+html.portal-theme-dark .tlc-report-label,
+html.portal-theme-dark .tlc-report-footer,
+html.portal-theme-dark .tlc-report-empty {
+  color: var(--portal-text-muted);
+}
+html.portal-theme-dark .tlc-report-value {
+  color: var(--portal-text);
+}
+html.portal-theme-dark .tlc-report-chip {
+  background: var(--portal-surface-muted);
+  border-color: var(--portal-border);
+}
+html.portal-theme-dark .tlc-report-table th {
+  background: #1e3a5f;
+  color: #e2e8f0;
+}
+html.portal-theme-dark .tlc-report-table td {
+  border-bottom-color: var(--portal-border);
+  color: var(--portal-text-secondary);
+}
+html.portal-theme-dark .tlc-report-table tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.03);
+}
 @media (max-width: 900px) {
   .tlc-report-grid, .tlc-report-summary { grid-template-columns: 1fr 1fr; }
 }

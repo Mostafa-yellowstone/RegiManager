@@ -5504,8 +5504,13 @@ html.portal-theme-dark .company-profile-page a[style*="background: #fff5f5"] {
     border-color: rgba(220, 38, 38, 0.25) !important;
 }
 
-html.portal-theme-dark .company-profile-page .modal-overlay h3[style*="color: var(--dark)"] {
-    color: var(--portal-text) !important;
+html.portal-theme-dark .company-profile-page .modal-overlay h3[style*="color: var(--dark)"],
+html.portal-theme-dark .modal-overlay h3[style*="color: var(--dark)"],
+html.portal-theme-dark .modal-overlay h3[style*="color: #0f172a"],
+html.portal-theme-dark .modal-overlay h3[style*="color:#0f172a"],
+html.portal-theme-dark .modal-box h3,
+html.portal-theme-dark .portal-modal-title {
+    color: #f1f5f9 !important;
 }
 
 html.portal-theme-dark .company-profile-page .page-btn.active {
@@ -6225,14 +6230,15 @@ html.portal-theme-dark .tx-page .tx-actions {
 }
 
 html.portal-theme-dark .tx-page .btn-tx-cancel {
-    background: var(--portal-surface);
-    border-color: var(--portal-border);
-    color: var(--portal-text-secondary);
+    background: #0f172a;
+    border-color: #334155;
+    color: #e2e8f0;
 }
 
 html.portal-theme-dark .tx-page .btn-tx-cancel:hover {
-    background: var(--portal-surface-muted);
-    border-color: var(--portal-border-strong);
+    background: #1e293b;
+    border-color: #475569;
+    color: #f8fafc;
 }
 
 html.portal-theme-dark .tx-page div[style*="border-top:1px dashed #e2e8f0"],
@@ -6800,6 +6806,16 @@ html.portal-theme-dark .site-news-page article > div[style*="background: white"]
 .team-directory-page .team-directory-empty p {
     color: var(--portal-text-muted);
     margin: 0;
+}
+
+.portal-modal-title {
+    margin: 0;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+html.portal-theme-dark .portal-modal-title {
+    color: #f1f5f9 !important;
 }
 
 html.portal-theme-dark .team-directory-page .team-agent-avatar {

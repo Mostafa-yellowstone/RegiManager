@@ -69,6 +69,22 @@
     html.portal-theme-dark .automation-hub-page .data-table td[colspan] p {
         color: var(--portal-text-muted);
     }
+
+    .hub-client-name {
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 0.2rem;
+    }
+    .hub-vehicle-name {
+        font-size: 0.85rem;
+        color: #64748b;
+    }
+    html.portal-theme-dark .hub-client-name {
+        color: #f1f5f9;
+    }
+    html.portal-theme-dark .hub-vehicle-name {
+        color: #94a3b8;
+    }
 </style>
 {% endblock %}
 
@@ -125,8 +141,8 @@
                                     <input type="checkbox" class="vehicle-checkbox" value="{{ vehicle.id }}" style="transform: scale(1.2); cursor: pointer;">
                                 </td>
                                 <td style="padding: 1.2rem;">
-                                    <div style="font-weight: 700; color: #1e293b;">{{ vehicle.client.name }}</div>
-                                    <div style="font-size: 0.8rem; color: #64748b;">{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</div>
+                                    <div class="hub-client-name">{{ vehicle.client.name }}</div>
+                                    <div class="hub-vehicle-name">{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</div>
                                 </td>
                                 <td style="padding: 1.2rem;">
                                     <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; color: #475569;">{{ vehicle.vin|truncatechars:12 }}</code>
