@@ -1,4 +1,222 @@
 {% load static %}
+<style>
+/* Failsafe Header Styles */
+.site-header--marketing {
+    position: sticky !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 1000 !important;
+    background: #070c18 !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.site-header-bar {
+    max-width: 1400px !important;
+    margin: 0 auto !important;
+    padding: 0.75rem 1.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 1.5rem !important;
+    position: relative !important;
+}
+
+.site-header-start {
+    display: flex !important;
+    align-items: center !important;
+    gap: 1rem !important;
+}
+
+.site-brand {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    text-decoration: none !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    font-size: 1.25rem !important;
+}
+
+.site-logo {
+    height: 38px !important;
+    width: auto !important;
+    display: block !important;
+}
+
+/* Desktop Nav Links */
+.site-nav--desktop {
+    display: flex !important;
+    align-items: center !important;
+    gap: 2rem !important;
+    position: absolute !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    margin: 0 !important;
+}
+
+.site-nav-link {
+    color: #94a3b8 !important;
+    text-decoration: none !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    transition: color 0.25s ease !important;
+    padding: 0.4rem 0.6rem !important;
+    white-space: nowrap !important;
+}
+
+.site-nav-link:hover,
+.site-nav-link.active {
+    color: #ffffff !important;
+}
+
+/* Header Actions */
+.header-actions--bar {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.85rem !important;
+    margin-left: auto !important;
+}
+
+/* HIDE MOBILE ELEMENTS ON DESKTOP */
+.site-mobile-nav-btn {
+    display: none !important;
+}
+
+.site-nav-backdrop {
+    display: none !important;
+}
+
+.site-mobile-drawer {
+    display: none !important;
+}
+
+/* RESPONSIVE MOBILE MEDIA QUERY */
+@media (max-width: 992px) {
+    .site-nav--desktop {
+        display: none !important;
+    }
+
+    .header-actions--bar {
+        display: none !important;
+    }
+
+    .site-mobile-nav-btn {
+        display: flex !important;
+        width: 40px !important;
+        height: 40px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: rgba(255, 255, 255, 0.08) !important;
+        border: 1px solid rgba(255, 255, 255, 0.18) !important;
+        border-radius: 10px !important;
+        color: #ffffff !important;
+        cursor: pointer !important;
+        padding: 0 !important;
+    }
+
+    .site-mobile-nav-icon--close {
+        display: none !important;
+    }
+
+    .site-mobile-nav-btn[aria-expanded="true"] .site-mobile-nav-icon--open {
+        display: none !important;
+    }
+
+    .site-mobile-nav-btn[aria-expanded="true"] .site-mobile-nav-icon--close {
+        display: block !important;
+    }
+
+    .site-mobile-drawer {
+        display: flex !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        bottom: 0 !important;
+        width: min(320px, 85vw) !important;
+        background: #0b1220 !important;
+        z-index: 1100 !important;
+        transform: translateX(-105%) !important;
+        transition: transform 0.28s ease, visibility 0.28s !important;
+        visibility: hidden !important;
+        flex-direction: column !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+        box-shadow: 10px 0 40px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    .site-mobile-drawer.is-open {
+        transform: translateX(0) !important;
+        visibility: visible !important;
+    }
+
+    .site-mobile-drawer__header {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 1rem 1.25rem !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+        background: rgba(255, 255, 255, 0.04) !important;
+    }
+
+    .site-mobile-drawer__title {
+        color: #ffffff !important;
+        font-weight: 800 !important;
+        font-size: 1rem !important;
+    }
+
+    .site-mobile-drawer__close {
+        width: 36px !important;
+        height: 36px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border-radius: 8px !important;
+        background: rgba(255, 255, 255, 0.06) !important;
+        color: #cbd5e1 !important;
+        cursor: pointer !important;
+    }
+
+    .site-mobile-drawer__nav {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 0.35rem !important;
+        padding: 1rem !important;
+    }
+
+    .site-mobile-drawer__nav .site-nav-link {
+        display: block !important;
+        padding: 0.75rem 0.85rem !important;
+        border-radius: 10px !important;
+        color: rgba(255, 255, 255, 0.82) !important;
+    }
+
+    .site-mobile-drawer__nav .site-nav-link:hover {
+        background: rgba(255, 255, 255, 0.08) !important;
+        color: #ffffff !important;
+    }
+
+    .header-actions--drawer {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 0.75rem !important;
+        padding: 1rem !important;
+        margin-top: auto !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+
+    .header-actions--drawer .btn {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+}
+</style>
+
 <header class="site-header site-header--marketing">
     <div class="site-header-bar">
         <div class="site-header-start">
