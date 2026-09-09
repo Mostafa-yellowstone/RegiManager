@@ -50,9 +50,15 @@
       var heard = modal.querySelector('[data-iqp-heard-about]');
       var wrap = modal.querySelector('[data-iqp-dealer-name-wrap]');
       if (!heard || !wrap) return;
-      var show = heard.value === 'dealer';
-      wrap.hidden = !show;
-      if (!show) {
+      var show = (heard.value || '').trim() === 'dealer';
+      if (show) {
+        wrap.hidden = false;
+        wrap.removeAttribute('hidden');
+        wrap.style.display = '';
+      } else {
+        wrap.hidden = true;
+        wrap.setAttribute('hidden', '');
+        wrap.style.display = 'none';
         var input = wrap.querySelector('input[name="dealer_name"]');
         if (input) input.value = '';
       }
@@ -60,6 +66,7 @@
     var heardSelect = modal.querySelector('[data-iqp-heard-about]');
     if (heardSelect) {
       heardSelect.addEventListener('change', syncDealerNameField);
+      heardSelect.addEventListener('input', syncDealerNameField);
       syncDealerNameField();
     }
 

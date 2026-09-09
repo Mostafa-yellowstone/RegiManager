@@ -441,6 +441,10 @@ body.iqp-modal-open { overflow: hidden; }
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+.iqp-field[data-iqp-dealer-name-wrap][hidden],
+[data-iqp-dealer-name-wrap][hidden] {
+  display: none !important;
+}
 .iqp-field input,
 .iqp-field select,
 .iqp-field textarea {
