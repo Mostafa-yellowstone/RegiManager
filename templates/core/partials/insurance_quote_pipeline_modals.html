@@ -15,12 +15,16 @@
     <div class="iqp-modal__body">
       <label class="iqp-field">
         <span>How did you hear about us?</span>
-        <select name="heard_about">
+        <select name="heard_about" id="iqpCreateHeardAbout" data-iqp-heard-about>
           <option value="">Select…</option>
           {% for value, label in quote_heard_about_choices %}
           <option value="{{ value }}">{{ label }}</option>
           {% endfor %}
         </select>
+      </label>
+      <label class="iqp-field" id="iqpCreateDealerNameWrap" data-iqp-dealer-name-wrap hidden>
+        <span>Dealer name</span>
+        <input type="text" name="dealer_name" id="iqpCreateDealerName" maxlength="200" placeholder="Enter dealer name" autocomplete="organization">
       </label>
 
       <div class="iqp-modal__grid">
@@ -215,12 +219,16 @@
     <div class="iqp-modal__body">
       <label class="iqp-field">
         <span>How did you hear about us?</span>
-        <select name="heard_about" id="iqpEditHeardAbout">
+        <select name="heard_about" id="iqpEditHeardAbout" data-iqp-heard-about>
           <option value="">Select…</option>
           {% for value, label in quote_heard_about_choices %}
           <option value="{{ value }}">{{ label }}</option>
           {% endfor %}
         </select>
+      </label>
+      <label class="iqp-field" id="iqpEditDealerNameWrap" data-iqp-dealer-name-wrap hidden>
+        <span>Dealer name</span>
+        <input type="text" name="dealer_name" id="iqpEditDealerName" maxlength="200" placeholder="Enter dealer name" autocomplete="organization">
       </label>
 
       <div class="iqp-modal__grid">

@@ -31,6 +31,7 @@
             data-phone="{{ lead.phone }}"
             data-email="{{ lead.email }}"
             data-heard-about="{{ lead.heard_about }}"
+            data-dealer-name="{{ lead.dealer_name }}"
             data-street-address="{{ lead.street_address }}"
             data-apartment="{{ lead.apartment }}"
             data-city="{{ lead.city }}"
@@ -83,7 +84,7 @@
               {% if lead.heard_about %}
               <div class="iqp-card__meta-row">
                 <dt>Source</dt>
-                <dd>{{ lead.get_heard_about_display }}</dd>
+                <dd>{{ lead.get_heard_about_display }}{% if lead.heard_about == "dealer" and lead.dealer_name %} — {{ lead.dealer_name }}{% endif %}</dd>
               </div>
               {% endif %}
             </dl>

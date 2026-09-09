@@ -46,6 +46,23 @@
         : names.slice(0, 2).join(', ') + ' +' + (names.length - 2) + ' more';
     }
 
+    function syncDealerNameField() {
+      var heard = modal.querySelector('[data-iqp-heard-about]');
+      var wrap = modal.querySelector('[data-iqp-dealer-name-wrap]');
+      if (!heard || !wrap) return;
+      var show = heard.value === 'dealer';
+      wrap.hidden = !show;
+      if (!show) {
+        var input = wrap.querySelector('input[name="dealer_name"]');
+        if (input) input.value = '';
+      }
+    }
+    var heardSelect = modal.querySelector('[data-iqp-heard-about]');
+    if (heardSelect) {
+      heardSelect.addEventListener('change', syncDealerNameField);
+      syncDealerNameField();
+    }
+
     modal.querySelectorAll('[data-iqp-close]').forEach(function (el) {
       el.addEventListener('click', closeModal);
     });
@@ -224,6 +241,7 @@
       clearExtraCars: clearExtraCars,
       setExtraCars: setExtraCars,
       addExtraCar: addExtraCar,
+      syncDealerNameField: syncDealerNameField,
     };
   }
 
@@ -237,6 +255,11 @@
       btn.addEventListener('click', function () {
         if (createApi.clearExtraDrivers) createApi.clearExtraDrivers();
         if (createApi.clearExtraCars) createApi.clearExtraCars();
+        var createHeard = document.getElementById('iqpCreateHeardAbout');
+        if (createHeard) createHeard.value = '';
+        var createDealer = document.getElementById('iqpCreateDealerName');
+        if (createDealer) createDealer.value = '';
+        if (createApi.syncDealerNameField) createApi.syncDealerNameField();
         createApi.open();
       });
     });
@@ -255,6 +278,9 @@
       document.getElementById('iqpEditEmail').value = card.getAttribute('data-email') || '';
       var heardEl = document.getElementById('iqpEditHeardAbout');
       if (heardEl) heardEl.value = card.getAttribute('data-heard-about') || '';
+      var dealerEl = document.getElementById('iqpEditDealerName');
+      if (dealerEl) dealerEl.value = card.getAttribute('data-dealer-name') || '';
+      if (editApi.syncDealerNameField) editApi.syncDealerNameField();
       var streetEl = document.getElementById('iqpEditStreet');
       if (streetEl) streetEl.value = card.getAttribute('data-street-address') || '';
       var aptEl = document.getElementById('iqpEditApt');

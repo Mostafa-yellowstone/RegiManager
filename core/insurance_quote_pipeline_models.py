@@ -38,7 +38,8 @@ class InsuranceQuoteLead(models.Model):
         META_PLATFORM = "meta_platform", "Meta Platform"
         GOOGLE_CAMPAIGNS = "google_campaigns", "Google Campaigns"
         EXISTING_CLIENT = "existing_client", "Existing Client"
-        DEALER = "dealer", "Dealer / Referral"
+        DEALER = "dealer", "Dealer"
+        REFERRAL = "referral", "Referral"
         COLD_CALLING = "cold_calling", "Cold Calling"
         OTHER = "other", "Other"
 
@@ -63,6 +64,7 @@ class InsuranceQuoteLead(models.Model):
         blank=True,
         default="",
     )
+    dealer_name = models.CharField(max_length=200, blank=True, default="")
     street_address = models.CharField(max_length=200, blank=True, default="")
     apartment = models.CharField(max_length=50, blank=True, default="")
     city = models.CharField(max_length=100, blank=True, default="")

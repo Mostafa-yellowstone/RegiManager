@@ -395,6 +395,7 @@ class InsuranceQuoteLeadAdmin(admin.ModelAdmin):
         "dl_number",
         "street_address",
         "city",
+        "dealer_name",
         "notes",
     )
     autocomplete_fields = ("organization",)
@@ -417,6 +418,7 @@ class InsuranceQuoteLeadAdmin(admin.ModelAdmin):
                     "phone",
                     "email",
                     "heard_about",
+                    "dealer_name",
                     "insurance_type",
                     "stage",
                 )

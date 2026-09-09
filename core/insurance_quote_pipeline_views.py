@@ -256,6 +256,12 @@ def _parse_heard_about(raw: str) -> str:
     return value if value in valid else ""
 
 
+def _parse_dealer_name(request, heard_about: str) -> str:
+    if heard_about != InsuranceQuoteLead.HeardAbout.DEALER:
+        return ""
+    return (request.POST.get("dealer_name") or "").strip()[:200]
+
+
 def _parse_date_of_birth(raw: str):
     value = (raw or "").strip()
     if not value:
@@ -405,13 +411,15 @@ def create_quote_lead(request):
         messages.error(request, "Client name and phone are required.")
         return _redirect_pipeline(request, org)
 
+    heard_about = _parse_heard_about(request.POST.get("heard_about"))
     lead = InsuranceQuoteLead.objects.create(
         organization=org,
         created_by=request.user,
         client_name=client_name,
         phone=phone,
         email=(request.POST.get("email") or "").strip(),
-        heard_about=_parse_heard_about(request.POST.get("heard_about")),
+        heard_about=heard_about,
+        dealer_name=_parse_dealer_name(request, heard_about),
         street_address=(request.POST.get("street_address") or "").strip()[:200],
         apartment=(request.POST.get("apartment") or "").strip()[:50],
         city=(request.POST.get("city") or "").strip()[:100],
@@ -599,6 +607,7 @@ def _apply_lead_fields(request, lead, org):
     lead.phone = phone
     lead.email = (request.POST.get("email") or "").strip()
     lead.heard_about = _parse_heard_about(request.POST.get("heard_about"))
+    lead.dealer_name = _parse_dealer_name(request, lead.heard_about)
     _apply_address_fields(request, lead)
     lead.insurance_type = (request.POST.get("insurance_type") or "").strip()
     lead.has_prior = request.POST.get("has_prior") in {"1", "true", "on", "yes"}

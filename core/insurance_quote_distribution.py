@@ -228,7 +228,10 @@ def _lead_task_description(lead: InsuranceQuoteLead) -> str:
         f"Recommended carriers: {companies}",
     ]
     if lead.heard_about:
-        parts.insert(2, f"Heard about us: {lead.get_heard_about_display()}")
+        heard_label = lead.get_heard_about_display()
+        if lead.heard_about == InsuranceQuoteLead.HeardAbout.DEALER and lead.dealer_name:
+            heard_label = f"{heard_label} — {lead.dealer_name}"
+        parts.insert(2, f"Heard about us: {heard_label}")
     addr_bits = [
         x
         for x in [
