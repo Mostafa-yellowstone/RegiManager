@@ -31,10 +31,35 @@ PAYMENT_METHOD_META = {
         "gradient": "linear-gradient(135deg, #78350f 0%, #b45309 45%, #fbbf24 100%)",
         "accent": "#fef3c7",
     },
+    "payment_hub": {
+        "label": "Payment Hub",
+        "icon": "🏦",
+        "gradient": "linear-gradient(135deg, #0c4a6e 0%, #0369a1 45%, #38bdf8 100%)",
+        "accent": "#e0f2fe",
+    },
 }
 
-VALID_PAYMENT_METHODS = {key for key in PAYMENT_METHOD_META}
+# ServiceRecord card brands still roll into the credit_card summary bucket on Finance hub.
+CARD_PAYMENT_METHODS = frozenset({
+    "visa",
+    "mastercard",
+    "discover",
+    "diners_club",
+    "american_express",
+    "credit_card",
+})
+
+VALID_PAYMENT_METHODS = {choice.value for choice in DailyPaymentTransaction.PaymentMethod}
 VALID_PAYMENT_TYPES = {choice.value for choice in DailyPaymentTransaction.PaymentType}
+
+
+def bucket_payment_method(payment_method: str) -> str | None:
+    """Map a stored payment method onto a summary-card bucket."""
+    if payment_method in PAYMENT_METHOD_META:
+        return payment_method
+    if payment_method in CARD_PAYMENT_METHODS:
+        return "credit_card"
+    return None
 
 
 def agent_colors(username):
@@ -46,7 +71,9 @@ def summarize_daily_payments(transactions):
     """Build method totals and grand total from a transaction queryset/list."""
     totals = {method: Decimal("0.00") for method in PAYMENT_METHOD_META}
     for tx in transactions:
-        totals[tx.payment_method] = totals.get(tx.payment_method, Decimal("0.00")) + tx.amount
+        bucket = bucket_payment_method(tx.payment_method)
+        if bucket:
+            totals[bucket] = totals.get(bucket, Decimal("0.00")) + tx.amount
 
     method_cards = []
     for method, meta in PAYMENT_METHOD_META.items():

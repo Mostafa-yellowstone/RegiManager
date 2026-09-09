@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from django.db.models import Sum
 
-from .daily_payments import PAYMENT_METHOD_META
+from .daily_payments import PAYMENT_METHOD_META, bucket_payment_method
 from .models import DailyPaymentTransaction
 
 CARD_METHODS = frozenset({
@@ -19,15 +19,7 @@ CARD_METHODS = frozenset({
 
 
 def _bucket_for_method(payment_method):
-    if payment_method == "cash":
-        return "cash"
-    if payment_method == "zelle":
-        return "zelle"
-    if payment_method == "checks":
-        return "checks"
-    if payment_method in CARD_METHODS:
-        return "credit_card"
-    return None
+    return bucket_payment_method(payment_method)
 
 
 def _add_to_bucket(totals, payment_method, amount):
@@ -58,9 +50,13 @@ def _record_amounts(record):
     return (record.payment_method, amount), (None, Decimal("0"))
 
 
-def _cards_from_totals(totals, counts=None):
+def _cards_from_totals(totals, counts=None, *, methods=None):
+    keys = list(methods) if methods is not None else list(PAYMENT_METHOD_META.keys())
     cards = []
-    for method, meta in PAYMENT_METHOD_META.items():
+    for method in keys:
+        meta = PAYMENT_METHOD_META.get(method)
+        if not meta:
+            continue
         cards.append({
             "key": method,
             "method": method,
@@ -72,7 +68,7 @@ def _cards_from_totals(totals, counts=None):
             "amount": totals.get(method, Decimal("0.00")),
             "count": (counts or {}).get(method, 0),
         })
-    grand_total = sum(totals.values(), Decimal("0.00"))
+    grand_total = sum((totals.get(method, Decimal("0.00")) for method in keys), Decimal("0.00"))
     return cards, grand_total
 
 
@@ -83,8 +79,10 @@ def build_daily_payment_cards(records, target_date):
 
 def build_payment_cards_for_range(records, from_date, to_date):
     """DMV registration intake by payment bucket for an inclusive date window."""
-    totals = {method: Decimal("0.00") for method in PAYMENT_METHOD_META}
-    counts = {method: 0 for method in PAYMENT_METHOD_META}
+    # Payment Hub is insurance daily-payments only; keep Finance DMV cards on classic methods.
+    methods = ("cash", "zelle", "credit_card", "checks")
+    totals = {method: Decimal("0.00") for method in methods}
+    counts = {method: 0 for method in methods}
 
     ranged = records.filter(
         transaction_date__gte=from_date,
@@ -98,7 +96,7 @@ def build_payment_cards_for_range(records, from_date, to_date):
             _add_to_bucket(totals, secondary[0], secondary[1])
             _count_bucket(counts, secondary[0])
 
-    return _cards_from_totals(totals, counts=counts)
+    return _cards_from_totals(totals, counts=counts, methods=methods)
 
 
 def build_insurance_daily_payment_cards(organization_ids, target_date):
@@ -117,9 +115,10 @@ def build_insurance_payment_cards_for_range(organization_ids, from_date, to_date
         transaction_date__lte=to_date,
     )
     for tx in daily_txs.iterator():
-        if tx.payment_method in totals:
-            totals[tx.payment_method] += tx.amount
-            counts[tx.payment_method] += 1
+        bucket = bucket_payment_method(tx.payment_method)
+        if bucket:
+            totals[bucket] += tx.amount
+            counts[bucket] += 1
 
     return _cards_from_totals(totals, counts=counts)
 

@@ -6362,7 +6362,12 @@ def inventory_detail(request, inventory_id):
         # Daily Payment Transactions
         from datetime import datetime as dt_parse
         from .models import DailyPaymentTransaction
-        from .daily_payments import summarize_daily_payments, enrich_daily_transactions, compute_payable_total
+        from .daily_payments import (
+            VALID_PAYMENT_METHODS,
+            summarize_daily_payments,
+            enrich_daily_transactions,
+            compute_payable_total,
+        )
 
         daily_date_str = request.GET.get("daily_date", "").strip()
         try:
@@ -6381,7 +6386,7 @@ def inventory_detail(request, inventory_id):
             organization=active_org,
             transaction_date=daily_payment_date,
         ).select_related("client", "recorded_by", "updated_by", "insurance_policy", "insurance_company")
-        if daily_method_filter in {"cash", "zelle", "credit_card", "checks"}:
+        if daily_method_filter in VALID_PAYMENT_METHODS:
             daily_tx_qs = daily_tx_qs.filter(payment_method=daily_method_filter)
         if daily_type_filter:
             daily_tx_qs = daily_tx_qs.filter(payment_type=daily_type_filter)
@@ -6590,6 +6595,7 @@ def inventory_detail(request, inventory_id):
             "daily_search": daily_search,
             "daily_min_amount": daily_min_amount,
             "daily_max_amount": daily_max_amount,
+            "daily_payment_method_choices": DailyPaymentTransaction.PaymentMethod.choices,
             "insurance_type_options": _insurance_type_options_for_org(active_org),
             "user_can_manage_insurance_intake": False,
             "pending_insurance_intakes": [],

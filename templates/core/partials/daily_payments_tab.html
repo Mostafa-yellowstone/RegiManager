@@ -2,9 +2,12 @@
   .dpt-hero { background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%); border-radius: 22px; padding: 1.5rem 1.75rem; margin-bottom: 1.5rem; color: white; box-shadow: 0 12px 40px rgba(15,23,42,0.18); }
   .dpt-method-grid {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 1rem;
     margin-bottom: 1.25rem;
+  }
+  @media (max-width: 1400px) {
+    .dpt-method-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   }
   @media (max-width: 1200px) {
     .dpt-method-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -158,10 +161,9 @@
         <label style="font-size: 0.78rem; font-weight: 700; color: #475569;">Method</label>
         <select name="daily_method" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
           <option value="">All Methods</option>
-          <option value="cash" {% if daily_method_filter == "cash" %}selected{% endif %}>Cash</option>
-          <option value="zelle" {% if daily_method_filter == "zelle" %}selected{% endif %}>Zelle</option>
-          <option value="credit_card" {% if daily_method_filter == "credit_card" %}selected{% endif %}>Credit Card</option>
-          <option value="checks" {% if daily_method_filter == "checks" %}selected{% endif %}>Checks</option>
+          {% for value, label in daily_payment_method_choices %}
+          <option value="{{ value }}" {% if daily_method_filter == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
         </select>
       </div>
       <div style="display: flex; flex-direction: column; gap: 0.3rem;">
@@ -375,10 +377,9 @@
         <div>
           <label class="field-label">Payment Method</label>
           <select name="payment_method" required class="field-input">
-            <option value="cash">Cash</option>
-            <option value="zelle">Zelle</option>
-            <option value="credit_card">Credit Card</option>
-            <option value="checks">Checks</option>
+            {% for value, label in daily_payment_method_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
           </select>
         </div>
       </div>
@@ -444,10 +445,9 @@
         <div>
           <label class="field-label">Payment Method</label>
           <select name="payment_method" id="editDailyPaymentMethod" required class="field-input">
-            <option value="cash">Cash</option>
-            <option value="zelle">Zelle</option>
-            <option value="credit_card">Credit Card</option>
-            <option value="checks">Checks</option>
+            {% for value, label in daily_payment_method_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
           </select>
         </div>
       </div>

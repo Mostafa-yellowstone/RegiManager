@@ -2197,6 +2197,7 @@ class DailyPaymentTransaction(models.Model):
         ZELLE = "zelle", "Zelle"
         CREDIT_CARD = "credit_card", "Credit Card"
         CHECKS = "checks", "Checks"
+        PAYMENT_HUB = "payment_hub", "Payment Hub"
 
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="daily_payment_transactions")
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="daily_payment_transactions")
