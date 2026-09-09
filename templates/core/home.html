@@ -2,205 +2,391 @@
 {% load static i18n %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-8">
+<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-10">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 {% endblock %}
 
 {% block content %}
 <main class="site-shell">
+    <!-- HERO SECTION -->
     <div class="hero-wrapper">
         {% include "partials/_site_header.html" with on_home_page=True active_page='home' %}
 
         <section class="site-hero" id="home">
-            <div class="site-hero-backdrop" aria-hidden="true"></div>
-            <div class="site-hero-content reveal active">
-                <span class="brand-pill">RegiManager Platform</span>
-                <h1>RegiManager for High-Volume DMV &amp; PSB Teams.</h1>
-                <p>
-                    Run intake, registrations, partner referrals, payments, and document workflows from one operational system built for fast, accurate office throughput.
-                </p>
-                <div class="hero-actions">
-                    {% if user.is_authenticated %}
-                        <a href="{% url 'dashboard' %}" class="btn btn-primary">Open Dashboard</a>
-                        <a href="#solutions" class="btn btn-secondary">Explore Solutions</a>
-                    {% else %}
-                        <a href="{% url 'member-signup' %}" class="btn btn-primary">Start Free Trial</a>
-                        <a href="#pricing" class="btn btn-secondary">View Pricing</a>
-                    {% endif %}
+            <div class="hero-glow-orb hero-glow-orb--1" aria-hidden="true"></div>
+            <div class="hero-glow-orb hero-glow-orb--2" aria-hidden="true"></div>
+            <div class="hero-grid-pattern" aria-hidden="true"></div>
+
+            <div class="site-hero-inner">
+                <div class="site-hero-content reveal active">
+                    <div class="brand-pill-glow">
+                        <span class="pulse-dot"></span>
+                        <span>RegiManager Platform 2.0</span>
+                        <span class="pill-tag">ENTERPRISE OS</span>
+                    </div>
+
+                    <h1 class="hero-title-shimmer">
+                        RegiManager for High-Volume <span class="gradient-text">DMV &amp; PSB Teams.</span>
+                    </h1>
+
+                    <p class="hero-description">
+                        Streamline intake, VIN decoding, partner referrals, instant invoicing, and document workflows in one high-performance operational ecosystem engineered for maximum speed and zero compliance error.
+                    </p>
+
+                    <div class="hero-actions">
+                        {% if user.is_authenticated %}
+                            <a href="{% url 'dashboard' %}" class="btn btn-primary btn-hero-glow">
+                                <span>Open Dashboard</span>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            </a>
+                            <a href="#solutions" class="btn btn-secondary btn-hero-glass">
+                                <span>Explore Solutions</span>
+                            </a>
+                        {% else %}
+                            <a href="{% url 'member-signup' %}" class="btn btn-primary btn-hero-glow">
+                                <span>Start Free Trial</span>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            </a>
+                            <a href="#pricing" class="btn btn-secondary btn-hero-glass">
+                                <span>View Enterprise Pricing</span>
+                            </a>
+                        {% endif %}
+                    </div>
+
+                    <div class="hero-stats-row">
+                        <div class="hero-stat-item">
+                            <span class="stat-value">10x</span>
+                            <span class="stat-label">Faster VIN Intake</span>
+                        </div>
+                        <div class="hero-stat-divider"></div>
+                        <div class="hero-stat-item">
+                            <span class="stat-value">99.9%</span>
+                            <span class="stat-label">DMV Compliance</span>
+                        </div>
+                        <div class="hero-stat-divider"></div>
+                        <div class="hero-stat-item">
+                            <span class="stat-value">$50M+</span>
+                            <span class="stat-label">Processed Monthly</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hero-visual-showcase reveal active">
+                    <div class="hero-visual-frame tilt-element">
+                        <div class="window-header">
+                            <div class="window-dots">
+                                <span class="dot dot-red"></span>
+                                <span class="dot dot-yellow"></span>
+                                <span class="dot dot-green"></span>
+                            </div>
+                            <div class="window-title">regimanager.app/ops-center</div>
+                            <div class="window-badge">● LIVE DEMO</div>
+                        </div>
+                        <img src="{% static 'core/img/hero-dashboard.png' %}" alt="RegiManager Enterprise Dashboard" class="hero-img-main">
+                        
+                        <!-- Floating Glass Micro-Widgets -->
+                        <div class="floating-widget widget-vin float-anim-1">
+                            <div class="widget-icon">⚡</div>
+                            <div class="widget-info">
+                                <span class="widget-title">NHTSA Real-Time VIN</span>
+                                <span class="widget-sub">17-Char Decode Passed ✓</span>
+                            </div>
+                        </div>
+                        <div class="floating-widget widget-revenue float-anim-2">
+                            <div class="widget-icon">📈</div>
+                            <div class="widget-info">
+                                <span class="widget-title">Daily Ledger Throughput</span>
+                                <span class="widget-val">$14,850.00</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
     </div>
 
+    <!-- SOLUTIONS / CAPABILITIES SECTION -->
     <div class="capabilities-wrapper">
         <section class="site-section reveal" id="solutions">
             <div class="site-shell-inner">
-            <div class="section-heading">
-                <span class="brand-pill">Capabilities</span>
-                <h2>Built for Professional PSB Operations.</h2>
-                <p>Comprehensive tools to manage every aspect of your DMV psb operations.</p>
-            </div>
-            <div class="solution-grid">
-                <article class="capability-card reveal">
-                    <div class="feature-icon">⚡</div>
-                    <h3>Rapid Processing</h3>
-                    <p>Automated VIN decoding and real-time validation to minimize errors and maximize speed.</p>
-                </article>
-                <article class="capability-card reveal">
-                    <div class="feature-icon">👥</div>
-                    <h3>Team Control</h3>
-                    <p>Easily manage staff permissions and track every action with full activity history.</p>
-                </article>
-                <article class="capability-card reveal">
-                    <div class="feature-icon">📊</div>
-                    <h3>Financial Intel</h3>
-                    <p>Professional financial reporting, ledger-based transaction tracking, and automated receipts.</p>
-                </article>
-                <article class="capability-card reveal">
-                    <div class="feature-icon">🏢</div>
-                    <h3>Referral Portal</h3>
-                    <p>Dedicated workflows for car referralships with automated balance tracking and partner tools.</p>
-                </article>
-                <article class="capability-card reveal">
-                    <div class="feature-icon">👤</div>
-                    <h3>Client Profiles</h3>
-                    <p>Access everything in one place: client details, vehicle lists, and a full history of every transaction.</p>
-                </article>
-                <article class="capability-card reveal">
-                    <div class="feature-icon">📁</div>
-                    <h3>Smart Docs</h3>
-                    <p>Secure document management with OCR capabilities for instant data extraction from IDs.</p>
-                </article>
-            </div>
+                <div class="section-heading">
+                    <span class="brand-pill-subtle">Engineered Capabilities</span>
+                    <h2>Built for Professional PSB Operations.</h2>
+                    <p>Comprehensive tools engineered specifically for high-throughput DMV registration, insurance, motor club, and dealership workflows.</p>
+                </div>
+
+                <div class="solution-grid">
+                    <article class="capability-card tilt-card reveal">
+                        <div class="card-glow" aria-hidden="true"></div>
+                        <div class="feature-icon-badge icon-blue">⚡</div>
+                        <h3>Rapid VIN Processing</h3>
+                        <p>NHTSA automated VIN decoding and real-time validation checks to eliminate keying errors and accelerate office throughput.</p>
+                        <div class="card-link">Learn about VIN automation &rarr;</div>
+                    </article>
+
+                    <article class="capability-card tilt-card reveal">
+                        <div class="card-glow" aria-hidden="true"></div>
+                        <div class="feature-icon-badge icon-purple">👥</div>
+                        <h3>Multi-Agent & Role Control</h3>
+                        <p>Granular team permissions, real-time agent activity logs, attendance tracking, and individual production metrics.</p>
+                        <div class="card-link">Explore team controls &rarr;</div>
+                    </article>
+
+                    <article class="capability-card tilt-card reveal">
+                        <div class="card-glow" aria-hidden="true"></div>
+                        <div class="feature-icon-badge icon-emerald">📊</div>
+                        <h3>Financial Intelligence</h3>
+                        <p>Ledger-based transaction tracking, automatic commission split engine, daily cashout PDF reporting, and custom audit trails.</p>
+                        <div class="card-link">View reporting features &rarr;</div>
+                    </article>
+
+                    <article class="capability-card tilt-card reveal">
+                        <div class="card-glow" aria-hidden="true"></div>
+                        <div class="feature-icon-badge icon-amber">🏢</div>
+                        <h3>B2B Referral Portal</h3>
+                        <p>Dedicated partner workflows for auto dealerships & referral networks with automated balance tracking and settlement sheets.</p>
+                        <div class="card-link">Partner portal details &rarr;</div>
+                    </article>
+
+                    <article class="capability-card tilt-card reveal">
+                        <div class="card-glow" aria-hidden="true"></div>
+                        <div class="feature-icon-badge icon-cyan">👤</div>
+                        <h3>Unified Client Hub</h3>
+                        <p>360° client views containing active policies, plate numbers, title status, document folders, and interactive transaction history.</p>
+                        <div class="card-link">Client CRM highlights &rarr;</div>
+                    </article>
+
+                    <article class="capability-card tilt-card reveal">
+                        <div class="card-glow" aria-hidden="true"></div>
+                        <div class="feature-icon-badge icon-indigo">📁</div>
+                        <h3>Smart Docs & OCR</h3>
+                        <p>Auto-generate state DMV forms (MV-82, etc.) and extract driver license details instantly using embedded AI OCR scanning.</p>
+                        <div class="card-link">Smart document automation &rarr;</div>
+                    </article>
+                </div>
+
+                <!-- DEEP DIVE FEATURE SHOWCASE SLIDER / BANNER -->
+                <div class="showcase-banner-wrapper reveal">
+                    <div class="showcase-banner">
+                        <div class="showcase-text">
+                            <span class="showcase-badge">AUTOMATED WORKFLOWS</span>
+                            <h3>Streamline Public Intake & Document Verification</h3>
+                            <p>Give clients and partner dealers a seamless self-service portal to submit title paperwork, photo IDs, and payment details before walking through your doors.</p>
+                            <ul class="showcase-list">
+                                <li><span>✓</span> Instant mobile-friendly intake portal</li>
+                                <li><span>✓</span> Automated text & email renewal reminders</li>
+                                <li><span>✓</span> Integrated e-Signature document execution</li>
+                            </ul>
+                            <a href="{% url 'member-signup' %}" class="btn btn-primary btn-sm">Try Intake Portal</a>
+                        </div>
+                        <div class="showcase-image">
+                            <img src="{% static 'core/img/intake-automation.png' %}" alt="Intake & Document Verification Automation">
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
     </div>
 
+    <!-- ENTERPRISE PRICING SECTION -->
     <div class="pricing-wrapper">
         <section class="site-section pricing-section reveal" id="pricing">
             <div class="site-shell-inner">
-            <div class="section-heading">
-                <span class="brand-pill">Plans</span>
-                <h2>Feature &amp; Volume Optimized.</h2>
-                <p>Transparent tiers that scale with your PSB — every capability mapped to the plan that fits.</p>
-            </div>
-
-            <div class="pricing-tier-grid">
-                <article class="pricing-tier pricing-tier--starter reveal">
-                    <div class="pricing-tier__accent" aria-hidden="true"></div>
-                    <div class="pricing-tier__body">
-                        <header class="pricing-tier__head">
-                            <h3>Starter <span class="pricing-tier__dash">—</span> <span class="pricing-tier__price">$99<span class="pricing-tier__period">/mo</span></span></h3>
-                            <p class="pricing-tier__tagline">Essentials for solo operators and new PSBs.</p>
-                        </header>
-                        <ul class="pricing-tier__features">
-                            <li>Up to 3 agents</li>
-                            <li>Core service dashboard</li>
-                            <li>Client &amp; vehicle profiles</li>
-                            <li>Basic client search</li>
-                            <li>Transaction processing &amp; receipts</li>
-                            <li>Payment &amp; ledger tracking</li>
-                            <li>Standard audit logs</li>
-                            <li>VIN validation</li>
-                            <li>Document upload &amp; storage</li>
-                            <li>Single-location workspace</li>
-                        </ul>
-                        <a href="{% url 'member-signup' %}" class="btn btn-secondary btn-tier">Get Started</a>
+                <div class="section-heading">
+                    <span class="brand-pill-subtle">Transparent Pricing</span>
+                    <h2>Feature &amp; Volume Optimized Plans.</h2>
+                    <p>Predictable pricing built to scale with your PSB volume — no per-registration surcharges.</p>
+                    
+                    <!-- Billing Toggle Switch -->
+                    <div class="billing-toggle-container">
+                        <span class="billing-label" id="billingMonthlyLabel">Monthly Billing</span>
+                        <button type="button" class="billing-toggle-switch" id="billingToggle" aria-checked="true" aria-label="Toggle Annual Billing">
+                            <span class="switch-handle"></span>
+                        </button>
+                        <span class="billing-label active" id="billingAnnualLabel">
+                            Annual Billing 
+                            <span class="discount-badge">Save 20%</span>
+                        </span>
                     </div>
-                </article>
-
-                <article class="pricing-tier pricing-tier--professional pricing-tier--featured reveal">
-                    <span class="pricing-tier__badge">Most Popular</span>
-                    <div class="pricing-tier__accent" aria-hidden="true"></div>
-                    <div class="pricing-tier__body">
-                        <header class="pricing-tier__head">
-                            <h3>Professional <span class="pricing-tier__dash">—</span> <span class="pricing-tier__price">$150<span class="pricing-tier__period">/mo</span></span></h3>
-                            <p class="pricing-tier__tagline">Complete workflows for growing registration teams.</p>
-                        </header>
-                        <ul class="pricing-tier__features">
-                            <li>Everything in Starter</li>
-                            <li>Up to 7 agents</li>
-                            <li>Public intake portals</li>
-                            <li>NHTSA real-time VIN decoding</li>
-                            <li>DMV document hub &amp; auto-fill forms</li>
-                            <li>Document folder spaces</li>
-                            <li>Referral ledger &amp; partner tools</li>
-                            <li>Financial reports &amp; PDF exports</li>
-                            <li>Automated renewal alerts</li>
-                            <li>Role-based team permissions</li>
-                            <li>OCR document scanning</li>
-                        </ul>
-                        <a href="{% url 'member-signup' %}" class="btn btn-primary btn-tier">Start Pro Trial</a>
-                    </div>
-                </article>
-
-                <article class="pricing-tier pricing-tier--business reveal">
-                    <div class="pricing-tier__accent" aria-hidden="true"></div>
-                    <div class="pricing-tier__body">
-                        <header class="pricing-tier__head">
-                            <h3>Business <span class="pricing-tier__dash">—</span> <span class="pricing-tier__price">$275<span class="pricing-tier__period">/mo</span></span></h3>
-                            <p class="pricing-tier__tagline">Full operations suite for high-volume PSBs.</p>
-                        </header>
-                        <ul class="pricing-tier__features">
-                            <li>Everything in Professional</li>
-                            <li>Up to 15 agents</li>
-                            <li>Insurance Space (policies &amp; commissions)</li>
-                            <li>Motor Club Space</li>
-                            <li>Inventory Space &amp; invoicing</li>
-                            <li>Bulk automation workflows</li>
-                            <li>Multi-location organization switching</li>
-                            <li>Advanced performance reports</li>
-                            <li>Knowledge Hub &amp; team announcements</li>
-                            <li>Commercial &amp; business intake</li>
-                        </ul>
-                        <a href="{% url 'member-signup' %}" class="btn btn-secondary btn-tier">Start Business Trial</a>
-                    </div>
-                </article>
-
-                <article class="pricing-tier pricing-tier--enterprise reveal">
-                    <div class="pricing-tier__accent" aria-hidden="true"></div>
-                    <div class="pricing-tier__body">
-                        <header class="pricing-tier__head">
-                            <h3>Enterprise <span class="pricing-tier__dash">—</span> <span class="pricing-tier__price">$300<span class="pricing-tier__period">/mo</span></span></h3>
-                            <p class="pricing-tier__tagline">White-label power for multi-location networks.</p>
-                        </header>
-                        <ul class="pricing-tier__features">
-                            <li>Everything in Business</li>
-                            <li>Unlimited agents &amp; users</li>
-                            <li>Custom SMTP &amp; branded emails</li>
-                            <li>Custom PDF headers &amp; receipts</li>
-                            <li>White-label portal branding</li>
-                            <li>Full API access</li>
-                            <li>Custom workflow configuration</li>
-                            <li>Dedicated success manager</li>
-                            <li>Priority 24/7 support</li>
-                            <li>Onboarding &amp; migration assistance</li>
-                        </ul>
-                        <a href="{% url 'contact' %}" class="btn btn-secondary btn-tier">Contact Sales</a>
-                    </div>
-                </article>
-            </div>
-
-            <article class="pricing-setup-note reveal" aria-label="Setup fee details">
-                <div class="pricing-setup-note__eyebrow">Onboarding</div>
-                <div class="pricing-setup-note__row">
-                    <p class="pricing-setup-note__title">One-time setup fee</p>
-                    <p class="pricing-setup-note__amount">$350</p>
                 </div>
-                <p class="pricing-setup-note__text">Applies to every plan. If you need us to import your existing data — clients, vehicles, transactions, and documents — the total may increase based on record count and data complexity. <a href="{% url 'contact' %}">Contact us</a> for a migration quote before signup.</p>
-            </article>
 
-            <p class="pricing-footnote reveal">All plans include secure cloud hosting, SSL encryption, and regular platform updates. Annual billing available — <a href="{% url 'contact' %}">contact us</a> for volume discounts.</p>
+                <div class="pricing-tier-grid">
+                    <!-- STARTER TIER -->
+                    <article class="pricing-tier pricing-tier--starter reveal">
+                        <div class="pricing-card-header">
+                            <div class="tier-icon">🌱</div>
+                            <h3 class="tier-title">Starter</h3>
+                            <p class="tier-subtitle">Essentials for solo operators and newly established PSBs.</p>
+                        </div>
+
+                        <div class="pricing-card-price">
+                            <div class="price-display">
+                                <span class="currency">$</span>
+                                <span class="amount" data-monthly="99" data-annual="79">79</span>
+                                <span class="period">/mo</span>
+                            </div>
+                            <span class="price-billing-note" data-monthly="Billed monthly" data-annual="Billed annually ($948/yr)">Billed annually ($948/yr)</span>
+                        </div>
+
+                        <a href="{% url 'member-signup' %}" class="btn btn-secondary btn-tier">Get Started Starter</a>
+
+                        <div class="pricing-divider"></div>
+
+                        <div class="pricing-features-head">Included capabilities:</div>
+                        <ul class="pricing-tier__features">
+                            <li><span class="check-icon">✓</span> <strong>Up to 3 agents</strong> included</li>
+                            <li><span class="check-icon">✓</span> Core registration dashboard</li>
+                            <li><span class="check-icon">✓</span> Client &amp; vehicle profiles</li>
+                            <li><span class="check-icon">✓</span> Basic client search &amp; filters</li>
+                            <li><span class="check-icon">✓</span> Transaction processing &amp; receipts</li>
+                            <li><span class="check-icon">✓</span> Payment &amp; ledger tracking</li>
+                            <li><span class="check-icon">✓</span> Standard audit logs</li>
+                            <li><span class="check-icon">✓</span> NHTSA VIN validation</li>
+                            <li><span class="check-icon">✓</span> Document upload &amp; cloud storage</li>
+                        </ul>
+                    </article>
+
+                    <!-- PROFESSIONAL TIER (FEATURED) -->
+                    <article class="pricing-tier pricing-tier--professional pricing-tier--featured reveal">
+                        <div class="featured-badge-glow">★ MOST POPULAR</div>
+                        
+                        <div class="pricing-card-header">
+                            <div class="tier-icon">🚀</div>
+                            <h3 class="tier-title">Professional</h3>
+                            <p class="tier-subtitle">Complete operations workflow for growing registration offices.</p>
+                        </div>
+
+                        <div class="pricing-card-price">
+                            <div class="price-display">
+                                <span class="currency">$</span>
+                                <span class="amount" data-monthly="150" data-annual="119">119</span>
+                                <span class="period">/mo</span>
+                            </div>
+                            <span class="price-billing-note" data-monthly="Billed monthly" data-annual="Billed annually ($1,428/yr)">Billed annually ($1,428/yr)</span>
+                        </div>
+
+                        <a href="{% url 'member-signup' %}" class="btn btn-primary btn-tier btn-featured-glow">Start Pro Trial &rarr;</a>
+
+                        <div class="pricing-divider"></div>
+
+                        <div class="pricing-features-head">Everything in Starter, plus:</div>
+                        <ul class="pricing-tier__features">
+                            <li><span class="check-icon">✓</span> <strong>Up to 7 agents</strong> included</li>
+                            <li><span class="check-icon">✓</span> <strong>Public client intake portal</strong></li>
+                            <li><span class="check-icon">✓</span> Real-time <strong>NHTSA VIN decoding</strong></li>
+                            <li><span class="check-icon">✓</span> DMV doc hub &amp; auto-fill forms (MV-82)</li>
+                            <li><span class="check-icon">✓</span> Organized document folder spaces</li>
+                            <li><span class="check-icon">✓</span> Dealer referral ledger &amp; partner tools</li>
+                            <li><span class="check-icon">✓</span> Financial reports &amp; PDF exports</li>
+                            <li><span class="check-icon">✓</span> Automated renewal alert system</li>
+                            <li><span class="check-icon">✓</span> Granular role-based team permissions</li>
+                            <li><span class="check-icon">✓</span> AI OCR document scanning</li>
+                        </ul>
+                    </article>
+
+                    <!-- BUSINESS TIER -->
+                    <article class="pricing-tier pricing-tier--business reveal">
+                        <div class="pricing-card-header">
+                            <div class="tier-icon">⚡</div>
+                            <h3 class="tier-title">Business</h3>
+                            <p class="tier-subtitle">Full multi-space operations suite for high-volume offices.</p>
+                        </div>
+
+                        <div class="pricing-card-price">
+                            <div class="price-display">
+                                <span class="currency">$</span>
+                                <span class="amount" data-monthly="275" data-annual="219">219</span>
+                                <span class="period">/mo</span>
+                            </div>
+                            <span class="price-billing-note" data-monthly="Billed monthly" data-annual="Billed annually ($2,628/yr)">Billed annually ($2,628/yr)</span>
+                        </div>
+
+                        <a href="{% url 'member-signup' %}" class="btn btn-secondary btn-tier">Start Business Trial</a>
+
+                        <div class="pricing-divider"></div>
+
+                        <div class="pricing-features-head">Everything in Professional, plus:</div>
+                        <ul class="pricing-tier__features">
+                            <li><span class="check-icon">✓</span> <strong>Up to 15 agents</strong> included</li>
+                            <li><span class="check-icon">✓</span> <strong>Insurance Space</strong> (policies &amp; commissions)</li>
+                            <li><span class="check-icon">✓</span> <strong>Motor Club Space</strong> &amp; memberships</li>
+                            <li><span class="check-icon">✓</span> <strong>Inventory Space</strong> &amp; B2B invoicing</li>
+                            <li><span class="check-icon">✓</span> Bulk automated reminder workflows</li>
+                            <li><span class="check-icon">✓</span> Multi-location org switcher</li>
+                            <li><span class="check-icon">✓</span> Advanced performance analytics</li>
+                            <li><span class="check-icon">✓</span> Knowledge Hub &amp; announcements</li>
+                        </ul>
+                    </article>
+
+                    <!-- ENTERPRISE TIER -->
+                    <article class="pricing-tier pricing-tier--enterprise reveal">
+                        <div class="pricing-card-header">
+                            <div class="tier-icon">👑</div>
+                            <h3 class="tier-title">Enterprise</h3>
+                            <p class="tier-subtitle">White-label power for multi-branch networks & franchises.</p>
+                        </div>
+
+                        <div class="pricing-card-price">
+                            <div class="price-display">
+                                <span class="currency">$</span>
+                                <span class="amount" data-monthly="300" data-annual="249">249</span>
+                                <span class="period">/mo</span>
+                            </div>
+                            <span class="price-billing-note" data-monthly="Billed monthly" data-annual="Billed annually ($2,988/yr)">Billed annually ($2,988/yr)</span>
+                        </div>
+
+                        <a href="{% url 'contact' %}" class="btn btn-secondary btn-tier">Contact Sales</a>
+
+                        <div class="pricing-divider"></div>
+
+                        <div class="pricing-features-head">Everything in Business, plus:</div>
+                        <ul class="pricing-tier__features">
+                            <li><span class="check-icon">✓</span> <strong>Unlimited agents</strong> &amp; users</li>
+                            <li><span class="check-icon">✓</span> Custom SMTP &amp; branded client emails</li>
+                            <li><span class="check-icon">✓</span> Custom PDF headers &amp; receipts</li>
+                            <li><span class="check-icon">✓</span> White-label portal branding</li>
+                            <li><span class="check-icon">✓</span> Full REST &amp; Webhook API access</li>
+                            <li><span class="check-icon">✓</span> Custom workflow &amp; schema config</li>
+                            <li><span class="check-icon">✓</span> Dedicated account success manager</li>
+                            <li><span class="check-icon">✓</span> Priority 24/7 technical support</li>
+                        </ul>
+                    </article>
+                </div>
+
+                <!-- ENTERPRISE MIGRATION CALLOUT BANNER -->
+                <div class="pricing-setup-card reveal">
+                    <div class="setup-icon-box">📦</div>
+                    <div class="setup-details">
+                        <div class="setup-tag">WHITE-GLOVE ONBOARDING</div>
+                        <h4>One-Time Setup &amp; Data Migration — $350</h4>
+                        <p>We handle the heavy lifting. Our team will migrate your legacy clients, vehicle records, policy databases, and documents seamlessly into RegiManager so your office suffers zero downtime.</p>
+                    </div>
+                    <a href="{% url 'contact' %}" class="btn btn-secondary btn-setup">Request Migration Quote</a>
+                </div>
+
+                <p class="pricing-footnote reveal">All plans include secure cloud hosting, SSL encryption, and regular platform updates. Annual billing available — <a href="{% url 'contact' %}">contact us</a> for custom volume agreements.</p>
             </div>
         </section>
     </div>
 
+    <!-- ENTERPRISE CTA SECTION -->
     <div class="site-cta-wrapper">
+        <div class="cta-glow-bg" aria-hidden="true"></div>
         <section class="site-section site-cta-final reveal">
             <div class="site-shell-inner">
-                <h2>Ready to modernize your operations?</h2>
+                <span class="brand-pill-glow">Transform Your Operations</span>
+                <h2>Ready to modernize your registration office?</h2>
+                <p class="cta-lead">Join hundreds of high-volume PSB teams processing thousands of DMV transactions daily.</p>
                 <div class="hero-actions hero-actions--center">
-                    <a href="{% url 'member-signup' %}" class="btn btn-primary">Create Your Account</a>
-                    <a href="{% url 'contact' %}" class="btn btn-secondary">Talk to an Expert</a>
+                    <a href="{% url 'member-signup' %}" class="btn btn-primary btn-hero-glow">
+                        <span>Create Your Account</span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </a>
+                    <a href="{% url 'contact' %}" class="btn btn-secondary btn-hero-glass">
+                        <span>Talk to an Expert</span>
+                    </a>
                 </div>
             </div>
         </section>
@@ -208,20 +394,82 @@
 </main>
 
 <script>
-    // Intersection Observer for Reveal Animations
-    const observerOptions = {
-        threshold: 0.1
-    };
+    document.addEventListener('DOMContentLoaded', function() {
+        // Intersection Observer for Scroll Reveals
+        const observerOptions = {
+            threshold: 0.12,
+            rootMargin: '0px 0px -50px 0px'
+        };
 
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('active');
-            }
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+        // Interactive 3D Tilt Effect on Cards
+        const tiltCards = document.querySelectorAll('.tilt-card, .tilt-element, .pricing-tier');
+        tiltCards.forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const rotateX = ((y - centerY) / centerY) * -6;
+                const rotateY = ((x - centerX) / centerX) * 6;
+
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-8px)`;
+            });
+
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = '';
+            });
         });
-    }, observerOptions);
 
-    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+        // Billing Toggle Switch Handler
+        const billingToggle = document.getElementById('billingToggle');
+        const billingMonthlyLabel = document.getElementById('billingMonthlyLabel');
+        const billingAnnualLabel = document.getElementById('billingAnnualLabel');
+        const priceAmounts = document.querySelectorAll('.amount');
+        const billingNotes = document.querySelectorAll('.price-billing-note');
+
+        let isAnnual = true;
+
+        if (billingToggle) {
+            billingToggle.addEventListener('click', function() {
+                isAnnual = !isAnnual;
+                billingToggle.setAttribute('aria-checked', isAnnual);
+
+                if (isAnnual) {
+                    billingToggle.classList.remove('monthly');
+                    billingAnnualLabel.classList.add('active');
+                    billingMonthlyLabel.classList.remove('active');
+                } else {
+                    billingToggle.classList.add('monthly');
+                    billingMonthlyLabel.classList.add('active');
+                    billingAnnualLabel.classList.remove('active');
+                }
+
+                priceAmounts.forEach(amt => {
+                    amt.style.opacity = '0';
+                    amt.style.transform = 'translateY(-10px)';
+                    setTimeout(() => {
+                        amt.textContent = isAnnual ? amt.dataset.annual : amt.dataset.monthly;
+                        amt.style.opacity = '1';
+                        amt.style.transform = 'translateY(0)';
+                    }, 150);
+                });
+
+                billingNotes.forEach(note => {
+                    note.textContent = isAnnual ? note.dataset.annual : note.dataset.monthly;
+                });
+            });
+        }
+    });
 </script>
 {% endblock %}
-
