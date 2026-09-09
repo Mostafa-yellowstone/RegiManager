@@ -136,7 +136,7 @@ def build_quote_pipeline_context(request, organization, membership):
     """Context fragment for the Insurance Space Quote Pipeline tab."""
     leads_qs = (
         InsuranceQuoteLead.objects.filter(organization=organization)
-        .select_related("assigned_to__user", "created_by", "agent_task", "regi_connectivity")
+        .select_related("assigned_to__user", "created_by", "agent_task")
         .prefetch_related(
             "recommended_companies",
             "documents",

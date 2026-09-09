@@ -56,7 +56,7 @@ def insurance_policy_detail(request, policy_id):
     organizations = _user_orgs(request)
     policy = get_object_or_404(
         InsurancePolicy.objects.select_related(
-            "client", "insurance_company", "added_by", "organization", "regi_connectivity"
+            "client", "insurance_company", "added_by", "organization"
         ),
         id=policy_id,
         organization__in=organizations,
@@ -74,9 +74,6 @@ def insurance_policy_detail(request, policy_id):
     can_edit_policy = can_edit_insurance_policy(
         request.user, policy, membership=membership
     )
-    from regiconnect.models import PolicyConnectivity
-
-    policy_connectivity = PolicyConnectivity.objects.filter(policy=policy).first()
 
     overview_named_insured = (
         policy.named_insured
@@ -109,7 +106,6 @@ def insurance_policy_detail(request, policy_id):
                 membership=membership,
                 is_owner=is_owner,
             ),
-            "policy_connectivity": policy_connectivity,
         },
     )
 

@@ -20,8 +20,6 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
 
-from regiconnect.urls import api_urlpatterns
-
 from core.agent_portal_views import (
     agent_attendance_tracker,
     agent_portal_create_task,
@@ -219,6 +217,7 @@ from core.documents_views import (
 from core.tlc_views import (
     tlc_policy_detail,
     add_tlc_policy,
+    import_tlc_bob_sheet,
     import_tlc_dec_page,
     import_tlc_dec_to_policy,
     add_tlc_installment,
@@ -393,8 +392,6 @@ urlpatterns = [
     path('api/agent/activity/', AgentActivityView.as_view(), name='api-agent-activity'),
     path('api/agent/attendance/', AgentAttendanceView.as_view(), name='api-agent-attendance'),
     path('api/push/register/', MobilePushDeviceRegisterView.as_view(), name='api-push-register'),
-    path("regiconnect/", include("regiconnect.urls")),
-    path("api/regiconnect/", include((api_urlpatterns, "regiconnect"), namespace="regiconnect-api")),
     path('api/schema/', AuthenticatedSpectacularAPIView.as_view(), name='schema'),
     path('api/docs/swagger/', AuthenticatedSpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/docs/redoc/', AuthenticatedSpectacularRedocView.as_view(url_name='schema'), name='redoc'),
@@ -706,6 +703,7 @@ urlpatterns = [
     path("dashboard/spaces/documents/record/<int:record_id>/delete/", delete_document_record, name="delete-document-record"),
     path("dashboard/spaces/tlc/<int:space_id>/policy/<int:policy_id>/", tlc_policy_detail, name="tlc-policy-detail"),
     path("dashboard/spaces/tlc/<int:space_id>/policy/add/", add_tlc_policy, name="add-tlc-policy"),
+    path("dashboard/spaces/tlc/<int:space_id>/policy/import-bob/", import_tlc_bob_sheet, name="import-tlc-bob-sheet"),
     path("dashboard/spaces/tlc/<int:space_id>/policy/import-dec/", import_tlc_dec_page, name="import-tlc-dec-page"),
     path("dashboard/spaces/tlc/policy/<int:policy_id>/import-dec/", import_tlc_dec_to_policy, name="import-tlc-dec-to-policy"),
     path("dashboard/spaces/tlc/policy/<int:policy_id>/installment/add/", add_tlc_installment, name="add-tlc-installment"),

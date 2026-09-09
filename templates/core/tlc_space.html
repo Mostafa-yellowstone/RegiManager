@@ -141,6 +141,7 @@ html.portal-theme-dark .tlc-chip-active { background: rgba(20,184,166,0.2); colo
           <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
         </form>
         {% if can_manage_tlc %}
+        <button type="button" onclick="document.getElementById('importBobModal').classList.add('active')" class="btn btn-secondary btn-sm">Import BOB Sheet</button>
         <button type="button" onclick="document.getElementById('importDecModal').classList.add('active')" class="btn btn-secondary btn-sm">Import Dec Page</button>
         <button type="button" onclick="document.getElementById('addPolicyModal').classList.add('active')" class="btn btn-primary btn-sm">+ New TLC Policy</button>
         {% endif %}
@@ -226,6 +227,22 @@ html.portal-theme-dark .tlc-chip-active { background: rgba(20,184,166,0.2); colo
 </main>
 
 {% if can_manage_tlc %}
+<div id="importBobModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h2 style="margin:0 0 0.5rem;font-size:1.25rem;">Import BOB Excel Sheet</h2>
+    <p style="font-size:0.85rem;color:var(--portal-text-muted);margin:0 0 1rem;line-height:1.5;">
+      Upload a book-of-business Excel (.xlsx) with columns like Account Name, Policy Type,
+      Line Of Business, Master Company, Policy Number, Term, Effective Date, and Annualized Premium.
+      Each row becomes an empty TLC policy shell you can open later and fill with a Dec page.
+    </p>
+    <form method="post" action="{% url 'import-tlc-bob-sheet' card.id %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <label class="field-label">BOB Excel (.xlsx)</label>
+      <input name="bob_sheet" type="file" accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="field-input" required>
+      <button type="submit" class="btn-submit" style="margin-top:1rem;">Import Policies</button>
+    </form>
+  </div>
+</div>
 <div id="importDecModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box">
     <h2 style="margin:0 0 0.5rem;font-size:1.25rem;">Import Declaration Page</h2>

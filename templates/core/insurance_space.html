@@ -1008,9 +1008,6 @@ html.portal-theme-dark .ins-license-crm-alert__row {
     <nav class="ins-tab-nav" aria-label="Insurance space sections">
       <button type="button" class="tab-btn active" id="tab-insurance-btn" onclick="switchTab('insurance')">🛡️ Insurance CRM</button>
       <button type="button" class="tab-btn" id="tab-quote-pipeline-btn" onclick="switchTab('quote-pipeline')">🎯 Quote Pipeline</button>
-      {% if user_can_view_regiconnect %}
-      <button type="button" class="tab-btn" id="tab-regi-rater-btn" onclick="switchTab('regi-rater')">Regi Rater</button>
-      {% endif %}
       {% if user_can_view_banking %}<button type="button" class="tab-btn" id="tab-companies-btn" onclick="switchTab('companies')">🏢 Companies</button>{% endif %}
       {% if user_can_view_banking %}<button type="button" class="tab-btn" id="tab-banking-btn" onclick="switchTab('banking')">💳 Finance</button>{% endif %}
       <button type="button" class="tab-btn" id="tab-reporting-btn" onclick="switchTab('reporting')">📊 Reporting Center</button>
@@ -1018,10 +1015,6 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       <button type="button" class="tab-btn" id="tab-targets-btn" onclick="switchTab('targets')">🎯 Targets &amp; Forecast</button>
       <button type="button" class="tab-btn" id="tab-daily-payments-btn" onclick="switchTab('daily-payments')">💳 Daily Payments</button>
       <button type="button" class="tab-btn" id="tab-agents-btn" onclick="switchTab('agents')">👥 Agent Auditing</button>
-      {% if user_can_view_regiconnect %}
-      <button type="button" class="tab-btn" id="tab-regi-markets-btn" onclick="switchTab('regi-markets')">Markets &amp; Access</button>
-      <button type="button" class="tab-btn" id="tab-regi-connectivity-btn" onclick="switchTab('regi-connectivity')">Connectivity</button>
-      {% endif %}
     </nav>
 
     <!-- INSURANCE CRM TAB -->
@@ -1755,17 +1748,6 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       </div>
     </div>
 
-    {% if user_can_view_regiconnect %}
-    <div id="tab-regi-rater" class="tab-panel" style="display: none;">
-      {% include "regiconnect/rater_tab.html" %}
-    </div>
-    <div id="tab-regi-markets" class="tab-panel" style="display: none;">
-      {% include "regiconnect/markets_tab.html" %}
-    </div>
-    <div id="tab-regi-connectivity" class="tab-panel" style="display: none;">
-      {% include "regiconnect/connectivity_tab.html" %}
-    </div>
-    {% endif %}
 </main>
 
 <!-- BRANDING MODAL -->
@@ -2208,7 +2190,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
 <!-- REJECT INSURANCE INTAKE MODAL -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const tabs = ['insurance', 'quote-pipeline'{% if user_can_view_regiconnect %}, 'regi-rater'{% endif %}{% if user_can_view_banking %}, 'companies', 'banking'{% endif %}, 'reporting', 'esign', 'targets', 'daily-payments', 'agents'{% if user_can_view_regiconnect %}, 'regi-markets', 'regi-connectivity'{% endif %}];
+const tabs = ['insurance', 'quote-pipeline'{% if user_can_view_banking %}, 'companies', 'banking'{% endif %}, 'reporting', 'esign', 'targets', 'daily-payments', 'agents'];
 let premiumChart = null;
 let profitChart = null;
 
@@ -2296,7 +2278,6 @@ function renderAgentCharts() {
 }
 
 function switchTab(name) {
-  if (name === 'regi-submissions') name = 'regi-rater';
   localStorage.setItem('active_insurance_tab', name);
   tabs.forEach(t => {
     const el = document.getElementById('tab-'+t);
@@ -2328,9 +2309,6 @@ window.addEventListener('DOMContentLoaded', () => {
   let activeTab = urlParams.get('tab');
   if (!activeTab) {
     activeTab = localStorage.getItem('active_insurance_tab') || 'insurance';
-  }
-  if (activeTab === 'regi-submissions') {
-    activeTab = 'regi-rater';
   }
   if (!tabs.includes(activeTab)) {
     activeTab = 'insurance';

@@ -378,6 +378,50 @@ def add_tlc_policy(request, space_id):
 
 @login_required
 @require_POST
+def import_tlc_bob_sheet(request, space_id):
+    """Import a BOB Excel sheet as empty TLC policy shells (fill later via Dec pages)."""
+    card, is_owner, membership = _resolve_tlc_access(request, space_id=space_id)
+    if not (is_owner or (membership and membership.can_deal_with_tlc)):
+        messages.error(request, "You do not have permission to import TLC policies.")
+        return _redirect_tlc(card, tab="policies", request=request)
+
+    upload = request.FILES.get("bob_sheet")
+    if not upload:
+        messages.error(request, "Please choose an Excel (.xlsx) book-of-business file.")
+        return _redirect_tlc(card, tab="policies", request=request)
+    name = (upload.name or "").lower()
+    if not (name.endswith(".xlsx") or name.endswith(".xlsm")):
+        messages.error(request, "BOB import must be an Excel .xlsx file.")
+        return _redirect_tlc(card, tab="policies", request=request)
+
+    from .tlc_bob_import import BobSheetParseError, import_bob_rows_to_tlc, parse_bob_workbook
+
+    try:
+        rows = parse_bob_workbook(upload)
+        result = import_bob_rows_to_tlc(
+            organization=card.organization,
+            space=card,
+            rows=rows,
+            user=request.user,
+        )
+    except BobSheetParseError as exc:
+        messages.error(request, str(exc))
+        return _redirect_tlc(card, tab="policies", request=request)
+    except Exception as exc:
+        messages.error(request, f"Could not import BOB sheet: {exc}")
+        return _redirect_tlc(card, tab="policies", request=request)
+
+    parts = [f"Created {result.created} TLC polic{'y' if result.created == 1 else 'ies'} from BOB sheet."]
+    if result.skipped_duplicates:
+        parts.append(f"Skipped {result.skipped_duplicates} duplicate policy number(s).")
+    if result.skipped_invalid:
+        parts.append(f"Skipped {result.skipped_invalid} incomplete row(s).")
+    messages.success(request, " ".join(parts))
+    return _redirect_tlc(card, tab="policies", request=request)
+
+
+@login_required
+@require_POST
 def import_tlc_dec_page(request, space_id):
     """Create a new TLC policy by importing an American Transit declaration page PDF."""
     card, is_owner, membership = _resolve_tlc_access(request, space_id=space_id)
