@@ -1,88 +1,229 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static i18n %}
+
+{% block body_attrs %}class="auth-body"{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'core/css/auth-premium.css' %}?v=auth-v3">
 {% endblock %}
 
+{% block site_footer %}{% endblock %}
+
 {% block content %}
-<main class="site-shell">
-    <div class="auth-hero-wrapper">
-        {% include "partials/_site_header.html" with header_variant='auth' %}
+<div class="auth-shell" id="auth-shell">
 
-        <section class="site-hero auth-hero">
-            <div class="site-hero-content reveal active">
-                <span class="brand-pill">Secure Access</span>
-                <h1 style="color: white !important;">Welcome to RegiManager.</h1>
-                <p>Enterprise DMV management starts here. Securely sign in or create your agent account.</p>
-            </div>
-        </section>
+    <!-- Animated background blobs -->
+    <div class="auth-bg-blobs" aria-hidden="true">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
     </div>
 
-    <div class="auth-content-wrapper">
-        <section class="site-section">
-            <div class="auth-container">
-                <div class="auth-visual-card reveal active">
-                    <img src="{% static 'core/img/auth_premium.png' %}" alt="Secure Authentication" style="width: 100%; border-radius: 32px; box-shadow: 0 40px 80px rgba(0,0,0,0.1);">
-                    <div style="margin-top: 3rem; text-align: center;">
-                        <h3 style="color: var(--text-main-light); margin-bottom: 1rem;">Bank-Level Security</h3>
-                        <p style="color: var(--text-muted-light);">All psb data is encrypted with AES-256 and protected by enterprise-grade firewalls.</p>
+    <!-- Left panel — branding & visual -->
+    <aside class="auth-left-panel" aria-hidden="true">
+        <div class="auth-left-inner">
+
+            <!-- Logo -->
+            <a href="{% url 'home' %}" class="auth-brand">
+                <div class="auth-brand-icon">
+                    <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="32" height="32" rx="8" fill="url(#brandGrad)"/>
+                        <path d="M8 22L12 10h8l4 12" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M10 18h12" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                        <defs>
+                            <linearGradient id="brandGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#2563eb"/>
+                                <stop offset="1" stop-color="#06b6d4"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <span class="auth-brand-name">RegiManager</span>
+            </a>
+
+            <!-- Headline -->
+            <div class="auth-left-headline">
+                <div class="auth-badge-pill">
+                    <span class="badge-dot"></span>
+                    Enterprise DMV Platform
+                </div>
+                <h1 class="auth-left-title">
+                    Your gateway to<br>
+                    <span class="auth-title-gradient">seamless DMV ops.</span>
+                </h1>
+                <p class="auth-left-subtitle">
+                    Trusted by PSBs across New York for vehicle registrations, renewals, insurance, and fleet management.
+                </p>
+            </div>
+
+            <!-- Visual mockup image -->
+            <div class="auth-visual-wrap">
+                <img src="{% static 'core/img/auth-panel.png' %}" alt="RegiManager Dashboard" class="auth-visual-img">
+                <!-- Floating stat chips -->
+                <div class="auth-chip chip-1">
+                    <span class="chip-icon">✅</span>
+                    <div>
+                        <span class="chip-label">Registrations Today</span>
+                        <span class="chip-value">247</span>
                     </div>
                 </div>
-
-                <div class="auth-form-card reveal active">
-                    <div class="auth-header">
-                        <h2>{{ title }}</h2>
-                        <p>{{ subtitle }}</p>
-                    </div>
-
-                    {% if messages %}
-                        <style>
-                            .alert-msg-error { padding: 1rem; border-radius: 12px; margin-bottom: 2rem; background: #fff5f5; border: 1px solid #feb2b2; color: #c53030; }
-                            .alert-msg-success { padding: 1rem; border-radius: 12px; margin-bottom: 2rem; background: #f0fff4; border: 1px solid #9ae6b4; color: #276749; }
-                        </style>
-                        {% for message in messages %}
-                            <div class="{% if message.tags == 'error' %}alert-msg-error{% else %}alert-msg-success{% endif %}">
-                                {{ message }}
-                            </div>
-                        {% endfor %}
-                    {% endif %}
-
-                    <form method="post" class="auth-form">
-                        {% csrf_token %}
-                        {% for field in form %}
-                            <div class="form-group">
-                                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                                {{ field }}
-                                {% if field.errors %}
-                                    <p style="color: #c53030; font-size: 0.85rem; margin-top: 0.5rem;">{{ field.errors.0 }}</p>
-                                {% endif %}
-                                {% if field.help_text %}
-                                    <p style="color: var(--text-muted-light); font-size: 0.8rem; margin-top: 0.5rem;">{{ field.help_text }}</p>
-                                {% endif %}
-                            </div>
-                        {% endfor %}
-
-                        <button type="submit" class="btn btn-primary">
-                            {{ submit_text }}
-                        </button>
-                    </form>
-
-                    <div class="auth-footer">
-                        <p>{{ switch_label }} <a href="{% url switch_url %}">{{ switch_text }}</a></p>
+                <div class="auth-chip chip-2">
+                    <span class="chip-icon">🔒</span>
+                    <div>
+                        <span class="chip-label">AES-256 Encrypted</span>
+                        <span class="chip-value">Bank-grade</span>
                     </div>
                 </div>
             </div>
-        </section>
-    </div>
-</main>
+
+            <!-- Trust badges -->
+            <div class="auth-trust-row">
+                <div class="auth-trust-badge">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7.001c0-.682.057-1.35.166-2.002zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                    Secure Login
+                </div>
+                <div class="auth-trust-badge">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path d="M9 12l-2-2m0 0l-2-2m2 2l2-2m-2 2l2 2M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5z"/></svg>
+                    NYSDMV Compliant
+                </div>
+                <div class="auth-trust-badge">
+                    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                    99.9% Uptime
+                </div>
+            </div>
+
+        </div>
+    </aside>
+
+    <!-- Right panel — the actual form -->
+    <main class="auth-right-panel">
+        <div class="auth-form-wrap">
+
+            <!-- Mobile logo only -->
+            <a href="{% url 'home' %}" class="auth-brand auth-brand-mobile">
+                <div class="auth-brand-icon">
+                    <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="32" height="32" rx="8" fill="url(#brandGrad2)"/>
+                        <path d="M8 22L12 10h8l4 12" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M10 18h12" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                        <defs>
+                            <linearGradient id="brandGrad2" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#2563eb"/>
+                                <stop offset="1" stop-color="#06b6d4"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <span class="auth-brand-name">RegiManager</span>
+            </a>
+
+            <!-- Form card -->
+            <div class="auth-card" id="auth-card">
+
+                <!-- Card header -->
+                <div class="auth-card-header">
+                    <div class="auth-card-icon">
+                        {% if "Sign In" in submit_text %}
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                        {% else %}
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h2 class="auth-card-title">{{ title }}</h2>
+                        <p class="auth-card-subtitle">{{ subtitle }}</p>
+                    </div>
+                </div>
+
+                <!-- Alerts -->
+                {% if messages %}
+                    {% for message in messages %}
+                    <div class="auth-alert {% if message.tags == 'error' %}auth-alert-error{% else %}auth-alert-success{% endif %}">
+                        <span class="alert-icon">{% if message.tags == 'error' %}⚠️{% else %}✅{% endif %}</span>
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+
+                <!-- Form -->
+                <form method="post" class="auth-form" id="auth-form" novalidate>
+                    {% csrf_token %}
+
+                    {% for field in form %}
+                    <div class="auth-field-group {% if field.errors %}has-error{% endif %}">
+                        <label class="auth-label" for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                            {% if field.field.required %}<span class="auth-required" aria-label="required">*</span>{% endif %}
+                        </label>
+                        <div class="auth-input-wrap">
+                            {{ field }}
+                        </div>
+                        {% if field.errors %}
+                            <p class="auth-field-error">{{ field.errors.0 }}</p>
+                        {% endif %}
+                        {% if field.help_text %}
+                            <p class="auth-field-hint">{{ field.help_text }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+
+                    <button type="submit" class="auth-submit-btn" id="auth-submit-btn">
+                        <span class="btn-text">{{ submit_text }}</span>
+                        <span class="btn-arrow">→</span>
+                        <span class="btn-spinner" aria-hidden="true"></span>
+                    </button>
+                </form>
+
+                <!-- Footer -->
+                <div class="auth-card-footer">
+                    <p>{{ switch_label }} <a href="{% url switch_url %}" class="auth-switch-link">{{ switch_text }}</a></p>
+                    <a href="{% url 'home' %}" class="auth-back-home">← Back to homepage</a>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+</div>
 
 <script>
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) entry.target.classList.add('active');
+(function () {
+    // Submit button loading state
+    const form = document.getElementById('auth-form');
+    const btn = document.getElementById('auth-submit-btn');
+    if (form && btn) {
+        form.addEventListener('submit', function () {
+            btn.classList.add('loading');
+            btn.disabled = true;
         });
-    }, { threshold: 0.1 });
-    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    }
+
+    // Floating card entrance animation
+    const card = document.getElementById('auth-card');
+    if (card) {
+        requestAnimationFrame(function() {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(28px)';
+            card.style.transition = 'opacity 0.55s cubic-bezier(0.16,1,0.3,1), transform 0.55s cubic-bezier(0.16,1,0.3,1)';
+            setTimeout(function() {
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 80);
+        });
+    }
+
+    // Focus glow effect on inputs
+    document.querySelectorAll('.auth-input-wrap input, .auth-input-wrap select').forEach(function(el) {
+        el.addEventListener('focus', function() {
+            el.closest('.auth-input-wrap').classList.add('focused');
+        });
+        el.addEventListener('blur', function() {
+            el.closest('.auth-input-wrap').classList.remove('focused');
+        });
+    });
+})();
 </script>
 {% endblock %}
