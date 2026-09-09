@@ -2,22 +2,7 @@
 {% load static i18n %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-7">
-<style>
-    .site-hero-visual {
-        background: url('{% static "core/img/dmv-hero.svg" %}') center/contain no-repeat;
-        min-height: 500px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .hero-bg-overlay {
-        position: absolute;
-        inset: 0;
-        background: radial-gradient(circle at center, transparent 0%, rgba(3, 7, 18, 0.4) 100%);
-    }
-</style>
+<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-8">
 {% endblock %}
 
 {% block content %}
@@ -26,11 +11,12 @@
         {% include "partials/_site_header.html" with on_home_page=True active_page='home' %}
 
         <section class="site-hero" id="home">
+            <div class="site-hero-backdrop" aria-hidden="true"></div>
             <div class="site-hero-content reveal active">
-                <span class="brand-pill">Modern DMV-PSB Portal</span>
-                <h1>The Operating System for Modern PSB.</h1>
+                <span class="brand-pill">RegiManager Platform</span>
+                <h1>RegiManager for High-Volume DMV &amp; PSB Teams.</h1>
                 <p>
-                    Streamline vehicle registrations, automate referral workflows, and manage client fleets with a unified, professional DMV portal designed for high-growth psbs.
+                    Run intake, registrations, partner referrals, payments, and document workflows from one operational system built for fast, accurate office throughput.
                 </p>
                 <div class="hero-actions">
                     {% if user.is_authenticated %}
@@ -41,10 +27,6 @@
                         <a href="#pricing" class="btn btn-secondary">View Pricing</a>
                     {% endif %}
                 </div>
-            </div>
-
-            <div class="site-hero-visual reveal active delay-1">
-                <div class="hero-bg-overlay"></div>
             </div>
         </section>
     </div>
@@ -198,10 +180,14 @@
                 </article>
             </div>
 
-            <div class="pricing-setup-note reveal">
-                <p class="pricing-setup-note__title">One-time setup fee: <strong>$350</strong></p>
-                <p class="pricing-setup-note__text">Applies to every plan. If you need us to import your existing data — clients, vehicles, transactions, and documents — the total may increase based on how many records you have. <a href="{% url 'contact' %}">Contact us</a> for a migration quote before you sign up.</p>
-            </div>
+            <article class="pricing-setup-note reveal" aria-label="Setup fee details">
+                <div class="pricing-setup-note__eyebrow">Onboarding</div>
+                <div class="pricing-setup-note__row">
+                    <p class="pricing-setup-note__title">One-time setup fee</p>
+                    <p class="pricing-setup-note__amount">$350</p>
+                </div>
+                <p class="pricing-setup-note__text">Applies to every plan. If you need us to import your existing data — clients, vehicles, transactions, and documents — the total may increase based on record count and data complexity. <a href="{% url 'contact' %}">Contact us</a> for a migration quote before signup.</p>
+            </article>
 
             <p class="pricing-footnote reveal">All plans include secure cloud hosting, SSL encryption, and regular platform updates. Annual billing available — <a href="{% url 'contact' %}">contact us</a> for volume discounts.</p>
             </div>

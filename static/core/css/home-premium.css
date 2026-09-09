@@ -2,7 +2,7 @@
     --primary: #1f7ae0;
     --primary-dark: #1861bf;
     --secondary: #0a2342;
-    --accent: #6366f1;
+    --accent: #0f766e;
     --bg-light: #ffffff;
     --bg-soft: #f8fafc;
     --bg-dark: #030712;
@@ -16,7 +16,7 @@
 /* Base Shell */
 .site-shell {
     overflow-x: hidden;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: "Plus Jakarta Sans", "Avenir Next", "Segoe UI", sans-serif;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
 }
@@ -68,16 +68,24 @@
 }
 
 .site-hero {
-    min-height: 90vh;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    min-height: calc(100vh - 72px);
+    display: flex;
     align-items: center;
-    gap: 4rem;
+    justify-content: flex-start;
     padding: 6rem clamp(1.25rem, 3vw, 2.5rem);
     max-width: 1600px;
     margin: 0 auto;
     position: relative;
     z-index: 1;
+}
+
+.site-hero-backdrop {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(110deg, rgba(3, 7, 18, 0.9) 15%, rgba(3, 7, 18, 0.45) 55%, rgba(3, 7, 18, 0.75) 100%),
+        url("/static/core/img/dmv-hero.svg") center right / min(54vw, 900px) no-repeat;
+    pointer-events: none;
 }
 
 .hero-wrapper::before {
@@ -102,36 +110,27 @@
 .site-hero p {
     font-size: 1.125rem;
     color: var(--text-muted-dark);
-    max-width: 600px;
+    max-width: 720px;
     line-height: 1.6;
     margin-bottom: 2.5rem;
 }
 
+.site-hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 760px;
+}
+
 .brand-pill {
-    background: rgba(31, 122, 224, 0.1);
-    color: var(--primary);
-    border: 1px solid rgba(31, 122, 224, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+    color: #e0ecff;
+    border: 1px solid rgba(255, 255, 255, 0.24);
     padding: 0.5rem 1rem;
     border-radius: 100px;
     font-size: 0.85rem;
     font-weight: 600;
     display: inline-block;
     margin-bottom: 1.5rem;
-}
-
-.site-hero-visual {
-    position: relative;
-    border-radius: 24px;
-    overflow: hidden;
-    box-shadow: 0 0 50px rgba(31, 122, 224, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    animation: float 6s ease-in-out infinite;
-    transform-origin: center;
-}
-
-@keyframes float {
-    0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-15px) rotate(1deg); }
 }
 
 /* --- SECTION: LIGHT CAPABILITIES --- */
@@ -244,12 +243,14 @@
     backface-visibility: hidden;
     transition: border-color 0.4s ease,
                 box-shadow 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-                transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                background 0.35s ease;
     will-change: transform;
 }
 
 .pricing-tier:hover {
     border-color: var(--primary);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
     box-shadow: 0 32px 64px rgba(15, 23, 42, 0.14), 0 0 0 1px rgba(31, 122, 224, 0.12);
     transform: translateY(-14px) rotateX(4deg) scale(1.02);
 }
@@ -274,7 +275,7 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #ffffff;
-    background: var(--primary);
+    background: linear-gradient(90deg, var(--primary-dark), var(--primary));
     padding: 0.35rem 0.65rem;
     border-radius: 100px;
 }
@@ -362,6 +363,7 @@
     font-size: 0.9rem;
     line-height: 1.45;
     color: var(--text-muted-light);
+    transition: transform 0.25s ease, color 0.25s ease;
 }
 
 .pricing-tier__features li::before {
@@ -381,6 +383,14 @@
     font-weight: 600;
 }
 
+.pricing-tier:hover .pricing-tier__features li {
+    transform: translateX(2px);
+}
+
+.pricing-tier:hover .pricing-tier__features li:first-child {
+    color: var(--primary-dark);
+}
+
 .btn-tier {
     width: 100%;
 }
@@ -397,23 +407,54 @@
 .pricing-setup-note {
     margin: clamp(2rem, 4vw, 2.75rem) auto 0;
     max-width: 820px;
-    padding: 1.25rem 1.5rem;
-    background: #ffffff;
-    border: 1px solid rgba(31, 122, 224, 0.18);
-    border-left: 4px solid var(--primary);
-    border-radius: 16px;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    padding: clamp(1.1rem, 2.2vw, 1.45rem);
+    background: linear-gradient(120deg, #ffffff 0%, #f3f8ff 100%);
+    border: 1px solid rgba(31, 122, 224, 0.22);
+    border-radius: 18px;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+    transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
+}
+
+.pricing-setup-note:hover {
+    transform: translateY(-6px);
+    border-color: rgba(31, 122, 224, 0.45);
+    box-shadow: 0 26px 48px rgba(15, 23, 42, 0.14);
+}
+
+.pricing-setup-note__eyebrow {
+    display: inline-flex;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(31, 122, 224, 0.12);
+    color: var(--primary-dark);
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    margin-bottom: 0.7rem;
+}
+
+.pricing-setup-note__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.9rem;
+    margin-bottom: 0.45rem;
 }
 
 .pricing-setup-note__title {
-    margin: 0 0 0.45rem;
-    font-size: 1rem;
-    font-weight: 700;
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 750;
     color: var(--text-main-light);
 }
 
-.pricing-setup-note__title strong {
-    color: var(--primary);
+.pricing-setup-note__amount {
+    margin: 0;
+    font-size: clamp(1.4rem, 2.4vw, 1.8rem);
+    font-weight: 800;
+    color: var(--primary-dark);
+    letter-spacing: -0.01em;
 }
 
 .pricing-setup-note__text {
@@ -514,6 +555,15 @@
     background: white;
     color: var(--secondary);
     border: 1px solid var(--glass-border);
+}
+
+.hero-actions .btn {
+    transition: transform 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease, color 0.25s ease;
+}
+
+.hero-actions .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 20px rgba(15, 23, 42, 0.24);
 }
 
 /* Header — marketing pages (scoped to avoid dmv-auth conflicts) */
@@ -1009,9 +1059,19 @@ body.site-nav-open {
 }
 
 @media (max-width: 1024px) {
-    .site-hero,
     .solution-grid {
         grid-template-columns: 1fr;
+    }
+
+    .site-hero {
+        padding-top: 5rem;
+        min-height: auto;
+    }
+
+    .site-hero-backdrop {
+        background:
+            linear-gradient(160deg, rgba(3, 7, 18, 0.92) 20%, rgba(3, 7, 18, 0.68) 100%),
+            url("/static/core/img/dmv-hero.svg") center 82% / 82% no-repeat;
     }
 
     .pricing-tier-grid {
@@ -1055,13 +1115,13 @@ body.site-nav-open {
     }
 
     .site-hero {
-        min-height: auto;
         padding: 4.5rem 1.25rem 3rem;
-        gap: 2rem;
     }
 
-    .site-hero-visual {
-        min-height: 280px !important;
+    .site-hero-backdrop {
+        background:
+            linear-gradient(165deg, rgba(3, 7, 18, 0.94) 12%, rgba(3, 7, 18, 0.74) 100%),
+            url("/static/core/img/dmv-hero.svg") center 92% / 94% no-repeat;
     }
 
     .auth-content-wrapper {
@@ -1079,6 +1139,12 @@ body.site-nav-open {
 
     .policy-content {
         padding: 2.5rem 1.25rem;
+    }
+
+    .pricing-setup-note__row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.15rem;
     }
 }
 
