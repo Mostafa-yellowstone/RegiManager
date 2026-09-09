@@ -111,6 +111,78 @@ A $50 FEE WILL BE ASSESSED TO REINSTATE THE POLICY.
 """
 
 
+SAMPLE_MAYA_AYOUB_STYLE_DEC = """
+MAYA ASSURANCE COMPANY
+24-29 Jackson Avenue, Suite 200
+Long Island City, NEW YORK
+11101
+PAYMENT SCHEDULE
+DEPOSIT
+09/29/2025
+$1,799.27
+$30.00
+$1,829.27
+INSTALLMENT
+12/28/2025
+$1,349.45
+$20.00
+$1,369.45
+INSTALLMENT
+03/28/2026
+$1,349.46
+$20.00
+$1,369.46
+TOTAL:
+$4,498.18
+$70.00
+$4,568.18
+PLEASE PAY ON OR BEFORE THE DUE DATE. IF YOUR PAYMENTS IS LATE, A CANCELLATION NOTICE WILL BE SENT
+AND A FEE WILL BE ASSESED TO REINSTATE THE POLICY. YOU WILL BE CHARGED A $ 50 LATE FEE PER
+CANCELLATION.
+automatically provide the additional coverage as of the day the revision is effective.
+MAYA ASSURANCE COMPANY
+POLICY NUMBER
+BUSINESS AUTO DECLARATIONS
+5-MA000460
+ITEM ONE
+NAMED INSURED & ADDRESS
+HAMED, AYOUB
+179 SARATOGA AVE 62
+YONKERS, NY 10705
+FORM OF NAMED INSURED'S BUSINESS
+ Corporation
+ Partnership
+X
+ Individual
+ Other
+PRODUCER
+MULTILINE INSURANCE BROKERAGE
+800 YONKERS AVE, 800 YONKERS AVE
+YONKERS, NY 10704
+ New
+X
+ Renewal
+ Amend
+POLICY PERIOD:  FROM
+09/29/2025   TO   09/29/2026
+ESTIMATED TOTAL ANNUAL PREMIUM †
+$4,498.18
+Minimum Earned Premium
+$1,829.27
+Issue Date 09/16/2025
+ITEM THREE - SCHEDULE OF AUTOS YOU OWN
+1
+2024, TOYOTA, HIGHLANDER, 5TDKDRBH0RS564584
+POLICY TYPE: Owner Operator
+CLASSIFICATION: Car Service
+DRIVERS SCHEDULE
+1
+HAMED, AYOUB
+2
+COVERAGE- PREMIUMS, LIMITS AND DEDUCTIBLES
+"""
+
+
 SAMPLE_ATIC_DEC = """
 AMERICAN TRANSIT INSURANCE COMPANY (036)
 DECLARATION AUTOMOBILE INSURANCE
@@ -236,6 +308,36 @@ class TLCDecImportParserTests(TestCase):
         self.assertEqual(parsed.payments[1].amount, Decimal("428.84"))
         self.assertEqual(parsed.payments[1].fee, Decimal("20.00"))
 
+    def test_parse_maya_ayoub_style_payment_schedule(self):
+        parsed = parse_maya_assurance_dec_text(SAMPLE_MAYA_AYOUB_STYLE_DEC)
+        self.assertEqual(parsed.policy_number, "5-MA000460")
+        self.assertEqual(parsed.named_insured, "HAMED, AYOUB")
+        self.assertIn("179 SARATOGA AVE 62", parsed.insured_address)
+        self.assertEqual(parsed.effective_date.isoformat(), "2025-09-29")
+        self.assertEqual(parsed.expiration_date.isoformat(), "2026-09-29")
+        self.assertEqual(parsed.issue_date.isoformat(), "2025-09-16")
+        self.assertEqual(parsed.annual_premium, Decimal("4498.18"))
+        self.assertEqual(parsed.reinstatement_fee, Decimal("50.00"))
+        self.assertEqual(parsed.installment_fee, Decimal("20.00"))
+        self.assertEqual(len(parsed.vehicles), 1)
+        self.assertEqual(parsed.vehicles[0].vin, "5TDKDRBH0RS564584")
+        self.assertIn("Toyota", parsed.vehicles[0].make)
+        self.assertIn("Highlander", parsed.vehicles[0].make)
+        self.assertEqual(parsed.drivers[0].name, "HAMED, AYOUB")
+        self.assertEqual(len(parsed.payments), 3)
+        self.assertEqual(parsed.payments[0].label, "DEPOSIT")
+        self.assertEqual(parsed.payments[0].amount, Decimal("1829.27"))
+        self.assertEqual(parsed.payments[1].label, "BILL # 1")
+        self.assertEqual(parsed.payments[1].amount, Decimal("1369.45"))
+        self.assertEqual(parsed.payments[2].label, "BILL # 2")
+        self.assertEqual(parsed.payments[2].amount, Decimal("1369.46"))
+
+    def test_maya_full_book_not_routed_to_american_transit(self):
+        # Full Maya books can contain the letters "ATIC" inside words like "automatically".
+        from core.tlc_dec_import import _detect_tlc_dec_carrier
+
+        self.assertEqual(_detect_tlc_dec_carrier(SAMPLE_MAYA_AYOUB_STYLE_DEC), "maya")
+
     def test_parse_american_transit_single_car_sample(self):
         parsed = parse_american_transit_dec_text(SAMPLE_ATIC_SINGLE_CAR_DEC)
         self.assertEqual(parsed.policy_number, "B513377")
@@ -320,6 +422,26 @@ class TLCDecImportParserTests(TestCase):
         self.assertEqual(parsed.broker_name, "MULTILINE INSURANCE BROKERAGE")
         self.assertEqual(len(parsed.vehicles), 1)
         self.assertEqual(len(parsed.payments), 10)
+
+    def test_parse_ayoub_maya_full_book_when_available(self):
+        pdf_path = Path(r"c:\Users\mystr\OneDrive\Desktop\AYOUB 2025 DEC PAGE Original.pdf")
+        if not pdf_path.exists():
+            self.skipTest("Ayoub Maya full-book DEC PDF not on disk")
+        with pdf_path.open("rb") as handle:
+            parsed = parse_tlc_dec_page(handle)
+        self.assertEqual(parsed.policy_number, "5-MA000460")
+        self.assertEqual(parsed.carrier, "MAYA ASSURANCE COMPANY")
+        self.assertEqual(parsed.named_insured, "HAMED, AYOUB")
+        self.assertEqual(parsed.broker_name, "MULTILINE INSURANCE BROKERAGE")
+        self.assertEqual(parsed.annual_premium, Decimal("4498.18"))
+        self.assertEqual(len(parsed.vehicles), 1)
+        self.assertEqual(parsed.vehicles[0].vin, "5TDKDRBH0RS564584")
+        self.assertEqual(len(parsed.drivers), 1)
+        self.assertEqual(len(parsed.payments), 3)
+        self.assertEqual(parsed.payments[0].label, "DEPOSIT")
+        self.assertEqual(parsed.payments[0].amount, Decimal("1829.27"))
+        self.assertEqual(parsed.payments[1].label, "BILL # 1")
+        self.assertEqual(parsed.payments[2].label, "BILL # 2")
 
     def test_parse_real_single_car_pdf_when_available(self):
         pdf_path = Path(r"c:\Users\mcc\Downloads\yaya+dec+2026.pdf")

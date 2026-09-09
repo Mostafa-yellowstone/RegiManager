@@ -60,7 +60,8 @@ _MAYA_DRIVER_ROW = re.compile(
     r"(?m)^\s*(\d+)\s*\n\s*([A-Z][A-Z'-]+,\s*[A-Z][A-Z\s'-]+)\s*$",
 )
 _MAYA_PAYMENT_ROW = re.compile(
-    r"(DEPOSIT|INSTALLMENT-\d+)\s+"
+    # Older Maya pages use INSTALLMENT-1; newer books use plain INSTALLMENT rows.
+    r"(DEPOSIT|INSTALLMENT(?:-\d+)?)\s+"
     r"(\d{2}/\d{2}/\d{4})\s+"
     r"\$?\s*([\d,]+\.\d{2})\s+"
     r"\$?\s*([\d,]+\.\d{2})\s+"
@@ -473,11 +474,14 @@ def _parse_maya_insured_and_broker(text: str, result: ParsedDecPage) -> None:
                 result.broker_address = ", ".join(lines[1:])
 
 
-def _normalize_maya_payment_label(label: str) -> str:
+def _normalize_maya_payment_label(label: str, *, installment_index: int | None = None) -> str:
     cleaned = label.strip().upper()
-    installment = re.match(r"INSTALLMENT-(\d+)", cleaned)
-    if installment:
-        return f"BILL # {installment.group(1)}"
+    numbered = re.match(r"INSTALLMENT-(\d+)", cleaned)
+    if numbered:
+        return f"BILL # {numbered.group(1)}"
+    if cleaned == "INSTALLMENT":
+        index = installment_index or 1
+        return f"BILL # {index}"
     return cleaned
 
 
@@ -515,7 +519,10 @@ def parse_maya_assurance_dec_text(text: str) -> ParsedDecPage:
             result.effective_date = _parse_date(cert_period.group(1))
             result.expiration_date = _parse_date(cert_period.group(2))
 
-    result.issue_date = result.effective_date
+    issue = _parse_date(
+        _first_match(r"Issue Date\s+(\d{2}/\d{2}/\d{4})", normalized, re.I)
+    )
+    result.issue_date = issue or result.effective_date
     result.form_of_business = _parse_maya_form_of_business(normalized)
     _parse_maya_insured_and_broker(normalized, result)
 
@@ -523,23 +530,41 @@ def parse_maya_assurance_dec_text(text: str) -> ParsedDecPage:
     if annual:
         result.annual_premium = _parse_money(annual.group(1))
         result.amended_total = result.annual_premium
+    if result.amended_total <= ZERO:
+        common_total = re.search(
+            r"COMMERCIAL AUTOMOBILE COVERAGE PART\s*\$\s*([\d,]+\.\d{2})",
+            normalized,
+            re.I,
+        )
+        if common_total:
+            result.annual_premium = _parse_money(common_total.group(1))
+            result.amended_total = result.annual_premium
 
-    reinstate = re.search(r"A \$(\d+)\s+FEE WILL BE ASSESSED", normalized, re.I)
+    reinstate = re.search(
+        r"(?:A\s+\$\s*(\d+)\s+FEE WILL BE ASSE?SSED)|(?:\$\s*(\d+)\s+LATE\s+FEE)",
+        normalized,
+        re.I,
+    )
     if reinstate:
-        result.reinstatement_fee = Decimal(reinstate.group(1)).quantize(Decimal("0.01"))
+        fee_raw = reinstate.group(1) or reinstate.group(2)
+        result.reinstatement_fee = Decimal(fee_raw).quantize(Decimal("0.01"))
 
     for match in _MAYA_VEHICLE_ROW.finditer(normalized):
+        make = match.group(3).title()
+        model = re.sub(r"\s+", " ", match.group(4)).strip().title()
+        if model and model.lower() not in make.lower():
+            make = f"{make} {model}".strip()
         result.vehicles.append(
             DecVehicle(
                 auto_number=int(match.group(1)),
                 year=int(match.group(2)),
-                make=match.group(3).title(),
+                make=make,
                 vin=match.group(5),
             )
         )
 
     driver_block = re.search(
-        r"DRIVERS SCHEDULE\s*(.+?)\s*(?:COVERAGE-|POLICY NUMBER)",
+        r"DRIVERS SCHEDULE\s*(.+?)\s*(?:COVERAGE-|POLICY NUMBER|POLICY TYPE)",
         normalized,
         re.I | re.S,
     )
@@ -554,6 +579,7 @@ def parse_maya_assurance_dec_text(text: str) -> ParsedDecPage:
             )
 
     installment_fee = ZERO
+    installment_index = 0
     for match in _MAYA_PAYMENT_ROW.finditer(normalized):
         due = _parse_date(match.group(2))
         premium = _parse_money(match.group(3))
@@ -561,7 +587,22 @@ def parse_maya_assurance_dec_text(text: str) -> ParsedDecPage:
         bill_amount = _parse_money(match.group(5))
         if not due or bill_amount <= ZERO:
             continue
-        label = _normalize_maya_payment_label(match.group(1))
+        raw_label = match.group(1)
+        if re.match(r"INSTALLMENT(?:-\d+)?$", raw_label, re.I):
+            installment_index += 1
+            label = _normalize_maya_payment_label(
+                raw_label, installment_index=installment_index
+            )
+        else:
+            label = _normalize_maya_payment_label(raw_label)
+        # Deduplicate when both declarations and payment-schedule pages repeat rows.
+        if any(
+            existing.label == label
+            and existing.due_date == due
+            and existing.amount == bill_amount
+            for existing in result.payments
+        ):
+            continue
         result.payments.append(
             DecPayment(label=label, due_date=due, amount=bill_amount, fee=fee)
         )
@@ -754,26 +795,38 @@ def parse_american_transit_dec_text(text: str) -> ParsedDecPage:
     return result
 
 
+def _detect_tlc_dec_carrier(text: str) -> str:
+    """Pick a carrier parser. Prefer explicit brand names over fragile substrings."""
+    upper = text.upper()
+    # Maya full policy books can include the letters "ATIC" inside words like
+    # "automatically", so never use a bare ATIC substring match.
+    if "MAYA ASSURANCE" in upper or re.search(r"\b\d+-MA\d+\b", text, re.I):
+        return "maya"
+    if "AMERICAN TRANSIT" in upper or re.search(r"\bATIC\b", upper):
+        return "american_transit"
+    if "HEREFORD" in upper or "HIC- DEC" in upper or "HIC-ALI" in upper:
+        return "hereford"
+    if _parse_policy_number(text):
+        return "american_transit_fallback"
+    return ""
+
+
 def parse_tlc_dec_page(file_obj: BinaryIO) -> ParsedDecPage:
     """Extract and parse a TLC declaration page PDF."""
     file_obj.seek(0)
     text = extract_pdf_text(file_obj)
     if not text.strip():
         raise DecPageParseError("This PDF has no readable text. Try a digital copy, not a scan.")
-    upper = text.upper()
-    if "AMERICAN TRANSIT" in upper or "ATIC" in upper:
-        return parse_american_transit_dec_text(text)
-    if "MAYA ASSURANCE" in upper:
+    carrier = _detect_tlc_dec_carrier(text)
+    if carrier == "maya":
         return parse_maya_assurance_dec_text(text)
-    if "HEREFORD" in upper or "HIC- DEC" in upper or "HIC-ALI" in upper:
+    if carrier == "american_transit":
+        return parse_american_transit_dec_text(text)
+    if carrier == "hereford":
         return parse_hereford_dec_text(text)
-    if _parse_policy_number(text):
+    if carrier == "american_transit_fallback":
         result = parse_american_transit_dec_text(text)
         result.parse_warnings.append("Carrier not recognized; used American Transit parser.")
-        return result
-    if re.search(r"\d+-MA\d+", text, re.I):
-        result = parse_maya_assurance_dec_text(text)
-        result.parse_warnings.append("Carrier not recognized; used Maya Assurance parser.")
         return result
     raise DecPageParseError(
         "Unsupported declaration page format. Currently supported: American Transit (ATIC), "
