@@ -33,7 +33,7 @@ from .insurance_esign_models import (
     InsuranceSavedSignature,
     new_signer_token,
 )
-from .insurance_esign_pdf import stamp_envelope_pdf
+from .insurance_esign_pdf import stamp_envelope_pdf, stamp_fields_onto_pdf
 from .insurance_permissions import is_org_owner, membership_for_org
 from .models import Space
 
@@ -446,6 +446,7 @@ def esign_editor(request, envelope_id):
             "request_sign_url": request.build_absolute_uri(
                 f"/sign/{envelope.signer_token}/"
             ),
+            "agent_signature_baked": _agent_signature_baked(envelope),
         },
     )
 
@@ -525,33 +526,40 @@ def _fields_without_images(fields: list[dict]) -> list[dict]:
     return slim
 
 
-def _fields_for_request_storage(fields: list[dict]) -> list[dict]:
-    """Keep agent signature images so clients see a locked pre-signed mark."""
+def _agent_signature_baked(envelope) -> bool:
+    return any(
+        isinstance(event, dict) and event.get("event") == "agent_stamped"
+        for event in (envelope.audit_json or [])
+    )
+
+
+def _agent_fields_to_bake(fields: list[dict]) -> list[dict]:
+    return [
+        f for f in fields
+        if (f.get("role") or "client") == "agent" and _field_has_mark(f)
+    ]
+
+
+def _client_fields_for_storage(fields: list[dict]) -> list[dict]:
+    """After baking agent marks into the PDF, keep only client boxes for the signer."""
     slim = []
     for field in fields:
+        if (field.get("role") or "client") == "agent":
+            continue
         row = dict(field)
-        role = (row.get("role") or "client").lower()
-        if role != "agent":
-            row.pop("image", None)
-        elif not row.get("image"):
-            row.pop("image", None)
+        row.pop("image", None)
         slim.append(row)
     return slim
 
 
-def _validate_request_fields(fields: list[dict]) -> str:
-    agent_marks = [
-        f for f in fields
-        if (f.get("role") or "client") == "agent"
-        and f.get("type") in {"signature", "initials"}
-        and _field_has_mark(f)
-    ]
+def _validate_request_fields(fields: list[dict], *, agent_already_baked: bool = False) -> str:
+    agent_marks = _agent_fields_to_bake(fields)
     client_boxes = [
         f for f in fields
         if (f.get("role") or "client") == "client"
         and f.get("type") in {"signature", "initials"}
     ]
-    if not agent_marks:
+    if not agent_marks and not agent_already_baked:
         return "Place and complete at least one Agent signature before sending."
     if not client_boxes:
         return "Place at least one Client signature box for the customer to sign."
@@ -593,6 +601,21 @@ def _validate_public_completion(merged: list[dict]) -> str:
     if not any(_field_has_mark(f) for f in merged if f.get("type") in {"signature", "initials"}):
         return "Click each signature field and sign before finishing."
     return ""
+
+
+def _bake_agent_signature_into_pdf(envelope, fields: list[dict]) -> bool:
+    """Flatten agent marks into the PDF permanently. Returns True if anything was stamped."""
+    agent_fields = _agent_fields_to_bake(fields)
+    if not agent_fields:
+        return False
+    prepared = stamp_fields_onto_pdf(
+        envelope,
+        agent_fields,
+        include_certificate=False,
+        filename=f"prepared-{envelope.id}.pdf",
+    )
+    envelope.original_file.save(prepared.name, prepared, save=False)
+    return True
 
 
 def _complete_envelope(envelope, fields, *, signer_name, signer_email, request, signed_user=None):
@@ -665,11 +688,25 @@ def request_esign_signature(request, envelope_id):
     except json.JSONDecodeError:
         payload = request.POST
     fields = _parse_fields(payload.get("fields") if isinstance(payload, dict) else request.POST.get("fields"))
+    agent_already_baked = _agent_signature_baked(envelope)
     if fields:
-        request_error = _validate_request_fields(fields)
+        request_error = _validate_request_fields(fields, agent_already_baked=agent_already_baked)
         if request_error:
             return JsonResponse({"ok": False, "error": request_error}, status=400)
-        envelope.fields_json = _fields_for_request_storage(fields)
+        try:
+            baked_now = _bake_agent_signature_into_pdf(envelope, fields)
+        except Exception as exc:
+            return JsonResponse(
+                {"ok": False, "error": str(exc)[:180] or "Could not apply the agent signature to this PDF."},
+                status=400,
+            )
+        envelope.fields_json = _client_fields_for_storage(fields)
+        if baked_now:
+            envelope.audit_json = list(envelope.audit_json or []) + [{
+                "event": "agent_stamped",
+                "at": timezone.localtime().isoformat(),
+                "by": request.user.get_full_name() or request.user.username,
+            }]
     else:
         return JsonResponse(
             {"ok": False, "error": "Place an Agent signature and a Client signature box first."},
@@ -769,6 +806,7 @@ def public_esign_sign(request, token):
             "saved_signatures_save_url": "",
             "saved_signatures_delete_url_template": "",
             "request_sign_url": "",
+            "agent_signature_baked": _agent_signature_baked(envelope),
         },
     )
 

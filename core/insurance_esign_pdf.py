@@ -176,7 +176,14 @@ def _wrap(text: str, width: int) -> list[str]:
     return lines
 
 
-def stamp_envelope_pdf(envelope, fields: list[dict]) -> ContentFile:
+def stamp_fields_onto_pdf(
+    envelope,
+    fields: list[dict],
+    *,
+    include_certificate: bool = False,
+    filename: str | None = None,
+) -> ContentFile:
+    """Flatten signature fields onto the envelope PDF. Optionally append a certificate page."""
     source = envelope.original_file
     if not source:
         raise ValueError("The original PDF is missing.")
@@ -219,14 +226,23 @@ def stamp_envelope_pdf(envelope, fields: list[dict]) -> ContentFile:
             logger.exception("Could not merge signature overlay on page %s", index)
         writer.add_page(page)
 
-    cert = PdfReader(BytesIO(_certificate_page(envelope, timezone.localtime())), strict=False)
-    writer.add_page(cert.pages[0])
-    writer.add_metadata({
-        "/Title": f"Signed — {envelope.title}"[:180],
-        "/Author": str(getattr(envelope.organization, "name", "") or "Insurance Space")[:120],
-        "/Subject": "Insurance Space e-signature",
-    })
+    if include_certificate:
+        cert = PdfReader(BytesIO(_certificate_page(envelope, timezone.localtime())), strict=False)
+        writer.add_page(cert.pages[0])
+        writer.add_metadata({
+            "/Title": f"Signed — {envelope.title}"[:180],
+            "/Author": str(getattr(envelope.organization, "name", "") or "Insurance Space")[:120],
+            "/Subject": "Insurance Space e-signature",
+        })
     out = BytesIO()
     writer.write(out)
-    filename = f"signed-{envelope.id}.pdf"
-    return ContentFile(out.getvalue(), name=filename)
+    return ContentFile(out.getvalue(), name=filename or f"document-{envelope.id}.pdf")
+
+
+def stamp_envelope_pdf(envelope, fields: list[dict]) -> ContentFile:
+    return stamp_fields_onto_pdf(
+        envelope,
+        fields,
+        include_certificate=True,
+        filename=f"signed-{envelope.id}.pdf",
+    )

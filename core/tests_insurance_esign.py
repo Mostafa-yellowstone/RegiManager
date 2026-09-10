@@ -325,8 +325,12 @@ class InsuranceESignTests(TestCase):
         self.assertEqual(envelope.status, InsuranceESignEnvelope.Status.AWAITING)
         self.assertEqual(envelope.signer_email, "jose@example.com")
         stored = {row["id"]: row for row in envelope.fields_json}
-        self.assertIn("image", stored["agent1"])
+        self.assertNotIn("agent1", stored)
+        self.assertIn("client1", stored)
         self.assertNotIn("image", stored["client1"])
+        self.assertTrue(any(e.get("event") == "agent_stamped" for e in envelope.audit_json))
+        with envelope.original_file.open("rb") as handle:
+            self.assertTrue(handle.read().startswith(b"%PDF"))
 
     def test_request_signature_still_sends_when_logo_bytes_are_invalid(self):
         self._login()

@@ -570,7 +570,7 @@
   }
 
   function validateRequestReady() {
-    const agentOk = state.fields.some(
+    const agentOk = !!cfg.agentBaked || state.fields.some(
       (f) => fieldRole(f) === "agent" && (f.type === "signature" || f.type === "initials") && hasMark(f)
     );
     const clientOk = state.fields.some(
@@ -646,7 +646,14 @@
       if (data.link) {
         await navigator.clipboard.writeText(data.link).catch(() => {});
       }
-      setStatus((data.message || "Email sent.") + " Link also copied.");
+      cfg.agentBaked = true;
+      // Agent ink is now flattened into the PDF — keep only client boxes on screen.
+      state.fields = state.fields.filter((f) => fieldRole(f) !== "agent");
+      state.selectedId = null;
+      const baseUrl = String(cfg.pdfUrl || "").split("?")[0];
+      cfg.pdfUrl = baseUrl + "?v=" + Date.now();
+      setStatus((data.message || "Email sent.") + " Agent signature is now permanent on the PDF. Link also copied.");
+      renderPdf().catch(() => setStatus("Email sent, but could not refresh the PDF preview."));
     } catch (err) {
       setStatus(err.message);
     }
@@ -675,9 +682,15 @@
     if (cfg.isSigned) {
       setStatus("Signed document — the signature is on the page. Use Download if you need a copy.");
     } else if (cfg.isPublic) {
-      setStatus("Teal Agent signature is locked. Click a yellow Client sign box to draw or type your signature, then Finish.");
+      setStatus(
+        cfg.agentBaked
+          ? "The agent signature is already on this PDF. Click a yellow Client sign box to draw or type your signature, then Finish."
+          : "Teal Agent signature is locked. Click a yellow Client sign box to draw or type your signature, then Finish."
+      );
     } else if (isReadOnly()) {
       setStatus("View only.");
+    } else if (cfg.agentBaked) {
+      setStatus("Your agent signature is permanently on this PDF. Adjust the Client sign box if needed, then Request signature again or wait for the client.");
     } else {
       setStatus("Place your Agent signature (and sign it), then place a Client signature box and Request signature.");
     }

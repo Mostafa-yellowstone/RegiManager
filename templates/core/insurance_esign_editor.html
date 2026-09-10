@@ -4,7 +4,7 @@
 {% block title %}{% if is_public %}Sign {{ envelope.title }}{% else %}E-sign {{ envelope.title }}{% endif %} | RegiManager{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_esign.css' %}?v=6">
+<link rel="stylesheet" href="{% static 'core/css/insurance_esign.css' %}?v=7">
 {% endblock %}
 
 {% block content %}
@@ -141,8 +141,9 @@ window.ESIGN_CONFIG = {
   saveSignatureUrl: "{{ saved_signatures_save_url|default:''|escapejs }}",
   deleteSignatureUrlTemplate: "{{ saved_signatures_delete_url_template|default:''|escapejs }}",
   signerName: "{{ envelope.signer_name|escapejs }}",
+  agentBaked: {% if agent_signature_baked %}true{% else %}false{% endif %},
   fields: JSON.parse(document.getElementById("esign-fields").textContent || "[]")
 };
 </script>
-<script src="{% static 'core/js/insurance_esign.js' %}?v=6"></script>
+<script src="{% static 'core/js/insurance_esign.js' %}?v=7"></script>
 {% endblock %}
