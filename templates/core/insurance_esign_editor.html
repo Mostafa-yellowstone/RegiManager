@@ -4,7 +4,7 @@
 {% block title %}{% if is_public %}Sign {{ envelope.title }}{% else %}E-sign {{ envelope.title }}{% endif %} | RegiManager{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_esign.css' %}?v=4">
+<link rel="stylesheet" href="{% static 'core/css/insurance_esign.css' %}?v=6">
 {% endblock %}
 
 {% block content %}
@@ -23,10 +23,13 @@
     {% if not is_signed and can_manage_esign|default:True %}
     <div class="esign-tools">
       {% if not is_public %}
-      <button type="button" class="esign-tool is-active" data-esign-tool="signature">Sign</button>
+      <button type="button" class="esign-tool is-active" data-esign-tool="agent-signature">Agent sign</button>
+      <button type="button" class="esign-tool" data-esign-tool="client-signature">Client sign</button>
       <button type="button" class="esign-tool" data-esign-tool="initials">Initials</button>
       <button type="button" class="esign-tool" data-esign-tool="date">Date</button>
       <button type="button" class="esign-tool" data-esign-tool="text">Text</button>
+      {% else %}
+      <p class="esign-note">Agent signature is locked. Sign only in the yellow <strong>Client sign</strong> boxes.</p>
       {% endif %}
     </div>
     <div class="esign-tools">

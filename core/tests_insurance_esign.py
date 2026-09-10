@@ -130,6 +130,10 @@ class InsuranceESignTests(TestCase):
         import base64
 
         drawn = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+        agent_png = (
+            "data:image/png;base64,"
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        )
         envelope = InsuranceESignEnvelope.objects.create(
             organization=self.org,
             title="Client app",
@@ -137,23 +141,59 @@ class InsuranceESignTests(TestCase):
             status=InsuranceESignEnvelope.Status.AWAITING,
             signer_name="Jose Palacios",
             signer_email="jose@example.com",
-            fields_json=[{"id": "f1", "type": "signature", "page": 1, "x": 0.1, "y": 0.8, "w": 0.3, "h": 0.08}],
+            fields_json=[
+                {
+                    "id": "agent1",
+                    "type": "signature",
+                    "role": "agent",
+                    "page": 1,
+                    "x": 0.1,
+                    "y": 0.7,
+                    "w": 0.3,
+                    "h": 0.08,
+                    "image": agent_png,
+                },
+                {
+                    "id": "client1",
+                    "type": "signature",
+                    "role": "client",
+                    "page": 1,
+                    "x": 0.1,
+                    "y": 0.85,
+                    "w": 0.3,
+                    "h": 0.08,
+                },
+            ],
         )
         import json
 
         response = self.client.post(
             reverse("public-esign-sign", args=[envelope.signer_token]),
             data=json.dumps({
-                "fields": [{
-                    "id": "f1",
-                    "type": "signature",
-                    "page": 1,
-                    "x": 0.1,
-                    "y": 0.8,
-                    "w": 0.3,
-                    "h": 0.08,
-                    "image": drawn,
-                }],
+                "fields": [
+                    {
+                        "id": "agent1",
+                        "type": "signature",
+                        "role": "agent",
+                        "page": 1,
+                        "x": 0.1,
+                        "y": 0.7,
+                        "w": 0.3,
+                        "h": 0.08,
+                        "image": drawn,  # client attempt to overwrite — ignored
+                    },
+                    {
+                        "id": "client1",
+                        "type": "signature",
+                        "role": "client",
+                        "page": 1,
+                        "x": 0.1,
+                        "y": 0.85,
+                        "w": 0.3,
+                        "h": 0.08,
+                        "image": drawn,
+                    },
+                ],
                 "signer_name": "Jose Palacios",
             }),
             content_type="application/json",
@@ -164,6 +204,55 @@ class InsuranceESignTests(TestCase):
         envelope.refresh_from_db()
         self.assertEqual(envelope.status, InsuranceESignEnvelope.Status.SIGNED)
         self.assertTrue(envelope.signed_file)
+
+    def test_public_signer_cannot_finish_without_client_mark(self):
+        agent_png = (
+            "data:image/png;base64,"
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        )
+        envelope = InsuranceESignEnvelope.objects.create(
+            organization=self.org,
+            title="Client app",
+            original_file=SimpleUploadedFile("doc.pdf", _pdf_bytes(), content_type="application/pdf"),
+            status=InsuranceESignEnvelope.Status.AWAITING,
+            signer_name="Jose Palacios",
+            fields_json=[
+                {
+                    "id": "agent1",
+                    "type": "signature",
+                    "role": "agent",
+                    "page": 1,
+                    "x": 0.1,
+                    "y": 0.7,
+                    "w": 0.3,
+                    "h": 0.08,
+                    "image": agent_png,
+                },
+                {
+                    "id": "client1",
+                    "type": "signature",
+                    "role": "client",
+                    "page": 1,
+                    "x": 0.1,
+                    "y": 0.85,
+                    "w": 0.3,
+                    "h": 0.08,
+                },
+            ],
+        )
+        import json
+
+        response = self.client.post(
+            reverse("public-esign-sign", args=[envelope.signer_token]),
+            data=json.dumps({
+                "fields": envelope.fields_json,
+                "signer_name": "Jose Palacios",
+            }),
+            content_type="application/json",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("client", response.json()["error"].lower())
 
     def test_request_signature_emails_the_signer(self):
         self._login()
@@ -177,6 +266,10 @@ class InsuranceESignTests(TestCase):
         from django.core import mail
         from django.test import override_settings
 
+        tiny_png = (
+            "data:image/png;base64,"
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        )
         with override_settings(
             EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
             DEFAULT_FROM_EMAIL="RegiManager <test@example.com>",
@@ -184,7 +277,29 @@ class InsuranceESignTests(TestCase):
             response = self.client.post(
                 reverse("insurance-esign-request", args=[envelope.id]),
                 data=json.dumps({
-                    "fields": [{"id": "f1", "type": "signature", "page": 1, "x": 0.1, "y": 0.8, "w": 0.3, "h": 0.08}],
+                    "fields": [
+                        {
+                            "id": "agent1",
+                            "type": "signature",
+                            "role": "agent",
+                            "page": 1,
+                            "x": 0.1,
+                            "y": 0.7,
+                            "w": 0.3,
+                            "h": 0.08,
+                            "image": tiny_png,
+                        },
+                        {
+                            "id": "client1",
+                            "type": "signature",
+                            "role": "client",
+                            "page": 1,
+                            "x": 0.1,
+                            "y": 0.85,
+                            "w": 0.3,
+                            "h": 0.08,
+                        },
+                    ],
                     "signer_name": "Jose Palacios",
                     "signer_email": "jose@example.com",
                 }),
@@ -209,6 +324,9 @@ class InsuranceESignTests(TestCase):
         envelope.refresh_from_db()
         self.assertEqual(envelope.status, InsuranceESignEnvelope.Status.AWAITING)
         self.assertEqual(envelope.signer_email, "jose@example.com")
+        stored = {row["id"]: row for row in envelope.fields_json}
+        self.assertIn("image", stored["agent1"])
+        self.assertNotIn("image", stored["client1"])
 
     def test_request_signature_still_sends_when_logo_bytes_are_invalid(self):
         self._login()
@@ -223,6 +341,10 @@ class InsuranceESignTests(TestCase):
         from django.test import override_settings
         from unittest.mock import patch
 
+        tiny_png = (
+            "data:image/png;base64,"
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        )
         with override_settings(
             EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
             DEFAULT_FROM_EMAIL="RegiManager <test@example.com>",
@@ -237,7 +359,29 @@ class InsuranceESignTests(TestCase):
             response = self.client.post(
                 reverse("insurance-esign-request", args=[envelope.id]),
                 data=json.dumps({
-                    "fields": [{"id": "f1", "type": "signature", "page": 1, "x": 0.1, "y": 0.8, "w": 0.3, "h": 0.08}],
+                    "fields": [
+                        {
+                            "id": "agent1",
+                            "type": "signature",
+                            "role": "agent",
+                            "page": 1,
+                            "x": 0.1,
+                            "y": 0.7,
+                            "w": 0.3,
+                            "h": 0.08,
+                            "image": tiny_png,
+                        },
+                        {
+                            "id": "client1",
+                            "type": "signature",
+                            "role": "client",
+                            "page": 1,
+                            "x": 0.1,
+                            "y": 0.85,
+                            "w": 0.3,
+                            "h": 0.08,
+                        },
+                    ],
                     "signer_name": "Jose Palacios",
                     "signer_email": "jose@example.com",
                 }),

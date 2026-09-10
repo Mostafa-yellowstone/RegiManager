@@ -27,44 +27,128 @@
 </div>
 {% endif %}
 
-{% if esign_envelopes %}
-<table class="ins-esign-table">
-  <thead>
-    <tr>
-      <th>Document</th>
-      <th>Status</th>
-      <th>Signer</th>
-      <th>Updated</th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for row in esign_envelopes %}
-    <tr>
-      <td>{{ row.title }}</td>
-      <td><span class="ins-esign-status {{ row.status }}">{{ row.get_status_display }}</span></td>
-      <td>{{ row.signer_name|default:"—" }}</td>
-      <td>{{ row.updated_at|date:"M j, Y g:i A" }}</td>
-      <td>
-        <div class="ins-esign-actions">
-          {% if row.status != "void" %}
-          <a href="{% url 'insurance-esign-editor' row.id %}">{% if row.status == "signed" %}View{% else %}Open{% endif %}</a>
-          {% endif %}
-          {% if row.status == "signed" %}
-          <a href="{% url 'insurance-esign-signed' row.id %}?download=1">Download</a>
-          {% endif %}
-          {% if can_manage_esign and row.status != "signed" and row.status != "void" %}
-          <form method="post" action="{% url 'insurance-esign-void' row.id %}" onsubmit="return confirm('Void this envelope?');">
-            {% csrf_token %}
-            <button type="submit">Void</button>
-          </form>
-          {% endif %}
-        </div>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% else %}
-<p style="color:var(--portal-text-muted);font-weight:600;">{% if can_manage_esign %}No e-signature documents yet. Upload a PDF to place a signature.{% else %}No e-signature documents yet.{% endif %}</p>
-{% endif %}
+<section class="ins-esign-ledger">
+  <header class="ins-esign-ledger__head">
+    <div>
+      <p class="ins-esign-ledger__eyebrow">Document ledger</p>
+      <h4>E-sign records</h4>
+    </div>
+    <div class="ins-esign-ledger__meta">
+      <span>{{ esign_total_count|default:0 }} total</span>
+      {% if esign_page_obj and esign_page_obj.paginator.count %}
+      <span>Showing {{ esign_page_obj.start_index }}–{{ esign_page_obj.end_index }}</span>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if esign_envelopes %}
+  <div class="ins-esign-ledger__table-wrap">
+    <table class="ins-esign-table">
+      <thead>
+        <tr>
+          <th>Document</th>
+          <th>Status</th>
+          <th>Signer</th>
+          <th>Updated</th>
+          <th class="ins-esign-table__actions-col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in esign_envelopes %}
+        <tr class="ins-esign-row ins-esign-row--{{ row.status }}">
+          <td>
+            <div class="ins-esign-doc">
+              <span class="ins-esign-doc__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h4"/></svg>
+              </span>
+              <div class="ins-esign-doc__copy">
+                <strong>{{ row.title }}</strong>
+                <span>
+                  {% if row.created_by %}
+                    by {{ row.created_by.get_full_name|default:row.created_by.username }}
+                  {% else %}
+                    Created in Insurance Space
+                  {% endif %}
+                </span>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="ins-esign-status {{ row.status }}">
+              <i class="ins-esign-status__dot" aria-hidden="true"></i>
+              {{ row.get_status_display }}
+            </span>
+          </td>
+          <td>
+            <div class="ins-esign-signer">
+              <strong>{{ row.signer_name|default:"—" }}</strong>
+              {% if row.signer_email %}<span>{{ row.signer_email }}</span>{% endif %}
+            </div>
+          </td>
+          <td>
+            <div class="ins-esign-when">
+              <strong>{{ row.updated_at|date:"M j, Y" }}</strong>
+              <span>{{ row.updated_at|date:"g:i A" }}</span>
+            </div>
+          </td>
+          <td>
+            <div class="ins-esign-actions">
+              {% if row.status != "void" %}
+              <a class="ins-esign-action {% if row.status == 'signed' %}ins-esign-action--ghost{% else %}ins-esign-action--primary{% endif %}" href="{% url 'insurance-esign-editor' row.id %}">{% if row.status == "signed" %}View{% else %}Open{% endif %}</a>
+              {% endif %}
+              {% if row.status == "signed" %}
+              <a class="ins-esign-action ins-esign-action--success" href="{% url 'insurance-esign-signed' row.id %}?download=1">Download</a>
+              {% endif %}
+              {% if can_manage_esign and row.status != "signed" and row.status != "void" %}
+              <form method="post" action="{% url 'insurance-esign-void' row.id %}" onsubmit="return confirm('Void this envelope?');">
+                {% csrf_token %}
+                <button type="submit" class="ins-esign-action ins-esign-action--danger">Void</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if esign_page_obj and esign_page_obj.paginator.num_pages > 1 %}
+  <footer class="ins-esign-pagination">
+    <div class="ins-esign-pagination__copy">
+      Page {{ esign_page_obj.number }} of {{ esign_page_obj.paginator.num_pages }}
+    </div>
+    <div class="ins-esign-pagination__nav">
+      {% if esign_page_obj.has_previous %}
+      <a class="ins-esign-page-btn" href="?tab=esign&amp;esign_page={{ esign_page_obj.previous_page_number }}">Previous</a>
+      {% else %}
+      <span class="ins-esign-page-btn is-disabled">Previous</span>
+      {% endif %}
+
+      {% for num in esign_page_obj.paginator.page_range %}
+        {% if num == esign_page_obj.number %}
+        <span class="ins-esign-page-btn is-active">{{ num }}</span>
+        {% elif num == 1 or num == esign_page_obj.paginator.num_pages or num >= esign_page_obj.number|add:"-2" and num <= esign_page_obj.number|add:"2" %}
+        <a class="ins-esign-page-btn" href="?tab=esign&amp;esign_page={{ num }}">{{ num }}</a>
+        {% elif num == esign_page_obj.number|add:"-3" or num == esign_page_obj.number|add:"3" %}
+        <span class="ins-esign-page-btn is-ellipsis">…</span>
+        {% endif %}
+      {% endfor %}
+
+      {% if esign_page_obj.has_next %}
+      <a class="ins-esign-page-btn" href="?tab=esign&amp;esign_page={{ esign_page_obj.next_page_number }}">Next</a>
+      {% else %}
+      <span class="ins-esign-page-btn is-disabled">Next</span>
+      {% endif %}
+    </div>
+  </footer>
+  {% endif %}
+
+  {% else %}
+  <div class="ins-esign-empty">
+    <div class="ins-esign-empty__icon" aria-hidden="true">✍️</div>
+    <h4>No e-signature documents yet</h4>
+    <p>{% if can_manage_esign %}Upload a PDF above to place a signature and start the ledger.{% else %}Documents will appear here once they are created.{% endif %}</p>
+  </div>
+  {% endif %}
+</section>

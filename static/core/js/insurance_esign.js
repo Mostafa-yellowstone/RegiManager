@@ -7,7 +7,7 @@
   pdfjsLib.GlobalWorkerOptions.workerSrc = cfg.workerUrl;
 
   const state = {
-    tool: cfg.isPublic || cfg.canManage === false ? null : "signature",
+    tool: cfg.isPublic || cfg.canManage === false ? null : "agent-signature",
     fields: Array.isArray(cfg.fields) ? cfg.fields.map(cloneField) : [],
     selectedId: null,
     drag: null,
@@ -16,10 +16,38 @@
   const pagesEl = document.getElementById("esignPages");
   const statusEl = document.getElementById("esignStatus");
 
+  function fieldRole(field) {
+    return field && field.role === "agent" ? "agent" : "client";
+  }
+
+  function fieldLabel(field) {
+    if (field.text) return field.text;
+    if (field.type === "signature") {
+      return fieldRole(field) === "agent" ? "Agent sign" : "Client sign";
+    }
+    if (field.type === "initials") {
+      return fieldRole(field) === "agent" ? "Agent initials" : "Client initials";
+    }
+    return field.type || "field";
+  }
+
+  function toolSpec(tool) {
+    const map = {
+      "agent-signature": { type: "signature", role: "agent", openModal: true },
+      "client-signature": { type: "signature", role: "client", openModal: false },
+      initials: { type: "initials", role: "client", openModal: true },
+      date: { type: "date", role: "client", openModal: false },
+      text: { type: "text", role: "client", openModal: true },
+      signature: { type: "signature", role: "client", openModal: true },
+    };
+    return map[tool] || map["client-signature"];
+  }
+
   function cloneField(field) {
     return {
       id: field.id || uid(),
       type: field.type || "signature",
+      role: field.role === "agent" ? "agent" : "client",
       page: Number(field.page || 1),
       x: Number(field.x || 0),
       y: Number(field.y || 0),
@@ -62,29 +90,33 @@
     if (cfg.isPublic) return;
     if (!state.tool) return;
     const rect = page.getBoundingClientRect();
+    const spec = toolSpec(state.tool);
     const sizes = {
       signature: { w: 0.28, h: 0.08 },
       initials: { w: 0.1, h: 0.06 },
       date: { w: 0.16, h: 0.045 },
       text: { w: 0.26, h: 0.045 },
     };
-    const size = sizes[state.tool] || sizes.signature;
+    const size = sizes[spec.type] || sizes.signature;
     const field = {
       id: uid(),
-      type: state.tool,
+      type: spec.type,
+      role: spec.role,
       page: Number(page.dataset.page),
       x: Math.max(0, Math.min(1 - size.w, (event.clientX - rect.left) / rect.width)),
       y: Math.max(0, Math.min(1 - size.h, (event.clientY - rect.top) / rect.height)),
       w: size.w,
       h: size.h,
-      text: state.tool === "date" ? new Date().toLocaleDateString() : "",
+      text: spec.type === "date" ? new Date().toLocaleDateString() : "",
       image: "",
     };
     state.fields.push(field);
     state.selectedId = field.id;
     renderFields();
-    if (state.tool === "signature" || state.tool === "initials" || state.tool === "text") {
+    if (spec.openModal) {
       openSignModal(field);
+    } else if (spec.role === "client" && spec.type === "signature") {
+      setStatus("Client signature box placed — the customer will sign here.");
     }
   });
 
@@ -94,10 +126,16 @@
       page.querySelectorAll(".esign-field").forEach((node) => node.remove());
       const pageNo = Number(page.dataset.page);
       state.fields.filter((field) => field.page === pageNo).forEach((field) => {
+        const role = fieldRole(field);
+        const lockedForClient = cfg.isPublic && role === "agent";
         const el = document.createElement("div");
-        el.className = "esign-field" + (field.id === state.selectedId ? " is-selected" : "");
+        el.className =
+          "esign-field" +
+          (field.id === state.selectedId ? " is-selected" : "") +
+          (lockedForClient ? " is-locked" : "");
         el.dataset.id = field.id;
         el.dataset.type = field.type;
+        el.dataset.role = role;
         el.style.left = field.x * 100 + "%";
         el.style.top = field.y * 100 + "%";
         el.style.width = field.w * 100 + "%";
@@ -108,7 +146,7 @@
           el.appendChild(img);
         } else {
           const span = document.createElement("span");
-          span.textContent = field.text || field.type;
+          span.textContent = fieldLabel(field);
           el.appendChild(span);
         }
         if (!isReadOnly() && !cfg.isPublic) {
@@ -122,7 +160,11 @@
           if (isReadOnly()) return;
           state.selectedId = field.id;
           renderFields();
-          if (cfg.isPublic || field.type === "signature" || field.type === "initials") {
+          if (lockedForClient) {
+            setStatus("Agent signature is locked. Sign only in the yellow Client sign boxes.");
+            return;
+          }
+          if (cfg.isPublic || field.type === "signature" || field.type === "initials" || field.type === "text") {
             openSignModal(field);
           }
         });
@@ -315,6 +357,10 @@
   }
 
   function openSignModal(field) {
+    if (cfg.isPublic && fieldRole(field) === "agent") {
+      setStatus("Agent signature is locked. Sign only in the yellow Client sign boxes.");
+      return;
+    }
     activeField = field;
     if (!modal) return;
     modal.classList.add("is-open");
@@ -463,6 +509,11 @@
 
   document.getElementById("esignApplyMark")?.addEventListener("click", () => {
     if (!activeField) return;
+    if (cfg.isPublic && fieldRole(activeField) === "agent") {
+      setStatus("Agent signature is locked.");
+      closeModal();
+      return;
+    }
     const tab = document.querySelector("[data-sign-tab].is-active")?.getAttribute("data-sign-tab");
     if (tab === "draw" && pad) {
       activeField.image = pad.toDataURL("image/png");
@@ -514,10 +565,49 @@
     };
   }
 
+  function hasMark(field) {
+    return !!(field.image || ((field.type === "signature" || field.type === "initials" || field.type === "text" || field.type === "date") && (field.text || "").trim()));
+  }
+
+  function validateRequestReady() {
+    const agentOk = state.fields.some(
+      (f) => fieldRole(f) === "agent" && (f.type === "signature" || f.type === "initials") && hasMark(f)
+    );
+    const clientOk = state.fields.some(
+      (f) => fieldRole(f) === "client" && (f.type === "signature" || f.type === "initials")
+    );
+    if (!agentOk) return "Place and complete your Agent signature first.";
+    if (!clientOk) return "Place at least one Client signature box for the customer.";
+    return "";
+  }
+
+  function validatePublicReady() {
+    const clientBoxes = state.fields.filter(
+      (f) => fieldRole(f) === "client" && (f.type === "signature" || f.type === "initials")
+    );
+    if (clientBoxes.length) {
+      if (clientBoxes.some((f) => !hasMark(f))) {
+        return "Sign every yellow Client sign box before finishing.";
+      }
+      return "";
+    }
+    if (!state.fields.some((f) => (f.type === "signature" || f.type === "initials") && hasMark(f))) {
+      return "Click each signature field and sign before finishing.";
+    }
+    return "";
+  }
+
   document.getElementById("esignFinish")?.addEventListener("click", async () => {
     if (!state.fields.length) {
       setStatus("Place at least one signature field.");
       return;
+    }
+    if (cfg.isPublic) {
+      const publicError = validatePublicReady();
+      if (publicError) {
+        setStatus(publicError);
+        return;
+      }
     }
     setStatus("Applying signature…");
     try {
@@ -536,7 +626,12 @@
 
   document.getElementById("esignRequest")?.addEventListener("click", async () => {
     if (!state.fields.length) {
-      setStatus("Place the signature boxes first, then send.");
+      setStatus("Place Agent and Client signature boxes first, then send.");
+      return;
+    }
+    const requestError = validateRequestReady();
+    if (requestError) {
+      setStatus(requestError);
       return;
     }
     const email = (document.getElementById("esignSignerEmail")?.value || "").trim();
@@ -580,11 +675,11 @@
     if (cfg.isSigned) {
       setStatus("Signed document — the signature is on the page. Use Download if you need a copy.");
     } else if (cfg.isPublic) {
-      setStatus("Click a yellow box to sign, then Finish.");
+      setStatus("Teal Agent signature is locked. Click a yellow Client sign box to draw or type your signature, then Finish.");
     } else if (isReadOnly()) {
       setStatus("View only.");
     } else {
-      setStatus("Click the page to place a signature, like Acrobat Fill & Sign.");
+      setStatus("Place your Agent signature (and sign it), then place a Client signature box and Request signature.");
     }
   }
 

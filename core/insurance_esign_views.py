@@ -348,20 +348,42 @@ def delete_saved_signature(request, signature_id: int):
 
 
 def build_esign_tab_context(org, request=None, membership=None, is_owner=False):
-    envelopes = list(
+    from django.core.paginator import Paginator
+    from django.db.models import Count, Q
+
+    envelopes_qs = (
         InsuranceESignEnvelope.objects.filter(organization=org)
-        .select_related("created_by", "signed_by")[:80]
+        .select_related("created_by", "signed_by")
+        .order_by("-created_at", "-id")
     )
+    status_counts = envelopes_qs.aggregate(
+        draft=Count("id", filter=Q(status=InsuranceESignEnvelope.Status.DRAFT)),
+        awaiting=Count("id", filter=Q(status=InsuranceESignEnvelope.Status.AWAITING)),
+        signed=Count("id", filter=Q(status=InsuranceESignEnvelope.Status.SIGNED)),
+        total=Count("id"),
+    )
+    page_number = 1
+    if request is not None:
+        raw_page = (request.GET.get("esign_page") or "1").strip()
+        try:
+            page_number = max(1, int(raw_page))
+        except ValueError:
+            page_number = 1
+    paginator = Paginator(envelopes_qs, 5)
+    page_obj = paginator.get_page(page_number)
     can_manage = True
     if request is not None:
         can_manage = _can_view_esign(request, org)
     elif membership is not None:
         can_manage = bool(is_owner or (membership.is_active and membership.can_view_spaces))
     return {
-        "esign_envelopes": envelopes,
-        "esign_draft_count": sum(1 for row in envelopes if row.status == InsuranceESignEnvelope.Status.DRAFT),
-        "esign_awaiting_count": sum(1 for row in envelopes if row.status == InsuranceESignEnvelope.Status.AWAITING),
-        "esign_signed_count": sum(1 for row in envelopes if row.status == InsuranceESignEnvelope.Status.SIGNED),
+        "esign_envelopes": page_obj.object_list,
+        "esign_page_obj": page_obj,
+        "esign_paginator": paginator,
+        "esign_total_count": status_counts["total"] or 0,
+        "esign_draft_count": status_counts["draft"] or 0,
+        "esign_awaiting_count": status_counts["awaiting"] or 0,
+        "esign_signed_count": status_counts["signed"] or 0,
         "can_manage_esign": can_manage,
     }
 
@@ -468,9 +490,13 @@ def _parse_fields(raw) -> list[dict]:
     for item in payload[:40]:
         if not isinstance(item, dict):
             continue
+        role = str(item.get("role") or "client").strip().lower()
+        if role not in {"agent", "client"}:
+            role = "client"
         cleaned.append({
             "id": str(item.get("id") or "")[:40],
             "type": str(item.get("type") or "signature")[:20],
+            "role": role,
             "page": item.get("page") or 1,
             "x": item.get("x") or 0,
             "y": item.get("y") or 0,
@@ -482,6 +508,14 @@ def _parse_fields(raw) -> list[dict]:
     return cleaned
 
 
+def _field_has_mark(field: dict) -> bool:
+    if field.get("image"):
+        return True
+    if field.get("type") in {"signature", "initials", "text", "date"} and (field.get("text") or "").strip():
+        return True
+    return False
+
+
 def _fields_without_images(fields: list[dict]) -> list[dict]:
     slim = []
     for field in fields:
@@ -489,6 +523,76 @@ def _fields_without_images(fields: list[dict]) -> list[dict]:
         row.pop("image", None)
         slim.append(row)
     return slim
+
+
+def _fields_for_request_storage(fields: list[dict]) -> list[dict]:
+    """Keep agent signature images so clients see a locked pre-signed mark."""
+    slim = []
+    for field in fields:
+        row = dict(field)
+        role = (row.get("role") or "client").lower()
+        if role != "agent":
+            row.pop("image", None)
+        elif not row.get("image"):
+            row.pop("image", None)
+        slim.append(row)
+    return slim
+
+
+def _validate_request_fields(fields: list[dict]) -> str:
+    agent_marks = [
+        f for f in fields
+        if (f.get("role") or "client") == "agent"
+        and f.get("type") in {"signature", "initials"}
+        and _field_has_mark(f)
+    ]
+    client_boxes = [
+        f for f in fields
+        if (f.get("role") or "client") == "client"
+        and f.get("type") in {"signature", "initials"}
+    ]
+    if not agent_marks:
+        return "Place and complete at least one Agent signature before sending."
+    if not client_boxes:
+        return "Place at least one Client signature box for the customer to sign."
+    return ""
+
+
+def _merge_public_fields(stored_fields: list[dict], posted_fields: list[dict]) -> list[dict]:
+    posted_by_id = {str(item.get("id")): item for item in posted_fields}
+    merged = []
+    for stored in stored_fields:
+        row = dict(stored)
+        role = (row.get("role") or "client").lower()
+        posted = posted_by_id.get(str(row.get("id")))
+        if role == "agent":
+            # Client cannot alter agent marks — keep stored values only.
+            merged.append(row)
+            continue
+        if posted:
+            if posted.get("image"):
+                row["image"] = posted["image"]
+            if "text" in posted and posted.get("text") is not None:
+                row["text"] = posted["text"]
+        merged.append(row)
+    return merged
+
+
+def _validate_public_completion(merged: list[dict]) -> str:
+    client_sign_fields = [
+        f for f in merged
+        if (f.get("role") or "client") == "client"
+        and f.get("type") in {"signature", "initials"}
+    ]
+    if client_sign_fields:
+        missing = [f for f in client_sign_fields if not _field_has_mark(f)]
+        if missing:
+            return "Sign every client signature field before finishing."
+        return ""
+    # Legacy envelopes without roles: require at least one mark.
+    if not any(_field_has_mark(f) for f in merged if f.get("type") in {"signature", "initials"}):
+        return "Click each signature field and sign before finishing."
+    return ""
 
 
 def _complete_envelope(envelope, fields, *, signer_name, signer_email, request, signed_user=None):
@@ -562,7 +666,15 @@ def request_esign_signature(request, envelope_id):
         payload = request.POST
     fields = _parse_fields(payload.get("fields") if isinstance(payload, dict) else request.POST.get("fields"))
     if fields:
-        envelope.fields_json = _fields_without_images(fields)
+        request_error = _validate_request_fields(fields)
+        if request_error:
+            return JsonResponse({"ok": False, "error": request_error}, status=400)
+        envelope.fields_json = _fields_for_request_storage(fields)
+    else:
+        return JsonResponse(
+            {"ok": False, "error": "Place an Agent signature and a Client signature box first."},
+            status=400,
+        )
     envelope.signer_name = str(payload.get("signer_name") or request.POST.get("signer_name") or envelope.signer_name)[:160]
     envelope.signer_email = str(payload.get("signer_email") or request.POST.get("signer_email") or envelope.signer_email)[:254]
     if not (envelope.signer_email or "").strip():
@@ -622,26 +734,15 @@ def public_esign_sign(request, token):
             payload = json.loads(request.body.decode("utf-8") or "{}")
         except json.JSONDecodeError:
             return JsonResponse({"ok": False, "error": "Invalid signing data."}, status=400)
-        fields = _parse_fields(payload.get("fields")) or list(envelope.fields_json or [])
-        # Merge images from the posted payload onto stored field positions.
-        posted_by_id = {str(item.get("id")): item for item in _parse_fields(payload.get("fields"))}
-        merged = []
-        source = fields if fields else list(envelope.fields_json or [])
-        for stored in source:
-            row = dict(stored)
-            posted = posted_by_id.get(str(row.get("id")))
-            if posted:
-                if posted.get("image"):
-                    row["image"] = posted["image"]
-                if posted.get("text"):
-                    row["text"] = posted["text"]
-            merged.append(row)
+        stored_fields = _parse_fields(list(envelope.fields_json or []))
+        posted_fields = _parse_fields(payload.get("fields"))
+        merged = _merge_public_fields(stored_fields, posted_fields)
         signer_name = (payload.get("signer_name") or envelope.signer_name or "").strip()
         if not signer_name:
             return JsonResponse({"ok": False, "error": "Enter your full name to complete signing."}, status=400)
-        has_mark = any(row.get("image") or (row.get("type") in {"signature", "initials"} and row.get("text")) for row in merged)
-        if not has_mark:
-            return JsonResponse({"ok": False, "error": "Click each signature field and sign before finishing."}, status=400)
+        completion_error = _validate_public_completion(merged)
+        if completion_error:
+            return JsonResponse({"ok": False, "error": completion_error}, status=400)
         try:
             _complete_envelope(
                 envelope,
