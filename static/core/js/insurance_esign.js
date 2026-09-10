@@ -181,6 +181,81 @@
   const pad = document.getElementById("esignPad");
   const typeInput = document.getElementById("esignTypeInput");
   let drawing = false;
+  let savedSignatures = Array.isArray(cfg.savedSignatures) ? cfg.savedSignatures.slice() : [];
+  let selectedSavedId = null;
+
+  function setSaveHint(message, isError) {
+    const hint = document.getElementById("esignSaveHint");
+    if (!hint) return;
+    if (!message) {
+      hint.hidden = true;
+      hint.textContent = "";
+      return;
+    }
+    hint.hidden = false;
+    hint.textContent = message;
+    hint.classList.toggle("is-error", !!isError);
+  }
+
+  function renderSavedSignatures() {
+    const grid = document.getElementById("esignSavedGrid");
+    const empty = document.getElementById("esignSavedEmpty");
+    if (!grid) return;
+    grid.innerHTML = "";
+    if (!savedSignatures.length) {
+      if (empty) empty.hidden = false;
+      selectedSavedId = null;
+      return;
+    }
+    if (empty) empty.hidden = true;
+    if (!selectedSavedId || !savedSignatures.some((row) => String(row.id) === String(selectedSavedId))) {
+      selectedSavedId = savedSignatures[0].id;
+    }
+    savedSignatures.forEach((row) => {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "esign-saved-card" + (String(row.id) === String(selectedSavedId) ? " is-selected" : "");
+      card.setAttribute("data-saved-id", String(row.id));
+      card.innerHTML =
+        '<span class="esign-saved-card__preview"><img alt=""></span>' +
+        '<span class="esign-saved-card__meta">' +
+          '<strong></strong>' +
+          (row.is_profile ? '<em>From profile</em>' : '<em>Saved signature</em>') +
+        "</span>" +
+        (row.can_delete
+          ? '<span class="esign-saved-card__delete" data-delete-id="' + String(row.id) + '" title="Delete">×</span>'
+          : "");
+      const img = card.querySelector("img");
+      const title = card.querySelector("strong");
+      if (img) img.src = row.image || "";
+      if (title) title.textContent = row.name || "Signature";
+      card.addEventListener("click", (event) => {
+        if (event.target.closest("[data-delete-id]")) return;
+        selectedSavedId = row.id;
+        renderSavedSignatures();
+      });
+      const del = card.querySelector("[data-delete-id]");
+      if (del) {
+        del.addEventListener("click", async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!cfg.deleteSignatureUrlTemplate) return;
+          if (!window.confirm('Delete saved signature "' + (row.name || "") + '"?')) return;
+          try {
+            const url = cfg.deleteSignatureUrlTemplate.replace("{id}", String(row.id));
+            const data = await postJson(url, {});
+            savedSignatures = Array.isArray(data.signatures) ? data.signatures : [];
+            selectedSavedId = null;
+            renderSavedSignatures();
+            setSaveHint('Deleted "' + (row.name || "signature") + '".');
+          } catch (err) {
+            setSaveHint(err.message || "Could not delete signature.", true);
+          }
+        });
+      }
+      grid.appendChild(card);
+    });
+  }
 
   function openSignModal(field) {
     activeField = field;
@@ -193,7 +268,10 @@
       ctx.fillStyle = "#fff";
       ctx.fillRect(0, 0, pad.width, pad.height);
     }
-    showSignTab("draw");
+    setSaveHint("");
+    renderSavedSignatures();
+    const preferred = (!cfg.isPublic && savedSignatures.length) ? "saved" : "draw";
+    showSignTab(preferred);
   }
 
   function closeModal() {
@@ -243,6 +321,33 @@
     });
   }
 
+  document.getElementById("esignSaveCurrent")?.addEventListener("click", async () => {
+    if (!pad || !cfg.saveSignatureUrl) return;
+    const nameInput = document.getElementById("esignSaveName");
+    const name = (nameInput?.value || "").trim();
+    if (!name) {
+      setSaveHint("Enter a name for this signature.", true);
+      nameInput?.focus();
+      return;
+    }
+    try {
+      const data = await postJson(cfg.saveSignatureUrl, {
+        name,
+        image: pad.toDataURL("image/png"),
+      });
+      savedSignatures = Array.isArray(data.signatures) ? data.signatures : [];
+      if (data.signature && data.signature.id != null) {
+        selectedSavedId = data.signature.id;
+      }
+      if (nameInput) nameInput.value = "";
+      renderSavedSignatures();
+      setSaveHint('Saved as "' + name + '". You can reuse it from the Saved tab.');
+      showSignTab("saved");
+    } catch (err) {
+      setSaveHint(err.message || "Could not save signature.", true);
+    }
+  });
+
   document.getElementById("esignApplyMark")?.addEventListener("click", () => {
     if (!activeField) return;
     const tab = document.querySelector("[data-sign-tab].is-active")?.getAttribute("data-sign-tab");
@@ -252,8 +357,14 @@
     } else if (tab === "type") {
       activeField.text = (typeInput?.value || "").trim();
       activeField.image = "";
-    } else if (tab === "saved" && cfg.savedSignature) {
-      activeField.image = cfg.savedSignature;
+    } else if (tab === "saved") {
+      const chosen = savedSignatures.find((row) => String(row.id) === String(selectedSavedId));
+      const image = (chosen && chosen.image) || cfg.savedSignature || "";
+      if (!image) {
+        setSaveHint("Select a saved signature first.", true);
+        return;
+      }
+      activeField.image = image;
       activeField.text = "";
     }
     renderFields();

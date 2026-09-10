@@ -28,7 +28,11 @@ from .email_branding import (
     wrap_email_html,
 )
 from .http import deny_access
-from .insurance_esign_models import InsuranceESignEnvelope, new_signer_token
+from .insurance_esign_models import (
+    InsuranceESignEnvelope,
+    InsuranceSavedSignature,
+    new_signer_token,
+)
 from .insurance_esign_pdf import stamp_envelope_pdf
 from .insurance_permissions import is_org_owner, membership_for_org
 from .models import Space
@@ -170,18 +174,177 @@ def _client_ip(request) -> str:
     return (forwarded or request.META.get("REMOTE_ADDR") or "")[:45]
 
 
-def _saved_signature_data_url(request, org) -> str:
-    membership = membership_for_org(request.user, org)
-    if not membership or not membership.signature:
+def _file_to_data_url(file_field) -> str:
+    if not file_field:
         return ""
     try:
         import base64
 
-        with membership.signature.open("rb") as handle:
+        with file_field.open("rb") as handle:
             payload = base64.b64encode(handle.read()).decode("ascii")
-        return f"data:image/png;base64,{payload}"
+        name = (getattr(file_field, "name", "") or "").lower()
+        mime = "image/png"
+        if name.endswith(".jpg") or name.endswith(".jpeg"):
+            mime = "image/jpeg"
+        elif name.endswith(".webp"):
+            mime = "image/webp"
+        elif name.endswith(".gif"):
+            mime = "image/gif"
+        return f"data:{mime};base64,{payload}"
     except Exception:
         return ""
+
+
+def _saved_signature_data_url(request, org) -> str:
+    """Legacy single profile signature (first/default)."""
+    membership = membership_for_org(request.user, org)
+    if not membership or not membership.signature:
+        return ""
+    return _file_to_data_url(membership.signature)
+
+
+def _saved_signatures_for_editor(request, org) -> list[dict]:
+    """Named saved signatures for the current user, plus profile signature if present."""
+    rows: list[dict] = []
+    membership = membership_for_org(request.user, org)
+    profile_url = _file_to_data_url(membership.signature) if membership and membership.signature else ""
+    if profile_url:
+        rows.append({
+            "id": "profile",
+            "name": "Profile signature",
+            "image": profile_url,
+            "is_profile": True,
+            "can_delete": False,
+        })
+    for sig in InsuranceSavedSignature.objects.filter(
+        organization=org,
+        owner=request.user,
+    ).order_by("name", "-created_at"):
+        image_url = _file_to_data_url(sig.image)
+        if not image_url:
+            continue
+        rows.append({
+            "id": sig.id,
+            "name": sig.name,
+            "image": image_url,
+            "is_profile": False,
+            "can_delete": True,
+        })
+    return rows
+
+
+def _parse_data_url_image(raw: str):
+    """Return (bytes, extension) from a data:image/...;base64,... payload."""
+    import base64
+    import re
+
+    value = (raw or "").strip()
+    match = re.match(
+        r"^data:image/(png|jpeg|jpg|webp|gif);base64,(.+)$",
+        value,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not match:
+        return None, ""
+    ext = match.group(1).lower()
+    if ext == "jpg":
+        ext = "jpeg"
+    try:
+        payload = base64.b64decode(match.group(2), validate=False)
+    except Exception:
+        return None, ""
+    if not payload or len(payload) > 2 * 1024 * 1024:
+        return None, ""
+    return payload, ext
+
+
+@login_required
+@require_GET
+def list_saved_signatures(request):
+    org = _org(request)
+    _require_insurance(request, org)
+    return JsonResponse({"ok": True, "signatures": _saved_signatures_for_editor(request, org)})
+
+
+@login_required
+@require_POST
+def save_saved_signature(request):
+    org = _org(request)
+    _require_manage_esign(request, org)
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Invalid request."}, status=400)
+    name = " ".join((payload.get("name") or "").strip().split())[:80]
+    if not name:
+        return JsonResponse({"ok": False, "error": "Enter a name for this signature."}, status=400)
+    image_bytes, ext = _parse_data_url_image(payload.get("image") or "")
+    if not image_bytes:
+        return JsonResponse({"ok": False, "error": "Draw or provide a signature image first."}, status=400)
+
+    from django.core.files.base import ContentFile
+    from django.db import IntegrityError
+    from django.utils.text import slugify
+
+    existing = InsuranceSavedSignature.objects.filter(
+        organization=org,
+        owner=request.user,
+        name__iexact=name,
+    ).first()
+    filename = f"{slugify(name) or 'signature'}.{ext if ext != 'jpeg' else 'jpg'}"
+    content = ContentFile(image_bytes, name=filename)
+    try:
+        if existing:
+            if existing.image:
+                try:
+                    existing.image.delete(save=False)
+                except Exception:
+                    pass
+            existing.name = name
+            existing.image.save(filename, content, save=True)
+            sig = existing
+        else:
+            sig = InsuranceSavedSignature(
+                organization=org,
+                owner=request.user,
+                name=name,
+            )
+            sig.image.save(filename, content, save=True)
+    except IntegrityError:
+        return JsonResponse(
+            {"ok": False, "error": "A signature with that name already exists."},
+            status=400,
+        )
+
+    return JsonResponse({
+        "ok": True,
+        "signature": {
+            "id": sig.id,
+            "name": sig.name,
+            "image": _file_to_data_url(sig.image),
+            "is_profile": False,
+            "can_delete": True,
+        },
+        "signatures": _saved_signatures_for_editor(request, org),
+    })
+
+
+@login_required
+@require_POST
+def delete_saved_signature(request, signature_id: int):
+    org = _org(request)
+    _require_manage_esign(request, org)
+    sig = get_object_or_404(
+        InsuranceSavedSignature,
+        id=signature_id,
+        organization=org,
+        owner=request.user,
+    )
+    sig.delete()
+    return JsonResponse({
+        "ok": True,
+        "signatures": _saved_signatures_for_editor(request, org),
+    })
 
 
 def build_esign_tab_context(org, request=None, membership=None, is_owner=False):
@@ -253,6 +416,11 @@ def esign_editor(request, envelope_id):
             "can_manage_esign": _can_manage_esign(request, envelope.organization),
             "insurance_space": space,
             "saved_signature_data_url": _saved_signature_data_url(request, envelope.organization),
+            "saved_signatures": _saved_signatures_for_editor(request, envelope.organization),
+            "saved_signatures_save_url": reverse("insurance-esign-saved-signature-save"),
+            "saved_signatures_delete_url_template": reverse(
+                "insurance-esign-saved-signature-delete", args=[0]
+            ).replace("/0/", "/{id}/"),
             "request_sign_url": request.build_absolute_uri(
                 f"/sign/{envelope.signer_token}/"
             ),
@@ -496,6 +664,9 @@ def public_esign_sign(request, token):
             "is_signed": False,
             "can_manage_esign": True,
             "saved_signature_data_url": "",
+            "saved_signatures": [],
+            "saved_signatures_save_url": "",
+            "saved_signatures_delete_url_template": "",
             "request_sign_url": "",
         },
     )

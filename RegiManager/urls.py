@@ -298,12 +298,15 @@ from core.agent_api import (
 )
 from core.insurance_esign_views import (
     apply_esign_document,
+    delete_saved_signature,
     esign_editor,
     esign_original_file,
     esign_signed_file,
+    list_saved_signatures,
     public_esign_file,
     public_esign_sign,
     request_esign_signature,
+    save_saved_signature,
     upload_esign_document,
     void_esign_document,
 )
@@ -646,6 +649,9 @@ urlpatterns = [
     path("dashboard/spaces/insurance/reports/targets.pdf", export_insurance_targets_pdf, name="export-insurance-targets-pdf"),
     path("dashboard/spaces/insurance/reports/commission.pdf", export_insurance_commission_register_pdf, name="export-insurance-commission-register-pdf"),
     path("dashboard/spaces/insurance/esign/upload/", upload_esign_document, name="insurance-esign-upload"),
+    path("dashboard/spaces/insurance/esign/signatures/", list_saved_signatures, name="insurance-esign-saved-signatures"),
+    path("dashboard/spaces/insurance/esign/signatures/save/", save_saved_signature, name="insurance-esign-saved-signature-save"),
+    path("dashboard/spaces/insurance/esign/signatures/<int:signature_id>/delete/", delete_saved_signature, name="insurance-esign-saved-signature-delete"),
     path("dashboard/spaces/insurance/esign/<int:envelope_id>/", esign_editor, name="insurance-esign-editor"),
     path("dashboard/spaces/insurance/esign/<int:envelope_id>/file/", esign_original_file, name="insurance-esign-file"),
     path("dashboard/spaces/insurance/esign/<int:envelope_id>/signed/", esign_signed_file, name="insurance-esign-signed"),

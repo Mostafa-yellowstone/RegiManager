@@ -151,10 +151,125 @@
   border-radius: 16px; padding: 1.2rem 1.3rem 1.3rem;
   display: grid; gap: 0.8rem;
 }
+.esign-modal__box--wide { width: min(640px, 96vw); }
 .esign-tabs { display: flex; gap: 0.4rem; }
 .esign-tabs button { border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 8px; padding: 0.4rem 0.7rem; font-weight: 800; cursor: pointer; }
 .esign-tabs button.is-active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
 #esignPad { width: 100%; height: 140px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; touch-action: none; }
+.esign-draw-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+  margin-top: 0.55rem;
+}
+.esign-save-inline {
+  display: flex;
+  flex: 1;
+  gap: 0.45rem;
+  min-width: min(100%, 280px);
+}
+.esign-save-inline input {
+  flex: 1;
+  min-width: 0;
+}
+.esign-save-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0f766e;
+}
+.esign-save-hint.is-error { color: #b91c1c; }
+.esign-saved-head p {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: #64748b;
+}
+.esign-saved-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.65rem;
+  max-height: 280px;
+  overflow: auto;
+  padding: 0.15rem;
+}
+.esign-saved-card {
+  position: relative;
+  display: grid;
+  gap: 0.45rem;
+  text-align: left;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 0.65rem;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.esign-saved-card:hover {
+  border-color: #a5b4fc;
+  background: #fff;
+}
+.esign-saved-card.is-selected {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.18);
+  background: #fff;
+}
+.esign-saved-card__preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 64px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.35rem;
+}
+.esign-saved-card__preview img {
+  max-width: 100%;
+  max-height: 56px;
+  object-fit: contain;
+}
+.esign-saved-card__meta {
+  display: grid;
+  gap: 0.1rem;
+}
+.esign-saved-card__meta strong {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+.esign-saved-card__meta em {
+  font-style: normal;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.esign-saved-card__delete {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.4rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.esign-saved-card__delete:hover { background: #fecaca; }
+.esign-saved-empty {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: #94a3b8;
+}
 .esign-modal input[type="text"], .esign-modal input[type="email"] {
   width: 100%; min-height: 2.4rem; border-radius: 8px; border: 1px solid #cbd5e1; padding: 0.45rem 0.7rem; box-sizing: border-box;
 }

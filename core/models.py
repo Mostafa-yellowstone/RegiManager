@@ -2940,5 +2940,6 @@ from .insurance_quote_pipeline_models import (  # noqa: E402,F401
 # Insurance Space e-signature
 from .insurance_esign_models import (  # noqa: E402,F401
     InsuranceESignEnvelope,
+    InsuranceSavedSignature,
 )
 

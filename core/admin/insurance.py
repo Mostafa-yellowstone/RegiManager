@@ -3,7 +3,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from ..insurance_esign_models import InsuranceESignEnvelope
+from ..insurance_esign_models import InsuranceESignEnvelope, InsuranceSavedSignature
 from ..insurance_quote_pipeline_models import (
     InsuranceAgentOffDay,
     InsuranceQuoteDistributionConfig,
@@ -641,3 +641,15 @@ class InsuranceESignEnvelopeAdmin(admin.ModelAdmin):
             '<a href="{}" target="_blank" rel="noopener">Download signed</a>',
             obj.signed_file.url,
         )
+
+
+@admin.register(InsuranceSavedSignature)
+class InsuranceSavedSignatureAdmin(admin.ModelAdmin):
+    list_display = ("name", "owner", "organization", "created_at", "updated_at")
+    list_filter = ("organization", "created_at")
+    search_fields = ("name", "owner__username", "owner__email", "organization__name")
+    autocomplete_fields = ("organization",)
+    raw_id_fields = ("owner",)
+    readonly_fields = ("created_at", "updated_at")
+    ordering = ("organization", "name")
+

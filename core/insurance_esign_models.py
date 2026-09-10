@@ -20,6 +20,53 @@ def new_signer_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+def _saved_signature_upload_to(instance, filename):
+    return f"insurance_esign/saved_signatures/{instance.organization_id}/{instance.owner_id}/{filename}"
+
+
+class InsuranceSavedSignature(models.Model):
+    """Named reusable signature image for an agent within an insurance org."""
+
+    organization = models.ForeignKey(
+        "Organization",
+        on_delete=models.CASCADE,
+        related_name="insurance_saved_signatures",
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="insurance_saved_signatures",
+    )
+    name = models.CharField(max_length=80)
+    image = models.ImageField(upload_to=_saved_signature_upload_to)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "-created_at"]
+        verbose_name = "Insurance saved signature"
+        verbose_name_plural = "Insurance saved signatures"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "owner", "name"],
+                name="uniq_insurance_saved_signature_name",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.owner_id})"
+
+    def delete(self, using=None, keep_parents=False):
+        stored = self.image
+        result = super().delete(using=using, keep_parents=keep_parents)
+        if stored:
+            try:
+                stored.delete(save=False)
+            except Exception:
+                pass
+        return result
+
+
 class InsuranceESignEnvelope(models.Model):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"

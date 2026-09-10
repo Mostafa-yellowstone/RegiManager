@@ -4,7 +4,7 @@
 {% block title %}{% if is_public %}Sign {{ envelope.title }}{% else %}E-sign {{ envelope.title }}{% endif %} | RegiManager{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_esign.css' %}?v=2">
+<link rel="stylesheet" href="{% static 'core/css/insurance_esign.css' %}?v=3">
 {% endblock %}
 
 {% block content %}
@@ -61,23 +61,36 @@
 </div>
 
 <div class="esign-modal" id="esignModal">
-  <div class="esign-modal__box">
+  <div class="esign-modal__box esign-modal__box--wide">
     <strong>Create your signature</strong>
     <div class="esign-tabs">
       <button type="button" class="is-active" data-sign-tab="draw">Draw</button>
       <button type="button" data-sign-tab="type">Type</button>
-      {% if saved_signature_data_url %}<button type="button" data-sign-tab="saved">Saved</button>{% endif %}
+      {% if not is_public %}<button type="button" data-sign-tab="saved">Saved</button>{% endif %}
     </div>
     <div data-sign-panel="draw">
       <canvas id="esignPad" width="480" height="140"></canvas>
-      <button type="button" class="esign-tool" id="esignPadClear" style="margin-top:0.5rem;color:#0f172a;background:#f8fafc;">Clear</button>
+      <div class="esign-draw-actions">
+        <button type="button" class="esign-tool" id="esignPadClear" style="color:#0f172a;background:#f8fafc;">Clear</button>
+        {% if not is_public %}
+        <div class="esign-save-inline">
+          <input id="esignSaveName" type="text" maxlength="80" placeholder="Name this signature (e.g. John — full)">
+          <button type="button" class="esign-action is-primary" id="esignSaveCurrent">Save signature</button>
+        </div>
+        {% endif %}
+      </div>
+      <p class="esign-save-hint" id="esignSaveHint" hidden></p>
     </div>
     <div data-sign-panel="type" style="display:none;">
       <input id="esignTypeInput" type="text" placeholder="Type your name">
     </div>
-    {% if saved_signature_data_url %}
+    {% if not is_public %}
     <div data-sign-panel="saved" style="display:none;">
-      <img src="{{ saved_signature_data_url }}" alt="Saved signature" style="max-width:100%;max-height:90px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;">
+      <div class="esign-saved-head">
+        <p>Choose a saved signature by name, then Apply.</p>
+      </div>
+      <div class="esign-saved-grid" id="esignSavedGrid"></div>
+      <p class="esign-saved-empty" id="esignSavedEmpty" hidden>No saved signatures yet. Draw one and save it with a name.</p>
     </div>
     {% endif %}
     <div class="esign-modal__actions">
@@ -88,6 +101,7 @@
 </div>
 
 {{ envelope.fields_json|json_script:"esign-fields" }}
+{{ saved_signatures|json_script:"esign-saved-signatures" }}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 window.ESIGN_CONFIG = {
@@ -100,9 +114,12 @@ window.ESIGN_CONFIG = {
   isSigned: {% if is_signed %}true{% else %}false{% endif %},
   canManage: {% if is_public or can_manage_esign|default:True %}true{% else %}false{% endif %},
   savedSignature: "{{ saved_signature_data_url|escapejs }}",
+  savedSignatures: JSON.parse(document.getElementById("esign-saved-signatures").textContent || "[]"),
+  saveSignatureUrl: "{{ saved_signatures_save_url|default:''|escapejs }}",
+  deleteSignatureUrlTemplate: "{{ saved_signatures_delete_url_template|default:''|escapejs }}",
   signerName: "{{ envelope.signer_name|escapejs }}",
   fields: JSON.parse(document.getElementById("esign-fields").textContent || "[]")
 };
 </script>
-<script src="{% static 'core/js/insurance_esign.js' %}?v=4"></script>
+<script src="{% static 'core/js/insurance_esign.js' %}?v=5"></script>
 {% endblock %}
