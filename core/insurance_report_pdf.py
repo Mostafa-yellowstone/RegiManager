@@ -6,6 +6,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from io import BytesIO
+from pathlib import Path
 
 from django.utils import timezone
 from reportlab.lib import colors
@@ -17,6 +18,8 @@ from reportlab.platypus import (
     BaseDocTemplate,
     Frame,
     HRFlowable,
+    Image as RLImage,
+    KeepTogether,
     PageTemplate,
     Paragraph,
     Spacer,
@@ -340,16 +343,26 @@ RECEIPT_PRODUCTS = (
     "Auto Personal",
 )
 
-RECEIPT_CARRIERS = (
-    "GEICO",
-    "The Hartford",
-    "American Transit",
-    "National General",
-    "Progressive",
-    "Travelers",
-    "Liberty Mutual",
-    "State Farm",
+# Featured markets shown as logos on the receipt (order preserved).
+RECEIPT_CARRIER_LOGOS = (
+    ("geico.png", "GEICO"),
+    ("hartford.png", "The Hartford"),
+    ("american_transit.png", "American Transit"),
+    ("national_general.png", "National General"),
+    ("progressive.png", "Progressive"),
+    ("travelers.png", "Travelers"),
+    ("liberty_mutual.png", "Liberty Mutual"),
+    ("state_farm.png", "State Farm"),
 )
+
+
+def _carrier_logo_path(filename: str) -> str | None:
+    from django.conf import settings
+
+    path = Path(settings.BASE_DIR) / "static" / "core" / "img" / "carriers" / filename
+    if path.is_file() and path.stat().st_size > 0:
+        return str(path)
+    return None
 
 
 def _match_policy_for_payment(payment: DailyPaymentTransaction, policy_number: str = ""):
@@ -411,79 +424,205 @@ def _payment_receipt_policy_info(payment: DailyPaymentTransaction) -> dict:
 
 def _receipt_status_colors(status_key: str):
     mapping = {
-        InsurancePolicy.StatusChoices.ACTIVE: (colors.HexColor("#166534"), colors.HexColor("#DCFCE7")),
-        InsurancePolicy.StatusChoices.PENDING: (colors.HexColor("#92400E"), colors.HexColor("#FEF3C7")),
-        InsurancePolicy.StatusChoices.INACTIVE: (colors.HexColor("#9F1239"), colors.HexColor("#FFE4E6")),
-        InsurancePolicy.StatusChoices.REJECTED: (colors.HexColor("#9F1239"), colors.HexColor("#FFE4E6")),
+        InsurancePolicy.StatusChoices.ACTIVE: (colors.HexColor("#166534"), colors.HexColor("#DCFCE7"), "● ACTIVE"),
+        InsurancePolicy.StatusChoices.PENDING: (colors.HexColor("#92400E"), colors.HexColor("#FEF3C7"), "● PENDING"),
+        InsurancePolicy.StatusChoices.INACTIVE: (colors.HexColor("#9F1239"), colors.HexColor("#FFE4E6"), "● INACTIVE"),
+        InsurancePolicy.StatusChoices.REJECTED: (colors.HexColor("#9F1239"), colors.HexColor("#FFE4E6"), "● REJECTED"),
     }
-    return mapping.get(status_key, (MUTED, SOFT))
+    return mapping.get(status_key, (MUTED, SOFT, f"● {(status_key or 'UNKNOWN').upper()}"))
+
+
+def _policy_spotlight(policy_info: dict, content_w: float, styles: dict) -> Table:
+    """Eye-catching policy number + status badges for the receipt."""
+    status_fg, status_bg, status_label = _receipt_status_colors(policy_info["status_key"])
+    if not policy_info["status_key"]:
+        status_label = "● NOT LINKED"
+
+    number_style = ParagraphStyle(
+        "rcpt_polnum",
+        parent=styles["value"],
+        fontName="Helvetica-Bold",
+        fontSize=13,
+        textColor=NAVY,
+        leading=15,
+        alignment=TA_CENTER,
+    )
+    status_style = ParagraphStyle(
+        "rcpt_polstat",
+        parent=styles["value"],
+        fontName="Helvetica-Bold",
+        fontSize=11,
+        textColor=status_fg,
+        leading=13,
+        alignment=TA_CENTER,
+    )
+    tiny = ParagraphStyle(
+        "rcpt_tiny",
+        parent=styles["label"],
+        fontSize=6.4,
+        textColor=MUTED,
+        leading=8,
+        alignment=TA_CENTER,
+        fontName="Helvetica-Bold",
+    )
+
+    number_card = Table(
+        [
+            [Paragraph("POLICY NUMBER", tiny)],
+            [Paragraph(_safe(policy_info["number"]), number_style)],
+        ],
+        colWidths=[content_w * 0.58],
+    )
+    number_card.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#ECFEFF")),
+        ("BOX", (0, 0), (-1, -1), 1.4, TEAL),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.6, colors.HexColor("#99F6E4")),
+        ("TOPPADDING", (0, 0), (-1, 0), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
+        ("TOPPADDING", (0, 1), (-1, 1), 4),
+        ("BOTTOMPADDING", (0, 1), (-1, 1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+
+    status_card = Table(
+        [
+            [Paragraph("POLICY STATUS", tiny)],
+            [Paragraph(status_label, status_style)],
+        ],
+        colWidths=[content_w * 0.38],
+    )
+    status_card.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), status_bg),
+        ("BOX", (0, 0), (-1, -1), 1.4, status_fg),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.6, status_fg),
+        ("TOPPADDING", (0, 0), (-1, 0), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
+        ("TOPPADDING", (0, 1), (-1, 1), 4),
+        ("BOTTOMPADDING", (0, 1), (-1, 1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+
+    row = Table([[number_card, status_card]], colWidths=[content_w * 0.60, content_w * 0.40])
+    row.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (0, 0), 6),
+        ("LEFTPADDING", (1, 0), (1, 0), 6),
+        ("RIGHTPADDING", (1, 0), (1, 0), 0),
+    ]))
+    return row
+
+
+def _carrier_logo_row(content_w: float) -> Table | None:
+    cells = []
+    logo_w = (content_w - 18) / 4
+    logo_h = 0.38 * inch
+    for filename, _label in RECEIPT_CARRIER_LOGOS[:8]:
+        path = _carrier_logo_path(filename)
+        if not path:
+            continue
+        try:
+            img = RLImage(path, width=logo_w - 4, height=logo_h, kind="proportional")
+            img.hAlign = "CENTER"
+            cell = Table([[img]], colWidths=[logo_w])
+            cell.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), WHITE),
+                ("BOX", (0, 0), (-1, -1), 0.4, LINE),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+            ]))
+            cells.append(cell)
+        except Exception:
+            continue
+    if not cells:
+        return None
+    rows = []
+    for i in range(0, len(cells), 4):
+        chunk = cells[i:i + 4]
+        while len(chunk) < 4:
+            chunk.append("")
+        row = Table([chunk], colWidths=[logo_w + 4] * 4)
+        row.setStyle(TableStyle([
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 1),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 1),
+            ("TOPPADDING", (0, 0), (-1, -1), 1),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+        ]))
+        rows.append([row])
+    wrap = Table(rows, colWidths=[content_w])
+    wrap.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    return wrap
 
 
 def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepared_by="Staff") -> bytes:
-    """Customer-facing branded daily payment receipt with policy details and marketing footer."""
+    """Compact one-page branded daily payment receipt with policy badges and carrier logos."""
     brand = agency_branding(org)
     styles_base = getSampleStyleSheet()
     styles = {
         "eyebrow": ParagraphStyle(
             "rcpt_eye", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=8, textColor=TEAL, leading=10, alignment=TA_CENTER,
-        ),
-        "hero_title": ParagraphStyle(
-            "rcpt_hero", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=18, textColor=NAVY, leading=22, alignment=TA_CENTER,
+            fontSize=7.2, textColor=TEAL, leading=9, alignment=TA_CENTER,
         ),
         "amount": ParagraphStyle(
             "rcpt_amt", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=28, textColor=NAVY, leading=32, alignment=TA_CENTER,
+            fontSize=22, textColor=NAVY, leading=25, alignment=TA_CENTER,
         ),
         "words": ParagraphStyle(
             "rcpt_words", parent=styles_base["Normal"], fontName="Helvetica-Oblique",
-            fontSize=8.5, textColor=MUTED, leading=11, alignment=TA_CENTER,
+            fontSize=7.4, textColor=MUTED, leading=9, alignment=TA_CENTER,
         ),
         "label": ParagraphStyle(
             "rcpt_lbl", parent=styles_base["Normal"], fontName="Helvetica",
-            fontSize=7.2, textColor=MUTED, leading=9,
+            fontSize=6.6, textColor=MUTED, leading=8,
         ),
         "value": ParagraphStyle(
             "rcpt_val", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=9.2, textColor=INK, leading=12,
+            fontSize=8.2, textColor=INK, leading=10,
         ),
         "section": ParagraphStyle(
             "rcpt_sec", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=9.5, textColor=NAVY, leading=12,
+            fontSize=8.2, textColor=NAVY, leading=10,
         ),
         "pill": ParagraphStyle(
             "rcpt_pill", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=7.2, textColor=WHITE, leading=9, alignment=TA_CENTER,
-        ),
-        "carrier": ParagraphStyle(
-            "rcpt_car", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=7.4, textColor=NAVY, leading=9.5, alignment=TA_CENTER,
+            fontSize=6.2, textColor=WHITE, leading=8, alignment=TA_CENTER,
         ),
         "market_h": ParagraphStyle(
             "rcpt_mh", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=10.5, textColor=NAVY, leading=13, alignment=TA_CENTER,
+            fontSize=9, textColor=NAVY, leading=11, alignment=TA_CENTER,
         ),
         "market_sub": ParagraphStyle(
             "rcpt_ms", parent=styles_base["Normal"], fontName="Helvetica",
-            fontSize=8, textColor=MUTED, leading=11, alignment=TA_CENTER,
+            fontSize=7, textColor=MUTED, leading=9, alignment=TA_CENTER,
         ),
         "notice": ParagraphStyle(
             "rcpt_note", parent=styles_base["Normal"], fontName="Helvetica",
-            fontSize=7.4, textColor=INK, leading=10,
+            fontSize=6.6, textColor=INK, leading=8.6,
         ),
         "footer": ParagraphStyle(
             "rcpt_ft", parent=styles_base["Normal"], fontName="Helvetica",
-            fontSize=7, textColor=MUTED, leading=9.5, alignment=TA_CENTER,
-        ),
-        "badge": ParagraphStyle(
-            "rcpt_badge", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=8, leading=10, alignment=TA_CENTER,
+            fontSize=6.4, textColor=MUTED, leading=8.2, alignment=TA_CENTER,
         ),
     }
 
     page_w, page_h = letter
-    margin_x = 0.58 * inch
+    margin_x = 0.52 * inch
     content_w = page_w - (margin_x * 2)
     payer = payment.client.name if payment.client_id else "—"
     carrier = payment.insurance_company.name if payment.insurance_company_id else "—"
@@ -492,67 +631,7 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     if payment.recorded_by_id:
         recorded = payment.recorded_by.get_full_name() or payment.recorded_by.username
     words = dollars_to_words(payment.amount)
-    cleared_label = "Cleared" if payment.is_cleared else "Held"
-    status_fg, status_bg = _receipt_status_colors(policy_info["status_key"])
 
-    def _kv(label, value):
-        return Table(
-            [[Paragraph(label, styles["label"])], [Paragraph(_safe(value), styles["value"])]],
-            colWidths=[content_w / 2 - 10],
-        )
-
-    # Policy spotlight cards
-    policy_no_card = Table(
-        [[
-            Paragraph("POLICY NUMBER", styles["label"]),
-            Paragraph(_safe(policy_info["number"]), ParagraphStyle(
-                "rcpt_pol", parent=styles["value"], fontSize=12, textColor=NAVY, leading=14,
-            )),
-        ]],
-        colWidths=[content_w * 0.55],
-    )
-    policy_no_card.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), BAND),
-        ("BOX", (0, 0), (-1, -1), 0.8, TEAL),
-        ("LEFTPADDING", (0, 0), (-1, -1), 12),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-        ("TOPPADDING", (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-    ]))
-
-    status_style = ParagraphStyle(
-        "rcpt_st", parent=styles["badge"], textColor=status_fg,
-    )
-    policy_status_card = Table(
-        [[
-            Paragraph("POLICY STATUS", styles["label"]),
-            Paragraph(_safe(policy_info["status"]), status_style),
-        ]],
-        colWidths=[content_w * 0.42],
-    )
-    policy_status_card.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), status_bg),
-        ("BOX", (0, 0), (-1, -1), 0.8, status_fg),
-        ("LEFTPADDING", (0, 0), (-1, -1), 12),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-        ("TOPPADDING", (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-    ]))
-
-    policy_row = Table(
-        [[policy_no_card, policy_status_card]],
-        colWidths=[content_w * 0.56, content_w * 0.44],
-    )
-    policy_row.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (0, 0), 8),
-        ("LEFTPADDING", (1, 0), (1, 0), 8),
-        ("RIGHTPADDING", (1, 0), (1, 0), 0),
-    ]))
-
-    # Amount hero
     amount_block = Table(
         [[
             Paragraph("AMOUNT RECEIVED", styles["eyebrow"]),
@@ -563,205 +642,157 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     )
     amount_block.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), SOFT),
-        ("BOX", (0, 0), (-1, -1), 1.2, NAVY),
-        ("TOPPADDING", (0, 0), (-1, -1), 14),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 14),
-        ("LEFTPADDING", (0, 0), (-1, -1), 12),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+        ("BOX", (0, 0), (-1, -1), 1.1, NAVY),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
     ]))
 
+    policy_row = _policy_spotlight(policy_info, content_w, styles)
+
     detail_pairs = [
-        ("Receipt number", f"PMT-{payment.id:06d}"),
-        ("Date received", payment.transaction_date.strftime("%B %d, %Y")),
+        ("Receipt #", f"PMT-{payment.id:06d}"),
+        ("Date", payment.transaction_date.strftime("%b %d, %Y")),
         ("Payer / insured", payer),
         ("Insurance company", carrier),
-        ("Coverage type", policy_info["coverage"] or payment.get_payment_type_display()),
+        ("Coverage", policy_info["coverage"] or payment.get_payment_type_display()),
         ("Payment type", payment.get_payment_type_display()),
-        ("Payment method", payment.get_payment_method_display()),
-        ("Clearing status", f"{cleared_label}" + (
-            f" · {payment.cleared_date.strftime('%b %d, %Y')}" if payment.is_cleared and payment.cleared_date else ""
-        )),
+        ("Method", payment.get_payment_method_display()),
         ("Received by", recorded or "—"),
-        ("Notes", payment.notes or "—"),
     ]
-    left = detail_pairs[0:5]
-    right = detail_pairs[5:]
-    left_cells = [[_kv(lbl, val)] for lbl, val in left]
-    right_cells = [[_kv(lbl, val)] for lbl, val in right]
-    while len(right_cells) < len(left_cells):
-        right_cells.append([""])
-    detail_grid = Table(
-        [[Table(left_cells, colWidths=[content_w / 2 - 8]), Table(right_cells, colWidths=[content_w / 2 - 8])]],
-        colWidths=[content_w / 2, content_w / 2],
-    )
+    if (payment.notes or "").strip():
+        detail_pairs.append(("Notes", payment.notes.strip()))
+
+    detail_rows = []
+    for i in range(0, len(detail_pairs), 2):
+        left_lbl, left_val = detail_pairs[i]
+        if i + 1 < len(detail_pairs):
+            right_lbl, right_val = detail_pairs[i + 1]
+        else:
+            right_lbl, right_val = "", ""
+        detail_rows.append([
+            Paragraph(left_lbl, styles["label"]),
+            Paragraph(_safe(left_val), styles["value"]),
+            Paragraph(right_lbl, styles["label"]) if right_lbl else "",
+            Paragraph(_safe(right_val), styles["value"]) if right_lbl else "",
+        ])
+
+    col_w = [1.15 * inch, content_w / 2 - 1.15 * inch, 1.15 * inch, content_w / 2 - 1.15 * inch]
+    detail_grid = Table(detail_rows, colWidths=col_w)
     detail_grid.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("BACKGROUND", (0, 0), (-1, -1), WHITE),
-        ("BOX", (0, 0), (-1, -1), 0.6, LINE),
-        ("LINEBEFORE", (1, 0), (1, 0), 0.4, LINE),
-        ("LEFTPADDING", (0, 0), (-1, -1), 10),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-        ("TOPPADDING", (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("BACKGROUND", (0, 0), (0, -1), SOFT),
+        ("BACKGROUND", (2, 0), (2, -1), SOFT),
+        ("BOX", (0, 0), (-1, -1), 0.5, LINE),
+        ("INNERGRID", (0, 0), (-1, -1), 0.3, LINE),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
 
-    # Product pills — 5 across / wrap to two rows
-    products = list(RECEIPT_PRODUCTS)
-    pill_tables = []
-    pill_w = (content_w - 24) / 3
-    for product in products:
+    # Five product pills in one row
+    pill_w = (content_w - 16) / 5
+    pills = []
+    for product in RECEIPT_PRODUCTS:
         pill = Table([[Paragraph(product, styles["pill"])]], colWidths=[pill_w])
         pill.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), NAVY),
-            ("TOPPADDING", (0, 0), (-1, -1), 7),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("ROUNDEDCORNERS", [4, 4, 4, 4]),
-        ]))
-        pill_tables.append(pill)
-
-    product_rows = []
-    for i in range(0, len(pill_tables), 3):
-        chunk = pill_tables[i:i + 3]
-        while len(chunk) < 3:
-            chunk.append("")
-        row = Table([chunk], colWidths=[pill_w + 8] * 3)
-        row.setStyle(TableStyle([
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-            ("TOPPADDING", (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-        ]))
-        product_rows.append([row])
-
-    # Carrier chips from org list + defaults
-    org_carriers = list(
-        InsuranceCompany.objects.filter(organization=org)
-        .order_by("name")
-        .values_list("name", flat=True)[:8]
-    )
-    carriers = org_carriers or list(RECEIPT_CARRIERS)
-    # Always ensure featured names appear
-    featured = ["GEICO", "The Hartford", "American Transit", "National General"]
-    merged = []
-    for name in featured + list(carriers):
-        clean = str(name or "").strip()
-        if clean and clean not in merged:
-            merged.append(clean)
-        if len(merged) >= 8:
-            break
-
-    carrier_cells = []
-    chip_w = (content_w - 20) / 4
-    for name in merged[:8]:
-        chip = Table([[Paragraph(name, styles["carrier"])]], colWidths=[chip_w])
-        chip.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#ECFEFF")),
-            ("BOX", (0, 0), (-1, -1), 0.5, TEAL),
             ("TOPPADDING", (0, 0), (-1, -1), 5),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ]))
-        carrier_cells.append(chip)
-    carrier_rows = []
-    for i in range(0, len(carrier_cells), 4):
-        chunk = carrier_cells[i:i + 4]
-        while len(chunk) < 4:
-            chunk.append("")
-        row = Table([chunk], colWidths=[chip_w + 5] * 4)
-        row.setStyle(TableStyle([
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 2),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 2),
-            ("TOPPADDING", (0, 0), (-1, -1), 2),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-        ]))
-        carrier_rows.append([row])
+        pills.append(pill)
+    product_row = Table([pills], colWidths=[pill_w + 3] * 5)
+    product_row.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 1.5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 1.5),
+    ]))
 
-    market_inner_data = [
+    logo_row = _carrier_logo_row(content_w)
+    market_rows = [
         [Paragraph("Protect more of what matters", styles["market_h"])],
-        [Paragraph(
-            "Ask us about coverage options — we help families and businesses stay protected.",
-            styles["market_sub"],
-        )],
-        [Spacer(1, 4)],
-        *product_rows,
-        [Spacer(1, 6)],
-        [Paragraph("Trusted markets we place with", styles["section"])],
-        [Spacer(1, 4)],
-        *carrier_rows,
+        [Paragraph("Home · Business · Taxi · Auto Commercial · Auto Personal", styles["market_sub"])],
+        [Spacer(1, 3)],
+        [product_row],
     ]
-    market = Table(market_inner_data, colWidths=[content_w])
+    if logo_row is not None:
+        market_rows.extend([
+            [Spacer(1, 5)],
+            [Paragraph("Markets we place with", styles["section"])],
+            [Spacer(1, 3)],
+            [logo_row],
+        ])
+    market = Table(market_rows, colWidths=[content_w])
     market.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F0F9FF")),
-        ("BOX", (0, 0), (-1, -1), 0.9, colors.HexColor("#93C5FD")),
-        ("LEFTPADDING", (0, 0), (-1, -1), 12),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-        ("TOPPADDING", (0, 0), (0, 0), 12),
-        ("BOTTOMPADDING", (0, -1), (-1, -1), 12),
+        ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor("#93C5FD")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (0, 0), 7),
+        ("BOTTOMPADDING", (0, -1), (-1, -1), 8),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
     ]))
 
     notice = Table(
         [[Paragraph(
-            "<b>Proof of payment.</b> This agency acknowledges receipt of the amount shown from the named insured. "
-            "This is not a policy or a binder. Coverage is determined solely by the insurance company. "
-            "Please keep this receipt with your records.",
+            "<b>Proof of payment.</b> This acknowledges receipt of the amount shown. "
+            "Not a policy or binder — coverage is set by the insurance company.",
             styles["notice"],
         )]],
         colWidths=[content_w],
     )
     notice.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), BAND),
-        ("BOX", (0, 0), (-1, -1), 0.6, TEAL),
-        ("LEFTPADDING", (0, 0), (-1, -1), 10),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-        ("TOPPADDING", (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("BOX", (0, 0), (-1, -1), 0.5, TEAL),
+        ("LEFTPADDING", (0, 0), (-1, -1), 7),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
 
     contact_bits = [p for p in [brand.get("phone"), brand.get("email"), brand.get("address")] if p]
     thank_you = Paragraph(
-        f"<b>Thank you for choosing {brand['name']}</b><br/>"
-        + ("  ·  ".join(contact_bits) if contact_bits else "Your trusted neighborhood insurance partner.")
-        + "<br/>Official agency payment receipt",
+        f"<b>Thank you for choosing {brand['name']}</b>"
+        + (f"<br/>{'  ·  '.join(contact_bits)}" if contact_bits else ""),
         styles["footer"],
     )
 
     story = [
-        Paragraph("OFFICIAL PAYMENT RECEIPT", styles["eyebrow"]),
-        Spacer(1, 4),
-        Paragraph("Payment Confirmation", styles["hero_title"]),
-        Spacer(1, 10),
-        amount_block,
-        Spacer(1, 12),
-        Paragraph("Policy details", styles["section"]),
-        Spacer(1, 6),
-        policy_row,
-        Spacer(1, 12),
-        Paragraph("Transaction details", styles["section"]),
-        Spacer(1, 6),
-        detail_grid,
-        Spacer(1, 12),
-        notice,
-        Spacer(1, 12),
-        market,
-        Spacer(1, 10),
-        HRFlowable(width="100%", thickness=0.6, color=LINE, spaceAfter=6),
-        thank_you,
+        KeepTogether([
+            Paragraph("OFFICIAL PAYMENT RECEIPT", styles["eyebrow"]),
+            Spacer(1, 4),
+            amount_block,
+            Spacer(1, 7),
+            policy_row,
+            Spacer(1, 7),
+            Paragraph("Transaction details", styles["section"]),
+            Spacer(1, 3),
+            detail_grid,
+            Spacer(1, 6),
+            notice,
+            Spacer(1, 6),
+            market,
+            Spacer(1, 5),
+            HRFlowable(width="100%", thickness=0.5, color=LINE, spaceAfter=3),
+            thank_you,
+        ])
     ]
 
     buffer = BytesIO()
+    top_margin = 0.92 * inch
+    bottom_margin = 0.42 * inch
     doc = BaseDocTemplate(
         buffer,
         pagesize=letter,
         leftMargin=margin_x,
         rightMargin=margin_x,
-        topMargin=1.05 * inch,
-        bottomMargin=0.55 * inch,
+        topMargin=top_margin,
+        bottomMargin=bottom_margin,
         title=f"Payment receipt PMT-{payment.id:06d} — {brand['name']}",
         author=brand["name"],
     )
@@ -769,56 +800,55 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     def _draw_chrome(canvas, doc_):
         canvas.saveState()
         canvas.setFillColor(NAVY)
-        canvas.rect(0, page_h - 0.88 * inch, page_w, 0.88 * inch, fill=1, stroke=0)
+        canvas.rect(0, page_h - 0.72 * inch, page_w, 0.72 * inch, fill=1, stroke=0)
         canvas.setFillColor(TEAL)
-        canvas.rect(0, page_h - 0.93 * inch, page_w, 0.05 * inch, fill=1, stroke=0)
+        canvas.rect(0, page_h - 0.76 * inch, page_w, 0.04 * inch, fill=1, stroke=0)
         x = margin_x
         logo = brand.get("logo_path")
         if logo:
             try:
                 canvas.drawImage(
-                    logo, x, page_h - 0.78 * inch,
-                    width=0.58 * inch, height=0.58 * inch,
+                    logo, x, page_h - 0.64 * inch,
+                    width=0.48 * inch, height=0.48 * inch,
                     preserveAspectRatio=True, mask="auto",
                 )
-                x += 0.70 * inch
+                x += 0.58 * inch
             except Exception:
                 pass
         canvas.setFillColor(WHITE)
-        canvas.setFont("Helvetica-Bold", 12)
-        canvas.drawString(x, page_h - 0.38 * inch, brand["name"][:64])
-        canvas.setFont("Helvetica", 7.2)
+        canvas.setFont("Helvetica-Bold", 11)
+        canvas.drawString(x, page_h - 0.32 * inch, brand["name"][:64])
+        canvas.setFont("Helvetica", 6.6)
         contact = "  ·  ".join(p for p in [brand.get("address"), brand.get("phone"), brand.get("email")] if p)
-        canvas.drawString(x, page_h - 0.56 * inch, contact[:110])
+        canvas.drawString(x, page_h - 0.48 * inch, contact[:110])
         if brand.get("license"):
-            canvas.drawString(x, page_h - 0.70 * inch, f"License {brand['license']}"[:60])
-        canvas.setFont("Helvetica-Bold", 10)
-        canvas.drawRightString(page_w - margin_x, page_h - 0.38 * inch, "PAYMENT RECEIPT")
-        canvas.setFont("Helvetica", 7.4)
-        canvas.drawRightString(page_w - margin_x, page_h - 0.54 * inch, f"PMT-{payment.id:06d}")
+            canvas.drawString(x, page_h - 0.60 * inch, f"License {brand['license']}"[:60])
+        canvas.setFont("Helvetica-Bold", 9)
+        canvas.drawRightString(page_w - margin_x, page_h - 0.30 * inch, "PAYMENT RECEIPT")
+        canvas.setFont("Helvetica", 7)
+        canvas.drawRightString(page_w - margin_x, page_h - 0.46 * inch, f"PMT-{payment.id:06d}")
         canvas.drawRightString(
             page_w - margin_x,
-            page_h - 0.68 * inch,
+            page_h - 0.58 * inch,
             payment.transaction_date.strftime("%b %d, %Y"),
         )
-        # Footer bar
         canvas.setFillColor(SOFT)
-        canvas.rect(0, 0, page_w, 0.42 * inch, fill=1, stroke=0)
+        canvas.rect(0, 0, page_w, 0.34 * inch, fill=1, stroke=0)
         canvas.setStrokeColor(LINE)
         canvas.setLineWidth(0.4)
-        canvas.line(margin_x, 0.42 * inch, page_w - margin_x, 0.42 * inch)
+        canvas.line(margin_x, 0.34 * inch, page_w - margin_x, 0.34 * inch)
         canvas.setFillColor(MUTED)
-        canvas.setFont("Helvetica", 6.4)
+        canvas.setFont("Helvetica", 6)
         stamp = timezone.localtime().strftime("%b %d, %Y  %I:%M %p")
-        canvas.drawString(margin_x, 0.18 * inch, f"Prepared {stamp} by {prepared_by}")
-        canvas.drawRightString(page_w - margin_x, 0.18 * inch, f"Page {doc_.page}")
+        canvas.drawString(margin_x, 0.14 * inch, f"Prepared {stamp} by {prepared_by}")
+        canvas.drawRightString(page_w - margin_x, 0.14 * inch, "Page 1 of 1")
         canvas.restoreState()
 
     frame = Frame(
         margin_x,
-        0.55 * inch,
+        bottom_margin,
         content_w,
-        page_h - 1.05 * inch - 0.55 * inch,
+        page_h - top_margin - bottom_margin,
         id="body",
         showBoundary=0,
     )
