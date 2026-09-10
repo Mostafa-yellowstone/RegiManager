@@ -7622,12 +7622,13 @@ def add_daily_payment(request):
             cleared_date = timezone.localdate()
 
     try:
-        DailyPaymentTransaction.objects.create(
+        amount_value = Decimal(amount or "0.00")
+        payment = DailyPaymentTransaction(
             organization=org,
             client=client,
             insurance_company=company,
             transaction_date=tx_date,
-            amount=Decimal(amount or "0.00"),
+            amount=amount_value,
             payment_type=payment_type,
             payment_method=payment_method,
             recorded_by=request.user,
@@ -7635,6 +7636,9 @@ def add_daily_payment(request):
             is_cleared=is_cleared,
             cleared_date=cleared_date,
         )
+        from .insurance_report_pdf import resolve_payment_policy_link
+        resolve_payment_policy_link(payment, request.POST.get("policy_number", ""))
+        payment.save()
         messages.success(request, "Daily payment recorded.")
     except Exception as e:
         messages.error(request, f"Error saving payment: {e}")
@@ -7743,6 +7747,8 @@ def edit_daily_payment(request, transaction_id):
         tx.cleared_date = cleared_date if is_cleared else None
         tx.updated_by = request.user
         tx.updated_at = timezone.now()
+        from .insurance_report_pdf import resolve_payment_policy_link
+        resolve_payment_policy_link(tx, request.POST.get("policy_number", ""))
         tx.save()
         messages.success(request, "Daily payment updated.")
     except Exception as e:

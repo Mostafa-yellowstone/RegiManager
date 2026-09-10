@@ -2215,6 +2215,12 @@ class DailyPaymentTransaction(models.Model):
         blank=True,
         related_name="daily_payment_transactions",
     )
+    policy_number = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Policy number shown on the payment receipt.",
+    )
     transaction_date = models.DateField(db_index=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     payment_type = models.CharField(max_length=30, choices=PaymentType.choices)
