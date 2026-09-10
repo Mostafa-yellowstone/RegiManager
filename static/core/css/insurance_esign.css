@@ -169,17 +169,79 @@
   gap: 0.45rem;
   min-width: min(100%, 280px);
 }
+.esign-save-inline--stack {
+  margin-top: 0.75rem;
+  width: 100%;
+}
 .esign-save-inline input {
   flex: 1;
   min-width: 0;
 }
 .esign-save-hint {
-  margin: 0.35rem 0 0;
+  margin: 0;
   font-size: 0.78rem;
   font-weight: 700;
   color: #0f766e;
 }
 .esign-save-hint.is-error { color: #b91c1c; }
+.esign-upload-drop {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 1.25rem 1rem;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 14px;
+  background: #f8fafc;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+.esign-upload-drop:hover,
+.esign-upload-drop.is-dragging {
+  border-color: #6366f1;
+  background: #eef2ff;
+}
+.esign-upload-drop__icon {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e0e7ff;
+  color: #4338ca;
+  font-weight: 900;
+}
+.esign-upload-drop strong {
+  font-size: 0.92rem;
+  color: #0f172a;
+}
+.esign-upload-drop em {
+  font-style: normal;
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: #64748b;
+}
+.esign-upload-browse {
+  margin-top: 0.35rem;
+  pointer-events: none;
+}
+.esign-upload-preview {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+.esign-upload-preview img {
+  max-width: 100%;
+  max-height: 110px;
+  object-fit: contain;
+  margin: 0 auto;
+  display: block;
+}
 .esign-saved-head p {
   margin: 0;
   font-size: 0.82rem;

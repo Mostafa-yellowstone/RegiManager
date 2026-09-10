@@ -4,7 +4,7 @@
 {% block title %}{% if is_public %}Sign {{ envelope.title }}{% else %}E-sign {{ envelope.title }}{% endif %} | RegiManager{% endblock %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_esign.css' %}?v=3">
+<link rel="stylesheet" href="{% static 'core/css/insurance_esign.css' %}?v=4">
 {% endblock %}
 
 {% block content %}
@@ -66,7 +66,10 @@
     <div class="esign-tabs">
       <button type="button" class="is-active" data-sign-tab="draw">Draw</button>
       <button type="button" data-sign-tab="type">Type</button>
-      {% if not is_public %}<button type="button" data-sign-tab="saved">Saved</button>{% endif %}
+      {% if not is_public %}
+      <button type="button" data-sign-tab="upload">Upload</button>
+      <button type="button" data-sign-tab="saved">Saved</button>
+      {% endif %}
     </div>
     <div data-sign-panel="draw">
       <canvas id="esignPad" width="480" height="140"></canvas>
@@ -79,20 +82,37 @@
         </div>
         {% endif %}
       </div>
-      <p class="esign-save-hint" id="esignSaveHint" hidden></p>
     </div>
     <div data-sign-panel="type" style="display:none;">
       <input id="esignTypeInput" type="text" placeholder="Type your name">
     </div>
     {% if not is_public %}
+    <div data-sign-panel="upload" style="display:none;">
+      <label class="esign-upload-drop" for="esignUploadInput">
+        <input id="esignUploadInput" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,.png,.jpg,.jpeg,.webp,.gif" hidden>
+        <span class="esign-upload-drop__icon" aria-hidden="true">⬆</span>
+        <strong>Upload signature image</strong>
+        <em>PNG, JPG, WEBP, or GIF · up to 2 MB</em>
+        <span class="esign-action is-primary esign-upload-browse">Choose file</span>
+      </label>
+      <div class="esign-upload-preview" id="esignUploadPreview" hidden>
+        <img id="esignUploadPreviewImg" alt="Uploaded signature preview">
+        <button type="button" class="esign-tool" id="esignUploadClear" style="color:#0f172a;background:#f8fafc;">Remove</button>
+      </div>
+      <div class="esign-save-inline esign-save-inline--stack">
+        <input id="esignUploadSaveName" type="text" maxlength="80" placeholder="Name this signature (e.g. John — full)">
+        <button type="button" class="esign-action is-primary" id="esignUploadSave">Upload &amp; save</button>
+      </div>
+    </div>
     <div data-sign-panel="saved" style="display:none;">
       <div class="esign-saved-head">
-        <p>Choose a saved signature by name, then Apply.</p>
+        <p>Choose a saved signature by name, then Apply. Draw or upload new ones anytime.</p>
       </div>
       <div class="esign-saved-grid" id="esignSavedGrid"></div>
-      <p class="esign-saved-empty" id="esignSavedEmpty" hidden>No saved signatures yet. Draw one and save it with a name.</p>
+      <p class="esign-saved-empty" id="esignSavedEmpty" hidden>No saved signatures yet. Draw or upload one and save it with a name.</p>
     </div>
     {% endif %}
+    <p class="esign-save-hint" id="esignSaveHint" hidden></p>
     <div class="esign-modal__actions">
       <button type="button" class="esign-tool" id="esignModalClose" style="color:#0f172a;background:#f8fafc;">Cancel</button>
       <button type="button" class="esign-action is-primary" id="esignApplyMark">Apply</button>
@@ -121,5 +141,5 @@ window.ESIGN_CONFIG = {
   fields: JSON.parse(document.getElementById("esign-fields").textContent || "[]")
 };
 </script>
-<script src="{% static 'core/js/insurance_esign.js' %}?v=5"></script>
+<script src="{% static 'core/js/insurance_esign.js' %}?v=6"></script>
 {% endblock %}

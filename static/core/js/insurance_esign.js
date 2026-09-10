@@ -183,6 +183,7 @@
   let drawing = false;
   let savedSignatures = Array.isArray(cfg.savedSignatures) ? cfg.savedSignatures.slice() : [];
   let selectedSavedId = null;
+  let uploadedImageDataUrl = "";
 
   function setSaveHint(message, isError) {
     const hint = document.getElementById("esignSaveHint");
@@ -190,11 +191,67 @@
     if (!message) {
       hint.hidden = true;
       hint.textContent = "";
+      hint.classList.remove("is-error");
       return;
     }
     hint.hidden = false;
     hint.textContent = message;
     hint.classList.toggle("is-error", !!isError);
+  }
+
+  function clearUploadPreview() {
+    uploadedImageDataUrl = "";
+    const input = document.getElementById("esignUploadInput");
+    const preview = document.getElementById("esignUploadPreview");
+    const img = document.getElementById("esignUploadPreviewImg");
+    if (input) input.value = "";
+    if (img) img.removeAttribute("src");
+    if (preview) preview.hidden = true;
+  }
+
+  function setUploadPreview(dataUrl) {
+    uploadedImageDataUrl = dataUrl || "";
+    const preview = document.getElementById("esignUploadPreview");
+    const img = document.getElementById("esignUploadPreviewImg");
+    if (!uploadedImageDataUrl) {
+      clearUploadPreview();
+      return;
+    }
+    if (img) img.src = uploadedImageDataUrl;
+    if (preview) preview.hidden = false;
+  }
+
+  function readImageFile(file) {
+    return new Promise((resolve, reject) => {
+      if (!file) {
+        reject(new Error("Choose an image file."));
+        return;
+      }
+      const allowed = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"];
+      if (file.type && !allowed.includes(file.type)) {
+        reject(new Error("Use a PNG, JPG, WEBP, or GIF image."));
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        reject(new Error("That image is larger than 2 MB."));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Could not read that image."));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function saveNamedSignature(name, image) {
+    if (!cfg.saveSignatureUrl) throw new Error("Saving is unavailable.");
+    const data = await postJson(cfg.saveSignatureUrl, { name, image });
+    savedSignatures = Array.isArray(data.signatures) ? data.signatures : [];
+    if (data.signature && data.signature.id != null) {
+      selectedSavedId = data.signature.id;
+    }
+    renderSavedSignatures();
+    return data;
   }
 
   function renderSavedSignatures() {
@@ -269,6 +326,9 @@
       ctx.fillRect(0, 0, pad.width, pad.height);
     }
     setSaveHint("");
+    clearUploadPreview();
+    const uploadName = document.getElementById("esignUploadSaveName");
+    if (uploadName) uploadName.value = "";
     renderSavedSignatures();
     const preferred = (!cfg.isPublic && savedSignatures.length) ? "saved" : "draw";
     showSignTab(preferred);
@@ -331,20 +391,73 @@
       return;
     }
     try {
-      const data = await postJson(cfg.saveSignatureUrl, {
-        name,
-        image: pad.toDataURL("image/png"),
-      });
-      savedSignatures = Array.isArray(data.signatures) ? data.signatures : [];
-      if (data.signature && data.signature.id != null) {
-        selectedSavedId = data.signature.id;
-      }
+      await saveNamedSignature(name, pad.toDataURL("image/png"));
       if (nameInput) nameInput.value = "";
-      renderSavedSignatures();
       setSaveHint('Saved as "' + name + '". You can reuse it from the Saved tab.');
       showSignTab("saved");
     } catch (err) {
       setSaveHint(err.message || "Could not save signature.", true);
+    }
+  });
+
+  const uploadInput = document.getElementById("esignUploadInput");
+  const uploadDrop = document.querySelector(".esign-upload-drop");
+  uploadDrop?.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    uploadDrop.classList.add("is-dragging");
+  });
+  uploadDrop?.addEventListener("dragleave", () => uploadDrop.classList.remove("is-dragging"));
+  uploadDrop?.addEventListener("drop", async (event) => {
+    event.preventDefault();
+    uploadDrop.classList.remove("is-dragging");
+    const file = event.dataTransfer?.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await readImageFile(file);
+      setUploadPreview(dataUrl);
+      setSaveHint("Image ready. Name it and save, or Apply to use it now.");
+    } catch (err) {
+      clearUploadPreview();
+      setSaveHint(err.message || "Could not upload that image.", true);
+    }
+  });
+  uploadInput?.addEventListener("change", async () => {
+    const file = uploadInput.files && uploadInput.files[0];
+    if (!file) return;
+    try {
+      const dataUrl = await readImageFile(file);
+      setUploadPreview(dataUrl);
+      setSaveHint("Image ready. Name it and save, or Apply to use it now.");
+    } catch (err) {
+      clearUploadPreview();
+      setSaveHint(err.message || "Could not upload that image.", true);
+    }
+  });
+  document.getElementById("esignUploadClear")?.addEventListener("click", () => {
+    clearUploadPreview();
+    setSaveHint("");
+  });
+  document.getElementById("esignUploadSave")?.addEventListener("click", async () => {
+    if (!cfg.saveSignatureUrl) return;
+    if (!uploadedImageDataUrl) {
+      setSaveHint("Choose an image to upload first.", true);
+      return;
+    }
+    const nameInput = document.getElementById("esignUploadSaveName");
+    const name = (nameInput?.value || "").trim();
+    if (!name) {
+      setSaveHint("Enter a name for this signature.", true);
+      nameInput?.focus();
+      return;
+    }
+    try {
+      await saveNamedSignature(name, uploadedImageDataUrl);
+      if (nameInput) nameInput.value = "";
+      clearUploadPreview();
+      setSaveHint('Uploaded and saved as "' + name + '".');
+      showSignTab("saved");
+    } catch (err) {
+      setSaveHint(err.message || "Could not save uploaded signature.", true);
     }
   });
 
@@ -357,6 +470,13 @@
     } else if (tab === "type") {
       activeField.text = (typeInput?.value || "").trim();
       activeField.image = "";
+    } else if (tab === "upload") {
+      if (!uploadedImageDataUrl) {
+        setSaveHint("Upload a signature image first.", true);
+        return;
+      }
+      activeField.image = uploadedImageDataUrl;
+      activeField.text = "";
     } else if (tab === "saved") {
       const chosen = savedSignatures.find((row) => String(row.id) === String(selectedSavedId));
       const image = (chosen && chosen.image) || cfg.savedSignature || "";

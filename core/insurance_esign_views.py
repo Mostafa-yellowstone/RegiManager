@@ -280,7 +280,7 @@ def save_saved_signature(request):
         return JsonResponse({"ok": False, "error": "Enter a name for this signature."}, status=400)
     image_bytes, ext = _parse_data_url_image(payload.get("image") or "")
     if not image_bytes:
-        return JsonResponse({"ok": False, "error": "Draw or provide a signature image first."}, status=400)
+        return JsonResponse({"ok": False, "error": "Draw or upload a signature image first."}, status=400)
 
     from django.core.files.base import ContentFile
     from django.db import IntegrityError
