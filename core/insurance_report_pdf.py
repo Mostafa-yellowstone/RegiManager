@@ -908,7 +908,7 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
 
                 logo_pad = 0.045 * inch
                 max_h = header_h - (logo_pad * 2)
-                max_w = 1.6 * inch
+                max_w = 1.35 * inch
                 reader = ImageReader(logo)
                 iw, ih = reader.getSize()
                 aspect = (iw / float(ih)) if ih else 1.0
@@ -918,6 +918,7 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
                     logo_w = max_w
                     logo_h = logo_w / aspect if aspect else max_h
                 logo_y = page_h - header_h + ((header_h - logo_h) / 2.0)
+                # Left-anchor so any fit leftover stays on the right, not between logo and text.
                 canvas.drawImage(
                     logo,
                     x,
@@ -926,12 +927,13 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
                     height=logo_h,
                     preserveAspectRatio=True,
                     mask="auto",
+                    anchor="w",
                 )
-                x += logo_w + 0.16 * inch
+                x += logo_w + 0.05 * inch
             except Exception:
                 pass
 
-        # Center brand text with the full-height logo.
+        # Brand block sits immediately beside the logo (not page-centered).
         text_block_h = 0.52 * inch
         text_top = page_h - ((header_h - text_block_h) / 2.0) - 0.02 * inch
         canvas.setFillColor(WHITE)
