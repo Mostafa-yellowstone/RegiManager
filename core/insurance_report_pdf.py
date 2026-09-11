@@ -493,7 +493,8 @@ def _protection_sticker_flowable(content_w: float):
     path = _receipt_sticker_path()
     if not path:
         return None
-    sticker_w = min(content_w * 0.72, 4.6 * inch)
+    # Keep small so the full receipt stays on one page.
+    sticker_w = min(content_w * 0.38, 2.15 * inch)
     try:
         from reportlab.lib.utils import ImageReader
 
@@ -562,17 +563,17 @@ def _policy_spotlight(policy_info: dict, content_w: float, styles: dict) -> Tabl
         "rcpt_polnum",
         parent=styles["value"],
         fontName="Helvetica-Bold",
-        fontSize=13,
+        fontSize=11.5,
         textColor=NAVY,
-        leading=15,
+        leading=13,
         alignment=TA_CENTER,
     )
     tiny = ParagraphStyle(
         "rcpt_tiny",
         parent=styles["label"],
-        fontSize=6.4,
+        fontSize=6,
         textColor=MUTED,
-        leading=8,
+        leading=7.5,
         alignment=TA_CENTER,
         fontName="Helvetica-Bold",
     )
@@ -586,14 +587,14 @@ def _policy_spotlight(policy_info: dict, content_w: float, styles: dict) -> Tabl
     )
     number_card.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#ECFEFF")),
-        ("BOX", (0, 0), (-1, -1), 1.4, TEAL),
-        ("LINEBELOW", (0, 0), (-1, 0), 0.6, colors.HexColor("#99F6E4")),
-        ("TOPPADDING", (0, 0), (-1, 0), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
-        ("TOPPADDING", (0, 1), (-1, 1), 4),
-        ("BOTTOMPADDING", (0, 1), (-1, 1), 8),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("BOX", (0, 0), (-1, -1), 1.2, TEAL),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.5, colors.HexColor("#99F6E4")),
+        ("TOPPADDING", (0, 0), (-1, 0), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 1),
+        ("TOPPADDING", (0, 1), (-1, 1), 2),
+        ("BOTTOMPADDING", (0, 1), (-1, 1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
     ]))
@@ -612,11 +613,11 @@ def _carrier_logo_row(content_w: float) -> Table | None:
 
     # 5 columns keeps a large set readable on one portrait page.
     cols = 5
-    gap = 4
+    gap = 3
     card_w = (content_w - (gap * (cols - 1))) / cols
-    card_h = 0.46 * inch
-    img_w = card_w - 8
-    img_h = card_h - 8
+    card_h = 0.34 * inch
+    img_w = card_w - 6
+    img_h = card_h - 6
 
     def _card(path: str | None):
         if not path:
@@ -632,13 +633,13 @@ def _carrier_logo_row(content_w: float) -> Table | None:
             cell = Table([[img]], colWidths=[card_w], rowHeights=[card_h])
             cell.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, -1), WHITE),
-                ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#CBD5E1")),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 4),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-                ("TOPPADDING", (0, 0), (-1, -1), 3),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
             ]))
             return cell
         except Exception:
@@ -657,8 +658,8 @@ def _carrier_logo_row(content_w: float) -> Table | None:
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("LEFTPADDING", (0, 0), (-1, -1), gap / 2),
             ("RIGHTPADDING", (0, 0), (-1, -1), gap / 2),
-            ("TOPPADDING", (0, 0), (-1, -1), 2),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("TOPPADDING", (0, 0), (-1, -1), 1),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
         ]))
         grid_rows.append([row])
 
@@ -684,43 +685,43 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
         ),
         "amount": ParagraphStyle(
             "rcpt_amt", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=26, textColor=NAVY, leading=30, alignment=TA_CENTER,
+            fontSize=22, textColor=NAVY, leading=25, alignment=TA_CENTER,
         ),
         "words": ParagraphStyle(
             "rcpt_words", parent=styles_base["Normal"], fontName="Helvetica-Oblique",
-            fontSize=9, textColor=INK, leading=11.5, alignment=TA_CENTER,
+            fontSize=8, textColor=INK, leading=10, alignment=TA_CENTER,
         ),
         "words_label": ParagraphStyle(
             "rcpt_words_lbl", parent=styles_base["Normal"], fontName="Helvetica",
-            fontSize=6.4, textColor=MUTED, leading=8, alignment=TA_CENTER,
+            fontSize=6, textColor=MUTED, leading=7.5, alignment=TA_CENTER,
         ),
         "label": ParagraphStyle(
             "rcpt_lbl", parent=styles_base["Normal"], fontName="Helvetica",
-            fontSize=6.6, textColor=MUTED, leading=8,
+            fontSize=6.2, textColor=MUTED, leading=7.5,
         ),
         "value": ParagraphStyle(
             "rcpt_val", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=8.2, textColor=INK, leading=10,
+            fontSize=7.6, textColor=INK, leading=9,
         ),
         "section": ParagraphStyle(
             "rcpt_sec", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=8.4, textColor=NAVY, leading=10,
+            fontSize=7.8, textColor=NAVY, leading=9.5,
         ),
         "section_c": ParagraphStyle(
             "rcpt_sec_c", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=8.4, textColor=NAVY, leading=10, alignment=TA_CENTER,
+            fontSize=7.8, textColor=NAVY, leading=9.5, alignment=TA_CENTER,
         ),
         "pill": ParagraphStyle(
             "rcpt_pill", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=6.4, textColor=WHITE, leading=8, alignment=TA_CENTER,
+            fontSize=5.8, textColor=WHITE, leading=7.2, alignment=TA_CENTER,
         ),
         "notice": ParagraphStyle(
             "rcpt_note", parent=styles_base["Normal"], fontName="Helvetica",
-            fontSize=6.6, textColor=INK, leading=8.6,
+            fontSize=6.1, textColor=INK, leading=7.8,
         ),
         "footer": ParagraphStyle(
             "rcpt_ft", parent=styles_base["Normal"], fontName="Helvetica",
-            fontSize=6.4, textColor=MUTED, leading=8.2, alignment=TA_CENTER,
+            fontSize=6, textColor=MUTED, leading=7.6, alignment=TA_CENTER,
         ),
     }
 
@@ -738,7 +739,7 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
         [
             [Paragraph("AMOUNT PAID", styles["eyebrow"])],
             [Paragraph(_money(payment.amount), styles["amount"])],
-            [HRFlowable(width="42%", thickness=1.2, color=TEAL, spaceBefore=2, spaceAfter=4, hAlign="CENTER")],
+            [HRFlowable(width="42%", thickness=1.0, color=TEAL, spaceBefore=1, spaceAfter=2, hAlign="CENTER")],
             [Paragraph("Amount in words", styles["words_label"])],
             [Paragraph(words, styles["words"])],
         ],
@@ -747,20 +748,20 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     amount_inner.setStyle(TableStyle([
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 1),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
-        ("TOPPADDING", (0, 0), (0, 0), 2),
-        ("BOTTOMPADDING", (0, -1), (-1, -1), 2),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (0, 0), 1),
+        ("BOTTOMPADDING", (0, -1), (-1, -1), 1),
     ]))
     amount_block = Table([[amount_inner]], colWidths=[content_w])
     amount_block.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
-        ("BOX", (0, 0), (-1, -1), 1.6, NAVY),
-        ("LINEABOVE", (0, 0), (-1, 0), 5, TEAL),
-        ("TOPPADDING", (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("BOX", (0, 0), (-1, -1), 1.4, NAVY),
+        ("LINEABOVE", (0, 0), (-1, 0), 4, TEAL),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
     ]))
 
@@ -801,30 +802,30 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
         ("BOX", (0, 0), (-1, -1), 0.5, LINE),
         ("INNERGRID", (0, 0), (-1, -1), 0.3, LINE),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 5),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
     ]))
 
     # Equal-width navy product cards — no grey subtitle text above them.
     products = list(RECEIPT_PRODUCTS)
     n_products = len(products)
-    gap = 5
+    gap = 4
     pill_w = (content_w - (gap * (n_products - 1))) / n_products
     pills = []
     for product in products:
         pill = Table(
             [[Paragraph(product, styles["pill"])]],
             colWidths=[pill_w],
-            rowHeights=[0.34 * inch],
+            rowHeights=[0.26 * inch],
         )
         pill.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), NAVY),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 2),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+            ("LEFTPADDING", (0, 0), (-1, -1), 1),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 1),
             ("TOPPADDING", (0, 0), (-1, -1), 0),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
         ]))
@@ -842,22 +843,22 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     logo_row = _carrier_logo_row(content_w)
     market_rows = [
         [Paragraph(RECEIPT_PRODUCT_TITLE, styles["section_c"])],
-        [Spacer(1, 5)],
+        [Spacer(1, 3)],
         [product_row],
-        [Spacer(1, 8)],
-        [Paragraph(RECEIPT_CARRIERS_TITLE, styles["section_c"])],
         [Spacer(1, 5)],
+        [Paragraph(RECEIPT_CARRIERS_TITLE, styles["section_c"])],
+        [Spacer(1, 3)],
     ]
     if logo_row is not None:
         market_rows.append([logo_row])
     market = Table(market_rows, colWidths=[content_w])
     market.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
-        ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor("#CBD5E1")),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-        ("TOPPADDING", (0, 0), (0, 0), 8),
-        ("BOTTOMPADDING", (0, -1), (-1, -1), 8),
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#CBD5E1")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (0, 0), 5),
+        ("BOTTOMPADDING", (0, -1), (-1, -1), 5),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
     ]))
 
@@ -872,10 +873,10 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     notice.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), BAND),
         ("BOX", (0, 0), (-1, -1), 0.5, TEAL),
-        ("LEFTPADDING", (0, 0), (-1, -1), 7),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 7),
-        ("TOPPADDING", (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
 
     address_lines = _receipt_address_lines(brand)
@@ -889,32 +890,33 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
 
     story_body = [
         Paragraph("OFFICIAL PAYMENT RECEIPT", styles["eyebrow"]),
-        Spacer(1, 4),
+        Spacer(1, 2),
         amount_block,
-        Spacer(1, 7),
+        Spacer(1, 4),
         policy_row,
-        Spacer(1, 7),
+        Spacer(1, 4),
         Paragraph("Transaction details", styles["section"]),
-        Spacer(1, 3),
+        Spacer(1, 2),
         detail_grid,
-        Spacer(1, 5),
+        Spacer(1, 3),
         notice,
-        Spacer(1, 6),
+        Spacer(1, 4),
         market,
     ]
     if sticker is not None:
         story_body.extend([
-            Spacer(1, 8),
+            Spacer(1, 4),
             sticker,
-            Spacer(1, 6),
+            Spacer(1, 3),
         ])
     else:
-        story_body.append(Spacer(1, 4))
+        story_body.append(Spacer(1, 2))
     story_body.extend([
-        HRFlowable(width="100%", thickness=0.5, color=LINE, spaceAfter=3),
+        HRFlowable(width="100%", thickness=0.5, color=LINE, spaceAfter=2),
         thank_you,
     ])
-    story = [KeepTogether(story_body)]
+    # No KeepTogether — avoids forcing a 2nd page when content is tight.
+    story = story_body
 
     buffer = BytesIO()
     top_margin = 1.12 * inch
