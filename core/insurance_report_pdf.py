@@ -551,18 +551,16 @@ def _closing_brand_strip(content_w: float, styles: dict) -> Table | None:
         except Exception:
             qr = None
         if qr:
-            right_inner = Table([[qr]], colWidths=[half])
-            right_inner.setStyle(TableStyle([
+            right = Table([[qr]], colWidths=[half])
+            right.setStyle(TableStyle([
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("BACKGROUND", (0, 0), (-1, -1), WHITE),
-                ("BOX", (0, 0), (-1, -1), 0.9, NAVY),
-                ("LEFTPADDING", (0, 0), (-1, -1), 4),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
             ]))
-            cells.append(right_inner)
+            cells.append(right)
 
     if not cells:
         return None
