@@ -2221,6 +2221,36 @@ class DailyPaymentTransaction(models.Model):
         default="",
         help_text="Policy number shown on the payment receipt.",
     )
+    coverage = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        help_text="Coverage type shown on the payment receipt (e.g. Liability, Owned).",
+    )
+    next_payment_due = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Next installment due date shown on the receipt.",
+    )
+    next_payment_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Next installment amount shown on the receipt.",
+    )
+    remaining_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Remaining balance shown on the receipt.",
+    )
+    remaining_payments = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of remaining payments shown on the receipt.",
+    )
     transaction_date = models.DateField(db_index=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     payment_type = models.CharField(max_length=30, choices=PaymentType.choices)

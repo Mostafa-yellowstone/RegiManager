@@ -7636,8 +7636,12 @@ def add_daily_payment(request):
             is_cleared=is_cleared,
             cleared_date=cleared_date,
         )
-        from .insurance_report_pdf import resolve_payment_policy_link
+        from .insurance_report_pdf import (
+            apply_daily_payment_receipt_fields,
+            resolve_payment_policy_link,
+        )
         resolve_payment_policy_link(payment, request.POST.get("policy_number", ""))
+        apply_daily_payment_receipt_fields(payment, request.POST)
         payment.save()
         messages.success(request, "Daily payment recorded.")
     except Exception as e:
@@ -7747,8 +7751,12 @@ def edit_daily_payment(request, transaction_id):
         tx.cleared_date = cleared_date if is_cleared else None
         tx.updated_by = request.user
         tx.updated_at = timezone.now()
-        from .insurance_report_pdf import resolve_payment_policy_link
+        from .insurance_report_pdf import (
+            apply_daily_payment_receipt_fields,
+            resolve_payment_policy_link,
+        )
         resolve_payment_policy_link(tx, request.POST.get("policy_number", ""))
+        apply_daily_payment_receipt_fields(tx, request.POST)
         tx.save()
         messages.success(request, "Daily payment updated.")
     except Exception as e:

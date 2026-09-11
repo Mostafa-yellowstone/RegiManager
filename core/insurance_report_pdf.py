@@ -386,25 +386,88 @@ def _receipt_amount_words(amount) -> str:
     return f"{dollar_words} {dollar_label} and {cent_words} {cent_label}"
 
 
+def apply_daily_payment_receipt_fields(payment: DailyPaymentTransaction, post) -> None:
+    """Copy receipt schedule fields from an add/edit payment form POST."""
+    from datetime import datetime as dt_parse
+
+    payment.coverage = (post.get("coverage") or "").strip()[:120]
+
+    due_raw = (post.get("next_payment_due") or "").strip()
+    if due_raw:
+        try:
+            payment.next_payment_due = dt_parse.strptime(due_raw, "%Y-%m-%d").date()
+        except ValueError:
+            payment.next_payment_due = None
+    else:
+        payment.next_payment_due = None
+
+    def _optional_decimal(key: str):
+        raw = (post.get(key) or "").strip()
+        if not raw:
+            return None
+        try:
+            return Decimal(raw)
+        except Exception:
+            return None
+
+    payment.next_payment_amount = _optional_decimal("next_payment_amount")
+    payment.remaining_amount = _optional_decimal("remaining_amount")
+
+    rem_raw = (post.get("remaining_payments") or "").strip()
+    if rem_raw:
+        try:
+            payment.remaining_payments = max(0, int(rem_raw))
+        except ValueError:
+            payment.remaining_payments = None
+    else:
+        payment.remaining_payments = None
+
+
 def _payment_schedule_info(payment: DailyPaymentTransaction) -> dict:
-    """Next due / remaining balance from the linked policy installment schedule."""
-    policy = _match_policy_for_payment(payment)
-    if not policy:
-        return {
-            "next_due_date": "—",
-            "next_due_amount": "—",
-            "remaining_amount": "—",
-        }
-    summary = summarize_insurance_schedule(policy)
-    unpaid = [r for r in summary["installments"] if not r.is_paid]
-    remaining = sum((r.total_due for r in unpaid), ZERO)
-    next_date = summary["next_due_date"]
-    next_amount = summary["next_due_amount"]
-    return {
-        "next_due_date": next_date.strftime("%b %d, %Y") if next_date else "—",
-        "next_due_amount": _money(next_amount) if next_amount is not None else "—",
-        "remaining_amount": _money(remaining) if unpaid else "$0.00",
+    """Next due / remaining balance — prefer values saved on the payment, else schedule."""
+    info = {
+        "next_due_date": "—",
+        "next_due_amount": "—",
+        "remaining_amount": "—",
+        "remaining_payments": "—",
     }
+    policy = _match_policy_for_payment(payment)
+    unpaid_count = None
+    if policy:
+        summary = summarize_insurance_schedule(policy)
+        unpaid = [r for r in summary["installments"] if not r.is_paid]
+        unpaid_count = len(unpaid)
+        remaining = sum((r.total_due for r in unpaid), ZERO)
+        next_date = summary["next_due_date"]
+        next_amount = summary["next_due_amount"]
+        info["next_due_date"] = next_date.strftime("%b %d, %Y") if next_date else "—"
+        info["next_due_amount"] = _money(next_amount) if next_amount is not None else "—"
+        info["remaining_amount"] = _money(remaining) if unpaid else "$0.00"
+        info["remaining_payments"] = str(unpaid_count)
+
+    if payment.next_payment_due:
+        info["next_due_date"] = payment.next_payment_due.strftime("%b %d, %Y")
+    if payment.next_payment_amount is not None:
+        info["next_due_amount"] = _money(payment.next_payment_amount)
+    if payment.remaining_amount is not None:
+        info["remaining_amount"] = _money(payment.remaining_amount)
+    if payment.remaining_payments is not None:
+        info["remaining_payments"] = str(payment.remaining_payments)
+    elif unpaid_count is None:
+        info["remaining_payments"] = "—"
+    return info
+
+
+def _receipt_address_lines(brand: dict) -> list[str]:
+    """Street address for payment receipt header/footer (two lines for Xpress)."""
+    name = (brand.get("name") or "").lower()
+    addr = (brand.get("address") or "").lower()
+    if "xpress" in name or "yonkers" in addr or not (brand.get("address") or "").strip():
+        return ["787 Yonkers Ave,", "Yonkers, NY, 10704"]
+    # Keep multi-line if branding already has newlines; else one line.
+    raw = (brand.get("address") or "").strip()
+    parts = [p.strip() for p in raw.replace("\r", "").split("\n") if p.strip()]
+    return parts or [raw]
 
 
 def _carrier_logo_path(filename: str) -> str | None:
@@ -454,42 +517,18 @@ def _payment_receipt_policy_info(payment: DailyPaymentTransaction) -> dict:
     policy = _match_policy_for_payment(payment)
     typed = (getattr(payment, "policy_number", "") or "").strip()
     number = typed or (policy.policy_number if policy else "") or "—"
-    if policy:
-        status = policy.get_status_display()
-        status_key = policy.status
-        coverage = ""
-        if policy.insurance_type:
-            coverage = policy.get_insurance_type_display()
-    else:
-        status = "Not linked"
-        status_key = ""
-        coverage = ""
+    coverage = (getattr(payment, "coverage", "") or "").strip()
+    if not coverage and policy and policy.insurance_type:
+        coverage = policy.get_insurance_type_display()
     return {
         "number": number,
-        "status": status,
-        "status_key": status_key,
         "coverage": coverage,
         "policy": policy,
     }
 
 
-def _receipt_status_colors(status_key: str):
-    mapping = {
-        InsurancePolicy.StatusChoices.ACTIVE: (colors.HexColor("#166534"), colors.HexColor("#DCFCE7"), "● ACTIVE"),
-        InsurancePolicy.StatusChoices.PENDING: (colors.HexColor("#92400E"), colors.HexColor("#FEF3C7"), "● PENDING"),
-        InsurancePolicy.StatusChoices.INACTIVE: (colors.HexColor("#9F1239"), colors.HexColor("#FFE4E6"), "● INACTIVE"),
-        InsurancePolicy.StatusChoices.REJECTED: (colors.HexColor("#9F1239"), colors.HexColor("#FFE4E6"), "● REJECTED"),
-    }
-    return mapping.get(status_key, (MUTED, SOFT, f"● {(status_key or 'UNKNOWN').upper()}"))
-
-
 def _policy_spotlight(policy_info: dict, content_w: float, styles: dict) -> Table:
-    """Eye-catching policy number + always-Active status badge for the receipt."""
-    # Receipt always presents Active — no status lookup on the printed copy.
-    status_fg = colors.HexColor("#166534")
-    status_bg = colors.HexColor("#DCFCE7")
-    status_label = "● ACTIVE"
-
+    """Full-width policy number card for the receipt (no status)."""
     number_style = ParagraphStyle(
         "rcpt_polnum",
         parent=styles["value"],
@@ -497,15 +536,6 @@ def _policy_spotlight(policy_info: dict, content_w: float, styles: dict) -> Tabl
         fontSize=13,
         textColor=NAVY,
         leading=15,
-        alignment=TA_CENTER,
-    )
-    status_style = ParagraphStyle(
-        "rcpt_polstat",
-        parent=styles["value"],
-        fontName="Helvetica-Bold",
-        fontSize=11,
-        textColor=status_fg,
-        leading=13,
         alignment=TA_CENTER,
     )
     tiny = ParagraphStyle(
@@ -523,7 +553,7 @@ def _policy_spotlight(policy_info: dict, content_w: float, styles: dict) -> Tabl
             [Paragraph("POLICY NUMBER", tiny)],
             [Paragraph(_safe(policy_info["number"]), number_style)],
         ],
-        colWidths=[content_w * 0.58],
+        colWidths=[content_w],
     )
     number_card.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#ECFEFF")),
@@ -538,37 +568,7 @@ def _policy_spotlight(policy_info: dict, content_w: float, styles: dict) -> Tabl
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
     ]))
-
-    status_card = Table(
-        [
-            [Paragraph("POLICY STATUS", tiny)],
-            [Paragraph(status_label, status_style)],
-        ],
-        colWidths=[content_w * 0.38],
-    )
-    status_card.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), status_bg),
-        ("BOX", (0, 0), (-1, -1), 1.4, status_fg),
-        ("LINEBELOW", (0, 0), (-1, 0), 0.6, status_fg),
-        ("TOPPADDING", (0, 0), (-1, 0), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
-        ("TOPPADDING", (0, 1), (-1, 1), 4),
-        ("BOTTOMPADDING", (0, 1), (-1, 1), 8),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-    ]))
-
-    row = Table([[number_card, status_card]], colWidths=[content_w * 0.60, content_w * 0.40])
-    row.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (0, 0), 6),
-        ("LEFTPADDING", (1, 0), (1, 0), 6),
-        ("RIGHTPADDING", (1, 0), (1, 0), 0),
-    ]))
-    return row
+    return number_card
 
 
 def _carrier_logo_row(content_w: float) -> Table | None:
@@ -747,9 +747,8 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
         ("Next payment due", schedule_info["next_due_date"]),
         ("Next payment amount", schedule_info["next_due_amount"]),
         ("Remaining amount", schedule_info["remaining_amount"]),
+        ("Remaining payments", schedule_info["remaining_payments"]),
     ]
-    if (payment.notes or "").strip():
-        detail_pairs.append(("Notes", payment.notes.strip()))
 
     detail_rows = []
     for i in range(0, len(detail_pairs), 2):
@@ -850,12 +849,13 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
         ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
 
-    contact_bits = [p for p in [brand.get("phone"), brand.get("email"), brand.get("address")] if p]
-    thank_you = Paragraph(
-        f"<b>Thank you for choosing {brand['name']}</b>"
-        + (f"<br/>{'  ·  '.join(contact_bits)}" if contact_bits else ""),
-        styles["footer"],
-    )
+    address_lines = _receipt_address_lines(brand)
+    contact_bits = [p for p in [brand.get("phone"), brand.get("email")] if p]
+    thank_parts = [f"<b>Thank you for choosing {brand['name']}</b>"]
+    thank_parts.extend(_safe(line) for line in address_lines)
+    if contact_bits:
+        thank_parts.append("  ·  ".join(contact_bits))
+    thank_you = Paragraph("<br/>".join(thank_parts), styles["footer"])
 
     story = [
         KeepTogether([
@@ -879,7 +879,7 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     ]
 
     buffer = BytesIO()
-    top_margin = 0.92 * inch
+    top_margin = 1.12 * inch
     bottom_margin = 0.42 * inch
     doc = BaseDocTemplate(
         buffer,
@@ -894,16 +894,17 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
 
     def _draw_chrome(canvas, doc_):
         canvas.saveState()
+        header_h = 0.92 * inch
         canvas.setFillColor(NAVY)
-        canvas.rect(0, page_h - 0.72 * inch, page_w, 0.72 * inch, fill=1, stroke=0)
+        canvas.rect(0, page_h - header_h, page_w, header_h, fill=1, stroke=0)
         canvas.setFillColor(TEAL)
-        canvas.rect(0, page_h - 0.76 * inch, page_w, 0.04 * inch, fill=1, stroke=0)
+        canvas.rect(0, page_h - header_h - 0.04 * inch, page_w, 0.04 * inch, fill=1, stroke=0)
         x = margin_x
         logo = brand.get("logo_path")
         if logo:
             try:
                 canvas.drawImage(
-                    logo, x, page_h - 0.64 * inch,
+                    logo, x, page_h - 0.78 * inch,
                     width=0.48 * inch, height=0.48 * inch,
                     preserveAspectRatio=True, mask="auto",
                 )
@@ -912,10 +913,15 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
                 pass
         canvas.setFillColor(WHITE)
         canvas.setFont("Helvetica-Bold", 11)
-        canvas.drawString(x, page_h - 0.32 * inch, brand["name"][:64])
+        canvas.drawString(x, page_h - 0.28 * inch, brand["name"][:64])
         canvas.setFont("Helvetica", 6.6)
-        contact = "  ·  ".join(p for p in [brand.get("address"), brand.get("phone"), brand.get("email")] if p)
-        canvas.drawString(x, page_h - 0.48 * inch, contact[:110])
+        line_y = page_h - 0.42 * inch
+        for line in address_lines:
+            canvas.drawString(x, line_y, line[:90])
+            line_y -= 0.11 * inch
+        phone_email = "  ·  ".join(p for p in [brand.get("phone"), brand.get("email")] if p)
+        if phone_email:
+            canvas.drawString(x, line_y, phone_email[:110])
         canvas.setFont("Helvetica-Bold", 9)
         canvas.drawRightString(page_w - margin_x, page_h - 0.30 * inch, "PAYMENT RECEIPT")
         canvas.setFont("Helvetica", 7)
