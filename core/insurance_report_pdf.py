@@ -346,14 +346,23 @@ RECEIPT_PRODUCTS = (
 # Featured markets shown as logos on the receipt (order preserved).
 RECEIPT_CARRIER_LOGOS = (
     ("geico.png", "GEICO"),
-    ("hartford.png", "The Hartford"),
-    ("american_transit.png", "American Transit"),
     ("national_general.png", "National General"),
-    ("progressive.png", "Progressive"),
-    ("travelers.png", "Travelers"),
-    ("liberty_mutual.png", "Liberty Mutual"),
-    ("state_farm.png", "State Farm"),
+    ("maya.png", "Maya Assurance"),
+    ("lancer.png", "Lancer Insurance"),
+    ("hereford.png", "Hereford"),
+    ("utica.png", "Utica National"),
+    ("american_transit.png", "American Transit"),
+    ("attune.png", "Attune"),
 )
+
+
+def _receipt_amount_words(amount) -> str:
+    """Check-style amount in words, including cents (e.g. Two Hundred Fifty and 00/100 dollars)."""
+    value = Decimal(str(amount or 0)).quantize(Decimal("0.01"))
+    dollars = int(value)
+    cents = int((value - Decimal(dollars)) * 100)
+    words = dollars_to_words(dollars)
+    return f"{words} and {cents:02d}/100 dollars"
 
 
 def _carrier_logo_path(filename: str) -> str | None:
@@ -521,25 +530,25 @@ def _policy_spotlight(policy_info: dict, content_w: float, styles: dict) -> Tabl
 
 def _carrier_logo_row(content_w: float) -> Table | None:
     cells = []
-    logo_w = (content_w - 18) / 4
-    logo_h = 0.38 * inch
+    logo_w = (content_w - 20) / 4
+    logo_h = 0.52 * inch
     for filename, _label in RECEIPT_CARRIER_LOGOS[:8]:
         path = _carrier_logo_path(filename)
         if not path:
             continue
         try:
-            img = RLImage(path, width=logo_w - 4, height=logo_h, kind="proportional")
+            img = RLImage(path, width=logo_w - 8, height=logo_h, kind="proportional")
             img.hAlign = "CENTER"
             cell = Table([[img]], colWidths=[logo_w])
             cell.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, -1), WHITE),
-                ("BOX", (0, 0), (-1, -1), 0.4, LINE),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("TOPPADDING", (0, 0), (-1, -1), 3),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                ("LEFTPADDING", (0, 0), (-1, -1), 2),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
             ]))
             cells.append(cell)
         except Exception:
@@ -551,14 +560,14 @@ def _carrier_logo_row(content_w: float) -> Table | None:
         chunk = cells[i:i + 4]
         while len(chunk) < 4:
             chunk.append("")
-        row = Table([chunk], colWidths=[logo_w + 4] * 4)
+        row = Table([chunk], colWidths=[logo_w + 5] * 4)
         row.setStyle(TableStyle([
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 1),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 1),
-            ("TOPPADDING", (0, 0), (-1, -1), 1),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+            ("LEFTPADDING", (0, 0), (-1, -1), 1.5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 1.5),
+            ("TOPPADDING", (0, 0), (-1, -1), 1.5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
         ]))
         rows.append([row])
     wrap = Table(rows, colWidths=[content_w])
@@ -577,15 +586,19 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     styles = {
         "eyebrow": ParagraphStyle(
             "rcpt_eye", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=7.2, textColor=TEAL, leading=9, alignment=TA_CENTER,
+            fontSize=7.4, textColor=TEAL, leading=9, alignment=TA_CENTER,
         ),
         "amount": ParagraphStyle(
             "rcpt_amt", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=22, textColor=NAVY, leading=25, alignment=TA_CENTER,
+            fontSize=26, textColor=NAVY, leading=30, alignment=TA_CENTER,
         ),
         "words": ParagraphStyle(
             "rcpt_words", parent=styles_base["Normal"], fontName="Helvetica-Oblique",
-            fontSize=7.4, textColor=MUTED, leading=9, alignment=TA_CENTER,
+            fontSize=9, textColor=INK, leading=11.5, alignment=TA_CENTER,
+        ),
+        "words_label": ParagraphStyle(
+            "rcpt_words_lbl", parent=styles_base["Normal"], fontName="Helvetica",
+            fontSize=6.4, textColor=MUTED, leading=8, alignment=TA_CENTER,
         ),
         "label": ParagraphStyle(
             "rcpt_lbl", parent=styles_base["Normal"], fontName="Helvetica",
@@ -630,21 +643,34 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     recorded = ""
     if payment.recorded_by_id:
         recorded = payment.recorded_by.get_full_name() or payment.recorded_by.username
-    words = dollars_to_words(payment.amount)
+    words = _receipt_amount_words(payment.amount)
 
-    amount_block = Table(
-        [[
-            Paragraph("AMOUNT RECEIVED", styles["eyebrow"]),
-            Paragraph(_money(payment.amount), styles["amount"]),
-            Paragraph(f"{words} dollars", styles["words"]),
-        ]],
-        colWidths=[content_w],
+    # Hero amount: number + words underneath (check-style)
+    amount_inner = Table(
+        [
+            [Paragraph("AMOUNT PAID", styles["eyebrow"])],
+            [Paragraph(_money(payment.amount), styles["amount"])],
+            [HRFlowable(width="42%", thickness=1.2, color=TEAL, spaceBefore=2, spaceAfter=4, hAlign="CENTER")],
+            [Paragraph("Amount in words", styles["words_label"])],
+            [Paragraph(words, styles["words"])],
+        ],
+        colWidths=[content_w - 16],
     )
+    amount_inner.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 1),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+        ("TOPPADDING", (0, 0), (0, 0), 2),
+        ("BOTTOMPADDING", (0, -1), (-1, -1), 2),
+    ]))
+    amount_block = Table([[amount_inner]], colWidths=[content_w])
     amount_block.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), SOFT),
-        ("BOX", (0, 0), (-1, -1), 1.1, NAVY),
-        ("TOPPADDING", (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
+        ("BOX", (0, 0), (-1, -1), 1.6, NAVY),
+        ("LINEABOVE", (0, 0), (-1, 0), 5, TEAL),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
         ("RIGHTPADDING", (0, 0), (-1, -1), 8),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
@@ -716,7 +742,7 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     logo_row = _carrier_logo_row(content_w)
     market_rows = [
         [Paragraph("Protect more of what matters", styles["market_h"])],
-        [Paragraph("Home · Business · Taxi · Auto Commercial · Auto Personal", styles["market_sub"])],
+        [Paragraph("Home Owners · Business · Taxi · Auto Commercial · Auto Personal", styles["market_sub"])],
         [Spacer(1, 3)],
         [product_row],
     ]
@@ -773,11 +799,11 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
             Paragraph("Transaction details", styles["section"]),
             Spacer(1, 3),
             detail_grid,
-            Spacer(1, 6),
-            notice,
-            Spacer(1, 6),
-            market,
             Spacer(1, 5),
+            notice,
+            Spacer(1, 5),
+            market,
+            Spacer(1, 4),
             HRFlowable(width="100%", thickness=0.5, color=LINE, spaceAfter=3),
             thank_you,
         ])
