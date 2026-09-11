@@ -900,7 +900,8 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
         canvas.setFillColor(TEAL)
         canvas.rect(0, page_h - header_h - 0.04 * inch, page_w, 0.04 * inch, fill=1, stroke=0)
 
-        x = margin_x
+        # Slight right inset so the logo/text block sits off the left edge.
+        x = margin_x + 0.10 * inch
         logo = brand.get("logo_path")
         if logo:
             try:
@@ -929,18 +930,20 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
                     mask="auto",
                     anchor="w",
                 )
-                x += logo_w + 0.05 * inch
+                x += logo_w + 0.02 * inch
             except Exception:
                 pass
 
-        # Brand block sits immediately beside the logo (not page-centered).
-        text_block_h = 0.52 * inch
-        text_top = page_h - ((header_h - text_block_h) / 2.0) - 0.02 * inch
+        # Match brand-name top with "PAYMENT RECEIPT" (larger font sits a hair lower).
+        title_y = page_h - 0.30 * inch
+        name_size = 12
+        receipt_label_size = 9
+        name_y = title_y - ((name_size - receipt_label_size) * 0.72)
         canvas.setFillColor(WHITE)
-        canvas.setFont("Helvetica-Bold", 12)
-        canvas.drawString(x, text_top - 0.02 * inch, brand["name"][:64])
+        canvas.setFont("Helvetica-Bold", name_size)
+        canvas.drawString(x, name_y, brand["name"][:64])
         canvas.setFont("Helvetica", 7)
-        line_y = text_top - 0.16 * inch
+        line_y = name_y - 0.14 * inch
         for line in address_lines:
             canvas.drawString(x, line_y, line[:90])
             line_y -= 0.115 * inch
@@ -948,13 +951,13 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
         if phone_email:
             canvas.drawString(x, line_y, phone_email[:110])
 
-        canvas.setFont("Helvetica-Bold", 9)
-        canvas.drawRightString(page_w - margin_x, page_h - 0.30 * inch, "PAYMENT RECEIPT")
+        canvas.setFont("Helvetica-Bold", receipt_label_size)
+        canvas.drawRightString(page_w - margin_x, title_y, "PAYMENT RECEIPT")
         canvas.setFont("Helvetica", 7)
-        canvas.drawRightString(page_w - margin_x, page_h - 0.46 * inch, f"PMT-{payment.id:06d}")
+        canvas.drawRightString(page_w - margin_x, title_y - 0.16 * inch, f"PMT-{payment.id:06d}")
         canvas.drawRightString(
             page_w - margin_x,
-            page_h - 0.58 * inch,
+            title_y - 0.28 * inch,
             payment.transaction_date.strftime("%b %d, %Y"),
         )
         canvas.restoreState()
