@@ -47,6 +47,8 @@ from .psb_receipt_pdf import dollars_to_words
 
 NAVY = colors.HexColor("#0B3A6E")
 TEAL = colors.HexColor("#0F766E")
+GOLD = colors.HexColor("#C9A227")
+GOLD_SOFT = colors.HexColor("#FBF6E8")
 INK = colors.HexColor("#0F172A")
 MUTED = colors.HexColor("#64748B")
 LINE = colors.HexColor("#E2E8F0")
@@ -54,6 +56,10 @@ SOFT = colors.HexColor("#F8FAFC")
 BAND = colors.HexColor("#EEF4FA")
 WHITE = colors.white
 ZERO = Decimal("0.00")
+
+RECEIPT_SEAL_FILENAME = "receipt_protection_seal.png"
+RECEIPT_SEAL_TAGLINE = "Full Spectrum Protection"
+RECEIPT_SEAL_SUB = "Auto  ·  Home  ·  Business  ·  Taxi  ·  Marine"
 
 
 def _money(value) -> str:
@@ -479,6 +485,124 @@ def _carrier_logo_path(filename: str) -> str | None:
     return None
 
 
+def _receipt_seal_path() -> str | None:
+    from django.conf import settings
+
+    path = Path(settings.BASE_DIR) / "static" / "core" / "img" / RECEIPT_SEAL_FILENAME
+    if path.is_file() and path.stat().st_size > 0:
+        return str(path)
+    return None
+
+
+def _protection_seal_block(content_w: float, styles: dict) -> Table | None:
+    """Navy/gold client-facing protection seal — compact prestige banner."""
+    path = _receipt_seal_path()
+    if not path:
+        return None
+
+    seal_size = 0.98 * inch
+    try:
+        img = RLImage(path, width=seal_size, height=seal_size, kind="proportional")
+        img.hAlign = "CENTER"
+    except Exception:
+        return None
+
+    eyebrow = ParagraphStyle(
+        "rcpt_seal_eye",
+        parent=styles["eyebrow"],
+        fontName="Helvetica-Bold",
+        fontSize=6.4,
+        textColor=GOLD,
+        leading=8,
+        alignment=TA_LEFT,
+    )
+    tagline = ParagraphStyle(
+        "rcpt_seal_tag",
+        parent=styles["section"],
+        fontName="Helvetica-Bold",
+        fontSize=11,
+        textColor=NAVY,
+        leading=13,
+        alignment=TA_LEFT,
+    )
+    sub = ParagraphStyle(
+        "rcpt_seal_sub",
+        parent=styles["footer"],
+        fontName="Helvetica",
+        fontSize=7,
+        textColor=MUTED,
+        leading=9,
+        alignment=TA_LEFT,
+    )
+
+    text_col = Table(
+        [
+            [Paragraph("OFFICIAL AGENCY SEAL", eyebrow)],
+            [Spacer(1, 3)],
+            [Paragraph(RECEIPT_SEAL_TAGLINE, tagline)],
+            [Spacer(1, 2)],
+            [Paragraph(RECEIPT_SEAL_SUB, sub)],
+            [Spacer(1, 3)],
+            [Paragraph(
+                "Your coverage portfolio, protected under one trusted agency.",
+                ParagraphStyle(
+                    "rcpt_seal_blurb",
+                    parent=styles["notice"],
+                    fontName="Helvetica-Oblique",
+                    fontSize=6.6,
+                    textColor=INK,
+                    leading=8.4,
+                    alignment=TA_LEFT,
+                ),
+            )],
+        ],
+        colWidths=[content_w - seal_size - 28],
+    )
+    text_col.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+
+    seal_cell = Table([[img]], colWidths=[seal_size + 6], rowHeights=[seal_size + 4])
+    seal_cell.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("BACKGROUND", (0, 0), (-1, -1), WHITE),
+        ("BOX", (0, 0), (-1, -1), 1.2, GOLD),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+    ]))
+
+    row = Table(
+        [[seal_cell, text_col]],
+        colWidths=[seal_size + 14, content_w - seal_size - 34],
+    )
+    row.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (0, 0), 0),
+        ("RIGHTPADDING", (0, 0), (0, 0), 10),
+        ("LEFTPADDING", (1, 0), (1, 0), 4),
+        ("RIGHTPADDING", (1, 0), (1, 0), 0),
+    ]))
+
+    wrap = Table([[row]], colWidths=[content_w])
+    wrap.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), GOLD_SOFT),
+        ("BOX", (0, 0), (-1, -1), 1.6, GOLD),
+        ("LINEABOVE", (0, 0), (-1, 0), 3.2, NAVY),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+    ]))
+    return wrap
+
+
 def _match_policy_for_payment(payment: DailyPaymentTransaction, policy_number: str = ""):
     """Prefer linked policy, then exact policy number, then best client/company match."""
     if payment.insurance_policy_id:
@@ -736,6 +860,7 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     ]))
 
     policy_row = _policy_spotlight(policy_info, content_w, styles)
+    seal_block = _protection_seal_block(content_w, styles)
 
     detail_pairs = [
         ("Date", payment.transaction_date.strftime("%b %d, %Y")),
@@ -857,26 +982,29 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
         thank_parts.append("  ·  ".join(contact_bits))
     thank_you = Paragraph("<br/>".join(thank_parts), styles["footer"])
 
-    story = [
-        KeepTogether([
-            Paragraph("OFFICIAL PAYMENT RECEIPT", styles["eyebrow"]),
-            Spacer(1, 4),
-            amount_block,
-            Spacer(1, 7),
-            policy_row,
-            Spacer(1, 7),
-            Paragraph("Transaction details", styles["section"]),
-            Spacer(1, 3),
-            detail_grid,
-            Spacer(1, 5),
-            notice,
-            Spacer(1, 6),
-            market,
-            Spacer(1, 4),
-            HRFlowable(width="100%", thickness=0.5, color=LINE, spaceAfter=3),
-            thank_you,
-        ])
+    story_parts = [
+        Paragraph("OFFICIAL PAYMENT RECEIPT", styles["eyebrow"]),
+        Spacer(1, 3),
+        amount_block,
+        Spacer(1, 6),
+        policy_row,
     ]
+    if seal_block is not None:
+        story_parts.extend([Spacer(1, 6), seal_block])
+    story_parts.extend([
+        Spacer(1, 6),
+        Paragraph("Transaction details", styles["section"]),
+        Spacer(1, 3),
+        detail_grid,
+        Spacer(1, 4),
+        notice,
+        Spacer(1, 5),
+        market,
+        Spacer(1, 3),
+        HRFlowable(width="100%", thickness=0.5, color=LINE, spaceAfter=3),
+        thank_you,
+    ])
+    story = [KeepTogether(story_parts)]
 
     buffer = BytesIO()
     top_margin = 1.12 * inch
