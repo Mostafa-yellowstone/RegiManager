@@ -370,6 +370,7 @@ RECEIPT_CARRIER_LOGOS = (
 
 RECEIPT_PRODUCT_TITLE = "Protect What Matters Most"
 RECEIPT_CARRIERS_TITLE = "Carriers We Proudly Work With"
+RECEIPT_SLOGAN = "We are the driving force behind the insurance industry"
 
 
 def _receipt_amount_words(amount) -> str:
@@ -488,25 +489,96 @@ def _receipt_sticker_path() -> str | None:
     return None
 
 
-def _protection_sticker_flowable(content_w: float):
-    """Bare centered sticker image — no card, box, or section chrome."""
-    path = _receipt_sticker_path()
-    if not path:
-        return None
-    # Keep small so the full receipt stays on one page.
-    sticker_w = min(content_w * 0.38, 2.15 * inch)
-    try:
-        from reportlab.lib.utils import ImageReader
+def _receipt_qr_path() -> str | None:
+    from django.conf import settings
 
-        reader = ImageReader(path)
-        iw, ih = reader.getSize()
-        aspect = (ih / float(iw)) if iw else 0.72
-        sticker_h = sticker_w * aspect
-        img = RLImage(path, width=sticker_w, height=sticker_h, kind="proportional")
-        img.hAlign = "CENTER"
-        return img
-    except Exception:
+    path = Path(settings.BASE_DIR) / "static" / "core" / "img" / "receipt_contact_qr.png"
+    if path.is_file() and path.stat().st_size > 0:
+        return str(path)
+    return None
+
+
+def _scaled_image(path: str, max_w: float, max_h: float | None = None):
+    """Load a proportional ReportLab image capped to max width/height."""
+    from reportlab.lib.utils import ImageReader
+
+    reader = ImageReader(path)
+    iw, ih = reader.getSize()
+    if not iw or not ih:
         return None
+    aspect = ih / float(iw)
+    w = max_w
+    h = w * aspect
+    if max_h is not None and h > max_h:
+        h = max_h
+        w = h / aspect
+    img = RLImage(path, width=w, height=h, kind="proportional")
+    img.hAlign = "CENTER"
+    return img
+
+
+def _closing_brand_strip(content_w: float, styles: dict) -> Table | None:
+    """Sticker + contact QR side-by-side — light closing strip, not a heavy card."""
+    sticker_path = _receipt_sticker_path()
+    qr_path = _receipt_qr_path()
+    if not sticker_path and not qr_path:
+        return None
+
+    col_gap = 10
+    half = (content_w - col_gap) / 2
+    cells = []
+
+    if sticker_path:
+        try:
+            sticker = _scaled_image(sticker_path, max_w=min(half * 0.92, 2.0 * inch), max_h=1.35 * inch)
+        except Exception:
+            sticker = None
+        if sticker:
+            left = Table([[sticker]], colWidths=[half])
+            left.setStyle(TableStyle([
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ]))
+            cells.append(left)
+
+    if qr_path:
+        try:
+            qr = _scaled_image(qr_path, max_w=min(half * 0.78, 1.42 * inch), max_h=1.42 * inch)
+        except Exception:
+            qr = None
+        if qr:
+            right_inner = Table([[qr]], colWidths=[half])
+            right_inner.setStyle(TableStyle([
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("BACKGROUND", (0, 0), (-1, -1), WHITE),
+                ("BOX", (0, 0), (-1, -1), 0.9, NAVY),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]))
+            cells.append(right_inner)
+
+    if not cells:
+        return None
+    if len(cells) == 1:
+        row = Table([[cells[0]]], colWidths=[content_w])
+    else:
+        row = Table([cells], colWidths=[half, half])
+    row.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    return row
 
 
 def _match_policy_for_payment(payment: DailyPaymentTransaction, policy_number: str = ""):
@@ -723,6 +795,10 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
             "rcpt_ft", parent=styles_base["Normal"], fontName="Helvetica",
             fontSize=6, textColor=MUTED, leading=7.6, alignment=TA_CENTER,
         ),
+        "slogan": ParagraphStyle(
+            "rcpt_slogan", parent=styles_base["Normal"], fontName="Helvetica-Oblique",
+            fontSize=7.2, textColor=NAVY, leading=9, alignment=TA_CENTER,
+        ),
     }
 
     page_w, page_h = letter
@@ -880,13 +956,12 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     ]))
 
     address_lines = _receipt_address_lines(brand)
-    contact_bits = [p for p in [brand.get("phone"), brand.get("email")] if p]
-    thank_parts = [f"<b>Thank you for choosing {brand['name']}</b>"]
-    thank_parts.extend(_safe(line) for line in address_lines)
-    if contact_bits:
-        thank_parts.append("  ·  ".join(contact_bits))
-    thank_you = Paragraph("<br/>".join(thank_parts), styles["footer"])
-    sticker = _protection_sticker_flowable(content_w)
+    thank_you = Paragraph(
+        f"<b>Thank you for choosing {brand['name']}</b>",
+        styles["footer"],
+    )
+    slogan = Paragraph(f"<i>{RECEIPT_SLOGAN}</i>", styles["slogan"])
+    closing = _closing_brand_strip(content_w, styles)
 
     story_body = [
         Paragraph("OFFICIAL PAYMENT RECEIPT", styles["eyebrow"]),
@@ -903,10 +978,10 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
         Spacer(1, 4),
         market,
     ]
-    if sticker is not None:
+    if closing is not None:
         story_body.extend([
             Spacer(1, 4),
-            sticker,
+            closing,
             Spacer(1, 3),
         ])
     else:
@@ -914,6 +989,8 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     story_body.extend([
         HRFlowable(width="100%", thickness=0.5, color=LINE, spaceAfter=2),
         thank_you,
+        Spacer(1, 2),
+        slogan,
     ])
     # No KeepTogether — avoids forcing a 2nd page when content is tight.
     story = story_body
