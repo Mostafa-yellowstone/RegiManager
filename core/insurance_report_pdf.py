@@ -880,7 +880,7 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
 
     buffer = BytesIO()
     top_margin = 1.12 * inch
-    bottom_margin = 0.42 * inch
+    bottom_margin = 0.28 * inch
     doc = BaseDocTemplate(
         buffer,
         pagesize=letter,
@@ -899,29 +899,53 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
         canvas.rect(0, page_h - header_h, page_w, header_h, fill=1, stroke=0)
         canvas.setFillColor(TEAL)
         canvas.rect(0, page_h - header_h - 0.04 * inch, page_w, 0.04 * inch, fill=1, stroke=0)
+
         x = margin_x
         logo = brand.get("logo_path")
         if logo:
             try:
+                from reportlab.lib.utils import ImageReader
+
+                logo_pad = 0.045 * inch
+                max_h = header_h - (logo_pad * 2)
+                max_w = 1.6 * inch
+                reader = ImageReader(logo)
+                iw, ih = reader.getSize()
+                aspect = (iw / float(ih)) if ih else 1.0
+                logo_h = max_h
+                logo_w = logo_h * aspect
+                if logo_w > max_w:
+                    logo_w = max_w
+                    logo_h = logo_w / aspect if aspect else max_h
+                logo_y = page_h - header_h + ((header_h - logo_h) / 2.0)
                 canvas.drawImage(
-                    logo, x, page_h - 0.78 * inch,
-                    width=0.48 * inch, height=0.48 * inch,
-                    preserveAspectRatio=True, mask="auto",
+                    logo,
+                    x,
+                    logo_y,
+                    width=logo_w,
+                    height=logo_h,
+                    preserveAspectRatio=True,
+                    mask="auto",
                 )
-                x += 0.58 * inch
+                x += logo_w + 0.16 * inch
             except Exception:
                 pass
+
+        # Center brand text with the full-height logo.
+        text_block_h = 0.52 * inch
+        text_top = page_h - ((header_h - text_block_h) / 2.0) - 0.02 * inch
         canvas.setFillColor(WHITE)
-        canvas.setFont("Helvetica-Bold", 11)
-        canvas.drawString(x, page_h - 0.28 * inch, brand["name"][:64])
-        canvas.setFont("Helvetica", 6.6)
-        line_y = page_h - 0.42 * inch
+        canvas.setFont("Helvetica-Bold", 12)
+        canvas.drawString(x, text_top - 0.02 * inch, brand["name"][:64])
+        canvas.setFont("Helvetica", 7)
+        line_y = text_top - 0.16 * inch
         for line in address_lines:
             canvas.drawString(x, line_y, line[:90])
-            line_y -= 0.11 * inch
+            line_y -= 0.115 * inch
         phone_email = "  ·  ".join(p for p in [brand.get("phone"), brand.get("email")] if p)
         if phone_email:
             canvas.drawString(x, line_y, phone_email[:110])
+
         canvas.setFont("Helvetica-Bold", 9)
         canvas.drawRightString(page_w - margin_x, page_h - 0.30 * inch, "PAYMENT RECEIPT")
         canvas.setFont("Helvetica", 7)
@@ -931,16 +955,6 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
             page_h - 0.58 * inch,
             payment.transaction_date.strftime("%b %d, %Y"),
         )
-        canvas.setFillColor(SOFT)
-        canvas.rect(0, 0, page_w, 0.34 * inch, fill=1, stroke=0)
-        canvas.setStrokeColor(LINE)
-        canvas.setLineWidth(0.4)
-        canvas.line(margin_x, 0.34 * inch, page_w - margin_x, 0.34 * inch)
-        canvas.setFillColor(MUTED)
-        canvas.setFont("Helvetica", 6)
-        stamp = timezone.localtime().strftime("%b %d, %Y  %I:%M %p")
-        canvas.drawString(margin_x, 0.14 * inch, f"Prepared {stamp} by {prepared_by}")
-        canvas.drawRightString(page_w - margin_x, 0.14 * inch, "Page 1 of 1")
         canvas.restoreState()
 
     frame = Frame(
