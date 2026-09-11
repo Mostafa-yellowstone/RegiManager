@@ -29,6 +29,7 @@ from reportlab.platypus import (
 
 from .daily_payments import PAYMENT_METHOD_META, summarize_daily_payments
 from .insurance_commissions import build_adjusted_unearned_map, policy_unearned_commission, refund_total
+from .insurance_policy_schedule import summarize_insurance_schedule
 from .insurance_company_license import company_license_status
 from .insurance_ledger_pdf import agency_branding
 from .insurance_quote_pipeline_models import InsuranceQuoteLead
@@ -344,8 +345,20 @@ RECEIPT_PRODUCTS = (
 )
 
 # Featured markets shown as logos on the receipt (order preserved).
+# Newer partners first (after GEICO), then existing markets.
 RECEIPT_CARRIER_LOGOS = (
     ("geico.png", "GEICO"),
+    ("allstate.png", "Allstate"),
+    ("nycm.png", "NYCM"),
+    ("21st_century.png", "21st Century"),
+    ("progressive.png", "Progressive"),
+    ("plymouth_rock.png", "Plymouth Rock"),
+    ("tapco.png", "Tapco"),
+    ("next.png", "Next"),
+    ("foremost.png", "Foremost"),
+    ("travelers.png", "Travelers"),
+    ("biberk.png", "biBERK"),
+    ("hagerty.png", "Hagerty"),
     ("national_general.png", "National General"),
     ("maya.png", "Maya Assurance"),
     ("lancer.png", "Lancer Insurance"),
@@ -354,6 +367,9 @@ RECEIPT_CARRIER_LOGOS = (
     ("american_transit.png", "American Transit"),
     ("attune.png", "Attune"),
 )
+
+RECEIPT_PRODUCT_TITLE = "Protect What Matters Most"
+RECEIPT_CARRIERS_TITLE = "Carriers We Proudly Work With"
 
 
 def _receipt_amount_words(amount) -> str:
@@ -368,6 +384,27 @@ def _receipt_amount_words(amount) -> str:
     cent_words = dollars_to_words(cents)
     cent_label = "Cent" if cents == 1 else "Cents"
     return f"{dollar_words} {dollar_label} and {cent_words} {cent_label}"
+
+
+def _payment_schedule_info(payment: DailyPaymentTransaction) -> dict:
+    """Next due / remaining balance from the linked policy installment schedule."""
+    policy = _match_policy_for_payment(payment)
+    if not policy:
+        return {
+            "next_due_date": "—",
+            "next_due_amount": "—",
+            "remaining_amount": "—",
+        }
+    summary = summarize_insurance_schedule(policy)
+    unpaid = [r for r in summary["installments"] if not r.is_paid]
+    remaining = sum((r.total_due for r in unpaid), ZERO)
+    next_date = summary["next_due_date"]
+    next_amount = summary["next_due_amount"]
+    return {
+        "next_due_date": next_date.strftime("%b %d, %Y") if next_date else "—",
+        "next_due_amount": _money(next_amount) if next_amount is not None else "—",
+        "remaining_amount": _money(remaining) if unpaid else "$0.00",
+    }
 
 
 def _carrier_logo_path(filename: str) -> str | None:
@@ -535,21 +572,22 @@ def _policy_spotlight(policy_info: dict, content_w: float, styles: dict) -> Tabl
 
 
 def _carrier_logo_row(content_w: float) -> Table | None:
-    """Even 4×2 logo grid with equal card sizes."""
+    """Even logo grid with equal card sizes — all featured carriers."""
     logos: list[str | None] = []
-    for filename, _label in RECEIPT_CARRIER_LOGOS[:8]:
+    for filename, _label in RECEIPT_CARRIER_LOGOS:
         path = _carrier_logo_path(filename)
         if path:
             logos.append(path)
     if not logos:
         return None
 
-    cols = 4
-    gap = 6
+    # 5 columns keeps a large set readable on one portrait page.
+    cols = 5
+    gap = 4
     card_w = (content_w - (gap * (cols - 1))) / cols
-    card_h = 0.62 * inch
-    img_w = card_w - 12
-    img_h = card_h - 10
+    card_h = 0.46 * inch
+    img_w = card_w - 8
+    img_h = card_h - 8
 
     def _card(path: str | None):
         if not path:
@@ -565,13 +603,13 @@ def _carrier_logo_row(content_w: float) -> Table | None:
             cell = Table([[img]], colWidths=[card_w], rowHeights=[card_h])
             cell.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, -1), WHITE),
-                ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor("#CBD5E1")),
+                ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#CBD5E1")),
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                ("TOPPADDING", (0, 0), (-1, -1), 5),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 3),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
             ]))
             return cell
         except Exception:
@@ -590,8 +628,8 @@ def _carrier_logo_row(content_w: float) -> Table | None:
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("LEFTPADDING", (0, 0), (-1, -1), gap / 2),
             ("RIGHTPADDING", (0, 0), (-1, -1), gap / 2),
-            ("TOPPADDING", (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ]))
         grid_rows.append([row])
 
@@ -663,6 +701,7 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     payer = payment.client.name if payment.client_id else "—"
     carrier = payment.insurance_company.name if payment.insurance_company_id else "—"
     policy_info = _payment_receipt_policy_info(payment)
+    schedule_info = _payment_schedule_info(payment)
     words = _receipt_amount_words(payment.amount)
 
     # Hero amount: number + words underneath (check-style)
@@ -699,13 +738,15 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     policy_row = _policy_spotlight(policy_info, content_w, styles)
 
     detail_pairs = [
-        ("Receipt #", f"PMT-{payment.id:06d}"),
         ("Date", payment.transaction_date.strftime("%b %d, %Y")),
         ("Payer / insured", payer),
         ("Insurance company", carrier),
-        ("Coverage", policy_info["coverage"] or payment.get_payment_type_display()),
+        ("Coverage", policy_info["coverage"] or "—"),
         ("Payment type", payment.get_payment_type_display()),
         ("Method", payment.get_payment_method_display()),
+        ("Next payment due", schedule_info["next_due_date"]),
+        ("Next payment amount", schedule_info["next_due_amount"]),
+        ("Remaining amount", schedule_info["remaining_amount"]),
     ]
     if (payment.notes or "").strip():
         detail_pairs.append(("Notes", payment.notes.strip()))
@@ -772,10 +813,12 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
 
     logo_row = _carrier_logo_row(content_w)
     market_rows = [
+        [Paragraph(RECEIPT_PRODUCT_TITLE, styles["section_c"])],
+        [Spacer(1, 5)],
         [product_row],
         [Spacer(1, 8)],
-        [Paragraph("Markets we place with", styles["section_c"])],
-        [Spacer(1, 6)],
+        [Paragraph(RECEIPT_CARRIERS_TITLE, styles["section_c"])],
+        [Spacer(1, 5)],
     ]
     if logo_row is not None:
         market_rows.append([logo_row])
@@ -783,10 +826,10 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     market.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
         ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor("#CBD5E1")),
-        ("LEFTPADDING", (0, 0), (-1, -1), 10),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-        ("TOPPADDING", (0, 0), (0, 0), 10),
-        ("BOTTOMPADDING", (0, -1), (-1, -1), 10),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (0, 0), 8),
+        ("BOTTOMPADDING", (0, -1), (-1, -1), 8),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
     ]))
 
@@ -873,8 +916,6 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
         canvas.setFont("Helvetica", 6.6)
         contact = "  ·  ".join(p for p in [brand.get("address"), brand.get("phone"), brand.get("email")] if p)
         canvas.drawString(x, page_h - 0.48 * inch, contact[:110])
-        if brand.get("license"):
-            canvas.drawString(x, page_h - 0.60 * inch, f"License {brand['license']}"[:60])
         canvas.setFont("Helvetica-Bold", 9)
         canvas.drawRightString(page_w - margin_x, page_h - 0.30 * inch, "PAYMENT RECEIPT")
         canvas.setFont("Helvetica", 7)
