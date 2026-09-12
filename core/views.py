@@ -832,7 +832,26 @@ def client_detail(request, client_id):
         client.insurance_policies.select_related("insurance_company", "added_by").order_by("-created_at")
     )
     enrich_policies_for_display(insurance_policies)
-    show_insurance_section = bool(insurance_policies) or (client.source or "").lower() == "insurance"
+
+    from .daily_payments import enrich_daily_transactions
+    from .models import DailyPaymentTransaction
+
+    insurance_payments_qs = (
+        DailyPaymentTransaction.objects.filter(client=client)
+        .select_related("insurance_company", "recorded_by", "insurance_policy")
+        .order_by("-transaction_date", "-created_at")
+    )
+    insurance_payments_total = insurance_payments_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    insurance_payments_paginator = Paginator(insurance_payments_qs, 8)
+    insurance_payments = insurance_payments_paginator.get_page(request.GET.get("ins_pay_page"))
+    enrich_daily_transactions(list(insurance_payments.object_list))
+
+    show_insurance_section = (
+        bool(insurance_policies)
+        or insurance_payments_paginator.count > 0
+        or (client.source or "").lower() == "insurance"
+    )
+    show_insurance_payments = show_insurance_section
 
     from .motorclub_crm import (
         enrich_membership,
@@ -855,7 +874,10 @@ def client_detail(request, client_id):
         "records": records,
         "documents": all_docs,
         "insurance_policies": insurance_policies,
+        "insurance_payments": insurance_payments,
+        "insurance_payments_total": insurance_payments_total,
         "show_insurance_section": show_insurance_section,
+        "show_insurance_payments": show_insurance_payments,
         "motorclub_memberships": motorclub_memberships,
         "active_motorclub": active_motorclub,
         "show_motorclub_card": show_motorclub_card,

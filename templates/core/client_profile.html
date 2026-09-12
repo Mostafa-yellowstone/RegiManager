@@ -314,11 +314,11 @@
                         {% if notes.has_other_pages %}
                         <div style="display:flex; justify-content:flex-end; align-items:center; gap:0.5rem; margin-top: 0.75rem;">
                             {% if notes.has_previous %}
-                            <a href="?notes_page={{ notes.previous_page_number }}&tx_page={{ records.number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Prev</a>
+                            <a href="?notes_page={{ notes.previous_page_number }}&tx_page={{ records.number }}&ins_pay_page={{ insurance_payments.number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Prev</a>
                             {% endif %}
                             <span class="cpp-pagination-label">Page {{ notes.number }} of {{ notes.paginator.num_pages }}</span>
                             {% if notes.has_next %}
-                            <a href="?notes_page={{ notes.next_page_number }}&tx_page={{ records.number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Next</a>
+                            <a href="?notes_page={{ notes.next_page_number }}&tx_page={{ records.number }}&ins_pay_page={{ insurance_payments.number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Next</a>
                             {% endif %}
                         </div>
                         {% endif %}
@@ -399,15 +399,94 @@
                     {% if records.has_other_pages %}
                     <div class="cpp-panel-footer">
                         {% if records.has_previous %}
-                        <a href="?notes_page={{ notes.number }}&tx_page={{ records.previous_page_number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Prev</a>
+                        <a href="?notes_page={{ notes.number }}&tx_page={{ records.previous_page_number }}&ins_pay_page={{ insurance_payments.number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Prev</a>
                         {% endif %}
                         <span class="cpp-pagination-label">Page {{ records.number }} of {{ records.paginator.num_pages }}</span>
                         {% if records.has_next %}
-                        <a href="?notes_page={{ notes.number }}&tx_page={{ records.next_page_number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Next</a>
+                        <a href="?notes_page={{ notes.number }}&tx_page={{ records.next_page_number }}&ins_pay_page={{ insurance_payments.number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Next</a>
                         {% endif %}
                     </div>
                     {% endif %}
                 </article>
+
+                {% if show_insurance_payments %}
+                <!-- Insurance Payment History -->
+                <article class="dashboard-panel" style="margin: 0;">
+                    <div class="cpp-panel-header">
+                        <h3 class="cpp-panel-title">Insurance Payment History</h3>
+                        {% if insurance_payments_total %}
+                        <span style="font-size: 0.85rem; font-weight: 700; color: #0f766e;">
+                            Total received: ${{ insurance_payments_total|floatformat:2 }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="insurancePaymentTable">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Company</th>
+                                    <th>Type</th>
+                                    <th>Method</th>
+                                    <th>Policy #</th>
+                                    <th>Amount</th>
+                                    <th>Agent</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tx in insurance_payments %}
+                                <tr>
+                                    <td>{{ tx.transaction_date|date:"M d, Y" }}</td>
+                                    <td>
+                                        {% if tx.insurance_company %}
+                                        <strong class="cpp-tx-service">{{ tx.insurance_company.name }}</strong>
+                                        {% else %}
+                                        <span style="color: #94a3b8;">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ tx.get_payment_type_display }}</td>
+                                    <td>{{ tx.get_payment_method_display }}</td>
+                                    <td>
+                                        {% if tx.policy_number %}
+                                        <code class="cpp-receipt-code">{{ tx.policy_number }}</code>
+                                        {% elif tx.insurance_policy %}
+                                        <code class="cpp-receipt-code">{{ tx.insurance_policy.policy_number }}</code>
+                                        {% else %}
+                                        <span style="color: #94a3b8;">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><strong style="color: #0f766e;">${{ tx.amount|floatformat:2 }}</strong></td>
+                                    <td>
+                                        <span style="background: {{ tx.agent_bg_color }}; color: {{ tx.agent_text_color }}; padding: 4px 10px; border-radius: 8px; font-weight: 700; font-size: 0.78rem; white-space: nowrap;">{{ tx.agent_name }}</span>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'export-insurance-payment-receipt-pdf' tx.id %}" target="_blank"
+                                            class="btn btn-sm btn-secondary portal-receipt-btn"
+                                            style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" title="View Receipt">Receipt</a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr class="empty-row">
+                                    <td colspan="8" class="empty-state">No insurance payments recorded yet.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if insurance_payments.has_other_pages %}
+                    <div class="cpp-panel-footer">
+                        {% if insurance_payments.has_previous %}
+                        <a href="?notes_page={{ notes.number }}&tx_page={{ records.number }}&ins_pay_page={{ insurance_payments.previous_page_number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Prev</a>
+                        {% endif %}
+                        <span class="cpp-pagination-label">Page {{ insurance_payments.number }} of {{ insurance_payments.paginator.num_pages }}</span>
+                        {% if insurance_payments.has_next %}
+                        <a href="?notes_page={{ notes.number }}&tx_page={{ records.number }}&ins_pay_page={{ insurance_payments.next_page_number }}" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem;">Next</a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </article>
+                {% endif %}
             </section>
 
             <aside style="display: flex; flex-direction: column; gap: 1.5rem;">
