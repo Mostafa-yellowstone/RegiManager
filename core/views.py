@@ -983,6 +983,77 @@ def update_client_app_access(request, client_id):
 
 @login_required
 @require_POST
+def test_client_app_login(request, client_id):
+    """Staff: verify PIN against this client using the same logic as the mobile API."""
+    client = get_object_or_404(Client.objects.select_related("organization"), id=client_id)
+    if not _has_active_org_access(request.user, client.organization_id):
+        deny_access("Access denied.")
+
+    from .client_app_auth import find_client_for_login, normalize_email, normalize_phone
+
+    pin = "".join(ch for ch in (request.POST.get("test_pin") or "") if ch.isdigit())
+    use_email = (request.POST.get("use_email") or "").strip().lower() in ("1", "true", "on", "yes")
+
+    if not pin:
+        messages.error(request, "Enter a test PIN to verify.")
+        return redirect("client-detail", client_id=client.id)
+
+    org = client.organization
+    if use_email:
+        if not client.email:
+            messages.error(request, "This client has no email on file to test with.")
+            return redirect("client-detail", client_id=client.id)
+        matched = find_client_for_login(org, email=client.email, require_enabled=False)
+        identifier = f"email {normalize_email(client.email)}"
+    else:
+        if not client.phone_number:
+            messages.error(request, "This client has no phone on file to test with.")
+            return redirect("client-detail", client_id=client.id)
+        matched = find_client_for_login(org, phone=client.phone_number, require_enabled=False)
+        identifier = f"phone {normalize_phone(client.phone_number)}"
+
+    if not matched:
+        messages.error(
+            request,
+            f"Lookup failed for {identifier}. The app will not find this client.",
+        )
+        return redirect("client-detail", client_id=client.id)
+
+    if matched.id != client.id:
+        messages.error(
+            request,
+            f"Lookup for {identifier} matched a DIFFERENT client "
+            f"(#{matched.id} {matched.full_display_name}), not this profile (#{client.id}). "
+            f"Fix duplicate phone/email, or sign in with a unique value for this client.",
+        )
+        return redirect("client-detail", client_id=client.id)
+
+    if not client.app_access_enabled:
+        messages.error(request, "App access is disabled on this client.")
+        return redirect("client-detail", client_id=client.id)
+
+    if not client.app_pin_hash:
+        messages.error(request, "No PIN is stored on this client. Save a new PIN first.")
+        return redirect("client-detail", client_id=client.id)
+
+    if client.check_app_pin(pin):
+        messages.success(
+            request,
+            f"PIN OK for this client via {identifier}. "
+            f"Use portal code + that phone/email + this PIN in the app.",
+        )
+    else:
+        messages.error(
+            request,
+            "PIN does NOT match the hash stored for this client. "
+            "Enter a new PIN + confirm below and Save again, then re-test here.",
+        )
+
+    return redirect("client-detail", client_id=client.id)
+
+
+@login_required
+@require_POST
 def add_client_note(request, client_id):
     client = get_object_or_404(Client, id=client_id)
     if not _has_active_org_access(request.user, client.organization_id):

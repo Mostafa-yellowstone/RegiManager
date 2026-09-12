@@ -604,6 +604,19 @@
                                 <button type="submit" class="btn btn-primary btn-sm" style="min-height:auto;padding:0.45rem 1rem;">Save app access</button>
                             </div>
                         </form>
+                        <hr style="border:none;border-top:1px solid #e2e8f0;margin:1.1rem 0;">
+                        <form method="post" action="{% url 'test-client-app-login' client.id %}" style="display:flex;flex-direction:column;gap:0.65rem;">
+                            {% csrf_token %}
+                            <div style="font-size:0.8rem;font-weight:800;color:#0f172a;">Test PIN (same checks as the mobile app)</div>
+                            <input type="text" name="test_pin" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="off" placeholder="Type the PIN to verify" style="width:100%;max-width:220px;padding:0.55rem 0.75rem;border:1px solid #cbd5e1;border-radius:8px;font-size:0.95rem;">
+                            <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:#475569;">
+                                <input type="checkbox" name="use_email" value="1">
+                                Test with email instead of phone
+                            </label>
+                            <div>
+                                <button type="submit" class="btn btn-secondary btn-sm" style="min-height:auto;padding:0.45rem 1rem;">Test PIN now</button>
+                            </div>
+                        </form>
                     </div>
                 </section>
 

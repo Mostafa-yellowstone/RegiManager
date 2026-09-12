@@ -53,14 +53,32 @@ def find_client_for_login(
                 Q(phone_number__icontains=tail)
                 | Q(phone_number=phone)
                 | Q(phone_number=phone_norm)
-            )[:50]
+            ).order_by("-app_access_enabled", "-id")[:50]
         )
-        for client in candidates:
-            if normalize_phone(client.phone_number) == phone_norm:
-                return client
-        return None
+        matches = [c for c in candidates if normalize_phone(c.phone_number) == phone_norm]
+        if not matches:
+            return None
+        # Prefer an enabled client that already has a PIN.
+        matches.sort(
+            key=lambda c: (bool(c.app_access_enabled), bool(c.app_pin_hash), c.id),
+            reverse=True,
+        )
+        return matches[0]
     if email_norm:
-        return qs.filter(email__iexact=email_norm).first()
+        from django.db.models.functions import Lower, Trim
+
+        matches = list(
+            qs.annotate(_email_norm=Lower(Trim("email")))
+            .filter(_email_norm=email_norm)
+            .order_by("-app_access_enabled", "-id")[:10]
+        )
+        if matches:
+            matches.sort(
+                key=lambda c: (bool(c.app_access_enabled), bool(c.app_pin_hash), c.id),
+                reverse=True,
+            )
+            return matches[0]
+        return None
     return None
 
 
