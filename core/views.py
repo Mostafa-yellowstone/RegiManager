@@ -786,7 +786,10 @@ def add_client(request):
 
 @login_required
 def client_detail(request, client_id):
-    client = get_object_or_404(Client.objects.select_related("referral"), id=client_id)
+    client = get_object_or_404(
+        Client.objects.select_related("referral", "organization"),
+        id=client_id,
+    )
     if not _has_active_org_access(request.user, client.organization_id):
         deny_access("Access denied.")
     
@@ -889,6 +892,72 @@ def client_detail(request, client_id):
         "can_delete_receipt": can_delete_receipt,
         "can_delete_vehicle": can_delete_vehicle,
     })
+
+
+@login_required
+@require_POST
+def update_client_app_access(request, client_id):
+    """Staff: enable/disable client wallet app access and set/reset PIN."""
+    client = get_object_or_404(Client, id=client_id)
+    if not _has_active_org_access(request.user, client.organization_id):
+        deny_access("Access denied.")
+
+    enabled = (request.POST.get("app_access_enabled") or "").strip().lower() in (
+        "1",
+        "true",
+        "on",
+        "yes",
+    )
+    pin = (request.POST.get("app_pin") or "").strip()
+    clear_pin = (request.POST.get("clear_pin") or "").strip().lower() in ("1", "true", "on", "yes")
+    revoke_sessions = (request.POST.get("revoke_sessions") or "").strip().lower() in (
+        "1",
+        "true",
+        "on",
+        "yes",
+    )
+
+    if pin and (not pin.isdigit() or not (4 <= len(pin) <= 8)):
+        messages.error(request, "PIN must be 4–8 digits.")
+        return redirect("client-detail", client_id=client.id)
+
+    client.app_access_enabled = enabled
+    update_fields = ["app_access_enabled"]
+
+    if clear_pin:
+        client.app_pin_hash = ""
+        client.app_access_enabled = False
+        update_fields = ["app_access_enabled", "app_pin_hash"]
+    elif pin:
+        client.set_app_pin(pin)
+        update_fields.append("app_pin_hash")
+
+    if (enabled or client.app_access_enabled) and not client.app_pin_hash and not clear_pin:
+        messages.error(request, "Set a PIN before enabling app access.")
+        return redirect("client-detail", client_id=client.id)
+
+    client.save(update_fields=update_fields)
+
+    if revoke_sessions or clear_pin or not client.app_access_enabled:
+        from django.utils import timezone
+        from .models import ClientAppSession
+
+        ClientAppSession.objects.filter(client=client, revoked_at__isnull=True).update(
+            revoked_at=timezone.now()
+        )
+
+    if clear_pin:
+        messages.success(request, "Client app PIN cleared and access disabled.")
+    elif pin and client.app_access_enabled:
+        messages.success(request, "Client app access enabled with new PIN.")
+    elif pin:
+        messages.success(request, "Client app PIN updated.")
+    elif client.app_access_enabled:
+        messages.success(request, "Client app access enabled.")
+    else:
+        messages.success(request, "Client app access disabled. Active sessions revoked.")
+
+    return redirect("client-detail", client_id=client.id)
 
 
 @login_required

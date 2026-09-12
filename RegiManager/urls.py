@@ -107,6 +107,7 @@ from core.views import (
     add_vehicle,
     vehicle_detail,
     edit_client,
+    update_client_app_access,
     edit_service,
     edit_vehicle,
     delete_vehicle,
@@ -285,6 +286,18 @@ from core.email_marketing_views import (
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from core.api import ClientViewSet, VehicleViewSet, ServiceRecordViewSet
 from core.companion_api import CompanionLoginView, CompanionLogoutView, CompanionMeView
+from core.client_app_api import (
+    ClientDocumentFileView,
+    ClientDocumentsView,
+    ClientHomeView,
+    ClientIdCardsView,
+    ClientLoginView,
+    ClientLogoutView,
+    ClientMeView,
+    ClientPoliciesView,
+    ClientPolicyDetailView,
+    ClientPolicyScheduleView,
+)
 from core.agent_api import (
     AgentActivityView,
     AgentAttendanceView,
@@ -363,6 +376,21 @@ urlpatterns = [
     path('api/auth/login/', CompanionLoginView.as_view(), name='api-auth-login'),
     path('api/auth/logout/', CompanionLogoutView.as_view(), name='api-auth-logout'),
     path('api/auth/me/', CompanionMeView.as_view(), name='api-auth-me'),
+    # Client mobile wallet (end customers — not staff companion)
+    path('api/client/auth/login/', ClientLoginView.as_view(), name='api-client-login'),
+    path('api/client/auth/logout/', ClientLogoutView.as_view(), name='api-client-logout'),
+    path('api/client/me/', ClientMeView.as_view(), name='api-client-me'),
+    path('api/client/home/', ClientHomeView.as_view(), name='api-client-home'),
+    path('api/client/policies/', ClientPoliciesView.as_view(), name='api-client-policies'),
+    path('api/client/policies/<int:policy_id>/', ClientPolicyDetailView.as_view(), name='api-client-policy-detail'),
+    path('api/client/policies/<int:policy_id>/schedule/', ClientPolicyScheduleView.as_view(), name='api-client-policy-schedule'),
+    path('api/client/id-cards/', ClientIdCardsView.as_view(), name='api-client-id-cards'),
+    path('api/client/documents/', ClientDocumentsView.as_view(), name='api-client-documents'),
+    path(
+        'api/client/documents/<str:kind>/<int:document_id>/file/',
+        ClientDocumentFileView.as_view(),
+        name='api-client-document-file',
+    ),
     path('api/owner/overview/', OwnerOverviewView.as_view(), name='api-owner-overview'),
     path('api/owner/finance/summary/', OwnerFinanceSummaryView.as_view(), name='api-owner-finance-summary'),
     path('api/owner/finance/records/', OwnerFinanceRecordsView.as_view(), name='api-owner-finance-records'),
@@ -466,6 +494,11 @@ urlpatterns = [
     path("dashboard/vehicles/<int:vehicle_id>/edit/", edit_vehicle, name="edit-vehicle"),
     path("dashboard/vehicles/<int:vehicle_id>/delete/", delete_vehicle, name="delete-vehicle"),
     path("dashboard/clients/<int:client_id>/edit/", edit_client, name="edit-client"),
+    path(
+        "dashboard/clients/<int:client_id>/app-access/",
+        update_client_app_access,
+        name="update-client-app-access",
+    ),
     path("dashboard/vehicles/<int:vehicle_id>/start-process/", start_process, name="start-process"),
     path("dashboard/service/<int:service_id>/edit/", edit_service, name="edit-service"),
     path("dashboard/vehicle/<int:vehicle_id>/upload/", upload_document_ajax_vehicle, name="upload-document-ajax-vehicle"),

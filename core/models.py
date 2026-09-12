@@ -413,6 +413,18 @@ class Client(SoftDeleteModel):
     
     # Uploaded Documents
     mv82_file = models.FileField(upload_to="client_docs/mv82/", blank=True, null=True)
+
+    # Client mobile wallet app (PIN login — no SMS)
+    app_access_enabled = models.BooleanField(
+        default=False,
+        help_text="Allow this client to sign in to the mobile wallet app.",
+    )
+    app_pin_hash = models.CharField(
+        max_length=128,
+        blank=True,
+        default="",
+        help_text="Hashed PIN for the client mobile app. Never store plaintext.",
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -487,6 +499,46 @@ class Client(SoftDeleteModel):
             models.Index(fields=["organization", "-created_at"]),
             models.Index(fields=["organization", "last_name", "first_name"]),
         ]
+
+    def set_app_pin(self, raw_pin: str) -> None:
+        from django.contrib.auth.hashers import make_password
+
+        pin = (raw_pin or "").strip()
+        self.app_pin_hash = make_password(pin) if pin else ""
+
+    def check_app_pin(self, raw_pin: str) -> bool:
+        from django.contrib.auth.hashers import check_password
+
+        if not self.app_pin_hash or not (raw_pin or "").strip():
+            return False
+        return check_password((raw_pin or "").strip(), self.app_pin_hash)
+
+
+class ClientAppSession(models.Model):
+    """Opaque session token for the client mobile wallet app."""
+
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name="app_sessions",
+    )
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    device_label = models.CharField(max_length=120, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(auto_now=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Client app session"
+        verbose_name_plural = "Client app sessions"
+
+    def __str__(self):
+        return f"ClientAppSession({self.client_id}, …{self.token[-6:]})"
+
+    @property
+    def is_active(self) -> bool:
+        return self.revoked_at is None
 
 
 class Vehicle(SoftDeleteModel):
