@@ -150,6 +150,26 @@ export function fetchDocuments() {
   return apiFetch('/api/client/documents/');
 }
 
+export function fetchPayments() {
+  return apiFetch('/api/client/payments/');
+}
+
+export function fetchVehicles() {
+  return apiFetch('/api/client/vehicles/');
+}
+
+export function fetchReceipts() {
+  return apiFetch('/api/client/receipts/');
+}
+
+export function fetchUpcoming(days = 90) {
+  return apiFetch(`/api/client/upcoming/?days=${days}`);
+}
+
+export function fetchAlerts() {
+  return apiFetch('/api/client/alerts/');
+}
+
 export async function fetchDocumentBlob(kind: string, id: number | string): Promise<Blob> {
   const token = await getStoredToken();
   const res = await fetch(`${API_BASE_URL}/api/client/documents/${kind}/${id}/file/`, {

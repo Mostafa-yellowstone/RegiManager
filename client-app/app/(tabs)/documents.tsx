@@ -76,7 +76,7 @@ export default function DocumentsScreen() {
       <View style={styles.headerBox}>
         <Text style={styles.headerTitle}>Document Vault</Text>
         <Text style={styles.headerSubtitle}>
-          {rows.length} verified document{rows.length === 1 ? '' : 's'} & certificates stored
+          All insurance and DMV files uploaded for your account ({rows.length})
         </Text>
       </View>
 

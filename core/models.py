@@ -2318,6 +2318,13 @@ class DailyPaymentTransaction(models.Model):
         blank=True,
         help_text="Optional credit card fee; shown on the receipt only when greater than zero.",
     )
+    broker_fee = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Optional broker fee; shown on the receipt only when greater than zero.",
+    )
     transaction_date = models.DateField(db_index=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     payment_type = models.CharField(max_length=30, choices=PaymentType.choices)

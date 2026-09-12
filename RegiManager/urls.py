@@ -288,6 +288,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 from core.api import ClientViewSet, VehicleViewSet, ServiceRecordViewSet
 from core.companion_api import CompanionLoginView, CompanionLogoutView, CompanionMeView
 from core.client_app_api import (
+    ClientAlertsView,
     ClientDocumentFileView,
     ClientDocumentsView,
     ClientHomeView,
@@ -295,9 +296,13 @@ from core.client_app_api import (
     ClientLoginView,
     ClientLogoutView,
     ClientMeView,
+    ClientPaymentsView,
     ClientPoliciesView,
     ClientPolicyDetailView,
     ClientPolicyScheduleView,
+    ClientReceiptsView,
+    ClientUpcomingView,
+    ClientVehiclesView,
 )
 from core.agent_api import (
     AgentActivityView,
@@ -392,6 +397,11 @@ urlpatterns = [
         ClientDocumentFileView.as_view(),
         name='api-client-document-file',
     ),
+    path('api/client/payments/', ClientPaymentsView.as_view(), name='api-client-payments'),
+    path('api/client/vehicles/', ClientVehiclesView.as_view(), name='api-client-vehicles'),
+    path('api/client/receipts/', ClientReceiptsView.as_view(), name='api-client-receipts'),
+    path('api/client/upcoming/', ClientUpcomingView.as_view(), name='api-client-upcoming'),
+    path('api/client/alerts/', ClientAlertsView.as_view(), name='api-client-alerts'),
     path('api/owner/overview/', OwnerOverviewView.as_view(), name='api-owner-overview'),
     path('api/owner/finance/summary/', OwnerFinanceSummaryView.as_view(), name='api-owner-finance-summary'),
     path('api/owner/finance/records/', OwnerFinanceRecordsView.as_view(), name='api-owner-finance-records'),

@@ -46,7 +46,7 @@ export default function IdCardsScreen() {
     setError('');
     setOpeningId(doc.id);
     try {
-      await openClientDocument('insurance', doc.id, doc.title || 'ID Card');
+      await openClientDocument(doc.kind || 'insurance', doc.id, doc.title || 'ID Card');
     } catch (err: any) {
       setError(err instanceof ApiError ? err.message : err?.message || 'Could not open ID card');
     } finally {
