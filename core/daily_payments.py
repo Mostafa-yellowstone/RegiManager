@@ -2,9 +2,9 @@
 
 from decimal import Decimal
 
-from django.db.models import Sum
-
 from .models import DailyPaymentTransaction
+
+ZERO = Decimal("0.00")
 
 PAYMENT_METHOD_META = {
     "cash": {
@@ -53,6 +53,43 @@ VALID_PAYMENT_METHODS = {choice.value for choice in DailyPaymentTransaction.Paym
 VALID_PAYMENT_TYPES = {choice.value for choice in DailyPaymentTransaction.PaymentType}
 
 
+def payment_fee_breakdown(payment: DailyPaymentTransaction) -> dict:
+    """Base amount + Section 2119 / broker / CC fees — matches receipt grand total."""
+    base = Decimal(str(payment.amount or 0)).quantize(Decimal("0.01"))
+    section = ZERO
+    if payment.payment_type in (
+        DailyPaymentTransaction.PaymentType.NEW_BUSINESS,
+        DailyPaymentTransaction.PaymentType.RENEWAL,
+    ):
+        raw = getattr(payment, "section_2119", None)
+        if raw is not None and raw > 0:
+            section = Decimal(str(raw)).quantize(Decimal("0.01"))
+    broker_fee = ZERO
+    raw_broker = getattr(payment, "broker_fee", None)
+    if raw_broker is not None and raw_broker > 0:
+        broker_fee = Decimal(str(raw_broker)).quantize(Decimal("0.01"))
+    cc_fee = ZERO
+    raw_cc = getattr(payment, "credit_card_fee", None)
+    if raw_cc is not None and raw_cc > 0:
+        cc_fee = Decimal(str(raw_cc)).quantize(Decimal("0.01"))
+    return {
+        "base": base,
+        "section_2119": section,
+        "broker_fee": broker_fee,
+        "credit_card_fee": cc_fee,
+        "total": base + section + broker_fee + cc_fee,
+        "has_section_2119": section > 0,
+        "has_broker_fee": broker_fee > 0,
+        "has_credit_card_fee": cc_fee > 0,
+        "has_fees": section > 0 or broker_fee > 0 or cc_fee > 0,
+    }
+
+
+def payment_grand_total(payment: DailyPaymentTransaction) -> Decimal:
+    """CRM / receipt display total for a daily payment."""
+    return payment_fee_breakdown(payment)["total"]
+
+
 def bucket_payment_method(payment_method: str) -> str | None:
     """Map a stored payment method onto a summary-card bucket."""
     if payment_method in PAYMENT_METHOD_META:
@@ -68,12 +105,12 @@ def agent_colors(username):
 
 
 def summarize_daily_payments(transactions):
-    """Build method totals and grand total from a transaction queryset/list."""
+    """Build method totals and grand total using receipt grand totals (amount + fees)."""
     totals = {method: Decimal("0.00") for method in PAYMENT_METHOD_META}
     for tx in transactions:
         bucket = bucket_payment_method(tx.payment_method)
         if bucket:
-            totals[bucket] = totals.get(bucket, Decimal("0.00")) + tx.amount
+            totals[bucket] = totals.get(bucket, Decimal("0.00")) + payment_grand_total(tx)
 
     method_cards = []
     for method, meta in PAYMENT_METHOD_META.items():
@@ -91,20 +128,25 @@ def summarize_daily_payments(transactions):
 
 
 def compute_payable_total(organization):
-    """Sum of all uncleared daily payments owed to the bank (all days)."""
-    total = (
-        DailyPaymentTransaction.objects.filter(
-            organization=organization,
-            is_cleared=False,
-        ).aggregate(total=Sum("amount"))["total"]
+    """Sum of uncleared daily payments (grand totals) owed to the bank."""
+    qs = DailyPaymentTransaction.objects.filter(
+        organization=organization,
+        is_cleared=False,
     )
-    return total or Decimal("0.00")
+    return sum((payment_grand_total(tx) for tx in qs.iterator()), ZERO)
+
+
+def sum_payment_grand_totals(queryset) -> Decimal:
+    return sum((payment_grand_total(tx) for tx in queryset.iterator()), ZERO)
 
 
 def enrich_daily_transactions(transactions):
-    """Attach agent display colors to transaction objects."""
+    """Attach agent display colors and receipt grand total to transaction objects."""
     enriched = []
     for tx in transactions:
+        fees = payment_fee_breakdown(tx)
+        tx.display_total = fees["total"]
+        tx.fee_breakdown = fees
         if tx.recorded_by:
             bg, text = agent_colors(tx.recorded_by.username)
             tx.agent_bg_color = bg

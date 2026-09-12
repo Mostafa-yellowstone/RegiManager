@@ -389,34 +389,10 @@ def _receipt_amount_words(amount) -> str:
 
 def _payment_fee_breakdown(payment: DailyPaymentTransaction) -> dict:
     """Payment amount plus optional Section 2119 / broker / credit-card fees and grand total."""
-    base = Decimal(str(payment.amount or 0)).quantize(Decimal("0.01"))
-    section = ZERO
-    if payment.payment_type in (
-        DailyPaymentTransaction.PaymentType.NEW_BUSINESS,
-        DailyPaymentTransaction.PaymentType.RENEWAL,
-    ):
-        raw = getattr(payment, "section_2119", None)
-        if raw is not None and raw > 0:
-            section = Decimal(str(raw)).quantize(Decimal("0.01"))
-    broker_fee = ZERO
-    raw_broker = getattr(payment, "broker_fee", None)
-    if raw_broker is not None and raw_broker > 0:
-        broker_fee = Decimal(str(raw_broker)).quantize(Decimal("0.01"))
-    cc_fee = ZERO
-    raw_cc = getattr(payment, "credit_card_fee", None)
-    if raw_cc is not None and raw_cc > 0:
-        cc_fee = Decimal(str(raw_cc)).quantize(Decimal("0.01"))
-    return {
-        "base": base,
-        "section_2119": section,
-        "broker_fee": broker_fee,
-        "credit_card_fee": cc_fee,
-        "total": base + section + broker_fee + cc_fee,
-        "has_section_2119": section > 0,
-        "has_broker_fee": broker_fee > 0,
-        "has_credit_card_fee": cc_fee > 0,
-        "has_fees": section > 0 or broker_fee > 0 or cc_fee > 0,
-    }
+    from .daily_payments import payment_fee_breakdown
+
+    return payment_fee_breakdown(payment)
+
 
 
 def apply_daily_payment_receipt_fields(payment: DailyPaymentTransaction, post) -> None:

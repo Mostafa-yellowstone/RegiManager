@@ -230,6 +230,7 @@
         <tr class="dpt-data-row{% if tx.is_cleared %} dpt-row-cleared{% endif %}"
             data-tx-id="{{ tx.id }}"
             data-amount="{{ tx.amount }}"
+            data-display-total="{{ tx.display_total }}"
             data-client-name="{{ tx.client.name|escapejs }}"
             data-company-id="{% if tx.insurance_company_id %}{{ tx.insurance_company_id }}{% endif %}"
             data-payment-type="{{ tx.payment_type }}"
@@ -260,7 +261,14 @@
           </td>
           <td><span style="font-size: 0.78rem; font-weight: 700; color: #334155;">{{ tx.get_payment_type_display }}</span></td>
           <td><span style="font-size: 0.78rem; font-weight: 700; color: #475569;">{{ tx.get_payment_method_display }}</span></td>
-          <td style="text-align: right; font-weight: 800; color: #0f172a;">${{ tx.amount|floatformat:2 }}</td>
+          <td style="text-align: right; font-weight: 800; color: #0f172a;">
+            ${{ tx.display_total|floatformat:2 }}
+            {% if tx.fee_breakdown.has_fees %}
+            <div style="font-size:0.68rem;font-weight:600;color:#64748b;margin-top:2px;">
+              base ${{ tx.fee_breakdown.base|floatformat:2 }}{% if tx.fee_breakdown.has_section_2119 %} + 2119 ${{ tx.fee_breakdown.section_2119|floatformat:2 }}{% endif %}{% if tx.fee_breakdown.has_broker_fee %} + broker ${{ tx.fee_breakdown.broker_fee|floatformat:2 }}{% endif %}{% if tx.fee_breakdown.has_credit_card_fee %} + CC ${{ tx.fee_breakdown.credit_card_fee|floatformat:2 }}{% endif %}
+            </div>
+            {% endif %}
+          </td>
           <td class="dpt-notes-cell" title="{{ tx.notes|default:'' }}">
             {% if tx.notes %}
               {{ tx.notes|truncatechars:80 }}
@@ -726,7 +734,7 @@ function toggleDailyClear(txId, checkbox) {
   const dateInput = row.querySelector('.dpt-clear-date');
   const wasCleared = row.classList.contains('dpt-row-cleared');
   const isCleared = checkbox.checked;
-  const txAmount = parseFloat(row.dataset.amount || '0') || 0;
+  const txAmount = parseFloat(row.dataset.displayTotal || row.dataset.amount || '0') || 0;
   let clearedDate = '';
 
   if (isCleared) {

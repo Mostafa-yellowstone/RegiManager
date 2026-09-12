@@ -533,7 +533,7 @@
                                         <span style="color: #94a3b8;">—</span>
                                         {% endif %}
                                     </td>
-                                    <td><strong style="color: #0f766e;">${{ tx.amount|floatformat:2 }}</strong></td>
+                                    <td><strong style="color: #0f766e;">${{ tx.display_total|default:tx.amount|floatformat:2 }}</strong></td>
                                     <td>
                                         <span style="background: {{ tx.agent_bg_color }}; color: {{ tx.agent_text_color }}; padding: 4px 10px; border-radius: 8px; font-weight: 700; font-size: 0.78rem; white-space: nowrap;">{{ tx.agent_name }}</span>
                                     </td>

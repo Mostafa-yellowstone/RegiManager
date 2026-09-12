@@ -836,7 +836,7 @@ def client_detail(request, client_id):
     )
     enrich_policies_for_display(insurance_policies)
 
-    from .daily_payments import enrich_daily_transactions
+    from .daily_payments import enrich_daily_transactions, sum_payment_grand_totals
     from .models import DailyPaymentTransaction
 
     insurance_payments_qs = (
@@ -844,7 +844,7 @@ def client_detail(request, client_id):
         .select_related("insurance_company", "recorded_by", "insurance_policy")
         .order_by("-transaction_date", "-created_at")
     )
-    insurance_payments_total = insurance_payments_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    insurance_payments_total = sum_payment_grand_totals(insurance_payments_qs)
     insurance_payments_paginator = Paginator(insurance_payments_qs, 8)
     insurance_payments = insurance_payments_paginator.get_page(request.GET.get("ins_pay_page"))
     enrich_daily_transactions(list(insurance_payments.object_list))
@@ -6558,6 +6558,7 @@ def inventory_detail(request, inventory_id):
             summarize_daily_payments,
             enrich_daily_transactions,
             compute_payable_total,
+            sum_payment_grand_totals,
         )
 
         daily_date_str = request.GET.get("daily_date", "").strip()
@@ -6608,13 +6609,12 @@ def inventory_detail(request, inventory_id):
         daily_method_cards, daily_grand_total = summarize_daily_payments(daily_transactions)
         daily_payable_total = compute_payable_total(active_org)
         today_local = timezone.localdate()
-        mtd_collections = (
+        mtd_collections = sum_payment_grand_totals(
             DailyPaymentTransaction.objects.filter(
                 organization=active_org,
                 transaction_date__gte=today_local.replace(day=1),
                 transaction_date__lte=today_local,
-            ).aggregate(t=Sum("amount"))["t"]
-            or Decimal("0.00")
+            )
         )
 
         daily_available_dates = list(

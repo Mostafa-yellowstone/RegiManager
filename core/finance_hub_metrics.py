@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from django.db.models import Sum
 
-from .daily_payments import PAYMENT_METHOD_META, bucket_payment_method
+from .daily_payments import PAYMENT_METHOD_META, bucket_payment_method, payment_grand_total
 from .models import DailyPaymentTransaction
 
 CARD_METHODS = frozenset({
@@ -117,7 +117,7 @@ def build_insurance_payment_cards_for_range(organization_ids, from_date, to_date
     for tx in daily_txs.iterator():
         bucket = bucket_payment_method(tx.payment_method)
         if bucket:
-            totals[bucket] += tx.amount
+            totals[bucket] += payment_grand_total(tx)
             counts[bucket] += 1
 
     return _cards_from_totals(totals, counts=counts)
