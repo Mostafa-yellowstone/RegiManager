@@ -241,7 +241,7 @@
             data-next-payment-amount="{% if tx.next_payment_amount != None %}{{ tx.next_payment_amount }}{% endif %}"
             data-remaining-amount="{% if tx.remaining_amount != None %}{{ tx.remaining_amount }}{% endif %}"
             data-remaining-payments="{% if tx.remaining_payments != None %}{{ tx.remaining_payments }}{% endif %}"
-            data-section-2119="{{ tx.section_2119|default:''|escapejs }}"
+            data-section-2119="{% if tx.section_2119 != None %}{{ tx.section_2119 }}{% endif %}"
             data-credit-card-fee="{% if tx.credit_card_fee != None %}{{ tx.credit_card_fee }}{% endif %}"
             data-notes="{{ tx.notes|default:''|escapejs }}"
             data-is-cleared="{% if tx.is_cleared %}1{% else %}0{% endif %}"
@@ -396,8 +396,8 @@
         <input type="number" step="0.01" name="amount" required class="field-input" placeholder="0.00">
       </div>
       <div id="addDailySection2119Wrap" style="margin-bottom: 1rem;">
-        <label class="field-label">Section 2119</label>
-        <input type="text" name="section_2119" id="addDailySection2119" class="field-input" placeholder="Required for New Business / Renewal" maxlength="120">
+        <label class="field-label">Section 2119 ($)</label>
+        <input type="number" step="0.01" min="0" name="section_2119" id="addDailySection2119" class="field-input" placeholder="0.00">
       </div>
       <div style="margin-bottom: 1rem;">
         <label class="field-label">Credit Card Fee ($) <span style="font-weight:600;color:#94a3b8;">optional</span></label>
@@ -507,8 +507,8 @@
         <input type="number" step="0.01" name="amount" id="editDailyPaymentAmount" required class="field-input" placeholder="0.00">
       </div>
       <div id="editDailySection2119Wrap" style="margin-bottom: 1rem;">
-        <label class="field-label">Section 2119</label>
-        <input type="text" name="section_2119" id="editDailyPaymentSection2119" class="field-input" placeholder="Required for New Business / Renewal" maxlength="120">
+        <label class="field-label">Section 2119 ($)</label>
+        <input type="number" step="0.01" min="0" name="section_2119" id="editDailyPaymentSection2119" class="field-input" placeholder="0.00">
       </div>
       <div style="margin-bottom: 1rem;">
         <label class="field-label">Credit Card Fee ($) <span style="font-weight:600;color:#94a3b8;">optional</span></label>

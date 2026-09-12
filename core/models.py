@@ -2251,11 +2251,12 @@ class DailyPaymentTransaction(models.Model):
         blank=True,
         help_text="Number of remaining payments shown on the receipt.",
     )
-    section_2119 = models.CharField(
-        max_length=120,
+    section_2119 = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
         blank=True,
-        default="",
-        help_text="Section 2119 reference shown on new business / renewal receipts.",
+        help_text="Section 2119 fee amount shown on new business / renewal receipts.",
     )
     credit_card_fee = models.DecimalField(
         max_digits=12,
