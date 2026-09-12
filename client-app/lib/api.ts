@@ -170,6 +170,22 @@ export function fetchAlerts() {
   return apiFetch('/api/client/alerts/');
 }
 
+export function fetchChatMessages(afterId = 0) {
+  const q = afterId ? `?after_id=${afterId}` : '';
+  return apiFetch(`/api/client/chat/messages/${q}`);
+}
+
+export function sendChatMessage(body: string) {
+  return apiFetch('/api/client/chat/messages/', {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  });
+}
+
+export function waitChatMessages(afterId = 0, timeout = 25) {
+  return apiFetch(`/api/client/chat/wait/?after_id=${afterId}&timeout=${timeout}`);
+}
+
 export async function fetchDocumentBlob(kind: string, id: number | string): Promise<Blob> {
   const token = await getStoredToken();
   const res = await fetch(`${API_BASE_URL}/api/client/documents/${kind}/${id}/file/`, {

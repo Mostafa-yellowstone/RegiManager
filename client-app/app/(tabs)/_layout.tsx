@@ -34,24 +34,11 @@ export default function TabLayout() {
           height: 64,
           paddingBottom: 8,
           paddingTop: 8,
-          elevation: 8,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.04,
-          shadowRadius: 8,
         },
-        tabBarLabelStyle: {
-          fontWeight: '600',
-          fontSize: 11,
-          marginTop: 2,
-        },
-        headerStyle: {
-          backgroundColor: Colors.navy,
-          elevation: 0,
-          shadowOpacity: 0,
-        },
+        tabBarLabelStyle: { fontWeight: '600', fontSize: 11 },
+        headerStyle: { backgroundColor: Colors.navy },
         headerTintColor: Colors.white,
-        headerTitleStyle: { fontWeight: '800', fontSize: 18 },
+        headerTitleStyle: { fontWeight: '800', fontSize: 17 },
       }}
     >
       <Tabs.Screen
@@ -59,64 +46,40 @@ export default function TabLayout() {
         options={{
           title: 'Account Center',
           tabBarLabel: 'Home',
-          tabBarIcon: ({ color }) => (
-            <TabIcon ios="house.fill" android="home" color={color} />
-          ),
+          tabBarIcon: ({ color }) => <TabIcon ios="house.fill" android="home" color={color} />,
         }}
       />
       <Tabs.Screen
         name="policies"
         options={{
           title: 'Policies',
-          tabBarIcon: ({ color }) => (
-            <TabIcon ios="doc.text" android="description" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="id-cards"
-        options={{
-          title: 'Insurance ID Cards',
-          tabBarLabel: 'ID Cards',
-          tabBarIcon: ({ color }) => (
-            <TabIcon ios="person.crop.rectangle" android="badge" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="documents"
-        options={{
-          title: 'Document Vault',
-          tabBarLabel: 'Documents',
-          tabBarIcon: ({ color }) => (
-            <TabIcon ios="folder" android="folder" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile & Settings',
-          tabBarLabel: 'Profile',
-          tabBarIcon: ({ color }) => (
-            <TabIcon ios="person.circle" android="person" color={color} />
-          ),
+          tabBarIcon: ({ color }) => <TabIcon ios="doc.text" android="description" color={color} />,
         }}
       />
       <Tabs.Screen
         name="vehicles"
         options={{
           title: 'Vehicles',
-          href: null,
+          tabBarIcon: ({ color }) => <TabIcon ios="car.fill" android="directions_car" color={color} />,
         }}
       />
       <Tabs.Screen
         name="receipts"
         options={{
           title: 'Receipts',
-          href: null,
+          tabBarIcon: ({ color }) => <TabIcon ios="receipt" android="receipt" color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: 'Messages',
+          tabBarIcon: ({ color }) => <TabIcon ios="bubble.left.and.bubble.right.fill" android="chat" color={color} />,
+        }}
+      />
+      <Tabs.Screen name="id-cards" options={{ title: 'ID Cards', href: null }} />
+      <Tabs.Screen name="documents" options={{ title: 'Document Vault', href: null }} />
+      <Tabs.Screen name="profile" options={{ title: 'Profile & Settings', href: null }} />
     </Tabs>
   );
 }

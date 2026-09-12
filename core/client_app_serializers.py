@@ -13,6 +13,7 @@ from .models import (
     DailyPaymentTransaction,
     InsurancePolicy,
     InsurancePolicyDocument,
+    InsurancePolicyVehicle,
     ServiceDocument,
     ServiceRecord,
     Vehicle,
@@ -190,6 +191,7 @@ def payment_payload(tx: DailyPaymentTransaction) -> dict:
 def vehicle_payload(vehicle: Vehicle) -> dict:
     return {
         "id": vehicle.id,
+        "source": "fleet",
         "year": vehicle.year,
         "make": vehicle.make or "",
         "model": vehicle.model or "",
@@ -203,15 +205,39 @@ def vehicle_payload(vehicle: Vehicle) -> dict:
             if getattr(vehicle, "insurance_expiration_date", None)
             else None
         ),
-        "label": f"{vehicle.year or ''} {vehicle.make or ''} {vehicle.model or ''}".strip() or vehicle.vin,
+        "label": f"{vehicle.year or ''} {vehicle.make or ''} {vehicle.model or ''}".strip() or vehicle.vin or "Vehicle",
+        "policy_id": None,
+        "policy_number": "",
+    }
+
+
+def policy_vehicle_payload(row: InsurancePolicyVehicle) -> dict:
+    return {
+        "id": f"pv-{row.id}",
+        "source": "policy",
+        "year": row.year,
+        "make": row.make or "",
+        "model": "",
+        "vin": row.vin or "",
+        "plate_number": row.plate_number or "",
+        "vehicle_type": "",
+        "vehicle_type_display": "Policy vehicle",
+        "body_type": "",
+        "insurance_expiration_date": (
+            row.expiration_date.isoformat() if getattr(row, "expiration_date", None) else None
+        ),
+        "label": f"{row.year or ''} {row.make or ''}".strip() or row.vin or f"Unit #{row.auto_number}",
+        "policy_id": row.policy_id,
+        "policy_number": row.policy.policy_number if row.policy_id else "",
     }
 
 
 def service_receipt_payload(record: ServiceRecord) -> dict:
     return {
-        "id": record.id,
+        "id": f"sr-{record.id}",
         "kind": "service_receipt",
         "receipt_number": getattr(record, "receipt_number", "") or f"SR-{record.id}",
+        "title": record.service_type or record.transaction_type or "Service",
         "service_type": record.service_type or "",
         "transaction_type": record.transaction_type or "",
         "status": record.status,
@@ -221,11 +247,95 @@ def service_receipt_payload(record: ServiceRecord) -> dict:
             if getattr(record, "transaction_date", None)
             else (record.created_at.date().isoformat() if record.created_at else None)
         ),
+        "amount": _money(getattr(record, "service_fee", 0)),
         "service_fee": _money(getattr(record, "service_fee", 0)),
         "plate_number": record.plate_number or "",
         "vin": record.vin or "",
         "vehicle_id": record.vehicle_id,
+        "company": "",
+        "policy_number": "",
     }
+
+
+def insurance_receipt_payload(tx: DailyPaymentTransaction) -> dict:
+    return {
+        "id": f"ip-{tx.id}",
+        "kind": "insurance_payment",
+        "receipt_number": f"PAY-{tx.id}",
+        "title": tx.get_payment_type_display(),
+        "service_type": tx.get_payment_type_display(),
+        "transaction_type": "Insurance Payment",
+        "status": "completed",
+        "status_display": "Completed",
+        "transaction_date": tx.transaction_date.isoformat() if tx.transaction_date else None,
+        "amount": _money(tx.amount),
+        "service_fee": _money(tx.amount),
+        "plate_number": "",
+        "vin": "",
+        "vehicle_id": None,
+        "company": tx.insurance_company.name if tx.insurance_company_id else "",
+        "policy_number": tx.policy_number or (
+            tx.insurance_policy.policy_number if tx.insurance_policy_id else ""
+        ),
+    }
+
+
+def build_client_vehicles(client: Client) -> list[dict]:
+    """Fleet vehicles + vehicles listed on the client's insurance policies."""
+    rows = [vehicle_payload(v) for v in Vehicle.objects.filter(client=client).order_by("-id")]
+    seen_vins = {(r.get("vin") or "").strip().upper() for r in rows if r.get("vin")}
+    seen_plates = {(r.get("plate_number") or "").strip().upper() for r in rows if r.get("plate_number")}
+    policy_vehicles = (
+        InsurancePolicyVehicle.objects.filter(policy__client=client)
+        .select_related("policy")
+        .order_by("policy_id", "auto_number")
+    )
+    for pv in policy_vehicles:
+        vin = (pv.vin or "").strip().upper()
+        plate = (pv.plate_number or "").strip().upper()
+        if vin and vin in seen_vins:
+            continue
+        if plate and plate in seen_plates:
+            continue
+        payload = policy_vehicle_payload(pv)
+        rows.append(payload)
+        if vin:
+            seen_vins.add(vin)
+        if plate:
+            seen_plates.add(plate)
+    return rows
+
+
+def build_client_receipts(client: Client, *, limit: int = 100) -> list[dict]:
+    """DMV/service receipts plus insurance daily payment receipts."""
+    service_rows = list(
+        ServiceRecord.objects.filter(vehicle__client=client)
+        .select_related("vehicle")
+        .order_by("-transaction_date", "-id")[:limit]
+    )
+    # Also include orphaned records that snapshotted this client's name when vehicle is missing
+    if client.name:
+        extra_q = ServiceRecord.objects.filter(
+            vehicle__isnull=True,
+            organization_id=client.organization_id,
+            client_name__iexact=client.name,
+        )
+        service_ids = {r.id for r in service_rows}
+        for r in extra_q.order_by("-transaction_date", "-id")[:50]:
+            if r.id not in service_ids:
+                service_rows.append(r)
+                service_ids.add(r.id)
+
+    payments = list(
+        DailyPaymentTransaction.objects.filter(client=client)
+        .select_related("insurance_company", "insurance_policy")
+        .order_by("-transaction_date", "-id")[:limit]
+    )
+    combined = [service_receipt_payload(r) for r in service_rows]
+    combined.extend(insurance_receipt_payload(p) for p in payments)
+    combined.sort(key=lambda row: row.get("transaction_date") or "", reverse=True)
+    return combined[:limit]
+
 
 
 def build_upcoming_items(client: Client, *, days: int = 90) -> list[dict]:

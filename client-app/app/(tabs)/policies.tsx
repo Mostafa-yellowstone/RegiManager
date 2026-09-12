@@ -13,6 +13,11 @@ import { Link, useFocusEffect } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { fetchPolicies } from '@/lib/api';
 
+function money(v?: string | null) {
+  if (!v) return '';
+  return v.startsWith('$') ? v : `$${v}`;
+}
+
 export default function PoliciesScreen() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,81 +54,36 @@ export default function PoliciesScreen() {
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl
-          refreshing={loading}
-          onRefresh={load}
-          tintColor={Colors.primaryMid}
-        />
-      }
+      refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={Colors.primaryMid} />}
     >
-      {/* Overview Header */}
-      <View style={styles.headerBox}>
-        <Text style={styles.headerTitle}>Active & Historical Coverage</Text>
-        <Text style={styles.headerSubtitle}>
-          {rows.length} policy record{rows.length === 1 ? '' : 's'} registered with agency
-        </Text>
-      </View>
-
-      {error ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : null}
-
-      {!rows.length && !loading ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>🛡️</Text>
-          <Text style={styles.emptyTitle}>No Policies Found</Text>
-          <Text style={styles.emptyText}>You do not have any registered insurance policies yet.</Text>
-        </View>
-      ) : null}
+      <Text style={styles.h1}>Your Policies</Text>
+      <Text style={styles.sub}>{rows.length} coverage record{rows.length === 1 ? '' : 's'}</Text>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {!rows.length && !loading ? <Text style={styles.empty}>No policies on file.</Text> : null}
 
       {rows.map((p) => {
-        const isActive = p.status === 'active' || p.status_display?.toLowerCase().includes('active');
+        const active = (p.status_display || p.status || '').toLowerCase().includes('active');
         return (
           <Link key={p.id} href={`/policy/${p.id}`} asChild>
-            <Pressable style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
-              <View style={styles.cardHeader}>
-                <View style={styles.policyNumberRow}>
-                  <Text style={styles.policyBadgeIcon}>📋</Text>
-                  <Text style={styles.title}>{p.policy_number}</Text>
-                </View>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: isActive ? Colors.successLight : Colors.warningLight },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusBadgeText,
-                      { color: isActive ? Colors.success : Colors.warning },
-                    ]}
-                  >
-                    {(p.status_display || p.status || 'Active').toUpperCase()}
+            <Pressable style={styles.card}>
+              <View style={styles.top}>
+                <Text style={styles.number}>{p.policy_number}</Text>
+                <View style={[styles.pill, { backgroundColor: active ? Colors.successLight : '#FEF3C7' }]}>
+                  <Text style={[styles.pillText, { color: active ? Colors.success : Colors.warning }]}>
+                    {(p.status_display || p.status || 'Policy').toUpperCase()}
                   </Text>
                 </View>
               </View>
-
-              <View style={styles.cardDivider} />
-
-              <View style={styles.detailsRow}>
-                <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>INSURANCE CARRIER</Text>
-                  <Text style={styles.detailValue}>{p.company || 'Standard Coverage'}</Text>
-                </View>
-                <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>TERM DATES</Text>
-                  <Text style={styles.detailValue}>
-                    {p.start_date || 'N/A'} → {p.end_date || 'N/A'}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.cardFooter}>
-                <Text style={styles.viewDetailsText}>Tap to view schedule & payments</Text>
-                <Text style={styles.chevron}>›</Text>
+              <Text style={styles.company}>{p.company || 'Insurance carrier'}</Text>
+              <View style={styles.metaRow}>
+                <Text style={styles.meta}>
+                  {p.next_due_date
+                    ? `Next due ${p.next_due_date}${p.next_due_amount ? ` · ${money(p.next_due_amount)}` : ''}`
+                    : 'No open installment'}
+                </Text>
+                {p.remaining_amount ? (
+                  <Text style={styles.remain}>{money(p.remaining_amount)} left</Text>
+                ) : null}
               </View>
             </Pressable>
           </Link>
@@ -134,70 +94,29 @@ export default function PoliciesScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.cream },
-  content: { padding: 18, paddingBottom: 40 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.cream },
-  headerBox: { marginBottom: 16, marginTop: 4 },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: Colors.navy, letterSpacing: -0.3 },
-  headerSubtitle: { color: Colors.muted, fontSize: 13, fontWeight: '500', marginTop: 2 },
-  errorBox: {
-    backgroundColor: Colors.dangerLight,
-    borderWidth: 1,
-    borderColor: '#FCA5A5',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-  },
-  errorText: { color: Colors.danger, fontSize: 13, fontWeight: '600' },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 50,
-    backgroundColor: Colors.white,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  emptyIcon: { fontSize: 48, marginBottom: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: '800', color: Colors.navy },
-  emptyText: { color: Colors.muted, fontSize: 14, marginTop: 4, textAlign: 'center' },
+  screen: { flex: 1, backgroundColor: '#F1F5F9' },
+  content: { padding: 16, paddingBottom: 40 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  h1: { fontSize: 22, fontWeight: '800', color: Colors.navy },
+  sub: { color: Colors.muted, marginBottom: 14, marginTop: 2 },
+  error: { color: Colors.danger, marginBottom: 10, fontWeight: '600' },
+  empty: { color: Colors.muted, marginTop: 20 },
   card: {
-    backgroundColor: Colors.white,
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 14,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: Colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.navy,
   },
-  pressed: { opacity: 0.92, transform: [{ scale: 0.995 }] },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  policyNumberRow: { flexDirection: 'row', alignItems: 'center' },
-  policyBadgeIcon: { fontSize: 18, marginRight: 8 },
-  title: { fontWeight: '800', fontSize: 17, color: Colors.navy, letterSpacing: -0.3 },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  statusBadgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
-  cardDivider: { height: 1, backgroundColor: Colors.borderSubtle, marginVertical: 14 },
-  detailsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  detailCol: { flex: 1 },
-  detailLabel: { fontSize: 10, fontWeight: '800', color: Colors.mutedLight, letterSpacing: 0.6, marginBottom: 4 },
-  detailValue: { fontSize: 13, fontWeight: '700', color: Colors.text },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderSubtle,
-  },
-  viewDetailsText: { fontSize: 12, fontWeight: '700', color: Colors.primaryMid },
-  chevron: { fontSize: 20, color: Colors.primaryMid, fontWeight: '700' },
+  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  number: { fontSize: 17, fontWeight: '800', color: Colors.navy, flex: 1 },
+  pill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  pillText: { fontSize: 10, fontWeight: '800' },
+  company: { color: Colors.muted, marginTop: 6, fontWeight: '600' },
+  metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, gap: 8 },
+  meta: { color: Colors.textSecondary, fontSize: 12, flex: 1, fontWeight: '500' },
+  remain: { color: Colors.navy, fontWeight: '800', fontSize: 12 },
 });

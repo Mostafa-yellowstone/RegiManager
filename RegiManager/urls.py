@@ -289,6 +289,8 @@ from core.api import ClientViewSet, VehicleViewSet, ServiceRecordViewSet
 from core.companion_api import CompanionLoginView, CompanionLogoutView, CompanionMeView
 from core.client_app_api import (
     ClientAlertsView,
+    ClientChatMessagesView,
+    ClientChatWaitView,
     ClientDocumentFileView,
     ClientDocumentsView,
     ClientHomeView,
@@ -303,6 +305,11 @@ from core.client_app_api import (
     ClientReceiptsView,
     ClientUpcomingView,
     ClientVehiclesView,
+)
+from core.client_chat_views import (
+    client_chat_messages,
+    client_chat_send,
+    client_chat_wait,
 )
 from core.agent_api import (
     AgentActivityView,
@@ -402,6 +409,8 @@ urlpatterns = [
     path('api/client/receipts/', ClientReceiptsView.as_view(), name='api-client-receipts'),
     path('api/client/upcoming/', ClientUpcomingView.as_view(), name='api-client-upcoming'),
     path('api/client/alerts/', ClientAlertsView.as_view(), name='api-client-alerts'),
+    path('api/client/chat/messages/', ClientChatMessagesView.as_view(), name='api-client-chat-messages'),
+    path('api/client/chat/wait/', ClientChatWaitView.as_view(), name='api-client-chat-wait'),
     path('api/owner/overview/', OwnerOverviewView.as_view(), name='api-owner-overview'),
     path('api/owner/finance/summary/', OwnerFinanceSummaryView.as_view(), name='api-owner-finance-summary'),
     path('api/owner/finance/records/', OwnerFinanceRecordsView.as_view(), name='api-owner-finance-records'),
@@ -495,6 +504,9 @@ urlpatterns = [
     path("dashboard/clients/", all_clients, name="all-clients"),
     path("dashboard/clients/add/", add_client, name="add-client"),
     path("dashboard/clients/<int:client_id>/", client_detail, name="client-detail"),
+    path("dashboard/clients/<int:client_id>/chat/messages/", client_chat_messages, name="client-chat-messages"),
+    path("dashboard/clients/<int:client_id>/chat/send/", client_chat_send, name="client-chat-send"),
+    path("dashboard/clients/<int:client_id>/chat/wait/", client_chat_wait, name="client-chat-wait"),
     path(
         "dashboard/clients/<int:client_id>/motorclub/add/",
         add_motorclub_membership_from_client,

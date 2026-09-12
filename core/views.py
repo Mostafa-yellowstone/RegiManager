@@ -871,6 +871,10 @@ def client_detail(request, client_id):
     can_delete_receipt = user_can_delete_receipt(request.user, client.organization_id)
     can_delete_vehicle = user_can_delete_vehicle(request.user, client.organization_id)
 
+    from .client_chat import unread_for_staff
+
+    chat_unread = unread_for_staff(client)
+
     return render(request, "core/client_profile.html", {
         "client": client,
         "vehicles": vehicles,
@@ -891,6 +895,10 @@ def client_detail(request, client_id):
         "last_service_date": last_service_date,
         "can_delete_receipt": can_delete_receipt,
         "can_delete_vehicle": can_delete_vehicle,
+        "chat_unread": chat_unread,
+        "chat_messages_url": reverse("client-chat-messages", args=[client.id]),
+        "chat_send_url": reverse("client-chat-send", args=[client.id]),
+        "chat_wait_url": reverse("client-chat-wait", args=[client.id]),
     })
 
 

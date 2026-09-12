@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
-import { Colors, Radius } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import { fetchVehicles } from '@/lib/api';
 
 export default function VehiclesScreen() {
@@ -50,28 +50,24 @@ export default function VehiclesScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={Colors.primaryMid} />}
     >
-      <Text style={styles.headerTitle}>Registered Vehicles</Text>
-      <Text style={styles.headerSubtitle}>Units linked to your agency account</Text>
-
-      {error ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : null}
-
+      <Text style={styles.h1}>Vehicles</Text>
+      <Text style={styles.sub}>Fleet units and vehicles listed on your policies</Text>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
       {!rows.length && !loading ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No vehicles on file</Text>
-          <Text style={styles.emptyText}>Ask your agency to register a vehicle on your client profile.</Text>
-        </View>
+        <Text style={styles.empty}>No vehicles linked yet. Ask your agency to register one.</Text>
       ) : null}
 
       {rows.map((v) => (
-        <View key={v.id} style={styles.card}>
-          <Text style={styles.title}>{v.label || 'Vehicle'}</Text>
+        <View key={String(v.id)} style={styles.card}>
+          <View style={styles.top}>
+            <Text style={styles.title}>{v.label || 'Vehicle'}</Text>
+            <View style={[styles.pill, v.source === 'policy' ? styles.pillPolicy : styles.pillFleet]}>
+              <Text style={styles.pillText}>{v.source === 'policy' ? 'POLICY' : 'FLEET'}</Text>
+            </View>
+          </View>
           <Text style={styles.meta}>
-            {v.vehicle_type_display || v.vehicle_type || 'Vehicle'}
-            {v.body_type ? ` · ${v.body_type}` : ''}
+            {v.vehicle_type_display || 'Vehicle'}
+            {v.policy_number ? ` · Policy ${v.policy_number}` : ''}
           </Text>
           <View style={styles.grid}>
             <View style={styles.cell}>
@@ -84,7 +80,7 @@ export default function VehiclesScreen() {
             </View>
           </View>
           {v.insurance_expiration_date ? (
-            <Text style={styles.exp}>Insurance expires {v.insurance_expiration_date}</Text>
+            <Text style={styles.exp}>Expires {v.insurance_expiration_date}</Text>
           ) : null}
         </View>
       ))}
@@ -93,44 +89,33 @@ export default function VehiclesScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.cream },
-  content: { padding: 18, paddingBottom: 40 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.cream },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: Colors.navy },
-  headerSubtitle: { color: Colors.muted, marginBottom: 16, marginTop: 4, fontSize: 13 },
-  errorBox: {
-    backgroundColor: Colors.dangerLight,
-    borderWidth: 1,
-    borderColor: '#FCA5A5',
-    borderRadius: Radius.md,
-    padding: 12,
-    marginBottom: 16,
-  },
-  errorText: { color: Colors.danger, fontSize: 13, fontWeight: '600' },
-  emptyCard: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.lg,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  emptyTitle: { fontSize: 16, fontWeight: '800', color: Colors.navy },
-  emptyText: { color: Colors.muted, marginTop: 6, fontSize: 13 },
+  screen: { flex: 1, backgroundColor: '#F1F5F9' },
+  content: { padding: 16, paddingBottom: 40 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  h1: { fontSize: 22, fontWeight: '800', color: Colors.navy },
+  sub: { color: Colors.muted, marginBottom: 14, marginTop: 2 },
+  error: { color: Colors.danger, marginBottom: 10, fontWeight: '600' },
+  empty: { color: Colors.muted, marginTop: 12 },
   card: {
-    backgroundColor: Colors.white,
-    borderRadius: Radius.lg,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: Colors.border,
     borderLeftWidth: 4,
     borderLeftColor: Colors.teal,
   },
-  title: { fontSize: 16, fontWeight: '800', color: Colors.navy },
-  meta: { color: Colors.muted, marginTop: 4, fontSize: 12, fontWeight: '500' },
-  grid: { flexDirection: 'row', marginTop: 14, gap: 12 },
+  top: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, alignItems: 'center' },
+  title: { fontSize: 16, fontWeight: '800', color: Colors.navy, flex: 1 },
+  pill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  pillFleet: { backgroundColor: Colors.tealSoft },
+  pillPolicy: { backgroundColor: Colors.primarySubtle },
+  pillText: { fontSize: 10, fontWeight: '800', color: Colors.navy },
+  meta: { color: Colors.muted, marginTop: 4, fontSize: 12 },
+  grid: { flexDirection: 'row', marginTop: 12, gap: 12 },
   cell: { flex: 1 },
   label: { fontSize: 10, fontWeight: '800', color: Colors.mutedLight, letterSpacing: 0.6 },
   value: { fontSize: 13, fontWeight: '700', color: Colors.navy, marginTop: 2 },
-  exp: { marginTop: 12, color: Colors.warning, fontWeight: '700', fontSize: 12 },
+  exp: { marginTop: 10, color: Colors.warning, fontWeight: '700', fontSize: 12 },
 });

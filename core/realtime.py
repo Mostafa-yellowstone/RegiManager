@@ -51,6 +51,51 @@ def org_quote_channel(org_id: int) -> str:
     return _ORG_QUOTE_CHANNEL.format(org_id=int(org_id))
 
 
+_CLIENT_CHANNEL = "rm:client:{client_id}:events"
+
+
+def client_channel(client_id: int) -> str:
+    return _CLIENT_CHANNEL.format(client_id=int(client_id))
+
+
+def publish_client_event(client_id: int, event_type: str, payload: dict[str, Any] | None = None) -> None:
+    if not client_id:
+        return
+    publish(client_channel(client_id), event_type, payload or {})
+    wake_client(client_id)
+
+
+def wake_client(client_id: int) -> None:
+    if not client_id:
+        return
+    client = _get_redis()
+    if client is None:
+        return
+    key = f"rm:client:{int(client_id)}:wake"
+    try:
+        client.lpush(key, "1")
+        client.ltrim(key, 0, 0)
+        client.expire(key, 60)
+    except Exception:
+        logger.exception("Failed waking client long-poll")
+
+
+def wait_client_wake(client_id: int, timeout: float) -> bool:
+    if timeout <= 0:
+        return False
+    client = _get_redis()
+    if client is None:
+        time.sleep(min(timeout, 0.45))
+        return False
+    key = f"rm:client:{int(client_id)}:wake"
+    try:
+        result = client.blpop(key, timeout=max(1, int(timeout)))
+        return bool(result)
+    except Exception:
+        time.sleep(min(timeout, 0.45))
+        return False
+
+
 def _encode(event_type: str, payload: dict[str, Any]) -> str:
     body = {"type": event_type, "payload": payload or {}, "ts": int(time.time())}
     return json.dumps(body, default=str)

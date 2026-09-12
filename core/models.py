@@ -2358,6 +2358,48 @@ class DailyPaymentTransaction(models.Model):
         return f"{self.transaction_date} — {self.client} — ${self.amount}"
 
 
+class ClientChatMessage(models.Model):
+    """Realtime chat message between a client (mobile wallet) and agency staff."""
+
+    class SenderRole(models.TextChoices):
+        CLIENT = "client", "Client"
+        STAFF = "staff", "Staff"
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="client_chat_messages",
+    )
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name="chat_messages",
+        db_index=True,
+    )
+    sender_role = models.CharField(max_length=12, choices=SenderRole.choices, db_index=True)
+    staff_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="client_chat_messages_sent",
+    )
+    body = models.TextField()
+    is_read_by_staff = models.BooleanField(default=False, db_index=True)
+    is_read_by_client = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        indexes = [
+            models.Index(fields=["client", "created_at"]),
+            models.Index(fields=["client", "is_read_by_staff"]),
+        ]
+
+    def __str__(self):
+        return f"Chat({self.client_id}, {self.sender_role}, {self.id})"
+
+
 class BankAccount(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="bank_accounts")
     account_name = models.CharField(max_length=120)

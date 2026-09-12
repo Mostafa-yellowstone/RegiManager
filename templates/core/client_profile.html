@@ -199,6 +199,21 @@
                         Back to List</a>
                     <div class="cpp-hero-actions">
                         <button type="button"
+                            class="cpp-profile-edit-btn"
+                            id="clientChatOpenBtn"
+                            title="Message client"
+                            aria-label="Open client chat"
+                            onclick="window.ClientChat && window.ClientChat.open()">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            {% if chat_unread %}
+                            <span class="cpp-chat-badge" id="clientChatHeroBadge">{{ chat_unread }}</span>
+                            {% else %}
+                            <span class="cpp-chat-badge" id="clientChatHeroBadge" style="display:none;">0</span>
+                            {% endif %}
+                        </button>
+                        <button type="button"
                             class="cpp-profile-edit-btn cpp-app-access-btn"
                             title="Client app access"
                             aria-label="Client app access"
@@ -994,5 +1009,199 @@
         </form>
     </div>
 </div>
+
+<!-- Floating Messenger -->
+<div id="clientChatDock" class="cpp-chat-dock" aria-live="polite">
+  <button type="button" class="cpp-chat-fab" id="clientChatFab" onclick="window.ClientChat && window.ClientChat.toggle()">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+    <span class="cpp-chat-fab__badge" id="clientChatFabBadge"{% if not chat_unread %} style="display:none"{% endif %}>{{ chat_unread|default:0 }}</span>
+  </button>
+  <div class="cpp-chat-panel" id="clientChatPanel" hidden>
+    <div class="cpp-chat-panel__head">
+      <div>
+        <div class="cpp-chat-panel__title">Client Messages</div>
+        <div class="cpp-chat-panel__sub">{{ client.full_display_name }} · live</div>
+      </div>
+      <button type="button" class="cpp-chat-panel__close" onclick="window.ClientChat && window.ClientChat.close()">&times;</button>
+    </div>
+    <div class="cpp-chat-panel__body" id="clientChatBody"></div>
+    <form class="cpp-chat-panel__form" id="clientChatForm">
+      {% csrf_token %}
+      <input type="text" id="clientChatInput" placeholder="Type a message…" maxlength="4000" autocomplete="off">
+      <button type="submit">Send</button>
+    </form>
+  </div>
+</div>
+
+<style>
+.cpp-chat-badge {
+  position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; border-radius: 999px;
+  background: #ef4444; color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center;
+  padding: 0 4px; border: 2px solid #0f172a;
+}
+.cpp-hero-actions .cpp-profile-edit-btn { position: relative; }
+.cpp-chat-dock { position: fixed; right: 22px; bottom: 22px; z-index: 1200; }
+.cpp-chat-fab {
+  width: 56px; height: 56px; border-radius: 18px; border: none; cursor: pointer;
+  background: linear-gradient(135deg, #2563eb, #0f172a); color: #fff;
+  box-shadow: 0 12px 30px rgba(15,23,42,.35); position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.cpp-chat-fab__badge {
+  position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; border-radius: 999px;
+  background: #ef4444; color: #fff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center;
+  border: 2px solid #fff; padding: 0 5px;
+}
+.cpp-chat-panel {
+  position: absolute; right: 0; bottom: 70px; width: min(380px, calc(100vw - 32px)); height: 480px;
+  background: #fff; border-radius: 18px; border: 1px solid #e2e8f0;
+  box-shadow: 0 24px 60px rgba(15,23,42,.28); display: flex; flex-direction: column; overflow: hidden;
+}
+.cpp-chat-panel__head {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 14px 16px; background: #0f172a; color: #fff;
+}
+.cpp-chat-panel__title { font-weight: 800; font-size: 14px; }
+.cpp-chat-panel__sub { font-size: 11px; opacity: .7; margin-top: 2px; }
+.cpp-chat-panel__close { background: transparent; border: none; color: #fff; font-size: 22px; cursor: pointer; line-height: 1; }
+.cpp-chat-panel__body { flex: 1; overflow-y: auto; padding: 14px; background: #f8fafc; display: flex; flex-direction: column; gap: 8px; }
+.cpp-chat-bubble {
+  max-width: 82%; padding: 10px 12px; border-radius: 14px; font-size: 13px; line-height: 1.4; white-space: pre-wrap; word-break: break-word;
+}
+.cpp-chat-bubble--staff { align-self: flex-end; background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
+.cpp-chat-bubble--client { align-self: flex-start; background: #fff; border: 1px solid #e2e8f0; color: #0f172a; border-bottom-left-radius: 4px; }
+.cpp-chat-meta { font-size: 10px; opacity: .7; margin-top: 4px; }
+.cpp-chat-panel__form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #e2e8f0; background: #fff; }
+.cpp-chat-panel__form input {
+  flex: 1; border: 1px solid #cbd5e1; border-radius: 12px; padding: 10px 12px; font-size: 13px;
+}
+.cpp-chat-panel__form button {
+  border: none; border-radius: 12px; background: #0f172a; color: #fff; font-weight: 800; padding: 0 16px; cursor: pointer;
+}
+</style>
+
+<script>
+(function () {
+  const messagesUrl = "{{ chat_messages_url|escapejs }}";
+  const sendUrl = "{{ chat_send_url|escapejs }}";
+  const waitUrl = "{{ chat_wait_url|escapejs }}";
+  const panel = document.getElementById('clientChatPanel');
+  const bodyEl = document.getElementById('clientChatBody');
+  const form = document.getElementById('clientChatForm');
+  const input = document.getElementById('clientChatInput');
+  const fabBadge = document.getElementById('clientChatFabBadge');
+  const heroBadge = document.getElementById('clientChatHeroBadge');
+  let lastId = 0;
+  let open = false;
+  let waitAbort = null;
+  let seen = {};
+
+  function csrf() {
+    const el = form && form.querySelector('[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+
+  function setBadges(n) {
+    const count = Math.max(0, Number(n) || 0);
+    [fabBadge, heroBadge].forEach((badge) => {
+      if (!badge) return;
+      if (count > 0) {
+        badge.style.display = 'flex';
+        badge.textContent = count > 99 ? '99+' : String(count);
+      } else {
+        badge.style.display = 'none';
+      }
+    });
+  }
+
+  function appendMessage(msg) {
+    if (!msg || !msg.id || seen[msg.id]) return;
+    seen[msg.id] = true;
+    if (msg.id > lastId) lastId = msg.id;
+    const div = document.createElement('div');
+    div.className = 'cpp-chat-bubble cpp-chat-bubble--' + (msg.sender_role === 'staff' ? 'staff' : 'client');
+    const time = (msg.created_at || '').replace('T', ' ').slice(0, 16);
+    div.innerHTML = '<div></div><div class="cpp-chat-meta"></div>';
+    div.children[0].textContent = msg.body || '';
+    div.children[1].textContent = (msg.sender_name || msg.sender_role) + (time ? ' · ' + time : '');
+    bodyEl.appendChild(div);
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+  }
+
+  async function loadHistory() {
+    const res = await fetch(messagesUrl, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' });
+    const data = await res.json();
+    bodyEl.innerHTML = '';
+    seen = {};
+    lastId = 0;
+    (data.results || []).forEach(appendMessage);
+    setBadges(data.unread_count || 0);
+  }
+
+  async function pollLoop() {
+    while (true) {
+      try {
+        const url = waitUrl + (lastId ? ('?after_id=' + lastId + '&timeout=25') : '?timeout=25');
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' });
+        const data = await res.json();
+        if (data && data.has_new && Array.isArray(data.results)) {
+          data.results.forEach(appendMessage);
+          if (!open) setBadges(data.unread_count || 0);
+          else setBadges(0);
+          if (typeof window.RegiPortal !== 'undefined' && data.results.length) {
+            const latest = data.results[data.results.length - 1];
+            if (latest.sender_role === 'client' && window.RegiPortal.showRealtimeToast) {
+              window.RegiPortal.showRealtimeToast({
+                title: 'New client message',
+                message: latest.body || '',
+                level: 'info',
+              });
+            }
+          }
+        }
+      } catch (e) {
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+  }
+
+  async function send(e) {
+    e.preventDefault();
+    const text = (input.value || '').trim();
+    if (!text) return;
+    input.value = '';
+    const fd = new FormData();
+    fd.append('body', text);
+    fd.append('csrfmiddlewaretoken', csrf());
+    const res = await fetch(sendUrl, { method: 'POST', body: fd, credentials: 'same-origin' });
+    const data = await res.json();
+    if (data && data.message) appendMessage(data.message);
+  }
+
+  window.ClientChat = {
+    open: async function () {
+      open = true;
+      panel.hidden = false;
+      await loadHistory();
+      setBadges(0);
+      input && input.focus();
+    },
+    close: function () {
+      open = false;
+      panel.hidden = true;
+    },
+    toggle: function () {
+      if (panel.hidden) this.open();
+      else this.close();
+    },
+  };
+
+  form && form.addEventListener('submit', send);
+  if (window.location.hash === '#client-chat') {
+    window.ClientChat.open();
+  }
+  pollLoop();
+})();
+</script>
 
 {% endblock %}

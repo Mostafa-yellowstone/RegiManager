@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from decimal import Decimal
 
 from django.db.models import Q
@@ -21,6 +22,8 @@ from .client_app_auth import (
 )
 from .client_app_serializers import (
     build_alerts,
+    build_client_receipts,
+    build_client_vehicles,
     build_upcoming_items,
     client_profile_payload,
     dmv_document_payload,
@@ -29,18 +32,25 @@ from .client_app_serializers import (
     policy_detail_payload,
     policy_list_item,
     schedule_payload,
-    service_receipt_payload,
-    vehicle_payload,
+)
+from .client_chat import (
+    list_chat_messages,
+    mark_read_by_client,
+    post_client_message,
+    serialize_chat_message,
+    unread_for_client,
 )
 from .insurance_policy_schedule import summarize_insurance_schedule
 from .models import (
+    ClientChatMessage,
     DailyPaymentTransaction,
     InsurancePolicy,
     InsurancePolicyDocument,
     ServiceDocument,
-    ServiceRecord,
     Vehicle,
 )
+from .realtime import wait_client_wake
+
 
 
 class ClientAppAPIView(APIView):
@@ -56,12 +66,12 @@ def _client_policies(client):
     )
 
 
-def _client_dmv_documents(client, *, id_cards_only=False):
+def _client_dmv_documents(client, *, identity_cards_only=False):
     qs = ServiceDocument.objects.filter(
         Q(vehicle__client=client) | Q(service_record__vehicle__client=client),
     ).select_related("vehicle", "service_record")
-    if id_cards_only:
-        qs = qs.filter(document_type="insurance_id")
+    if identity_cards_only:
+        qs = qs.filter(document_type__in=("insurance_id", "driver_license"))
     return qs.distinct().order_by("-uploaded_at")
 
 
@@ -84,14 +94,6 @@ def _client_vehicles(client):
     return Vehicle.objects.filter(client=client).order_by("-id")
 
 
-def _client_receipts(client):
-    return (
-        ServiceRecord.objects.filter(vehicle__client=client)
-        .select_related("vehicle")
-        .order_by("-transaction_date", "-id")
-    )
-
-
 def _best_next_payment(client) -> dict | None:
     best = None
     for policy in _client_policies(client):
@@ -103,14 +105,21 @@ def _best_next_payment(client) -> dict | None:
             (r.total_due for r in summary["installments"] if not r.is_paid),
             Decimal("0.00"),
         )
+        paid_amount = sum(
+            (r.total_due for r in summary["installments"] if r.is_paid),
+            Decimal("0.00"),
+        )
         candidate = {
             "due_date": due_date.isoformat(),
             "amount": f"{summary['next_due_amount']:.2f}" if summary.get("next_due_amount") is not None else None,
             "policy_id": policy.id,
             "policy_number": policy.policy_number,
             "company": policy.insurance_company.name if policy.insurance_company_id else "",
+            "paid_amount": f"{paid_amount:.2f}",
             "remaining_amount": f"{remaining_amount:.2f}",
+            "paid_count": summary["paid"],
             "remaining_payments": summary["open"],
+            "total_installments": summary["total"],
         }
         if best is None or due_date < best["_sort"]:
             candidate["_sort"] = due_date
@@ -220,9 +229,9 @@ class ClientHomeView(ClientAppAPIView):
         policies = list(_client_policies(client)[:20])
         upcoming = build_upcoming_items(client, days=90)[:8]
         alerts = build_alerts(client)
-        vehicles = list(_client_vehicles(client)[:6])
+        vehicles = build_client_vehicles(client)[:8]
         payments = list(_client_payments(client)[:8])
-        receipts = list(_client_receipts(client)[:6])
+        receipts = build_client_receipts(client, limit=8)
 
         return Response(
             {
@@ -232,9 +241,10 @@ class ClientHomeView(ClientAppAPIView):
                 "upcoming": upcoming,
                 "alerts": alerts,
                 "alert_count": len(alerts),
-                "vehicles": [vehicle_payload(v) for v in vehicles],
+                "chat_unread": unread_for_client(client),
+                "vehicles": vehicles,
                 "recent_payments": [payment_payload(p) for p in payments],
-                "recent_receipts": [service_receipt_payload(r) for r in receipts],
+                "recent_receipts": receipts,
                 "policies": [policy_list_item(p) for p in policies],
             }
         )
@@ -277,7 +287,7 @@ class ClientPolicyScheduleView(ClientAppAPIView):
 
 
 class ClientIdCardsView(ClientAppAPIView):
-    """Insurance ID cards from policy docs + DMV insurance_id uploads."""
+    """Insurance ID cards + driver licenses for the stylish identity pager."""
 
     def get(self, request):
         insurance_docs = list(
@@ -286,7 +296,7 @@ class ClientIdCardsView(ClientAppAPIView):
                 document_types=[InsurancePolicyDocument.DocumentType.ID_CARDS],
             )
         )
-        dmv_ids = list(_client_dmv_documents(request.client, id_cards_only=True))
+        dmv_ids = list(_client_dmv_documents(request.client, identity_cards_only=True))
         results = [insurance_document_payload(d, request=request) for d in insurance_docs]
         results.extend(dmv_document_payload(d, request=request) for d in dmv_ids)
         results.sort(key=lambda row: row.get("uploaded_at") or "", reverse=True)
@@ -341,14 +351,14 @@ class ClientPaymentsView(ClientAppAPIView):
 
 class ClientVehiclesView(ClientAppAPIView):
     def get(self, request):
-        rows = list(_client_vehicles(request.client))
-        return Response({"count": len(rows), "results": [vehicle_payload(v) for v in rows]})
+        rows = build_client_vehicles(request.client)
+        return Response({"count": len(rows), "results": rows})
 
 
 class ClientReceiptsView(ClientAppAPIView):
     def get(self, request):
-        rows = list(_client_receipts(request.client)[:100])
-        return Response({"count": len(rows), "results": [service_receipt_payload(r) for r in rows]})
+        rows = build_client_receipts(request.client, limit=100)
+        return Response({"count": len(rows), "results": rows})
 
 
 class ClientUpcomingView(ClientAppAPIView):
@@ -363,3 +373,84 @@ class ClientAlertsView(ClientAppAPIView):
     def get(self, request):
         alerts = build_alerts(request.client)
         return Response({"count": len(alerts), "unread_count": len(alerts), "results": alerts})
+
+
+class ClientChatMessagesView(ClientAppAPIView):
+    def get(self, request):
+        after_raw = (request.query_params.get("after_id") or "").strip()
+        after_id = int(after_raw) if after_raw.isdigit() else 0
+        mark_read_by_client(request.client)
+        rows = list_chat_messages(request.client, after_id=after_id, limit=150)
+        return Response(
+            {
+                "count": len(rows),
+                "unread_count": unread_for_client(request.client),
+                "results": [serialize_chat_message(m) for m in rows],
+            }
+        )
+
+    def post(self, request):
+        body = ""
+        if hasattr(request, "data"):
+            body = request.data.get("body") or request.data.get("message") or ""
+        try:
+            msg = post_client_message(request.client, body)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serialize_chat_message(msg), status=status.HTTP_201_CREATED)
+
+
+class ClientChatWaitView(ClientAppAPIView):
+    """Long-poll for new chat messages (realtime without WebSockets)."""
+
+    def get(self, request):
+        after_raw = (request.query_params.get("after_id") or "").strip()
+        after_id = int(after_raw) if after_raw.isdigit() else 0
+        try:
+            timeout = int(request.query_params.get("timeout") or 25)
+        except (TypeError, ValueError):
+            timeout = 25
+        timeout = max(5, min(timeout, 30))
+
+        def _fresh(after: int):
+            qs = list(
+                ClientChatMessage.objects.filter(client=request.client, id__gt=after)
+                .select_related("staff_user", "client")
+                .order_by("id")[:40]
+            )
+            return [serialize_chat_message(m) for m in qs]
+
+        items = _fresh(after_id)
+        if items:
+            mark_read_by_client(request.client)
+            return Response(
+                {
+                    "has_new": True,
+                    "results": items,
+                    "newest_id": items[-1]["id"],
+                    "unread_count": unread_for_client(request.client),
+                }
+            )
+
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            wait_client_wake(request.client.id, timeout=min(3, max(0.2, deadline - time.monotonic())))
+            items = _fresh(after_id)
+            if items:
+                mark_read_by_client(request.client)
+                return Response(
+                    {
+                        "has_new": True,
+                        "results": items,
+                        "newest_id": items[-1]["id"],
+                        "unread_count": unread_for_client(request.client),
+                    }
+                )
+        return Response(
+            {
+                "has_new": False,
+                "results": [],
+                "newest_id": after_id,
+                "unread_count": unread_for_client(request.client),
+            }
+        )
