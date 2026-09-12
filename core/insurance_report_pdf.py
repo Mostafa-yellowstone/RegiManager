@@ -530,7 +530,7 @@ def _closing_brand_strip(content_w: float, styles: dict) -> Table | None:
 
     if sticker_path:
         try:
-            sticker = _scaled_image(sticker_path, max_w=min(half * 0.92, 2.0 * inch), max_h=1.35 * inch)
+            sticker = _scaled_image(sticker_path, max_w=min(half * 0.88, 1.85 * inch), max_h=1.15 * inch)
         except Exception:
             sticker = None
         if sticker:
@@ -547,7 +547,7 @@ def _closing_brand_strip(content_w: float, styles: dict) -> Table | None:
 
     if qr_path:
         try:
-            qr = _scaled_image(qr_path, max_w=min(half * 0.78, 1.42 * inch), max_h=1.42 * inch)
+            qr = _scaled_image(qr_path, max_w=min(half * 0.72, 1.25 * inch), max_h=1.25 * inch)
         except Exception:
             qr = None
         if qr:
@@ -681,13 +681,13 @@ def _carrier_logo_row(content_w: float) -> Table | None:
     if not logos:
         return None
 
-    # 5 columns keeps a large set readable on one portrait page.
-    cols = 5
-    gap = 3
+    # 4 columns = larger logo tiles that stay readable on a portrait page.
+    cols = 4
+    gap = 4
     card_w = (content_w - (gap * (cols - 1))) / cols
-    card_h = 0.34 * inch
-    img_w = card_w - 6
-    img_h = card_h - 6
+    card_h = 0.52 * inch
+    img_w = card_w - 4
+    img_h = card_h - 4
 
     def _card(path: str | None):
         if not path:
@@ -706,10 +706,10 @@ def _carrier_logo_row(content_w: float) -> Table | None:
                 ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 2),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
-                ("TOPPADDING", (0, 0), (-1, -1), 2),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("LEFTPADDING", (0, 0), (-1, -1), 1),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 1),
+                ("TOPPADDING", (0, 0), (-1, -1), 1),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
             ]))
             return cell
         except Exception:
