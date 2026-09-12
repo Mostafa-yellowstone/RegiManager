@@ -76,10 +76,8 @@ def post_staff_message(client: Client, staff_user: User, body: str) -> ClientCha
         is_read_by_client=False,
     )
     payload = serialize_chat_message(msg)
+    # Fast path: wake the client app only. Other staff UIs poll the DB on their wait loop.
     publish_client_event(client.id, "chat.message", payload)
-    # Wake other staff viewing this client (same org members)
-    for uid in _org_staff_user_ids(client.organization_id):
-        publish_user_event(uid, "chat.message", {**payload, "unread_count": None})
     return msg
 
 
@@ -130,8 +128,11 @@ def _notify_org_staff(client: Client, msg: ClientChatMessage, payload: dict) -> 
     preview = (msg.body or "")[:140]
     title = f"Message from {client.full_display_name or client.name}"
     action_url = reverse("client-detail", args=[client.id]) + "#client-chat"
-    for uid in _org_staff_user_ids(client.organization_id):
-        notif = Notification.objects.create(
+    staff_ids = _org_staff_user_ids(client.organization_id)[:40]
+    if not staff_ids:
+        return
+    notifications = [
+        Notification(
             user_id=uid,
             organization_id=client.organization_id,
             client=client,
@@ -141,8 +142,22 @@ def _notify_org_staff(client: Client, msg: ClientChatMessage, payload: dict) -> 
             action_url=action_url,
             level=Notification.Level.INFO,
         )
+        for uid in staff_ids
+    ]
+    created = Notification.objects.bulk_create(notifications)
+    # Re-fetch ids if bulk_create didn't populate them on this DB backend
+    if created and created[0].id is None:
+        created = list(
+            Notification.objects.filter(
+                client=client,
+                event_type="client_chat",
+                title=title,
+            ).order_by("-id")[: len(staff_ids)]
+        )
+        created.reverse()
+    for notif in created:
         publish_user_event(
-            uid,
+            notif.user_id,
             "notification",
             {
                 "id": notif.id,

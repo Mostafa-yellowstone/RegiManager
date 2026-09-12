@@ -71,11 +71,12 @@ def client_chat_wait(request, client_id: int):
         deny_access("Access denied.")
     after_raw = (request.GET.get("after_id") or "").strip()
     after_id = int(after_raw) if after_raw.isdigit() else 0
+    mark_read = (request.GET.get("mark_read") or "").strip() in ("1", "true", "yes")
     try:
-        timeout = int(request.GET.get("timeout") or 25)
+        timeout = int(request.GET.get("timeout") or 12)
     except (TypeError, ValueError):
-        timeout = 25
-    timeout = max(5, min(timeout, 30))
+        timeout = 12
+    timeout = max(3, min(timeout, 20))
 
     def _fresh(after: int):
         qs = list(
@@ -87,7 +88,8 @@ def client_chat_wait(request, client_id: int):
 
     items = _fresh(after_id)
     if items:
-        mark_read_by_staff(client)
+        if mark_read:
+            mark_read_by_staff(client)
         return JsonResponse(
             {
                 "has_new": True,
@@ -99,10 +101,12 @@ def client_chat_wait(request, client_id: int):
 
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        wait_user_wake(request.user.id, timeout=min(3, max(0.2, deadline - time.monotonic())))
+        # Short sleeps so DB is checked often even without Redis wake signals.
+        wait_user_wake(request.user.id, timeout=min(1.2, max(0.2, deadline - time.monotonic())))
         items = _fresh(after_id)
         if items:
-            mark_read_by_staff(client)
+            if mark_read:
+                mark_read_by_staff(client)
             return JsonResponse(
                 {
                     "has_new": True,

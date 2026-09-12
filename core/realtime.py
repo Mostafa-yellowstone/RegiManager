@@ -31,15 +31,37 @@ def _redis_url() -> str:
     )
 
 
+_redis_client = None
+_redis_checked_at = 0.0
+
+
 def _get_redis():
+    """Return a Redis client with short timeouts, or None. Cache briefly to avoid reconnect stalls."""
+    global _redis_client, _redis_checked_at
+    now = time.monotonic()
+    if _redis_client is not None and (now - _redis_checked_at) < 30:
+        return _redis_client
+    if _redis_client is None and (now - _redis_checked_at) < 5:
+        # recently failed — don't block every chat send retrying Redis
+        return None
     try:
         import redis
 
-        client = redis.Redis.from_url(_redis_url(), decode_responses=True)
+        client = redis.Redis.from_url(
+            _redis_url(),
+            decode_responses=True,
+            socket_connect_timeout=0.4,
+            socket_timeout=0.6,
+            retry_on_timeout=False,
+        )
         client.ping()
+        _redis_client = client
+        _redis_checked_at = now
         return client
     except Exception as exc:
         logger.warning("Realtime Redis unavailable: %s", exc)
+        _redis_client = None
+        _redis_checked_at = now
         return None
 
 

@@ -407,10 +407,10 @@ class ClientChatWaitView(ClientAppAPIView):
         after_raw = (request.query_params.get("after_id") or "").strip()
         after_id = int(after_raw) if after_raw.isdigit() else 0
         try:
-            timeout = int(request.query_params.get("timeout") or 25)
+            timeout = int(request.query_params.get("timeout") or 12)
         except (TypeError, ValueError):
-            timeout = 25
-        timeout = max(5, min(timeout, 30))
+            timeout = 12
+        timeout = max(3, min(timeout, 20))
 
         def _fresh(after: int):
             qs = list(
@@ -434,7 +434,7 @@ class ClientChatWaitView(ClientAppAPIView):
 
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            wait_client_wake(request.client.id, timeout=min(3, max(0.2, deadline - time.monotonic())))
+            wait_client_wake(request.client.id, timeout=min(1.2, max(0.2, deadline - time.monotonic())))
             items = _fresh(after_id)
             if items:
                 mark_read_by_client(request.client)

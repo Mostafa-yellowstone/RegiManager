@@ -23,6 +23,7 @@ export default function ChatScreen() {
   const [error, setError] = useState('');
   const lastIdRef = useRef(0);
   const activeRef = useRef(true);
+  const pauseWaitRef = useRef(false);
   const listRef = useRef<FlatList>(null);
 
   const mergeMessages = useCallback((rows: any[]) => {
@@ -65,8 +66,12 @@ export default function ChatScreen() {
     let cancelled = false;
     async function loop() {
       while (!cancelled && activeRef.current) {
+        if (pauseWaitRef.current) {
+          await new Promise((r) => setTimeout(r, 200));
+          continue;
+        }
         try {
-          const data = await waitChatMessages(lastIdRef.current, 25);
+          const data = await waitChatMessages(lastIdRef.current, 12);
           if (cancelled) break;
           if (data?.has_new) mergeMessages(data.results || []);
         } catch {
@@ -85,14 +90,17 @@ export default function ChatScreen() {
     if (!body || sending) return;
     setSending(true);
     setText('');
+    pauseWaitRef.current = true;
     try {
       const msg = await sendChatMessage(body);
       mergeMessages([msg]);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
+      setError('');
     } catch (err: any) {
       setError(err?.message || 'Could not send');
       setText(body);
     } finally {
+      pauseWaitRef.current = false;
       setSending(false);
     }
   }
