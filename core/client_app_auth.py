@@ -33,8 +33,16 @@ def resolve_organization(*, portal_token: str = "", organization_id=None) -> Org
     return None
 
 
-def find_client_for_login(org: Organization, *, phone: str = "", email: str = "") -> Client | None:
-    qs = Client.objects.filter(organization=org, app_access_enabled=True)
+def find_client_for_login(
+    org: Organization,
+    *,
+    phone: str = "",
+    email: str = "",
+    require_enabled: bool = True,
+) -> Client | None:
+    qs = Client.objects.filter(organization=org)
+    if require_enabled:
+        qs = qs.filter(app_access_enabled=True)
     phone_norm = normalize_phone(phone)
     email_norm = normalize_email(email)
     if phone_norm:

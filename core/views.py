@@ -930,9 +930,11 @@ def update_client_app_access(request, client_id):
         update_fields = ["app_access_enabled", "app_pin_hash"]
     elif pin:
         client.set_app_pin(pin)
-        update_fields.append("app_pin_hash")
+        # Setting a PIN implies the client should be able to sign in.
+        client.app_access_enabled = True
+        update_fields = ["app_access_enabled", "app_pin_hash"]
 
-    if (enabled or client.app_access_enabled) and not client.app_pin_hash and not clear_pin:
+    if client.app_access_enabled and not client.app_pin_hash and not clear_pin:
         messages.error(request, "Set a PIN before enabling app access.")
         return redirect("client-detail", client_id=client.id)
 

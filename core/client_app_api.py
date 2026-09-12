@@ -121,10 +121,37 @@ class ClientLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        client = find_client_for_login(org, phone=phone, email=email)
-        if not client or not client.check_app_pin(pin):
+        client = find_client_for_login(org, phone=phone, email=email, require_enabled=False)
+        if not client:
             return Response(
-                {"detail": "Invalid credentials."},
+                {
+                    "detail": (
+                        "No client found with that phone/email for this agency. "
+                        "Use the exact phone or email on the client profile."
+                    )
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        if not client.app_access_enabled:
+            return Response(
+                {
+                    "detail": (
+                        "Mobile app access is not enabled for this client. "
+                        "Ask the agency to enable Client App Access and set a PIN."
+                    )
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        if not client.app_pin_hash:
+            return Response(
+                {
+                    "detail": "No PIN is set for this client. Ask the agency to set a PIN."
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        if not client.check_app_pin(pin):
+            return Response(
+                {"detail": "Incorrect PIN."},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 

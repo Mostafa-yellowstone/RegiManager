@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "RegiManager Wallet",
-    "slug": "regimanager-client-wallet",
+    "slug": "regimanager-wallet",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -41,6 +41,12 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "b7add8b4-d806-481e-bc65-59e1777413b5"
+      }
+    },
+    "owner": "mostafaelbigarmiis-team"
   }
 }
