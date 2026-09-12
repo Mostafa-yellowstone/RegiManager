@@ -877,7 +877,7 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
     if fees["has_section_2119"]:
         detail_pairs.append(("Section 2119", _money(fees["section_2119"])))
     if fees["has_broker_fee"]:
-        detail_pairs.append(("Broker fee", _money(fees["broker_fee"])))
+        detail_pairs.append(("Service other than insurance", _money(fees["broker_fee"])))
     if fees["has_credit_card_fee"]:
         detail_pairs.append(("Credit card fee", _money(fees["credit_card_fee"])))
     detail_pairs.append(("Total amount", _money(fees["total"])))

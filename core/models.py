@@ -2323,7 +2323,7 @@ class DailyPaymentTransaction(models.Model):
         decimal_places=2,
         null=True,
         blank=True,
-        help_text="Optional broker fee; shown on the receipt only when greater than zero.",
+        help_text="Optional service-other-than-insurance amount; shown on the receipt only when greater than zero.",
     )
     transaction_date = models.DateField(db_index=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2)

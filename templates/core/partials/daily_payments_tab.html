@@ -265,7 +265,7 @@
             ${{ tx.display_total|floatformat:2 }}
             {% if tx.fee_breakdown.has_fees %}
             <div style="font-size:0.68rem;font-weight:600;color:#64748b;margin-top:2px;">
-              base ${{ tx.fee_breakdown.base|floatformat:2 }}{% if tx.fee_breakdown.has_section_2119 %} + 2119 ${{ tx.fee_breakdown.section_2119|floatformat:2 }}{% endif %}{% if tx.fee_breakdown.has_broker_fee %} + broker ${{ tx.fee_breakdown.broker_fee|floatformat:2 }}{% endif %}{% if tx.fee_breakdown.has_credit_card_fee %} + CC ${{ tx.fee_breakdown.credit_card_fee|floatformat:2 }}{% endif %}
+              base ${{ tx.fee_breakdown.base|floatformat:2 }}{% if tx.fee_breakdown.has_section_2119 %} + 2119 ${{ tx.fee_breakdown.section_2119|floatformat:2 }}{% endif %}{% if tx.fee_breakdown.has_broker_fee %} + service ${{ tx.fee_breakdown.broker_fee|floatformat:2 }}{% endif %}{% if tx.fee_breakdown.has_credit_card_fee %} + CC ${{ tx.fee_breakdown.credit_card_fee|floatformat:2 }}{% endif %}
             </div>
             {% endif %}
           </td>
@@ -409,7 +409,7 @@
         <input type="number" step="0.01" min="0" name="section_2119" id="addDailySection2119" class="field-input" placeholder="0.00">
       </div>
       <div style="margin-bottom: 1rem;">
-        <label class="field-label">Broker Fee ($) <span style="font-weight:600;color:#94a3b8;">optional</span></label>
+        <label class="field-label">Service other than insurance ($) <span style="font-weight:600;color:#94a3b8;">optional</span></label>
         <input type="number" step="0.01" min="0" name="broker_fee" class="field-input" placeholder="Leave blank or 0 to hide on receipt">
       </div>
       <div style="margin-bottom: 1rem;">
@@ -524,7 +524,7 @@
         <input type="number" step="0.01" min="0" name="section_2119" id="editDailyPaymentSection2119" class="field-input" placeholder="0.00">
       </div>
       <div style="margin-bottom: 1rem;">
-        <label class="field-label">Broker Fee ($) <span style="font-weight:600;color:#94a3b8;">optional</span></label>
+        <label class="field-label">Service other than insurance ($) <span style="font-weight:600;color:#94a3b8;">optional</span></label>
         <input type="number" step="0.01" min="0" name="broker_fee" id="editDailyPaymentBrokerFee" class="field-input" placeholder="Leave blank or 0 to hide on receipt">
       </div>
       <div style="margin-bottom: 1rem;">
