@@ -25,6 +25,10 @@
     '/api/portal/events/',
     '/api/portal/quote-pipeline/',
     '/api/portal/quote-distribution/',
+    // Client messenger — long-poll + quick send must never show the page loader.
+    '/chat/wait',
+    '/chat/send',
+    '/chat/messages',
   ];
 
   function ensureDom() {
