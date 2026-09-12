@@ -31,6 +31,56 @@
         color: #fb923c;
     }
 
+    .cpp-hero-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+    }
+    .cpp-app-access-btn {
+        position: relative;
+    }
+    .cpp-app-access-btn__dot {
+        position: absolute;
+        top: 7px;
+        right: 7px;
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: #94a3b8;
+        border: 2px solid #1e293b;
+    }
+    .cpp-app-access-btn__dot--on {
+        background: #22c55e;
+    }
+    .cpp-app-access-modal.modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(6px);
+        z-index: 2000;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .cpp-app-access-modal.modal-overlay.active {
+        display: flex;
+    }
+    .cpp-app-access-modal .modal-box {
+        background: #fff;
+        border-radius: 16px;
+        padding: 1.35rem 1.4rem 1.25rem;
+        width: 100%;
+        max-width: 440px;
+        max-height: min(88vh, 720px);
+        overflow: auto;
+        box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
+    }
+    html.portal-theme-dark .cpp-app-access-modal .modal-box {
+        background: #0f172a;
+        border: 1px solid #334155;
+    }
+
     .cpp-vehicle-card {
         display: flex;
         align-items: stretch;
@@ -147,9 +197,22 @@
                     <a href="{% url 'all-clients' %}" class="btn btn-secondary back-btn"
                         style="display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white; text-decoration: none; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.9rem; margin: 0;">&larr;
                         Back to List</a>
-                    <a href="{% url 'edit-client' client.id %}" class="cpp-profile-edit-btn" title="Edit Profile" aria-label="Edit Profile">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                    </a>
+                    <div class="cpp-hero-actions">
+                        <button type="button"
+                            class="cpp-profile-edit-btn cpp-app-access-btn"
+                            title="Client app access"
+                            aria-label="Client app access"
+                            onclick="document.getElementById('clientAppAccessModal').classList.add('active')">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                                <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                            </svg>
+                            <span class="cpp-app-access-btn__dot{% if client.app_access_enabled and client.app_pin_hash %} cpp-app-access-btn__dot--on{% endif %}" aria-hidden="true"></span>
+                        </button>
+                        <a href="{% url 'edit-client' client.id %}" class="cpp-profile-edit-btn" title="Edit Profile" aria-label="Edit Profile">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        </a>
+                    </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 1.5rem;">
                     <div class="client-profile-avatar">
@@ -543,83 +606,6 @@
                     </div>
                 </section>
 
-                <!-- Client App Access (mobile wallet) -->
-                <section class="dashboard-panel" style="margin: 0;">
-                    <h3 class="cpp-panel-header cpp-panel-header--title">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                            <line x1="12" y1="18" x2="12.01" y2="18"></line>
-                        </svg>
-                        Client App Access
-                    </h3>
-                    <div style="padding: 1.25rem 1.5rem;">
-                        <p style="margin: 0 0 1rem; font-size: 0.85rem; color: #64748b; line-height: 1.45;">
-                            Let this client sign in to the mobile wallet with your org portal code, their phone or email, and a staff-set PIN (no SMS).
-                        </p>
-                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
-                            {% if client.app_access_enabled and client.app_pin_hash %}
-                            <span style="background:#dcfce7;color:#166534;padding:4px 10px;border-radius:999px;font-size:0.75rem;font-weight:800;">Enabled</span>
-                            {% elif client.app_pin_hash %}
-                            <span style="background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:999px;font-size:0.75rem;font-weight:800;">PIN set · disabled</span>
-                            {% else %}
-                            <span style="background:#f1f5f9;color:#475569;padding:4px 10px;border-radius:999px;font-size:0.75rem;font-weight:800;">Not set up</span>
-                            {% endif %}
-                        </div>
-                        {% if client.organization.portal_token %}
-                        <div style="margin-bottom:1rem;padding:0.75rem 0.9rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-                            <div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;margin-bottom:0.35rem;">Agency portal code (give to client)</div>
-                            <code style="font-size:0.9rem;font-weight:700;color:#0f172a;word-break:break-all;">{{ client.organization.portal_token }}</code>
-                        </div>
-                        {% endif %}
-                        <div style="margin-bottom:1rem;font-size:0.82rem;color:#475569;line-height:1.45;">
-                            Client must sign in with this profile’s
-                            <strong>phone</strong> ({{ client.phone_number|default:"none on file" }})
-                            or <strong>email</strong> ({{ client.email|default:"none on file" }})
-                            plus the PIN you set below.
-                        </div>
-                        <form method="post" action="{% url 'update-client-app-access' client.id %}" style="display:flex;flex-direction:column;gap:0.85rem;">
-                            {% csrf_token %}
-                            <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;font-weight:600;color:#0f172a;">
-                                <input type="checkbox" name="app_access_enabled" value="1" {% if client.app_access_enabled %}checked{% endif %}>
-                                Enable mobile app login
-                            </label>
-                            <div>
-                                <label for="app_pin_{{ client.id }}" style="display:block;font-size:0.8rem;font-weight:700;color:#475569;margin-bottom:0.35rem;">New PIN (4–8 digits)</label>
-                                <input id="app_pin_{{ client.id }}" type="text" name="app_pin" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="off" placeholder="{% if client.app_pin_hash %}Leave blank to keep current PIN{% else %}Enter PIN{% endif %}" style="width:100%;max-width:220px;padding:0.55rem 0.75rem;border:1px solid #cbd5e1;border-radius:8px;font-size:0.95rem;">
-                            </div>
-                            <div>
-                                <label for="app_pin_confirm_{{ client.id }}" style="display:block;font-size:0.8rem;font-weight:700;color:#475569;margin-bottom:0.35rem;">Confirm PIN</label>
-                                <input id="app_pin_confirm_{{ client.id }}" type="text" name="app_pin_confirm" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="off" placeholder="Re-enter PIN" style="width:100%;max-width:220px;padding:0.55rem 0.75rem;border:1px solid #cbd5e1;border-radius:8px;font-size:0.95rem;">
-                                <div style="font-size:0.75rem;color:#64748b;margin-top:0.35rem;">Saving a new PIN also enables access. Use this exact PIN in the mobile app.</div>
-                            </div>
-                            <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:#475569;">
-                                <input type="checkbox" name="revoke_sessions" value="1">
-                                Revoke active app sessions
-                            </label>
-                            <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:#b91c1c;">
-                                <input type="checkbox" name="clear_pin" value="1">
-                                Clear PIN and disable access
-                            </label>
-                            <div>
-                                <button type="submit" class="btn btn-primary btn-sm" style="min-height:auto;padding:0.45rem 1rem;">Save app access</button>
-                            </div>
-                        </form>
-                        <hr style="border:none;border-top:1px solid #e2e8f0;margin:1.1rem 0;">
-                        <form method="post" action="{% url 'test-client-app-login' client.id %}" style="display:flex;flex-direction:column;gap:0.65rem;">
-                            {% csrf_token %}
-                            <div style="font-size:0.8rem;font-weight:800;color:#0f172a;">Test PIN (same checks as the mobile app)</div>
-                            <input type="text" name="test_pin" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="off" placeholder="Type the PIN to verify" style="width:100%;max-width:220px;padding:0.55rem 0.75rem;border:1px solid #cbd5e1;border-radius:8px;font-size:0.95rem;">
-                            <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:#475569;">
-                                <input type="checkbox" name="use_email" value="1">
-                                Test with email instead of phone
-                            </label>
-                            <div>
-                                <button type="submit" class="btn btn-secondary btn-sm" style="min-height:auto;padding:0.45rem 1rem;">Test PIN now</button>
-                            </div>
-                        </form>
-                    </div>
-                </section>
-
                 <!-- Client Documents -->
                 <section class="dashboard-panel" style="margin: 0;">
                     <h3 class="cpp-panel-header cpp-panel-header--title">
@@ -929,5 +915,84 @@
 {% if can_delete_receipt %}
 {% include "partials/_delete_receipt_modal.html" %}
 {% endif %}
+
+
+<div class="modal-overlay cpp-app-access-modal" id="clientAppAccessModal" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="clientAppAccessTitle">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;margin-bottom:0.85rem;">
+            <div>
+                <h3 id="clientAppAccessTitle" style="margin:0;font-size:1.1rem;font-weight:800;color:#0f172a;">Client app access</h3>
+                <p style="margin:0.35rem 0 0;font-size:0.82rem;color:#64748b;line-height:1.4;">
+                    Set a PIN for the mobile wallet. After save, this window closes.
+                </p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" style="min-height:auto;padding:0.35rem 0.55rem;line-height:1;" title="Close" aria-label="Close" onclick="document.getElementById('clientAppAccessModal').classList.remove('active')">✕</button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.85rem;flex-wrap:wrap;">
+            {% if client.app_access_enabled and client.app_pin_hash %}
+            <span style="background:#dcfce7;color:#166534;padding:4px 10px;border-radius:999px;font-size:0.75rem;font-weight:800;">Enabled</span>
+            {% elif client.app_pin_hash %}
+            <span style="background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:999px;font-size:0.75rem;font-weight:800;">PIN set · disabled</span>
+            {% else %}
+            <span style="background:#f1f5f9;color:#475569;padding:4px 10px;border-radius:999px;font-size:0.75rem;font-weight:800;">Not set up</span>
+            {% endif %}
+        </div>
+
+        {% if client.organization.portal_token %}
+        <div style="margin-bottom:0.85rem;padding:0.7rem 0.85rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+            <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;margin-bottom:0.3rem;">Portal code</div>
+            <code style="font-size:0.85rem;font-weight:700;color:#0f172a;word-break:break-all;">{{ client.organization.portal_token }}</code>
+        </div>
+        {% endif %}
+
+        <p style="margin:0 0 0.9rem;font-size:0.8rem;color:#475569;line-height:1.45;">
+            Sign-in uses
+            <strong>phone</strong> ({{ client.phone_number|default:"none" }})
+            or <strong>email</strong> ({{ client.email|default:"none" }})
+            + PIN.
+        </p>
+
+        <form method="post" action="{% url 'update-client-app-access' client.id %}" style="display:flex;flex-direction:column;gap:0.75rem;">
+            {% csrf_token %}
+            <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;font-weight:600;color:#0f172a;">
+                <input type="checkbox" name="app_access_enabled" value="1" {% if client.app_access_enabled %}checked{% endif %}>
+                Enable mobile app login
+            </label>
+            <div>
+                <label for="app_pin_{{ client.id }}" style="display:block;font-size:0.78rem;font-weight:700;color:#475569;margin-bottom:0.3rem;">New PIN (4–8 digits)</label>
+                <input id="app_pin_{{ client.id }}" type="text" name="app_pin" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="off" placeholder="{% if client.app_pin_hash %}Leave blank to keep current PIN{% else %}Enter PIN{% endif %}" style="width:100%;padding:0.55rem 0.75rem;border:1px solid #cbd5e1;border-radius:8px;font-size:0.95rem;">
+            </div>
+            <div>
+                <label for="app_pin_confirm_{{ client.id }}" style="display:block;font-size:0.78rem;font-weight:700;color:#475569;margin-bottom:0.3rem;">Confirm PIN</label>
+                <input id="app_pin_confirm_{{ client.id }}" type="text" name="app_pin_confirm" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="off" placeholder="Re-enter PIN" style="width:100%;padding:0.55rem 0.75rem;border:1px solid #cbd5e1;border-radius:8px;font-size:0.95rem;">
+            </div>
+            <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:#475569;">
+                <input type="checkbox" name="revoke_sessions" value="1">
+                Revoke active app sessions
+            </label>
+            <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:#b91c1c;">
+                <input type="checkbox" name="clear_pin" value="1">
+                Clear PIN and disable access
+            </label>
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.35rem;">
+                <button type="button" class="btn btn-secondary btn-sm" style="min-height:auto;padding:0.45rem 0.9rem;" onclick="document.getElementById('clientAppAccessModal').classList.remove('active')">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm" style="min-height:auto;padding:0.45rem 1rem;">Save</button>
+            </div>
+        </form>
+
+        <hr style="border:none;border-top:1px solid #e2e8f0;margin:1rem 0 0.85rem;">
+        <form method="post" action="{% url 'test-client-app-login' client.id %}" style="display:flex;flex-direction:column;gap:0.55rem;">
+            {% csrf_token %}
+            <div style="font-size:0.78rem;font-weight:800;color:#0f172a;">Test PIN</div>
+            <input type="text" name="test_pin" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="off" placeholder="Type PIN to verify" style="width:100%;padding:0.55rem 0.75rem;border:1px solid #cbd5e1;border-radius:8px;font-size:0.95rem;">
+            <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;color:#475569;">
+                <input type="checkbox" name="use_email" value="1">
+                Test with email instead of phone
+            </label>
+            <button type="submit" class="btn btn-secondary btn-sm" style="min-height:auto;padding:0.45rem 1rem;align-self:flex-start;">Test PIN now</button>
+        </form>
+    </div>
+</div>
 
 {% endblock %}

@@ -25,15 +25,33 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors.teal,
+        tabBarActiveTintColor: Colors.primaryMid,
         tabBarInactiveTintColor: Colors.muted,
         tabBarStyle: {
           backgroundColor: Colors.white,
           borderTopColor: Colors.border,
+          borderTopWidth: 1,
+          height: 64,
+          paddingBottom: 8,
+          paddingTop: 8,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.04,
+          shadowRadius: 8,
         },
-        headerStyle: { backgroundColor: Colors.navy },
+        tabBarLabelStyle: {
+          fontWeight: '600',
+          fontSize: 11,
+          marginTop: 2,
+        },
+        headerStyle: {
+          backgroundColor: Colors.navy,
+          elevation: 0,
+          shadowOpacity: 0,
+        },
         headerTintColor: Colors.white,
-        headerTitleStyle: { fontWeight: '700' },
+        headerTitleStyle: { fontWeight: '800', fontSize: 19 },
       }}
     >
       <Tabs.Screen
@@ -66,7 +84,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="documents"
         options={{
-          title: 'Docs',
+          title: 'Documents',
           tabBarIcon: ({ color }) => (
             <TabIcon ios="folder" android="folder" color={color} />
           ),

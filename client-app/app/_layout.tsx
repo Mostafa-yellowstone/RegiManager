@@ -53,13 +53,20 @@ export default function RootLayout() {
           screenOptions={{
             headerStyle: { backgroundColor: Colors.navy },
             headerTintColor: Colors.white,
-            headerTitleStyle: { fontWeight: '700' },
+            headerTitleStyle: { fontWeight: '700', fontSize: 18 },
+            headerShadowVisible: false,
             contentStyle: { backgroundColor: Colors.cream },
           }}
         >
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="policy/[id]" options={{ title: 'Policy' }} />
+          <Stack.Screen
+            name="policy/[id]"
+            options={{
+              title: 'Policy Details',
+              headerBackTitle: 'Back',
+            }}
+          />
         </Stack>
       </AuthGate>
     </AuthProvider>
