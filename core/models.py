@@ -420,7 +420,7 @@ class Client(SoftDeleteModel):
         help_text="Allow this client to sign in to the mobile wallet app.",
     )
     app_pin_hash = models.CharField(
-        max_length=128,
+        max_length=256,
         blank=True,
         default="",
         help_text="Hashed PIN for the client mobile app. Never store plaintext.",
@@ -503,15 +503,16 @@ class Client(SoftDeleteModel):
     def set_app_pin(self, raw_pin: str) -> None:
         from django.contrib.auth.hashers import make_password
 
-        pin = (raw_pin or "").strip()
+        pin = "".join(ch for ch in (raw_pin or "") if ch.isdigit())
         self.app_pin_hash = make_password(pin) if pin else ""
 
     def check_app_pin(self, raw_pin: str) -> bool:
         from django.contrib.auth.hashers import check_password
 
-        if not self.app_pin_hash or not (raw_pin or "").strip():
+        pin = "".join(ch for ch in (raw_pin or "") if ch.isdigit())
+        if not self.app_pin_hash or not pin:
             return False
-        return check_password((raw_pin or "").strip(), self.app_pin_hash)
+        return check_password(pin, self.app_pin_hash)
 
 
 class ClientAppSession(models.Model):

@@ -105,6 +105,8 @@ class ClientLoginView(APIView):
         phone = (data.get("phone") or data.get("phone_number") or "").strip()
         email = (data.get("email") or "").strip()
         pin = (data.get("pin") or "").strip()
+        # Digits only — ignore spaces / formatting from mobile keyboards
+        pin = "".join(ch for ch in pin if ch.isdigit())
         device_label = (data.get("device_label") or "")[:120]
 
         org = resolve_organization(portal_token=portal_token, organization_id=organization_id)

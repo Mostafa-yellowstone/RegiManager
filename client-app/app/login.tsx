@@ -85,11 +85,14 @@ export default function LoginScreen() {
           <Text style={styles.label}>PIN</Text>
           <TextInput
             style={styles.input}
-            secureTextEntry
+            secureTextEntry={false}
             keyboardType="number-pad"
+            textContentType="oneTimeCode"
+            autoComplete="off"
+            importantForAutofill="no"
             maxLength={8}
             value={pin}
-            onChangeText={setPin}
+            onChangeText={(value) => setPin(value.replace(/[^\d]/g, ''))}
             placeholder="4–8 digits"
             placeholderTextColor={Colors.muted}
           />

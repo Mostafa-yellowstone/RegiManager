@@ -909,6 +909,7 @@ def update_client_app_access(request, client_id):
         "yes",
     )
     pin = (request.POST.get("app_pin") or "").strip()
+    pin_confirm = (request.POST.get("app_pin_confirm") or "").strip()
     clear_pin = (request.POST.get("clear_pin") or "").strip().lower() in ("1", "true", "on", "yes")
     revoke_sessions = (request.POST.get("revoke_sessions") or "").strip().lower() in (
         "1",
@@ -917,8 +918,15 @@ def update_client_app_access(request, client_id):
         "yes",
     )
 
-    if pin and (not pin.isdigit() or not (4 <= len(pin) <= 8)):
+    pin_digits = "".join(ch for ch in pin if ch.isdigit())
+    if pin and pin != pin_digits:
+        messages.error(request, "PIN must contain digits only.")
+        return redirect("client-detail", client_id=client.id)
+    if pin_digits and (not (4 <= len(pin_digits) <= 8)):
         messages.error(request, "PIN must be 4–8 digits.")
+        return redirect("client-detail", client_id=client.id)
+    if pin_digits and pin_digits != "".join(ch for ch in pin_confirm if ch.isdigit()):
+        messages.error(request, "PIN confirmation does not match.")
         return redirect("client-detail", client_id=client.id)
 
     client.app_access_enabled = enabled
@@ -928,8 +936,8 @@ def update_client_app_access(request, client_id):
         client.app_pin_hash = ""
         client.app_access_enabled = False
         update_fields = ["app_access_enabled", "app_pin_hash"]
-    elif pin:
-        client.set_app_pin(pin)
+    elif pin_digits:
+        client.set_app_pin(pin_digits)
         # Setting a PIN implies the client should be able to sign in.
         client.app_access_enabled = True
         update_fields = ["app_access_enabled", "app_pin_hash"]
@@ -939,6 +947,14 @@ def update_client_app_access(request, client_id):
         return redirect("client-detail", client_id=client.id)
 
     client.save(update_fields=update_fields)
+    client.refresh_from_db(fields=["app_pin_hash", "app_access_enabled"])
+
+    if pin_digits and not client.check_app_pin(pin_digits):
+        messages.error(
+            request,
+            "PIN did not save correctly. Try again, or contact support if this keeps happening.",
+        )
+        return redirect("client-detail", client_id=client.id)
 
     if revoke_sessions or clear_pin or not client.app_access_enabled:
         from django.utils import timezone
@@ -950,9 +966,12 @@ def update_client_app_access(request, client_id):
 
     if clear_pin:
         messages.success(request, "Client app PIN cleared and access disabled.")
-    elif pin and client.app_access_enabled:
-        messages.success(request, "Client app access enabled with new PIN.")
-    elif pin:
+    elif pin_digits and client.app_access_enabled:
+        messages.success(
+            request,
+            f"Client app access enabled. Sign in with this profile’s phone/email and PIN ({len(pin_digits)} digits).",
+        )
+    elif pin_digits:
         messages.success(request, "Client app PIN updated.")
     elif client.app_access_enabled:
         messages.success(request, "Client app access enabled.")

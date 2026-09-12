@@ -586,7 +586,11 @@
                             <div>
                                 <label for="app_pin_{{ client.id }}" style="display:block;font-size:0.8rem;font-weight:700;color:#475569;margin-bottom:0.35rem;">New PIN (4–8 digits)</label>
                                 <input id="app_pin_{{ client.id }}" type="text" name="app_pin" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="off" placeholder="{% if client.app_pin_hash %}Leave blank to keep current PIN{% else %}Enter PIN{% endif %}" style="width:100%;max-width:220px;padding:0.55rem 0.75rem;border:1px solid #cbd5e1;border-radius:8px;font-size:0.95rem;">
-                                <div style="font-size:0.75rem;color:#64748b;margin-top:0.35rem;">Saving a new PIN also enables access automatically.</div>
+                            </div>
+                            <div>
+                                <label for="app_pin_confirm_{{ client.id }}" style="display:block;font-size:0.8rem;font-weight:700;color:#475569;margin-bottom:0.35rem;">Confirm PIN</label>
+                                <input id="app_pin_confirm_{{ client.id }}" type="text" name="app_pin_confirm" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="off" placeholder="Re-enter PIN" style="width:100%;max-width:220px;padding:0.55rem 0.75rem;border:1px solid #cbd5e1;border-radius:8px;font-size:0.95rem;">
+                                <div style="font-size:0.75rem;color:#64748b;margin-top:0.35rem;">Saving a new PIN also enables access. Use this exact PIN in the mobile app.</div>
                             </div>
                             <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;color:#475569;">
                                 <input type="checkbox" name="revoke_sessions" value="1">
