@@ -392,6 +392,13 @@ def apply_daily_payment_receipt_fields(payment: DailyPaymentTransaction, post) -
     from datetime import datetime as dt_parse
 
     payment.coverage = (post.get("coverage") or "").strip()[:120]
+    if getattr(payment, "payment_type", "") in (
+        DailyPaymentTransaction.PaymentType.NEW_BUSINESS,
+        DailyPaymentTransaction.PaymentType.RENEWAL,
+    ):
+        payment.section_2119 = (post.get("section_2119") or "").strip()[:120]
+    else:
+        payment.section_2119 = ""
 
     due_raw = (post.get("next_payment_due") or "").strip()
     if due_raw:
@@ -413,6 +420,7 @@ def apply_daily_payment_receipt_fields(payment: DailyPaymentTransaction, post) -
 
     payment.next_payment_amount = _optional_decimal("next_payment_amount")
     payment.remaining_amount = _optional_decimal("remaining_amount")
+    payment.credit_card_fee = _optional_decimal("credit_card_fee")
 
     rem_raw = (post.get("remaining_payments") or "").strip()
     if rem_raw:
@@ -853,6 +861,16 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
         ("Remaining amount", schedule_info["remaining_amount"]),
         ("Remaining payments", schedule_info["remaining_payments"]),
     ]
+    if payment.payment_type in (
+        DailyPaymentTransaction.PaymentType.NEW_BUSINESS,
+        DailyPaymentTransaction.PaymentType.RENEWAL,
+    ):
+        section_2119 = (getattr(payment, "section_2119", "") or "").strip()
+        if section_2119:
+            detail_pairs.append(("Section 2119", section_2119))
+    cc_fee = getattr(payment, "credit_card_fee", None)
+    if cc_fee is not None and cc_fee > 0:
+        detail_pairs.append(("Credit card fee", _money(cc_fee)))
 
     detail_rows = []
     for i in range(0, len(detail_pairs), 2):

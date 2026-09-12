@@ -241,6 +241,8 @@
             data-next-payment-amount="{% if tx.next_payment_amount != None %}{{ tx.next_payment_amount }}{% endif %}"
             data-remaining-amount="{% if tx.remaining_amount != None %}{{ tx.remaining_amount }}{% endif %}"
             data-remaining-payments="{% if tx.remaining_payments != None %}{{ tx.remaining_payments }}{% endif %}"
+            data-section-2119="{{ tx.section_2119|default:''|escapejs }}"
+            data-credit-card-fee="{% if tx.credit_card_fee != None %}{{ tx.credit_card_fee }}{% endif %}"
             data-notes="{{ tx.notes|default:''|escapejs }}"
             data-is-cleared="{% if tx.is_cleared %}1{% else %}0{% endif %}"
             data-cleared-date="{% if tx.cleared_date %}{{ tx.cleared_date|date:'Y-m-d' }}{% endif %}">
@@ -372,7 +374,7 @@
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
         <div>
           <label class="field-label">Payment Type</label>
-          <select name="payment_type" required class="field-input">
+          <select name="payment_type" id="addDailyPaymentType" required class="field-input" onchange="toggleDailySection2119(this)">
             <option value="new_business">New Business</option>
             <option value="renewal">Renewal</option>
             <option value="monthly_payment">Monthly Payment</option>
@@ -392,6 +394,14 @@
       <div style="margin-bottom: 1rem;">
         <label class="field-label">Amount ($)</label>
         <input type="number" step="0.01" name="amount" required class="field-input" placeholder="0.00">
+      </div>
+      <div id="addDailySection2119Wrap" style="margin-bottom: 1rem;">
+        <label class="field-label">Section 2119</label>
+        <input type="text" name="section_2119" id="addDailySection2119" class="field-input" placeholder="Required for New Business / Renewal" maxlength="120">
+      </div>
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Credit Card Fee ($) <span style="font-weight:600;color:#94a3b8;">optional</span></label>
+        <input type="number" step="0.01" min="0" name="credit_card_fee" class="field-input" placeholder="Leave blank or 0 to hide on receipt">
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
         <div>
@@ -475,7 +485,7 @@
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
         <div>
           <label class="field-label">Payment Type</label>
-          <select name="payment_type" id="editDailyPaymentType" required class="field-input">
+          <select name="payment_type" id="editDailyPaymentType" required class="field-input" onchange="toggleDailySection2119(this)">
             <option value="new_business">New Business</option>
             <option value="renewal">Renewal</option>
             <option value="monthly_payment">Monthly Payment</option>
@@ -495,6 +505,14 @@
       <div style="margin-bottom: 1rem;">
         <label class="field-label">Amount ($)</label>
         <input type="number" step="0.01" name="amount" id="editDailyPaymentAmount" required class="field-input" placeholder="0.00">
+      </div>
+      <div id="editDailySection2119Wrap" style="margin-bottom: 1rem;">
+        <label class="field-label">Section 2119</label>
+        <input type="text" name="section_2119" id="editDailyPaymentSection2119" class="field-input" placeholder="Required for New Business / Renewal" maxlength="120">
+      </div>
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Credit Card Fee ($) <span style="font-weight:600;color:#94a3b8;">optional</span></label>
+        <input type="number" step="0.01" min="0" name="credit_card_fee" id="editDailyPaymentCreditCardFee" class="field-input" placeholder="Leave blank or 0 to hide on receipt">
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
         <div>
@@ -538,6 +556,20 @@
 {% endif %}
 
 <script>
+function toggleDailySection2119(selectEl) {
+  const value = (selectEl && selectEl.value) || '';
+  const show = value === 'new_business' || value === 'renewal';
+  const isEdit = selectEl && selectEl.id === 'editDailyPaymentType';
+  const wrap = document.getElementById(isEdit ? 'editDailySection2119Wrap' : 'addDailySection2119Wrap');
+  const input = document.getElementById(isEdit ? 'editDailyPaymentSection2119' : 'addDailySection2119');
+  if (!wrap) return;
+  wrap.style.display = show ? '' : 'none';
+  if (input) {
+    input.disabled = !show;
+    if (!show) input.value = '';
+  }
+}
+
 function openDailyDateDrawer() {
   document.getElementById('dailyDateDrawer').classList.add('active');
 }
@@ -582,7 +614,8 @@ function openEditDailyPayment(button) {
   document.getElementById('editDailyPaymentClient').value = row.dataset.clientName || '';
   const companySel = document.getElementById('editDailyPaymentCompany');
   if (companySel) companySel.value = row.dataset.companyId || '';
-  document.getElementById('editDailyPaymentType').value = row.dataset.paymentType || 'misc';
+  const typeSel = document.getElementById('editDailyPaymentType');
+  typeSel.value = row.dataset.paymentType || 'misc';
   document.getElementById('editDailyPaymentMethod').value = row.dataset.paymentMethod || 'cash';
   document.getElementById('editDailyPaymentAmount').value = row.dataset.amount || '';
   document.getElementById('editDailyPaymentPolicyNumber').value = row.dataset.policyNumber || '';
@@ -591,6 +624,9 @@ function openEditDailyPayment(button) {
   document.getElementById('editDailyPaymentNextAmount').value = row.dataset.nextPaymentAmount || '';
   document.getElementById('editDailyPaymentRemainingAmount').value = row.dataset.remainingAmount || '';
   document.getElementById('editDailyPaymentRemainingPayments').value = row.dataset.remainingPayments || '';
+  document.getElementById('editDailyPaymentSection2119').value = row.dataset.section2119 || '';
+  document.getElementById('editDailyPaymentCreditCardFee').value = row.dataset.creditCardFee || '';
+  toggleDailySection2119(typeSel);
 
   const clearedCheckbox = document.getElementById('editDailyPaymentCleared');
   const clearDate = document.getElementById('editDailyPaymentClearDate');
@@ -602,6 +638,11 @@ function openEditDailyPayment(button) {
   modal.classList.add('active');
 }
 {% endif %}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const addType = document.getElementById('addDailyPaymentType');
+  if (addType) toggleDailySection2119(addType);
+});
 
 function playClearSweep(row) {
   const wrap = row.closest('.dpt-table-wrap');
