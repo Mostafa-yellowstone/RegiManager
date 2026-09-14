@@ -125,6 +125,69 @@ export function clientDocumentUrl(kind: string, id: number | string): string {
   return `${API_BASE_URL}/api/client/documents/${kind}/${id}/file/`;
 }
 
+/** Rasterized image preview (PDF pages rendered as PNG on the server). */
+export function clientDocumentPreviewUrl(kind: string, id: number | string): string {
+  return `${API_BASE_URL}/api/client/documents/${kind}/${id}/preview/`;
+}
+
+/**
+ * Download a PNG preview of the document contents (PDF or image).
+ * Use this for in-app display in ID cards / vault / viewer.
+ */
+export async function downloadClientDocumentPreview(
+  kind: string,
+  id: number | string,
+  title = 'document',
+): Promise<DownloadedDocument> {
+  const token = await getStoredToken();
+  if (!token) {
+    throw new ApiError(401, 'Not signed in.');
+  }
+
+  const cacheDir = FileSystem.cacheDirectory;
+  if (!cacheDir) {
+    throw new ApiError(500, 'File cache is unavailable on this device.');
+  }
+
+  const url = clientDocumentPreviewUrl(kind, id);
+  const safeTitle = (title || 'document').replace(/[^\w.-]+/g, '_').slice(0, 60);
+  const target = `${cacheDir}wallet_preview_${kind}_${id}_${Date.now()}_${safeTitle}.png`;
+
+  const result = await FileSystem.downloadAsync(url, target, {
+    headers: {
+      Authorization: `Token ${token}`,
+      Accept: 'image/png,image/*,*/*',
+    },
+  });
+
+  if (result.status < 200 || result.status >= 300) {
+    // Fall back to original file download if preview endpoint fails.
+    return downloadClientDocument(kind, id, title);
+  }
+
+  const contentType =
+    result.headers?.['Content-Type'] ||
+    result.headers?.['content-type'] ||
+    'image/png';
+  const mimeType = contentType.split(';')[0]?.trim() || 'image/png';
+  const isImage = mimeType.startsWith('image/') || mimeType.includes('png') || mimeType.includes('jpeg');
+  const isPdf = mimeType.includes('pdf');
+
+  // If server fell back to raw PDF, keep PDF handling.
+  if (isPdf) {
+    return downloadClientDocument(kind, id, title);
+  }
+
+  return {
+    uri: result.uri,
+    mimeType: isImage ? mimeType : 'image/png',
+    isImage: true,
+    isPdf: false,
+    title: title || 'Document',
+    ext: 'png',
+  };
+}
+
 export function isPreviewableImage(ext: string, mimeType: string): boolean {
   const e = (ext || '').toLowerCase();
   if (IMAGE_EXTS.has(e)) {

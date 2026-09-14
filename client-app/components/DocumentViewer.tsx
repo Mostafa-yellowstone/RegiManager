@@ -1,20 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
   Image,
   Modal,
-  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
 
 import { Colors, Radius } from '@/constants/theme';
 import {
   downloadClientDocument,
+  downloadClientDocumentPreview,
   shareDownloadedDocument,
   type DownloadedDocument,
 } from '@/lib/openDocument';
@@ -31,26 +31,6 @@ type Props = {
   onClose: () => void;
 };
 
-function pdfHtml(base64: string): string {
-  // data: PDF embed works best on iOS; Android may still fall back to share.
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=3" />
-  <style>
-    html, body { margin:0; padding:0; height:100%; background:#0B192C; }
-    .wrap { display:flex; height:100%; align-items:stretch; justify-content:center; }
-    embed, iframe, object { width:100%; height:100%; border:0; }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <embed src="data:application/pdf;base64,${base64}" type="application/pdf" />
-  </div>
-</body>
-</html>`;
-}
-
 export function DocumentViewerModal({
   visible,
   kind,
@@ -62,7 +42,8 @@ export function DocumentViewerModal({
 }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [file, setFile] = useState<DownloadedDocument | null>(null);
+  const [preview, setPreview] = useState<DownloadedDocument | null>(null);
+  const [original, setOriginal] = useState<DownloadedDocument | null>(null);
   const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
@@ -70,33 +51,39 @@ export function DocumentViewerModal({
     let cancelled = false;
     setLoading(true);
     setError('');
-    setFile(null);
-    downloadClientDocument(kind, id, title, { fileNameHint })
-      .then((doc) => {
-        if (!cancelled) setFile(doc);
-      })
-      .catch((err: any) => {
+    setPreview(null);
+    setOriginal(null);
+
+    (async () => {
+      try {
+        const [imagePreview, sourceFile] = await Promise.all([
+          downloadClientDocumentPreview(kind, id, title),
+          downloadClientDocument(kind, id, title, { fileNameHint }).catch(() => null),
+        ]);
+        if (cancelled) return;
+        setPreview(imagePreview);
+        setOriginal(sourceFile);
+      } catch (err: any) {
         if (!cancelled) setError(err?.message || 'Could not load document');
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
+
     return () => {
       cancelled = true;
     };
   }, [visible, kind, id, title, fileNameHint]);
 
   const isIdCard = variant === 'id_card';
-  const pdfSource = useMemo(() => {
-    if (!file?.isPdf || !file.base64) return null;
-    return { html: pdfHtml(file.base64), baseUrl: '' };
-  }, [file]);
+  const display = preview?.isImage ? preview : null;
+  const shareTarget = original || preview;
 
   async function onOpenExternally() {
-    if (!file) return;
+    if (!shareTarget) return;
     setSharing(true);
     try {
-      await shareDownloadedDocument(file);
+      await shareDownloadedDocument(shareTarget);
     } catch (err: any) {
       setError(err?.message || 'Could not open externally');
     } finally {
@@ -116,12 +103,9 @@ export function DocumentViewerModal({
               <Text style={[styles.headTitle, !isIdCard && styles.headTitleDoc]} numberOfLines={1}>
                 {title}
               </Text>
-              {file?.ext ? (
-                <Text style={[styles.extChip, !isIdCard && styles.extChipDoc]}>
-                  .{file.ext.toUpperCase()}
-                  {file.isPdf ? ' · PDF' : file.isImage ? ' · IMAGE' : ''}
-                </Text>
-              ) : null}
+              <Text style={[styles.extChip, !isIdCard && styles.extChipDoc]}>
+                {original?.isPdf ? 'PDF rendered as image' : display ? 'IMAGE PREVIEW' : 'DOCUMENT'}
+              </Text>
             </View>
             <Pressable style={[styles.closeBtn, !isIdCard && styles.closeBtnDoc]} onPress={onClose}>
               <Text style={[styles.closeText, !isIdCard && styles.closeTextDoc]}>Close</Text>
@@ -137,61 +121,39 @@ export function DocumentViewerModal({
             ) : error ? (
               <View style={styles.center}>
                 <Text style={styles.error}>{error}</Text>
-                <Pressable style={styles.secondaryBtn} onPress={onOpenExternally} disabled={!file || sharing}>
+                <Pressable
+                  style={styles.secondaryBtn}
+                  onPress={onOpenExternally}
+                  disabled={!shareTarget || sharing}
+                >
                   <Text style={styles.secondaryBtnText}>
                     {sharing ? 'Opening…' : 'Open with device app'}
                   </Text>
                 </Pressable>
               </View>
-            ) : file?.isImage ? (
-              <View style={[styles.imageFrame, isIdCard && styles.imageFrameId]}>
+            ) : display ? (
+              <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={[styles.imageFrame, isIdCard && styles.imageFrameId]}
+                maximumZoomScale={3}
+                minimumZoomScale={1}
+              >
                 {isIdCard ? (
                   <View style={styles.idChrome}>
                     <View style={styles.idChromeTop}>
                       <Text style={styles.idChromeSeal}>◆</Text>
                       <Text style={styles.idChromeLabel}>REGIMANAGER WALLET</Text>
                     </View>
-                    <Image source={{ uri: file.uri }} style={styles.idImage} resizeMode="contain" />
+                    <Image source={{ uri: display.uri }} style={styles.idImage} resizeMode="contain" />
                     <Text style={styles.idChromeFoot}>{title}</Text>
                   </View>
                 ) : (
-                  <Image source={{ uri: file.uri }} style={styles.image} resizeMode="contain" />
+                  <Image source={{ uri: display.uri }} style={styles.image} resizeMode="contain" />
                 )}
-              </View>
-            ) : file?.isPdf && pdfSource ? (
-              <View style={{ flex: 1 }}>
-                <WebView
-                  originWhitelist={['*']}
-                  source={pdfSource}
-                  style={styles.webview}
-                  allowFileAccess
-                  allowUniversalAccessFromFileURLs
-                  mixedContentMode="always"
-                  startInLoadingState
-                  renderLoading={() => (
-                    <View style={styles.center}>
-                      <ActivityIndicator color={Colors.gold} />
-                    </View>
-                  )}
-                />
-                {Platform.OS === 'android' ? (
-                  <View style={styles.androidPdfBar}>
-                    <Text style={styles.androidPdfHint}>
-                      For the sharpest PDF view on Android, open with your device viewer.
-                    </Text>
-                    <Pressable style={styles.secondaryBtn} onPress={onOpenExternally} disabled={sharing}>
-                      <Text style={styles.secondaryBtnText}>
-                        {sharing ? 'Opening…' : 'Open PDF externally'}
-                      </Text>
-                    </Pressable>
-                  </View>
-                ) : null}
-              </View>
+              </ScrollView>
             ) : (
               <View style={styles.center}>
-                <Text style={styles.hint}>
-                  In-app preview isn’t available for .{file?.ext || 'this'} files.
-                </Text>
+                <Text style={styles.hint}>Preview isn’t available for this file.</Text>
                 <Pressable style={styles.secondaryBtn} onPress={onOpenExternally} disabled={sharing}>
                   <Text style={styles.secondaryBtnText}>
                     {sharing ? 'Opening…' : 'Open with device app'}
@@ -201,10 +163,12 @@ export function DocumentViewerModal({
             )}
           </View>
 
-          {file && !loading ? (
+          {shareTarget && !loading ? (
             <View style={[styles.footer, !isIdCard && styles.footerDoc]}>
               <Pressable style={styles.footerBtn} onPress={onOpenExternally} disabled={sharing}>
-                <Text style={styles.footerBtnText}>{sharing ? 'Opening…' : 'Share / Open externally'}</Text>
+                <Text style={styles.footerBtnText}>
+                  {sharing ? 'Opening…' : 'Share / Open original file'}
+                </Text>
               </Pressable>
             </View>
           ) : null}
@@ -280,7 +244,7 @@ const styles = StyleSheet.create({
   hint: { color: Colors.mutedLight, marginTop: 10, fontSize: 13, textAlign: 'center' },
   error: { color: '#FCA5A5', fontWeight: '700', textAlign: 'center', marginBottom: 12 },
   imageFrame: {
-    flex: 1,
+    flexGrow: 1,
     padding: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -288,7 +252,7 @@ const styles = StyleSheet.create({
   imageFrameId: { padding: 16 },
   image: {
     width: SCREEN_W - 56,
-    height: SCREEN_H * 0.55,
+    height: SCREEN_H * 0.58,
   },
   idChrome: {
     width: '100%',
@@ -318,7 +282,7 @@ const styles = StyleSheet.create({
   },
   idImage: {
     width: '100%',
-    height: Math.min(SCREEN_H * 0.48, 420),
+    height: Math.min(SCREEN_H * 0.52, 480),
     borderRadius: 12,
     backgroundColor: '#0B192C',
   },
@@ -328,19 +292,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
-  },
-  webview: { flex: 1, backgroundColor: '#0B192C' },
-  androidPdfBar: {
-    padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(148,163,184,0.25)',
-    gap: 8,
-  },
-  androidPdfHint: {
-    color: Colors.mutedLight,
-    fontSize: 12,
-    textAlign: 'center',
-    fontWeight: '500',
   },
   secondaryBtn: {
     marginTop: 8,

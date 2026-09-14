@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 
 import { Colors } from '@/constants/theme';
-import { downloadClientDocument } from '@/lib/openDocument';
+import { downloadClientDocumentPreview } from '@/lib/openDocument';
 
 type Props = {
   kind: string;
@@ -21,18 +21,15 @@ type Props = {
   resizeMode?: 'cover' | 'contain' | 'stretch';
 };
 
-/** Loads an authenticated wallet document and renders image or PDF placeholder. */
+/** Loads a server-rasterized PNG preview (works for PDF and image uploads). */
 export function AuthDocumentImage({
   kind,
   id,
   title,
-  fileNameHint,
   style,
   resizeMode = 'cover',
 }: Props) {
   const [uri, setUri] = useState<string | null>(null);
-  const [isPdf, setIsPdf] = useState(false);
-  const [ext, setExt] = useState('');
   const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -41,20 +38,11 @@ export function AuthDocumentImage({
     setLoading(true);
     setFailed(false);
     setUri(null);
-    setIsPdf(false);
-    downloadClientDocument(kind, id, title || 'preview', { fileNameHint })
+    downloadClientDocumentPreview(kind, id, title || 'preview')
       .then((doc) => {
         if (cancelled) return;
-        setExt(doc.ext || '');
-        if (doc.isImage) {
-          setUri(doc.uri);
-          setIsPdf(false);
-        } else if (doc.isPdf) {
-          setIsPdf(true);
-        } else {
-          setFailed(true);
-          setExt(doc.ext || '');
-        }
+        if (doc.isImage && doc.uri) setUri(doc.uri);
+        else setFailed(true);
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -65,7 +53,7 @@ export function AuthDocumentImage({
     return () => {
       cancelled = true;
     };
-  }, [kind, id, title, fileNameHint]);
+  }, [kind, id, title]);
 
   if (loading) {
     return (
@@ -75,19 +63,10 @@ export function AuthDocumentImage({
     );
   }
 
-  if (isPdf) {
-    return (
-      <View style={[styles.fallback, styles.pdfFallback, style as any]}>
-        <Text style={styles.pdfBadge}>PDF</Text>
-        <Text style={styles.pdfSub}>Tap to view ID</Text>
-      </View>
-    );
-  }
-
   if (failed || !uri) {
     return (
       <View style={[styles.fallback, style as any]}>
-        <Text style={styles.otherBadge}>{ext ? `.${ext.toUpperCase()}` : 'FILE'}</Text>
+        <Text style={styles.otherBadge}>DOC</Text>
         <Text style={styles.pdfSub}>Tap to open</Text>
       </View>
     );
@@ -101,17 +80,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  pdfFallback: {
-    backgroundColor: 'rgba(201,162,39,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(201,162,39,0.35)',
-  },
-  pdfBadge: {
-    color: Colors.gold,
-    fontWeight: '900',
-    fontSize: 22,
-    letterSpacing: 1.5,
   },
   otherBadge: {
     color: 'rgba(255,255,255,0.85)',

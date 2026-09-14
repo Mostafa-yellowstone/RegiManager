@@ -361,32 +361,53 @@ def _secure_document_file_response(file_field) -> FileResponse:
     return response
 
 
+def _resolve_client_document(client, kind: str, document_id: int):
+    kind = (kind or "").strip().lower()
+    if kind == "insurance":
+        doc = (
+            InsurancePolicyDocument.objects.filter(id=document_id, policy__client=client)
+            .select_related("policy")
+            .first()
+        )
+        if not doc or not doc.file:
+            raise Http404("Document not found.")
+        return doc.file
+    if kind == "dmv":
+        doc = (
+            ServiceDocument.objects.filter(
+                Q(vehicle__client=client) | Q(service_record__vehicle__client=client),
+                id=document_id,
+            )
+            .distinct()
+            .first()
+        )
+        if not doc or not doc.file:
+            raise Http404("Document not found.")
+        return doc.file
+    raise Http404("Unknown document kind.")
+
+
 class ClientDocumentFileView(ClientAppAPIView):
     def get(self, request, kind: str, document_id: int):
-        kind = (kind or "").strip().lower()
-        client = request.client
-        if kind == "insurance":
-            doc = (
-                InsurancePolicyDocument.objects.filter(id=document_id, policy__client=client)
-                .select_related("policy")
-                .first()
-            )
-            if not doc or not doc.file:
-                raise Http404("Document not found.")
-            return _secure_document_file_response(doc.file)
-        if kind == "dmv":
-            doc = (
-                ServiceDocument.objects.filter(
-                    Q(vehicle__client=client) | Q(service_record__vehicle__client=client),
-                    id=document_id,
-                )
-                .distinct()
-                .first()
-            )
-            if not doc or not doc.file:
-                raise Http404("Document not found.")
-            return _secure_document_file_response(doc.file)
-        raise Http404("Unknown document kind.")
+        file_field = _resolve_client_document(request.client, kind, document_id)
+        return _secure_document_file_response(file_field)
+
+
+class ClientDocumentPreviewView(ClientAppAPIView):
+    """
+    Always returns an image/png of the document contents.
+    PDF uploads are rasterized so ID cards and vault rows can show a real picture.
+    """
+
+    def get(self, request, kind: str, document_id: int):
+        from .client_document_preview import build_document_preview_response
+
+        file_field = _resolve_client_document(request.client, kind, document_id)
+        try:
+            return build_document_preview_response(file_field)
+        except Exception:
+            # Fall back to original file if rasterization fails.
+            return _secure_document_file_response(file_field)
 
 
 class ClientPaymentsView(ClientAppAPIView):
