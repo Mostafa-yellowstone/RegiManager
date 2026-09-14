@@ -24,7 +24,18 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "package": "com.regimanager.clientwallet",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.VIBRATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -50,7 +61,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "711b65c0-78ea-480c-baa7-10459e887a85"
+        "projectId": "b7add8b4-d806-481e-bc65-59e1777413b5"
       },
       "router": {}
     },

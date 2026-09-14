@@ -9,7 +9,18 @@ export const API_BASE_URL = (
   process.env.EXPO_PUBLIC_API_BASE_URL || 'https://www.regimanager.com'
 ).replace(/\/$/, '');
 
+/** Default request timeout — prevents hung UI on bad networks. */
+const DEFAULT_TIMEOUT_MS = 25000;
+
 type Json = Record<string, unknown>;
+
+type UnauthorizedHandler = () => void | Promise<void>;
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+/** AuthProvider registers this so expired sessions force logout everywhere. */
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
+  unauthorizedHandler = handler;
+}
 
 async function storageGet(key: string): Promise<string | null> {
   return kvGet(key);
@@ -67,24 +78,67 @@ export class ApiError extends Error {
   constructor(status: number, message: string) {
     super(message);
     this.status = status;
+    this.name = 'ApiError';
+  }
+}
+
+function mergeAbortSignals(a?: AbortSignal | null, b?: AbortSignal | null): AbortSignal | undefined {
+  if (!a && !b) return undefined;
+  if (a && !b) return a;
+  if (b && !a) return b;
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  a!.addEventListener('abort', onAbort);
+  b!.addEventListener('abort', onAbort);
+  if (a!.aborted || b!.aborted) controller.abort();
+  return controller.signal;
+}
+
+async function handleUnauthorized(): Promise<void> {
+  if (!unauthorizedHandler) return;
+  try {
+    await unauthorizedHandler();
+  } catch {
+    // never throw from auth recovery
   }
 }
 
 export async function apiFetch<T = any>(
   path: string,
-  options: RequestInit & { token?: string | null } = {},
+  options: RequestInit & { token?: string | null; timeoutMs?: number } = {},
 ): Promise<T> {
-  const { token, headers, ...rest } = options;
+  const { token, headers, timeoutMs = DEFAULT_TIMEOUT_MS, signal, ...rest } = options;
   const authToken = token === undefined ? await getStoredToken() : token;
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...rest,
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      ...(authToken ? { Authorization: `Token ${authToken}` } : {}),
-      ...(headers || {}),
-    },
-  });
+
+  const timeoutController = new AbortController();
+  const timer = setTimeout(() => timeoutController.abort(), timeoutMs);
+  const combined = mergeAbortSignals(signal, timeoutController.signal);
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      ...rest,
+      signal: combined,
+      headers: {
+        Accept: 'application/json',
+        ...(rest.method && rest.method !== 'GET'
+          ? { 'Content-Type': 'application/json' }
+          : {}),
+        ...(authToken ? { Authorization: `Token ${authToken}` } : {}),
+        ...(headers || {}),
+      },
+    });
+  } catch (err: any) {
+    clearTimeout(timer);
+    if (err?.name === 'AbortError') {
+      if (signal?.aborted) throw err;
+      throw new ApiError(408, 'Request timed out. Check your connection and try again.');
+    }
+    throw new ApiError(0, 'Network unavailable. Check your connection and try again.');
+  } finally {
+    clearTimeout(timer);
+  }
+
   const text = await res.text();
   let data: any = null;
   try {
@@ -93,6 +147,9 @@ export async function apiFetch<T = any>(
     data = { detail: text };
   }
   if (!res.ok) {
+    if (res.status === 401 && authToken) {
+      await handleUnauthorized();
+    }
     const detail =
       (data && (data.detail || data.error || data.message)) ||
       `Request failed (${res.status})`;
@@ -106,7 +163,8 @@ export async function apiFetchWait<T = any>(
   path: string,
   signal?: AbortSignal,
 ): Promise<T> {
-  return apiFetch<T>(path, { signal, token: undefined });
+  // Long-poll can legitimately take ~timeout seconds; don't use the short default.
+  return apiFetch<T>(path, { signal, token: undefined, timeoutMs: 35000 });
 }
 
 export function login(payload: {
@@ -207,13 +265,27 @@ export function waitChatMessages(afterId = 0, timeout = 12, signal?: AbortSignal
 
 export async function fetchDocumentBlob(kind: string, id: number | string): Promise<Blob> {
   const token = await getStoredToken();
-  const res = await fetch(`${API_BASE_URL}/api/client/documents/${kind}/${id}/file/`, {
-    headers: {
-      ...(token ? { Authorization: `Token ${token}` } : {}),
-    },
-  });
-  if (!res.ok) {
-    throw new ApiError(res.status, 'Could not download document');
+  const timeoutController = new AbortController();
+  const timer = setTimeout(() => timeoutController.abort(), DEFAULT_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/client/documents/${kind}/${id}/file/`, {
+      headers: {
+        ...(token ? { Authorization: `Token ${token}` } : {}),
+      },
+      signal: timeoutController.signal,
+    });
+    if (!res.ok) {
+      if (res.status === 401 && token) await handleUnauthorized();
+      throw new ApiError(res.status, 'Could not download document');
+    }
+    return res.blob();
+  } catch (err: any) {
+    if (err instanceof ApiError) throw err;
+    if (err?.name === 'AbortError') {
+      throw new ApiError(408, 'Download timed out. Try again.');
+    }
+    throw new ApiError(0, 'Network unavailable. Check your connection and try again.');
+  } finally {
+    clearTimeout(timer);
   }
-  return res.blob();
 }

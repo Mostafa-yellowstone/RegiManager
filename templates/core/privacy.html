@@ -1,91 +1,278 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block title %}Privacy Policy · RegiManager{% endblock %}
+
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-2">
 <style>
-    .policy-content {
-        max-width: 900px;
-        margin: 0 auto;
-        padding: 4rem 2rem;
-        color: var(--text-muted-light);
-        line-height: 1.8;
+    /* Privacy page — dark shell, high-contrast readable content */
+    .privacy-page .contact-hero .site-hero-content > p {
+        color: #cbd5e1 !important;
+        font-size: 1.05rem;
+        font-weight: 500;
+        max-width: 36rem;
+        line-height: 1.65;
     }
-    .policy-content h2 {
-        color: var(--text-main-light);
-        margin-top: 3rem;
+
+    .privacy-body {
+        background: #070c18;
+        padding: 0 0 5rem;
+    }
+
+    .privacy-shell {
+        width: min(860px, calc(100% - 2.5rem));
+        margin: -2.5rem auto 0;
+        position: relative;
+        z-index: 2;
+    }
+
+    .privacy-card {
+        background: #0f172a;
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 24px;
+        padding: clamp(1.5rem, 4vw, 2.75rem);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    .privacy-card h2 {
+        color: #f8fafc !important;
+        font-size: 1.25rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin: 2.25rem 0 0.85rem;
+        line-height: 1.3;
+    }
+
+    .privacy-card h2:first-of-type {
+        margin-top: 1.5rem;
+    }
+
+    .privacy-card p,
+    .privacy-card li {
+        color: #cbd5e1 !important;
+        font-size: 1rem;
+        font-weight: 500;
+        line-height: 1.75;
+        margin: 0 0 1rem;
+    }
+
+    .privacy-card ul {
+        margin: 0 0 1.25rem;
+        padding-left: 1.25rem;
+    }
+
+    .privacy-card li {
+        margin-bottom: 0.55rem;
+    }
+
+    .privacy-card strong {
+        color: #f1f5f9;
+        font-weight: 700;
+    }
+
+    .privacy-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
         margin-bottom: 1.5rem;
     }
-    .disclaimer-box {
-        background: #fff5f5;
-        border: 1px solid #feb2b2;
-        padding: 2rem;
-        border-radius: 16px;
-        margin: 3rem 0;
-        display: flex;
-        gap: 1.5rem;
+
+    .privacy-meta span {
+        display: inline-flex;
         align-items: center;
-    }
-    .disclaimer-icon {
-        font-size: 2rem;
-    }
-    .disclaimer-text {
-        color: #c53030;
+        padding: 0.4rem 0.75rem;
+        border-radius: 999px;
+        background: rgba(37, 99, 235, 0.18);
+        border: 1px solid rgba(96, 165, 250, 0.35);
+        color: #bfdbfe;
+        font-size: 0.78rem;
         font-weight: 700;
-        font-size: 1.1rem;
+        letter-spacing: 0.02em;
+    }
+
+    .privacy-disclaimer {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+        padding: 1.15rem 1.25rem;
+        border-radius: 16px;
+        background: rgba(245, 158, 11, 0.12);
+        border: 1px solid rgba(251, 191, 36, 0.35);
+        margin-bottom: 0.5rem;
+    }
+
+    .privacy-disclaimer__mark {
+        flex-shrink: 0;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        background: rgba(251, 191, 36, 0.2);
+        color: #fbbf24;
+        font-weight: 800;
+        font-size: 0.95rem;
+    }
+
+    .privacy-disclaimer p {
+        color: #fde68a !important;
+        font-weight: 600;
+        margin: 0 !important;
+        font-size: 0.95rem !important;
+        line-height: 1.55 !important;
+    }
+
+    .privacy-visual {
+        text-align: center;
+        margin: 0 0 1.75rem;
+    }
+
+    .privacy-visual img {
+        max-width: min(420px, 100%);
+        width: 100%;
+        border-radius: 20px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+    }
+
+    .privacy-footer-note {
+        margin-top: 2rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid rgba(148, 163, 184, 0.2);
+        color: #94a3b8 !important;
+        font-size: 0.9rem !important;
+    }
+
+    @media (max-width: 640px) {
+        .privacy-shell {
+            margin-top: -1.5rem;
+            width: calc(100% - 1.5rem);
+        }
+        .privacy-disclaimer {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<main class="site-shell">
+<main class="site-shell privacy-page">
     <div class="contact-hero-wrapper">
         {% include "partials/_site_header.html" with active_page='privacy' %}
 
         <section class="site-hero contact-hero">
             <div class="site-hero-content reveal active">
-                <span class="brand-pill">Legal & Privacy</span>
-                <h1 style="color: white !important;">Your Privacy is our Priority.</h1>
-                <p>Learn how we protect your psb data and maintain the highest standards of operational security.</p>
+                <span class="brand-pill">Legal &amp; Privacy</span>
+                <h1 style="color: #ffffff !important;">Your privacy is our priority</h1>
+                <p>
+                    How RegiManager protects agency and client data across the web portal and the
+                    RegiManager Wallet mobile app.
+                </p>
             </div>
         </section>
     </div>
 
-    <div class="contact-content-wrapper">
-        <section class="site-section reveal active">
-            <div class="policy-content">
-                <div class="policy-visual reveal active" style="text-align: center; margin-bottom: 4rem;">
-                    <img src="{% static 'core/img/privacy_premium.png' %}" alt="Privacy and Security" style="max-width: 500px; width: 100%; border-radius: 32px; box-shadow: 0 40px 80px rgba(0,0,0,0.05);">
+    <div class="privacy-body">
+        <div class="privacy-shell">
+            <article class="privacy-card reveal active">
+                <div class="privacy-meta">
+                    <span>Effective: September 14, 2026</span>
+                    <span>Applies to Web + Mobile Wallet</span>
                 </div>
 
-                <div class="disclaimer-box reveal active">
-                    <div class="disclaimer-icon">⚠️</div>
-                    <div class="disclaimer-text">
-                        IMPORTANT LEGAL DISCLAIMER: This software solution is not affiliated with or operated by or endorsed by the DMV. RegiManager is an independent platform designed for private psb management.
-                    </div>
+                <div class="privacy-visual">
+                    <img src="{% static 'core/img/privacy_premium.png' %}" alt="Privacy and security illustration">
                 </div>
 
-                <h2>1. Information We Collect</h2>
+                <div class="privacy-disclaimer">
+                    <div class="privacy-disclaimer__mark" aria-hidden="true">!</div>
+                    <p>
+                        Important: RegiManager is an independent software platform for professional service
+                        bureaus (PSBs). It is not affiliated with, operated by, or endorsed by any DMV or
+                        government agency.
+                    </p>
+                </div>
+
+                <h2>1. Information we collect</h2>
                 <p>
-                    We collect information necessary to provide professional DMV psb management services. This includes agent credentials, client registration data, and vehicle transaction details. All data is handled with enterprise-grade encryption.
+                    We collect information needed to operate RegiManager for agencies and their clients, including:
+                </p>
+                <ul>
+                    <li><strong>Account data</strong> — names, emails, phone numbers, and login credentials.</li>
+                    <li><strong>Business / client records</strong> — policy, vehicle, document, payment, and service details entered by authorized agency staff.</li>
+                    <li><strong>Mobile wallet access data</strong> — Client App Portal number, contact identifier, and access PIN verification used to sign clients into the wallet app.</li>
+                    <li><strong>Device / session data</strong> — session tokens, device labels, and basic technical logs needed for security and support.</li>
+                    <li><strong>Optional biometrics</strong> — if enabled on a user’s device, fingerprint/Face ID unlocks credentials stored only on that device; biometric templates are not uploaded to RegiManager servers.</li>
+                </ul>
+
+                <h2>2. How we use information</h2>
+                <p>We use this information to:</p>
+                <ul>
+                    <li>Provide portal and wallet features (policies, documents, chat, notifications, and DMV-related workflows).</li>
+                    <li>Authenticate users, protect accounts, and prevent unauthorized access.</li>
+                    <li>Support agencies and clients, improve reliability, and meet operational requirements.</li>
+                </ul>
+                <p>
+                    We do <strong>not</strong> sell personal information. We do not share operational client data
+                    with third-party marketers.
                 </p>
 
-                <h2>2. How We Use Data</h2>
+                <h2>3. How we protect information</h2>
                 <p>
-                    Data is used exclusively for the operation of your psb portal, including VIN decoding, report generation, and automated notifications. We do not sell or share your operational data with third-party marketing entities.
+                    Data in transit is protected with HTTPS/TLS. Sensitive account access is controlled by agency
+                    permissions and authenticated API sessions. Mobile wallet sessions and optional biometric
+                    credentials are stored using the device secure storage facilities where available.
                 </p>
 
-                <h2>3. Security Standards</h2>
+                <h2>4. Sharing and processors</h2>
                 <p>
-                    Our platform utilizes SSL/TLS encryption for all data in transit and AES-256 encryption for sensitive data at rest. We conduct regular security audits to ensure your psb data remains protected against unauthorized access.
+                    We may share information with service providers that help us host, secure, or operate the
+                    platform (for example infrastructure providers), only as needed to deliver the service, and
+                    under appropriate confidentiality and security expectations. We may also disclose information
+                    when required by law or to protect rights, safety, and system integrity.
                 </p>
 
-                <h2>4. Compliance</h2>
+                <h2>5. Data retention</h2>
                 <p>
-                    Users are responsible for ensuring that their use of RegiManager complies with local state laws and DMV regulations. As stated above, this platform is an independent tool and not an official government system.
+                    We retain information for as long as needed to provide the service to the agency, comply with
+                    legal obligations, resolve disputes, and enforce agreements. Agencies control much of the
+                    client/business content they upload into RegiManager.
                 </p>
-            </div>
-        </section>
+
+                <h2>6. Your choices and requests</h2>
+                <p>
+                    Clients should contact their agency for updates to profile details or wallet access.
+                    Agencies and users may contact us at
+                    <strong>mail@regimanager.com</strong>
+                    to request support regarding access, correction, or deletion where applicable.
+                </p>
+
+                <h2>7. Children’s privacy</h2>
+                <p>
+                    RegiManager is intended for business/professional use and is not directed to children under 13.
+                </p>
+
+                <h2>8. Changes to this policy</h2>
+                <p>
+                    We may update this Privacy Policy from time to time. The effective date above will be revised
+                    when material changes are posted at this URL.
+                </p>
+
+                <h2>9. Contact</h2>
+                <p>
+                    Questions about privacy:
+                    <strong>mail@regimanager.com</strong><br>
+                    Xpress Business Group · 800 Yonkers Ave, Yonkers, NY 10704 · (914) 292-9743
+                </p>
+
+                <p class="privacy-footer-note">
+                    This page is provided for transparency with users of RegiManager and the RegiManager Wallet app.
+                    It is not legal advice.
+                </p>
+            </article>
+        </div>
     </div>
 </main>
 

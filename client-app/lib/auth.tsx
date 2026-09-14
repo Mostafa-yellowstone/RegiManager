@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import * as FileSystem from 'expo-file-system/legacy';
 
 import {
   ApiError,
@@ -10,6 +11,7 @@ import {
   logout as apiLogout,
   saveSession,
   setHasSeenOnboarding,
+  setUnauthorizedHandler,
 } from '@/lib/api';
 import { scrubSecretBackups } from '@/lib/storage';
 
@@ -34,11 +36,47 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+async function clearDocumentCache(): Promise<void> {
+  try {
+    const dir = FileSystem.cacheDirectory;
+    if (!dir) return;
+    const entries = await FileSystem.readDirectoryAsync(dir);
+    await Promise.all(
+      entries
+        .filter((name) => name.startsWith('wallet_') || name.startsWith('wallet_preview_'))
+        .map((name) => FileSystem.deleteAsync(`${dir}${name}`, { idempotent: true }).catch(() => undefined)),
+    );
+  } catch {
+    // ignore cache cleanup failures
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [client, setClient] = useState<ClientProfile>(null);
   const [hasSeenOnboarding, setHasSeenOnboardingState] = useState<boolean>(false);
+  const signingOutRef = useRef(false);
+
+  const forceLocalSignOut = useCallback(async () => {
+    if (signingOutRef.current) return;
+    signingOutRef.current = true;
+    try {
+      await clearSession();
+      await clearDocumentCache();
+      setToken(null);
+      setClient(null);
+    } finally {
+      signingOutRef.current = false;
+    }
+  }, []);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      void forceLocalSignOut();
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [forceLocalSignOut]);
 
   useEffect(() => {
     (async () => {
@@ -64,7 +102,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       device_label: 'RegiManager Wallet',
     });
     await saveSession(data.token, data.client, data.organization);
-    // Completing login implies onboarding is done — never show it again.
     await setHasSeenOnboarding(true);
     setHasSeenOnboardingState(true);
     setToken(data.token);
@@ -79,11 +116,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // still clear local session
       }
     }
-    // Keep onboarding + biometric credentials — only clear active session token.
-    await clearSession();
-    setToken(null);
-    setClient(null);
-  }, [token]);
+    await forceLocalSignOut();
+  }, [token, forceLocalSignOut]);
 
   const refreshClient = useCallback(async () => {
     const stored = await getStoredClient();

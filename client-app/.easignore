@@ -1,0 +1,13 @@
+# Keep EAS upload small and reliable on unstable networks
+.agents/
+.claude/
+.expo/
+.vscode/
+android/
+ios/
+node_modules/
+**/__tests__/
+**/*.md
+.env
+.env.*
+!.env.example

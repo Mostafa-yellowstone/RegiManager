@@ -116,7 +116,7 @@ class ClientAppAPITests(APITestCase):
         response = self.client.get(self.home_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["client"]["id"], self.client_obj.id)
-        self.assertGreaterEqual(response.data["totals"]["policies"], 1)
+        self.assertGreaterEqual(len(response.data.get("policies") or []), 1)
         self.assertIsNotNone(response.data["next_payment"])
 
     def test_policies_and_schedule(self):
