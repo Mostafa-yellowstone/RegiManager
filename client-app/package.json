@@ -1,7 +1,7 @@
 {
   "name": "client-app",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "dependencies": {
     "expo": "~57.0.22",
     "expo-constants": "~57.0.18",

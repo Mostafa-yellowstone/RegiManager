@@ -1,8 +1,9 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Radius } from '@/constants/theme';
 import { fetchChatMessages, sendChatMessage, waitChatMessages } from '@/lib/api';
@@ -21,14 +23,27 @@ function sleep(ms: number) {
 }
 
 export default function ChatScreen() {
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<any[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const lastIdRef = useRef(0);
   const pauseWaitRef = useRef(false);
   const listRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = Keyboard.addListener(showEvent, () => setKeyboardOpen(true));
+    const onHide = Keyboard.addListener(hideEvent, () => setKeyboardOpen(false));
+    return () => {
+      onShow.remove();
+      onHide.remove();
+    };
+  }, []);
 
   const mergeMessages = useCallback((rows: any[]) => {
     if (!rows?.length) return;
@@ -55,11 +70,6 @@ export default function ChatScreen() {
     }
   }, []);
 
-  /**
-   * Long-poll must start on every focus. Leaving the Messages tab used to kill the
-   * loop without restarting it, so CRM → app messages only appeared after a
-   * leave/re-enter (history reload). App → CRM stayed instant via staff wake.
-   */
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -150,11 +160,14 @@ export default function ChatScreen() {
     );
   }
 
+  const composerBottomPad = keyboardOpen ? 8 : Math.max(insets.bottom, 8);
+
   return (
     <KeyboardAvoidingView
       style={styles.screen}
+      // Android uses softwareKeyboardLayoutMode "resize" + tabBarHideOnKeyboard.
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={88}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
     >
       <View style={styles.agentBar}>
         <View style={styles.agentAvatar}>
@@ -173,6 +186,8 @@ export default function ChatScreen() {
         data={messages}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
         ListEmptyComponent={
           <Text style={styles.empty}>Message your agency here. Replies appear instantly.</Text>
@@ -189,7 +204,7 @@ export default function ChatScreen() {
           );
         }}
       />
-      <View style={styles.composer}>
+      <View style={[styles.composer, { paddingBottom: composerBottomPad }]}>
         <TextInput
           style={styles.input}
           value={text}
@@ -197,6 +212,8 @@ export default function ChatScreen() {
           placeholder="Type a message…"
           placeholderTextColor={Colors.mutedLight}
           editable={!sending}
+          multiline
+          onFocus={() => setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100)}
         />
         <Pressable style={[styles.send, sending && { opacity: 0.6 }]} onPress={onSend} disabled={sending}>
           {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendText}>Send</Text>}
@@ -231,7 +248,7 @@ const styles = StyleSheet.create({
   agentTitle: { fontWeight: '800', color: Colors.navy, fontSize: 14 },
   agentSub: { color: Colors.muted, fontSize: 11, marginTop: 1 },
   liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.success },
-  list: { padding: 14, paddingBottom: 20 },
+  list: { padding: 14, paddingBottom: 20, flexGrow: 1 },
   empty: { color: Colors.muted, textAlign: 'center', marginTop: 40, fontSize: 14 },
   bubble: {
     maxWidth: '82%',
@@ -254,10 +271,12 @@ const styles = StyleSheet.create({
   composer: {
     flexDirection: 'row',
     gap: 8,
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
     backgroundColor: Colors.white,
+    alignItems: 'flex-end',
   },
   input: {
     flex: 1,
@@ -269,6 +288,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.navy,
     backgroundColor: Colors.cream,
+    maxHeight: 120,
   },
   send: {
     backgroundColor: Colors.chatOrange,
@@ -277,6 +297,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 70,
     alignItems: 'center',
+    height: 44,
   },
   sendText: { color: '#fff', fontWeight: '800' },
   error: { color: Colors.danger, padding: 10, textAlign: 'center', fontWeight: '600' },

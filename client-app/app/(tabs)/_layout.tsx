@@ -1,5 +1,6 @@
 import { SymbolView } from 'expo-symbols';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '@/constants/theme';
 
@@ -16,30 +17,41 @@ function TabIcon({
     <SymbolView
       name={{ ios: ios as any, android: android as any, web: android as any }}
       tintColor={color}
-      size={24}
+      size={22}
     />
   );
 }
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+  const pad = Math.max(insets.bottom, 12);
+  const tabBarStyle = {
+    backgroundColor: Colors.white,
+    borderTopColor: Colors.border,
+    borderTopWidth: 1,
+    height: 52 + pad,
+    paddingBottom: pad,
+    paddingTop: 6,
+    elevation: 8,
+  };
+
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors.navy,
         tabBarInactiveTintColor: Colors.muted,
-        tabBarStyle: {
-          backgroundColor: Colors.white,
-          borderTopColor: Colors.border,
-          borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 8,
+        tabBarStyle,
+        tabBarItemStyle: {
+          paddingVertical: 2,
+          minHeight: 44,
         },
-        tabBarLabelStyle: { fontWeight: '700', fontSize: 11 },
+        tabBarLabelStyle: { fontWeight: '700', fontSize: 11, marginBottom: 2 },
         headerStyle: { backgroundColor: Colors.navy },
         headerTintColor: Colors.white,
         headerTitleStyle: { fontWeight: '800', fontSize: 16, letterSpacing: 0.3 },
         headerTitle: 'REGIMANAGER WALLET',
+        // Keep tab presses from fighting the Android system gesture bar.
+        tabBarHideOnKeyboard: true,
       }}
     >
       <Tabs.Screen
@@ -55,7 +67,9 @@ export default function TabLayout() {
         options={{
           title: 'Wallet',
           tabBarLabel: 'Wallet',
-          tabBarIcon: ({ color }) => <TabIcon ios="creditcard.fill" android="account_balance_wallet" color={color} />,
+          tabBarIcon: ({ color }) => (
+            <TabIcon ios="creditcard.fill" android="account_balance_wallet" color={color} />
+          ),
         }}
       />
       <Tabs.Screen
@@ -63,7 +77,9 @@ export default function TabLayout() {
         options={{
           title: 'Vehicles',
           tabBarLabel: 'Vehicles',
-          tabBarIcon: ({ color }) => <TabIcon ios="car.fill" android="directions_car" color={color} />,
+          tabBarIcon: ({ color }) => (
+            <TabIcon ios="car.fill" android="directions_car" color={color} />
+          ),
         }}
       />
       <Tabs.Screen
