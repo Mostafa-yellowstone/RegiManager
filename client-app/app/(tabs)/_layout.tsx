@@ -10,7 +10,7 @@ function TabIcon({
 }: {
   ios: string;
   android: string;
-  color: string;
+  color: any;
 }) {
   return (
     <SymbolView

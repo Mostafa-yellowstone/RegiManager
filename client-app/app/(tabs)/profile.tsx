@@ -22,8 +22,11 @@ import {
   setThemeMode,
 } from '@/lib/prefs';
 
+import { useRouter } from 'expo-router';
+
 export default function ProfileScreen() {
-  const { client, signOut } = useAuth();
+  const router = useRouter();
+  const { client, signOut, resetOnboarding } = useAuth();
   const [busy, setBusy] = useState(false);
   const [language, setLanguageState] = useState<AppLanguage>('en');
   const [theme, setThemeState] = useState<AppThemeMode>('system');
@@ -44,6 +47,11 @@ export default function ProfileScreen() {
     setThemeState(value);
     await setThemeMode(value);
   }, []);
+
+  const onReplayOnboarding = async () => {
+    await resetOnboarding();
+    router.replace('/onboarding');
+  };
 
   async function onLogout() {
     setBusy(true);
@@ -143,6 +151,10 @@ export default function ProfileScreen() {
         <Text style={styles.api}>{API_BASE_URL}</Text>
       </View>
 
+      <Pressable style={styles.replayBtn} onPress={onReplayOnboarding}>
+        <Text style={styles.replayBtnText}>✨ Replay Onboarding Tour</Text>
+      </Pressable>
+
       <Pressable
         style={({ pressed }) => [styles.logout, pressed && styles.logoutPressed, busy && styles.disabled]}
         onPress={onLogout}
@@ -236,8 +248,18 @@ const styles = StyleSheet.create({
   },
   serverTitle: { fontSize: 10, fontWeight: '800', color: Colors.mutedLight, letterSpacing: 0.6 },
   api: { color: Colors.muted, fontSize: 13, fontWeight: '600', marginTop: 4 },
+  replayBtn: {
+    marginTop: 14,
+    backgroundColor: Colors.white,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.primaryMid,
+  },
+  replayBtnText: { color: Colors.primaryMid, fontWeight: '800', fontSize: 14 },
   logout: {
-    marginTop: 18,
+    marginTop: 14,
     backgroundColor: Colors.danger,
     borderRadius: 14,
     paddingVertical: 16,

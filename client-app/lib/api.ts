@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 const TOKEN_KEY = 'client_app_token';
 const CLIENT_KEY = 'client_app_profile';
 const ORG_KEY = 'client_app_org';
+const ONBOARDING_KEY = 'client_app_has_seen_onboarding';
 
 export const API_BASE_URL = (
   process.env.EXPO_PUBLIC_API_BASE_URL || 'https://www.regimanager.com'
@@ -40,6 +41,19 @@ async function storageDelete(key: string): Promise<void> {
 
 export async function getStoredToken(): Promise<string | null> {
   return storageGet(TOKEN_KEY);
+}
+
+export async function getHasSeenOnboarding(): Promise<boolean> {
+  const raw = await storageGet(ONBOARDING_KEY);
+  return raw === 'true';
+}
+
+export async function setHasSeenOnboarding(seen: boolean): Promise<void> {
+  if (seen) {
+    await storageSet(ONBOARDING_KEY, 'true');
+  } else {
+    await storageDelete(ONBOARDING_KEY);
+  }
 }
 
 export async function saveSession(token: string, client: Json, organization: Json): Promise<void> {

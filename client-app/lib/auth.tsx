@@ -3,11 +3,13 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import {
   ApiError,
   clearSession,
+  getHasSeenOnboarding,
   getStoredClient,
   getStoredToken,
   login as apiLogin,
   logout as apiLogout,
   saveSession,
+  setHasSeenOnboarding,
 } from '@/lib/api';
 
 type ClientProfile = Record<string, any> | null;
@@ -16,6 +18,7 @@ type AuthContextValue = {
   ready: boolean;
   token: string | null;
   client: ClientProfile;
+  hasSeenOnboarding: boolean;
   signIn: (input: {
     portal_token: string;
     phone?: string;
@@ -24,6 +27,8 @@ type AuthContextValue = {
   }) => Promise<void>;
   signOut: () => Promise<void>;
   refreshClient: () => Promise<void>;
+  markOnboardingComplete: () => Promise<void>;
+  resetOnboarding: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -32,13 +37,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [client, setClient] = useState<ClientProfile>(null);
+  const [hasSeenOnboarding, setHasSeenOnboardingState] = useState<boolean>(false);
 
   useEffect(() => {
     (async () => {
       const storedToken = await getStoredToken();
       const storedClient = await getStoredClient();
+      const seenOnboarding = await getHasSeenOnboarding();
       setToken(storedToken);
       setClient(storedClient);
+      setHasSeenOnboardingState(seenOnboarding);
       setReady(true);
     })();
   }, []);
@@ -76,9 +84,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setClient(stored);
   }, []);
 
+  const markOnboardingComplete = useCallback(async () => {
+    await setHasSeenOnboarding(true);
+    setHasSeenOnboardingState(true);
+  }, []);
+
+  const resetOnboarding = useCallback(async () => {
+    await setHasSeenOnboarding(false);
+    setHasSeenOnboardingState(false);
+  }, []);
+
   const value = useMemo(
-    () => ({ ready, token, client, signIn, signOut, refreshClient }),
-    [ready, token, client, signIn, signOut, refreshClient],
+    () => ({
+      ready,
+      token,
+      client,
+      hasSeenOnboarding,
+      signIn,
+      signOut,
+      refreshClient,
+      markOnboardingComplete,
+      resetOnboarding,
+    }),
+    [
+      ready,
+      token,
+      client,
+      hasSeenOnboarding,
+      signIn,
+      signOut,
+      refreshClient,
+      markOnboardingComplete,
+      resetOnboarding,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

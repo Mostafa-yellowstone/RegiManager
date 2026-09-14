@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
 import { ApiError } from '@/lib/api';
@@ -53,14 +54,9 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.wrap}
       >
-        {/* Header Header & Branding */}
+        {/* Animated Brand Header */}
         <View style={styles.hero}>
-          <View style={styles.badgeContainer}>
-            <View style={styles.badgeDot} />
-            <Text style={styles.badgeText}>CLIENT PORTAL</Text>
-          </View>
-          <Text style={styles.brand}>RegiManager</Text>
-          <Text style={styles.tagline}>Insurance & DMV Mobile Wallet</Text>
+          <AnimatedLogo size="medium" animated={true} textColor={Colors.white} showTagline={true} />
         </View>
 
         {/* Input Card Container */}

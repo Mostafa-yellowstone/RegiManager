@@ -13,19 +13,24 @@ export { ErrorBoundary } from 'expo-router';
 SplashScreen.preventAutoHideAsync();
 
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { ready, token } = useAuth();
+  const { ready, token, hasSeenOnboarding } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (!ready) return;
-    const onLogin = segments[0] === 'login';
-    if (!token && !onLogin) {
-      router.replace('/login');
-    } else if (token && onLogin) {
+    const currentRoute = segments[0];
+
+    if (!token) {
+      if (!hasSeenOnboarding && currentRoute !== 'onboarding') {
+        router.replace('/onboarding');
+      } else if (hasSeenOnboarding && currentRoute !== 'login' && currentRoute !== 'onboarding') {
+        router.replace('/login');
+      }
+    } else if (token && (currentRoute === 'login' || currentRoute === 'onboarding')) {
       router.replace('/(tabs)');
     }
-  }, [ready, token, segments, router]);
+  }, [ready, token, hasSeenOnboarding, segments, router]);
 
   return <>{children}</>;
 }
@@ -58,6 +63,7 @@ export default function RootLayout() {
             contentStyle: { backgroundColor: Colors.cream },
           }}
         >
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen

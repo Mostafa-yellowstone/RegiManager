@@ -4,31 +4,63 @@ Cross-platform **iOS + Android** wallet for end clients. Talks to production at:
 
 **`https://www.regimanager.com`**
 
-## 1. Install on Android (recommended: installable APK)
+Bundle ID / package: `com.regimanager.clientwallet`
 
-### A. One-time setup on your PC
+## 1. One-time setup
 
 ```bash
 cd client-app
 npm install
 npm install -g eas-cli
 npx eas login
-npx eas build:configure
 ```
 
-### B. Build an APK you can sideload
+---
+
+## 2. Install on iPhone (EAS cloud build)
+
+You are on Windows, so iOS builds run in **Expo’s cloud** (no Mac/Xcode required for the build itself).
+
+### A. Apple requirements
+
+You need an **Apple Developer Program** account ($99/year):
+
+1. [developer.apple.com](https://developer.apple.com) → enroll
+2. Have access to create certificates / profiles for `com.regimanager.clientwallet`
+
+On the **first** iOS build, EAS will ask to log into Apple and can generate credentials for you (recommended).
+
+### B. Build an installable iOS app (internal / TestFlight-style)
 
 ```bash
-npx eas build -p android --profile preview
+cd client-app
+npx eas build -p ios --profile preview
 ```
 
-When the build finishes, open the link Expo gives you → download the **.apk** → copy it to the phone → open the file → Allow install from that source → Install.
+Or:
 
-That installs **RegiManager Wallet** as a real Android app (not Expo Go).
+```bash
+npm run build:ios:preview
+```
 
-### C. Faster day-to-day testing (Expo Go)
+When the build finishes:
 
-1. Install **Expo Go** from the Play Store.
+1. Open the Expo build page link
+2. Install via the QR code / link on the iPhone (internal distribution), **or**
+3. For App Store / TestFlight: use production profile + submit (below)
+
+### C. Production / TestFlight / App Store
+
+```bash
+npx eas build -p ios --profile production
+npx eas submit -p ios --profile production
+```
+
+Fill in App Store Connect app details first (create the app with bundle ID `com.regimanager.clientwallet`).
+
+### D. Faster day-to-day testing (Expo Go on iPhone)
+
+1. Install **Expo Go** from the App Store  
 2. On your PC:
 
 ```bash
@@ -36,13 +68,32 @@ cd client-app
 npx expo start
 ```
 
-3. Scan the QR code with Expo Go (same Wi‑Fi), or press `a` if an emulator is running.
+3. Scan the QR code with the Camera app / Expo Go (same Wi‑Fi)
 
-> Expo Go is fine for UI testing. For a normal “install the app” experience for clients, use the **APK** path above.
+> Expo Go is for quick UI tests. Clients should install a real **EAS build**, not Expo Go.
 
 ---
 
-## 2. Production API URL
+## 3. Install on Android (APK)
+
+```bash
+cd client-app
+npx eas build -p android --profile preview
+```
+
+Download the **.apk** from the Expo link → install on the phone.
+
+---
+
+## 4. Build both platforms
+
+```bash
+npx eas build -p all --profile preview
+```
+
+---
+
+## 5. Production API URL
 
 Already set to:
 
@@ -54,36 +105,24 @@ in `.env` and as the app default. Restart Expo (`npx expo start -c`) after chang
 
 ---
 
-## 3. Make login work on the live site
+## 6. Make login work on the live site
 
 The phone app calls `https://www.regimanager.com/api/client/...`.
 
-That API must be **deployed** on the server (this repo’s client wallet backend + migration `0184`). Until deploy, login returns **404**.
-
 After deploy:
 
-1. Run migration on production: `python manage.py migrate`
-2. In CRM → client profile → **Client App Access** → set 4–8 digit PIN → enable
-3. Give the client: **portal code** + phone/email + PIN
+1. Run migrations on production: `python manage.py migrate`
+2. In CRM → client profile → **Client App Access** → set PIN → enable
+3. Give the client: **Client App Portal No.** + phone/email + PIN
 4. Sign in from the app
-
----
-
-## 4. Sign-in fields
 
 | Field | Value |
 |-------|--------|
-| Agency portal code | `Organization.portal_token` |
+| Client App Portal No. | Short 6-digit org code (`Organization.client_app_portal_no`) |
 | Phone or email | Client phone / email on file |
 | PIN | Staff-set PIN |
 
 API docs: [`docs/CLIENT_APP_API.md`](../docs/CLIENT_APP_API.md)
-
----
-
-## 5. Documents / ID cards
-
-Files download with the session token, then open via the Android share sheet (PDF/image viewers).
 
 ---
 

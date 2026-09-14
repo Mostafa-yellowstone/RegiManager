@@ -9,7 +9,12 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.regimanager.clientwallet"
+      "bundleIdentifier": "com.regimanager.clientwallet",
+      "infoPlist": {
+        "CFBundleDisplayName": "RegiManager Wallet",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Unlock secure wallet session on this device."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -44,8 +49,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "b7add8b4-d806-481e-bc65-59e1777413b5"
-      }
+        "projectId": "711b65c0-78ea-480c-baa7-10459e887a85"
+      },
+      "router": {}
     },
     "owner": "mostafaelbigarmiis-team"
   }
