@@ -35,6 +35,7 @@
       "expo-router",
       "expo-secure-store",
       "expo-sharing",
+      "expo-local-authentication",
       [
         "expo-splash-screen",
         {

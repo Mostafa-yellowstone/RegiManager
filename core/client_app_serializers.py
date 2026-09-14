@@ -133,6 +133,24 @@ def policy_detail_payload(policy: InsurancePolicy) -> dict:
     return data
 
 
+def _file_meta(file_field) -> dict:
+    import mimetypes
+    import os
+
+    if not file_field:
+        return {"file_name": "", "file_ext": "", "mime_type": ""}
+    name = os.path.basename(getattr(file_field, "name", "") or "")
+    ext = ""
+    if "." in name:
+        ext = name.rsplit(".", 1)[-1].lower()[:8]
+    mime, _ = mimetypes.guess_type(name)
+    return {
+        "file_name": name,
+        "file_ext": ext,
+        "mime_type": mime or "",
+    }
+
+
 def insurance_document_payload(doc: InsurancePolicyDocument, *, request=None) -> dict:
     file_url = None
     if doc.file and request:
@@ -142,6 +160,7 @@ def insurance_document_payload(doc: InsurancePolicyDocument, *, request=None) ->
             )
         except Exception:
             file_url = None
+    meta = _file_meta(doc.file)
     return {
         "id": doc.id,
         "kind": "insurance",
@@ -153,6 +172,7 @@ def insurance_document_payload(doc: InsurancePolicyDocument, *, request=None) ->
         "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
         "file_url": file_url,
         "has_file": bool(doc.file),
+        **meta,
     }
 
 
@@ -177,6 +197,7 @@ def dmv_document_payload(doc: ServiceDocument, *, request=None) -> dict:
         plate_number = vehicle.plate_number or ""
     title = getattr(doc, "custom_name", "") or doc.get_document_type_display()
     wallet_role = _dmv_wallet_role(doc.document_type, title)
+    meta = _file_meta(doc.file)
     return {
         "id": doc.id,
         "kind": "dmv",
@@ -190,6 +211,7 @@ def dmv_document_payload(doc: ServiceDocument, *, request=None) -> dict:
         "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
         "file_url": file_url,
         "has_file": bool(doc.file),
+        **meta,
     }
 
 

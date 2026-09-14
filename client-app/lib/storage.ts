@@ -3,11 +3,20 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 /**
- * Durable key/value store for wallet session + onboarding flags.
- * Uses SecureStore when available, with a FileSystem backup so Expo Go
- * reloads still keep "logged in" / "seen onboarding" state.
+ * Secure key/value store for the wallet.
+ * Secrets (tokens, credentials) stay in SecureStore only — never mirrored
+ * to a plaintext FileSystem backup. Non-sensitive prefs may use a backup
+ * so Expo Go reloads keep onboarding / UI preferences.
  */
 const BACKUP_FILE = `${FileSystem.documentDirectory || ''}wallet_kv_store.json`;
+
+/** Keys that must never be written to the plaintext backup file. */
+const SECRET_KEYS = new Set([
+  'client_app_token',
+  'client_app_profile',
+  'client_app_org',
+  'client_app_saved_credentials',
+]);
 
 type StoreMap = Record<string, string>;
 
@@ -26,6 +35,10 @@ async function readBackup(): Promise<StoreMap> {
 async function writeBackup(map: StoreMap): Promise<void> {
   try {
     if (!FileSystem.documentDirectory) return;
+    // Strip any secrets that may have been written by older builds.
+    for (const key of SECRET_KEYS) {
+      delete map[key];
+    }
     await FileSystem.writeAsStringAsync(BACKUP_FILE, JSON.stringify(map));
   } catch {
     // ignore backup failures
@@ -33,11 +46,13 @@ async function writeBackup(map: StoreMap): Promise<void> {
 }
 
 async function backupGet(key: string): Promise<string | null> {
+  if (SECRET_KEYS.has(key)) return null;
   const map = await readBackup();
   return map[key] ?? null;
 }
 
 async function backupSet(key: string, value: string): Promise<void> {
+  if (SECRET_KEYS.has(key)) return;
   const map = await readBackup();
   map[key] = value;
   await writeBackup(map);
@@ -48,6 +63,24 @@ async function backupDelete(key: string): Promise<void> {
   if (!(key in map)) return;
   delete map[key];
   await writeBackup(map);
+}
+
+/** One-time scrub of secrets left in older plaintext backups. */
+export async function scrubSecretBackups(): Promise<void> {
+  if (Platform.OS === 'web') return;
+  try {
+    const map = await readBackup();
+    let dirty = false;
+    for (const key of SECRET_KEYS) {
+      if (key in map) {
+        delete map[key];
+        dirty = true;
+      }
+    }
+    if (dirty) await writeBackup(map);
+  } catch {
+    // ignore
+  }
 }
 
 export async function kvGet(key: string): Promise<string | null> {
@@ -61,15 +94,13 @@ export async function kvGet(key: string): Promise<string | null> {
 
   try {
     const secure = await SecureStore.getItemAsync(key);
-    if (secure != null) {
-      // Keep backup in sync for future SecureStore misses.
-      await backupSet(key, secure);
-      return secure;
-    }
+    if (secure != null) return secure;
   } catch {
-    // fall through to backup
+    // fall through
   }
 
+  // Secrets never fall back to plaintext backup.
+  if (SECRET_KEYS.has(key)) return null;
   return backupGet(key);
 }
 
@@ -83,17 +114,20 @@ export async function kvSet(key: string, value: string): Promise<void> {
     return;
   }
 
-  let secureOk = false;
   try {
     await SecureStore.setItemAsync(key, value);
-    secureOk = true;
   } catch {
-    secureOk = false;
+    // If SecureStore fails for a secret, do not write plaintext.
+    if (SECRET_KEYS.has(key)) {
+      throw new Error('Unable to securely store credentials on this device.');
+    }
   }
-  // Always write backup so cold starts keep session/onboarding.
-  await backupSet(key, value);
-  if (!secureOk) {
-    // Backup-only mode still works for Expo Go persistence.
+
+  if (!SECRET_KEYS.has(key)) {
+    await backupSet(key, value);
+  } else {
+    // Ensure leftover plaintext copies are removed.
+    await backupDelete(key);
   }
 }
 

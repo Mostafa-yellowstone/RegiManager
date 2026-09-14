@@ -21,7 +21,12 @@ import { fetchIdCards } from '@/lib/api';
 const WIDTH = Dimensions.get('window').width;
 const CARD_W = WIDTH - 48;
 
-type ViewerTarget = { kind: string; id: number | string; title: string } | null;
+type ViewerTarget = {
+  kind: string;
+  id: number | string;
+  title: string;
+  fileNameHint?: string | null;
+} | null;
 
 export default function IdCardsScreen() {
   const [rows, setRows] = useState<any[]>([]);
@@ -54,6 +59,7 @@ export default function IdCardsScreen() {
       kind: doc.kind || 'insurance',
       id: doc.id,
       title: doc.title || doc.document_type_display || 'ID Card',
+      fileNameHint: doc.file_name || null,
     });
   }
 
@@ -119,16 +125,22 @@ export default function IdCardsScreen() {
                       kind={doc.kind || 'insurance'}
                       id={doc.id}
                       title={doc.title || 'ID Card'}
+                      fileNameHint={doc.file_name || null}
                       style={styles.previewImage}
                     />
                   </View>
+                  <View style={styles.formatRow}>
+                    <Text style={styles.formatChip}>
+                      {(doc.file_ext || 'FILE').toString().toUpperCase()}
+                    </Text>
+                    <Text style={styles.cardMetaInline}>
+                      {doc.policy_number
+                        ? `Policy #${doc.policy_number}`
+                        : doc.vehicle_label || 'Official document'}
+                    </Text>
+                  </View>
                   <Text style={styles.cardTitle} numberOfLines={2}>
                     {doc.title || doc.document_type_display}
-                  </Text>
-                  <Text style={styles.cardMeta}>
-                    {doc.policy_number
-                      ? `Policy #${doc.policy_number}`
-                      : doc.vehicle_label || 'Official document'}
                   </Text>
                   <View style={styles.cardFooter}>
                     <Text style={styles.open}>Tap to view</Text>
@@ -151,6 +163,7 @@ export default function IdCardsScreen() {
           kind={viewer.kind}
           id={viewer.id}
           title={viewer.title}
+          fileNameHint={viewer.fileNameHint}
           variant="id_card"
           onClose={() => setViewer(null)}
         />
@@ -189,8 +202,26 @@ const styles = StyleSheet.create({
     height: 140,
   },
   previewImage: { width: '100%', height: '100%' },
-  cardTitle: { color: '#fff', fontSize: 18, fontWeight: '800', marginTop: 12 },
+  formatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  formatChip: {
+    color: Colors.gold,
+    fontWeight: '900',
+    fontSize: 10,
+    letterSpacing: 0.8,
+    backgroundColor: 'rgba(201,162,39,0.18)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  cardTitle: { color: '#fff', fontSize: 18, fontWeight: '800', marginTop: 10 },
   cardMeta: { color: 'rgba(255,255,255,0.8)', marginTop: 6, fontWeight: '600' },
+  cardMetaInline: { color: 'rgba(255,255,255,0.75)', fontWeight: '600', fontSize: 12, flex: 1 },
   cardFooter: { marginTop: 14 },
   open: { color: '#fff', fontWeight: '800' },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 14 },

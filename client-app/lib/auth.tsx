@@ -11,6 +11,7 @@ import {
   saveSession,
   setHasSeenOnboarding,
 } from '@/lib/api';
+import { scrubSecretBackups } from '@/lib/storage';
 
 type ClientProfile = Record<string, any> | null;
 
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
+      await scrubSecretBackups();
       const storedToken = await getStoredToken();
       const storedClient = await getStoredClient();
       const seenOnboarding = await getHasSeenOnboarding();
@@ -59,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }) => {
     const data = await apiLogin({
       ...input,
-      device_label: 'Expo Wallet',
+      device_label: 'RegiManager Wallet',
     });
     await saveSession(data.token, data.client, data.organization);
     // Completing login implies onboarding is done — never show it again.
@@ -77,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // still clear local session
       }
     }
-    // Keep onboarding flag — only clear auth session.
+    // Keep onboarding + biometric credentials — only clear active session token.
     await clearSession();
     setToken(null);
     setClient(null);

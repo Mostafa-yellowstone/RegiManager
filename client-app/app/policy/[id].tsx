@@ -24,6 +24,7 @@ type ViewerTarget = {
   id: number | string;
   title: string;
   variant?: 'id_card' | 'document';
+  fileNameHint?: string | null;
 } | null;
 
 export default function PolicyDetailScreen() {
@@ -59,6 +60,7 @@ export default function PolicyDetailScreen() {
       id: doc.id,
       title: doc.title || doc.document_type_display || 'Document',
       variant,
+      fileNameHint: doc.file_name || null,
     });
   }
 
@@ -243,6 +245,7 @@ export default function PolicyDetailScreen() {
           id={viewer.id}
           title={viewer.title}
           variant={viewer.variant || 'document'}
+          fileNameHint={viewer.fileNameHint}
           onClose={() => setViewer(null)}
         />
       ) : null}

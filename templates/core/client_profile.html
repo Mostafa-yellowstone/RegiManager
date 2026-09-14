@@ -937,7 +937,7 @@
             <div>
                 <h3 id="clientAppAccessTitle" style="margin:0;font-size:1.1rem;font-weight:800;color:#0f172a;">Client app access</h3>
                 <p style="margin:0.35rem 0 0;font-size:0.82rem;color:#64748b;line-height:1.4;">
-                    Set a PIN for the mobile wallet. After save, this window closes.
+                    Set PIN access for the RegiManager Wallet. Clients can also enable fingerprint / Face ID after first login.
                 </p>
             </div>
             <button type="button" class="btn btn-secondary btn-sm" style="min-height:auto;padding:0.35rem 0.55rem;line-height:1;" title="Close" aria-label="Close" onclick="document.getElementById('clientAppAccessModal').classList.remove('active')">✕</button>
@@ -972,6 +972,16 @@
             or <strong>email</strong> ({{ client.email|default:"none" }})
             + PIN.
         </p>
+
+        <div style="margin:0 0 0.95rem;padding:0.85rem 1rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
+            <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:#0f172a;margin-bottom:0.4rem;">Biometric unlock (Fingerprint / Face ID)</div>
+            <p style="margin:0;font-size:0.78rem;color:#475569;line-height:1.45;">
+                After the client signs in once with this portal number + PIN, the wallet can offer
+                <strong>fingerprint / Face ID</strong> on their phone. Biometrics unlock the same
+                saved credentials — they stay encrypted on the device and never leave the phone.
+                Tell the client to enable it from the login prompt or Profile → Security.
+            </p>
+        </div>
 
         <form method="post" action="{% url 'update-client-app-access' client.id %}" style="display:flex;flex-direction:column;gap:0.75rem;">
             {% csrf_token %}

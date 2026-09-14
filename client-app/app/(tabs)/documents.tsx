@@ -22,7 +22,12 @@ const FILTERS = [
   { key: 'other', label: 'Other' },
 ] as const;
 
-type ViewerTarget = { kind: string; id: number | string; title: string } | null;
+type ViewerTarget = {
+  kind: string;
+  id: number | string;
+  title: string;
+  fileNameHint?: string | null;
+} | null;
 
 export default function DocumentsScreen() {
   const [rows, setRows] = useState<any[]>([]);
@@ -72,6 +77,7 @@ export default function DocumentsScreen() {
       kind: doc.kind,
       id: doc.id,
       title: doc.title || doc.document_type_display || 'Document',
+      fileNameHint: doc.file_name || null,
     });
   }
 
@@ -183,6 +189,7 @@ export default function DocumentsScreen() {
           kind={viewer.kind}
           id={viewer.id}
           title={viewer.title}
+          fileNameHint={viewer.fileNameHint}
           onClose={() => setViewer(null)}
         />
       ) : null}

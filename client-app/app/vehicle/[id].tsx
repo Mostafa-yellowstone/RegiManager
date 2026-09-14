@@ -22,7 +22,12 @@ function statusColor(status?: string) {
   return Colors.muted;
 }
 
-type ViewerTarget = { kind: string; id: number | string; title: string } | null;
+type ViewerTarget = {
+  kind: string;
+  id: number | string;
+  title: string;
+  fileNameHint?: string | null;
+} | null;
 
 export default function VehicleDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -61,6 +66,7 @@ export default function VehicleDetailScreen() {
       kind: 'dmv',
       id: doc.id,
       title: doc.title || fallbackLabel,
+      fileNameHint: doc.file_name || null,
     });
   }
 
@@ -208,6 +214,7 @@ export default function VehicleDetailScreen() {
           kind={viewer.kind}
           id={viewer.id}
           title={viewer.title}
+          fileNameHint={viewer.fileNameHint}
           onClose={() => setViewer(null)}
         />
       ) : null}

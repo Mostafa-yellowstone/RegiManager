@@ -342,6 +342,25 @@ class ClientDocumentsView(ClientAppAPIView):
         return Response({"count": len(results), "results": results})
 
 
+def _secure_document_file_response(file_field) -> FileResponse:
+    """Serve wallet documents inline with an accurate content-type + filename."""
+    import mimetypes
+    import os
+
+    filename = os.path.basename(getattr(file_field, "name", "") or "document")
+    content_type, _ = mimetypes.guess_type(filename)
+    response = FileResponse(
+        file_field.open("rb"),
+        as_attachment=False,
+        filename=filename,
+        content_type=content_type or "application/octet-stream",
+    )
+    # Help clients map extensions when Content-Type is generic.
+    response["X-File-Name"] = filename
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
 class ClientDocumentFileView(ClientAppAPIView):
     def get(self, request, kind: str, document_id: int):
         kind = (kind or "").strip().lower()
@@ -354,7 +373,7 @@ class ClientDocumentFileView(ClientAppAPIView):
             )
             if not doc or not doc.file:
                 raise Http404("Document not found.")
-            return FileResponse(doc.file.open("rb"), as_attachment=False, filename=doc.file.name.split("/")[-1])
+            return _secure_document_file_response(doc.file)
         if kind == "dmv":
             doc = (
                 ServiceDocument.objects.filter(
@@ -366,7 +385,7 @@ class ClientDocumentFileView(ClientAppAPIView):
             )
             if not doc or not doc.file:
                 raise Http404("Document not found.")
-            return FileResponse(doc.file.open("rb"), as_attachment=False, filename=doc.file.name.split("/")[-1])
+            return _secure_document_file_response(doc.file)
         raise Http404("Unknown document kind.")
 
 

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,6 +16,12 @@ import { AnimatedLogo } from '@/components/AnimatedLogo';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
 import { ApiError } from '@/lib/api';
+import {
+  enableBiometricLogin,
+  getBiometricHardware,
+  isBiometricLoginEnabled,
+  unlockCredentialsWithBiometrics,
+} from '@/lib/biometrics';
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
@@ -23,6 +30,49 @@ export default function LoginScreen() {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [bioLoading, setBioLoading] = useState(false);
+  const [bioReady, setBioReady] = useState(false);
+  const [bioLabel, setBioLabel] = useState('Biometrics');
+
+  useEffect(() => {
+    (async () => {
+      const hw = await getBiometricHardware();
+      setBioLabel(hw.label);
+      setBioReady(await isBiometricLoginEnabled());
+    })();
+  }, []);
+
+  const maybeOfferBiometrics = useCallback(
+    async (creds: {
+      portal_token: string;
+      phone?: string;
+      email?: string;
+      pin: string;
+    }) => {
+      const hw = await getBiometricHardware();
+      if (!hw.compatible || !hw.enrolled) return;
+      if (await isBiometricLoginEnabled()) return;
+      Alert.alert(
+        `Enable ${hw.label}?`,
+        `Sign in next time with ${hw.label} only. Your portal number, contact, and PIN stay encrypted on this device.`,
+        [
+          { text: 'Not now', style: 'cancel' },
+          {
+            text: `Enable ${hw.label}`,
+            onPress: async () => {
+              try {
+                await enableBiometricLogin(creds);
+                setBioReady(true);
+              } catch (err: any) {
+                Alert.alert('Could not enable', err?.message || 'Try again from Profile.');
+              }
+            },
+          },
+        ],
+      );
+    },
+    [],
+  );
 
   async function onSubmit() {
     setError('');
@@ -36,15 +86,30 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const isEmail = id.includes('@');
-      await signIn({
+      const creds = {
         portal_token: portal,
         pin: pinValue,
         ...(isEmail ? { email: id } : { phone: id }),
-      });
+      };
+      await signIn(creds);
+      await maybeOfferBiometrics(creds);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Sign-in failed.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function onBiometricSignIn() {
+    setError('');
+    setBioLoading(true);
+    try {
+      const creds = await unlockCredentialsWithBiometrics();
+      await signIn(creds);
+    } catch (err: any) {
+      setError(err instanceof ApiError ? err.message : err?.message || 'Biometric sign-in failed.');
+    } finally {
+      setBioLoading(false);
     }
   }
 
@@ -54,15 +119,13 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.wrap}
       >
-        {/* Animated Brand Header */}
         <View style={styles.hero}>
-          <AnimatedLogo size="medium" animated={true} textColor={Colors.white} showTagline={true} />
+          <AnimatedLogo size="medium" animated textColor={Colors.white} showTagline />
         </View>
 
-        {/* Input Card Container */}
         <View style={styles.formCard}>
           <Text style={styles.cardHeaderTitle}>Sign In to Wallet</Text>
-          <Text style={styles.cardHeaderSub}>Access policies, ID cards & receipts</Text>
+          <Text style={styles.cardHeaderSub}>Secure access to policies, ID cards & documents</Text>
 
           {error ? (
             <View style={styles.errorBox}>
@@ -70,7 +133,32 @@ export default function LoginScreen() {
             </View>
           ) : null}
 
-          {/* Agency Portal Number */}
+          {bioReady ? (
+            <Pressable
+              style={({ pressed }) => [
+                styles.bioButton,
+                pressed && styles.buttonPressed,
+                bioLoading && styles.buttonDisabled,
+              ]}
+              onPress={onBiometricSignIn}
+              disabled={bioLoading || loading}
+            >
+              {bioLoading ? (
+                <ActivityIndicator color={Colors.navy} />
+              ) : (
+                <Text style={styles.bioButtonText}>Unlock with {bioLabel}</Text>
+              )}
+            </Pressable>
+          ) : null}
+
+          {bioReady ? (
+            <View style={styles.orRow}>
+              <View style={styles.orLine} />
+              <Text style={styles.orText}>or use PIN</Text>
+              <View style={styles.orLine} />
+            </View>
+          ) : null}
+
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>CLIENT APP PORTAL NO.</Text>
             <TextInput
@@ -85,7 +173,6 @@ export default function LoginScreen() {
             />
           </View>
 
-          {/* Identifier (Phone or Email) */}
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>PHONE OR EMAIL</Text>
             <TextInput
@@ -100,14 +187,13 @@ export default function LoginScreen() {
             />
           </View>
 
-          {/* PIN */}
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>ACCESS PIN</Text>
             <TextInput
               style={styles.input}
-              secureTextEntry={false}
+              secureTextEntry
               keyboardType="number-pad"
-              textContentType="oneTimeCode"
+              textContentType="password"
               autoComplete="off"
               importantForAutofill="no"
               maxLength={8}
@@ -118,7 +204,6 @@ export default function LoginScreen() {
             />
           </View>
 
-          {/* Sign In Button */}
           <Pressable
             style={({ pressed }) => [
               styles.button,
@@ -126,7 +211,7 @@ export default function LoginScreen() {
               loading && styles.buttonDisabled,
             ]}
             onPress={onSubmit}
-            disabled={loading}
+            disabled={loading || bioLoading}
           >
             {loading ? (
               <ActivityIndicator color={Colors.white} />
@@ -136,7 +221,9 @@ export default function LoginScreen() {
           </Pressable>
 
           <View style={styles.securityNoteContainer}>
-            <Text style={styles.securityNoteText}>🔒 256-bit Encrypted Government Connection</Text>
+            <Text style={styles.securityNoteText}>
+              Encrypted on-device credentials · Token never stored in plain files
+            </Text>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -148,38 +235,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.navy },
   wrap: { flex: 1, justifyContent: 'center', paddingHorizontal: 22, paddingVertical: 12 },
   hero: { marginBottom: 24, alignItems: 'center' },
-  badgeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.3)',
-    marginBottom: 12,
-  },
-  badgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#60A5FA',
-    marginRight: 6,
-  },
-  badgeText: {
-    color: '#93C5FD',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-  brand: {
-    color: Colors.white,
-    fontSize: 34,
-    fontWeight: '800',
-    letterSpacing: -0.6,
-    textAlign: 'center',
-  },
-  tagline: { color: '#94A3B8', marginTop: 6, fontSize: 15, fontWeight: '500', textAlign: 'center' },
   formCard: {
     backgroundColor: Colors.white,
     borderRadius: 24,
@@ -211,6 +266,27 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorText: { color: Colors.danger, fontSize: 13, fontWeight: '600' },
+  bioButton: {
+    backgroundColor: Colors.goldSoft,
+    borderWidth: 1.5,
+    borderColor: Colors.gold,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+  },
+  bioButtonText: { color: Colors.navy, fontWeight: '800', fontSize: 15 },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginVertical: 14,
+  },
+  orLine: { flex: 1, height: 1, backgroundColor: Colors.border },
+  orText: { color: Colors.mutedLight, fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
   fieldGroup: { marginBottom: 16 },
   label: { fontSize: 11, fontWeight: '800', color: Colors.muted, marginBottom: 6, letterSpacing: 0.6 },
   input: {
@@ -240,5 +316,5 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: Colors.white, fontWeight: '800', fontSize: 16, letterSpacing: 0.2 },
   securityNoteContainer: { marginTop: 18, alignItems: 'center' },
-  securityNoteText: { fontSize: 12, color: Colors.mutedLight, fontWeight: '500' },
+  securityNoteText: { fontSize: 11, color: Colors.mutedLight, fontWeight: '500', textAlign: 'center' },
 });

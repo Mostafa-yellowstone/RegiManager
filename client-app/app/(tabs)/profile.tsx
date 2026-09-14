@@ -1,16 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
 import { Colors, Radius } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, ApiError, login as apiLogin } from '@/lib/api';
+import {
+  disableBiometricLogin,
+  enableBiometricLogin,
+  getBiometricHardware,
+  isBiometricLoginEnabled,
+} from '@/lib/biometrics';
 import {
   AppLanguage,
   AppThemeMode,
@@ -27,13 +35,29 @@ export default function ProfileScreen() {
   const [busy, setBusy] = useState(false);
   const [language, setLanguageState] = useState<AppLanguage>('en');
   const [theme, setThemeState] = useState<AppThemeMode>('system');
+  const [bioEnabled, setBioEnabled] = useState(false);
+  const [bioLabel, setBioLabel] = useState('Biometrics');
+  const [bioCompatible, setBioCompatible] = useState(false);
+  const [showBioForm, setShowBioForm] = useState(false);
+  const [bioPortal, setBioPortal] = useState('');
+  const [bioId, setBioId] = useState('');
+  const [bioPin, setBioPin] = useState('');
+  const [bioBusy, setBioBusy] = useState(false);
+
+  const refreshBio = useCallback(async () => {
+    const hw = await getBiometricHardware();
+    setBioCompatible(hw.compatible && hw.enrolled);
+    setBioLabel(hw.label);
+    setBioEnabled(await isBiometricLoginEnabled());
+  }, []);
 
   useEffect(() => {
     (async () => {
       setLanguageState(await getLanguage());
       setThemeState(await getThemeMode());
+      await refreshBio();
     })();
-  }, []);
+  }, [refreshBio]);
 
   const onLanguage = useCallback(async (value: AppLanguage) => {
     setLanguageState(value);
@@ -51,6 +75,44 @@ export default function ProfileScreen() {
       await signOut();
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function onDisableBio() {
+    await disableBiometricLogin();
+    setBioEnabled(false);
+    setShowBioForm(false);
+  }
+
+  async function onEnableBio() {
+    const portal = bioPortal.trim();
+    const id = bioId.trim();
+    const pin = bioPin.trim();
+    if (!portal || !id || !pin) {
+      Alert.alert('Missing info', 'Enter portal number, phone/email, and PIN to link biometrics.');
+      return;
+    }
+    setBioBusy(true);
+    try {
+      const isEmail = id.includes('@');
+      const creds = {
+        portal_token: portal,
+        pin,
+        ...(isEmail ? { email: id } : { phone: id }),
+      };
+      await apiLogin({ ...creds, device_label: 'RegiManager Wallet biometric link' });
+      await enableBiometricLogin(creds);
+      setBioEnabled(true);
+      setShowBioForm(false);
+      setBioPin('');
+      Alert.alert('Enabled', `${bioLabel} sign-in is linked to your credentials.`);
+    } catch (err: any) {
+      Alert.alert(
+        'Could not enable',
+        err instanceof ApiError ? err.message : err?.message || 'Check your details and try again.',
+      );
+    } finally {
+      setBioBusy(false);
     }
   }
 
@@ -82,6 +144,74 @@ export default function ProfileScreen() {
         <InfoRow label="Email" value={client?.email || 'Not provided'} />
         {client?.driver_license ? <InfoRow label="Driver license" value={client.driver_license} /> : null}
         {client?.address ? <InfoRow label="Address" value={client.address} /> : null}
+      </View>
+
+      <Text style={styles.sectionTitle}>SECURITY</Text>
+      <View style={styles.card}>
+        <Text style={styles.prefLabel}>{bioLabel} sign-in</Text>
+        <Text style={styles.hint}>
+          {bioEnabled
+            ? `Enabled — unlock the wallet with ${bioLabel}. Credentials stay encrypted on this device.`
+            : bioCompatible
+              ? `Link ${bioLabel} to your portal number + PIN for one-tap sign-in.`
+              : 'Biometrics are unavailable or not enrolled on this device.'}
+        </Text>
+        {bioEnabled ? (
+          <Pressable style={styles.bioOutline} onPress={onDisableBio}>
+            <Text style={styles.bioOutlineText}>Disable biometric sign-in</Text>
+          </Pressable>
+        ) : bioCompatible ? (
+          <>
+            {!showBioForm ? (
+              <Pressable style={styles.bioPrimary} onPress={() => setShowBioForm(true)}>
+                <Text style={styles.bioPrimaryText}>Link {bioLabel}</Text>
+              </Pressable>
+            ) : (
+              <View style={styles.bioForm}>
+                <TextInput
+                  style={styles.bioInput}
+                  placeholder="Client App Portal No."
+                  placeholderTextColor={Colors.mutedLight}
+                  keyboardType="number-pad"
+                  value={bioPortal}
+                  onChangeText={setBioPortal}
+                />
+                <TextInput
+                  style={styles.bioInput}
+                  placeholder="Phone or email"
+                  placeholderTextColor={Colors.mutedLight}
+                  autoCapitalize="none"
+                  value={bioId}
+                  onChangeText={setBioId}
+                />
+                <TextInput
+                  style={styles.bioInput}
+                  placeholder="Access PIN"
+                  placeholderTextColor={Colors.mutedLight}
+                  secureTextEntry
+                  keyboardType="number-pad"
+                  maxLength={8}
+                  value={bioPin}
+                  onChangeText={(v) => setBioPin(v.replace(/[^\d]/g, ''))}
+                />
+                <Pressable
+                  style={[styles.bioPrimary, bioBusy && styles.disabled]}
+                  onPress={onEnableBio}
+                  disabled={bioBusy}
+                >
+                  {bioBusy ? (
+                    <ActivityIndicator color={Colors.white} />
+                  ) : (
+                    <Text style={styles.bioPrimaryText}>Verify & enable</Text>
+                  )}
+                </Pressable>
+                <Pressable onPress={() => setShowBioForm(false)}>
+                  <Text style={styles.cancelLink}>Cancel</Text>
+                </Pressable>
+              </View>
+            )}
+          </>
+        ) : null}
       </View>
 
       <Text style={styles.sectionTitle}>APP PREFERENCES</Text>
@@ -224,7 +354,41 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: Colors.navy, borderColor: Colors.navy },
   chipText: { color: Colors.navy, fontWeight: '700', fontSize: 12 },
   chipTextActive: { color: Colors.white },
-  hint: { color: Colors.muted, fontSize: 12, marginTop: 12, lineHeight: 17 },
+  hint: { color: Colors.muted, fontSize: 12, marginTop: 4, marginBottom: 12, lineHeight: 17 },
+  bioPrimary: {
+    backgroundColor: Colors.navy,
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  bioPrimaryText: { color: Colors.white, fontWeight: '800', fontSize: 14 },
+  bioOutline: {
+    borderWidth: 1.5,
+    borderColor: Colors.danger,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  bioOutlineText: { color: Colors.danger, fontWeight: '800', fontSize: 13 },
+  bioForm: { gap: 10 },
+  bioInput: {
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
+    backgroundColor: '#F8FAFC',
+  },
+  cancelLink: {
+    textAlign: 'center',
+    color: Colors.muted,
+    fontWeight: '700',
+    marginTop: 4,
+    fontSize: 13,
+  },
   recTitle: { fontSize: 14, fontWeight: '800', color: Colors.navy },
   recBody: { color: Colors.muted, fontSize: 13, marginTop: 4, lineHeight: 18 },
   serverCard: {
