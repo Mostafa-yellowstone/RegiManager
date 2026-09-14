@@ -21,16 +21,28 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     if (!ready) return;
     const currentRoute = segments[0];
 
-    if (!token) {
-      if (!hasSeenOnboarding && currentRoute !== 'onboarding') {
-        router.replace('/onboarding');
-      } else if (hasSeenOnboarding && currentRoute !== 'login' && currentRoute !== 'onboarding') {
-        router.replace('/login');
+    // Persist session: logged-in users always land in the app.
+    if (token) {
+      if (currentRoute === 'login' || currentRoute === 'onboarding' || !currentRoute) {
+        router.replace('/(tabs)');
       }
-    } else if (token && (currentRoute === 'login' || currentRoute === 'onboarding')) {
-      router.replace('/(tabs)');
+      return;
+    }
+
+    // Logged out: onboarding once, then login thereafter.
+    if (!hasSeenOnboarding) {
+      if (currentRoute !== 'onboarding') {
+        router.replace('/onboarding');
+      }
+      return;
+    }
+
+    if (currentRoute !== 'login') {
+      router.replace('/login');
     }
   }, [ready, token, hasSeenOnboarding, segments, router]);
+
+  if (!ready) return null;
 
   return <>{children}</>;
 }

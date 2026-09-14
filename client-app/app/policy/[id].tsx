@@ -11,20 +11,27 @@ import {
 import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 
 import { Colors, Radius } from '@/constants/theme';
-import { ApiError, fetchPolicy } from '@/lib/api';
-import { openClientDocument } from '@/lib/openDocument';
+import { DocumentViewerModal } from '@/components/DocumentViewer';
+import { fetchPolicy } from '@/lib/api';
 
 function money(v?: string | null) {
   if (!v) return '—';
   return v.startsWith('$') ? v : `$${v}`;
 }
 
+type ViewerTarget = {
+  kind: string;
+  id: number | string;
+  title: string;
+  variant?: 'id_card' | 'document';
+} | null;
+
 export default function PolicyDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [openingId, setOpeningId] = useState<number | null>(null);
+  const [viewer, setViewer] = useState<ViewerTarget>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -46,15 +53,13 @@ export default function PolicyDetailScreen() {
     }, [load]),
   );
 
-  async function openCard(doc: any) {
-    setOpeningId(doc.id);
-    try {
-      await openClientDocument(doc.kind || 'insurance', doc.id, doc.title || 'ID Card');
-    } catch (err: any) {
-      setError(err instanceof ApiError ? err.message : err?.message || 'Could not open ID card');
-    } finally {
-      setOpeningId(null);
-    }
+  function openDoc(doc: any, variant: 'id_card' | 'document' = 'document') {
+    setViewer({
+      kind: doc.kind || 'insurance',
+      id: doc.id,
+      title: doc.title || doc.document_type_display || 'Document',
+      variant,
+    });
   }
 
   if (loading && !data) {
@@ -69,6 +74,7 @@ export default function PolicyDetailScreen() {
   const installments = schedule.installments || [];
   const payments = data?.payments || [];
   const idCards = data?.id_cards || [];
+  const documents = data?.documents || [];
   const isActive = data?.status === 'active' || data?.status_display?.toLowerCase().includes('active');
 
   return (
@@ -202,21 +208,43 @@ export default function PolicyDetailScreen() {
             <>
               <Text style={styles.sectionTitle}>INSURANCE ID CARDS</Text>
               {idCards.map((doc: any) => (
-                <Pressable key={doc.id} style={styles.row} onPress={() => openCard(doc)}>
+                <Pressable key={doc.id} style={styles.row} onPress={() => openDoc(doc, 'id_card')}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.rowTitle}>{doc.title || 'ID Card'}</Text>
                     <Text style={styles.rowSub}>{doc.document_type_display}</Text>
                   </View>
-                  {openingId === doc.id ? (
-                    <ActivityIndicator color={Colors.primaryMid} />
-                  ) : (
-                    <Text style={styles.openLink}>Open</Text>
-                  )}
+                  <Text style={styles.openLink}>View</Text>
+                </Pressable>
+              ))}
+            </>
+          ) : null}
+
+          {documents.length ? (
+            <>
+              <Text style={styles.sectionTitle}>POLICY DOCUMENTS</Text>
+              {documents.map((doc: any) => (
+                <Pressable key={`doc-${doc.id}`} style={styles.row} onPress={() => openDoc(doc)}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rowTitle}>{doc.title || doc.document_type_display || 'Document'}</Text>
+                    <Text style={styles.rowSub}>{doc.document_type_display || 'Insurance file'}</Text>
+                  </View>
+                  <Text style={styles.openLink}>View</Text>
                 </Pressable>
               ))}
             </>
           ) : null}
         </>
+      ) : null}
+
+      {viewer ? (
+        <DocumentViewerModal
+          visible
+          kind={viewer.kind}
+          id={viewer.id}
+          title={viewer.title}
+          variant={viewer.variant || 'document'}
+          onClose={() => setViewer(null)}
+        />
       ) : null}
     </ScrollView>
   );

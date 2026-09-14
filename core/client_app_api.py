@@ -298,6 +298,10 @@ class ClientPolicyDetailView(ClientAppAPIView):
             ).filter(policy=policy)
         )
         payload["id_cards"] = [insurance_document_payload(d, request=request) for d in id_cards]
+        all_docs = list(
+            _client_insurance_documents(request.client).filter(policy=policy)
+        )
+        payload["documents"] = [insurance_document_payload(d, request=request) for d in all_docs]
         return Response(payload)
 
 

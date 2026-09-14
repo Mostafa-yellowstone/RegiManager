@@ -11,8 +11,8 @@ import {
 import { useFocusEffect } from 'expo-router';
 
 import { Colors, Radius, Shadows } from '@/constants/theme';
-import { ApiError, fetchDocuments } from '@/lib/api';
-import { openClientDocument } from '@/lib/openDocument';
+import { DocumentViewerModal } from '@/components/DocumentViewer';
+import { fetchDocuments } from '@/lib/api';
 
 const FILTERS = [
   { key: 'all', label: 'All' },
@@ -22,12 +22,14 @@ const FILTERS = [
   { key: 'other', label: 'Other' },
 ] as const;
 
+type ViewerTarget = { kind: string; id: number | string; title: string } | null;
+
 export default function DocumentsScreen() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openingId, setOpeningId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['key']>('all');
+  const [viewer, setViewer] = useState<ViewerTarget>(null);
 
   const load = useCallback(async () => {
     setError('');
@@ -64,17 +66,13 @@ export default function DocumentsScreen() {
     });
   }, [rows, filter]);
 
-  async function onOpen(doc: any) {
-    const key = `${doc.kind}-${doc.id}`;
+  function onOpen(doc: any) {
     setError('');
-    setOpeningId(key);
-    try {
-      await openClientDocument(doc.kind, doc.id, doc.title || doc.document_type_display);
-    } catch (err: any) {
-      setError(err instanceof ApiError ? err.message : err?.message || 'Could not open file');
-    } finally {
-      setOpeningId(null);
-    }
+    setViewer({
+      kind: doc.kind,
+      id: doc.id,
+      title: doc.title || doc.document_type_display || 'Document',
+    });
   }
 
   if (loading && !rows.length) {
@@ -125,7 +123,6 @@ export default function DocumentsScreen() {
 
       {filtered.map((doc) => {
         const key = `${doc.kind}-${doc.id}`;
-        const busy = openingId === key;
         const isDmv = doc.kind === 'dmv';
         const role = isDmv ? doc.wallet_role || doc.document_type : 'insurance';
         return (
@@ -133,7 +130,6 @@ export default function DocumentsScreen() {
             key={key}
             style={({ pressed }) => [styles.row, pressed && styles.pressedRow]}
             onPress={() => onOpen(doc)}
-            disabled={!!openingId}
           >
             <View
               style={[
@@ -173,17 +169,23 @@ export default function DocumentsScreen() {
             </View>
 
             <View style={styles.actionCol}>
-              {busy ? (
-                <ActivityIndicator color={Colors.primaryMid} size="small" />
-              ) : (
-                <View style={styles.openPill}>
-                  <Text style={styles.openText}>View</Text>
-                </View>
-              )}
+              <View style={styles.openPill}>
+                <Text style={styles.openText}>View</Text>
+              </View>
             </View>
           </Pressable>
         );
       })}
+
+      {viewer ? (
+        <DocumentViewerModal
+          visible
+          kind={viewer.kind}
+          id={viewer.id}
+          title={viewer.title}
+          onClose={() => setViewer(null)}
+        />
+      ) : null}
     </ScrollView>
   );
 }

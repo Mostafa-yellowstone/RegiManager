@@ -62,6 +62,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       device_label: 'Expo Wallet',
     });
     await saveSession(data.token, data.client, data.organization);
+    // Completing login implies onboarding is done — never show it again.
+    await setHasSeenOnboarding(true);
+    setHasSeenOnboardingState(true);
     setToken(data.token);
     setClient(data.client);
   }, []);
@@ -74,6 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // still clear local session
       }
     }
+    // Keep onboarding flag — only clear auth session.
     await clearSession();
     setToken(null);
     setClient(null);

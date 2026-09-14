@@ -1,5 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
+import { kvDelete, kvGet, kvSet } from '@/lib/storage';
 
 const TOKEN_KEY = 'client_app_token';
 const CLIENT_KEY = 'client_app_profile';
@@ -13,30 +12,15 @@ export const API_BASE_URL = (
 type Json = Record<string, unknown>;
 
 async function storageGet(key: string): Promise<string | null> {
-  if (Platform.OS === 'web') {
-    try {
-      return globalThis.localStorage?.getItem(key) ?? null;
-    } catch {
-      return null;
-    }
-  }
-  return SecureStore.getItemAsync(key);
+  return kvGet(key);
 }
 
 async function storageSet(key: string, value: string): Promise<void> {
-  if (Platform.OS === 'web') {
-    globalThis.localStorage?.setItem(key, value);
-    return;
-  }
-  await SecureStore.setItemAsync(key, value);
+  await kvSet(key, value);
 }
 
 async function storageDelete(key: string): Promise<void> {
-  if (Platform.OS === 'web') {
-    globalThis.localStorage?.removeItem(key);
-    return;
-  }
-  await SecureStore.deleteItemAsync(key);
+  await kvDelete(key);
 }
 
 export async function getStoredToken(): Promise<string | null> {

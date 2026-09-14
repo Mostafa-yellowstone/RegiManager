@@ -11,8 +11,8 @@ import {
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Colors, Radius, Shadows } from '@/constants/theme';
-import { ApiError, fetchVehicle } from '@/lib/api';
-import { openClientDocument } from '@/lib/openDocument';
+import { DocumentViewerModal } from '@/components/DocumentViewer';
+import { fetchVehicle } from '@/lib/api';
 
 function statusColor(status?: string) {
   const s = (status || '').toLowerCase();
@@ -22,13 +22,15 @@ function statusColor(status?: string) {
   return Colors.muted;
 }
 
+type ViewerTarget = { kind: string; id: number | string; title: string } | null;
+
 export default function VehicleDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [opening, setOpening] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<ViewerTarget>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -49,20 +51,17 @@ export default function VehicleDetailScreen() {
     }, [load]),
   );
 
-  async function openDoc(doc: any | null, fallbackLabel: string) {
+  function openDoc(doc: any | null, fallbackLabel: string) {
     if (!doc?.id) {
       setError(`${fallbackLabel} is not uploaded yet. Ask your agency.`);
       return;
     }
-    setOpening(String(doc.id));
     setError('');
-    try {
-      await openClientDocument('dmv', doc.id, doc.title || fallbackLabel);
-    } catch (err: any) {
-      setError(err instanceof ApiError ? err.message : err?.message || 'Could not open file');
-    } finally {
-      setOpening(null);
-    }
+    setViewer({
+      kind: 'dmv',
+      id: doc.id,
+      title: doc.title || fallbackLabel,
+    });
   }
 
   if (loading && !data) {
@@ -126,15 +125,10 @@ export default function VehicleDetailScreen() {
             <Pressable
               style={[styles.primaryBtn, !data.registration_document && styles.btnDisabled]}
               onPress={() => openDoc(data.registration_document, 'Registration')}
-              disabled={!!opening}
             >
-              {opening === String(data.registration_document?.id) ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.primaryBtnText}>
-                  {data.registration_document ? 'View Registration' : 'Registration not uploaded'}
-                </Text>
-              )}
+              <Text style={styles.primaryBtnText}>
+                {data.registration_document ? 'View Registration' : 'Registration not uploaded'}
+              </Text>
             </Pressable>
           </View>
 
@@ -148,15 +142,10 @@ export default function VehicleDetailScreen() {
             <Pressable
               style={[styles.outlineBtn, !data.title_document && styles.btnDisabled]}
               onPress={() => openDoc(data.title_document, 'Title')}
-              disabled={!!opening}
             >
-              {opening === String(data.title_document?.id) ? (
-                <ActivityIndicator color={Colors.navy} />
-              ) : (
-                <Text style={styles.outlineBtnText}>
-                  {data.title_document ? 'View Title' : 'Title not uploaded'}
-                </Text>
-              )}
+              <Text style={styles.outlineBtnText}>
+                {data.title_document ? 'View Title' : 'Title not uploaded'}
+              </Text>
             </Pressable>
           </View>
 
@@ -198,7 +187,6 @@ export default function VehicleDetailScreen() {
                 key={String(doc.id)}
                 style={styles.docRow}
                 onPress={() => openDoc(doc, doc.title || 'Document')}
-                disabled={!!opening}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.serviceTitle}>{doc.title}</Text>
@@ -207,11 +195,21 @@ export default function VehicleDetailScreen() {
                     {doc.uploaded_at ? ` · ${String(doc.uploaded_at).slice(0, 10)}` : ''}
                   </Text>
                 </View>
-                <Text style={styles.link}>{opening === String(doc.id) ? '…' : 'View'}</Text>
+                <Text style={styles.link}>View</Text>
               </Pressable>
             ))
           )}
         </>
+      ) : null}
+
+      {viewer ? (
+        <DocumentViewerModal
+          visible
+          kind={viewer.kind}
+          id={viewer.id}
+          title={viewer.title}
+          onClose={() => setViewer(null)}
+        />
       ) : null}
     </ScrollView>
   );

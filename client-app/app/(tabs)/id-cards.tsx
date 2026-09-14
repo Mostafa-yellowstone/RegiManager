@@ -13,19 +13,22 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
+import { AuthDocumentImage } from '@/components/AuthDocumentImage';
+import { DocumentViewerModal } from '@/components/DocumentViewer';
 import { Colors } from '@/constants/theme';
-import { ApiError, fetchIdCards } from '@/lib/api';
-import { openClientDocument } from '@/lib/openDocument';
+import { fetchIdCards } from '@/lib/api';
 
 const WIDTH = Dimensions.get('window').width;
 const CARD_W = WIDTH - 48;
 
+type ViewerTarget = { kind: string; id: number | string; title: string } | null;
+
 export default function IdCardsScreen() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openingId, setOpeningId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [page, setPage] = useState(0);
+  const [viewer, setViewer] = useState<ViewerTarget>(null);
 
   const load = useCallback(async () => {
     setError('');
@@ -46,16 +49,12 @@ export default function IdCardsScreen() {
     }, [load]),
   );
 
-  async function openCard(doc: any) {
-    const key = `${doc.kind}-${doc.id}`;
-    setOpeningId(key);
-    try {
-      await openClientDocument(doc.kind || 'insurance', doc.id, doc.title || 'ID Card');
-    } catch (err: any) {
-      setError(err instanceof ApiError ? err.message : err?.message || 'Could not open');
-    } finally {
-      setOpeningId(null);
-    }
+  function openCard(doc: any) {
+    setViewer({
+      kind: doc.kind || 'insurance',
+      id: doc.id,
+      title: doc.title || doc.document_type_display || 'ID Card',
+    });
   }
 
   function onScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -111,18 +110,28 @@ export default function IdCardsScreen() {
                 >
                   <View style={styles.cardTop}>
                     <Text style={styles.cardKind}>{isDl ? 'DRIVER LICENSE' : 'INSURANCE ID'}</Text>
-                    <Text style={styles.cardCount}>{index + 1}/{rows.length}</Text>
+                    <Text style={styles.cardCount}>
+                      {index + 1}/{rows.length}
+                    </Text>
                   </View>
-                  <Text style={styles.cardTitle}>{doc.title || doc.document_type_display}</Text>
+                  <View style={styles.previewWrap}>
+                    <AuthDocumentImage
+                      kind={doc.kind || 'insurance'}
+                      id={doc.id}
+                      title={doc.title || 'ID Card'}
+                      style={styles.previewImage}
+                    />
+                  </View>
+                  <Text style={styles.cardTitle} numberOfLines={2}>
+                    {doc.title || doc.document_type_display}
+                  </Text>
                   <Text style={styles.cardMeta}>
-                    {doc.policy_number ? `Policy #${doc.policy_number}` : doc.vehicle_label || 'Official document'}
+                    {doc.policy_number
+                      ? `Policy #${doc.policy_number}`
+                      : doc.vehicle_label || 'Official document'}
                   </Text>
                   <View style={styles.cardFooter}>
-                    {openingId === key ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <Text style={styles.open}>Tap to open</Text>
-                    )}
+                    <Text style={styles.open}>Tap to view</Text>
                   </View>
                 </Pressable>
               );
@@ -135,6 +144,17 @@ export default function IdCardsScreen() {
           </View>
         </>
       )}
+
+      {viewer ? (
+        <DocumentViewerModal
+          visible
+          kind={viewer.kind}
+          id={viewer.id}
+          title={viewer.title}
+          variant="id_card"
+          onClose={() => setViewer(null)}
+        />
+      ) : null}
     </ScrollView>
   );
 }
@@ -152,14 +172,26 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontWeight: '800', color: Colors.navy, fontSize: 16, marginBottom: 6 },
   card: {
-    borderRadius: 22, padding: 20, marginRight: 14, minHeight: 210, justifyContent: 'space-between',
+    borderRadius: 22,
+    padding: 16,
+    marginRight: 14,
+    minHeight: 320,
+    justifyContent: 'space-between',
   },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between' },
   cardKind: { color: 'rgba(255,255,255,0.7)', fontWeight: '800', fontSize: 11, letterSpacing: 1 },
   cardCount: { color: 'rgba(255,255,255,0.7)', fontWeight: '700', fontSize: 12 },
-  cardTitle: { color: '#fff', fontSize: 22, fontWeight: '800', marginTop: 18 },
-  cardMeta: { color: 'rgba(255,255,255,0.8)', marginTop: 8, fontWeight: '600' },
-  cardFooter: { marginTop: 24 },
+  previewWrap: {
+    marginTop: 12,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    height: 140,
+  },
+  previewImage: { width: '100%', height: '100%' },
+  cardTitle: { color: '#fff', fontSize: 18, fontWeight: '800', marginTop: 12 },
+  cardMeta: { color: 'rgba(255,255,255,0.8)', marginTop: 6, fontWeight: '600' },
+  cardFooter: { marginTop: 14 },
   open: { color: '#fff', fontWeight: '800' },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 14 },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#CBD5E1' },
