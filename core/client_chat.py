@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 
 from .models import Client, ClientChatMessage, Notification, OrganizationMembership
-from .realtime import publish_client_event, publish_user_event
+from .realtime import mark_client_chat_reload, publish_client_event, publish_user_event
 
 
 def serialize_chat_message(msg: ClientChatMessage) -> dict:
@@ -79,6 +79,23 @@ def post_staff_message(client: Client, staff_user: User, body: str) -> ClientCha
     # Fast path: wake the client app only. Other staff UIs poll the DB on their wait loop.
     publish_client_event(client.id, "chat.message", payload)
     return msg
+
+
+def delete_chat_message(client: Client, message_id: int) -> bool:
+    deleted, _ = ClientChatMessage.objects.filter(client=client, id=message_id).delete()
+    if deleted:
+        mark_client_chat_reload(client.id)
+        publish_client_event(client.id, "chat.reload", {"removed_ids": [int(message_id)]})
+    return bool(deleted)
+
+
+def clear_chat_history(client: Client) -> int:
+    deleted, _ = ClientChatMessage.objects.filter(client=client).delete()
+    # delete() returns (total, per-model dict); for cascade it's total count
+    count = deleted if isinstance(deleted, int) else 0
+    mark_client_chat_reload(client.id)
+    publish_client_event(client.id, "chat.reload", {"cleared": True})
+    return count
 
 
 def mark_read_by_staff(client: Client) -> int:

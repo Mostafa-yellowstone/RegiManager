@@ -29,6 +29,8 @@
     '/chat/wait',
     '/chat/send',
     '/chat/messages',
+    '/chat/clear',
+    '/chat/delete',
   ];
 
   function ensureDom() {

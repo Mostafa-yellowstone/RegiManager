@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -12,8 +13,12 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
-import { Colors } from '@/constants/theme';
+import { Colors, Radius } from '@/constants/theme';
 import { fetchChatMessages, sendChatMessage, waitChatMessages } from '@/lib/api';
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 export default function ChatScreen() {
   const [messages, setMessages] = useState<any[]>([]);
@@ -22,7 +27,6 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const lastIdRef = useRef(0);
-  const activeRef = useRef(true);
   const pauseWaitRef = useRef(false);
   const listRef = useRef<FlatList>(null);
 
@@ -51,39 +55,72 @@ export default function ChatScreen() {
     }
   }, []);
 
+  /**
+   * Long-poll must start on every focus. Leaving the Messages tab used to kill the
+   * loop without restarting it, so CRM → app messages only appeared after a
+   * leave/re-enter (history reload). App → CRM stayed instant via staff wake.
+   */
   useFocusEffect(
     useCallback(() => {
-      activeRef.current = true;
-      setLoading(true);
-      load();
-      return () => {
-        activeRef.current = false;
-      };
-    }, [load]),
-  );
+      let cancelled = false;
+      let controller = new AbortController();
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loop() {
-      while (!cancelled && activeRef.current) {
-        if (pauseWaitRef.current) {
-          await new Promise((r) => setTimeout(r, 200));
-          continue;
+      const runLoop = async () => {
+        while (!cancelled) {
+          if (AppState.currentState !== 'active') {
+            await sleep(400);
+            continue;
+          }
+          if (pauseWaitRef.current) {
+            await sleep(200);
+            continue;
+          }
+          if (controller.signal.aborted) {
+            controller = new AbortController();
+          }
+          try {
+            const data = await waitChatMessages(lastIdRef.current, 12, controller.signal);
+            if (cancelled) break;
+            if (data?.reload) {
+              const rows = data.results || [];
+              setMessages(rows);
+              lastIdRef.current = rows.length ? rows[rows.length - 1].id : 0;
+              setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 40);
+            } else if (data?.has_new) {
+              mergeMessages(data.results || []);
+              setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 40);
+            }
+          } catch (err: any) {
+            if (cancelled) break;
+            if (err?.name === 'AbortError') {
+              await sleep(150);
+              continue;
+            }
+            await sleep(1000);
+          }
         }
-        try {
-          const data = await waitChatMessages(lastIdRef.current, 12);
-          if (cancelled) break;
-          if (data?.has_new) mergeMessages(data.results || []);
-        } catch {
-          await new Promise((r) => setTimeout(r, 1200));
+      };
+
+      setLoading(true);
+      load().finally(() => {
+        if (!cancelled) runLoop();
+      });
+
+      const appSub = AppState.addEventListener('change', (state) => {
+        if (state !== 'active') {
+          controller.abort();
+        } else if (!cancelled) {
+          load();
         }
-      }
-    }
-    loop();
-    return () => {
-      cancelled = true;
-    };
-  }, [mergeMessages]);
+      });
+
+      return () => {
+        cancelled = true;
+        controller.abort();
+        appSub.remove();
+      };
+    }, [load, mergeMessages]),
+  );
 
   async function onSend() {
     const body = text.trim();
@@ -119,6 +156,17 @@ export default function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={88}
     >
+      <View style={styles.agentBar}>
+        <View style={styles.agentAvatar}>
+          <Text style={styles.agentAvatarText}>A</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.agentTitle}>Your agency</Text>
+          <Text style={styles.agentSub}>Live · replies appear instantly</Text>
+        </View>
+        <View style={styles.liveDot} />
+      </View>
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <FlatList
         ref={listRef}
@@ -126,7 +174,9 @@ export default function ChatScreen() {
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.list}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-        ListEmptyComponent={<Text style={styles.empty}>Message your agency here. Replies appear instantly.</Text>}
+        ListEmptyComponent={
+          <Text style={styles.empty}>Message your agency here. Replies appear instantly.</Text>
+        }
         renderItem={({ item }) => {
           const mine = item.sender_role === 'client';
           return (
@@ -157,8 +207,30 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#F1F5F9' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  screen: { flex: 1, backgroundColor: Colors.cream },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.cream },
+  agentBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  agentAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  agentAvatarText: { color: Colors.gold, fontWeight: '800', fontSize: 14 },
+  agentTitle: { fontWeight: '800', color: Colors.navy, fontSize: 14 },
+  agentSub: { color: Colors.muted, fontSize: 11, marginTop: 1 },
+  liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.success },
   list: { padding: 14, paddingBottom: 20 },
   empty: { color: Colors.muted, textAlign: 'center', marginTop: 40, fontSize: 14 },
   bubble: {
@@ -168,8 +240,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 8,
   },
-  mine: { alignSelf: 'flex-end', backgroundColor: Colors.primaryMid },
-  theirs: { alignSelf: 'flex-start', backgroundColor: '#fff', borderWidth: 1, borderColor: Colors.border },
+  mine: { alignSelf: 'flex-end', backgroundColor: Colors.navy },
+  theirs: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
   body: { color: Colors.navy, fontSize: 14, lineHeight: 20 },
   bodyMine: { color: '#fff' },
   meta: { marginTop: 4, fontSize: 10, color: Colors.muted },
@@ -180,21 +257,22 @@ const styles = StyleSheet.create({
     padding: 12,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.white,
   },
   input: {
     flex: 1,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: 14,
+    borderRadius: Radius.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
     color: Colors.navy,
+    backgroundColor: Colors.cream,
   },
   send: {
-    backgroundColor: Colors.navy,
-    borderRadius: 14,
+    backgroundColor: Colors.chatOrange,
+    borderRadius: Radius.md,
     paddingHorizontal: 16,
     justifyContent: 'center',
     minWidth: 70,

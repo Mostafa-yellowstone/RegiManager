@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -10,15 +10,24 @@ import {
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
-import { Colors } from '@/constants/theme';
+import { Colors, Radius, Shadows } from '@/constants/theme';
 import { ApiError, fetchDocuments } from '@/lib/api';
 import { openClientDocument } from '@/lib/openDocument';
+
+const FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'registration', label: 'Registration' },
+  { key: 'title', label: 'Title' },
+  { key: 'insurance', label: 'Insurance' },
+  { key: 'other', label: 'Other' },
+] as const;
 
 export default function DocumentsScreen() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]['key']>('all');
 
   const load = useCallback(async () => {
     setError('');
@@ -38,6 +47,22 @@ export default function DocumentsScreen() {
       load();
     }, [load]),
   );
+
+  const filtered = useMemo(() => {
+    if (filter === 'all') return rows;
+    if (filter === 'insurance') return rows.filter((d) => d.kind === 'insurance');
+    if (filter === 'registration') {
+      return rows.filter((d) => d.kind === 'dmv' && (d.wallet_role === 'registration' || d.document_type === 'registration' || d.document_type === 'mv82'));
+    }
+    if (filter === 'title') {
+      return rows.filter((d) => d.kind === 'dmv' && (d.wallet_role === 'title' || d.document_type === 'title'));
+    }
+    return rows.filter((d) => {
+      if (d.kind !== 'dmv') return false;
+      const role = d.wallet_role || 'other';
+      return role === 'other';
+    });
+  }, [rows, filter]);
 
   async function onOpen(doc: any) {
     const key = `${doc.kind}-${doc.id}`;
@@ -64,21 +89,26 @@ export default function DocumentsScreen() {
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl
-          refreshing={loading}
-          onRefresh={load}
-          tintColor={Colors.primaryMid}
-        />
-      }
+      refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={Colors.primaryMid} />}
     >
-      {/* Intro Header */}
       <View style={styles.headerBox}>
         <Text style={styles.headerTitle}>Document Vault</Text>
         <Text style={styles.headerSubtitle}>
-          All insurance and DMV files uploaded for your account ({rows.length})
+          Registrations, titles, insurance files & more ({rows.length})
         </Text>
       </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+        {FILTERS.map((f) => (
+          <Pressable
+            key={f.key}
+            style={[styles.chip, filter === f.key && styles.chipActive]}
+            onPress={() => setFilter(f.key)}
+          >
+            <Text style={[styles.chipText, filter === f.key && styles.chipTextActive]}>{f.label}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
 
       {error ? (
         <View style={styles.errorBox}>
@@ -86,18 +116,18 @@ export default function DocumentsScreen() {
         </View>
       ) : null}
 
-      {!rows.length && !loading ? (
+      {!filtered.length && !loading ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyIcon}>📂</Text>
-          <Text style={styles.emptyTitle}>No Documents Found</Text>
-          <Text style={styles.emptyText}>Your agency has not uploaded any official policy or DMV documents yet.</Text>
+          <Text style={styles.emptyTitle}>Nothing in this filter</Text>
+          <Text style={styles.emptyText}>Ask your agency to upload registration or title documents.</Text>
         </View>
       ) : null}
 
-      {rows.map((doc) => {
+      {filtered.map((doc) => {
         const key = `${doc.kind}-${doc.id}`;
         const busy = openingId === key;
         const isDmv = doc.kind === 'dmv';
+        const role = isDmv ? doc.wallet_role || doc.document_type : 'insurance';
         return (
           <Pressable
             key={key}
@@ -105,33 +135,40 @@ export default function DocumentsScreen() {
             onPress={() => onOpen(doc)}
             disabled={!!openingId}
           >
-            <View style={[styles.iconAvatar, { backgroundColor: isDmv ? '#FEF3C7' : Colors.primarySubtle }]}>
-              <Text style={styles.iconEmoji}>{isDmv ? '🚘' : '📄'}</Text>
+            <View
+              style={[
+                styles.iconAvatar,
+                {
+                  backgroundColor:
+                    role === 'title'
+                      ? Colors.goldSoft
+                      : role === 'registration'
+                        ? Colors.policyTealSoft
+                        : isDmv
+                          ? '#FEF3C7'
+                          : Colors.primarySubtle,
+                },
+              ]}
+            >
+              <Text style={styles.iconEmoji}>
+                {role === 'title' ? '📜' : role === 'registration' ? '🪪' : isDmv ? '🚘' : '📄'}
+              </Text>
             </View>
 
             <View style={{ flex: 1 }}>
               <View style={styles.kindBadgeRow}>
-                <View
-                  style={[
-                    styles.kindBadge,
-                    { backgroundColor: isDmv ? 'rgba(217, 119, 6, 0.12)' : 'rgba(37, 99, 235, 0.12)' },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.kindText,
-                      { color: isDmv ? Colors.warning : Colors.primaryMid },
-                    ]}
-                  >
-                    {isDmv ? 'DMV RECORD' : 'INSURANCE'}
+                <View style={styles.kindBadge}>
+                  <Text style={styles.kindText}>
+                    {isDmv
+                      ? String(role || 'DMV').toUpperCase().replace(/_/g, ' ')
+                      : 'INSURANCE'}
                   </Text>
                 </View>
               </View>
-
               <Text style={styles.title}>{doc.title || doc.document_type_display}</Text>
               <Text style={styles.meta}>
-                {doc.document_type_display}
-                {doc.policy_number ? ` · Policy ${doc.policy_number}` : ''}
+                {doc.vehicle_label || doc.policy_number || doc.document_type_display || ''}
+                {doc.plate_number ? ` · Plate ${doc.plate_number}` : ''}
               </Text>
             </View>
 
@@ -140,7 +177,7 @@ export default function DocumentsScreen() {
                 <ActivityIndicator color={Colors.primaryMid} size="small" />
               ) : (
                 <View style={styles.openPill}>
-                  <Text style={styles.openText}>View File</Text>
+                  <Text style={styles.openText}>View</Text>
                 </View>
               )}
             </View>
@@ -155,9 +192,21 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.cream },
   content: { padding: 18, paddingBottom: 40 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.cream },
-  headerBox: { marginBottom: 16, marginTop: 4 },
+  headerBox: { marginBottom: 12, marginTop: 4 },
   headerTitle: { fontSize: 22, fontWeight: '800', color: Colors.navy, letterSpacing: -0.3 },
   headerSubtitle: { color: Colors.muted, fontSize: 13, fontWeight: '500', marginTop: 2 },
+  filters: { gap: 8, marginBottom: 14 },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Radius.pill,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  chipActive: { backgroundColor: Colors.navy, borderColor: Colors.navy },
+  chipText: { fontWeight: '700', fontSize: 12, color: Colors.navy },
+  chipTextActive: { color: '#fff' },
   errorBox: {
     backgroundColor: Colors.dangerLight,
     borderWidth: 1,
@@ -175,7 +224,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  emptyIcon: { fontSize: 44, marginBottom: 12 },
   emptyTitle: { fontSize: 18, fontWeight: '800', color: Colors.navy },
   emptyText: { color: Colors.muted, fontSize: 13, textAlign: 'center', marginTop: 4 },
   row: {
@@ -187,11 +235,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 2,
+    ...Shadows.card,
   },
   pressedRow: { opacity: 0.9, transform: [{ scale: 0.995 }] },
   iconAvatar: {
@@ -204,12 +248,8 @@ const styles = StyleSheet.create({
   },
   iconEmoji: { fontSize: 22 },
   kindBadgeRow: { flexDirection: 'row', marginBottom: 4 },
-  kindBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  kindText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-  },
+  kindBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: Colors.borderSubtle },
+  kindText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.6, color: Colors.navy },
   title: { fontWeight: '800', color: Colors.navy, fontSize: 15, letterSpacing: -0.2 },
   meta: { color: Colors.muted, marginTop: 3, fontSize: 12, fontWeight: '500' },
   actionCol: { marginLeft: 10 },
@@ -218,8 +258,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(37, 99, 235, 0.2)',
   },
-  openText: { color: Colors.primaryMid, fontWeight: '800', fontSize: 12 },
+  openText: { color: Colors.navy, fontWeight: '800', fontSize: 12 },
 });

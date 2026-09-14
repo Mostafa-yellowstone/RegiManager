@@ -102,6 +102,41 @@ def wake_client(client_id: int) -> None:
         logger.exception("Failed waking client long-poll")
 
 
+def mark_client_chat_reload(client_id: int) -> None:
+    """Signal the wallet app to reload full chat history (after deletes)."""
+    if not client_id:
+        return
+    client = _get_redis()
+    if client is None:
+        return
+    key = f"rm:client:{int(client_id)}:chat_reload"
+    try:
+        client.set(key, "1", ex=120)
+    except Exception:
+        logger.exception("Failed marking client chat reload")
+    wake_client(client_id)
+
+
+def consume_client_chat_reload(client_id: int) -> bool:
+    if not client_id:
+        return False
+    client = _get_redis()
+    if client is None:
+        return False
+    key = f"rm:client:{int(client_id)}:chat_reload"
+    try:
+        if hasattr(client, "getdel"):
+            return bool(client.getdel(key))
+        val = client.get(key)
+        if val:
+            client.delete(key)
+            return True
+        return False
+    except Exception:
+        logger.exception("Failed consuming client chat reload")
+        return False
+
+
 def wait_client_wake(client_id: int, timeout: float) -> bool:
     if timeout <= 0:
         return False

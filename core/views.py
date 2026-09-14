@@ -899,6 +899,10 @@ def client_detail(request, client_id):
         "chat_messages_url": reverse("client-chat-messages", args=[client.id]),
         "chat_send_url": reverse("client-chat-send", args=[client.id]),
         "chat_wait_url": reverse("client-chat-wait", args=[client.id]),
+        "chat_clear_url": reverse("client-chat-clear", args=[client.id]),
+        "chat_delete_url_template": reverse(
+            "client-chat-delete-message", args=[client.id, 0]
+        ).replace("/0/delete/", "/__ID__/delete/"),
     })
 
 
@@ -1048,7 +1052,7 @@ def test_client_app_login(request, client_id):
         messages.success(
             request,
             f"PIN OK for this client via {identifier}. "
-            f"Use portal code + that phone/email + this PIN in the app.",
+            f"Use Client App Portal No. + that phone/email + this PIN in the app.",
         )
     else:
         messages.error(

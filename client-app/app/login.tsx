@@ -29,7 +29,7 @@ export default function LoginScreen() {
     const id = identifier.trim();
     const pinValue = pin.trim();
     if (!portal || !id || !pinValue) {
-      setError('Enter portal code, phone or email, and PIN.');
+      setError('Enter Client App Portal No., phone or email, and PIN.');
       return;
     }
     setLoading(true);
@@ -74,16 +74,17 @@ export default function LoginScreen() {
             </View>
           ) : null}
 
-          {/* Agency Portal Token */}
+          {/* Agency Portal Number */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>AGENCY PORTAL CODE</Text>
+            <Text style={styles.label}>CLIENT APP PORTAL NO.</Text>
             <TextInput
               style={styles.input}
               autoCapitalize="none"
               autoCorrect={false}
+              keyboardType="number-pad"
               value={portalToken}
               onChangeText={setPortalToken}
-              placeholder="e.g. PORTAL123"
+              placeholder="e.g. 482917"
               placeholderTextColor={Colors.mutedLight}
             />
           </View>

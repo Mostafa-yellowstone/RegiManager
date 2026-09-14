@@ -25,7 +25,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors.primaryMid,
+        tabBarActiveTintColor: Colors.navy,
         tabBarInactiveTintColor: Colors.muted,
         tabBarStyle: {
           backgroundColor: Colors.white,
@@ -35,16 +35,17 @@ export default function TabLayout() {
           paddingBottom: 8,
           paddingTop: 8,
         },
-        tabBarLabelStyle: { fontWeight: '600', fontSize: 11 },
+        tabBarLabelStyle: { fontWeight: '700', fontSize: 11 },
         headerStyle: { backgroundColor: Colors.navy },
         headerTintColor: Colors.white,
-        headerTitleStyle: { fontWeight: '800', fontSize: 17 },
+        headerTitleStyle: { fontWeight: '800', fontSize: 16, letterSpacing: 0.3 },
+        headerTitle: 'REGIMANAGER WALLET',
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Account Center',
+          title: 'REGIMANAGER WALLET',
           tabBarLabel: 'Home',
           tabBarIcon: ({ color }) => <TabIcon ios="house.fill" android="home" color={color} />,
         }}
@@ -52,34 +53,40 @@ export default function TabLayout() {
       <Tabs.Screen
         name="policies"
         options={{
-          title: 'Policies',
-          tabBarIcon: ({ color }) => <TabIcon ios="doc.text" android="description" color={color} />,
+          title: 'Wallet',
+          tabBarLabel: 'Wallet',
+          tabBarIcon: ({ color }) => <TabIcon ios="creditcard.fill" android="account_balance_wallet" color={color} />,
         }}
       />
       <Tabs.Screen
         name="vehicles"
         options={{
           title: 'Vehicles',
+          tabBarLabel: 'Vehicles',
           tabBarIcon: ({ color }) => <TabIcon ios="car.fill" android="directions_car" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="receipts"
-        options={{
-          title: 'Receipts',
-          tabBarIcon: ({ color }) => <TabIcon ios="receipt" android="receipt" color={color} />,
         }}
       />
       <Tabs.Screen
         name="chat"
         options={{
-          title: 'Messages',
-          tabBarIcon: ({ color }) => <TabIcon ios="bubble.left.and.bubble.right.fill" android="chat" color={color} />,
+          title: 'Agent',
+          tabBarLabel: 'Agent',
+          tabBarIcon: ({ color }) => (
+            <TabIcon ios="bubble.left.and.bubble.right.fill" android="chat" color={color} />
+          ),
         }}
       />
+      <Tabs.Screen
+        name="services"
+        options={{
+          title: 'Services',
+          href: null,
+        }}
+      />
+      <Tabs.Screen name="receipts" options={{ title: 'Receipts', href: null }} />
       <Tabs.Screen name="id-cards" options={{ title: 'ID Cards', href: null }} />
       <Tabs.Screen name="documents" options={{ title: 'Document Vault', href: null }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile & Settings', href: null }} />
+      <Tabs.Screen name="profile" options={{ title: 'Profile', href: null }} />
     </Tabs>
   );
 }

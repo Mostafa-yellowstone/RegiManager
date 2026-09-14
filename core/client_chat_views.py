@@ -11,6 +11,8 @@ from django.views.decorators.http import require_GET, require_http_methods
 
 from .access import has_active_org_access
 from .client_chat import (
+    clear_chat_history,
+    delete_chat_message,
     list_chat_messages,
     mark_read_by_staff,
     post_staff_message,
@@ -61,6 +63,28 @@ def client_chat_send(request, client_id: int):
     except ValueError as exc:
         return JsonResponse({"status": "error", "message": str(exc)}, status=400)
     return JsonResponse({"status": "ok", "message": serialize_chat_message(msg)})
+
+
+@login_required
+@require_http_methods(["POST", "DELETE"])
+def client_chat_delete_message(request, client_id: int, message_id: int):
+    client = get_object_or_404(Client, id=client_id)
+    if not has_active_org_access(request.user, client.organization_id):
+        deny_access("Access denied.")
+    ok = delete_chat_message(client, message_id)
+    if not ok:
+        return JsonResponse({"status": "error", "message": "Message not found."}, status=404)
+    return JsonResponse({"status": "ok", "deleted_id": message_id})
+
+
+@login_required
+@require_http_methods(["POST", "DELETE"])
+def client_chat_clear(request, client_id: int):
+    client = get_object_or_404(Client, id=client_id)
+    if not has_active_org_access(request.user, client.organization_id):
+        deny_access("Access denied.")
+    count = clear_chat_history(client)
+    return JsonResponse({"status": "ok", "deleted_count": count})
 
 
 @login_required

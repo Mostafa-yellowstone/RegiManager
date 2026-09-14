@@ -100,7 +100,7 @@ class OrganizationAdmin(admin.ModelAdmin):
                 "PSB license dates drive dashboard renewal alerts for owners."
             ),
         }),
-        ("Access & Limits", {"fields": ("invite_code", "portal_token", "max_agents", "is_active")}),
+        ("Access & Limits", {"fields": ("invite_code", "portal_token", "client_app_portal_no", "max_agents", "is_active")}),
         ("Features", {
             "fields": (
                 "is_automation_enabled",

@@ -25,9 +25,16 @@ def normalize_email(raw: str) -> str:
 
 
 def resolve_organization(*, portal_token: str = "", organization_id=None) -> Organization | None:
+    """Resolve org by short Client App Portal No. or legacy long portal_token."""
     token = (portal_token or "").strip()
     if token:
-        return Organization.objects.filter(portal_token=token, is_active=True).first()
+        # Prefer short wallet portal number (case-insensitive).
+        org = Organization.objects.filter(client_app_portal_no__iexact=token, is_active=True).first()
+        if org:
+            return org
+        org = Organization.objects.filter(portal_token=token, is_active=True).first()
+        if org:
+            return org
     if organization_id is not None and str(organization_id).isdigit():
         return Organization.objects.filter(id=int(organization_id), is_active=True).first()
     return None

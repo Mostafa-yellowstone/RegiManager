@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.db.models import Q
 from django.utils import timezone
 
 from .insurance_policy_schedule import summarize_insurance_schedule
@@ -78,10 +79,28 @@ def schedule_payload(policy: InsurancePolicy) -> dict:
     }
 
 
+def _policy_vehicle_label(policy: InsurancePolicy) -> str:
+    row = (
+        InsurancePolicyVehicle.objects.filter(policy=policy)
+        .order_by("auto_number", "id")
+        .first()
+    )
+    if row:
+        return f"{row.year or ''} {row.make or ''}".strip() or row.vin or ""
+    parts = [
+        str(getattr(policy, "year", "") or "").strip(),
+        str(getattr(policy, "make", "") or "").strip(),
+        str(getattr(policy, "model", "") or "").strip(),
+    ]
+    label = " ".join(p for p in parts if p)
+    return label or (getattr(policy, "vin", "") or "")
+
+
 def policy_list_item(policy: InsurancePolicy) -> dict:
     company = policy.insurance_company.name if policy.insurance_company_id else ""
     summary = summarize_insurance_schedule(policy)
     remaining_amount = sum((r.total_due for r in summary["installments"] if not r.is_paid), Decimal("0.00"))
+    vehicle_label = _policy_vehicle_label(policy)
     return {
         "id": policy.id,
         "policy_number": policy.policy_number,
@@ -95,6 +114,7 @@ def policy_list_item(policy: InsurancePolicy) -> dict:
         ),
         "company": company,
         "named_insured": policy.named_insured or "",
+        "vehicle_label": vehicle_label,
         "start_date": policy.start_date.isoformat() if policy.start_date else None,
         "end_date": policy.end_date.isoformat() if getattr(policy, "end_date", None) else None,
         "renewal_date": policy.renewal_date.isoformat() if getattr(policy, "renewal_date", None) else None,
@@ -145,19 +165,99 @@ def dmv_document_payload(doc: ServiceDocument, *, request=None) -> dict:
             )
         except Exception:
             file_url = None
+    vehicle = getattr(doc, "vehicle", None)
+    if vehicle is None and getattr(doc, "service_record_id", None):
+        vehicle = getattr(doc.service_record, "vehicle", None)
     vehicle_label = ""
-    if getattr(doc, "vehicle", None):
-        vehicle_label = f"{doc.vehicle.year or ''} {doc.vehicle.make or ''} {doc.vehicle.model or ''}".strip()
+    vehicle_id = None
+    plate_number = ""
+    if vehicle is not None:
+        vehicle_id = vehicle.id
+        vehicle_label = f"{vehicle.year or ''} {vehicle.make or ''} {vehicle.model or ''}".strip()
+        plate_number = vehicle.plate_number or ""
+    title = getattr(doc, "custom_name", "") or doc.get_document_type_display()
+    wallet_role = _dmv_wallet_role(doc.document_type, title)
     return {
         "id": doc.id,
         "kind": "dmv",
         "document_type": doc.document_type,
         "document_type_display": doc.get_document_type_display(),
-        "title": getattr(doc, "custom_name", "") or doc.get_document_type_display(),
+        "title": title,
+        "wallet_role": wallet_role,
+        "vehicle_id": vehicle_id,
         "vehicle_label": vehicle_label,
+        "plate_number": plate_number,
         "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
         "file_url": file_url,
         "has_file": bool(doc.file),
+    }
+
+
+def _dmv_wallet_role(document_type: str, title: str = "") -> str:
+    """Classify DMV docs for wallet filters (title / registration / other)."""
+    dtype = (document_type or "").strip().lower()
+    if dtype == "title":
+        return "title"
+    if dtype == "registration":
+        return "registration"
+    name = (title or "").strip().lower()
+    if dtype in {"mv82"}:
+        return "registration"
+    if any(token in name for token in ("regist", "reg card", "reg.", " plate", "plates")):
+        return "registration"
+    if "title" in name:
+        return "title"
+    return "other"
+
+
+def _doc_brief(doc: ServiceDocument | None, *, request=None) -> dict | None:
+    if not doc:
+        return None
+    return dmv_document_payload(doc, request=request)
+
+
+def _pick_vehicle_doc(docs: list[ServiceDocument], role: str) -> ServiceDocument | None:
+    for doc in docs:
+        title = getattr(doc, "custom_name", "") or ""
+        if _dmv_wallet_role(doc.document_type, title) == role and doc.file:
+            return doc
+    return None
+
+
+def service_payload(record: ServiceRecord) -> dict:
+    label = ""
+    try:
+        label = record.service_type_label or ""
+    except Exception:
+        label = record.service_type or ""
+    if not label:
+        label = record.transaction_type or "Service"
+    return {
+        "id": record.id,
+        "kind": "service",
+        "receipt_number": getattr(record, "receipt_number", "") or f"SR-{record.id}",
+        "title": label,
+        "service_type": record.service_type or "",
+        "service_type_label": label,
+        "transaction_type": record.transaction_type or "",
+        "status": record.status,
+        "status_display": record.get_status_display() if hasattr(record, "get_status_display") else record.status,
+        "transaction_date": (
+            record.transaction_date.isoformat()
+            if getattr(record, "transaction_date", None)
+            else (record.created_at.date().isoformat() if record.created_at else None)
+        ),
+        "amount": _money(getattr(record, "service_fee", 0)),
+        "service_fee": _money(getattr(record, "service_fee", 0)),
+        "plate_number": record.plate_number or (record.vehicle.plate_number if record.vehicle_id else "") or "",
+        "vin": record.vin or (record.vehicle.vin if record.vehicle_id else "") or "",
+        "vehicle_id": record.vehicle_id,
+        "vehicle_label": (
+            f"{record.vehicle.year or ''} {record.vehicle.make or ''} {record.vehicle.model or ''}".strip()
+            if record.vehicle_id and record.vehicle
+            else ""
+        ),
+        "case_id": getattr(record, "case_id", "") or "",
     }
 
 
@@ -188,7 +288,32 @@ def payment_payload(tx: DailyPaymentTransaction) -> dict:
     }
 
 
-def vehicle_payload(vehicle: Vehicle) -> dict:
+def vehicle_payload(vehicle: Vehicle, *, request=None, include_docs: bool = True) -> dict:
+    docs: list[ServiceDocument] = []
+    latest_service = None
+    if include_docs:
+        docs = list(
+            ServiceDocument.objects.filter(
+                Q(vehicle=vehicle) | Q(service_record__vehicle=vehicle)
+            )
+            .select_related("vehicle", "service_record", "service_record__vehicle")
+            .order_by("-uploaded_at", "-id")
+        )
+        latest_service = (
+            ServiceRecord.objects.filter(vehicle=vehicle)
+            .select_related("vehicle")
+            .order_by("-transaction_date", "-id")
+            .first()
+        )
+    title_doc = _pick_vehicle_doc(docs, "title")
+    registration_doc = _pick_vehicle_doc(docs, "registration")
+    plate_type = getattr(vehicle, "plate_type", "") or ""
+    plate_type_display = ""
+    if plate_type and hasattr(vehicle, "get_plate_type_display"):
+        try:
+            plate_type_display = vehicle.get_plate_type_display()
+        except Exception:
+            plate_type_display = plate_type
     return {
         "id": vehicle.id,
         "source": "fleet",
@@ -197,17 +322,37 @@ def vehicle_payload(vehicle: Vehicle) -> dict:
         "model": vehicle.model or "",
         "vin": vehicle.vin or "",
         "plate_number": vehicle.plate_number or "",
+        "plate_type": plate_type,
+        "plate_type_display": plate_type_display,
+        "color": getattr(vehicle, "color", "") or "",
         "vehicle_type": vehicle.vehicle_type,
         "vehicle_type_display": vehicle.get_vehicle_type_display() if vehicle.vehicle_type else "",
         "body_type": vehicle.body_type or "",
+        "registration_effective_date": (
+            vehicle.registration_effective_date.isoformat()
+            if getattr(vehicle, "registration_effective_date", None)
+            else None
+        ),
+        "registration_expiration_date": (
+            vehicle.registration_expiration_date.isoformat()
+            if getattr(vehicle, "registration_expiration_date", None)
+            else None
+        ),
         "insurance_expiration_date": (
             vehicle.insurance_expiration_date.isoformat()
             if getattr(vehicle, "insurance_expiration_date", None)
             else None
         ),
-        "label": f"{vehicle.year or ''} {vehicle.make or ''} {vehicle.model or ''}".strip() or vehicle.vin or "Vehicle",
+        "label": f"{vehicle.year or ''} {vehicle.make or ''} {vehicle.model or ''}".strip()
+        or vehicle.vin
+        or "Vehicle",
         "policy_id": None,
         "policy_number": "",
+        "has_title": bool(title_doc),
+        "has_registration": bool(registration_doc),
+        "title_document": _doc_brief(title_doc, request=request),
+        "registration_document": _doc_brief(registration_doc, request=request),
+        "latest_service": service_payload(latest_service) if latest_service else None,
     }
 
 
@@ -220,38 +365,68 @@ def policy_vehicle_payload(row: InsurancePolicyVehicle) -> dict:
         "model": "",
         "vin": row.vin or "",
         "plate_number": row.plate_number or "",
+        "plate_type": "",
+        "plate_type_display": "",
+        "color": "",
         "vehicle_type": "",
         "vehicle_type_display": "Policy vehicle",
         "body_type": "",
+        "registration_effective_date": None,
+        "registration_expiration_date": (
+            row.expiration_date.isoformat() if getattr(row, "expiration_date", None) else None
+        ),
         "insurance_expiration_date": (
             row.expiration_date.isoformat() if getattr(row, "expiration_date", None) else None
         ),
         "label": f"{row.year or ''} {row.make or ''}".strip() or row.vin or f"Unit #{row.auto_number}",
         "policy_id": row.policy_id,
         "policy_number": row.policy.policy_number if row.policy_id else "",
+        "has_title": False,
+        "has_registration": False,
+        "title_document": None,
+        "registration_document": None,
+        "latest_service": None,
     }
 
 
+def vehicle_detail_payload(vehicle: Vehicle, *, request=None) -> dict:
+    data = vehicle_payload(vehicle, request=request, include_docs=True)
+    docs = list(
+        ServiceDocument.objects.filter(
+            Q(vehicle=vehicle) | Q(service_record__vehicle=vehicle)
+        )
+        .select_related("vehicle", "service_record", "service_record__vehicle")
+        .order_by("-uploaded_at", "-id")
+    )
+    services = list(
+        ServiceRecord.objects.filter(vehicle=vehicle)
+        .select_related("vehicle")
+        .order_by("-transaction_date", "-id")[:25]
+    )
+    data["documents"] = [dmv_document_payload(d, request=request) for d in docs]
+    data["services"] = [service_payload(s) for s in services]
+    return data
+
+
 def service_receipt_payload(record: ServiceRecord) -> dict:
+    base = service_payload(record)
     return {
         "id": f"sr-{record.id}",
         "kind": "service_receipt",
-        "receipt_number": getattr(record, "receipt_number", "") or f"SR-{record.id}",
-        "title": record.service_type or record.transaction_type or "Service",
-        "service_type": record.service_type or "",
-        "transaction_type": record.transaction_type or "",
-        "status": record.status,
-        "status_display": record.get_status_display() if hasattr(record, "get_status_display") else record.status,
-        "transaction_date": (
-            record.transaction_date.isoformat()
-            if getattr(record, "transaction_date", None)
-            else (record.created_at.date().isoformat() if record.created_at else None)
-        ),
-        "amount": _money(getattr(record, "service_fee", 0)),
-        "service_fee": _money(getattr(record, "service_fee", 0)),
-        "plate_number": record.plate_number or "",
-        "vin": record.vin or "",
-        "vehicle_id": record.vehicle_id,
+        "receipt_number": base["receipt_number"],
+        "title": base["title"],
+        "service_type": base["service_type"],
+        "service_type_label": base["service_type_label"],
+        "transaction_type": base["transaction_type"],
+        "status": base["status"],
+        "status_display": base["status_display"],
+        "transaction_date": base["transaction_date"],
+        "amount": base["amount"],
+        "service_fee": base["service_fee"],
+        "plate_number": base["plate_number"],
+        "vin": base["vin"],
+        "vehicle_id": base["vehicle_id"],
+        "vehicle_label": base["vehicle_label"],
         "company": "",
         "policy_number": "",
     }
@@ -280,9 +455,12 @@ def insurance_receipt_payload(tx: DailyPaymentTransaction) -> dict:
     }
 
 
-def build_client_vehicles(client: Client) -> list[dict]:
+def build_client_vehicles(client: Client, *, request=None) -> list[dict]:
     """Fleet vehicles + vehicles listed on the client's insurance policies."""
-    rows = [vehicle_payload(v) for v in Vehicle.objects.filter(client=client).order_by("-id")]
+    rows = [
+        vehicle_payload(v, request=request, include_docs=True)
+        for v in Vehicle.objects.filter(client=client).order_by("-id")
+    ]
     seen_vins = {(r.get("vin") or "").strip().upper() for r in rows if r.get("vin")}
     seen_plates = {(r.get("plate_number") or "").strip().upper() for r in rows if r.get("plate_number")}
     policy_vehicles = (
@@ -304,6 +482,34 @@ def build_client_vehicles(client: Client) -> list[dict]:
         if plate:
             seen_plates.add(plate)
     return rows
+
+
+def build_client_services(client: Client, *, limit: int = 50, vehicle_id: int | None = None) -> list[dict]:
+    """Latest DMV/service requests for the wallet Services feed."""
+    qs = ServiceRecord.objects.filter(vehicle__client=client).select_related("vehicle")
+    if vehicle_id:
+        qs = qs.filter(vehicle_id=vehicle_id)
+    rows = list(qs.order_by("-transaction_date", "-id")[:limit])
+    if not vehicle_id and client.name:
+        extra_q = ServiceRecord.objects.filter(
+            vehicle__isnull=True,
+            organization_id=client.organization_id,
+            client_name__iexact=client.name,
+        ).select_related("vehicle")
+        seen = {r.id for r in rows}
+        for r in extra_q.order_by("-transaction_date", "-id")[:30]:
+            if r.id not in seen:
+                rows.append(r)
+                seen.add(r.id)
+    rows.sort(
+        key=lambda r: (
+            r.transaction_date.isoformat()
+            if getattr(r, "transaction_date", None)
+            else (r.created_at.date().isoformat() if r.created_at else "")
+        ),
+        reverse=True,
+    )
+    return [service_payload(r) for r in rows[:limit]]
 
 
 def build_client_receipts(client: Client, *, limit: int = 100) -> list[dict]:
@@ -382,6 +588,19 @@ def build_upcoming_items(client: Client, *, days: int = 90) -> list[dict]:
                     "title": f"Vehicle insurance expires",
                     "subtitle": f"{vehicle.year or ''} {vehicle.make or ''} {vehicle.plate_number or ''}".strip(),
                     "date": exp.isoformat(),
+                    "amount": None,
+                    "vehicle_id": vehicle.id,
+                }
+            )
+        reg_exp = getattr(vehicle, "registration_expiration_date", None)
+        if reg_exp and today <= reg_exp <= horizon:
+            items.append(
+                {
+                    "id": f"veh-reg-{vehicle.id}",
+                    "kind": "registration_expiration",
+                    "title": "Registration expires",
+                    "subtitle": f"{vehicle.year or ''} {vehicle.make or ''} · Plate {vehicle.plate_number or '—'}".strip(),
+                    "date": reg_exp.isoformat(),
                     "amount": None,
                     "vehicle_id": vehicle.id,
                 }

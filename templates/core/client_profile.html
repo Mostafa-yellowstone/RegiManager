@@ -953,16 +953,22 @@
             {% endif %}
         </div>
 
-        {% if client.organization.portal_token %}
-        <div style="margin-bottom:0.85rem;padding:0.7rem 0.85rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-            <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;margin-bottom:0.3rem;">Portal code</div>
-            <code style="font-size:0.85rem;font-weight:700;color:#0f172a;word-break:break-all;">{{ client.organization.portal_token }}</code>
+        {% if client.organization.client_app_portal_no or client.organization.portal_token %}
+        <div style="margin-bottom:0.85rem;padding:0.85rem 1rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;">
+            <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:#1d4ed8;margin-bottom:0.35rem;">Client App Portal No.</div>
+            <div style="font-size:1.55rem;font-weight:900;letter-spacing:0.18em;color:#0f172a;font-variant-numeric:tabular-nums;">
+                {{ client.organization.client_app_portal_no|default:client.organization.portal_token }}
+            </div>
+            <p style="margin:0.45rem 0 0;font-size:0.78rem;color:#475569;line-height:1.4;">
+                Give this short number to the client for wallet sign-in (with phone/email + PIN).
+            </p>
         </div>
         {% endif %}
 
         <p style="margin:0 0 0.9rem;font-size:0.8rem;color:#475569;line-height:1.45;">
             Sign-in uses
-            <strong>phone</strong> ({{ client.phone_number|default:"none" }})
+            <strong>Client App Portal No.</strong>
+            + <strong>phone</strong> ({{ client.phone_number|default:"none" }})
             or <strong>email</strong> ({{ client.email|default:"none" }})
             + PIN.
         </p>
@@ -1013,7 +1019,9 @@
 <div id="clientChatDock" class="cpp-chat-dock" aria-live="polite"
      data-messages-url="{{ chat_messages_url }}"
      data-send-url="{{ chat_send_url }}"
-     data-wait-url="{{ chat_wait_url }}">
+     data-wait-url="{{ chat_wait_url }}"
+     data-clear-url="{{ chat_clear_url }}"
+     data-delete-url-template="{{ chat_delete_url_template }}">
   <button type="button" class="cpp-chat-fab" id="clientChatFab" title="Open messages">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
     <span class="cpp-chat-fab__badge" id="clientChatFabBadge"{% if not chat_unread %} style="display:none"{% endif %}>{{ chat_unread|default:0 }}</span>
@@ -1024,9 +1032,12 @@
         <div class="cpp-chat-panel__title">Client Messages</div>
         <div class="cpp-chat-panel__sub">{{ client.full_display_name }} · live</div>
       </div>
-      <button type="button" class="cpp-chat-panel__min" id="clientChatMinBtn" title="Minimize" aria-label="Minimize chat">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg>
-      </button>
+      <div class="cpp-chat-panel__actions">
+        <button type="button" class="cpp-chat-panel__clear" id="clientChatClearBtn" title="Clear history">Clear</button>
+        <button type="button" class="cpp-chat-panel__min" id="clientChatMinBtn" title="Minimize" aria-label="Minimize chat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg>
+        </button>
+      </div>
     </div>
     <div class="cpp-chat-panel__body" id="clientChatBody"></div>
     <form class="cpp-chat-panel__form" id="clientChatForm" data-rm-loader-skip>
@@ -1090,6 +1101,12 @@
 }
 .cpp-chat-panel__title { font-weight: 800; font-size: 14px; }
 .cpp-chat-panel__sub { font-size: 11px; opacity: .7; margin-top: 2px; }
+.cpp-chat-panel__actions { display: flex; align-items: center; gap: 6px; }
+.cpp-chat-panel__clear {
+  border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fecaca;
+  font-size: 11px; font-weight: 800; border-radius: 8px; padding: 5px 8px; cursor: pointer;
+}
+.cpp-chat-panel__clear:hover { background: rgba(239,68,68,.2); }
 .cpp-chat-panel__min {
   width: 36px; height: 32px; border-radius: 10px; border: 1px solid rgba(255,255,255,.25);
   background: rgba(255,255,255,.12); color: #fff; cursor: pointer;
@@ -1099,11 +1116,17 @@
 .cpp-chat-panel__body { flex: 1; overflow-y: auto; padding: 14px; background: #f8fafc; display: flex; flex-direction: column; gap: 8px; }
 .cpp-chat-bubble {
   max-width: 82%; padding: 10px 12px; border-radius: 14px; font-size: 13px; line-height: 1.4; white-space: pre-wrap; word-break: break-word;
+  position: relative;
 }
 .cpp-chat-bubble--staff { align-self: flex-end; background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
 .cpp-chat-bubble--client { align-self: flex-start; background: #fff; border: 1px solid #e2e8f0; color: #0f172a; border-bottom-left-radius: 4px; }
 .cpp-chat-bubble--pending { opacity: .65; }
-.cpp-chat-meta { font-size: 10px; opacity: .7; margin-top: 4px; }
+.cpp-chat-meta { font-size: 10px; opacity: .7; margin-top: 4px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cpp-chat-del {
+  border: none; background: transparent; color: inherit; opacity: .55; cursor: pointer;
+  font-size: 10px; font-weight: 800; padding: 0; text-decoration: underline;
+}
+.cpp-chat-del:hover { opacity: 1; }
 .cpp-chat-panel__form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #e2e8f0; background: #fff; flex-shrink: 0; }
 .cpp-chat-panel__form input {
   flex: 1; border: 1px solid #cbd5e1; border-radius: 12px; padding: 10px 12px; font-size: 13px;
@@ -1124,6 +1147,8 @@
   const messagesUrl = dock.dataset.messagesUrl;
   const sendUrl = dock.dataset.sendUrl;
   const waitUrl = dock.dataset.waitUrl;
+  const clearUrl = dock.dataset.clearUrl;
+  const deleteUrlTemplate = dock.dataset.deleteUrlTemplate || '';
   const panel = document.getElementById('clientChatPanel');
   const bodyEl = document.getElementById('clientChatBody');
   const form = document.getElementById('clientChatForm');
@@ -1132,6 +1157,7 @@
   const statusEl = document.getElementById('clientChatStatus');
   const fab = document.getElementById('clientChatFab');
   const minBtn = document.getElementById('clientChatMinBtn');
+  const clearBtn = document.getElementById('clientChatClearBtn');
   const fabBadge = document.getElementById('clientChatFabBadge');
   const heroBadge = document.getElementById('clientChatHeroBadge');
   const heroOpenBtn = document.getElementById('clientChatOpenBtn');
@@ -1189,13 +1215,74 @@
     div.className = 'cpp-chat-bubble cpp-chat-bubble--' + (msg.sender_role === 'staff' ? 'staff' : 'client');
     if (opts.pending) div.classList.add('cpp-chat-bubble--pending');
     if (opts.tempId) div.dataset.tempId = opts.tempId;
+    if (msg.id) div.dataset.messageId = String(msg.id);
     const time = (msg.created_at || '').replace('T', ' ').slice(0, 16);
-    div.innerHTML = '<div></div><div class="cpp-chat-meta"></div>';
-    div.children[0].textContent = msg.body || '';
-    div.children[1].textContent = (msg.sender_name || msg.sender_role || 'You') + (time ? ' · ' + time : (opts.pending ? ' · sending…' : ''));
+    const metaLeft = (msg.sender_name || msg.sender_role || 'You') + (time ? ' · ' + time : (opts.pending ? ' · sending…' : ''));
+    div.innerHTML = '<div class="cpp-chat-text"></div><div class="cpp-chat-meta"><span></span></div>';
+    div.querySelector('.cpp-chat-text').textContent = msg.body || '';
+    div.querySelector('.cpp-chat-meta span').textContent = metaLeft;
+    if (msg.id && !opts.pending) {
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'cpp-chat-del';
+      del.textContent = 'Delete';
+      del.title = 'Remove this message';
+      del.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        deleteMessage(msg.id, div);
+      });
+      div.querySelector('.cpp-chat-meta').appendChild(del);
+    }
     bodyEl.appendChild(div);
     bodyEl.scrollTop = bodyEl.scrollHeight;
     return div;
+  }
+
+  async function deleteMessage(id, node) {
+    if (!id || !deleteUrlTemplate) return;
+    if (!window.confirm('Delete this message for both staff and the client app?')) return;
+    const url = deleteUrlTemplate.replace('__ID__', String(id));
+    try {
+      const token = csrf();
+      const res = await fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: token ? { 'X-CSRFToken': token, 'Accept': 'application/json' } : { 'Accept': 'application/json' },
+      });
+      if (!res.ok) {
+        setStatus('Could not delete message.');
+        return;
+      }
+      if (node && node.parentNode) node.parentNode.removeChild(node);
+      if (seen[id]) delete seen[id];
+      setStatus('');
+    } catch (err) {
+      setStatus('Network error — delete failed.');
+    }
+  }
+
+  async function clearHistory() {
+    if (!clearUrl) return;
+    if (!window.confirm('Clear the entire message history for this client? This cannot be undone.')) return;
+    try {
+      const token = csrf();
+      const res = await fetch(clearUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: token ? { 'X-CSRFToken': token, 'Accept': 'application/json' } : { 'Accept': 'application/json' },
+      });
+      if (!res.ok) {
+        setStatus('Could not clear history.');
+        return;
+      }
+      bodyEl.innerHTML = '';
+      seen = {};
+      lastId = 0;
+      setStatus('');
+    } catch (err) {
+      setStatus('Network error — clear failed.');
+    }
   }
 
   function abortWait() {
@@ -1352,6 +1439,7 @@
 
   if (fab) fab.addEventListener('click', openChat);
   if (minBtn) minBtn.addEventListener('click', minimizeChat);
+  if (clearBtn) clearBtn.addEventListener('click', clearHistory);
   if (heroOpenBtn) heroOpenBtn.addEventListener('click', openChat);
   if (form) form.addEventListener('submit', send);
 

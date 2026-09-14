@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.utils.text import slugify
 from django.utils import timezone
 from django.utils.crypto import get_random_string
+import secrets
 import uuid
 from decimal import Decimal
 
@@ -80,6 +81,14 @@ class Organization(models.Model):
     )
     invite_code = models.CharField(max_length=20, unique=True, default=generate_invite_code)
     portal_token = models.CharField(max_length=64, unique=True, blank=True, null=True)
+    client_app_portal_no = models.CharField(
+        max_length=12,
+        unique=True,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Short code clients type in the wallet app (e.g. 482917). Separate from the long intake portal_token.",
+    )
     max_agents = models.IntegerField(default=5, help_text="Maximum number of agents allowed for this PSB.")
     is_automation_enabled = models.BooleanField(default=False, help_text="Enable Automation Hub features for this PSB.")
     is_public_intake_enabled = models.BooleanField(
@@ -140,8 +149,19 @@ class Organization(models.Model):
     def save(self, *args, **kwargs):
         if not self.portal_token:
             self.portal_token = get_random_string(32)
+        if not self.client_app_portal_no:
+            self.client_app_portal_no = self._generate_client_app_portal_no()
         self.state = normalize_state_code(self.state)
         super().save(*args, **kwargs)
+
+    @classmethod
+    def _generate_client_app_portal_no(cls) -> str:
+        """6-digit wallet portal number — short enough to dictate over the phone."""
+        for _ in range(40):
+            candidate = "".join(secrets.choice("23456789") for _ in range(6))
+            if not cls.objects.filter(client_app_portal_no=candidate).exists():
+                return candidate
+        return get_random_string(6, allowed_chars="23456789")
 
     def __str__(self):
         location = ", ".join(part for part in [self.city, self.state] if part)
@@ -1015,6 +1035,7 @@ class ServiceAuditLog(models.Model):
 class ServiceDocument(models.Model):
     DOCUMENT_TYPES = [
         ("title", "Title"),
+        ("registration", "Registration"),
         ("bill_of_sale", "Bill of Sale"),
         ("driver_license", "Driver License"),
         ("insurance_id", "Insurance ID Card"),

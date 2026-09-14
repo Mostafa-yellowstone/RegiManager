@@ -103,6 +103,14 @@ export async function apiFetch<T = any>(
   return data as T;
 }
 
+/** Long-poll fetch with optional AbortSignal (chat realtime). */
+export async function apiFetchWait<T = any>(
+  path: string,
+  signal?: AbortSignal,
+): Promise<T> {
+  return apiFetch<T>(path, { signal, token: undefined });
+}
+
 export function login(payload: {
   portal_token?: string;
   organization_id?: number | string;
@@ -158,6 +166,18 @@ export function fetchVehicles() {
   return apiFetch('/api/client/vehicles/');
 }
 
+export function fetchVehicle(id: number | string) {
+  return apiFetch(`/api/client/vehicles/${id}/`);
+}
+
+export function fetchServices(opts?: { vehicleId?: number | string; limit?: number }) {
+  const params = new URLSearchParams();
+  if (opts?.vehicleId != null) params.set('vehicle_id', String(opts.vehicleId));
+  if (opts?.limit != null) params.set('limit', String(opts.limit));
+  const q = params.toString();
+  return apiFetch(`/api/client/services/${q ? `?${q}` : ''}`);
+}
+
 export function fetchReceipts() {
   return apiFetch('/api/client/receipts/');
 }
@@ -182,8 +202,9 @@ export function sendChatMessage(body: string) {
   });
 }
 
-export function waitChatMessages(afterId = 0, timeout = 25) {
-  return apiFetch(`/api/client/chat/wait/?after_id=${afterId}&timeout=${timeout}`);
+export function waitChatMessages(afterId = 0, timeout = 12, signal?: AbortSignal) {
+  const q = `after_id=${afterId}&timeout=${Math.max(3, Math.min(timeout, 20))}`;
+  return apiFetchWait(`/api/client/chat/wait/?${q}`, signal);
 }
 
 export async function fetchDocumentBlob(kind: string, id: number | string): Promise<Blob> {

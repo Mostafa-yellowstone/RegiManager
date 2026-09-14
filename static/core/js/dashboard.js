@@ -1,5 +1,6 @@
 const documentTypes = [
     { id: "title", label: "Title" },
+    { id: "registration", label: "Registration" },
     { id: "bill_of_sale", label: "Bill of Sale" },
     { id: "driver_license", label: "Driver License" },
     { id: "insurance_id", label: "Insurance ID Card" },

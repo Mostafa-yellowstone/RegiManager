@@ -1,9 +1,22 @@
 export const Colors = {
-  // Brand Primary
-  primary: '#1E40AF',
-  primaryMid: '#2563EB',
-  primaryLight: '#3B82F6',
-  primarySubtle: '#EFF6FF',
+  // Brand Primary (navy wallet design)
+  primary: '#1A2B48',
+  primaryMid: '#1E3A5F',
+  primaryLight: '#2B4A6F',
+  primarySubtle: '#EEF2F7',
+
+  // Gold accent (brand seal / highlights)
+  gold: '#C9A227',
+  goldSoft: '#F7F0D8',
+
+  // Chat CTA (mockup orange)
+  chatOrange: '#E85D04',
+  chatOrangeSoft: '#FFF4ED',
+
+  // Policy card gradient anchors
+  policyTeal: '#0D9488',
+  policyTealDeep: '#0F766E',
+  policyTealSoft: '#CCFBF1',
 
   // Accent & Status
   teal: '#0D9488',
@@ -17,9 +30,9 @@ export const Colors = {
   info: '#2563EB',
 
   // Backgrounds & Surfaces
-  navy: '#0B192C',
-  navyMid: '#1E293B',
-  cream: '#F8FAFC',
+  navy: '#1A2B48',
+  navyMid: '#243B55',
+  cream: '#F5F7FA',
   white: '#FFFFFF',
   surfaceElevated: '#FFFFFF',
   card: '#FFFFFF',
@@ -60,16 +73,15 @@ export const Shadows = {
   card: {
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
   },
   popover: {
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.12,
     shadowRadius: 20,
     elevation: 6,
   },
 };
-

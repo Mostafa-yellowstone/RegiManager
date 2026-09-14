@@ -23,6 +23,7 @@ from .client_app_auth import (
 from .client_app_serializers import (
     build_alerts,
     build_client_receipts,
+    build_client_services,
     build_client_vehicles,
     build_upcoming_items,
     client_profile_payload,
@@ -32,6 +33,7 @@ from .client_app_serializers import (
     policy_detail_payload,
     policy_list_item,
     schedule_payload,
+    vehicle_detail_payload,
 )
 from .client_chat import (
     list_chat_messages,
@@ -49,7 +51,7 @@ from .models import (
     ServiceDocument,
     Vehicle,
 )
-from .realtime import wait_client_wake
+from .realtime import consume_client_chat_reload, wait_client_wake
 
 
 
@@ -69,7 +71,7 @@ def _client_policies(client):
 def _client_dmv_documents(client, *, identity_cards_only=False):
     qs = ServiceDocument.objects.filter(
         Q(vehicle__client=client) | Q(service_record__vehicle__client=client),
-    ).select_related("vehicle", "service_record")
+    ).select_related("vehicle", "service_record", "service_record__vehicle")
     if identity_cards_only:
         qs = qs.filter(document_type__in=("insurance_id", "driver_license"))
     return qs.distinct().order_by("-uploaded_at")
@@ -207,6 +209,7 @@ class ClientLoginView(APIView):
                     "id": org.id,
                     "name": org.name,
                     "portal_token": org.portal_token or "",
+                    "client_app_portal_no": org.client_app_portal_no or "",
                 },
             }
         )
@@ -229,14 +232,33 @@ class ClientHomeView(ClientAppAPIView):
         policies = list(_client_policies(client)[:20])
         upcoming = build_upcoming_items(client, days=90)[:8]
         alerts = build_alerts(client)
-        vehicles = build_client_vehicles(client)[:8]
+        vehicles = build_client_vehicles(client, request=request)[:8]
         payments = list(_client_payments(client)[:8])
         receipts = build_client_receipts(client, limit=8)
+        recent_services = build_client_services(client, limit=8)
+        org_name = getattr(getattr(client, "organization", None), "name", "") or ""
+        linked_agent_name = ""
+        last_staff = (
+            ClientChatMessage.objects.filter(
+                client=client,
+                sender_role=ClientChatMessage.SenderRole.STAFF,
+            )
+            .select_related("staff_user")
+            .order_by("-id")
+            .first()
+        )
+        if last_staff and last_staff.staff_user_id:
+            u = last_staff.staff_user
+            linked_agent_name = (u.get_full_name() or u.username or "").strip()
 
         return Response(
             {
                 "client": client_profile_payload(client),
-                "organization_name": getattr(getattr(client, "organization", None), "name", "") or "",
+                "organization_name": org_name,
+                "linked_agent": {
+                    "name": linked_agent_name or org_name or "Your agency",
+                    "organization_name": org_name,
+                },
                 "next_payment": _best_next_payment(client),
                 "upcoming": upcoming,
                 "alerts": alerts,
@@ -245,6 +267,7 @@ class ClientHomeView(ClientAppAPIView):
                 "vehicles": vehicles,
                 "recent_payments": [payment_payload(p) for p in payments],
                 "recent_receipts": receipts,
+                "recent_services": recent_services,
                 "policies": [policy_list_item(p) for p in policies],
             }
         )
@@ -351,7 +374,32 @@ class ClientPaymentsView(ClientAppAPIView):
 
 class ClientVehiclesView(ClientAppAPIView):
     def get(self, request):
-        rows = build_client_vehicles(request.client)
+        rows = build_client_vehicles(request.client, request=request)
+        return Response({"count": len(rows), "results": rows})
+
+
+class ClientVehicleDetailView(ClientAppAPIView):
+    """Fleet vehicle detail with registration, title, docs, and service history."""
+
+    def get(self, request, vehicle_id: int):
+        vehicle = Vehicle.objects.filter(id=vehicle_id, client=request.client).first()
+        if not vehicle:
+            raise Http404("Vehicle not found.")
+        return Response(vehicle_detail_payload(vehicle, request=request))
+
+
+class ClientServicesView(ClientAppAPIView):
+    """Latest DMV / agency services requested for this client."""
+
+    def get(self, request):
+        vehicle_raw = (request.query_params.get("vehicle_id") or "").strip()
+        vehicle_id = int(vehicle_raw) if vehicle_raw.isdigit() else None
+        try:
+            limit = int(request.query_params.get("limit") or 50)
+        except (TypeError, ValueError):
+            limit = 50
+        limit = max(1, min(limit, 100))
+        rows = build_client_services(request.client, limit=limit, vehicle_id=vehicle_id)
         return Response({"count": len(rows), "results": rows})
 
 
@@ -420,12 +468,31 @@ class ClientChatWaitView(ClientAppAPIView):
             )
             return [serialize_chat_message(m) for m in qs]
 
+        def _reload_response():
+            mark_read_by_client(request.client)
+            rows = list_chat_messages(request.client, after_id=0, limit=150)
+            items = [serialize_chat_message(m) for m in rows]
+            newest = items[-1]["id"] if items else after_id
+            return Response(
+                {
+                    "has_new": True,
+                    "reload": True,
+                    "results": items,
+                    "newest_id": newest,
+                    "unread_count": unread_for_client(request.client),
+                }
+            )
+
+        if consume_client_chat_reload(request.client.id):
+            return _reload_response()
+
         items = _fresh(after_id)
         if items:
             mark_read_by_client(request.client)
             return Response(
                 {
                     "has_new": True,
+                    "reload": False,
                     "results": items,
                     "newest_id": items[-1]["id"],
                     "unread_count": unread_for_client(request.client),
@@ -435,12 +502,15 @@ class ClientChatWaitView(ClientAppAPIView):
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             wait_client_wake(request.client.id, timeout=min(1.2, max(0.2, deadline - time.monotonic())))
+            if consume_client_chat_reload(request.client.id):
+                return _reload_response()
             items = _fresh(after_id)
             if items:
                 mark_read_by_client(request.client)
                 return Response(
                     {
                         "has_new": True,
+                        "reload": False,
                         "results": items,
                         "newest_id": items[-1]["id"],
                         "unread_count": unread_for_client(request.client),
@@ -449,6 +519,7 @@ class ClientChatWaitView(ClientAppAPIView):
         return Response(
             {
                 "has_new": False,
+                "reload": False,
                 "results": [],
                 "newest_id": after_id,
                 "unread_count": unread_for_client(request.client),

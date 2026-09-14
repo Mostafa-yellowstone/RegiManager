@@ -303,10 +303,14 @@ from core.client_app_api import (
     ClientPolicyDetailView,
     ClientPolicyScheduleView,
     ClientReceiptsView,
+    ClientServicesView,
     ClientUpcomingView,
+    ClientVehicleDetailView,
     ClientVehiclesView,
 )
 from core.client_chat_views import (
+    client_chat_clear,
+    client_chat_delete_message,
     client_chat_messages,
     client_chat_send,
     client_chat_wait,
@@ -406,6 +410,8 @@ urlpatterns = [
     ),
     path('api/client/payments/', ClientPaymentsView.as_view(), name='api-client-payments'),
     path('api/client/vehicles/', ClientVehiclesView.as_view(), name='api-client-vehicles'),
+    path('api/client/vehicles/<int:vehicle_id>/', ClientVehicleDetailView.as_view(), name='api-client-vehicle-detail'),
+    path('api/client/services/', ClientServicesView.as_view(), name='api-client-services'),
     path('api/client/receipts/', ClientReceiptsView.as_view(), name='api-client-receipts'),
     path('api/client/upcoming/', ClientUpcomingView.as_view(), name='api-client-upcoming'),
     path('api/client/alerts/', ClientAlertsView.as_view(), name='api-client-alerts'),
@@ -507,6 +513,12 @@ urlpatterns = [
     path("dashboard/clients/<int:client_id>/chat/messages/", client_chat_messages, name="client-chat-messages"),
     path("dashboard/clients/<int:client_id>/chat/send/", client_chat_send, name="client-chat-send"),
     path("dashboard/clients/<int:client_id>/chat/wait/", client_chat_wait, name="client-chat-wait"),
+    path(
+        "dashboard/clients/<int:client_id>/chat/messages/<int:message_id>/delete/",
+        client_chat_delete_message,
+        name="client-chat-delete-message",
+    ),
+    path("dashboard/clients/<int:client_id>/chat/clear/", client_chat_clear, name="client-chat-clear"),
     path(
         "dashboard/clients/<int:client_id>/motorclub/add/",
         add_motorclub_membership_from_client,
