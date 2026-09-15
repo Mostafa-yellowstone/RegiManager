@@ -52,3 +52,17 @@ class AgentPortalAttendanceMathTests(SimpleTestCase):
         cairo_view = ny_nine.astimezone(CAIRO)
         self.assertEqual(format_ny_time(cairo_view), "9:00 AM")
         self.assertEqual(format_ny_time(ny_nine), "9:00 AM")
+
+    def test_punctuality_on_time_at_or_before_nine(self):
+        from core.agent_portal_services import attendance_punctuality
+        from datetime import date
+
+        work = date(2026, 7, 21)
+        early = datetime(2026, 7, 21, 8, 45, tzinfo=NY)
+        exact = datetime(2026, 7, 21, 9, 0, tzinfo=NY)
+        late = datetime(2026, 7, 21, 9, 1, tzinfo=NY)
+
+        self.assertEqual(attendance_punctuality(early, work)["attendance_status"], "on_time")
+        self.assertEqual(attendance_punctuality(exact, work)["attendance_status"], "on_time")
+        self.assertEqual(attendance_punctuality(late, work)["attendance_status"], "late")
+        self.assertFalse(attendance_punctuality(None, work)["is_late"])

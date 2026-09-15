@@ -213,15 +213,13 @@ class PortalTimezoneMiddleware:
             from .agent_portal_services import (
                 current_work_date,
                 portal_now,
-                shift_open_at,
                 start_attendance_on_login,
             )
 
             now = portal_now()
             work_date = current_work_date(now)
-            # Before 9 AM New York: do not mark the day done — retry after shift opens.
-            if now < shift_open_at(work_date):
-                return
+            # Allow early clock-in (before 9 AM NY) so punctuality can be on time.
+            # After 6 PM is handled inside start_attendance_on_login / ensure_attendance_open.
             work_key = f"attendance_opened_{work_date.isoformat()}"
             if session is not None and session.get(work_key):
                 return

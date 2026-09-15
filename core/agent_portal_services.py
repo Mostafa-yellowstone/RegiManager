@@ -52,6 +52,21 @@ def shift_close_at(work_date) -> datetime:
     return datetime.combine(work_date, time(SHIFT_CLOSE_HOUR, 0), tzinfo=PORTAL_TZ)
 
 
+def attendance_punctuality(opened_at: datetime | None, work_date=None) -> dict:
+    """
+    Late if first clock-in is strictly after 9:00 AM America/New_York.
+    Exact 9:00 AM or earlier = on time.
+    """
+    if opened_at is None:
+        return {"is_late": False, "is_on_time": False, "attendance_status": "none"}
+    wd = work_date or opened_at.astimezone(PORTAL_TZ).date()
+    open_at = shift_open_at(wd)
+    opened_ny = opened_at.astimezone(PORTAL_TZ)
+    if opened_ny > open_at:
+        return {"is_late": True, "is_on_time": False, "attendance_status": "late"}
+    return {"is_late": False, "is_on_time": True, "attendance_status": "on_time"}
+
+
 def format_ny_time(dt: datetime | None) -> str:
     """Always render a datetime as New York wall-clock (e.g. '9:05 AM')."""
     if dt is None:
@@ -89,8 +104,9 @@ def ensure_attendance_open(membership: OrganizationMembership, *, now: datetime 
     """
     Open (or reuse) today's attendance session for this membership.
 
-    Shift window is 9:00 AM–6:00 PM America/New_York only.
-    Before 9 AM / after 6 PM New York: no new session is created.
+    Agents may clock in any time from midnight until 6:00 PM America/New_York
+    so early arrivals (at/before 9:00 AM) can be marked on time.
+    After 6:00 PM New York: no new session is created.
     """
     if membership is None or not membership.is_active:
         return None
@@ -100,7 +116,6 @@ def ensure_attendance_open(membership: OrganizationMembership, *, now: datetime 
     close_stale_attendance_sessions(now=now)
     local_now = (now or portal_now()).astimezone(PORTAL_TZ)
     work_date = current_work_date(local_now)
-    open_at = shift_open_at(work_date)
     deadline = shift_close_at(work_date)
 
     existing = (
@@ -108,8 +123,8 @@ def ensure_attendance_open(membership: OrganizationMembership, *, now: datetime 
         .order_by("-opened_at")
         .first()
     )
-    # Outside the 9 AM–6 PM NY window: return whatever exists, never open new.
-    if local_now < open_at or local_now >= deadline:
+    # After 6 PM NY: return whatever exists, never open new.
+    if local_now >= deadline:
         return existing
 
     if existing is None:
@@ -121,7 +136,8 @@ def ensure_attendance_open(membership: OrganizationMembership, *, now: datetime 
         )
 
     if existing.closed_at is not None and local_now < deadline:
-        # Re-open only if somehow closed early during the same shift window.
+        # Re-open only if somehow closed early during the same work day.
+        # Keep the original opened_at so punctuality is based on first clock-in.
         existing.closed_at = None
         if existing.opened_at is None:
             existing.opened_at = local_now
@@ -132,7 +148,7 @@ def ensure_attendance_open(membership: OrganizationMembership, *, now: datetime 
 def start_attendance_on_login(user, *, now: datetime | None = None) -> list:
     """
     Start attendance for every active non-owner membership when the user signs in
-    (website or companion app). Only during 9 AM–6 PM New York.
+    (website or companion app). Allowed from midnight until 6 PM New York.
     """
     if user is None or not getattr(user, "is_active", False):
         return []

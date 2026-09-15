@@ -169,16 +169,6 @@ export function adaptPulseDashboard(input: {
   const insuranceProfit = money(insActive.total_profit) || insuranceCommission + insuranceBroker;
   const insuranceBound = Number(insActive.bound_count || 0);
 
-  let netProfit = money(
-    useCustom && profit.combined_profit?.custom != null
-      ? profit.combined_profit.custom
-      : profit.combined_profit?.month ?? profit.combined_profit?.today,
-  );
-
-  if (!netProfit) {
-    netProfit = dmvProfit + insuranceProfit;
-  }
-
   let recordsCount = Number(dmvActive.total_records || 0);
   let boundCount = insuranceBound;
   let spaceInsuranceCommission = insuranceCommission;
@@ -189,9 +179,9 @@ export function adaptPulseDashboard(input: {
 
   const isDmvVirtual = input.spaceId === 'dmv';
   const isAll = input.spaceId === 'all';
+  const isInsuranceSpace = !isAll && input.spaceDetail?.key === 'insurance';
 
   if (isDmvVirtual) {
-    netProfit = dmvProfit;
     spaceInsuranceCommission = 0;
     spaceInsuranceBroker = 0;
     spaceInsuranceProfit = 0;
@@ -202,12 +192,11 @@ export function adaptPulseDashboard(input: {
       useCustom && input.spaceDetail.custom
         ? input.spaceDetail.custom
         : input.spaceDetail.month || input.spaceDetail.today || {};
-    netProfit = money(sp.profit);
     recordsCount = Number(sp.transactions || input.spaceDetail.total_records || 0);
-    if (input.spaceDetail.key === 'insurance') {
+    if (isInsuranceSpace) {
       spaceInsuranceCommission = insuranceCommission;
       spaceInsuranceBroker = insuranceBroker;
-      spaceInsuranceProfit = netProfit || insuranceProfit;
+      spaceInsuranceProfit = money(sp.profit) || insuranceProfit;
       showDmv = false;
     } else {
       spaceInsuranceCommission = 0;
@@ -220,42 +209,56 @@ export function adaptPulseDashboard(input: {
 
   const cashflowAvailable = Boolean(resolvedCashflow?.cashflow);
   const cf = resolvedCashflow?.cashflow || {};
+  // Finance pager banking metrics.
   const bankExpenses = money(cf.expense);
   const bankIncome = money(cf.income);
-  const bankNet = money(cf.net_profit);
-  const netCashFlow = money(cf.net_cash_flow);
+  const bankNet = money(cf.net_profit) || bankIncome - bankExpenses;
+  // Cash flow card = bank income − expenses (same as Finance net profit).
+  const netCashFlow = bankIncome - bankExpenses;
+
+  // Net profit card = insurance profit (commission + broker) + DMV profit.
+  let netProfit = insuranceProfit + dmvProfit;
+  if (isDmvVirtual) {
+    netProfit = dmvProfit;
+  } else if (isInsuranceSpace) {
+    netProfit = spaceInsuranceProfit + dmvProfit;
+  } else if (!isAll && input.spaceDetail) {
+    const sp =
+      useCustom && input.spaceDetail.custom
+        ? input.spaceDetail.custom
+        : input.spaceDetail.month || input.spaceDetail.today || {};
+    netProfit = money(sp.profit);
+  }
 
   const badgeLabel = compareBadgeLabel(input.preset);
   const badges: FinancialOverview['badges'] = {};
   const deltas = input.compare?.deltas;
 
-  if (deltas?.net_profit_pct != null) {
+  const priorDmv = input.priorOverview ? profitBucketGross(input.priorOverview) : 0;
+  const priorIns = input.priorOverview ? insuranceProfitFromOverview(input.priorOverview) : 0;
+  const priorOpsProfit = priorIns + priorDmv;
+
+  if (priorOpsProfit || netProfit) {
+    badges.profit = { label: badgeLabel, delta_pct: pctDelta(netProfit, priorOpsProfit) };
+  } else if (deltas?.net_profit_pct != null) {
     badges.profit = { label: badgeLabel, delta_pct: Number(deltas.net_profit_pct) };
-  } else if (input.priorOverview) {
-    const priorProfit = money(
-      input.priorOverview?.profit?.combined_profit?.custom ??
-        input.priorOverview?.profit?.combined_profit?.month ??
-        0,
-    );
-    if (priorProfit || netProfit) {
-      badges.profit = { label: badgeLabel, delta_pct: pctDelta(netProfit, priorProfit) };
-    }
   }
 
   if (deltas?.gross_profit_pct != null) {
     badges.dmv = { label: badgeLabel, delta_pct: Number(deltas.gross_profit_pct) };
   } else if (input.priorOverview) {
-    const priorDmv = profitBucketGross(input.priorOverview);
     badges.dmv = { label: badgeLabel, delta_pct: pctDelta(dmvProfit, priorDmv) };
   }
 
   if (input.priorCashflow?.cashflow) {
     const priorExpense = money(input.priorCashflow.cashflow.expense);
+    const priorIncome = money(input.priorCashflow.cashflow.income);
     badges.expenses = { label: badgeLabel, delta_pct: pctDelta(bankExpenses, priorExpense) };
+    // Optional: could badge cash flow vs prior income−expense
+    void priorIncome;
   }
 
   if (input.priorOverview) {
-    const priorIns = insuranceProfitFromOverview(input.priorOverview);
     badges.insurance = {
       label: badgeLabel,
       delta_pct: pctDelta(insuranceProfit, priorIns),
@@ -270,7 +273,7 @@ export function adaptPulseDashboard(input: {
     bank_income: bankIncome,
     bank_net: bankNet,
     net_cash_flow: netCashFlow,
-    dmv_net_profit: showDmv ? dmvProfit : 0,
+    dmv_net_profit: showDmv || isDmvVirtual || isAll ? dmvProfit : 0,
     insurance_commission: showInsurance ? spaceInsuranceCommission : 0,
     insurance_broker_fee: showInsurance ? spaceInsuranceBroker : 0,
     insurance_profit: showInsurance ? spaceInsuranceProfit : 0,
@@ -325,22 +328,37 @@ export function adaptAgents(payload: any) {
     const open = Boolean(att?.is_open);
     const started = formatSessionTime(att?.opened_at);
     const ended = formatSessionTime(att?.closed_at);
-    const openedAt = att?.opened_at ? new Date(att.opened_at) : null;
-    const shiftOpen = att?.shift_open_at ? new Date(att.shift_open_at) : null;
-    const isLate = Boolean(
-      openedAt &&
-        shiftOpen &&
-        !Number.isNaN(openedAt.getTime()) &&
-        !Number.isNaN(shiftOpen.getTime()) &&
-        openedAt.getTime() > shiftOpen.getTime(),
-    );
+
+    // Prefer explicit server NY flags when present.
+    let isLate = att?.is_late === true || att?.attendance_status === 'late';
+    let isOnTime = att?.is_on_time === true || att?.attendance_status === 'on_time';
+
+    // Fallback: compare NY wall-clock (after 9:00 = late, at/before = on time).
+    if (att && att.is_late == null && att.is_on_time == null && att.opened_at && att.shift_open_at) {
+      const openedMs = Date.parse(att.opened_at);
+      const shiftMs = Date.parse(att.shift_open_at);
+      if (Number.isFinite(openedMs) && Number.isFinite(shiftMs)) {
+        isLate = openedMs > shiftMs;
+        isOnTime = !isLate;
+      }
+    }
+
+    // No session → neither late nor on time.
+    if (!att?.opened_at) {
+      isLate = false;
+      isOnTime = false;
+    }
 
     let label = 'No session today';
-    if (open && isLate && started) label = `Late · on duty since ${started}`;
+    if (open && isLate && started) label = `Late (after 9:00 AM NY) · since ${started}`;
+    else if (open && isOnTime && started) label = `On time · since ${started}`;
     else if (open && started) label = `On duty · since ${started}`;
     else if (open) label = 'On duty';
-    else if (isLate && att?.closed_at && started) label = `Late start · ${started} – ${ended}`;
-    else if (att?.closed_at && started) label = `Off duty · ${started} – ${ended}`;
+    else if (isLate && att?.closed_at && started) {
+      label = `Late start (after 9:00 AM NY) · ${started} – ${ended}`;
+    } else if (isOnTime && att?.closed_at && started) {
+      label = `On time · ${started} – ${ended}`;
+    } else if (att?.closed_at && started) label = `Off duty · ${started} – ${ended}`;
     else if (att?.closed_at) label = `Off duty · ended ${ended}`;
 
     return {
@@ -352,6 +370,7 @@ export function adaptAgents(payload: any) {
       started_at: started,
       ended_at: ended,
       is_late: isLate,
+      is_on_time: isOnTime,
       task_percent: Number(a.task_progress?.percent ?? 0),
       service_revenue_total: money(a.service_revenue_total),
       service_records_total: Number(a.service_records_total || 0),

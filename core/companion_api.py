@@ -82,7 +82,7 @@ class CompanionLoginView(APIView):
     throttle_classes = [CompanionLoginThrottle]
 
     def post(self, request):
-        username = (request.data.get("username") or "").strip()
+        username = (request.data.get("username") or request.data.get("email") or "").strip()
         password = request.data.get("password") or ""
         if not username or not password:
             return Response(
@@ -90,7 +90,18 @@ class CompanionLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user = authenticate(request, username=username, password=password)
+        # Allow email as well as username (common mobile habit).
+        login_username = username
+        if "@" in username:
+            email_match = (
+                User.objects.filter(email__iexact=username, is_active=True)
+                .order_by("id")
+                .first()
+            )
+            if email_match:
+                login_username = email_match.username
+
+        user = authenticate(request, username=login_username, password=password)
         if not user or not user.is_active:
             return Response(
                 {"detail": "Invalid credentials."},

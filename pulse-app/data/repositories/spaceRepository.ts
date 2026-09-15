@@ -1,17 +1,10 @@
-import type { Space } from '@/types/models';
+import { fetchOwnerSpaces } from '@/lib/api';
+import { presetToDateParams } from '@/lib/dateRange';
+import { adaptSpacesList } from '@/data/adapters/pulseAdapter';
+import type { DateRangePreset, SpaceSummary } from '@/types/models';
 
-import { MOCK_SPACES } from '@/data/mock/spaces';
-
-function delay(ms = 420) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export async function listSpaces(): Promise<Space[]> {
-  await delay(180);
-  return MOCK_SPACES;
-}
-
-export async function getSpace(id: string): Promise<Space | undefined> {
-  await delay(120);
-  return MOCK_SPACES.find((s) => s.id === id);
+export async function listSpaces(preset: DateRangePreset = 'month'): Promise<SpaceSummary[]> {
+  const { from_date, to_date } = presetToDateParams(preset);
+  const payload = await fetchOwnerSpaces({ from_date, to_date });
+  return adaptSpacesList(payload, true);
 }

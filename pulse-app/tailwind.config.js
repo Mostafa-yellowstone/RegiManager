@@ -6,30 +6,38 @@ module.exports = {
     extend: {
       colors: {
         navy: {
-          DEFAULT: '#1A2B48',
-          mid: '#243B55',
-          soft: '#EEF2F7',
+          DEFAULT: '#0F3D4C',
+          mid: '#164E63',
+          soft: '#E6F4F1',
+        },
+        teal: {
+          DEFAULT: '#0D9488',
+          deep: '#0F766E',
+          soft: '#CCFBF1',
         },
         gold: {
           DEFAULT: '#C9A227',
           soft: '#F7F0D8',
         },
-        cream: '#F5F7FA',
+        cream: '#F7FAFC',
         ink: '#0F172A',
         muted: '#64748B',
         border: '#E2E8F0',
-        success: '#059669',
+        success: '#27AE60',
         danger: '#DC2626',
-        warning: '#D97706',
-      },
-      spacing: {
-        // Reinforce 8pt grid (Tailwind already uses 4/8)
+        warning: '#F2994A',
+        orange: '#F2994A',
+        purple: '#9B51E0',
+        pulseBlue: '#2D9CDB',
       },
       fontSize: {
-        display: ['32px', { lineHeight: '40px', fontWeight: '800', letterSpacing: '-0.5px' }],
+        display: ['34px', { lineHeight: '40px', fontWeight: '800', letterSpacing: '-0.6px' }],
         title: ['20px', { lineHeight: '28px', fontWeight: '700' }],
         body: ['15px', { lineHeight: '22px', fontWeight: '400' }],
-        caption: ['12px', { lineHeight: '16px', fontWeight: '500' }],
+        caption: ['12px', { lineHeight: '16px', fontWeight: '600' }],
+      },
+      boxShadow: {
+        card: '0 8px 24px rgba(15, 61, 76, 0.08)',
       },
     },
   },

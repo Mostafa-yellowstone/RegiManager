@@ -1,0 +1,83 @@
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Switch, Text, View } from 'react-native';
+
+import { isDailySnapshotEnabled, setDailySnapshotEnabled } from '@/lib/notifications';
+import { Colors } from '@/lib/theme';
+
+export default function SettingsScreen() {
+  const [loading, setLoading] = useState(true);
+  const [enabled, setEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const on = await isDailySnapshotEnabled();
+      if (!cancelled) {
+        setEnabled(on);
+        setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function onToggle(next: boolean) {
+    setBusy(true);
+    setMessage('');
+    try {
+      await setDailySnapshotEnabled(next);
+      setEnabled(next);
+      setMessage(
+        next
+          ? 'Daily reminder enabled for 6:00 PM. Push token registered when available.'
+          : 'Daily reminder turned off.',
+      );
+    } catch (err: any) {
+      setMessage(err?.message || 'Could not update notification preference.');
+      setEnabled(!next);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View className="flex-1 bg-cream p-4">
+      <View
+        className="rounded-2xl bg-white p-4"
+        style={{ borderWidth: 1, borderColor: Colors.border }}
+      >
+        <Text className="text-title text-navy">Daily snapshot</Text>
+        <Text className="mt-1 text-caption text-muted">
+          Get a local reminder each evening to review net profit, bank expenses, and staff.
+        </Text>
+        <View className="mt-4 flex-row items-center justify-between">
+          <Text className="text-body font-bold text-navy">Enable 6:00 PM reminder</Text>
+          {loading ? (
+            <ActivityIndicator color={Colors.teal} />
+          ) : (
+            <Switch
+              value={enabled}
+              onValueChange={(v) => void onToggle(v)}
+              disabled={busy}
+              trackColor={{ true: Colors.teal, false: Colors.border }}
+            />
+          )}
+        </View>
+        {message ? <Text className="mt-3 text-caption text-muted">{message}</Text> : null}
+      </View>
+
+      <View
+        className="mt-4 rounded-2xl bg-white p-4"
+        style={{ borderWidth: 1, borderColor: Colors.border }}
+      >
+        <Text className="text-caption text-muted">
+          On Expo Go (Android), the reminder preference is saved but scheduling needs a development
+          or production build. Server digests use `python manage.py send_pulse_daily_snapshot`.
+        </Text>
+      </View>
+    </View>
+  );
+}

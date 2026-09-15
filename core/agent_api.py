@@ -13,6 +13,7 @@ from .agent_portal_models import AgentActivityEvent, AgentAttendanceSession, Age
 from .agent_portal_services import (
     activity_for_user,
     agent_workboard_payload,
+    attendance_punctuality,
     can_access_agent_portal,
     can_manage_agent_tasks,
     cairo_now,
@@ -122,6 +123,8 @@ def _serialize_attendance(session: AgentAttendanceSession | None, *, work_date=N
     wd = work_date or session.work_date
     open_at = shift_open_at(wd)
     close_at = shift_close_at(wd)
+    punctuality = attendance_punctuality(session.opened_at, work_date=wd)
+
     return {
         "work_date": session.work_date.isoformat(),
         "opened_at": _portal_iso(session.opened_at),
@@ -129,6 +132,11 @@ def _serialize_attendance(session: AgentAttendanceSession | None, *, work_date=N
         "is_open": session.is_open,
         "shift_open_at": _portal_iso(open_at),
         "shift_close_at": _portal_iso(close_at),
+        "is_late": punctuality["is_late"],
+        "is_on_time": punctuality["is_on_time"],
+        "attendance_status": punctuality["attendance_status"],
+        "timezone": "America/New_York",
+        "late_after": "09:00",
     }
 
 

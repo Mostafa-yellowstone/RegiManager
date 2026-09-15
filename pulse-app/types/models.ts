@@ -23,15 +23,15 @@ export interface ComparativeBadge {
 export interface FinancialOverview {
   space_id: SpaceIdOrAll;
   range: DateRangePreset;
-  /** Ops net profit (DMV processing net + space profits; insurance = commission + broker). */
+  /** Insurance profit (commission + broker) + DMV processing profit. */
   net_profit: number;
   /** Real banking expenses (not DMV fee/tax/card lines). */
   bank_expenses: number;
-  /** Banking income in range. */
+  /** Finance pager Income metric (bank income types). */
   bank_income: number;
-  /** Banking net cash flow (credit transfers − debit transfers). */
+  /** Bank income − expenses (cash flow card). */
   net_cash_flow: number;
-  /** Banking income − expenses. */
+  /** Finance pager Net profit alone (income − expenses). */
   bank_net: number;
   /** DMV = processing fee (matches CRM). */
   dmv_net_profit: number;
@@ -114,7 +114,10 @@ export interface AgentRosterRow {
   attendance_label: string;
   started_at: string;
   ended_at: string;
+  /** Clock-in strictly after 9:00 AM America/New_York. */
   is_late: boolean;
+  /** Clock-in at or before 9:00 AM America/New_York. */
+  is_on_time: boolean;
   task_percent: number;
   service_revenue_total: number;
   service_records_total: number;

@@ -81,6 +81,7 @@ def build_dmv_finance_report(
     yearly_qs = records.filter(yearly_record_q(year_start, today))
 
     def _aggregate(qs):
+        qs = qs.exclude(status="refund")
         data = qs.aggregate(
             total_records=Count("id"),
             total_revenue=Sum("service_fee"),
@@ -95,6 +96,7 @@ def build_dmv_finance_report(
         return {
             "total_records": data["total_records"] or 0,
             "total_revenue": _money(data["total_revenue"]),
+            # Matches Finance Hub / CRM "DMV profit" = processing fee (before referral).
             "gross_profit": _money(processing),
             "net_profit_after_referral": _money(processing - referral),
             "referral_commission": _money(referral),
@@ -104,7 +106,7 @@ def build_dmv_finance_report(
             "completed": qs.filter(status="completed").count(),
             "pending": qs.filter(status="pending").count(),
             "failed": qs.filter(status="failed").count(),
-            "refund": qs.filter(status="refund").count(),
+            "refund": 0,
         }
 
     payload = {
