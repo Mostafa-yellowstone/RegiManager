@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { hasCompletedOnboarding } from '@/lib/onboarding';
 import { Colors } from '@/lib/theme';
 
 export { ErrorBoundary } from 'expo-router';
@@ -20,20 +21,58 @@ function AuthGate({ children }: { children: ReactNode }) {
   const { ready, token } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const [onboardingReady, setOnboardingReady] = useState(false);
+  const [seenOnboarding, setSeenOnboarding] = useState(false);
 
   useEffect(() => {
-    if (!ready) return;
-    const onLogin = segments[0] === 'login';
-    if (!token && !onLogin) {
+    let cancelled = false;
+    (async () => {
+      const done = await hasCompletedOnboarding();
+      if (cancelled) return;
+      setSeenOnboarding(done);
+      setOnboardingReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Re-check after leaving onboarding so "Get started" / Skip unlocks login.
+  useEffect(() => {
+    if (segments[0] !== 'login' && segments[0] !== '(tabs)') return;
+    let cancelled = false;
+    (async () => {
+      const done = await hasCompletedOnboarding();
+      if (!cancelled && done) setSeenOnboarding(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [segments]);
+
+  useEffect(() => {
+    if (!ready || !onboardingReady) return;
+
+    const root = segments[0];
+    const onLogin = root === 'login';
+    const onOnboarding = root === 'onboarding';
+
+    if (!seenOnboarding && !onOnboarding) {
+      router.replace('/onboarding');
+      return;
+    }
+
+    if (seenOnboarding && !token && !onLogin) {
       router.replace('/login');
       return;
     }
-    if (token && onLogin) {
+
+    if (token && (onLogin || onOnboarding)) {
       router.replace('/(tabs)');
     }
-  }, [ready, token, segments, router]);
+  }, [ready, onboardingReady, seenOnboarding, token, segments, router]);
 
-  if (!ready) return null;
+  if (!ready || !onboardingReady) return null;
   return <>{children}</>;
 }
 
@@ -69,6 +108,7 @@ export default function RootLayout() {
                   contentStyle: { backgroundColor: Colors.cream },
                 }}
               >
+                <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
                 <Stack.Screen name="login" options={{ headerShown: false }} />
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen
