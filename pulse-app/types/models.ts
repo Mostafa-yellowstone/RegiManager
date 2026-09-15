@@ -1,19 +1,4 @@
-/** Domain models for RegiManager Pulse (UUID-ready string IDs). */
-
-export type UserRole = 'owner' | 'manager' | 'employee';
-
-export type AttendanceStatus =
-  | 'on_duty'
-  | 'on_break'
-  | 'late'
-  | 'absent'
-  | 'scheduled';
-
-export type ExpenseCategoryKind = 'fixed' | 'variable';
-
-export type TargetType = 'revenue' | 'service_count';
-
-export type TargetPeriod = 'daily' | 'weekly' | 'monthly';
+/** Domain + view models for RegiManager Pulse (owner tracking). */
 
 export type DateRangePreset =
   | 'today'
@@ -23,81 +8,12 @@ export type DateRangePreset =
   | 'ytd'
   | 'custom';
 
-export type SpaceIdOrAll = string | 'all';
+/** `all` | virtual `dmv` | real Space id */
+export type SpaceIdOrAll = string | 'all' | 'dmv';
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  avatar_url?: string | null;
-  space_ids: string[];
-}
+export type TargetPeriod = 'daily' | 'weekly' | 'monthly';
 
-export interface Space {
-  id: string;
-  name: string;
-  location: string;
-  timezone: string;
-  operational_hours: {
-    open: string;
-    close: string;
-  };
-}
-
-export interface Service {
-  id: string;
-  space_id: string;
-  name: string;
-  cost: number;
-  price: number;
-  category: string;
-  duration_minutes: number;
-}
-
-export interface Sale {
-  id: string;
-  space_id: string;
-  service_id: string;
-  staff_id: string;
-  amount: number;
-  tax: number;
-  discount: number;
-  date: string; // ISO
-}
-
-export interface Expense {
-  id: string;
-  space_id: string;
-  category: string;
-  kind: ExpenseCategoryKind;
-  amount: number;
-  receipt_url?: string | null;
-  date: string;
-  notes?: string;
-}
-
-export interface Attendance {
-  id: string;
-  staff_id: string;
-  space_id: string;
-  clock_in: string;
-  clock_out?: string | null;
-  status: AttendanceStatus;
-  break_minutes: number;
-}
-
-export interface Target {
-  id: string;
-  space_id: string;
-  type: TargetType;
-  target_amount: number;
-  period: TargetPeriod;
-  start_date: string;
-  end_date: string;
-}
-
-/** Aggregated dashboard DTOs */
+export type TargetType = 'revenue' | 'service_count';
 
 export interface ComparativeBadge {
   label: string;
@@ -107,17 +23,36 @@ export interface ComparativeBadge {
 export interface FinancialOverview {
   space_id: SpaceIdOrAll;
   range: DateRangePreset;
-  gross_revenue: number;
-  total_expenses: number;
+  /** Ops net profit (DMV processing net + space profits; insurance = commission + broker). */
   net_profit: number;
-  profit_margin_pct: number;
+  /** Real banking expenses (not DMV fee/tax/card lines). */
+  bank_expenses: number;
+  /** Banking income in range. */
+  bank_income: number;
+  /** Banking net cash flow (credit transfers − debit transfers). */
+  net_cash_flow: number;
+  /** Banking income − expenses. */
+  bank_net: number;
+  /** DMV = processing fee (matches CRM). */
+  dmv_net_profit: number;
+  /** Insurance commission only. */
+  insurance_commission: number;
+  /** Insurance broker fees only. */
+  insurance_broker_fee: number;
+  /** commission + broker_fee */
+  insurance_profit: number;
+  records_count: number;
+  insurance_bound_count: number;
   badges: {
-    revenue: ComparativeBadge;
-    expenses: ComparativeBadge;
-    profit: ComparativeBadge;
-    margin: ComparativeBadge;
+    profit?: ComparativeBadge;
+    expenses?: ComparativeBadge;
+    dmv?: ComparativeBadge;
+    insurance?: ComparativeBadge;
   };
   series: Array<{ timestamp: number; value: number }>;
+  /** False when cashflow API failed (e.g. banking permission). */
+  cashflow_available: boolean;
+  cashflow_warning?: string;
 }
 
 export interface ServiceBreakdownRow {
@@ -128,6 +63,7 @@ export interface ServiceBreakdownRow {
   revenue: number;
   avg_ticket: number;
   peak_hour_label: string;
+  meta?: string;
 }
 
 export interface TargetProgressRow {
@@ -140,14 +76,55 @@ export interface TargetProgressRow {
   run_rate_label: string;
 }
 
+export interface SpaceSummary {
+  space_id: string;
+  name: string;
+  location: string;
+  key?: string;
+  /** Space profit for selected range (Insurance = commission + broker). */
+  profit: number;
+  revenue: number;
+}
+
+export interface CostFeeRow {
+  id: string;
+  label: string;
+  category: string;
+  amount: number;
+  date?: string;
+  account?: string;
+  company?: string;
+  transaction_type?: string;
+}
+
+export interface ActivityRow {
+  id: string;
+  title: string;
+  subtitle: string;
+  amount: number;
+  date: string;
+  category: string;
+}
+
+export interface AgentRosterRow {
+  membership_id: number;
+  name: string;
+  role: string;
+  attendance_open: boolean;
+  attendance_label: string;
+  started_at: string;
+  ended_at: string;
+  is_late: boolean;
+  task_percent: number;
+  service_revenue_total: number;
+  service_records_total: number;
+}
+
 export interface PulseDashboardPayload {
   overview: FinancialOverview;
   services: ServiceBreakdownRow[];
   targets: TargetProgressRow[];
-  space_summaries: Array<{
-    space_id: string;
-    name: string;
-    location: string;
-    revenue: number;
-  }>;
+  space_summaries: SpaceSummary[];
+  costs: CostFeeRow[];
+  organization_name?: string;
 }

@@ -348,6 +348,7 @@ from core.insurance_targets_views import (
 )
 from core.owner_api import (
     OwnerDocumentRecordsView,
+    OwnerFinanceCashflowView,
     OwnerFinanceChartView,
     OwnerFinanceCompareView,
     OwnerFinanceRecordsView,
@@ -428,6 +429,7 @@ urlpatterns = [
     path('api/owner/finance/records/', OwnerFinanceRecordsView.as_view(), name='api-owner-finance-records'),
     path('api/owner/finance/compare/', OwnerFinanceCompareView.as_view(), name='api-owner-finance-compare'),
     path('api/owner/finance/chart/', OwnerFinanceChartView.as_view(), name='api-owner-finance-chart'),
+    path('api/owner/finance/cashflow/', OwnerFinanceCashflowView.as_view(), name='api-owner-finance-cashflow'),
     path('api/owner/spaces/', OwnerSpacesListView.as_view(), name='api-owner-spaces'),
     path('api/owner/spaces/<int:space_id>/', OwnerSpaceDetailView.as_view(), name='api-owner-space-detail'),
     path('api/owner/insurance/policies/', OwnerInsurancePoliciesView.as_view(), name='api-owner-insurance-policies'),

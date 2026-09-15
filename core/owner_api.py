@@ -19,6 +19,7 @@ from .finance_hub_metrics import (
     build_payment_cards_for_range,
 )
 from .models import (
+    BankTransaction,
     DailyPaymentTransaction,
     InsurancePolicy,
     MotorclubMembership,
@@ -54,6 +55,79 @@ from .owner_api_metrics import (
 )
 from .owner_date_range import parse_owner_date_range
 from .policies import active_memberships_qs, user_organization_ids
+
+
+def _serialize_owner_bank_cashflow(organization, start, end, *, expense_limit: int = 250) -> dict:
+    """
+    Same banking expenses the Insurance Finance page uses.
+
+    Includes every BankTransaction whose type contains "expense"
+    (expense, expense_debit_transfer, and any future expense_* types).
+    """
+    from .insurance_space_metrics import bank_cashflow_metrics
+
+    txs = BankTransaction.objects.filter(
+        bank_account__organization=organization
+    ).select_related("bank_account", "insurance_company")
+
+    metrics = bank_cashflow_metrics(txs, start, end)
+
+    # Finance UI choices that include the word "expense" in the type value.
+    expense_qs = (
+        txs.filter(
+            date__gte=start,
+            date__lte=end,
+        )
+        .filter(
+            Q(transaction_type__icontains="expense")
+            | Q(transaction_type__in=list(BankTransaction.expense_metric_types()))
+        )
+        .order_by("-date", "-created_at")
+    )
+    expense_total_count = expense_qs.count()
+    expense_rows = list(expense_qs[: max(1, expense_limit)])
+
+    expenses = [
+        {
+            "id": tx.id,
+            "date": tx.date.isoformat() if tx.date else "",
+            "amount": str(Decimal(tx.amount or 0).quantize(Decimal("0.01"))),
+            "category": tx.category or "Expense",
+            "description": tx.description or "",
+            "account": tx.bank_account.account_name if tx.bank_account_id else "",
+            "company": (
+                tx.insurance_company.name
+                if getattr(tx, "insurance_company_id", None) and tx.insurance_company
+                else ""
+            ),
+            "transaction_type": tx.transaction_type,
+            "transaction_type_label": tx.get_transaction_type_display()
+            if hasattr(tx, "get_transaction_type_display")
+            else tx.transaction_type,
+        }
+        for tx in expense_rows
+    ]
+
+    return {
+        "range": {
+            "from": start.isoformat(),
+            "to": end.isoformat(),
+            "source": "banking",
+        },
+        "cashflow": {
+            "income": str(metrics["income"].quantize(Decimal("0.01"))),
+            "expense": str(metrics["expense"].quantize(Decimal("0.01"))),
+            "net_profit": str(metrics["net_profit"].quantize(Decimal("0.01"))),
+            "credit_transfer": str(metrics["credit_transfer"].quantize(Decimal("0.01"))),
+            "debit_transfer": str(metrics["debit_transfer"].quantize(Decimal("0.01"))),
+            "net_cash_flow": str(metrics["net_cash_flow"].quantize(Decimal("0.01"))),
+            "count": metrics["count"],
+        },
+        "expenses": expenses,
+        "expense_count": len(expenses),
+        "expense_total_count": expense_total_count,
+        "expense_truncated": expense_total_count > len(expenses),
+    }
 
 
 ORG_HEADER = "HTTP_X_ORGANIZATION_ID"
@@ -148,6 +222,14 @@ class OwnerAPIBase(APIView):
     def can_view_spaces(self, membership: OrganizationMembership) -> bool:
         return membership.role == OrganizationMembership.Role.OWNER or membership.can_view_spaces
 
+    def can_view_banking(self, membership: OrganizationMembership) -> bool:
+        return (
+            membership.role == OrganizationMembership.Role.OWNER
+            or bool(getattr(membership, "can_view_banking", False))
+            or membership.can_view_reports
+            or membership.can_view_net_profit
+        )
+
 
 class OwnerOverviewView(OwnerAPIBase):
     """Combined owner dashboard: DMV + insurance + spaces profit and process counts."""
@@ -227,6 +309,19 @@ class OwnerFinanceSummaryView(OwnerAPIBase):
                 "to": end.isoformat(),
                 "source": "ledger",
             }
+        else:
+            start, end = today.replace(day=1), today
+
+        # Banking expenses from Insurance Finance (same source as the Finance pager).
+        # Embedded here so Pulse works even before /finance/cashflow/ is deployed.
+        if self.can_view_banking(membership):
+            try:
+                payload["banking"] = _serialize_owner_bank_cashflow(
+                    organization, start, end, expense_limit=250
+                )
+            except Exception:
+                payload["banking"] = None
+
         return Response(payload)
 
 
@@ -267,6 +362,29 @@ class OwnerFinanceChartView(OwnerAPIBase):
         except (TypeError, ValueError):
             month_count = 12
         return Response(build_revenue_chart(records, today, months=month_count))
+
+
+class OwnerFinanceCashflowView(OwnerAPIBase):
+    """
+    Real banking expenses / income / cashflow for Pulse.
+
+    Uses the same BankTransaction rows as Insurance Space → Banking / Finance expenses.
+    """
+
+    def get(self, request):
+        organization, membership, _orgs, _records, today = self.resolve_context(request)
+        if not (self.can_view_banking(membership) or self.can_view_finance(membership)):
+            raise PermissionDenied("Banking access is disabled for your account.")
+
+        custom_range = parse_owner_date_range(request.query_params)
+        if custom_range:
+            start, end = custom_range
+        else:
+            start, end = today.replace(day=1), today
+
+        return Response(
+            _serialize_owner_bank_cashflow(organization, start, end, expense_limit=250)
+        )
 
 
 class OwnerFinanceRecordsView(OwnerAPIBase):
