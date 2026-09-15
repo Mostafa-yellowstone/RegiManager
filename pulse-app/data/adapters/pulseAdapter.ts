@@ -333,7 +333,7 @@ export function adaptAgents(payload: any) {
     let isLate = att?.is_late === true || att?.attendance_status === 'late';
     let isOnTime = att?.is_on_time === true || att?.attendance_status === 'on_time';
 
-    // Fallback: compare NY wall-clock (after 9:00 = late, at/before = on time).
+    // Fallback: compare absolute shift_open_at (Egypt 4:00 PM deadline).
     if (att && att.is_late == null && att.is_on_time == null && att.opened_at && att.shift_open_at) {
       const openedMs = Date.parse(att.opened_at);
       const shiftMs = Date.parse(att.shift_open_at);
@@ -350,12 +350,12 @@ export function adaptAgents(payload: any) {
     }
 
     let label = 'No session today';
-    if (open && isLate && started) label = `Late (after 9:00 AM NY) · since ${started}`;
+    if (open && isLate && started) label = `Late (after 4:00 PM Egypt) · since ${started}`;
     else if (open && isOnTime && started) label = `On time · since ${started}`;
     else if (open && started) label = `On duty · since ${started}`;
     else if (open) label = 'On duty';
     else if (isLate && att?.closed_at && started) {
-      label = `Late start (after 9:00 AM NY) · ${started} – ${ended}`;
+      label = `Late start (after 4:00 PM Egypt) · ${started} – ${ended}`;
     } else if (isOnTime && att?.closed_at && started) {
       label = `On time · ${started} – ${ended}`;
     } else if (att?.closed_at && started) label = `Off duty · ${started} – ${ended}`;

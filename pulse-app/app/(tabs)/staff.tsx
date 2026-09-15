@@ -34,8 +34,8 @@ export default function StaffScreen() {
     >
       <Text className="text-title text-navy">Staff attendance</Text>
       <Text className="mb-2 text-caption text-muted">
-        New York time · after 9:00 AM = late · at/before 9:00 = on time ·{' '}
-        {data?.work_date || 'today'}
+        Egypt team start 4:00 PM · after 4:00 PM Egypt = late · work day{' '}
+        {data?.work_date || 'today'} (NY)
       </Text>
 
       {isError ? (

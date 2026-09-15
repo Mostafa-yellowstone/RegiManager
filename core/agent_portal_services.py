@@ -12,9 +12,11 @@ from .agent_portal_models import AgentActivityEvent, AgentAttendanceSession, Age
 from .models import Organization, OrganizationMembership
 from .space_access import filter_accessible_spaces
 
-# Business clock for agent attendance / portal shifts (USA — New York).
+# Business day / close clock = USA New York.
 PORTAL_TZ = ZoneInfo("America/New_York")
-# Backward-compatible alias used by older imports/tests.
+# Agents sit in Egypt; their wall-clock start is 4:00 PM Cairo.
+TEAM_TZ = ZoneInfo("Africa/Cairo")
+# Backward-compatible alias (historically Cairo; now means portal/NY "now").
 CAIRO_TZ = PORTAL_TZ
 
 
@@ -27,24 +29,36 @@ def cairo_now() -> datetime:
     return portal_now()
 
 
-# Standard agent shift in America/New_York (wall clock).
-SHIFT_OPEN_HOUR = 9   # 9:00 AM
-SHIFT_CLOSE_HOUR = 18  # 6:00 PM
+# Team opens at 4:00 PM Egypt (= NY morning when offsets are 7h).
+# Close follows USA business hours (6:00 PM New York).
+SHIFT_OPEN_HOUR_EGYPT = 16  # 4:00 PM Africa/Cairo
+SHIFT_CLOSE_HOUR = 18       # 6:00 PM America/New_York
+# Kept for older imports that expected a NY open hour constant.
+SHIFT_OPEN_HOUR = 9
 
 
 def current_work_date(now: datetime | None = None):
     """
     Work-date for attendance shifts = America/New_York calendar date.
 
-    Shifts run 09:00–18:00 New York on that same date.
+    Team clocks in by 4:00 PM Egypt that same calendar date; shift ends
+    6:00 PM New York.
     """
     local = (now or portal_now()).astimezone(PORTAL_TZ)
     return local.date()
 
 
 def shift_open_at(work_date) -> datetime:
-    """09:00 (9 AM) America/New_York on work_date."""
-    return datetime.combine(work_date, time(SHIFT_OPEN_HOUR, 0), tzinfo=PORTAL_TZ)
+    """
+    16:00 (4:00 PM) Africa/Cairo on work_date.
+
+    That is the Egypt team start. When Egypt/US offsets are 7 hours apart it
+    equals 9:00 AM New York; when DST drifts, Egypt 4 PM stays the rule so
+    the whole Egypt team is not marked late.
+    """
+    return datetime.combine(
+        work_date, time(SHIFT_OPEN_HOUR_EGYPT, 0), tzinfo=TEAM_TZ
+    )
 
 
 def shift_close_at(work_date) -> datetime:
@@ -54,15 +68,14 @@ def shift_close_at(work_date) -> datetime:
 
 def attendance_punctuality(opened_at: datetime | None, work_date=None) -> dict:
     """
-    Late if first clock-in is strictly after 9:00 AM America/New_York.
-    Exact 9:00 AM or earlier = on time.
+    Late if first clock-in is strictly after 4:00 PM Africa/Cairo.
+    Exact 4:00 PM Egypt or earlier = on time.
     """
     if opened_at is None:
         return {"is_late": False, "is_on_time": False, "attendance_status": "none"}
     wd = work_date or opened_at.astimezone(PORTAL_TZ).date()
     open_at = shift_open_at(wd)
-    opened_ny = opened_at.astimezone(PORTAL_TZ)
-    if opened_ny > open_at:
+    if opened_at.astimezone(TEAM_TZ) > open_at:
         return {"is_late": True, "is_on_time": False, "attendance_status": "late"}
     return {"is_late": False, "is_on_time": True, "attendance_status": "on_time"}
 
@@ -77,11 +90,21 @@ def format_ny_time(dt: datetime | None) -> str:
     return f"{hour12}:{local.minute:02d} {suffix}"
 
 
+def format_egypt_time(dt: datetime | None) -> str:
+    """Render as Egypt wall-clock (e.g. '4:05 PM')."""
+    if dt is None:
+        return "—"
+    local = dt.astimezone(TEAM_TZ)
+    hour12 = local.hour % 12 or 12
+    suffix = "AM" if local.hour < 12 else "PM"
+    return f"{hour12}:{local.minute:02d} {suffix}"
+
+
 def is_within_shift_window(now: datetime | None = None) -> bool:
-    """True when New York local time is inside [9:00 AM, 6:00 PM)."""
-    local_now = (now or portal_now()).astimezone(PORTAL_TZ)
-    work_date = current_work_date(local_now)
-    return shift_open_at(work_date) <= local_now < shift_close_at(work_date)
+    """True from 4:00 PM Egypt open through 6:00 PM New York close."""
+    instant = now or portal_now()
+    work_date = current_work_date(instant)
+    return shift_open_at(work_date) <= instant < shift_close_at(work_date)
 
 
 def close_stale_attendance_sessions(*, now: datetime | None = None) -> int:
@@ -105,7 +128,7 @@ def ensure_attendance_open(membership: OrganizationMembership, *, now: datetime 
     Open (or reuse) today's attendance session for this membership.
 
     Agents may clock in any time from midnight until 6:00 PM America/New_York
-    so early arrivals (at/before 9:00 AM) can be marked on time.
+    so arrivals at/before 4:00 PM Egypt can be marked on time.
     After 6:00 PM New York: no new session is created.
     """
     if membership is None or not membership.is_active:

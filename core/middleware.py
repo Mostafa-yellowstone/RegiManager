@@ -218,8 +218,8 @@ class PortalTimezoneMiddleware:
 
             now = portal_now()
             work_date = current_work_date(now)
-            # Allow early clock-in (before 9 AM NY) so punctuality can be on time.
-            # After 6 PM is handled inside start_attendance_on_login / ensure_attendance_open.
+            # Allow early clock-in (before 4:00 PM Egypt / ~9 AM NY) so punctuality can be on time.
+            # After 6 PM NY is handled inside start_attendance_on_login / ensure_attendance_open.
             work_key = f"attendance_opened_{work_date.isoformat()}"
             if session is not None and session.get(work_key):
                 return

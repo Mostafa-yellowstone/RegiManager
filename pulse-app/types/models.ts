@@ -114,7 +114,7 @@ export interface AgentRosterRow {
   attendance_label: string;
   started_at: string;
   ended_at: string;
-  /** Clock-in strictly after 9:00 AM America/New_York. */
+  /** Clock-in strictly after 4:00 PM Africa/Cairo (Egypt team start). */
   is_late: boolean;
   /** Clock-in at or before 9:00 AM America/New_York. */
   is_on_time: boolean;
