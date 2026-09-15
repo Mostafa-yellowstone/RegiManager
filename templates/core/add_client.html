@@ -197,8 +197,11 @@
 
                 <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
                     <div class="field-wrap">
-                        <label>{{ form.source.label }}</label>
+                        <label>{{ form.source.label }} <span style="color: #ef4444;">*</span></label>
                         {{ form.source }}
+                        {% if form.source.errors %}
+                        <p style="color: #dc2626; font-size: 0.8rem; margin-top: 0.35rem;">{{ form.source.errors.0 }}</p>
+                        {% endif %}
                     </div>
                     <div class="field-wrap">
                         <label>{{ form.organization.label }}</label>

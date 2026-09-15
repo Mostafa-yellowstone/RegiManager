@@ -1965,7 +1965,12 @@ class ClientIntakeTests(TestCase):
         response = self.client.get(reverse("public-intake-direct", args=[self.org.portal_token]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'name="source"')
-        self.assertContains(response, 'value="google_search" selected')
+        self.assertContains(response, "Select how you heard about us...")
+        self.assertNotContains(response, 'value="google_search" selected')
+        self.assertContains(response, 'value="meta_platform"')
+        self.assertContains(response, 'value="google_campaigns"')
+        self.assertContains(response, 'value="website"')
+        self.assertContains(response, 'value="lost_client"')
 
     def test_intake_views_imports_client_ip_for_rate_limit(self):
         from core import intake_views
@@ -3158,7 +3163,7 @@ class ClientProfileReferralTests(TestCase):
         form = ClientForm(
             {
                 "organization": self.org.id,
-                "source": "walk-in",
+                "source": "walk_in",
                 "first_name": "Bob",
                 "last_name": "Builder",
                 "gender": "male",
@@ -3192,7 +3197,7 @@ class ClientProfileReferralTests(TestCase):
         form = ClientForm(
             {
                 "organization": self.org.id,
-                "source": "walk-in",
+                "source": "walk_in",
                 "first_name": "Jane",
                 "middle_name": "Ann",
                 "last_name": "Doe",

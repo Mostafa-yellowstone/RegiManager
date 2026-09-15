@@ -31,6 +31,37 @@ INSURANCE_SOURCE_CHOICES = [
     ]
 ]
 
+# Shared dropdown for intake + add/edit client (plain labels, no emoji).
+EMPTY_SOURCE_CHOICE = ("", "Select source...")
+INTAKE_EMPTY_SOURCE_CHOICE = ("", "Select how you heard about us...")
+FORM_SOURCE_CHOICES = [
+    ("google_search", "Google Search"),
+    ("walk_in", "Walk-In"),
+    ("website", "Website"),
+    ("meta_platform", "Meta Platform"),
+    ("google_campaigns", "Google Campaigns"),
+    ("existing_client", "Existing Client"),
+    ("lost_client", "Lost Client"),
+    ("dealer", "Dealer"),
+    ("referral", "Referral"),
+    ("cold_calling", "Cold Calling"),
+    ("insurance", "Insurance"),
+    ("other", "Other"),
+]
+# Intake public form: dealer covers partner referrals (legacy "referral" maps to dealer).
+INTAKE_SOURCE_CHOICES = [
+    ("google_search", "Google Search"),
+    ("walk_in", "Walk-In"),
+    ("website", "Website"),
+    ("meta_platform", "Meta Platform"),
+    ("google_campaigns", "Google Campaigns"),
+    ("existing_client", "Existing Client"),
+    ("lost_client", "Lost Client"),
+    ("dealer", "Dealer / Referral"),
+    ("cold_calling", "Cold Calling"),
+    ("other", "Other"),
+]
+
 
 def norm_source(value):
     """Normalize a source value: lowercase, strip, replace dashes with underscores."""

@@ -132,7 +132,7 @@ class ClientDuplicateTests(TestCase):
         form = ClientForm(
             {
                 "organization": self.org.id,
-                "source": "walk-in",
+                "source": "walk_in",
                 "first_name": "Jane",
                 "middle_name": "Ann",
                 "last_name": "Doe",

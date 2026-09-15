@@ -3,7 +3,14 @@ from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
 from .models import Organization, ServiceRecord, CustomServiceType, CustomSourceType, Referral, Client, Vehicle, ClientIntake
-from .source_choices import build_form_source_choices
+from .source_choices import (
+    EMPTY_SOURCE_CHOICE,
+    FORM_SOURCE_CHOICES,
+    INTAKE_EMPTY_SOURCE_CHOICE,
+    INTAKE_SOURCE_CHOICES,
+    build_form_source_choices,
+    norm_source,
+)
 
 
 
@@ -184,7 +191,12 @@ class ClientForm(forms.ModelForm):
         empty_label="Select PSB",
         label="PSB"
     )
-    source = forms.ChoiceField(choices=[], required=False)
+    source = forms.ChoiceField(
+        choices=[],
+        required=True,
+        label="Source",
+        widget=forms.Select(attrs={"class": "form-control", "id": "id_source"}),
+    )
     referral_select = forms.ChoiceField(
         choices=[("", "Select Existing Referral...")],
         required=False,
@@ -264,16 +276,21 @@ class ClientForm(forms.ModelForm):
             self.fields["organization"].disabled = True
             self.fields["organization"].widget.attrs["style"] = "background-color: #f8fafc; cursor: not-allowed; color: #475569; border-color: #e2e8f0; appearance: none; pointer-events: none;"
         
-        self.fields["source"].choices = build_form_source_choices(
+        source_choices = [EMPTY_SOURCE_CHOICE] + build_form_source_choices(
             organizations,
-            [
-                ("walk-in", "Walk-in"),
-                ("website", "Website"),
-                ("dealer", "Dealer"),
-                ("referral", "Referral"),
-                ("other", "Other"),
-            ],
+            list(FORM_SOURCE_CHOICES),
         )
+        # Keep legacy hyphenated values selectable when editing older clients.
+        if self.instance.pk and self.instance.source:
+            raw = (self.instance.source or "").strip()
+            key = norm_source(raw)
+            if raw and not any(norm_source(value) == key for value, _ in source_choices):
+                source_choices.append((raw, raw.replace("_", " ").replace("-", " ").title()))
+        self.fields["source"].choices = source_choices
+        if self.instance.pk and self.instance.source:
+            self.fields["source"].initial = norm_source(self.instance.source) or self.instance.source
+        elif not self.data:
+            self.fields["source"].initial = ""
 
         referral_choices = [("", "--- Select Partner ---"), ("new", "+ Create New Partner")]
         if organizations.exists():
@@ -290,6 +307,15 @@ class ClientForm(forms.ModelForm):
                 field.widget.attrs["class"] = "form-control"
             else:
                 field.widget.attrs["class"] += " form-control"
+
+    def clean_source(self):
+        source = norm_source(self.cleaned_data.get("source"))
+        if not source:
+            raise forms.ValidationError("Please select a source.")
+        valid = {norm_source(value) for value, _ in self.fields["source"].choices if value}
+        if source not in valid:
+            raise forms.ValidationError("Please select a valid source.")
+        return source
 
     def clean(self):
         cleaned_data = super().clean()
@@ -583,25 +609,13 @@ class VehicleServiceForm(forms.ModelForm):
         return cleaned_data
 
 class ClientIntakeForm(forms.ModelForm):
-    SOURCE_CHOICES = [
-        ("google_search", "Google Search"),
-        ("walk_in", "Walk-In"),
-        ("meta_platform", "Meta Platform"),
-        ("google_campaigns", "Google Campaigns"),
-        ("existing_client", "Existing Client"),
-        ("dealer", "Dealer / Referral"),
-        ("cold_calling", "Cold Calling"),
-        ("other", "Other"),
-    ]
+    SOURCE_CHOICES = list(INTAKE_SOURCE_CHOICES)
 
-    source = forms.CharField(
-        initial="google_search",
-        widget=forms.Select(
-            choices=SOURCE_CHOICES,
-            attrs={"class": "form-control", "id": "id_source"},
-        ),
-        label="How did you hear about us?",
+    source = forms.ChoiceField(
+        choices=[INTAKE_EMPTY_SOURCE_CHOICE] + list(INTAKE_SOURCE_CHOICES),
         required=True,
+        label="How did you hear about us?",
+        widget=forms.Select(attrs={"class": "form-control", "id": "id_source"}),
     )
     vehicle_type = forms.CharField(
         required=False,
@@ -768,7 +782,7 @@ class ClientIntakeForm(forms.ModelForm):
         # never block submit with "not focusable" browser errors.
 
         if not self.data and not self.instance.pk:
-            self.fields["source"].initial = "google_search"
+            self.fields["source"].initial = ""
             self.fields["vehicle_type"].initial = "passenger"
             self.fields["fuel_type"].initial = "gas"
         if "insurance_monthly_payment" in self.fields:
@@ -776,10 +790,10 @@ class ClientIntakeForm(forms.ModelForm):
             self.fields["insurance_monthly_payment"].label = "Monthly Payment"
 
     def clean_source(self):
-        from .source_choices import norm_source
-
         raw = (self.data.get("source") if hasattr(self, "data") else None) or self.cleaned_data.get("source") or ""
         source = norm_source(raw)
+        if not source:
+            raise forms.ValidationError("Please select how you heard about us.")
         if source == "referral":
             return "dealer"
         valid = {key for key, _ in self.SOURCE_CHOICES}

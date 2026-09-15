@@ -8,6 +8,7 @@ import uuid
 from decimal import Decimal
 
 from .us_states import US_STATES, normalize_state_code
+from .source_choices import FORM_SOURCE_CHOICES, INTAKE_SOURCE_CHOICES
 
 def generate_invite_code():
     return get_random_string(8).upper()
@@ -395,7 +396,13 @@ class Client(SoftDeleteModel):
     US_STATES = US_STATES
 
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="clients")
-    source = models.CharField(max_length=100, default="walk-in")
+    # Keep legacy "walk-in" selectable so older rows still edit cleanly in admin.
+    SOURCE_CHOICES = list(FORM_SOURCE_CHOICES) + [("walk-in", "Walk-In (legacy)")]
+    source = models.CharField(
+        max_length=100,
+        choices=SOURCE_CHOICES,
+        default="walk_in",
+    )
     referral = models.ForeignKey(Referral, on_delete=models.SET_NULL, null=True, blank=True, related_name="clients")
     
     first_name = models.CharField(max_length=100, db_index=True)
@@ -1339,16 +1346,7 @@ class ClientIntake(models.Model):
     cylinders = models.CharField(max_length=20, blank=True, default="")
     
     # Source / How did they find us
-    SOURCE_CHOICES = [
-        ("google_search", "Google Search"),
-        ("walk_in", "Walk-In"),
-        ("meta_platform", "Meta Platform"),
-        ("google_campaigns", "Google Campaigns"),
-        ("existing_client", "Existing Client"),
-        ("dealer", "Dealer / Referral"),
-        ("cold_calling", "Cold Calling"),
-        ("other", "Other"),
-    ]
+    SOURCE_CHOICES = list(INTAKE_SOURCE_CHOICES)
     source = models.CharField(max_length=50, choices=SOURCE_CHOICES, default="google_search")
 
     # Dealer / referral partner (when source is dealer)
