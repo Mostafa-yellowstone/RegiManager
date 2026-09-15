@@ -292,14 +292,22 @@ class ClientForm(forms.ModelForm):
         elif not self.data:
             self.fields["source"].initial = ""
 
-        referral_choices = [("", "--- Select Partner ---"), ("new", "+ Create New Partner")]
+        referral_choices = [("", "--- Select Dealer ---"), ("new", "+ Create New Dealer")]
         if organizations.exists():
-            referrals = Referral.objects.filter(organization__in=organizations).order_by('name')
+            referrals = Referral.objects.filter(
+                organization__in=organizations,
+                category="dealer",
+            ).order_by('name')
             for d in referrals:
                 referral_choices.insert(1, (str(d.id), d.name))
         self.fields["referral_select"].choices = referral_choices
         if self.instance.pk and self.instance.referral_id:
-            self.fields["referral_select"].initial = str(self.instance.referral_id)
+            # Keep current linked partner even if not category=dealer.
+            current_id = str(self.instance.referral_id)
+            if not any(value == current_id for value, _ in referral_choices):
+                referral_choices.insert(1, (current_id, self.instance.referral.name))
+                self.fields["referral_select"].choices = referral_choices
+            self.fields["referral_select"].initial = current_id
         self.fields["referral_phone_no"].widget.attrs.update({"class": "phone-mask", "placeholder": "(000) 000 - 0000"})
         # self.fields["referral_balance"].widget.attrs["readonly"] = True
         for field_name, field in self.fields.items():
@@ -794,8 +802,6 @@ class ClientIntakeForm(forms.ModelForm):
         source = norm_source(raw)
         if not source:
             raise forms.ValidationError("Please select how you heard about us.")
-        if source == "referral":
-            return "dealer"
         valid = {key for key, _ in self.SOURCE_CHOICES}
         if source in valid:
             return source
@@ -889,7 +895,7 @@ class ClientIntakeForm(forms.ModelForm):
         has_new = (ref_select == "new" or not ref_select) and partner_name
         if not has_existing and not has_new:
             raise forms.ValidationError(
-                "Please select a dealer / referral partner or add a new one."
+                "Please select a dealer or add a new one."
             )
         if ref_select == "new" and not partner_name:
             self.add_error("partner_name", "Partner name is required for a new dealer.")

@@ -48,7 +48,7 @@ FORM_SOURCE_CHOICES = [
     ("insurance", "Insurance"),
     ("other", "Other"),
 ]
-# Intake public form: dealer covers partner referrals (legacy "referral" maps to dealer).
+# Intake: referral is a plain source; dealer opens select/add dealer UI.
 INTAKE_SOURCE_CHOICES = [
     ("google_search", "Google Search"),
     ("walk_in", "Walk-In"),
@@ -57,7 +57,8 @@ INTAKE_SOURCE_CHOICES = [
     ("google_campaigns", "Google Campaigns"),
     ("existing_client", "Existing Client"),
     ("lost_client", "Lost Client"),
-    ("dealer", "Dealer / Referral"),
+    ("dealer", "Dealer"),
+    ("referral", "Referral"),
     ("cold_calling", "Cold Calling"),
     ("other", "Other"),
 ]

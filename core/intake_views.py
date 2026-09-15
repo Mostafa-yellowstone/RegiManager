@@ -97,7 +97,9 @@ def public_intake_portal(request, portal_token=None):
     else:
         form = ClientIntakeForm(organization=organization)
 
-    dealer_partners = Referral.objects.filter(organization=organization).order_by("name")
+    dealer_partners = Referral.objects.filter(
+        organization=organization, category="dealer"
+    ).order_by("name")
 
     return render(
         request,

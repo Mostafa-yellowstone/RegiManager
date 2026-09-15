@@ -421,20 +421,20 @@
                     {% endif %}
 
                     <div id="dealerPanel" class="dealer-panel">
-                        <label style="text-transform: none; letter-spacing: 0;">Dealer / Referral Partner</label>
+                        <label style="text-transform: none; letter-spacing: 0;">Dealer</label>
                         <select id="dealerSelect" class="form-control" style="max-width: 420px; margin-top: 0.35rem;">
-                            <option value="">Select a dealer / partner...</option>
+                            <option value="">Select a dealer...</option>
                             {% for partner in dealer_partners %}
                             <option value="{{ partner.id }}">{{ partner.name }}</option>
                             {% endfor %}
                         </select>
                         <input type="hidden" name="referral_select" id="id_referral_select" value="">
-                        <button type="button" id="toggleNewDealerBtn" class="btn-secondary-outline">+ Add New Dealer / Partner</button>
+                        <button type="button" id="toggleNewDealerBtn" class="btn-secondary-outline">+ Add New Dealer</button>
 
                         <div id="newDealerBlock" class="dealer-new-block">
                             <div class="form-grid" style="margin-top: 0.75rem;">
                                 <div class="col-span-2">
-                                    <label>Partner Name</label>
+                                    <label>Dealer Name</label>
                                     {{ form.partner_name }}
                                     {% if form.partner_name.errors %}<p style="color:#dc2626;font-size:0.8rem;">{{ form.partner_name.errors.0 }}</p>{% endif %}
                                 </div>
@@ -859,7 +859,7 @@
 
         function usesDealerSource() {
             const val = sourceSelect ? sourceSelect.value : '';
-            return val === 'dealer' || val === 'referral';
+            return val === 'dealer';
         }
 
         function syncReferralHidden() {
@@ -881,7 +881,7 @@
             dealerPanel.classList.toggle('is-visible', show);
             if (!show && newDealerBlock) {
                 newDealerBlock.classList.remove('is-visible');
-                if (toggleNewDealerBtn) toggleNewDealerBtn.textContent = '+ Add New Dealer / Partner';
+                if (toggleNewDealerBtn) toggleNewDealerBtn.textContent = '+ Add New Dealer';
             }
             syncReferralHidden();
         }
@@ -894,7 +894,7 @@
             dealerSelect.addEventListener('change', function () {
                 if (this.value && newDealerBlock) {
                     newDealerBlock.classList.remove('is-visible');
-                    if (toggleNewDealerBtn) toggleNewDealerBtn.textContent = '+ Add New Dealer / Partner';
+                    if (toggleNewDealerBtn) toggleNewDealerBtn.textContent = '+ Add New Dealer';
                 }
                 syncReferralHidden();
             });
@@ -903,7 +903,7 @@
             toggleNewDealerBtn.addEventListener('click', function () {
                 const opening = !newDealerBlock.classList.contains('is-visible');
                 newDealerBlock.classList.toggle('is-visible', opening);
-                this.textContent = opening ? 'Cancel New Partner' : '+ Add New Dealer / Partner';
+                this.textContent = opening ? 'Cancel New Dealer' : '+ Add New Dealer';
                 if (opening && dealerSelect) dealerSelect.value = '';
                 syncReferralHidden();
             });

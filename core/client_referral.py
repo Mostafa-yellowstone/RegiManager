@@ -3,10 +3,11 @@
 from .models import Referral
 from .source_choices import norm_source
 
-REFERRAL_SOURCE_KEYS = frozenset({"referral", "dealer"})
+REFERRAL_SOURCE_KEYS = frozenset({"dealer"})
 
 
 def uses_referral_partner(source):
+    """True only for dealer — plain referral source has no partner picker."""
     return norm_source(source) in REFERRAL_SOURCE_KEYS
 
 

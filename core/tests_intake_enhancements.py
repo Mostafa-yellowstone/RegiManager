@@ -165,14 +165,15 @@ class IntakePortalEnhancementTests(TestCase):
         intake = ClientIntake.objects.get(organization=self.org, first_name="Jane")
         self.assertEqual(intake.body_type, "other")
 
-    def test_referral_source_normalized_to_dealer(self):
+    def test_referral_source_is_plain_choice_without_dealer(self):
         response = self.http.post(
             reverse("public-intake-direct", args=[self.org.portal_token]),
-            self._base_post(source="referral", referral_select=str(self.dealer.id)),
+            self._base_post(source="referral"),
         )
         self.assertEqual(response.status_code, 302)
         intake = ClientIntake.objects.get(organization=self.org, first_name="Jane")
-        self.assertEqual(intake.source, "dealer")
+        self.assertEqual(intake.source, "referral")
+        self.assertIsNone(intake.selected_referral_id)
 
     def test_pdf_upload_zone_accepts_pdf(self):
         pdf = SimpleUploadedFile("card.pdf", b"%PDF-1.4 test", content_type="application/pdf")
