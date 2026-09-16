@@ -71,6 +71,16 @@ npm run submit:android:production
 
 Default submit track is **internal** + **draft** so you can finish listing details in Play Console before going live.
 
+## Store listing icon (important)
+
+Google Play requires the **high-res icon in Play Console** to match the **launcher icon** in the AAB.
+
+Use this exact file for Play Console → Store listing → App icon:
+
+`pulse-app/store-assets/play-store-icon.png`
+
+It is the same asset baked into the production build as the launcher icon.
+
 ## 5. iOS
 
 Not configured for store release yet — Android / Play Store only for now.
