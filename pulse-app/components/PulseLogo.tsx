@@ -83,9 +83,9 @@ export function PulseLogo({
           style={{
             width: dims.logo,
             height: dims.logo,
-            borderRadius: dims.logo * 0.22,
+            borderRadius: dims.logo / 2,
           }}
-          resizeMode="contain"
+          resizeMode="cover"
           accessibilityLabel="RegiManager Pulse"
         />
       </Animated.View>
