@@ -455,6 +455,10 @@
           <input type="number" min="0" step="1" name="remaining_payments" class="field-input" placeholder="e.g. 8">
         </div>
       </div>
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Notes <span style="font-weight:600;color:#94a3b8;">optional</span></label>
+        <textarea name="notes" class="field-input" rows="3" placeholder="Internal note for this payment" style="resize: vertical; min-height: 4.5rem;"></textarea>
+      </div>
       {% if user_can_clear_daily_payments %}
       <div class="dpt-add-clear-box">
         <input type="checkbox" name="is_cleared" id="addDailyPaymentCleared" class="dpt-clear-check" onchange="toggleAddClearDate(this)">
@@ -561,6 +565,10 @@
           <input type="number" min="0" step="1" name="remaining_payments" id="editDailyPaymentRemainingPayments" class="field-input" placeholder="e.g. 8">
         </div>
       </div>
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Notes <span style="font-weight:600;color:#94a3b8;">optional</span></label>
+        <textarea name="notes" id="editDailyPaymentNotes" class="field-input" rows="3" placeholder="Internal note for this payment" style="resize: vertical; min-height: 4.5rem;"></textarea>
+      </div>
       <div class="dpt-add-clear-box">
         <input type="checkbox" name="is_cleared" id="editDailyPaymentCleared" class="dpt-clear-check" onchange="toggleEditClearDate(this)">
         <label for="editDailyPaymentCleared" style="font-size: 0.85rem; font-weight: 800; color: #166534; cursor: pointer; margin: 0;">Bank Cleared</label>
@@ -644,6 +652,7 @@ function openEditDailyPayment(button) {
   document.getElementById('editDailyPaymentSection2119').value = row.dataset.section2119 || '';
   document.getElementById('editDailyPaymentBrokerFee').value = row.dataset.brokerFee || '';
   document.getElementById('editDailyPaymentCreditCardFee').value = row.dataset.creditCardFee || '';
+  document.getElementById('editDailyPaymentNotes').value = row.dataset.notes || '';
   toggleDailySection2119(typeSel);
 
   const clearedCheckbox = document.getElementById('editDailyPaymentCleared');
