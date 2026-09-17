@@ -1,4 +1,4 @@
-import BottomSheet from '@gorhom/bottom-sheet';
+import { type BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigation, useRouter } from 'expo-router';
 import { useLayoutEffect, useMemo, useRef } from 'react';
@@ -33,7 +33,7 @@ export default function PulseDashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const router = useRouter();
-  const sheetRef = useRef<BottomSheet>(null);
+  const sheetRef = useRef<BottomSheetModal>(null);
   const queryClient = useQueryClient();
   const { selectedOrg, organizations, selectOrganization, user } = useAuth();
   const selectedSpaceId = useSpaceStore((s) => s.selectedSpaceId);
@@ -185,7 +185,7 @@ export default function PulseDashboardScreen() {
                 label={spaceLabel}
                 onPress={() => {
                   void hapticLight();
-                  sheetRef.current?.expand();
+                  sheetRef.current?.present();
                 }}
               />
             </View>
@@ -245,6 +245,10 @@ export default function PulseDashboardScreen() {
                   badge={overview.badges.profit}
                   accent="green"
                   metaLabel="ins + DMV"
+                  onPress={() => {
+                    void hapticSelection();
+                    router.push('/(tabs)/sales');
+                  }}
                 />
                 <MetricCard
                   label="Expenses"
@@ -263,16 +267,24 @@ export default function PulseDashboardScreen() {
                   value={overview.net_cash_flow}
                   accent="teal"
                   metaLabel="income − exp"
+                  onPress={() => {
+                    void hapticSelection();
+                    router.push('/(tabs)/expenses');
+                  }}
                 />
                 <MetricCard
                   label="Bank income"
                   value={overview.bank_income}
                   accent="purple"
                   metaLabel="finance income"
+                  onPress={() => {
+                    void hapticSelection();
+                    router.push('/(tabs)/sales');
+                  }}
                 />
               </View>
               <Text className="mt-2 text-caption text-muted">
-                Net profit = insurance (commission + broker) + DMV processing fee. Cash flow = bank
+                Tap a card to open Sales or Expenses. Net profit = insurance + DMV. Cash flow = bank
                 income − expenses.
               </Text>
             </View>
@@ -295,6 +307,10 @@ export default function PulseDashboardScreen() {
                       accent="teal"
                       metaLabel="records"
                       metaValue={overview.records_count}
+                      onPress={() => {
+                        void hapticSelection();
+                        setSelectedSpaceId('dmv');
+                      }}
                     />
                   ) : null}
                   {showInsuranceBlock ? (
@@ -306,6 +322,11 @@ export default function PulseDashboardScreen() {
                         accent="green"
                         metaLabel="bound"
                         metaValue={overview.insurance_bound_count}
+                        onPress={() => {
+                          void hapticSelection();
+                          const insurance = data?.space_summaries.find((s) => s.key === 'insurance');
+                          if (insurance) setSelectedSpaceId(insurance.space_id);
+                        }}
                       />
                       <MetricCard
                         label="Commission"
@@ -313,6 +334,11 @@ export default function PulseDashboardScreen() {
                         accent="blue"
                         metaLabel="bound"
                         metaValue={overview.insurance_bound_count}
+                        onPress={() => {
+                          void hapticSelection();
+                          const insurance = data?.space_summaries.find((s) => s.key === 'insurance');
+                          if (insurance) setSelectedSpaceId(insurance.space_id);
+                        }}
                       />
                       <MetricCard
                         label="Broker fees"
@@ -320,6 +346,11 @@ export default function PulseDashboardScreen() {
                         accent="orange"
                         metaLabel="bound"
                         metaValue={overview.insurance_bound_count}
+                        onPress={() => {
+                          void hapticSelection();
+                          const insurance = data?.space_summaries.find((s) => s.key === 'insurance');
+                          if (insurance) setSelectedSpaceId(insurance.space_id);
+                        }}
                       />
                     </>
                   ) : null}
@@ -336,18 +367,18 @@ export default function PulseDashboardScreen() {
                 <Text className="mb-3 text-title text-navy">Space profits</Text>
                 <View className="gap-2">
                   {(data?.space_summaries ?? []).map((space) => (
-                    <View
+                    <Pressable
                       key={space.space_id}
+                      onPress={() => {
+                        void hapticSelection();
+                        setSelectedSpaceId(space.space_id);
+                      }}
                       className="flex-row items-center justify-between rounded-2xl bg-white px-4 py-3"
                       style={{
                         borderWidth: 1,
                         borderColor: Colors.border,
-                        shadowColor: '#0F3D4C',
-                        shadowOpacity: 0.04,
-                        shadowRadius: 8,
-                        shadowOffset: { width: 0, height: 2 },
-                        elevation: 1,
                       }}
+                      android_ripple={{ color: 'rgba(13,148,136,0.08)' }}
                     >
                       <View className="flex-1 pr-3">
                         <Text className="text-body font-bold text-navy">{space.name}</Text>
@@ -356,9 +387,10 @@ export default function PulseDashboardScreen() {
                       <Text className="text-body font-extrabold text-teal">
                         {formatMoney(space.profit)}
                       </Text>
-                    </View>
+                    </Pressable>
                   ))}
                 </View>
+                <Text className="mt-2 text-caption text-muted">Tap a space to filter the dashboard.</Text>
               </View>
             ) : null}
 
@@ -380,7 +412,7 @@ export default function PulseDashboardScreen() {
         selectedId={selectedSpaceId}
         onSelect={(id) => {
           setSelectedSpaceId(id);
-          sheetRef.current?.close();
+          sheetRef.current?.dismiss();
         }}
       />
     </View>

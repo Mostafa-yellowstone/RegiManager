@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
+import { DateRangeSelector } from '@/components/pulse/DateRangeSelector';
 import { SkeletonBlock } from '@/components/pulse/SkeletonBlock';
 import { getPulseDashboard } from '@/data/repositories/metricsRepository';
 import { useAuth } from '@/lib/auth';
@@ -10,11 +11,13 @@ import { hapticLight, hapticSelection } from '@/lib/haptics';
 import { Colors } from '@/lib/theme';
 import { useDateRangeStore } from '@/stores/dateRangeStore';
 import { useSpaceStore } from '@/stores/spaceStore';
+import type { DateRangePreset } from '@/types/models';
 
 export default function ExpensesScreen() {
   const router = useRouter();
   const { selectedOrg } = useAuth();
   const preset = useDateRangeStore((s) => s.preset);
+  const setPreset = useDateRangeStore((s) => s.setPreset);
   const spaceId = useSpaceStore((s) => s.selectedSpaceId);
   const { data, isLoading, isFetching, refetch, isError, error } = useQuery({
     queryKey: ['pulse-costs', selectedOrg?.id, spaceId, preset],
@@ -42,10 +45,11 @@ export default function ExpensesScreen() {
       }
     >
       <Text className="text-title text-navy">Expenses</Text>
-      <Text className="mb-2 text-caption text-muted">
+      <Text className="mb-1 text-caption text-muted">
         Real banking expenses from Insurance Finance. Tap a row for full detail. DMV fees, sales
         tax, card fees, and referral commissions are transaction charges — not listed here.
       </Text>
+      <DateRangeSelector value={preset} onChange={(next: DateRangePreset) => setPreset(next)} />
 
       {isError ? (
         <Text className="text-caption font-semibold text-danger">

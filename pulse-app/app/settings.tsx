@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Switch, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
+import { useAuth } from '@/lib/auth';
+import { hapticSelection } from '@/lib/haptics';
 import { isDailySnapshotEnabled, setDailySnapshotEnabled } from '@/lib/notifications';
 import { Colors } from '@/lib/theme';
 
 export default function SettingsScreen() {
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const [loading, setLoading] = useState(true);
   const [enabled, setEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -43,10 +48,38 @@ export default function SettingsScreen() {
     }
   }
 
+  async function onSignOut() {
+    await hapticSelection();
+    await logout();
+    router.replace('/login');
+  }
+
   return (
     <View className="flex-1 bg-cream p-4">
       <View
         className="rounded-2xl bg-white p-4"
+        style={{ borderWidth: 1, borderColor: Colors.border }}
+      >
+        <Text className="text-title text-navy">Account</Text>
+        {user?.full_name || user?.email ? (
+          <Text className="mt-1 text-caption text-muted">
+            {[user?.full_name, user?.email].filter(Boolean).join(' · ')}
+          </Text>
+        ) : (
+          <Text className="mt-1 text-caption text-muted">Signed in with your CRM staff login</Text>
+        )}
+        <Pressable
+          onPress={() => void onSignOut()}
+          className="mt-4 items-center rounded-xl px-4 py-3"
+          style={{ backgroundColor: Colors.tealSoft }}
+          android_ripple={{ color: 'rgba(13,148,136,0.15)' }}
+        >
+          <Text className="text-body font-extrabold text-teal">Sign out</Text>
+        </Pressable>
+      </View>
+
+      <View
+        className="mt-4 rounded-2xl bg-white p-4"
         style={{ borderWidth: 1, borderColor: Colors.border }}
       >
         <Text className="text-title text-navy">Daily snapshot</Text>

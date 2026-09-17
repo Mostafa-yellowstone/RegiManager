@@ -78,12 +78,6 @@ export function RevenueChart({ data }: Props) {
         <Text className="text-caption font-bold uppercase tracking-wide text-muted">
           Profit trend
         </Text>
-        <View
-          className="h-8 w-8 items-center justify-center rounded-lg"
-          style={{ backgroundColor: Colors.blueSoft }}
-        >
-          <Text style={{ color: Colors.blue, fontWeight: '800', fontSize: 14 }}>⚙</Text>
-        </View>
       </View>
 
       <View className="flex-row">

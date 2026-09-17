@@ -1,16 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
 
+import { DateRangeSelector } from '@/components/pulse/DateRangeSelector';
 import { SkeletonBlock } from '@/components/pulse/SkeletonBlock';
 import { listSalesActivity } from '@/data/repositories/salesRepository';
 import { useAuth } from '@/lib/auth';
 import { formatMoney } from '@/lib/format';
 import { hapticLight } from '@/lib/haptics';
+import { Colors } from '@/lib/theme';
 import { useDateRangeStore } from '@/stores/dateRangeStore';
+import type { DateRangePreset } from '@/types/models';
 
 export default function SalesScreen() {
   const { selectedOrg } = useAuth();
   const preset = useDateRangeStore((s) => s.preset);
+  const setPreset = useDateRangeStore((s) => s.setPreset);
   const { data, isLoading, isFetching, refetch, isError, error } = useQuery({
     queryKey: ['pulse-sales', selectedOrg?.id, preset],
     queryFn: () => listSalesActivity(preset),
@@ -33,9 +37,10 @@ export default function SalesScreen() {
       }
     >
       <Text className="text-title text-navy">Sales activity</Text>
-      <Text className="mb-2 text-caption text-muted">
-        Live DMV and insurance payments — view only
+      <Text className="mb-1 text-caption text-muted">
+        Live DMV and insurance payments — view only (no tap actions on rows)
       </Text>
+      <DateRangeSelector value={preset} onChange={(next: DateRangePreset) => setPreset(next)} />
 
       {isError ? (
         <Text className="text-caption font-semibold text-danger">
@@ -53,7 +58,11 @@ export default function SalesScreen() {
         <Text className="mt-6 text-center text-body text-muted">No payments in this range.</Text>
       ) : (
         data?.map((row) => (
-          <View key={row.id} className="rounded-2xl border border-border bg-white px-4 py-3">
+          <View
+            key={row.id}
+            className="rounded-xl bg-cream px-3 py-3"
+            style={{ borderWidth: 1, borderColor: Colors.border }}
+          >
             <View className="flex-row items-start justify-between gap-3">
               <View className="flex-1">
                 <Text className="text-body font-bold text-navy">{row.title}</Text>

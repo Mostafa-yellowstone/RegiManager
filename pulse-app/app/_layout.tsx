@@ -5,12 +5,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState, type ReactNode } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { AuthProvider, useAuth } from '@/lib/auth';
-import { hasCompletedOnboarding } from '@/lib/onboarding';
+import { hasCompletedOnboarding, subscribeOnboarding } from '@/lib/onboarding';
 import { Colors } from '@/lib/theme';
 
 export { ErrorBoundary } from 'expo-router';
@@ -37,18 +38,14 @@ function AuthGate({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Re-check after leaving onboarding so "Get started" / Skip unlocks login.
+  // Keep AuthGate in sync when onboarding finishes (before /login navigation).
+  useEffect(() => subscribeOnboarding((done) => setSeenOnboarding(done)), []);
+
   useEffect(() => {
-    if (segments[0] !== 'login' && segments[0] !== '(tabs)') return;
-    let cancelled = false;
-    (async () => {
-      const done = await hasCompletedOnboarding();
-      if (!cancelled && done) setSeenOnboarding(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [segments]);
+    if (ready && onboardingReady) {
+      void SplashScreen.hideAsync();
+    }
+  }, [ready, onboardingReady]);
 
   useEffect(() => {
     if (!ready || !onboardingReady) return;
@@ -72,7 +69,20 @@ function AuthGate({ children }: { children: ReactNode }) {
     }
   }, [ready, onboardingReady, seenOnboarding, token, segments, router]);
 
-  if (!ready || !onboardingReady) return null;
+  if (!ready || !onboardingReady) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: Colors.navy,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <ActivityIndicator color={Colors.teal} size="large" />
+      </View>
+    );
+  }
   return <>{children}</>;
 }
 
@@ -88,10 +98,6 @@ export default function RootLayout() {
         },
       }),
   );
-
-  useEffect(() => {
-    SplashScreen.hideAsync();
-  }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

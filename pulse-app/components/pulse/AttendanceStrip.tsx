@@ -72,8 +72,8 @@ export function AttendanceStrip({ agents, workDate, onSeeAll }: Props) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
         {agents.map((agent) => {
           const color = statusColor(agent);
-          return (
-            <View key={agent.membership_id} style={{ width: 72, alignItems: 'center' }}>
+          const body = (
+            <>
               <View
                 style={{
                   width: 44,
@@ -97,6 +97,24 @@ export function AttendanceStrip({ agents, workDate, onSeeAll }: Props) {
                 {agent.name.split(' ')[0]}
               </Text>
               <Text style={{ fontSize: 10, fontWeight: '700', color }}>{statusLabel(agent)}</Text>
+            </>
+          );
+          if (onSeeAll) {
+            return (
+              <Pressable
+                key={agent.membership_id}
+                onPress={onSeeAll}
+                style={{ width: 72, alignItems: 'center' }}
+                accessibilityRole="button"
+                accessibilityLabel={`Open staff list for ${agent.name}`}
+              >
+                {body}
+              </Pressable>
+            );
+          }
+          return (
+            <View key={agent.membership_id} style={{ width: 72, alignItems: 'center' }}>
+              {body}
             </View>
           );
         })}

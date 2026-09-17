@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Dimensions,
   FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
   Text,
+  useWindowDimensions,
   View,
   type ListRenderItemInfo,
 } from 'react-native';
@@ -30,8 +30,6 @@ import { PulseLogo } from '@/components/PulseLogo';
 import { hapticLight, hapticMedium } from '@/lib/haptics';
 import { markOnboardingComplete } from '@/lib/onboarding';
 import { Colors } from '@/lib/theme';
-
-const { width: SCREEN_W } = Dimensions.get('window');
 
 type Slide = {
   id: string;
@@ -210,20 +208,33 @@ function StaffDots({ color }: { color: string }) {
 function OpsBlocks({ color }: { color: string }) {
   return (
     <View style={{ width: '100%', gap: 10 }}>
+      <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, fontWeight: '700' }}>
+        Example areas
+      </Text>
       {['DMV space', 'Insurance', 'Expenses'].map((label, i) => (
         <View
           key={label}
           style={{
             height: 48,
             borderRadius: 14,
-            backgroundColor: i === 0 ? color : 'rgba(255,255,255,0.12)',
+            backgroundColor: 'rgba(255,255,255,0.08)',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.1)',
             paddingHorizontal: 16,
-            justifyContent: 'center',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
           }}
         >
-          <Text style={{ color: i === 0 ? Colors.navy : Colors.white, fontWeight: '800', fontSize: 14 }}>
-            {label}
-          </Text>
+          <View
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: i === 0 ? color : 'rgba(255,255,255,0.35)',
+            }}
+          />
+          <Text style={{ color: Colors.white, fontWeight: '700', fontSize: 14 }}>{label}</Text>
         </View>
       ))}
     </View>
@@ -248,13 +259,15 @@ function SlidePage({
   item,
   index,
   scrollX,
+  screenW,
 }: {
   item: Slide;
   index: number;
   scrollX: SharedValue<number>;
+  screenW: number;
 }) {
   const style = useAnimatedStyle(() => {
-    const input = [(index - 1) * SCREEN_W, index * SCREEN_W, (index + 1) * SCREEN_W];
+    const input = [(index - 1) * screenW, index * screenW, (index + 1) * screenW];
     return {
       opacity: interpolate(scrollX.value, input, [0.4, 1, 0.4], Extrapolation.CLAMP),
       transform: [
@@ -265,7 +278,7 @@ function SlidePage({
   });
 
   return (
-    <View style={{ width: SCREEN_W, paddingHorizontal: 28 }}>
+    <View style={{ width: screenW, paddingHorizontal: 28 }}>
       <Animated.View style={[{ flex: 1, paddingTop: 8 }, style]}>
         <View
           style={{
@@ -325,6 +338,7 @@ function SlidePage({
 export default function OnboardingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: screenW } = useWindowDimensions();
   const listRef = useRef<FlatList<Slide>>(null);
   const [index, setIndex] = useState(0);
   const scrollX = useSharedValue(0);
@@ -334,7 +348,7 @@ export default function OnboardingScreen() {
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const x = e.nativeEvent.contentOffset.x;
       scrollX.value = x;
-      const nextIndex = Math.round(x / SCREEN_W);
+      const nextIndex = Math.round(x / Math.max(1, screenW));
       if (nextIndex !== index && nextIndex >= 0 && nextIndex < SLIDES.length) {
         setIndex(nextIndex);
         progress.value = withSpring((nextIndex + 1) / SLIDES.length, {
@@ -343,7 +357,7 @@ export default function OnboardingScreen() {
         });
       }
     },
-    [index, progress, scrollX],
+    [index, progress, screenW, scrollX],
   );
 
   const finish = useCallback(async () => {
@@ -359,10 +373,14 @@ export default function OnboardingScreen() {
       return;
     }
     const nextIndex = index + 1;
-    listRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+    try {
+      listRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+    } catch {
+      listRef.current?.scrollToOffset({ offset: screenW * nextIndex, animated: true });
+    }
     setIndex(nextIndex);
     progress.value = withSpring((nextIndex + 1) / SLIDES.length, { damping: 18, stiffness: 120 });
-  }, [finish, index, progress]);
+  }, [finish, index, progress, screenW]);
 
   const progressStyle = useAnimatedStyle(() => ({
     width: `${progress.value * 100}%`,
@@ -370,9 +388,9 @@ export default function OnboardingScreen() {
 
   const renderItem = useCallback(
     ({ item, index: i }: ListRenderItemInfo<Slide>) => (
-      <SlidePage item={item} index={i} scrollX={scrollX} />
+      <SlidePage item={item} index={i} scrollX={scrollX} screenW={screenW} />
     ),
-    [scrollX],
+    [scrollX, screenW],
   );
 
   return (
@@ -399,7 +417,13 @@ export default function OnboardingScreen() {
           scrollEventThrottle={16}
           bounces={false}
           style={{ flex: 1 }}
-          getItemLayout={(_, i) => ({ length: SCREEN_W, offset: SCREEN_W * i, index: i })}
+          getItemLayout={(_, i) => ({ length: screenW, offset: screenW * i, index: i })}
+          onScrollToIndexFailed={(info) => {
+            listRef.current?.scrollToOffset({
+              offset: screenW * info.index,
+              animated: true,
+            });
+          }}
         />
 
         <View style={{ paddingHorizontal: 28, gap: 18 }}>

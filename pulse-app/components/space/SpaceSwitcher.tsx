@@ -1,10 +1,13 @@
-import BottomSheet, {
+import {
   BottomSheetBackdrop,
   BottomSheetFlatList,
+  BottomSheetModal,
   type BottomSheetBackdropProps,
+  type BottomSheetModal as BottomSheetModalType,
 } from '@gorhom/bottom-sheet';
 import { forwardRef, useCallback, useMemo } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import Svg, { Path } from 'react-native-svg';
 
 import { formatMoney } from '@/lib/format';
@@ -25,7 +28,7 @@ type Props = {
   onSelect: (id: SpaceIdOrAll) => void;
 };
 
-export const SpaceSwitcherSheet = forwardRef<BottomSheet, Props>(
+export const SpaceSwitcherSheet = forwardRef<BottomSheetModalType, Props>(
   function SpaceSwitcherSheet({ options, selectedId, onSelect }, ref) {
     const snapPoints = useMemo(() => ['42%', '68%'], []);
 
@@ -37,9 +40,8 @@ export const SpaceSwitcherSheet = forwardRef<BottomSheet, Props>(
     );
 
     return (
-      <BottomSheet
+      <BottomSheetModal
         ref={ref}
-        index={-1}
         snapPoints={snapPoints}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
@@ -59,18 +61,24 @@ export const SpaceSwitcherSheet = forwardRef<BottomSheet, Props>(
           renderItem={({ item }) => {
             const active = item.id === selectedId;
             return (
-              <Pressable
-                onPress={async () => {
-                  await hapticSelection();
-                  onSelect(item.id);
-                  await hapticSuccess();
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  void (async () => {
+                    await hapticSelection();
+                    onSelect(item.id);
+                    await hapticSuccess();
+                  })();
                 }}
-                className="mb-2 rounded-2xl border px-4 py-3"
                 style={{
+                  marginBottom: 8,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
                   borderColor: active ? Colors.teal : Colors.border,
                   backgroundColor: active ? Colors.tealSoft : Colors.white,
                 }}
-                android_ripple={{ color: 'rgba(13,148,136,0.08)' }}
               >
                 <View className="flex-row items-center justify-between">
                   <View className="flex-1 pr-3">
@@ -85,11 +93,11 @@ export const SpaceSwitcherSheet = forwardRef<BottomSheet, Props>(
                     </Text>
                   ) : null}
                 </View>
-              </Pressable>
+              </TouchableOpacity>
             );
           }}
         />
-      </BottomSheet>
+      </BottomSheetModal>
     );
   },
 );
@@ -101,7 +109,7 @@ type TriggerProps = {
 
 export function SpaceSwitcherTrigger({ label, onPress }: TriggerProps) {
   return (
-    <Pressable onPress={onPress} className="items-end">
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={{ alignItems: 'flex-end' }}>
       <View
         className="flex-row items-center rounded-full bg-white px-3 py-2"
         style={{
@@ -127,6 +135,6 @@ export function SpaceSwitcherTrigger({ label, onPress }: TriggerProps) {
       <Text className="mt-1 text-[11px] font-bold" style={{ color: Colors.blue }}>
         change
       </Text>
-    </Pressable>
+    </TouchableOpacity>
   );
 }
