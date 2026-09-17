@@ -47,7 +47,9 @@
     "typecheck": "tsc --noEmit",
     "build:android:preview": "eas build -p android --profile preview",
     "build:android:production": "eas build -p android --profile production",
-    "submit:android:production": "eas submit -p android --profile production"
+    "submit:android:production": "eas submit -p android --profile production",
+    "build:ios:production": "eas build -p ios --profile production",
+    "submit:ios:production": "eas submit -p ios --profile production"
   },
   "private": true
 }

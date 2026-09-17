@@ -9,7 +9,11 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.regimanager.pulse"
+      "bundleIdentifier": "com.regimanager.pulse",
+      "infoPlist": {
+        "CFBundleDisplayName": "RegiManager Pulse",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
