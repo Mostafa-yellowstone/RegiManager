@@ -242,7 +242,7 @@
             data-next-payment-amount="{% if tx.next_payment_amount != None %}{{ tx.next_payment_amount }}{% endif %}"
             data-remaining-amount="{% if tx.remaining_amount != None %}{{ tx.remaining_amount }}{% endif %}"
             data-remaining-payments="{% if tx.remaining_payments != None %}{{ tx.remaining_payments }}{% endif %}"
-            data-section-2119="{% if tx.section_2119 != None %}{{ tx.section_2119 }}{% endif %}"
+            data-section2119="{% if tx.section_2119 != None %}{{ tx.section_2119 }}{% endif %}"
             data-broker-fee="{% if tx.broker_fee != None %}{{ tx.broker_fee }}{% endif %}"
             data-credit-card-fee="{% if tx.credit_card_fee != None %}{{ tx.credit_card_fee }}{% endif %}"
             data-notes="{{ tx.notes|default:''|escapejs }}"
@@ -590,8 +590,19 @@ function toggleDailySection2119(selectEl) {
   if (!wrap) return;
   wrap.style.display = show ? '' : 'none';
   if (input) {
+    // Keep the value while hidden so toggling payment type does not wipe Section 2119.
+    // Disabled inputs are omitted from POST; backend clears section_2119 for non-NB/renewal.
+    if (!show && input.value) {
+      input.dataset.savedValue = input.value;
+    }
     input.disabled = !show;
-    if (!show) input.value = '';
+    if (show) {
+      if (!input.value && input.dataset.savedValue) {
+        input.value = input.dataset.savedValue;
+      }
+    } else {
+      input.value = '';
+    }
   }
 }
 
@@ -649,11 +660,19 @@ function openEditDailyPayment(button) {
   document.getElementById('editDailyPaymentNextAmount').value = row.dataset.nextPaymentAmount || '';
   document.getElementById('editDailyPaymentRemainingAmount').value = row.dataset.remainingAmount || '';
   document.getElementById('editDailyPaymentRemainingPayments').value = row.dataset.remainingPayments || '';
-  document.getElementById('editDailyPaymentSection2119').value = row.dataset.section2119 || '';
   document.getElementById('editDailyPaymentBrokerFee').value = row.dataset.brokerFee || '';
   document.getElementById('editDailyPaymentCreditCardFee').value = row.dataset.creditCardFee || '';
   document.getElementById('editDailyPaymentNotes').value = row.dataset.notes || '';
+  // data-section2119 (not data-section-2119): digits break dataset camelCase mapping.
   toggleDailySection2119(typeSel);
+  const section2119Input = document.getElementById('editDailyPaymentSection2119');
+  const section2119Value = row.dataset.section2119 || '';
+  if (section2119Input) {
+    section2119Input.dataset.savedValue = section2119Value;
+    if (!section2119Input.disabled) {
+      section2119Input.value = section2119Value;
+    }
+  }
 
   const clearedCheckbox = document.getElementById('editDailyPaymentCleared');
   const clearDate = document.getElementById('editDailyPaymentClearDate');
