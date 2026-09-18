@@ -21,13 +21,13 @@ from .models import (
 )
 from .motorclub_crm import (
     TIER_CHOICES,
-    clients_with_insurance,
     enrich_membership,
     get_or_create_config,
     motorclub_dashboard_stats,
     split_profits_for_tier,
     tier_preview_rows,
 )
+from .client_search import build_client_name_search_q
 from .space_access import get_org_membership, require_space_access
 from .views import _get_user_organizations
 
@@ -112,10 +112,14 @@ def build_motorclub_space_context(request, card, is_owner, membership):
     if search:
         memberships_qs = memberships_qs.filter(
             Q(membership_number__icontains=search)
-            | Q(client__first_name__icontains=search)
-            | Q(client__last_name__icontains=search)
             | Q(b2b_partner__name__icontains=search)
-        )
+            | Q(client__email__icontains=search)
+            | Q(client__phone_number__icontains=search)
+            | Q(client__driver_license__icontains=search)
+            | Q(client__business_name__icontains=search)
+            | Q(client__business_ein__icontains=search)
+            | build_client_name_search_q(search, prefix="client__")
+        ).distinct()
     if channel_filter:
         memberships_qs = memberships_qs.filter(channel=channel_filter)
     if status_filter:
@@ -144,8 +148,6 @@ def build_motorclub_space_context(request, card, is_owner, membership):
         "tier_choices": TIER_CHOICES,
         "memberships_page": page,
         "memberships": page,
-        "clients": Client.objects.filter(organization=active_org).order_by("first_name", "last_name")[:500],
-        "insurance_clients": clients_with_insurance(active_org),
         "b2b_partners": MotorclubB2BPartner.objects.filter(
             organization=active_org,
             is_active=True,

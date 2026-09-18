@@ -5782,6 +5782,7 @@ def client_search_ajax(request):
     """
     Lightweight JSON endpoint for the dashboard command bar live search.
     Searches by name, driver license, phone, plate, business name, or EIN.
+    Optional ?organization=<id> scopes results to one accessible organization.
     """
     q = request.GET.get("q", "").strip()
     limit = min(int(request.GET.get("limit", "8")), 20)
@@ -5790,6 +5791,12 @@ def client_search_ajax(request):
         return JsonResponse({"results": []})
 
     organizations = _get_user_organizations(request)
+    org_raw = (request.GET.get("organization") or "").strip()
+    if org_raw.isdigit():
+        organizations = organizations.filter(id=int(org_raw))
+        if not organizations.exists():
+            return JsonResponse({"results": []})
+
     from .client_search import search_clients_ranked, serialize_client_search_result
 
     clients = search_clients_ranked(organizations, q, limit=limit)

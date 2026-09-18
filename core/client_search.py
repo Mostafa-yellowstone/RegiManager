@@ -309,6 +309,8 @@ def serialize_client_search_result(client) -> dict:
     plate = client.vehicles.values_list("plate_number", flat=True).first() or ""
     display_name = client.full_display_name or client.name
     return {
+        "id": client.id,
+        "organization_id": client.organization_id,
         "name": display_name,
         "full_name": display_name,
         "first_name": client.first_name,

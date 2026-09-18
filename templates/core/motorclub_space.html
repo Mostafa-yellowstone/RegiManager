@@ -37,6 +37,48 @@
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.85rem; }
 .tier-card { border: 1px solid var(--portal-border); border-radius: 14px; padding: 1rem; background: var(--portal-surface-muted); text-align: center; }
 .tier-card-price { font-size: 1.5rem; font-weight: 900; color: #c2410c; }
+.mc-client-picker { position: relative; }
+.mc-client-results {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+  background: var(--portal-surface);
+  border: 1px solid var(--portal-border);
+  border-radius: 12px;
+  box-shadow: var(--portal-shadow-lg);
+  max-height: 260px;
+  overflow-y: auto;
+}
+.mc-client-results.open { display: block; }
+.mc-client-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 0.7rem 0.9rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--portal-border);
+}
+.mc-client-item:hover, .mc-client-item:focus { background: var(--portal-surface-muted); outline: none; }
+.mc-client-item:last-child { border-bottom: none; }
+.mc-client-name { font-weight: 800; color: var(--portal-text); font-size: 0.9rem; }
+.mc-client-meta { font-size: 0.75rem; color: var(--portal-text-muted); margin-top: 2px; font-weight: 600; }
+.mc-client-empty, .mc-client-loading {
+  padding: 0.85rem 0.9rem;
+  color: var(--portal-text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.mc-client-selected {
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #c2410c;
+}
 html.portal-theme-dark .mc-chip-active { background: rgba(22,163,74,0.2); color: #4ade80; }
 html.portal-theme-dark .mc-chip-insurance { background: rgba(99,102,241,0.2); color: #a5b4fc; }
 html.portal-theme-dark .mc-chip-b2b { background: rgba(234,88,12,0.2); color: #fdba74; }
@@ -49,7 +91,7 @@ html.portal-theme-dark .mc-chip-b2b { background: rgba(234,88,12,0.2); color: #f
       <div>
         <div style="display:inline-flex;align-items:center;gap:6px;background:#ffedd5;color:#c2410c;padding:4px 12px;border-radius:999px;font-size:0.78rem;font-weight:800;text-transform:uppercase;margin-bottom:0.5rem;border:1px solid #fed7aa;">🚗 {{ active_org.name }}</div>
         <h1 class="portal-space-title">🛟 {{ card.label }}</h1>
-        <p class="portal-space-subtitle">{{ card.description|default:"Roadside assistance — insurance upsell & B2B partnerships" }}</p>
+        <p class="portal-space-subtitle">{{ card.description|default:"Roadside assistance memberships — direct, insurance, and B2B" }}</p>
       </div>
       <a href="{% url 'spaces-home' %}" style="text-decoration:none;padding:9px 16px;background:var(--portal-surface);border:1px solid var(--portal-border);border-radius:10px;font-weight:700;color:var(--portal-text-secondary);font-size:0.88rem;">&larr; Back to Spaces</a>
     </div>
@@ -97,7 +139,7 @@ html.portal-theme-dark .mc-chip-b2b { background: rgba(234,88,12,0.2); color: #f
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
         <form method="get" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
           <input type="hidden" name="tab" value="members">
-          <input type="text" name="q" value="{{ search }}" placeholder="Search member, client…" class="field-input" style="width:200px;">
+          <input type="text" name="q" value="{{ search }}" placeholder="Search name, phone, DL, member #…" class="field-input" style="width:240px;">
           <select name="channel" class="field-input" style="width:auto;">
             <option value="">All channels</option>
             {% for val, label in channel_choices %}<option value="{{ val }}" {% if channel_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
@@ -155,7 +197,7 @@ html.portal-theme-dark .mc-chip-b2b { background: rgba(234,88,12,0.2); color: #f
               </td>
             </tr>
             {% empty %}
-            <tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--portal-text-muted);">No Motor Club memberships yet. Add your first member or upsell an insurance client.</td></tr>
+            <tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--portal-text-muted);">No Motor Club memberships yet. Add your first member from any client.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -239,9 +281,9 @@ html.portal-theme-dark .mc-chip-b2b { background: rgba(234,88,12,0.2); color: #f
         <div>
           <label class="field-label">Sales channel</label>
           <select name="channel" class="field-input" id="mcChannel">
-            <option value="insurance_client">Insurance Client (upsell)</option>
-            <option value="b2b">B2B Partner</option>
             <option value="direct">Direct / Walk-In</option>
+            <option value="insurance_client">Insurance Client</option>
+            <option value="b2b">B2B Partner</option>
           </select>
         </div>
         <div>
@@ -253,15 +295,20 @@ html.portal-theme-dark .mc-chip-b2b { background: rgba(234,88,12,0.2); color: #f
       </div>
       <div style="margin-top:0.85rem;">
         <label class="field-label">Client</label>
-        <select name="client_id" class="field-input" required>
-          <option value="">Select client…</option>
-          <optgroup label="Insurance clients (upsell targets)">
-            {% for c in insurance_clients %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
-          </optgroup>
-          <optgroup label="All clients">
-            {% for c in clients %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
-          </optgroup>
-        </select>
+        <div class="mc-client-picker" id="mcClientPicker">
+          <input type="hidden" name="client_id" id="mcClientId" value="">
+          <input
+            type="text"
+            id="mcClientSearch"
+            class="field-input"
+            placeholder="Type name, phone, driver license, or plate…"
+            autocomplete="off"
+            aria-autocomplete="list"
+            aria-controls="mcClientResults"
+          >
+          <div class="mc-client-results" id="mcClientResults" role="listbox"></div>
+          <div class="mc-client-selected" id="mcClientSelected" hidden></div>
+        </div>
       </div>
       <div class="grid-2" style="margin-top:0.85rem;">
         <div>
@@ -343,6 +390,9 @@ const MC_TIER_SPLITS = {
   {% for row in tier_preview %}{{ row.tier }}: { provider: {{ row.provider_profit }}, psb: {{ row.psb_profit }} }{% if not forloop.last %},{% endif %}
   {% endfor %}
 };
+const MC_CLIENT_SEARCH_URL = "{% url 'client-search-ajax' %}";
+const MC_ORG_ID = "{{ active_org.id }}";
+
 function mcSwitchTab(id, btn) {
   document.querySelectorAll('.mc-tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.mc-tab-btn').forEach(b => b.classList.remove('active'));
@@ -366,6 +416,107 @@ function openEditMember(id, tier, status, channel, provider, psb, notes, partner
   document.getElementById('editNotes').value = notes;
   document.getElementById('editMemberModal').classList.add('active');
 }
+
+(function initMcClientPicker() {
+  const searchInput = document.getElementById('mcClientSearch');
+  const hiddenId = document.getElementById('mcClientId');
+  const results = document.getElementById('mcClientResults');
+  const selected = document.getElementById('mcClientSelected');
+  const form = searchInput && searchInput.closest('form');
+  if (!searchInput || !hiddenId || !results) return;
+
+  let timer = null;
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function closeResults() {
+    results.classList.remove('open');
+  }
+
+  function pickClient(id, name, meta) {
+    hiddenId.value = String(id);
+    searchInput.value = name;
+    selected.hidden = false;
+    selected.textContent = 'Selected: ' + name + (meta ? ' · ' + meta : '');
+    closeResults();
+  }
+
+  function renderItems(items, q) {
+    if (!items.length) {
+      results.innerHTML = '<div class="mc-client-empty">No clients found for "' + escHtml(q) + '"</div>';
+      results.classList.add('open');
+      return;
+    }
+    results.innerHTML = items.map(function (c) {
+      const name = c.name || c.full_name || 'Client';
+      const metaParts = [c.identifier, c.plate].filter(Boolean);
+      const meta = metaParts.join(' · ');
+      return (
+        '<button type="button" class="mc-client-item" data-id="' + escHtml(c.id) + '" data-name="' + escHtml(name) + '" data-meta="' + escHtml(meta) + '">' +
+          '<div class="mc-client-name">' + escHtml(name) + '</div>' +
+          (meta ? '<div class="mc-client-meta">' + escHtml(meta) + '</div>' : '') +
+        '</button>'
+      );
+    }).join('');
+    results.classList.add('open');
+  }
+
+  function doSearch(q) {
+    const url =
+      MC_CLIENT_SEARCH_URL +
+      '?q=' + encodeURIComponent(q) +
+      '&limit=12&organization=' + encodeURIComponent(MC_ORG_ID);
+    fetch(url, { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (data) { renderItems(data.results || [], q); })
+      .catch(function () {
+        results.innerHTML = '<div class="mc-client-empty">Could not load clients. Try again.</div>';
+        results.classList.add('open');
+      });
+  }
+
+  searchInput.addEventListener('input', function () {
+    hiddenId.value = '';
+    selected.hidden = true;
+    const q = searchInput.value.trim();
+    clearTimeout(timer);
+    if (q.length < 2) {
+      closeResults();
+      return;
+    }
+    results.innerHTML = '<div class="mc-client-loading">Searching…</div>';
+    results.classList.add('open');
+    timer = setTimeout(function () { doSearch(q); }, 250);
+  });
+
+  results.addEventListener('click', function (e) {
+    const btn = e.target.closest('.mc-client-item');
+    if (!btn) return;
+    pickClient(btn.dataset.id, btn.dataset.name, btn.dataset.meta);
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('#mcClientPicker')) closeResults();
+  });
+
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      if (!hiddenId.value) {
+        e.preventDefault();
+        searchInput.focus();
+        results.innerHTML = '<div class="mc-client-empty">Search and select a client from the list.</div>';
+        results.classList.add('open');
+      }
+    });
+  }
+})();
+
 document.addEventListener('DOMContentLoaded', mcUpdateProfits);
 </script>
 {% endblock %}
