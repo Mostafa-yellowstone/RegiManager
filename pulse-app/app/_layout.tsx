@@ -12,7 +12,9 @@ import 'react-native-reanimated';
 
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { hasCompletedOnboarding, subscribeOnboarding } from '@/lib/onboarding';
+import { registerSnapshotNotificationHandler } from '@/lib/notifications';
 import { Colors } from '@/lib/theme';
+import { useDateRangeStore } from '@/stores/dateRangeStore';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -22,6 +24,7 @@ function AuthGate({ children }: { children: ReactNode }) {
   const { ready, token } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const setPreset = useDateRangeStore((s) => s.setPreset);
   const [onboardingReady, setOnboardingReady] = useState(false);
   const [seenOnboarding, setSeenOnboarding] = useState(false);
 
@@ -46,6 +49,23 @@ function AuthGate({ children }: { children: ReactNode }) {
       void SplashScreen.hideAsync();
     }
   }, [ready, onboardingReady]);
+
+  useEffect(() => {
+    if (!ready || !onboardingReady || !token) return;
+    let active = true;
+    let unsubscribe: (() => void) | undefined;
+    void registerSnapshotNotificationHandler(() => {
+      if (!active) return;
+      setPreset('yesterday');
+      router.replace('/(tabs)');
+    }).then((fn) => {
+      unsubscribe = fn;
+    });
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, [ready, onboardingReady, token, router, setPreset]);
 
   useEffect(() => {
     if (!ready || !onboardingReady) return;

@@ -4,6 +4,7 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
+  ScrollView,
   Text,
   useWindowDimensions,
   View,
@@ -47,7 +48,7 @@ const SLIDES: Slide[] = [
     badge: 'RegiManager Pulse',
     title: 'Your business,\nlive on your phone',
     body: 'Pulse is the owner companion for RegiManager — profit, cash flow, staff, and spaces in one calm dashboard.',
-    points: ['Same staff login as the web CRM', 'Built for owners & managers', 'Works alongside your agents'],
+    points: ['Owner CRM login only', 'Built for PSB owners', 'Works alongside your agents'],
     accent: Colors.teal,
     kind: 'welcome',
   },
@@ -260,76 +261,108 @@ function SlidePage({
   index,
   scrollX,
   screenW,
+  artHeight,
+  contentMaxWidth,
 }: {
   item: Slide;
   index: number;
   scrollX: SharedValue<number>;
   screenW: number;
+  artHeight: number;
+  contentMaxWidth: number;
 }) {
   const style = useAnimatedStyle(() => {
     const input = [(index - 1) * screenW, index * screenW, (index + 1) * screenW];
     return {
       opacity: interpolate(scrollX.value, input, [0.4, 1, 0.4], Extrapolation.CLAMP),
       transform: [
-        { translateY: interpolate(scrollX.value, input, [22, 0, 22], Extrapolation.CLAMP) },
-        { scale: interpolate(scrollX.value, input, [0.95, 1, 0.95], Extrapolation.CLAMP) },
+        { translateY: interpolate(scrollX.value, input, [18, 0, 18], Extrapolation.CLAMP) },
+        { scale: interpolate(scrollX.value, input, [0.96, 1, 0.96], Extrapolation.CLAMP) },
       ],
     };
   });
 
-  return (
-    <View style={{ width: screenW, paddingHorizontal: 28 }}>
-      <Animated.View style={[{ flex: 1, paddingTop: 8 }, style]}>
-        <View
-          style={{
-            height: 220,
-            borderRadius: 28,
-            backgroundColor: 'rgba(255,255,255,0.08)',
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.12)',
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingHorizontal: 20,
-            marginBottom: 26,
-          }}
-        >
-          <SlideArt kind={item.kind} accent={item.accent} />
-        </View>
+  const titleSize = artHeight < 160 ? 26 : 32;
+  const titleLine = artHeight < 160 ? 32 : 38;
 
-        <Text
-          style={{
-            color: item.accent,
-            fontSize: 12,
-            fontWeight: '800',
-            letterSpacing: 1.1,
-            textTransform: 'uppercase',
+  return (
+    <View style={{ width: screenW, paddingHorizontal: 24 }}>
+      <Animated.View style={[{ flex: 1 }, style]}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingBottom: 12,
+            alignItems: 'center',
           }}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
-          {item.badge}
-        </Text>
-        <Text
-          style={{
-            marginTop: 10,
-            color: Colors.white,
-            fontSize: 32,
-            lineHeight: 38,
-            fontWeight: '800',
-            letterSpacing: -0.7,
-          }}
-        >
-          {item.title}
-        </Text>
-        <Text style={{ marginTop: 12, color: 'rgba(255,255,255,0.72)', fontSize: 15, lineHeight: 22 }}>
-          {item.body}
-        </Text>
-        <View style={{ marginTop: 18, gap: 8 }}>
-          {item.points.map((point) => (
-            <View key={point} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: item.accent }} />
-              <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: '600' }}>{point}</Text>
+          <View style={{ width: '100%', maxWidth: contentMaxWidth }}>
+            <View
+              style={{
+                height: artHeight,
+                borderRadius: 24,
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.12)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingHorizontal: 16,
+                marginBottom: 20,
+                overflow: 'hidden',
+              }}
+            >
+              <SlideArt kind={item.kind} accent={item.accent} />
             </View>
-          ))}
-        </View>
+
+            <Text
+              style={{
+                color: item.accent,
+                fontSize: 12,
+                fontWeight: '800',
+                letterSpacing: 1.1,
+                textTransform: 'uppercase',
+              }}
+            >
+              {item.badge}
+            </Text>
+            <Text
+              style={{
+                marginTop: 10,
+                color: Colors.white,
+                fontSize: titleSize,
+                lineHeight: titleLine,
+                fontWeight: '800',
+                letterSpacing: -0.7,
+              }}
+            >
+              {item.title}
+            </Text>
+            <Text
+              style={{
+                marginTop: 12,
+                color: 'rgba(255,255,255,0.72)',
+                fontSize: 15,
+                lineHeight: 22,
+              }}
+            >
+              {item.body}
+            </Text>
+            <View style={{ marginTop: 16, gap: 8 }}>
+              {item.points.map((point) => (
+                <View key={point} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View
+                    style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: item.accent }}
+                  />
+                  <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: '600' }}>
+                    {point}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
       </Animated.View>
     </View>
   );
@@ -338,11 +371,15 @@ function SlidePage({
 export default function OnboardingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width: screenW } = useWindowDimensions();
+  const { width: screenW, height: screenH } = useWindowDimensions();
   const listRef = useRef<FlatList<Slide>>(null);
   const [index, setIndex] = useState(0);
   const scrollX = useSharedValue(0);
   const progress = useSharedValue(1 / SLIDES.length);
+
+  const artHeight = Math.max(132, Math.min(220, Math.round(screenH * 0.26)));
+  const contentMaxWidth = Math.min(440, screenW - 48);
+  const footerPad = Math.max(16, insets.bottom + 12);
 
   const onScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -388,20 +425,38 @@ export default function OnboardingScreen() {
 
   const renderItem = useCallback(
     ({ item, index: i }: ListRenderItemInfo<Slide>) => (
-      <SlidePage item={item} index={i} scrollX={scrollX} screenW={screenW} />
+      <SlidePage
+        item={item}
+        index={i}
+        scrollX={scrollX}
+        screenW={screenW}
+        artHeight={artHeight}
+        contentMaxWidth={contentMaxWidth}
+      />
     ),
-    [scrollX, screenW],
+    [artHeight, contentMaxWidth, scrollX, screenW],
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.navy }}>
       <LinearGradient
         colors={['#0F3D4C', '#0B2E3A', '#083344']}
-        style={{ flex: 1, paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 }}
+        style={{ flex: 1, paddingTop: insets.top + 8, paddingBottom: footerPad }}
       >
-        <View style={{ paddingHorizontal: 24, flexDirection: 'row', justifyContent: 'flex-end' }}>
+        <View
+          style={{
+            paddingHorizontal: 24,
+            flexDirection: 'row',
+            justifyContent: 'flex-end',
+            maxWidth: contentMaxWidth + 48,
+            alignSelf: 'center',
+            width: '100%',
+          }}
+        >
           <Pressable onPress={finish} hitSlop={12} style={{ paddingVertical: 8, paddingHorizontal: 4 }}>
-            <Text style={{ color: 'rgba(255,255,255,0.55)', fontWeight: '700', fontSize: 14 }}>Skip</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.55)', fontWeight: '700', fontSize: 14 }}>
+              Skip
+            </Text>
           </Pressable>
         </View>
 
@@ -426,7 +481,15 @@ export default function OnboardingScreen() {
           }}
         />
 
-        <View style={{ paddingHorizontal: 28, gap: 18 }}>
+        <View
+          style={{
+            paddingHorizontal: 28,
+            gap: 16,
+            maxWidth: contentMaxWidth + 56,
+            width: '100%',
+            alignSelf: 'center',
+          }}
+        >
           <View
             style={{
               height: 4,

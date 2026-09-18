@@ -1,7 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
-import { ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { crmFinanceUrl, openCrmUrl } from '@/lib/crmLinks';
 import { formatMoney } from '@/lib/format';
+import { hapticSelection } from '@/lib/haptics';
 import { Colors } from '@/lib/theme';
 
 function param(value: string | string[] | undefined) {
@@ -65,6 +67,17 @@ export default function ExpenseDetailScreen() {
           </View>
         ))}
       </View>
+
+      <Pressable
+        onPress={() => {
+          void hapticSelection();
+          void openCrmUrl(crmFinanceUrl());
+        }}
+        className="items-center rounded-xl px-4 py-3"
+        style={{ backgroundColor: Colors.tealSoft }}
+      >
+        <Text className="text-body font-extrabold text-teal">Open in CRM Finance</Text>
+      </Pressable>
     </ScrollView>
   );
 }

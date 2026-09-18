@@ -13,6 +13,8 @@ type Props = {
   /** Secondary stat chip, e.g. "128 records" or "42 bound". */
   metaLabel?: string;
   metaValue?: string | number;
+  /** Clarifies what the number means (profit vs cash). */
+  hint?: string;
   onPress?: () => void;
 };
 
@@ -24,6 +26,7 @@ export function MetricCard({
   accent = 'teal',
   metaLabel,
   metaValue,
+  hint,
   onPress,
 }: Props) {
   const theme = MetricAccents[accent];
@@ -51,7 +54,12 @@ export function MetricCard({
       <Text className="mt-2 text-[24px] font-extrabold text-ink" numberOfLines={1}>
         {display}
       </Text>
-      <View className="mt-auto pt-3 flex-row items-center justify-between">
+      {hint ? (
+        <Text className="mt-1 text-[10px] font-semibold" style={{ color: theme.deep, opacity: 0.75 }}>
+          {hint}
+        </Text>
+      ) : null}
+      <View className="mt-auto pt-3 flex-row items-center justify-between gap-2">
         {metaText ? (
           <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: theme.soft }}>
             <Text className="text-[11px] font-bold" style={{ color: theme.deep }}>
@@ -62,9 +70,12 @@ export function MetricCard({
           <View />
         )}
         {badge ? (
-          <Text className="text-[11px] font-semibold" style={{ color: theme.main }}>
-            {formatPct(badge.delta_pct)}
-          </Text>
+          <View className="rounded-full px-2 py-1" style={{ backgroundColor: theme.soft }}>
+            <Text className="text-[10px] font-extrabold" style={{ color: theme.main }}>
+              {formatPct(badge.delta_pct)}
+              {badge.label ? ` ${badge.label}` : ''}
+            </Text>
+          </View>
         ) : null}
       </View>
     </>

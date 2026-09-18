@@ -39,13 +39,31 @@ class CompanionAuthAPITests(APITestCase):
         self.assertEqual(response.data["organizations"][0]["name"], "Test PSB")
         self.assertTrue(response.data["organizations"][0]["permissions"]["can_manage_email_marketing"])
 
-    def test_login_invalid_credentials(self):
+    def test_pulse_login_rejects_non_owner(self):
         response = self.client.post(
             self.login_url,
-            {"username": "agent1", "password": "wrong"},
+            {"username": "agent1", "password": "pass12345", "app": "pulse"},
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_pulse_login_allows_owner(self):
+        owner = User.objects.create_user(username="owner1", password="pass12345")
+        OrganizationMembership.objects.create(
+            organization=self.org,
+            user=owner,
+            role=OrganizationMembership.Role.OWNER,
+            is_active=True,
+        )
+        response = self.client.post(
+            self.login_url,
+            {"username": "owner1", "password": "pass12345", "app": "pulse"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["organizations"]), 1)
+        self.assertEqual(response.data["organizations"][0]["role"], "owner")
+
 
     def test_login_without_membership_forbidden(self):
         User.objects.create_user(username="orphan", password="pass12345")

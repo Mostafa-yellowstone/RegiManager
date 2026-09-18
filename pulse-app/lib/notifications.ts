@@ -47,14 +47,17 @@ export async function isDailySnapshotEnabled(): Promise<boolean> {
   return (await kvGet(PREF_KEY)) === '1';
 }
 
-export async function setDailySnapshotEnabled(enabled: boolean): Promise<void> {
+export async function setDailySnapshotEnabled(enabled: boolean): Promise<{ ok: boolean; message: string }> {
   if (enabled) {
-    await kvSet(PREF_KEY, '1');
-    await enableDailySnapshot();
-  } else {
-    await kvSet(PREF_KEY, '0');
-    await disableDailySnapshot();
+    const result = await enableDailySnapshot();
+    if (result.ok) {
+      await kvSet(PREF_KEY, '1');
+    }
+    return result;
   }
+  await kvSet(PREF_KEY, '0');
+  await disableDailySnapshot();
+  return { ok: true, message: 'Daily reminder turned off.' };
 }
 
 async function ensurePermissions(Notifications: NotificationsModule): Promise<boolean> {
@@ -117,7 +120,7 @@ export async function enableDailySnapshot(): Promise<{ ok: boolean; message: str
   const id = await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Pulse daily snapshot',
-      body: "Open Pulse for yesterday's net profit, expenses, and staff attendance.",
+      body: "Yesterday's profit, expenses, and staff — tap to open your Pulse brief.",
       data: { type: 'pulse_daily_snapshot' },
       ...(Platform.OS === 'android' ? { channelId: 'pulse-daily' } : {}),
     },
@@ -154,4 +157,48 @@ export async function syncDailySnapshotPreference(): Promise<void> {
   } catch {
     // Never block auth/bootstrap on notification setup.
   }
+}
+
+type SnapshotRouteHandler = () => void;
+
+/**
+ * Route notification taps to Pulse home. Safe no-op in Expo Go / missing module.
+ * Returns an unsubscribe function.
+ */
+export async function registerSnapshotNotificationHandler(
+  onOpenSnapshot: SnapshotRouteHandler,
+): Promise<() => void> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return () => undefined;
+
+  try {
+    await ensureHandler(Notifications);
+  } catch {
+    return () => undefined;
+  }
+
+  const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+    const type = response?.notification?.request?.content?.data?.type;
+    if (type === 'pulse_daily_snapshot') {
+      onOpenSnapshot();
+    }
+  });
+
+  try {
+    const last = await Notifications.getLastNotificationResponseAsync();
+    const type = last?.notification?.request?.content?.data?.type;
+    if (type === 'pulse_daily_snapshot') {
+      onOpenSnapshot();
+    }
+  } catch {
+    // ignore cold-start read failures
+  }
+
+  return () => {
+    try {
+      sub.remove();
+    } catch {
+      // ignore
+    }
+  };
 }

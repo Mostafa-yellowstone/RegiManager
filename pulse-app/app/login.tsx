@@ -71,7 +71,8 @@ export default function LoginScreen() {
           </View>
 
           <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 15, lineHeight: 22, textAlign: 'center' }}>
-            Sign in with your RegiManager dashboard staff account — same username and password as the web CRM.
+            Owner access only — sign in with your RegiManager organization owner account (same username and
+            password as the web CRM).
           </Text>
 
           <View style={{ marginTop: 28, gap: 12 }}>

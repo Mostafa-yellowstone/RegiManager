@@ -14,6 +14,12 @@ import {
   type PulseOrganization,
   type PulseUser,
 } from '@/lib/api';
+import { useDateRangeStore } from '@/stores/dateRangeStore';
+import { useSpaceStore } from '@/stores/spaceStore';
+
+function ownerOrganizations(orgs: PulseOrganization[]): PulseOrganization[] {
+  return (orgs || []).filter((o) => String(o.role || '').toLowerCase() === 'owner');
+}
 
 type AuthState = {
   ready: boolean;
@@ -41,6 +47,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setOrganizations([]);
     setSelectedOrgId(null);
+    useSpaceStore.getState().setSelectedSpaceId('all');
+    useDateRangeStore.getState().setPreset('week');
   }, []);
 
   useEffect(() => {
@@ -60,12 +68,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         getStoredOrgId(),
       ]);
       if (cancelled) return;
-      setToken(t);
-      setUser(u);
-      setOrganizations(orgs);
-      setSelectedOrgId(orgId ?? orgs[0]?.id ?? null);
+
+      const owners = ownerOrganizations(orgs);
+      if (t && owners.length === 0) {
+        // Stale non-owner session from an older Pulse build.
+        await clearSession();
+        setReady(true);
+        return;
+      }
+
+      const nextOrgId =
+        (orgId && owners.some((o) => o.id === orgId) ? orgId : null) ?? owners[0]?.id ?? null;
+
+      setToken(t && owners.length ? t : null);
+      setUser(t && owners.length ? u : null);
+      setOrganizations(owners);
+      setSelectedOrgId(nextOrgId);
       setReady(true);
-      if (t) {
+      if (t && owners.length) {
         void import('@/lib/notifications')
           .then((m) => m.syncDailySnapshotPreference())
           .catch(() => undefined);
@@ -78,18 +98,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (username: string, password: string) => {
     const data = await loginCompanion(username.trim(), password);
-    const orgId = data.default_organization_id || data.organizations[0]?.id;
-    if (!orgId) throw new Error('No organization on this account.');
+    const owners = ownerOrganizations(data.organizations);
+    if (!owners.length) {
+      throw new Error('Pulse is for organization owners only. Use an owner CRM account.');
+    }
+    const preferred = data.default_organization_id;
+    const orgId = owners.some((o) => o.id === preferred) ? preferred : owners[0].id;
     await saveSession({
       token: data.token,
       user: data.user,
-      organizations: data.organizations,
+      organizations: owners,
       organizationId: orgId,
     });
     setToken(data.token);
     setUser(data.user);
-    setOrganizations(data.organizations);
+    setOrganizations(owners);
     setSelectedOrgId(orgId);
+    useSpaceStore.getState().setSelectedSpaceId('all');
+    useDateRangeStore.getState().setPreset('week');
     void import('@/lib/notifications')
       .then((m) => m.syncDailySnapshotPreference())
       .catch(() => undefined);
@@ -100,10 +126,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     resetLocal();
   }, [resetLocal]);
 
-  const selectOrganization = useCallback(async (orgId: number) => {
-    await setStoredOrgId(orgId);
-    setSelectedOrgId(orgId);
-  }, []);
+  const selectOrganization = useCallback(
+    async (orgId: number) => {
+      if (!organizations.some((o) => o.id === orgId && String(o.role).toLowerCase() === 'owner')) {
+        throw new Error('Only owner organizations can be selected in Pulse.');
+      }
+      await setStoredOrgId(orgId);
+      setSelectedOrgId(orgId);
+      useSpaceStore.getState().setSelectedSpaceId('all');
+    },
+    [organizations],
+  );
 
   const selectedOrg = useMemo(
     () => organizations.find((o) => o.id === selectedOrgId) ?? null,

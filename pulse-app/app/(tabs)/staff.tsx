@@ -1,21 +1,49 @@
 import { useQuery } from '@tanstack/react-query';
-import { RefreshControl, ScrollView, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { AttendanceStrip } from '@/components/pulse/AttendanceStrip';
+import { DateRangeSelector } from '@/components/pulse/DateRangeSelector';
 import { SkeletonBlock } from '@/components/pulse/SkeletonBlock';
 import { listOwnerAgents } from '@/data/repositories/agentsRepository';
 import { useAuth } from '@/lib/auth';
 import { formatMoney } from '@/lib/format';
 import { hapticLight } from '@/lib/haptics';
 import { Colors } from '@/lib/theme';
+import { useDateRangeStore } from '@/stores/dateRangeStore';
+import type { DateRangePreset } from '@/types/models';
 
 export default function StaffScreen() {
   const { selectedOrg } = useAuth();
+  const preset = useDateRangeStore((s) => s.preset);
+  const setPreset = useDateRangeStore((s) => s.setPreset);
   const { data, isLoading, isFetching, refetch, isError, error } = useQuery({
     queryKey: ['pulse-agents', selectedOrg?.id],
     queryFn: () => listOwnerAgents(),
     enabled: Boolean(selectedOrg?.id),
   });
+
+  const sortedAgents = useMemo(() => {
+    const agents = [...(data?.agents ?? [])];
+    agents.sort((a, b) => {
+      if (a.is_late !== b.is_late) return Number(b.is_late) - Number(a.is_late);
+      if (a.is_on_time !== b.is_on_time) return Number(b.is_on_time) - Number(a.is_on_time);
+      if (a.attendance_open !== b.attendance_open) {
+        return Number(b.attendance_open) - Number(a.attendance_open);
+      }
+      return a.name.localeCompare(b.name);
+    });
+    return agents;
+  }, [data?.agents]);
+
+  const counts = useMemo(() => {
+    const agents = data?.agents ?? [];
+    return {
+      late: agents.filter((a) => a.is_late).length,
+      onTime: agents.filter((a) => a.is_on_time).length,
+      onDuty: agents.filter((a) => a.attendance_open).length,
+    };
+  }, [data?.agents]);
 
   return (
     <ScrollView
@@ -33,10 +61,37 @@ export default function StaffScreen() {
       }
     >
       <Text className="text-title text-navy">Staff attendance</Text>
-      <Text className="mb-2 text-caption text-muted">
-        View-only roster · Egypt team start 4:00 PM · after 4:00 PM Egypt = late · work day{' '}
-        {data?.work_date || 'today'} (NY)
+      <Text className="text-caption text-muted">
+        View-only roster · Egypt team start 4:00 PM Cairo · after 4:00 PM = late
       </Text>
+      <DateRangeSelector value={preset} onChange={(next: DateRangePreset) => setPreset(next)} />
+      <View
+        className="rounded-xl px-3 py-2"
+        style={{ backgroundColor: Colors.navySoft, borderWidth: 1, borderColor: Colors.border }}
+      >
+        <Text className="text-caption font-semibold text-navy">
+          Attendance below is always today&apos;s NY work day
+          {data?.work_date ? ` (${data.work_date})` : ''}. Date chips sync Pulse, Sales, and Expenses.
+        </Text>
+      </View>
+
+      <View className="flex-row flex-wrap gap-2">
+        <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: Colors.orangeSoft }}>
+          <Text className="text-caption font-extrabold" style={{ color: Colors.orangeDeep }}>
+            Late {counts.late}
+          </Text>
+        </View>
+        <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: Colors.greenSoft }}>
+          <Text className="text-caption font-extrabold" style={{ color: Colors.greenDeep }}>
+            On time {counts.onTime}
+          </Text>
+        </View>
+        <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: Colors.tealSoft }}>
+          <Text className="text-caption font-extrabold" style={{ color: Colors.tealDeep }}>
+            On duty {counts.onDuty}
+          </Text>
+        </View>
+      </View>
 
       {isError ? (
         <Text className="text-caption font-semibold text-danger">
@@ -49,12 +104,12 @@ export default function StaffScreen() {
           <SkeletonBlock height={88} />
           <SkeletonBlock height={88} />
         </>
-      ) : (data?.agents.length ?? 0) === 0 ? (
+      ) : sortedAgents.length === 0 ? (
         <Text className="mt-6 text-center text-body text-muted">No agents found.</Text>
       ) : (
         <>
-          <AttendanceStrip agents={data?.agents ?? []} workDate={data?.work_date} />
-          {data?.agents.map((agent) => (
+          <AttendanceStrip agents={sortedAgents} workDate={data?.work_date} />
+          {sortedAgents.map((agent) => (
             <View
               key={agent.membership_id}
               className="rounded-2xl border border-border bg-white px-4 py-3"

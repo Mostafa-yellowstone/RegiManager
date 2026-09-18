@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Pressable, Text } from 'react-native';
 
 import { PulseTabBar } from '@/components/pulse/PulseTabBar';
@@ -7,6 +7,7 @@ import { hapticSelection } from '@/lib/haptics';
 import { Colors } from '@/lib/theme';
 
 export default function TabLayout() {
+  const router = useRouter();
   const { logout } = useAuth();
 
   return (
@@ -25,8 +26,11 @@ export default function TabLayout() {
         headerRight: () => (
           <Pressable
             onPress={() => {
-              void hapticSelection();
-              void logout();
+              void (async () => {
+                await hapticSelection();
+                await logout();
+                router.replace('/login');
+              })();
             }}
             style={{ marginRight: 14 }}
           >

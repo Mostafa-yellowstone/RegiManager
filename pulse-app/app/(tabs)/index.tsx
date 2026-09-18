@@ -13,17 +13,22 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AttendanceStrip } from '@/components/pulse/AttendanceStrip';
+import { AttentionInbox } from '@/components/pulse/AttentionInbox';
 import { DateRangeSelector } from '@/components/pulse/DateRangeSelector';
 import { MetricCard } from '@/components/pulse/MetricCard';
+import { MorningBrief } from '@/components/pulse/MorningBrief';
 import { RevenueChart } from '@/components/pulse/RevenueChart';
 import { SkeletonBlock } from '@/components/pulse/SkeletonBlock';
 import { TargetProgress } from '@/components/pulse/TargetProgress';
 import { SpaceSwitcherSheet, SpaceSwitcherTrigger } from '@/components/space/SpaceSwitcher';
 import { listOwnerAgents } from '@/data/repositories/agentsRepository';
 import { getPulseDashboard } from '@/data/repositories/metricsRepository';
+import { listSalesActivity } from '@/data/repositories/salesRepository';
 import { useAuth } from '@/lib/auth';
+import { crmFinanceUrl, crmHomeUrl, openCrmUrl } from '@/lib/crmLinks';
 import { formatMoney } from '@/lib/format';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
+import { buildAttentionItems, buildMorningBrief, spaceInsight } from '@/lib/ownerInsights';
 import { Colors } from '@/lib/theme';
 import { useDateRangeStore } from '@/stores/dateRangeStore';
 import { useSpaceStore } from '@/stores/spaceStore';
@@ -56,6 +61,54 @@ export default function PulseDashboardScreen() {
     queryFn: () => listOwnerAgents(),
     enabled: Boolean(selectedOrg?.id),
   });
+
+  const briefQuery = useQuery({
+    queryKey: ['pulse-brief-yesterday', selectedOrg?.id],
+    queryFn: () => getPulseDashboard('all', 'yesterday'),
+    enabled: Boolean(selectedOrg?.id),
+    staleTime: 60_000,
+  });
+
+  const salesQuery = useQuery({
+    queryKey: ['pulse-sales', selectedOrg?.id, preset],
+    queryFn: () => listSalesActivity(preset),
+    enabled: Boolean(selectedOrg?.id),
+    staleTime: 30_000,
+  });
+
+  const morningBrief = useMemo(
+    () =>
+      buildMorningBrief({
+        overview: briefQuery.data?.overview,
+        agents: agentsQuery.data?.agents,
+        workDate: agentsQuery.data?.work_date,
+        asOfLabel: 'Yesterday · owner snapshot',
+      }),
+    [agentsQuery.data?.agents, agentsQuery.data?.work_date, briefQuery.data?.overview],
+  );
+
+  const attentionItems = useMemo(
+    () =>
+      buildAttentionItems({
+        overview: data?.overview,
+        agents: agentsQuery.data?.agents,
+        salesCount: salesQuery.data ? salesQuery.data.length : null,
+        spaceSummaries: data?.space_summaries,
+      }),
+    [agentsQuery.data?.agents, data?.overview, data?.space_summaries, salesQuery.data],
+  );
+
+  const sortedAgents = useMemo(() => {
+    const agents = [...(agentsQuery.data?.agents ?? [])];
+    agents.sort((a, b) => {
+      if (a.is_late !== b.is_late) return Number(b.is_late) - Number(a.is_late);
+      if (a.attendance_open !== b.attendance_open) {
+        return Number(b.attendance_open) - Number(a.attendance_open);
+      }
+      return a.name.localeCompare(b.name);
+    });
+    return agents;
+  }, [agentsQuery.data?.agents]);
 
   const spaceLabel = useMemo(() => {
     if (selectedSpaceId === 'all') return 'All Spaces';
@@ -136,6 +189,8 @@ export default function PulseDashboardScreen() {
               void hapticLight();
               void refetch();
               void agentsQuery.refetch();
+              void briefQuery.refetch();
+              void salesQuery.refetch();
             }}
             tintColor={Colors.teal}
           />
@@ -159,10 +214,26 @@ export default function PulseDashboardScreen() {
                 Pulse
               </Text>
               <Text className="mt-1 text-body text-muted">
-                Owner overview · view & track only
+                Owner command layer · view & track only
               </Text>
               {user?.full_name ? (
                 <Text className="mt-0.5 text-caption text-muted">{user.full_name}</Text>
+              ) : null}
+              {selectedOrg ? (
+                <Pressable
+                  className="mt-2 self-start rounded-full px-3 py-1.5"
+                  style={{ backgroundColor: Colors.navySoft, borderWidth: 1, borderColor: Colors.border }}
+                  onPress={() => {
+                    if (organizations.length > 1) void onPickOrg();
+                  }}
+                >
+                  <Text className="text-[11px] font-extrabold text-navy">
+                    {selectedOrg.city
+                      ? `${selectedOrg.name} · ${selectedOrg.city}`
+                      : selectedOrg.name}
+                    {organizations.length > 1 ? ' ▾' : ''}
+                  </Text>
+                </Pressable>
               ) : null}
             </View>
             <View className="items-end gap-2">
@@ -174,13 +245,14 @@ export default function PulseDashboardScreen() {
               >
                 <Text className="text-caption font-bold text-teal">Settings</Text>
               </Pressable>
-              {organizations.length > 1 ? (
-                <Pressable onPress={onPickOrg}>
-                  <Text className="text-caption font-bold text-teal">
-                    {selectedOrg?.city || selectedOrg?.name || 'Location'}
-                  </Text>
-                </Pressable>
-              ) : null}
+              <Pressable
+                onPress={() => {
+                  void hapticLight();
+                  void openCrmUrl(crmHomeUrl());
+                }}
+              >
+                <Text className="text-caption font-bold text-teal">Open CRM</Text>
+              </Pressable>
               <SpaceSwitcherTrigger
                 label={spaceLabel}
                 onPress={() => {
@@ -206,7 +278,14 @@ export default function PulseDashboardScreen() {
           </View>
         ) : null}
 
-        {isLoading || !overview ? (
+        {!selectedOrg?.id ? (
+          <View className="rounded-2xl border border-border bg-white p-4">
+            <Text className="font-bold text-navy">No owner organization</Text>
+            <Text className="mt-1 text-caption text-muted">
+              Sign in again with an organization owner account to load Pulse metrics.
+            </Text>
+          </View>
+        ) : isLoading || !overview ? (
           <View className="gap-3">
             <View className="flex-row flex-wrap gap-3">
               <SkeletonBlock height={120} className="min-w-[46%] flex-1" />
@@ -218,16 +297,37 @@ export default function PulseDashboardScreen() {
           </View>
         ) : (
           <>
-            {(agentsQuery.data?.agents?.length ?? 0) > 0 ? (
+            {morningBrief ? (
+              <MorningBrief
+                brief={morningBrief}
+                onOpenStaff={() => router.push('/(tabs)/staff')}
+                onOpenExpenses={() => router.push('/(tabs)/expenses')}
+              />
+            ) : briefQuery.isLoading ? (
+              <SkeletonBlock height={190} />
+            ) : null}
+
+            <AttentionInbox
+              items={attentionItems}
+              onOpen={(item) => {
+                void hapticSelection();
+                router.push(item.href);
+              }}
+            />
+
+            {sortedAgents.length > 0 ? (
               <AttendanceStrip
-                agents={agentsQuery.data?.agents ?? []}
+                agents={sortedAgents}
                 workDate={agentsQuery.data?.work_date}
                 onSeeAll={() => router.push('/(tabs)/staff')}
               />
             ) : null}
 
             <View>
-              <Text className="mb-3 text-title text-navy">Financial overview</Text>
+              <Text className="mb-1 text-title text-navy">Financial overview</Text>
+              <Text className="mb-3 text-caption text-muted">
+                Profit = insurance + DMV. Cash = bank income − expenses. Don’t mix them.
+              </Text>
               {!overview.cashflow_available && overview.cashflow_warning ? (
                 <View
                   className="mb-3 rounded-xl px-3 py-2"
@@ -245,6 +345,7 @@ export default function PulseDashboardScreen() {
                   badge={overview.badges.profit}
                   accent="green"
                   metaLabel="ins + DMV"
+                  hint="Operating profit"
                   onPress={() => {
                     void hapticSelection();
                     router.push('/(tabs)/sales');
@@ -257,6 +358,7 @@ export default function PulseDashboardScreen() {
                   accent="orange"
                   metaLabel="bank txs"
                   metaValue={data?.costs?.length ?? 0}
+                  hint="Bank outflows"
                   onPress={() => {
                     void hapticSelection();
                     router.push('/(tabs)/expenses');
@@ -267,6 +369,7 @@ export default function PulseDashboardScreen() {
                   value={overview.net_cash_flow}
                   accent="teal"
                   metaLabel="income − exp"
+                  hint="Bank cash movement"
                   onPress={() => {
                     void hapticSelection();
                     router.push('/(tabs)/expenses');
@@ -277,16 +380,22 @@ export default function PulseDashboardScreen() {
                   value={overview.bank_income}
                   accent="purple"
                   metaLabel="finance income"
+                  hint="Bank inflows"
                   onPress={() => {
                     void hapticSelection();
                     router.push('/(tabs)/sales');
                   }}
                 />
               </View>
-              <Text className="mt-2 text-caption text-muted">
-                Tap a card to open Sales or Expenses. Net profit = insurance + DMV. Cash flow = bank
-                income − expenses.
-              </Text>
+              <Pressable
+                className="mt-2"
+                onPress={() => {
+                  void hapticLight();
+                  void openCrmUrl(crmFinanceUrl());
+                }}
+              >
+                <Text className="text-caption font-bold text-teal">Review in CRM Finance →</Text>
+              </Pressable>
             </View>
 
             {showLobSection ? (
@@ -325,7 +434,14 @@ export default function PulseDashboardScreen() {
                         onPress={() => {
                           void hapticSelection();
                           const insurance = data?.space_summaries.find((s) => s.key === 'insurance');
-                          if (insurance) setSelectedSpaceId(insurance.space_id);
+                          if (insurance) {
+                            setSelectedSpaceId(insurance.space_id);
+                          } else {
+                            Alert.alert(
+                              'Insurance space',
+                              'No insurance space is available for this organization yet.',
+                            );
+                          }
                         }}
                       />
                       <MetricCard
@@ -337,7 +453,14 @@ export default function PulseDashboardScreen() {
                         onPress={() => {
                           void hapticSelection();
                           const insurance = data?.space_summaries.find((s) => s.key === 'insurance');
-                          if (insurance) setSelectedSpaceId(insurance.space_id);
+                          if (insurance) {
+                            setSelectedSpaceId(insurance.space_id);
+                          } else {
+                            Alert.alert(
+                              'Insurance space',
+                              'No insurance space is available for this organization yet.',
+                            );
+                          }
                         }}
                       />
                       <MetricCard
@@ -349,7 +472,14 @@ export default function PulseDashboardScreen() {
                         onPress={() => {
                           void hapticSelection();
                           const insurance = data?.space_summaries.find((s) => s.key === 'insurance');
-                          if (insurance) setSelectedSpaceId(insurance.space_id);
+                          if (insurance) {
+                            setSelectedSpaceId(insurance.space_id);
+                          } else {
+                            Alert.alert(
+                              'Insurance space',
+                              'No insurance space is available for this organization yet.',
+                            );
+                          }
                         }}
                       />
                     </>
@@ -364,7 +494,7 @@ export default function PulseDashboardScreen() {
 
             {selectedSpaceId === 'all' ? (
               <View>
-                <Text className="mb-3 text-title text-navy">Space profits</Text>
+                <Text className="mb-3 text-title text-navy">Space scorecards</Text>
                 <View className="gap-2">
                   {(data?.space_summaries ?? []).map((space) => (
                     <Pressable
@@ -373,20 +503,25 @@ export default function PulseDashboardScreen() {
                         void hapticSelection();
                         setSelectedSpaceId(space.space_id);
                       }}
-                      className="flex-row items-center justify-between rounded-2xl bg-white px-4 py-3"
+                      className="rounded-2xl bg-white px-4 py-3"
                       style={{
                         borderWidth: 1,
                         borderColor: Colors.border,
                       }}
                       android_ripple={{ color: 'rgba(13,148,136,0.08)' }}
                     >
-                      <View className="flex-1 pr-3">
-                        <Text className="text-body font-bold text-navy">{space.name}</Text>
-                        <Text className="text-caption text-muted">{space.location}</Text>
+                      <View className="flex-row items-center justify-between">
+                        <View className="flex-1 pr-3">
+                          <Text className="text-body font-bold text-navy">{space.name}</Text>
+                          <Text className="text-caption text-muted">{space.location}</Text>
+                          <Text className="mt-1 text-[11px] font-bold text-teal">
+                            {spaceInsight(space)}
+                          </Text>
+                        </View>
+                        <Text className="text-body font-extrabold text-teal">
+                          {formatMoney(space.profit)}
+                        </Text>
                       </View>
-                      <Text className="text-body font-extrabold text-teal">
-                        {formatMoney(space.profit)}
-                      </Text>
                     </Pressable>
                   ))}
                 </View>

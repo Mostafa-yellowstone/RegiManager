@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '@/lib/auth';
+import { crmHomeUrl, openCrmUrl } from '@/lib/crmLinks';
 import { hapticSelection } from '@/lib/haptics';
 import { isDailySnapshotEnabled, setDailySnapshotEnabled } from '@/lib/notifications';
 import { Colors } from '@/lib/theme';
@@ -33,12 +34,18 @@ export default function SettingsScreen() {
     setBusy(true);
     setMessage('');
     try {
-      await setDailySnapshotEnabled(next);
+      const result = await setDailySnapshotEnabled(next);
+      if (!result.ok) {
+        setEnabled(false);
+        setMessage(result.message || 'Could not enable notifications.');
+        return;
+      }
       setEnabled(next);
       setMessage(
-        next
-          ? 'Daily reminder enabled for 6:00 PM. Push token registered when available.'
-          : 'Daily reminder turned off.',
+        result.message ||
+          (next
+            ? 'Daily reminder enabled for 6:00 PM. Push token registered when available.'
+            : 'Daily reminder turned off.'),
       );
     } catch (err: any) {
       setMessage(err?.message || 'Could not update notification preference.');
@@ -65,12 +72,23 @@ export default function SettingsScreen() {
           <Text className="mt-1 text-caption text-muted">
             {[user?.full_name, user?.email].filter(Boolean).join(' · ')}
           </Text>
-        ) : (
-          <Text className="mt-1 text-caption text-muted">Signed in with your CRM staff login</Text>
-        )}
+        ) : null}
+        <Text className="mt-1 text-caption text-muted">
+          Owner account only. Pulse is view-only — use the CRM for edits.
+        </Text>
+        <Pressable
+          onPress={() => {
+            void hapticSelection();
+            void openCrmUrl(crmHomeUrl());
+          }}
+          className="mt-3 items-center rounded-xl px-4 py-3"
+          style={{ backgroundColor: Colors.navySoft }}
+        >
+          <Text className="text-body font-extrabold text-navy">Open RegiManager CRM</Text>
+        </Pressable>
         <Pressable
           onPress={() => void onSignOut()}
-          className="mt-4 items-center rounded-xl px-4 py-3"
+          className="mt-3 items-center rounded-xl px-4 py-3"
           style={{ backgroundColor: Colors.tealSoft }}
           android_ripple={{ color: 'rgba(13,148,136,0.15)' }}
         >
@@ -84,7 +102,7 @@ export default function SettingsScreen() {
       >
         <Text className="text-title text-navy">Daily snapshot</Text>
         <Text className="mt-1 text-caption text-muted">
-          Get a local reminder each evening to review net profit, bank expenses, and staff.
+          6:00 PM reminder opens yesterday&apos;s brief on Pulse (profit, expenses, staff).
         </Text>
         <View className="mt-4 flex-row items-center justify-between">
           <Text className="text-body font-bold text-navy">Enable 6:00 PM reminder</Text>

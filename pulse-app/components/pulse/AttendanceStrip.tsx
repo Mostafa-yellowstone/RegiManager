@@ -60,7 +60,7 @@ export function AttendanceStrip({ agents, workDate, onSeeAll }: Props) {
             {workDate ? ` · ${workDate}` : ''}
           </Text>
           <Text className="mt-0.5 text-[10px] text-muted">
-            After 9:00 AM New York = late · at/before 9:00 = on time
+            After 4:00 PM Egypt (Cairo) = late · at/before 4:00 PM = on time
           </Text>
         </View>
         {onSeeAll ? (

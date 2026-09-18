@@ -117,6 +117,22 @@ class CompanionLoginView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # Pulse mobile app: owners only (agents/managers must use the web CRM).
+        app_name = (request.data.get("app") or "").strip().lower()
+        if app_name == "pulse":
+            memberships = [
+                m
+                for m in memberships
+                if m.role == OrganizationMembership.Role.OWNER
+            ]
+            if not memberships:
+                return Response(
+                    {
+                        "detail": "Pulse is for organization owners only. Sign in with an owner account."
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
         token, _ = Token.objects.get_or_create(user=user)
         from .agent_portal_services import start_attendance_on_login
 

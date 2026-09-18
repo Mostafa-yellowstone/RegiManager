@@ -38,13 +38,17 @@ export function RevenueChart({ data }: Props) {
       .join(' ')} L ${points[points.length - 1].x} ${HEIGHT - PAD_Y} Z`;
 
     const yLabels = [max, (max + min) / 2, min].map((v) => formatMoney(v, true));
+    const spanMs =
+      points.length > 1 ? points[points.length - 1].timestamp - points[0].timestamp : 0;
+    const useMonthLabels = spanMs > 1000 * 60 * 60 * 24 * 40;
     const step = Math.max(1, Math.floor((points.length - 1) / 3));
     const xLabels = [0, step, Math.min(points.length - 1, step * 2), points.length - 1]
       .filter((v, i, arr) => arr.indexOf(v) === i)
       .map((idx) => {
         const d = new Date(points[idx].timestamp);
-        return Number.isNaN(d.getTime())
-          ? ''
+        if (Number.isNaN(d.getTime())) return '';
+        return useMonthLabels
+          ? d.toLocaleDateString(undefined, { month: 'short' })
           : d.toLocaleDateString(undefined, { weekday: 'short' });
       });
 

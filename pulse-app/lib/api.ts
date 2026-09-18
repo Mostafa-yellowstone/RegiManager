@@ -177,7 +177,7 @@ export async function loginCompanion(username: string, password: string) {
     default_organization_id: number;
   }>('/api/auth/login/', {
     method: 'POST',
-    body: { username, password },
+    body: { username, password, app: 'pulse' },
     auth: false,
   });
 }
