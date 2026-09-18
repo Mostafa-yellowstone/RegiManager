@@ -12,7 +12,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { formatMoney } from '@/lib/format';
 import { hapticSelection, hapticSuccess } from '@/lib/haptics';
-import { Colors } from '@/lib/theme';
+import { Colors, Fonts } from '@/lib/theme';
 import type { SpaceIdOrAll } from '@/types/models';
 
 export type SpaceOption = {
@@ -49,9 +49,9 @@ export const SpaceSwitcherSheet = forwardRef<BottomSheetModalType, Props>(
         handleIndicatorStyle={{ backgroundColor: '#CBD5E1', width: 40 }}
       >
         <View className="px-4 pb-2">
-          <Text className="text-title text-navy">Switch space</Text>
-          <Text className="mt-1 text-caption text-muted">
-            Filter by product space. Amounts show profit for the selected date range.
+          <Text style={{ fontFamily: Fonts.bold, fontSize: 20, color: Colors.navy }}>Switch space</Text>
+          <Text style={{ marginTop: 4, fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}>
+            Filter metrics by product space for this date range.
           </Text>
         </View>
         <BottomSheetFlatList
@@ -82,13 +82,24 @@ export const SpaceSwitcherSheet = forwardRef<BottomSheetModalType, Props>(
               >
                 <View className="flex-row items-center justify-between">
                   <View className="flex-1 pr-3">
-                    <Text className="text-body font-bold text-navy">{item.name}</Text>
+                    <Text style={{ fontFamily: Fonts.bold, fontSize: 15, color: Colors.navy }}>
+                      {item.name}
+                    </Text>
                     {item.location ? (
-                      <Text className="mt-0.5 text-caption text-muted">{item.location}</Text>
+                      <Text
+                        style={{
+                          marginTop: 2,
+                          fontFamily: Fonts.medium,
+                          fontSize: 12,
+                          color: Colors.muted,
+                        }}
+                      >
+                        {item.location}
+                      </Text>
                     ) : null}
                   </View>
                   {item.revenue != null ? (
-                    <Text className="text-caption font-bold text-teal">
+                    <Text style={{ fontFamily: Fonts.bold, fontSize: 12, color: Colors.teal }}>
                       {formatMoney(item.revenue, true)}
                     </Text>
                   ) : null}
@@ -109,17 +120,17 @@ type TriggerProps = {
 
 export function SpaceSwitcherTrigger({ label, onPress }: TriggerProps) {
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={{ alignItems: 'flex-end' }}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
       <View
-        className="flex-row items-center rounded-full bg-white px-3 py-2"
         style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          borderRadius: 999,
+          backgroundColor: Colors.white,
+          paddingHorizontal: 12,
+          paddingVertical: 8,
           borderWidth: 1,
           borderColor: Colors.border,
-          shadowColor: '#0F3D4C',
-          shadowOpacity: 0.06,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 2 },
-          elevation: 2,
         }}
       >
         <Svg width={14} height={14} viewBox="0 0 24 24" style={{ marginRight: 6 }}>
@@ -128,13 +139,16 @@ export function SpaceSwitcherTrigger({ label, onPress }: TriggerProps) {
             fill={Colors.teal}
           />
         </Svg>
-        <Text className="text-caption font-bold text-navy" numberOfLines={1}>
+        <Text
+          numberOfLines={1}
+          style={{ fontFamily: Fonts.bold, fontSize: 12, color: Colors.navy, maxWidth: 120 }}
+        >
           {label}
         </Text>
+        <Text style={{ marginLeft: 4, fontFamily: Fonts.bold, fontSize: 10, color: Colors.teal }}>
+          ▾
+        </Text>
       </View>
-      <Text className="mt-1 text-[11px] font-bold" style={{ color: Colors.blue }}>
-        change
-      </Text>
     </TouchableOpacity>
   );
 }

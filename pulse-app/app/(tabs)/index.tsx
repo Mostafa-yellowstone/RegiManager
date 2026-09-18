@@ -15,7 +15,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AttendanceStrip } from '@/components/pulse/AttendanceStrip';
 import { AttentionInbox } from '@/components/pulse/AttentionInbox';
 import { DateRangeSelector } from '@/components/pulse/DateRangeSelector';
+import { HeaderActions } from '@/components/pulse/HeaderActions';
 import { MetricCard } from '@/components/pulse/MetricCard';
+import { MetricGrid } from '@/components/pulse/MetricGrid';
 import { MorningBrief } from '@/components/pulse/MorningBrief';
 import { RevenueChart } from '@/components/pulse/RevenueChart';
 import { SkeletonBlock } from '@/components/pulse/SkeletonBlock';
@@ -29,7 +31,7 @@ import { crmFinanceUrl, crmHomeUrl, openCrmUrl } from '@/lib/crmLinks';
 import { formatMoney } from '@/lib/format';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
 import { buildAttentionItems, buildMorningBrief, spaceInsight } from '@/lib/ownerInsights';
-import { Colors } from '@/lib/theme';
+import { Colors, Fonts } from '@/lib/theme';
 import { useDateRangeStore } from '@/stores/dateRangeStore';
 import { useSpaceStore } from '@/stores/spaceStore';
 import type { DateRangePreset } from '@/types/models';
@@ -196,16 +198,24 @@ export default function PulseDashboardScreen() {
           />
         }
       >
-        <View className="gap-3">
-          <View className="flex-row items-start justify-between gap-3">
-            <View className="flex-1">
-              <Text className="text-[11px] font-bold uppercase tracking-[2px] text-teal">
+        <View style={{ gap: 14 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+            <View style={{ flex: 1, minWidth: 0, paddingRight: 4 }}>
+              <Text
+                style={{
+                  fontFamily: Fonts.bold,
+                  fontSize: 11,
+                  letterSpacing: 2,
+                  textTransform: 'uppercase',
+                  color: Colors.teal,
+                }}
+              >
                 RegiManager
               </Text>
               <Text
                 style={{
-                  fontSize: 36,
-                  fontWeight: '800',
+                  fontFamily: Fonts.extrabold,
+                  fontSize: 34,
                   color: Colors.teal,
                   marginTop: 2,
                   letterSpacing: -0.8,
@@ -213,21 +223,47 @@ export default function PulseDashboardScreen() {
               >
                 Pulse
               </Text>
-              <Text className="mt-1 text-body text-muted">
-                Owner command layer · view & track only
-              </Text>
               {user?.full_name ? (
-                <Text className="mt-0.5 text-caption text-muted">{user.full_name}</Text>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    marginTop: 8,
+                    fontFamily: Fonts.extrabold,
+                    fontSize: 20,
+                    color: Colors.navy,
+                    letterSpacing: -0.3,
+                  }}
+                >
+                  {user.full_name}
+                </Text>
               ) : null}
+              <Text
+                style={{
+                  marginTop: 4,
+                  fontFamily: Fonts.medium,
+                  fontSize: 13,
+                  color: Colors.muted,
+                }}
+              >
+                Owner command layer
+              </Text>
               {selectedOrg ? (
                 <Pressable
-                  className="mt-2 self-start rounded-full px-3 py-1.5"
-                  style={{ backgroundColor: Colors.navySoft, borderWidth: 1, borderColor: Colors.border }}
+                  style={{
+                    marginTop: 10,
+                    alignSelf: 'flex-start',
+                    borderRadius: 999,
+                    paddingHorizontal: 12,
+                    paddingVertical: 7,
+                    backgroundColor: Colors.navySoft,
+                    borderWidth: 1,
+                    borderColor: Colors.border,
+                  }}
                   onPress={() => {
                     if (organizations.length > 1) void onPickOrg();
                   }}
                 >
-                  <Text className="text-[11px] font-extrabold text-navy">
+                  <Text style={{ fontFamily: Fonts.extrabold, fontSize: 11, color: Colors.navy }}>
                     {selectedOrg.city
                       ? `${selectedOrg.name} · ${selectedOrg.city}`
                       : selectedOrg.name}
@@ -236,23 +272,21 @@ export default function PulseDashboardScreen() {
                 </Pressable>
               ) : null}
             </View>
-            <View className="items-end gap-2">
-              <Pressable
-                onPress={() => {
-                  void hapticLight();
-                  router.push('/settings');
-                }}
-              >
-                <Text className="text-caption font-bold text-teal">Settings</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  void hapticLight();
-                  void openCrmUrl(crmHomeUrl());
-                }}
-              >
-                <Text className="text-caption font-bold text-teal">Open CRM</Text>
-              </Pressable>
+            <HeaderActions
+              onSettings={() => {
+                void hapticLight();
+                router.push('/settings');
+              }}
+              onOpenCrm={() => {
+                void hapticLight();
+                void openCrmUrl(crmHomeUrl());
+              }}
+            />
+          </View>
+
+          <View style={{ gap: 10 }}>
+            <DateRangeSelector value={preset} onChange={onRangeChange} />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-start' }}>
               <SpaceSwitcherTrigger
                 label={spaceLabel}
                 onPress={() => {
@@ -262,8 +296,6 @@ export default function PulseDashboardScreen() {
               />
             </View>
           </View>
-
-          <DateRangeSelector value={preset} onChange={onRangeChange} />
         </View>
 
         {isError ? (
@@ -323,22 +355,28 @@ export default function PulseDashboardScreen() {
               />
             ) : null}
 
-            <View>
-              <Text className="mb-1 text-title text-navy">Financial overview</Text>
-              <Text className="mb-3 text-caption text-muted">
+            <View style={{ gap: 10 }}>
+              <Text style={{ fontFamily: Fonts.bold, fontSize: 20, color: Colors.navy }}>
+                Financial overview
+              </Text>
+              <Text style={{ fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted, lineHeight: 17 }}>
                 Profit = insurance + DMV. Cash = bank income − expenses. Don’t mix them.
               </Text>
               {!overview.cashflow_available && overview.cashflow_warning ? (
                 <View
-                  className="mb-3 rounded-xl px-3 py-2"
-                  style={{ backgroundColor: Colors.orangeSoft }}
+                  style={{
+                    borderRadius: 12,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    backgroundColor: Colors.orangeSoft,
+                  }}
                 >
-                  <Text className="text-caption font-semibold" style={{ color: Colors.orangeDeep }}>
+                  <Text style={{ fontFamily: Fonts.semibold, fontSize: 12, color: Colors.orangeDeep }}>
                     {overview.cashflow_warning}
                   </Text>
                 </View>
               ) : null}
-              <View className="flex-row flex-wrap gap-3">
+              <MetricGrid>
                 <MetricCard
                   label="Net profit"
                   value={overview.net_profit}
@@ -378,7 +416,7 @@ export default function PulseDashboardScreen() {
                 <MetricCard
                   label="Bank income"
                   value={overview.bank_income}
-                  accent="purple"
+                  accent="teal"
                   metaLabel="finance income"
                   hint="Bank inflows"
                   onPress={() => {
@@ -386,28 +424,34 @@ export default function PulseDashboardScreen() {
                     router.push('/(tabs)/sales');
                   }}
                 />
-              </View>
+              </MetricGrid>
               <Pressable
-                className="mt-2"
                 onPress={() => {
                   void hapticLight();
                   void openCrmUrl(crmFinanceUrl());
                 }}
+                style={{
+                  alignSelf: 'flex-start',
+                  marginTop: 2,
+                  paddingVertical: 6,
+                }}
               >
-                <Text className="text-caption font-bold text-teal">Review in CRM Finance →</Text>
+                <Text style={{ fontFamily: Fonts.bold, fontSize: 12, color: Colors.teal }}>
+                  Review in CRM Finance →
+                </Text>
               </Pressable>
             </View>
 
             {showLobSection ? (
-              <View>
-                <Text className="mb-3 text-title text-navy">
+              <View style={{ gap: 10, marginTop: 4 }}>
+                <Text style={{ fontFamily: Fonts.bold, fontSize: 20, color: Colors.navy }}>
                   {selectedSpaceId === 'dmv'
                     ? 'DMV processing'
                     : selectedSpaceKey === 'insurance'
                       ? 'Insurance profit'
                       : 'By line of business'}
                 </Text>
-                <View className="flex-row flex-wrap gap-3">
+                <MetricGrid>
                   {showDmvBlock ? (
                     <MetricCard
                       label="Processing fee"
@@ -423,69 +467,71 @@ export default function PulseDashboardScreen() {
                     />
                   ) : null}
                   {showInsuranceBlock ? (
-                    <>
-                      <MetricCard
-                        label="Insurance profit"
-                        value={overview.insurance_profit}
-                        badge={overview.badges.insurance}
-                        accent="green"
-                        metaLabel="bound"
-                        metaValue={overview.insurance_bound_count}
-                        onPress={() => {
-                          void hapticSelection();
-                          const insurance = data?.space_summaries.find((s) => s.key === 'insurance');
-                          if (insurance) {
-                            setSelectedSpaceId(insurance.space_id);
-                          } else {
-                            Alert.alert(
-                              'Insurance space',
-                              'No insurance space is available for this organization yet.',
-                            );
-                          }
-                        }}
-                      />
-                      <MetricCard
-                        label="Commission"
-                        value={overview.insurance_commission}
-                        accent="blue"
-                        metaLabel="bound"
-                        metaValue={overview.insurance_bound_count}
-                        onPress={() => {
-                          void hapticSelection();
-                          const insurance = data?.space_summaries.find((s) => s.key === 'insurance');
-                          if (insurance) {
-                            setSelectedSpaceId(insurance.space_id);
-                          } else {
-                            Alert.alert(
-                              'Insurance space',
-                              'No insurance space is available for this organization yet.',
-                            );
-                          }
-                        }}
-                      />
-                      <MetricCard
-                        label="Broker fees"
-                        value={overview.insurance_broker_fee}
-                        accent="orange"
-                        metaLabel="bound"
-                        metaValue={overview.insurance_bound_count}
-                        onPress={() => {
-                          void hapticSelection();
-                          const insurance = data?.space_summaries.find((s) => s.key === 'insurance');
-                          if (insurance) {
-                            setSelectedSpaceId(insurance.space_id);
-                          } else {
-                            Alert.alert(
-                              'Insurance space',
-                              'No insurance space is available for this organization yet.',
-                            );
-                          }
-                        }}
-                      />
-                    </>
+                    <MetricCard
+                      label="Insurance profit"
+                      value={overview.insurance_profit}
+                      badge={overview.badges.insurance}
+                      accent="green"
+                      metaLabel="bound"
+                      metaValue={overview.insurance_bound_count}
+                      onPress={() => {
+                        void hapticSelection();
+                        const insurance = data?.space_summaries.find((s) => s.key === 'insurance');
+                        if (insurance) {
+                          setSelectedSpaceId(insurance.space_id);
+                        } else {
+                          Alert.alert(
+                            'Insurance space',
+                            'No insurance space is available for this organization yet.',
+                          );
+                        }
+                      }}
+                    />
                   ) : null}
-                </View>
-                <Text className="mt-2 text-caption text-muted">
+                  {showInsuranceBlock ? (
+                    <MetricCard
+                      label="Commission"
+                      value={overview.insurance_commission}
+                      accent="teal"
+                      metaLabel="bound"
+                      metaValue={overview.insurance_bound_count}
+                      onPress={() => {
+                        void hapticSelection();
+                        const insurance = data?.space_summaries.find((s) => s.key === 'insurance');
+                        if (insurance) {
+                          setSelectedSpaceId(insurance.space_id);
+                        } else {
+                          Alert.alert(
+                            'Insurance space',
+                            'No insurance space is available for this organization yet.',
+                          );
+                        }
+                      }}
+                    />
+                  ) : null}
+                  {showInsuranceBlock ? (
+                    <MetricCard
+                      label="Broker fees"
+                      value={overview.insurance_broker_fee}
+                      accent="orange"
+                      metaLabel="bound"
+                      metaValue={overview.insurance_bound_count}
+                      onPress={() => {
+                        void hapticSelection();
+                        const insurance = data?.space_summaries.find((s) => s.key === 'insurance');
+                        if (insurance) {
+                          setSelectedSpaceId(insurance.space_id);
+                        } else {
+                          Alert.alert(
+                            'Insurance space',
+                            'No insurance space is available for this organization yet.',
+                          );
+                        }
+                      }}
+                    />
+                  ) : null}
+                </MetricGrid>
+                <Text style={{ fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted, lineHeight: 17 }}>
                   Processing fee matches CRM DMV profit. Insurance profit = commission + broker.
                   Expenses are banking only.
                 </Text>
@@ -493,9 +539,11 @@ export default function PulseDashboardScreen() {
             ) : null}
 
             {selectedSpaceId === 'all' ? (
-              <View>
-                <Text className="mb-3 text-title text-navy">Space scorecards</Text>
-                <View className="gap-2">
+              <View style={{ gap: 10 }}>
+                <Text style={{ fontFamily: Fonts.bold, fontSize: 20, color: Colors.navy }}>
+                  Space scorecards
+                </Text>
+                <View style={{ gap: 8 }}>
                   {(data?.space_summaries ?? []).map((space) => (
                     <Pressable
                       key={space.space_id}
@@ -503,37 +551,62 @@ export default function PulseDashboardScreen() {
                         void hapticSelection();
                         setSelectedSpaceId(space.space_id);
                       }}
-                      className="rounded-2xl bg-white px-4 py-3"
                       style={{
+                        borderRadius: 16,
+                        backgroundColor: Colors.white,
+                        paddingHorizontal: 16,
+                        paddingVertical: 12,
                         borderWidth: 1,
                         borderColor: Colors.border,
                       }}
                       android_ripple={{ color: 'rgba(13,148,136,0.08)' }}
                     >
-                      <View className="flex-row items-center justify-between">
-                        <View className="flex-1 pr-3">
-                          <Text className="text-body font-bold text-navy">{space.name}</Text>
-                          <Text className="text-caption text-muted">{space.location}</Text>
-                          <Text className="mt-1 text-[11px] font-bold text-teal">
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View style={{ flex: 1, paddingRight: 12, minWidth: 0 }}>
+                          <Text
+                            numberOfLines={1}
+                            style={{ fontFamily: Fonts.bold, fontSize: 15, color: Colors.navy }}
+                          >
+                            {space.name}
+                          </Text>
+                          <Text
+                            numberOfLines={1}
+                            style={{ fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}
+                          >
+                            {space.location}
+                          </Text>
+                          <Text
+                            numberOfLines={1}
+                            style={{
+                              marginTop: 4,
+                              fontFamily: Fonts.bold,
+                              fontSize: 11,
+                              color: Colors.teal,
+                            }}
+                          >
                             {spaceInsight(space)}
                           </Text>
                         </View>
-                        <Text className="text-body font-extrabold text-teal">
+                        <Text style={{ fontFamily: Fonts.extrabold, fontSize: 15, color: Colors.teal }}>
                           {formatMoney(space.profit)}
                         </Text>
                       </View>
                     </Pressable>
                   ))}
                 </View>
-                <Text className="mt-2 text-caption text-muted">Tap a space to filter the dashboard.</Text>
+                <Text style={{ fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}>
+                  Tap a space to filter the dashboard.
+                </Text>
               </View>
             ) : null}
 
             <RevenueChart data={overview.series} />
 
             {(data?.targets?.length ?? 0) > 0 ? (
-              <View>
-                <Text className="mb-3 text-title text-navy">Goals & run rate</Text>
+              <View style={{ gap: 10 }}>
+                <Text style={{ fontFamily: Fonts.bold, fontSize: 20, color: Colors.navy }}>
+                  Goals & run rate
+                </Text>
                 <TargetProgress items={data?.targets ?? []} />
               </View>
             ) : null}

@@ -6,8 +6,8 @@ module.exports = {
     extend: {
       colors: {
         navy: {
-          DEFAULT: '#0F3D4C',
-          mid: '#164E63',
+          DEFAULT: '#0B3D3A',
+          mid: '#115E59',
           soft: '#E6F4F1',
         },
         teal: {
@@ -16,19 +16,26 @@ module.exports = {
           soft: '#CCFBF1',
         },
         gold: {
-          DEFAULT: '#C9A227',
+          DEFAULT: '#B8860B',
           soft: '#F7F0D8',
         },
-        cream: '#F7FAFC',
-        ink: '#0F172A',
-        muted: '#64748B',
-        border: '#E2E8F0',
-        success: '#27AE60',
+        cream: '#F3FAF7',
+        ink: '#0F1F1C',
+        muted: '#5B6F6A',
+        border: '#D7E8E2',
+        success: '#059669',
         danger: '#DC2626',
-        warning: '#F2994A',
-        orange: '#F2994A',
-        purple: '#9B51E0',
-        pulseBlue: '#2D9CDB',
+        warning: '#EA8A3C',
+        orange: '#EA8A3C',
+        purple: '#0F766E',
+        pulseBlue: '#0D9488',
+      },
+      fontFamily: {
+        sans: ['Manrope_500Medium'],
+        medium: ['Manrope_500Medium'],
+        semibold: ['Manrope_600SemiBold'],
+        bold: ['Manrope_700Bold'],
+        extrabold: ['Manrope_800ExtraBold'],
       },
       fontSize: {
         display: ['34px', { lineHeight: '40px', fontWeight: '800', letterSpacing: '-0.6px' }],
@@ -37,7 +44,7 @@ module.exports = {
         caption: ['12px', { lineHeight: '16px', fontWeight: '600' }],
       },
       boxShadow: {
-        card: '0 8px 24px rgba(15, 61, 76, 0.08)',
+        card: '0 8px 24px rgba(11, 61, 58, 0.08)',
       },
     },
   },

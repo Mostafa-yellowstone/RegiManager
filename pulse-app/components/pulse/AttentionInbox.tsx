@@ -15,7 +15,7 @@ function levelStyle(level: AttentionLevel) {
   if (level === 'warning') {
     return { bg: Colors.orangeSoft, fg: Colors.orangeDeep, label: 'Watch' };
   }
-  return { bg: Colors.blueSoft, fg: '#1D4ED8', label: 'Info' };
+  return { bg: Colors.tealSoft, fg: Colors.tealDeep, label: 'Info' };
 }
 
 export function AttentionInbox({ items, onOpen }: Props) {

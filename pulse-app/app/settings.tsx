@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth';
 import { crmHomeUrl, openCrmUrl } from '@/lib/crmLinks';
 import { hapticSelection } from '@/lib/haptics';
 import { isDailySnapshotEnabled, setDailySnapshotEnabled } from '@/lib/notifications';
-import { Colors } from '@/lib/theme';
+import { Colors, Fonts } from '@/lib/theme';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -62,50 +62,101 @@ export default function SettingsScreen() {
   }
 
   return (
-    <View className="flex-1 bg-cream p-4">
+    <View style={{ flex: 1, backgroundColor: Colors.cream, padding: 16, gap: 16 }}>
       <View
-        className="rounded-2xl bg-white p-4"
-        style={{ borderWidth: 1, borderColor: Colors.border }}
+        style={{
+          borderRadius: 16,
+          backgroundColor: Colors.white,
+          padding: 16,
+          borderWidth: 1,
+          borderColor: Colors.border,
+        }}
       >
-        <Text className="text-title text-navy">Account</Text>
-        {user?.full_name || user?.email ? (
-          <Text className="mt-1 text-caption text-muted">
-            {[user?.full_name, user?.email].filter(Boolean).join(' · ')}
+        <Text style={{ fontFamily: Fonts.bold, fontSize: 20, color: Colors.navy }}>Account</Text>
+        {user?.full_name ? (
+          <Text
+            style={{
+              marginTop: 8,
+              fontFamily: Fonts.extrabold,
+              fontSize: 22,
+              color: Colors.navy,
+              letterSpacing: -0.3,
+            }}
+          >
+            {user.full_name}
           </Text>
         ) : null}
-        <Text className="mt-1 text-caption text-muted">
-          Owner account only. Pulse is view-only — use the CRM for edits.
+        {user?.email ? (
+          <Text style={{ marginTop: 4, fontFamily: Fonts.medium, fontSize: 13, color: Colors.muted }}>
+            {user.email}
+          </Text>
+        ) : null}
+        <Text style={{ marginTop: 8, fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}>
+          Owner account only. Pulse is read-only — edit in CRM.
         </Text>
         <Pressable
           onPress={() => {
             void hapticSelection();
             void openCrmUrl(crmHomeUrl());
           }}
-          className="mt-3 items-center rounded-xl px-4 py-3"
-          style={{ backgroundColor: Colors.navySoft }}
+          style={{
+            marginTop: 14,
+            alignItems: 'center',
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            backgroundColor: Colors.tealSoft,
+            borderWidth: 1,
+            borderColor: '#99F6E4',
+          }}
         >
-          <Text className="text-body font-extrabold text-navy">Open RegiManager CRM</Text>
+          <Text style={{ fontFamily: Fonts.extrabold, fontSize: 15, color: Colors.tealDeep }}>
+            Open RegiManager CRM
+          </Text>
         </Pressable>
         <Pressable
           onPress={() => void onSignOut()}
-          className="mt-3 items-center rounded-xl px-4 py-3"
-          style={{ backgroundColor: Colors.tealSoft }}
-          android_ripple={{ color: 'rgba(13,148,136,0.15)' }}
+          style={{
+            marginTop: 10,
+            alignItems: 'center',
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            backgroundColor: Colors.white,
+            borderWidth: 1,
+            borderColor: Colors.border,
+          }}
+          android_ripple={{ color: 'rgba(13,148,136,0.12)' }}
         >
-          <Text className="text-body font-extrabold text-teal">Sign out</Text>
+          <Text style={{ fontFamily: Fonts.extrabold, fontSize: 15, color: Colors.navy }}>Sign out</Text>
         </Pressable>
       </View>
 
       <View
-        className="mt-4 rounded-2xl bg-white p-4"
-        style={{ borderWidth: 1, borderColor: Colors.border }}
+        style={{
+          borderRadius: 16,
+          backgroundColor: Colors.white,
+          padding: 16,
+          borderWidth: 1,
+          borderColor: Colors.border,
+        }}
       >
-        <Text className="text-title text-navy">Daily snapshot</Text>
-        <Text className="mt-1 text-caption text-muted">
+        <Text style={{ fontFamily: Fonts.bold, fontSize: 20, color: Colors.navy }}>Daily snapshot</Text>
+        <Text style={{ marginTop: 6, fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}>
           6:00 PM reminder opens yesterday&apos;s brief on Pulse (profit, expenses, staff).
         </Text>
-        <View className="mt-4 flex-row items-center justify-between">
-          <Text className="text-body font-bold text-navy">Enable 6:00 PM reminder</Text>
+        <View
+          style={{
+            marginTop: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}
+        >
+          <Text style={{ flex: 1, fontFamily: Fonts.bold, fontSize: 15, color: Colors.navy }}>
+            Enable 6:00 PM reminder
+          </Text>
           {loading ? (
             <ActivityIndicator color={Colors.teal} />
           ) : (
@@ -117,17 +168,11 @@ export default function SettingsScreen() {
             />
           )}
         </View>
-        {message ? <Text className="mt-3 text-caption text-muted">{message}</Text> : null}
-      </View>
-
-      <View
-        className="mt-4 rounded-2xl bg-white p-4"
-        style={{ borderWidth: 1, borderColor: Colors.border }}
-      >
-        <Text className="text-caption text-muted">
-          On Expo Go (Android), the reminder preference is saved but scheduling needs a development
-          or production build. Server digests use `python manage.py send_pulse_daily_snapshot`.
-        </Text>
+        {message ? (
+          <Text style={{ marginTop: 12, fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}>
+            {message}
+          </Text>
+        ) : null}
       </View>
     </View>
   );

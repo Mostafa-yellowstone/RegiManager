@@ -1,5 +1,13 @@
 import '../global.css';
 
+import {
+  Manrope_400Regular,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+  Manrope_800ExtraBold,
+  useFonts,
+} from '@expo-google-fonts/manrope';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack, useRouter, useSegments } from 'expo-router';
@@ -13,7 +21,7 @@ import 'react-native-reanimated';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { hasCompletedOnboarding, subscribeOnboarding } from '@/lib/onboarding';
 import { registerSnapshotNotificationHandler } from '@/lib/notifications';
-import { Colors } from '@/lib/theme';
+import { Colors, Fonts } from '@/lib/theme';
 import { useDateRangeStore } from '@/stores/dateRangeStore';
 
 export { ErrorBoundary } from 'expo-router';
@@ -41,7 +49,6 @@ function AuthGate({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Keep AuthGate in sync when onboarding finishes (before /login navigation).
   useEffect(() => subscribeOnboarding((done) => setSeenOnboarding(done)), []);
 
   useEffect(() => {
@@ -107,6 +114,14 @@ function AuthGate({ children }: { children: ReactNode }) {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
+  });
+
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -119,6 +134,21 @@ export default function RootLayout() {
       }),
   );
 
+  if (!fontsLoaded) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: Colors.navy,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <ActivityIndicator color={Colors.teal} size="large" />
+      </View>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
@@ -130,21 +160,15 @@ export default function RootLayout() {
                 screenOptions={{
                   headerStyle: { backgroundColor: Colors.navy },
                   headerTintColor: Colors.white,
-                  headerTitleStyle: { fontWeight: '700' },
+                  headerTitleStyle: { fontFamily: Fonts.bold, fontWeight: '700' },
                   contentStyle: { backgroundColor: Colors.cream },
                 }}
               >
                 <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
                 <Stack.Screen name="login" options={{ headerShown: false }} />
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen
-                  name="settings"
-                  options={{ title: 'Settings', headerShown: true }}
-                />
-                <Stack.Screen
-                  name="expense/[id]"
-                  options={{ title: 'Expense detail', headerShown: true }}
-                />
+                <Stack.Screen name="settings" options={{ title: 'Settings', headerShown: true }} />
+                <Stack.Screen name="expense/[id]" options={{ title: 'Expense detail', headerShown: true }} />
               </Stack>
             </AuthGate>
           </BottomSheetModalProvider>

@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 
 import { formatMoney, formatPct } from '@/lib/format';
-import { MetricAccents, type MetricAccent } from '@/lib/theme';
+import { Fonts, MetricAccents, type MetricAccent } from '@/lib/theme';
 import type { ComparativeBadge } from '@/types/models';
 
 type Props = {
@@ -45,33 +45,73 @@ export function MetricCard({
   const body = (
     <>
       <Text
-        className="text-[11px] font-bold uppercase tracking-wide"
-        style={{ color: theme.deep }}
         numberOfLines={1}
+        style={{
+          fontFamily: Fonts.bold,
+          fontSize: 11,
+          letterSpacing: 0.6,
+          textTransform: 'uppercase',
+          color: theme.deep,
+        }}
       >
         {label}
       </Text>
-      <Text className="mt-2 text-[24px] font-extrabold text-ink" numberOfLines={1}>
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+        style={{
+          marginTop: 8,
+          fontFamily: Fonts.extrabold,
+          fontSize: 22,
+          color: '#0F1F1C',
+        }}
+      >
         {display}
       </Text>
       {hint ? (
-        <Text className="mt-1 text-[10px] font-semibold" style={{ color: theme.deep, opacity: 0.75 }}>
+        <Text
+          numberOfLines={1}
+          style={{
+            marginTop: 4,
+            fontFamily: Fonts.semibold,
+            fontSize: 10,
+            color: theme.deep,
+            opacity: 0.75,
+          }}
+        >
           {hint}
         </Text>
       ) : null}
-      <View className="mt-auto pt-3 flex-row items-center justify-between gap-2">
+      <View style={{ marginTop: 'auto', paddingTop: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         {metaText ? (
-          <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: theme.soft }}>
-            <Text className="text-[11px] font-bold" style={{ color: theme.deep }}>
+          <View
+            style={{
+              borderRadius: 999,
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              backgroundColor: theme.soft,
+              maxWidth: '52%',
+            }}
+          >
+            <Text numberOfLines={1} style={{ fontFamily: Fonts.bold, fontSize: 10, color: theme.deep }}>
               {metaText}
             </Text>
           </View>
         ) : (
-          <View />
+          <View style={{ flex: 1 }} />
         )}
         {badge ? (
-          <View className="rounded-full px-2 py-1" style={{ backgroundColor: theme.soft }}>
-            <Text className="text-[10px] font-extrabold" style={{ color: theme.main }}>
+          <View
+            style={{
+              borderRadius: 999,
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              backgroundColor: theme.soft,
+              flexShrink: 1,
+            }}
+          >
+            <Text numberOfLines={1} style={{ fontFamily: Fonts.extrabold, fontSize: 10, color: theme.main }}>
               {formatPct(badge.delta_pct)}
               {badge.label ? ` ${badge.label}` : ''}
             </Text>
@@ -84,30 +124,29 @@ export function MetricCard({
   const cardStyle = {
     borderWidth: 1,
     borderColor: theme.border,
-    shadowColor: '#0F3D4C',
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    minHeight: 124,
+    width: '100%' as const,
+    shadowColor: '#0B3D3A',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
     elevation: 2,
-    minHeight: 118,
-  } as const;
+  };
 
   if (onPress) {
     return (
       <Pressable
         onPress={onPress}
-        className="min-w-[46%] flex-1 rounded-2xl bg-white p-4"
         style={cardStyle}
-        android_ripple={{ color: 'rgba(15,61,76,0.06)' }}
+        android_ripple={{ color: 'rgba(13,148,136,0.08)' }}
       >
         {body}
       </Pressable>
     );
   }
 
-  return (
-    <View className="min-w-[46%] flex-1 rounded-2xl bg-white p-4" style={cardStyle}>
-      {body}
-    </View>
-  );
+  return <View style={cardStyle}>{body}</View>;
 }

@@ -2,7 +2,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PulseTabIcon } from '@/components/pulse/PulseTabIcon';
-import { Colors } from '@/lib/theme';
+import { Colors, Fonts } from '@/lib/theme';
 
 type TabKey = 'pulse' | 'sales' | 'staff' | 'expenses';
 
@@ -44,7 +44,7 @@ export function PulseTabBar({ state, descriptors, navigation }: Props) {
         style={{
           flexDirection: 'row',
           gap: 8,
-          backgroundColor: '#F1F5F9',
+          backgroundColor: Colors.navySoft,
           borderRadius: 18,
           padding: 6,
         }}
@@ -83,7 +83,7 @@ export function PulseTabBar({ state, descriptors, navigation }: Props) {
                 paddingVertical: 8,
                 paddingHorizontal: 4,
                 backgroundColor: focused ? Colors.white : 'transparent',
-                shadowColor: focused ? '#0F3D4C' : 'transparent',
+                shadowColor: focused ? '#0B3D3A' : 'transparent',
                 shadowOpacity: focused ? 0.08 : 0,
                 shadowRadius: 8,
                 shadowOffset: { width: 0, height: 2 },
@@ -94,8 +94,8 @@ export function PulseTabBar({ state, descriptors, navigation }: Props) {
                 <PulseTabIcon name={tab} focused={focused} compact />
                 <Text
                   style={{
+                    fontFamily: Fonts.bold,
                     fontSize: 11,
-                    fontWeight: '700',
                     color: focused ? Colors.teal : Colors.muted,
                   }}
                 >

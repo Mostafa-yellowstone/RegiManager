@@ -39,6 +39,7 @@
     "build:android:preview": "eas build -p android --profile preview",
     "build:android:production": "eas build -p android --profile production",
     "submit:android:production": "eas submit -p android --profile production",
+    "submit:ios:production": "eas submit -p ios --profile production",
     "build:ios:preview": "eas build -p ios --profile preview",
     "build:ios:production": "eas build -p ios --profile production",
     "build:all:preview": "eas build -p all --profile preview",
