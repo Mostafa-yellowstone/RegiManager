@@ -21,7 +21,7 @@ from core.models import (
     ServiceRecord,
     Space,
 )
-from core.owner_api_metrics import build_system_profit_summary
+from core.owner_api_metrics import build_owner_insurance_summary, build_system_profit_summary
 
 User = get_user_model()
 
@@ -555,3 +555,35 @@ class OwnerAPITests(APITestCase):
         self.assertEqual(pending.status_code, status.HTTP_200_OK)
         self.assertEqual(len(pending.data["policies"]), 1)
         self.assertEqual(pending.data["policies"][0]["policy_number"], "TLC-200")
+
+    def test_insurance_summary_returns_premium_and_commissions(self):
+        InsurancePolicy.objects.create(
+            organization=self.org,
+            client=self.client_obj,
+            policy_number="POL-SUM",
+            insurance_company=self.company,
+            premium=Decimal("2000.00"),
+            commission_rate=Decimal("10.00"),
+            broker_fee=Decimal("75.00"),
+            start_date=date.today(),
+            end_date=date.today().replace(month=12, day=31),
+            stage="bound",
+            status="active",
+            bound_date=date.today(),
+            added_by=self.agent,
+        )
+        payload = build_owner_insurance_summary(
+            self.org,
+            self.owner_mem,
+            start=date.today(),
+            end=date.today(),
+            today=date.today(),
+        )
+        self.assertTrue(payload["available"])
+        self.assertEqual(payload["totals"]["period_premium"], "2000.00")
+        self.assertEqual(payload["totals"]["period_broker_fee"], "75.00")
+        self.assertEqual(len(payload["companies"]), 1)
+        self.assertEqual(payload["companies"][0]["name"], "Test Insurance Co")
+        self.assertEqual(payload["companies"][0]["period_premium"], "2000.00")
+        self.assertIn("earned_commission", payload["totals"])
+        self.assertIn("unearned_commission", payload["totals"])

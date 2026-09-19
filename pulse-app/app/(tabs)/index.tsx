@@ -30,7 +30,7 @@ import { useAuth } from '@/lib/auth';
 import { crmFinanceUrl, crmHomeUrl, openCrmUrl } from '@/lib/crmLinks';
 import { formatMoney } from '@/lib/format';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
-import { buildAttentionItems, buildMorningBrief, spaceInsight } from '@/lib/ownerInsights';
+import { buildAttentionItems, buildMorningBrief, orgHasInsuranceSpace, spaceInsight } from '@/lib/ownerInsights';
 import { Colors, Fonts } from '@/lib/theme';
 import { useDateRangeStore } from '@/stores/dateRangeStore';
 import { useSpaceStore } from '@/stores/spaceStore';
@@ -85,8 +85,15 @@ export default function PulseDashboardScreen() {
         agents: agentsQuery.data?.agents,
         workDate: agentsQuery.data?.work_date,
         asOfLabel: 'Yesterday · owner snapshot',
+        hasInsurance: orgHasInsuranceSpace(data?.space_summaries),
+        spaceSummaries: data?.space_summaries,
       }),
-    [agentsQuery.data?.agents, agentsQuery.data?.work_date, briefQuery.data?.overview],
+    [
+      agentsQuery.data?.agents,
+      agentsQuery.data?.work_date,
+      briefQuery.data?.overview,
+      data?.space_summaries,
+    ],
   );
 
   const attentionItems = useMemo(
@@ -343,7 +350,7 @@ export default function PulseDashboardScreen() {
               items={attentionItems}
               onOpen={(item) => {
                 void hapticSelection();
-                router.push(item.href);
+                router.push(item.href as any);
               }}
             />
 

@@ -251,3 +251,8 @@ export async function fetchOwnerAgents() {
 export async function fetchOwnerInsuranceTargets() {
   return apiFetch('/api/owner/insurance/targets/');
 }
+
+export async function fetchOwnerInsuranceSummary(params?: Record<string, string>) {
+  const q = new URLSearchParams(params || {}).toString();
+  return apiFetch(`/api/owner/insurance/summary/${q ? `?${q}` : ''}`);
+}

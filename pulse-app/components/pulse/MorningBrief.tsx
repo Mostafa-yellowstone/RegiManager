@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 
 import { formatMoney, formatPct } from '@/lib/format';
-import { Colors } from '@/lib/theme';
+import { Colors, Fonts } from '@/lib/theme';
 import type { MorningBriefModel } from '@/lib/ownerInsights';
 
 type Props = {
@@ -13,79 +13,190 @@ type Props = {
 export function MorningBrief({ brief, onOpenStaff, onOpenExpenses }: Props) {
   return (
     <View
-      className="overflow-hidden rounded-3xl"
       style={{
+        overflow: 'hidden',
+        borderRadius: 24,
         backgroundColor: Colors.navy,
         borderWidth: 1,
-        borderColor: '#164E63',
+        borderColor: Colors.navyMid,
       }}
     >
-      <View className="px-4 pb-4 pt-4">
-        <Text className="text-[11px] font-extrabold uppercase tracking-[1.5px] text-teal">
+      <View style={{ paddingHorizontal: 16, paddingBottom: 16, paddingTop: 16 }}>
+        <Text
+          style={{
+            fontFamily: Fonts.extrabold,
+            fontSize: 11,
+            letterSpacing: 1.5,
+            textTransform: 'uppercase',
+            color: Colors.teal,
+          }}
+        >
           Morning brief
         </Text>
-        <Text className="mt-1 text-caption" style={{ color: 'rgba(255,255,255,0.65)' }}>
+        <Text
+          style={{
+            marginTop: 4,
+            fontFamily: Fonts.medium,
+            fontSize: 12,
+            color: 'rgba(255,255,255,0.65)',
+          }}
+        >
           {brief.asOfLabel}
           {brief.workDate ? ` · staff ${brief.workDate}` : ''}
         </Text>
 
-        <View className="mt-4 flex-row gap-3">
-          <View className="flex-1 rounded-2xl px-3 py-3" style={{ backgroundColor: 'rgba(13,148,136,0.18)' }}>
-            <Text className="text-[10px] font-bold uppercase" style={{ color: '#99F6E4' }}>
-              Profit
+        <View style={{ marginTop: 16, flexDirection: 'row', gap: 12 }}>
+          <View
+            style={{
+              flex: 1,
+              borderRadius: 16,
+              paddingHorizontal: 12,
+              paddingVertical: 12,
+              backgroundColor: 'rgba(13,148,136,0.18)',
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: Fonts.bold,
+                fontSize: 10,
+                textTransform: 'uppercase',
+                color: '#99F6E4',
+              }}
+            >
+              Net profit
             </Text>
-            <Text className="mt-1 text-[22px] font-extrabold text-white">
+            <Text
+              style={{
+                marginTop: 4,
+                fontFamily: Fonts.extrabold,
+                fontSize: 22,
+                color: '#FFFFFF',
+              }}
+            >
               {formatMoney(brief.netProfit)}
             </Text>
+            <Text
+              style={{
+                marginTop: 4,
+                fontFamily: Fonts.semibold,
+                fontSize: 11,
+                color: 'rgba(255,255,255,0.55)',
+              }}
+            >
+              {brief.profitHint}
+            </Text>
             {brief.profitBadge ? (
-              <Text className="mt-1 text-[11px] font-semibold" style={{ color: '#5EEAD4' }}>
+              <Text
+                style={{
+                  marginTop: 4,
+                  fontFamily: Fonts.semibold,
+                  fontSize: 11,
+                  color: '#5EEAD4',
+                }}
+              >
                 {formatPct(brief.profitBadge.delta_pct)} {brief.profitBadge.label}
               </Text>
-            ) : (
-              <Text className="mt-1 text-[11px]" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                Ins + DMV
-              </Text>
-            )}
+            ) : null}
           </View>
-          <View className="flex-1 rounded-2xl px-3 py-3" style={{ backgroundColor: 'rgba(201,162,39,0.16)' }}>
-            <Text className="text-[10px] font-bold uppercase" style={{ color: '#F7E7A1' }}>
+          <View
+            style={{
+              flex: 1,
+              borderRadius: 16,
+              paddingHorizontal: 12,
+              paddingVertical: 12,
+              backgroundColor: 'rgba(201,162,39,0.16)',
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: Fonts.bold,
+                fontSize: 10,
+                textTransform: 'uppercase',
+                color: '#F7E7A1',
+              }}
+            >
               Cash flow
             </Text>
-            <Text className="mt-1 text-[22px] font-extrabold text-white">
+            <Text
+              style={{
+                marginTop: 4,
+                fontFamily: Fonts.extrabold,
+                fontSize: 22,
+                color: '#FFFFFF',
+              }}
+            >
               {formatMoney(brief.cashFlow)}
             </Text>
-            <Text className="mt-1 text-[11px]" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            <Text
+              style={{
+                marginTop: 4,
+                fontFamily: Fonts.medium,
+                fontSize: 11,
+                color: 'rgba(255,255,255,0.5)',
+              }}
+            >
               Bank income − exp
             </Text>
           </View>
         </View>
 
-        <View className="mt-3 flex-row gap-2">
+        <View style={{ marginTop: 12, flexDirection: 'row', gap: 8 }}>
           <Pressable
             onPress={onOpenStaff}
-            className="flex-1 rounded-xl px-3 py-2.5"
-            style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
+            style={{
+              flex: 1,
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              backgroundColor: 'rgba(255,255,255,0.08)',
+            }}
           >
-            <Text className="text-[10px] font-bold uppercase" style={{ color: 'rgba(255,255,255,0.55)' }}>
+            <Text
+              style={{
+                fontFamily: Fonts.bold,
+                fontSize: 10,
+                textTransform: 'uppercase',
+                color: 'rgba(255,255,255,0.55)',
+              }}
+            >
               Staff today
             </Text>
-            <Text className="mt-0.5 text-caption font-bold text-white">
+            <Text style={{ marginTop: 2, fontFamily: Fonts.bold, fontSize: 12, color: '#FFFFFF' }}>
               {brief.onDuty} on duty · {brief.onTime} on time · {brief.late} late
             </Text>
           </Pressable>
           <Pressable
             onPress={onOpenExpenses}
-            className="rounded-xl px-3 py-2.5"
-            style={{ backgroundColor: 'rgba(255,255,255,0.08)', minWidth: 108 }}
+            style={{
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              minWidth: 108,
+            }}
           >
-            <Text className="text-[10px] font-bold uppercase" style={{ color: 'rgba(255,255,255,0.55)' }}>
+            <Text
+              style={{
+                fontFamily: Fonts.bold,
+                fontSize: 10,
+                textTransform: 'uppercase',
+                color: 'rgba(255,255,255,0.55)',
+              }}
+            >
               Expenses
             </Text>
-            <Text className="mt-0.5 text-caption font-bold text-white">
+            <Text style={{ marginTop: 2, fontFamily: Fonts.bold, fontSize: 12, color: '#FFFFFF' }}>
               {formatMoney(brief.bankExpenses, true)}
             </Text>
             {brief.expenseBadge ? (
-              <Text className="mt-0.5 text-[10px] font-semibold" style={{ color: '#FDBA74' }}>
+              <Text
+                style={{
+                  marginTop: 2,
+                  fontFamily: Fonts.semibold,
+                  fontSize: 10,
+                  color: '#FDBA74',
+                }}
+              >
                 {formatPct(brief.expenseBadge.delta_pct)}
               </Text>
             ) : null}

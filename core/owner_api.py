@@ -47,6 +47,7 @@ from .owner_api_metrics import (
     build_insurance_profit_report,
     build_location_comparison,
     build_month_comparison,
+    build_owner_insurance_summary,
     build_process_summary,
     build_revenue_chart,
     build_space_period_profit,
@@ -786,6 +787,28 @@ class OwnerKnowledgeMaterialsView(OwnerAPIBase):
             limit=_parse_limit(request),
         )
         return Response({"articles": materials, "results": materials, "as_of": today.isoformat()})
+
+
+class OwnerInsuranceSummaryView(OwnerAPIBase):
+    """Pulse Insurance tab: earned/unearned commissions + premium by company."""
+
+    def get(self, request):
+        organization, membership, _orgs, _records, today = self.resolve_context(request)
+        if not (self.can_view_finance(membership) or self.can_view_spaces(membership)):
+            raise PermissionDenied("Insurance access is disabled for your account.")
+
+        custom_range = parse_owner_date_range(request.query_params)
+        start = end = None
+        if custom_range:
+            start, end = custom_range
+        payload = build_owner_insurance_summary(
+            organization,
+            membership,
+            start=start,
+            end=end,
+            today=today,
+        )
+        return Response(payload)
 
 
 class OwnerInsurancePoliciesView(OwnerAPIBase):

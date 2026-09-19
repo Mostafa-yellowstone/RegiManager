@@ -680,3 +680,147 @@ def build_location_comparison(organizations, today: date) -> list[dict]:
     for rank, row in enumerate(rows, start=1):
         row["rank"] = rank
     return rows
+
+
+def org_has_insurance_space(membership: OrganizationMembership, organization: Organization) -> bool:
+    """True when this membership can see the org Insurance space."""
+    return spaces_for_membership(membership, organization).filter(key="insurance").exists()
+
+
+def build_owner_insurance_summary(
+    organization: Organization,
+    membership: OrganizationMembership,
+    *,
+    start: date | None = None,
+    end: date | None = None,
+    today: date | None = None,
+) -> dict:
+    """
+    Pulse Insurance tab payload.
+
+    Book commissions (earned / received / unearned) match CRM company summaries.
+    Period premium / commission / broker are scoped to the optional date range.
+    """
+    from .insurance_space_metrics import (
+        build_company_summaries,
+        prefetch_insurance_companies,
+    )
+
+    today = today or timezone.localdate()
+    available = org_has_insurance_space(membership, organization)
+    empty = {
+        "available": False,
+        "as_of": today.isoformat(),
+        "range": {
+            "from": start.isoformat() if start else None,
+            "to": end.isoformat() if end else None,
+        },
+        "totals": {
+            "earned_commission": "0.00",
+            "received_commission": "0.00",
+            "unearned_commission": "0.00",
+            "period_premium": "0.00",
+            "period_commission": "0.00",
+            "period_broker_fee": "0.00",
+            "book_premium": "0.00",
+            "period_bound_count": 0,
+            "active_policy_count": 0,
+        },
+        "companies": [],
+    }
+    if not available:
+        return empty
+
+    companies_qs = prefetch_insurance_companies(organization)
+    all_policies = InsurancePolicy.objects.filter(organization=organization)
+    book_rows = build_company_summaries(companies_qs, all_policies)
+
+    bound_qs = all_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES)
+    if start and end:
+        period_qs = filter_policies_by_quote_period(bound_qs, start, end)
+    else:
+        period_qs = bound_qs
+
+    period_by_company = {
+        row["insurance_company_id"]: row
+        for row in period_qs.values("insurance_company_id").annotate(
+            premium=Sum("premium"),
+            commission=Sum("commission_amount"),
+            broker_fee=Sum("broker_fee"),
+            bound_count=Count("id"),
+        )
+    }
+    book_premium_by_company = {
+        row["insurance_company_id"]: row["premium"] or Decimal("0")
+        for row in bound_qs.filter(status="active")
+        .values("insurance_company_id")
+        .annotate(premium=Sum("premium"))
+    }
+
+    period_totals = period_qs.aggregate(
+        premium=Sum("premium"),
+        commission=Sum("commission_amount"),
+        broker_fee=Sum("broker_fee"),
+        bound_count=Count("id"),
+    )
+    active_book = bound_qs.filter(status="active").aggregate(
+        premium=Sum("premium"),
+        count=Count("id"),
+    )
+
+    companies_out: list[dict] = []
+    earned_total = Decimal("0")
+    received_total = Decimal("0")
+    unearned_total = Decimal("0")
+
+    for row in book_rows:
+        cid = row["id"]
+        period = period_by_company.get(cid, {})
+        earned = row["earned_commission"] or Decimal("0")
+        received = row["received_commission"] or Decimal("0")
+        unearned = row["unearned_commission"] or Decimal("0")
+        earned_total += earned
+        received_total += received
+        unearned_total += unearned
+        companies_out.append(
+            {
+                "id": cid,
+                "name": row["name"],
+                "active_count": row["active_count"],
+                "earned_commission": _money(earned),
+                "received_commission": _money(received),
+                "unearned_commission": _money(unearned),
+                "period_premium": _money(period.get("premium")),
+                "period_commission": _money(period.get("commission")),
+                "period_broker_fee": _money(period.get("broker_fee")),
+                "period_bound_count": period.get("bound_count") or 0,
+                "book_premium": _money(book_premium_by_company.get(cid)),
+                "license_status": row.get("license_status") or {},
+            }
+        )
+
+    companies_out.sort(
+        key=lambda item: Decimal(item["period_premium"] or "0"),
+        reverse=True,
+    )
+
+    return {
+        "available": True,
+        "as_of": today.isoformat(),
+        "range": {
+            "from": start.isoformat() if start else None,
+            "to": end.isoformat() if end else None,
+        },
+        "totals": {
+            "earned_commission": _money(earned_total),
+            "received_commission": _money(received_total),
+            "unearned_commission": _money(unearned_total),
+            "period_premium": _money(period_totals.get("premium")),
+            "period_commission": _money(period_totals.get("commission")),
+            "period_broker_fee": _money(period_totals.get("broker_fee")),
+            "book_premium": _money(active_book.get("premium")),
+            "period_bound_count": period_totals.get("bound_count") or 0,
+            "active_policy_count": active_book.get("count") or 0,
+        },
+        "companies": companies_out,
+    }

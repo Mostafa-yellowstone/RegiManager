@@ -21,6 +21,10 @@ export function crmFinanceUrl() {
   return `${API_BASE_URL}/dashboard/finance/`;
 }
 
+export function crmInsuranceUrl() {
+  return `${API_BASE_URL}/dashboard/spaces/?tab=insurance`;
+}
+
 export async function openCrmUrl(url: string): Promise<boolean> {
   try {
     const can = await Linking.canOpenURL(url);

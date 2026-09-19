@@ -12,11 +12,13 @@ export type AttentionItem = {
   level: AttentionLevel;
   title: string;
   body: string;
-  href: '/(tabs)/staff' | '/(tabs)/expenses' | '/(tabs)/sales' | '/(tabs)';
+  href: '/(tabs)/staff' | '/(tabs)/expenses' | '/(tabs)/sales' | '/(tabs)/insurance' | '/(tabs)';
 };
 
 export type MorningBriefModel = {
+  /** DMV processing profit + insurance broker fee (when insurance exists). */
   netProfit: number;
+  profitHint: string;
   cashFlow: number;
   bankExpenses: number;
   onDuty: number;
@@ -26,19 +28,37 @@ export type MorningBriefModel = {
   profitBadge?: ComparativeBadge;
   expenseBadge?: ComparativeBadge;
   asOfLabel: string;
+  hasInsurance: boolean;
 };
 
+export function orgHasInsuranceSpace(spaceSummaries?: SpaceSummary[] | null): boolean {
+  return (spaceSummaries ?? []).some((s) => (s.key || '').toLowerCase() === 'insurance');
+}
+
+/**
+ * Morning Brief profit = DMV net + insurance broker fee only (when the PSB has Insurance).
+ * Does not include insurance commission.
+ */
 export function buildMorningBrief(params: {
   overview?: FinancialOverview | null;
   agents?: AgentRosterRow[];
   workDate?: string;
   asOfLabel?: string;
+  hasInsurance?: boolean;
+  spaceSummaries?: SpaceSummary[] | null;
 }): MorningBriefModel | null {
   const overview = params.overview;
   if (!overview) return null;
   const agents = params.agents ?? [];
+  const hasInsurance =
+    params.hasInsurance ?? orgHasInsuranceSpace(params.spaceSummaries);
+
+  const dmv = overview.dmv_net_profit || 0;
+  const broker = hasInsurance ? overview.insurance_broker_fee || 0 : 0;
+
   return {
-    netProfit: overview.net_profit || 0,
+    netProfit: dmv + broker,
+    profitHint: hasInsurance ? 'DMV + broker fee' : 'DMV processing',
     cashFlow: overview.net_cash_flow || 0,
     bankExpenses: overview.bank_expenses || 0,
     onDuty: agents.filter((a) => a.attendance_open).length,
@@ -48,6 +68,7 @@ export function buildMorningBrief(params: {
     profitBadge: overview.badges.profit,
     expenseBadge: overview.badges.expenses,
     asOfLabel: params.asOfLabel || 'Selected range',
+    hasInsurance,
   };
 }
 
@@ -61,6 +82,7 @@ export function buildAttentionItems(params: {
   const agents = params.agents ?? [];
   const lateAgents = agents.filter((a) => a.is_late);
   const overview = params.overview;
+  const hasInsurance = orgHasInsuranceSpace(params.spaceSummaries);
 
   if (lateAgents.length > 0) {
     const names = lateAgents
@@ -116,6 +138,16 @@ export function buildAttentionItems(params: {
       title: 'No sales in this range',
       body: 'DMV/insurance payments are empty for the selected dates.',
       href: '/(tabs)/sales',
+    });
+  }
+
+  if (hasInsurance && overview && (overview.insurance_bound_count || 0) === 0) {
+    items.push({
+      id: 'quiet-insurance',
+      level: 'info',
+      title: 'No insurance binds',
+      body: 'Open the Insurance tab to review premiums and commission by carrier.',
+      href: '/(tabs)/insurance',
     });
   }
 

@@ -131,3 +131,35 @@ export interface PulseDashboardPayload {
   costs: CostFeeRow[];
   organization_name?: string;
 }
+
+export interface InsuranceCompanySummary {
+  id: number;
+  name: string;
+  active_count: number;
+  earned_commission: number;
+  received_commission: number;
+  unearned_commission: number;
+  period_premium: number;
+  period_commission: number;
+  period_broker_fee: number;
+  period_bound_count: number;
+  book_premium: number;
+}
+
+export interface InsuranceSummaryPayload {
+  available: boolean;
+  as_of: string;
+  range: { from: string | null; to: string | null };
+  totals: {
+    earned_commission: number;
+    received_commission: number;
+    unearned_commission: number;
+    period_premium: number;
+    period_commission: number;
+    period_broker_fee: number;
+    book_premium: number;
+    period_bound_count: number;
+    active_policy_count: number;
+  };
+  companies: InsuranceCompanySummary[];
+}

@@ -1,10 +1,8 @@
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { PulseTabIcon } from '@/components/pulse/PulseTabIcon';
+import { PulseTabIcon, type TabKey } from '@/components/pulse/PulseTabIcon';
 import { Colors, Fonts } from '@/lib/theme';
-
-type TabKey = 'pulse' | 'sales' | 'staff' | 'expenses';
 
 type Props = {
   state: { index: number; routes: Array<{ key: string; name: string }> };
@@ -12,29 +10,36 @@ type Props = {
   navigation: any;
 };
 
-const ORDER: TabKey[] = ['pulse', 'sales', 'staff', 'expenses'];
 const LABELS: Record<TabKey, string> = {
   pulse: 'Pulse',
   sales: 'Sales',
+  insurance: 'Insurance',
   staff: 'Staff',
   expenses: 'Expenses',
 };
 
 function routeToTab(name: string): TabKey {
   if (name === 'index') return 'pulse';
-  if (name === 'sales' || name === 'staff' || name === 'expenses') return name;
+  if (name === 'sales' || name === 'insurance' || name === 'staff' || name === 'expenses') {
+    return name;
+  }
   return 'pulse';
 }
 
 export function PulseTabBar({ state, descriptors, navigation }: Props) {
   const insets = useSafeAreaInsets();
 
+  const visibleRoutes = state.routes.filter((route) => {
+    const options = descriptors[route.key]?.options || {};
+    return options.href !== null;
+  });
+
   return (
     <View
       style={{
         paddingBottom: Math.max(insets.bottom, 10),
         paddingTop: 10,
-        paddingHorizontal: 12,
+        paddingHorizontal: 10,
         backgroundColor: Colors.white,
         borderTopWidth: 1,
         borderTopColor: Colors.border,
@@ -43,20 +48,19 @@ export function PulseTabBar({ state, descriptors, navigation }: Props) {
       <View
         style={{
           flexDirection: 'row',
-          gap: 8,
+          gap: 4,
           backgroundColor: Colors.navySoft,
           borderRadius: 18,
-          padding: 6,
+          padding: 5,
         }}
       >
-        {state.routes.map((route, index) => {
+        {visibleRoutes.map((route) => {
+          const index = state.routes.findIndex((r) => r.key === route.key);
           const focused = state.index === index;
           const tab = routeToTab(route.name);
-          if (!ORDER.includes(tab) && route.name !== 'index') {
-            // hide non-primary routes if any
-          }
           const { options } = descriptors[route.key];
           const label = LABELS[tab] || options.title || route.name;
+          const compact = visibleRoutes.length >= 5;
 
           const onPress = () => {
             const event = navigation.emit({
@@ -81,7 +85,7 @@ export function PulseTabBar({ state, descriptors, navigation }: Props) {
                 justifyContent: 'center',
                 borderRadius: 14,
                 paddingVertical: 8,
-                paddingHorizontal: 4,
+                paddingHorizontal: 2,
                 backgroundColor: focused ? Colors.white : 'transparent',
                 shadowColor: focused ? '#0B3D3A' : 'transparent',
                 shadowOpacity: focused ? 0.08 : 0,
@@ -90,12 +94,13 @@ export function PulseTabBar({ state, descriptors, navigation }: Props) {
                 elevation: focused ? 2 : 0,
               }}
             >
-              <View style={{ alignItems: 'center', gap: 4 }}>
+              <View style={{ alignItems: 'center', gap: 3 }}>
                 <PulseTabIcon name={tab} focused={focused} compact />
                 <Text
+                  numberOfLines={1}
                   style={{
                     fontFamily: Fonts.bold,
-                    fontSize: 11,
+                    fontSize: compact ? 10 : 11,
                     color: focused ? Colors.teal : Colors.muted,
                   }}
                 >
