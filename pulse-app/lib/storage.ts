@@ -3,29 +3,45 @@ import { Platform } from 'react-native';
 
 const memory = new Map<string, string>();
 
+const SECURE_OPTIONS: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
+
 async function nativeGet(key: string): Promise<string | null> {
   try {
-    return await SecureStore.getItemAsync(key);
+    return await SecureStore.getItemAsync(key, SECURE_OPTIONS);
   } catch {
-    return memory.get(key) ?? null;
+    try {
+      return await SecureStore.getItemAsync(key);
+    } catch {
+      return memory.get(key) ?? null;
+    }
   }
 }
 
 async function nativeSet(key: string, value: string): Promise<void> {
   memory.set(key, value);
   try {
-    await SecureStore.setItemAsync(key, value);
+    await SecureStore.setItemAsync(key, value, SECURE_OPTIONS);
   } catch {
-    // memory fallback for web / restricted environments
+    try {
+      await SecureStore.setItemAsync(key, value);
+    } catch {
+      // memory fallback for web / restricted environments
+    }
   }
 }
 
 async function nativeDelete(key: string): Promise<void> {
   memory.delete(key);
   try {
-    await SecureStore.deleteItemAsync(key);
+    await SecureStore.deleteItemAsync(key, SECURE_OPTIONS);
   } catch {
-    // ignore
+    try {
+      await SecureStore.deleteItemAsync(key);
+    } catch {
+      // ignore
+    }
   }
 }
 

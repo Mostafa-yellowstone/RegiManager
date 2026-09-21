@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { DateRangeSelector } from '@/components/pulse/DateRangeSelector';
+import { ConnectedDateRangeSelector } from '@/components/pulse/ConnectedDateRangeSelector';
 import { MetricCard } from '@/components/pulse/MetricCard';
 import { MetricGrid } from '@/components/pulse/MetricGrid';
 import { SkeletonBlock } from '@/components/pulse/SkeletonBlock';
@@ -15,7 +15,6 @@ import { hapticLight, hapticSelection } from '@/lib/haptics';
 import { buildInsuranceRecommendations } from '@/lib/insuranceInsights';
 import { Colors, Fonts } from '@/lib/theme';
 import { useDateRangeStore } from '@/stores/dateRangeStore';
-import type { DateRangePreset } from '@/types/models';
 
 function levelTone(level: 'critical' | 'warning' | 'info') {
   if (level === 'critical') return { bg: '#FEE2E2', fg: '#991B1B' };
@@ -27,20 +26,16 @@ export default function InsuranceScreen() {
   const insets = useSafeAreaInsets();
   const { selectedOrg } = useAuth();
   const preset = useDateRangeStore((s) => s.preset);
-  const setPreset = useDateRangeStore((s) => s.setPreset);
+  const customStart = useDateRangeStore((s) => s.customStart);
+  const customEnd = useDateRangeStore((s) => s.customEnd);
 
   const { data, isLoading, isFetching, refetch, isError, error } = useQuery({
-    queryKey: ['pulse-insurance', selectedOrg?.id, preset],
+    queryKey: ['pulse-insurance', selectedOrg?.id, preset, customStart, customEnd],
     queryFn: () => getInsuranceSummary(preset),
     enabled: Boolean(selectedOrg?.id),
   });
 
   const recommendations = useMemo(() => buildInsuranceRecommendations(data), [data]);
-
-  function onRangeChange(next: DateRangePreset) {
-    setPreset(next);
-  }
-
   const totals = data?.totals;
 
   return (
@@ -65,7 +60,7 @@ export default function InsuranceScreen() {
           <Text style={{ fontFamily: Fonts.medium, fontSize: 13, color: Colors.muted, lineHeight: 18 }}>
             Earned vs unearned commission, premium by carrier, and owner recommendations.
           </Text>
-          <DateRangeSelector value={preset} onChange={onRangeChange} />
+          <ConnectedDateRangeSelector />
         </View>
 
         {isError ? (

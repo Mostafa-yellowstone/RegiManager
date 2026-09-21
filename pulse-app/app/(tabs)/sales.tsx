@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
-import { DateRangeSelector } from '@/components/pulse/DateRangeSelector';
+import { ConnectedDateRangeSelector } from '@/components/pulse/ConnectedDateRangeSelector';
 import { SkeletonBlock } from '@/components/pulse/SkeletonBlock';
 import { listSalesActivity } from '@/data/repositories/salesRepository';
 import { useAuth } from '@/lib/auth';
@@ -11,7 +11,7 @@ import { formatMoney } from '@/lib/format';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
 import { Colors } from '@/lib/theme';
 import { useDateRangeStore } from '@/stores/dateRangeStore';
-import type { ActivityRow, DateRangePreset } from '@/types/models';
+import type { ActivityRow } from '@/types/models';
 
 function categoryStyle(category: string): { bg: string; fg: string; label: string } {
   const key = (category || '').toLowerCase();
@@ -75,10 +75,11 @@ function SalesRow({ row }: { row: ActivityRow }) {
 export default function SalesScreen() {
   const { selectedOrg } = useAuth();
   const preset = useDateRangeStore((s) => s.preset);
-  const setPreset = useDateRangeStore((s) => s.setPreset);
+  const customStart = useDateRangeStore((s) => s.customStart);
+  const customEnd = useDateRangeStore((s) => s.customEnd);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const { data, isLoading, isFetching, refetch, isError, error } = useQuery({
-    queryKey: ['pulse-sales', selectedOrg?.id, preset],
+    queryKey: ['pulse-sales', selectedOrg?.id, preset, customStart, customEnd],
     queryFn: () => listSalesActivity(preset),
     enabled: Boolean(selectedOrg?.id),
   });
@@ -120,9 +121,9 @@ export default function SalesScreen() {
     >
       <Text className="text-title text-navy">Sales activity</Text>
       <Text className="text-caption text-muted">
-        Live DMV and insurance payments for the selected range — view only
+        Live DMV and insurance payments for the selected range. View only.
       </Text>
-      <DateRangeSelector value={preset} onChange={(next: DateRangePreset) => setPreset(next)} />
+      <ConnectedDateRangeSelector />
 
       {!selectedOrg?.id ? (
         <Text className="mt-4 text-center text-body text-muted">

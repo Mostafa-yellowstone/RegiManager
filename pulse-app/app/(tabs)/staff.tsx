@@ -3,20 +3,16 @@ import { useMemo } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { AttendanceStrip } from '@/components/pulse/AttendanceStrip';
-import { DateRangeSelector } from '@/components/pulse/DateRangeSelector';
+import { ConnectedDateRangeSelector } from '@/components/pulse/ConnectedDateRangeSelector';
 import { SkeletonBlock } from '@/components/pulse/SkeletonBlock';
 import { listOwnerAgents } from '@/data/repositories/agentsRepository';
 import { useAuth } from '@/lib/auth';
 import { formatMoney } from '@/lib/format';
 import { hapticLight } from '@/lib/haptics';
 import { Colors } from '@/lib/theme';
-import { useDateRangeStore } from '@/stores/dateRangeStore';
-import type { DateRangePreset } from '@/types/models';
 
 export default function StaffScreen() {
   const { selectedOrg } = useAuth();
-  const preset = useDateRangeStore((s) => s.preset);
-  const setPreset = useDateRangeStore((s) => s.setPreset);
   const { data, isLoading, isFetching, refetch, isError, error } = useQuery({
     queryKey: ['pulse-agents', selectedOrg?.id],
     queryFn: () => listOwnerAgents(),
@@ -64,7 +60,7 @@ export default function StaffScreen() {
       <Text className="text-caption text-muted">
         View-only roster · Egypt team start 4:00 PM Cairo · after 4:00 PM = late
       </Text>
-      <DateRangeSelector value={preset} onChange={(next: DateRangePreset) => setPreset(next)} />
+      <ConnectedDateRangeSelector />
       <View
         className="rounded-xl px-3 py-2"
         style={{ backgroundColor: Colors.navySoft, borderWidth: 1, borderColor: Colors.border }}

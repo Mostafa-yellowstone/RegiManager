@@ -74,7 +74,7 @@ export function buildInsuranceRecommendations(
         id: `carrier-unearned-${highUnearned.id}`,
         level: 'info',
         title: `Focus ${highUnearned.name}`,
-        body: `${formatMoney(highUnearned.unearned_commission)} unearned at this carrier — start remittance cleanup there.`,
+        body: `${formatMoney(highUnearned.unearned_commission)} unearned at this carrier. Start remittance cleanup there.`,
       });
     }
   }

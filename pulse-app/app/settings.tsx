@@ -3,6 +3,12 @@ import { ActivityIndicator, Pressable, Switch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '@/lib/auth';
+import {
+  authenticateWithBiometrics,
+  getBiometricCapability,
+  isBiometricLockEnabled,
+  setBiometricLockEnabled,
+} from '@/lib/biometrics';
 import { crmHomeUrl, openCrmUrl } from '@/lib/crmLinks';
 import { hapticSelection } from '@/lib/haptics';
 import { isDailySnapshotEnabled, setDailySnapshotEnabled } from '@/lib/notifications';
@@ -15,15 +21,28 @@ export default function SettingsScreen() {
   const [enabled, setEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [bioLoading, setBioLoading] = useState(true);
+  const [bioEnabled, setBioEnabled] = useState(false);
+  const [bioBusy, setBioBusy] = useState(false);
+  const [bioMessage, setBioMessage] = useState('');
+  const [bioLabel, setBioLabel] = useState('Biometrics');
+  const [bioAvailable, setBioAvailable] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const on = await isDailySnapshotEnabled();
-      if (!cancelled) {
-        setEnabled(on);
-        setLoading(false);
-      }
+      const [on, bioOn, capability] = await Promise.all([
+        isDailySnapshotEnabled(),
+        isBiometricLockEnabled(),
+        getBiometricCapability(),
+      ]);
+      if (cancelled) return;
+      setEnabled(on);
+      setBioEnabled(bioOn);
+      setBioLabel(capability.label);
+      setBioAvailable(capability.hardware && capability.enrolled);
+      setLoading(false);
+      setBioLoading(false);
     })();
     return () => {
       cancelled = true;
@@ -52,6 +71,33 @@ export default function SettingsScreen() {
       setEnabled(!next);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function onToggleBiometrics(next: boolean) {
+    setBioBusy(true);
+    setBioMessage('');
+    try {
+      if (next) {
+        const auth = await authenticateWithBiometrics(`Enable ${bioLabel} lock for Pulse`);
+        if (!auth.ok) {
+          setBioEnabled(false);
+          setBioMessage(auth.message);
+          return;
+        }
+        await setBiometricLockEnabled(true);
+        setBioEnabled(true);
+        setBioMessage(`${bioLabel} lock enabled. Pulse will ask after 30 seconds in the background.`);
+        return;
+      }
+      await setBiometricLockEnabled(false);
+      setBioEnabled(false);
+      setBioMessage(`${bioLabel} lock turned off.`);
+    } catch (err: any) {
+      setBioMessage(err?.message || 'Could not update biometric preference.');
+      setBioEnabled(!next);
+    } finally {
+      setBioBusy(false);
     }
   }
 
@@ -92,7 +138,7 @@ export default function SettingsScreen() {
           </Text>
         ) : null}
         <Text style={{ marginTop: 8, fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}>
-          Owner account only. Pulse is read-only — edit in CRM.
+          Owner account only. Pulse is read-only. Edit in CRM.
         </Text>
         <Pressable
           onPress={() => {
@@ -130,6 +176,55 @@ export default function SettingsScreen() {
         >
           <Text style={{ fontFamily: Fonts.extrabold, fontSize: 15, color: Colors.navy }}>Sign out</Text>
         </Pressable>
+      </View>
+
+      <View
+        style={{
+          borderRadius: 16,
+          backgroundColor: Colors.white,
+          padding: 16,
+          borderWidth: 1,
+          borderColor: Colors.border,
+        }}
+      >
+        <Text style={{ fontFamily: Fonts.bold, fontSize: 20, color: Colors.navy }}>Security</Text>
+        <Text style={{ marginTop: 6, fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}>
+          Lock Pulse with {bioLabel.toLowerCase()} when you leave the app. Tokens stay in device secure
+          storage.
+        </Text>
+        <View
+          style={{
+            marginTop: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}
+        >
+          <Text style={{ flex: 1, fontFamily: Fonts.bold, fontSize: 15, color: Colors.navy }}>
+            {bioLabel} lock
+          </Text>
+          {bioLoading ? (
+            <ActivityIndicator color={Colors.teal} />
+          ) : (
+            <Switch
+              value={bioEnabled}
+              onValueChange={(v) => void onToggleBiometrics(v)}
+              disabled={bioBusy || !bioAvailable}
+              trackColor={{ true: Colors.teal, false: Colors.border }}
+            />
+          )}
+        </View>
+        {!bioAvailable ? (
+          <Text style={{ marginTop: 10, fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}>
+            Set up Face ID or fingerprint in device settings to enable this lock.
+          </Text>
+        ) : null}
+        {bioMessage ? (
+          <Text style={{ marginTop: 12, fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}>
+            {bioMessage}
+          </Text>
+        ) : null}
       </View>
 
       <View

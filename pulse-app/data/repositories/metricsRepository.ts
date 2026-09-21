@@ -10,13 +10,14 @@ import {
   fetchOwnerSpaces,
 } from '@/lib/api';
 import {
+  activeDateParams,
   currentMonthKey,
-  presetToDateParams,
   previousMonthKey,
   previousPeriodDateParams,
 } from '@/lib/dateRange';
 import { adaptPulseDashboard } from '@/data/adapters/pulseAdapter';
 import type { DateRangePreset, PulseDashboardPayload, SpaceIdOrAll } from '@/types/models';
+import { useDateRangeStore } from '@/stores/dateRangeStore';
 
 function isVirtualSpace(spaceId: SpaceIdOrAll) {
   return spaceId === 'all' || spaceId === 'dmv';
@@ -26,9 +27,10 @@ export async function getPulseDashboard(
   spaceId: SpaceIdOrAll,
   preset: DateRangePreset,
 ): Promise<PulseDashboardPayload> {
-  const { from_date, to_date } = presetToDateParams(preset);
+  const { customStart, customEnd } = useDateRangeStore.getState();
+  const { from_date, to_date } = activeDateParams();
   const rangeParams = { from_date, to_date };
-  const priorParams = previousPeriodDateParams(preset);
+  const priorParams = previousPeriodDateParams(preset, customStart, customEnd);
 
   const comparePromise =
     preset === 'month' || preset === 'ytd'

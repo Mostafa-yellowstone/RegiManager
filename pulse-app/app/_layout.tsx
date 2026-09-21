@@ -23,6 +23,7 @@ import { hasCompletedOnboarding, subscribeOnboarding } from '@/lib/onboarding';
 import { registerSnapshotNotificationHandler } from '@/lib/notifications';
 import { Colors, Fonts } from '@/lib/theme';
 import { useDateRangeStore } from '@/stores/dateRangeStore';
+import { BiometricGate } from '@/components/pulse/BiometricGate';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -156,20 +157,22 @@ export default function RootLayout() {
           <BottomSheetModalProvider>
             <StatusBar style="light" />
             <AuthGate>
-              <Stack
-                screenOptions={{
-                  headerStyle: { backgroundColor: Colors.navy },
-                  headerTintColor: Colors.white,
-                  headerTitleStyle: { fontFamily: Fonts.bold, fontWeight: '700' },
-                  contentStyle: { backgroundColor: Colors.cream },
-                }}
-              >
-                <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
-                <Stack.Screen name="login" options={{ headerShown: false }} />
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="settings" options={{ title: 'Settings', headerShown: true }} />
-                <Stack.Screen name="expense/[id]" options={{ title: 'Expense detail', headerShown: true }} />
-              </Stack>
+              <BiometricGate>
+                <Stack
+                  screenOptions={{
+                    headerStyle: { backgroundColor: Colors.navy },
+                    headerTintColor: Colors.white,
+                    headerTitleStyle: { fontFamily: Fonts.bold, fontWeight: '700' },
+                    contentStyle: { backgroundColor: Colors.cream },
+                  }}
+                >
+                  <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
+                  <Stack.Screen name="login" options={{ headerShown: false }} />
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen name="settings" options={{ title: 'Settings', headerShown: true }} />
+                  <Stack.Screen name="expense/[id]" options={{ title: 'Expense detail', headerShown: true }} />
+                </Stack>
+              </BiometricGate>
             </AuthGate>
           </BottomSheetModalProvider>
         </AuthProvider>

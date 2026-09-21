@@ -63,7 +63,7 @@ export function MorningBrief({ brief, onOpenStaff, onOpenExpenses }: Props) {
                 color: '#99F6E4',
               }}
             >
-              Net profit
+              Gross profit
             </Text>
             <Text
               style={{
@@ -115,7 +115,7 @@ export function MorningBrief({ brief, onOpenStaff, onOpenExpenses }: Props) {
                 color: '#F7E7A1',
               }}
             >
-              Cash flow
+              Net profit
             </Text>
             <Text
               style={{
@@ -135,7 +135,7 @@ export function MorningBrief({ brief, onOpenStaff, onOpenExpenses }: Props) {
                 color: 'rgba(255,255,255,0.5)',
               }}
             >
-              Bank income − exp
+              Income - exp
             </Text>
           </View>
         </View>

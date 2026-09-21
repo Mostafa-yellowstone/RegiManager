@@ -27,7 +27,7 @@ export function AttentionInbox({ items, onOpen }: Props) {
       >
         <Text className="text-title text-navy">Needs attention</Text>
         <Text className="mt-1 text-caption text-muted">
-          Nothing urgent right now — profit, cash, and staff look calm for this range.
+          Nothing urgent right now. Profit, cash, and staff look calm for this range.
         </Text>
       </View>
     );

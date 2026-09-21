@@ -12,7 +12,8 @@
       "bundleIdentifier": "com.regimanager.pulse",
       "infoPlist": {
         "CFBundleDisplayName": "RegiManager Pulse",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Pulse uses Face ID to protect owner financial data on this device."
       }
     },
     "android": {
@@ -41,6 +42,8 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      "expo-local-authentication",
+      "@react-native-community/datetimepicker",
       [
         "expo-splash-screen",
         {

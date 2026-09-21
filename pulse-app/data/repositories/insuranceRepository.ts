@@ -1,5 +1,5 @@
 import { fetchOwnerInsuranceSummary, fetchOwnerSpaces } from '@/lib/api';
-import { presetToDateParams } from '@/lib/dateRange';
+import { activeDateParams } from '@/lib/dateRange';
 import type { DateRangePreset, InsuranceSummaryPayload } from '@/types/models';
 
 function money(value: unknown): number {
@@ -17,8 +17,8 @@ export async function orgHasInsuranceAccess(): Promise<boolean> {
   }
 }
 
-export async function getInsuranceSummary(preset: DateRangePreset): Promise<InsuranceSummaryPayload> {
-  const { from_date, to_date } = presetToDateParams(preset);
+export async function getInsuranceSummary(_preset: DateRangePreset): Promise<InsuranceSummaryPayload> {
+  const { from_date, to_date } = activeDateParams();
   const raw = await fetchOwnerInsuranceSummary({ from_date, to_date });
 
   const totalsRaw = raw?.totals || {};

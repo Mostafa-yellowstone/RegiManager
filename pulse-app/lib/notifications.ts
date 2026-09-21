@@ -120,7 +120,7 @@ export async function enableDailySnapshot(): Promise<{ ok: boolean; message: str
   const id = await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Pulse daily snapshot',
-      body: "Yesterday's profit, expenses, and staff — tap to open your Pulse brief.",
+      body: "Yesterday's profit, expenses, and staff. Tap to open your Pulse brief.",
       data: { type: 'pulse_daily_snapshot' },
       ...(Platform.OS === 'android' ? { channelId: 'pulse-daily' } : {}),
     },

@@ -46,14 +46,17 @@ export default function PulseDashboardScreen() {
   const selectedSpaceId = useSpaceStore((s) => s.selectedSpaceId);
   const setSelectedSpaceId = useSpaceStore((s) => s.setSelectedSpaceId);
   const preset = useDateRangeStore((s) => s.preset);
+  const customStart = useDateRangeStore((s) => s.customStart);
+  const customEnd = useDateRangeStore((s) => s.customEnd);
   const setPreset = useDateRangeStore((s) => s.setPreset);
+  const setCustomRange = useDateRangeStore((s) => s.setCustomRange);
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
   const { data, isLoading, isFetching, refetch, isError, error } = useQuery({
-    queryKey: ['pulse-dashboard', selectedOrg?.id, selectedSpaceId, preset],
+    queryKey: ['pulse-dashboard', selectedOrg?.id, selectedSpaceId, preset, customStart, customEnd],
     queryFn: () => getPulseDashboard(selectedSpaceId, preset),
     enabled: Boolean(selectedOrg?.id),
   });
@@ -72,7 +75,7 @@ export default function PulseDashboardScreen() {
   });
 
   const salesQuery = useQuery({
-    queryKey: ['pulse-sales', selectedOrg?.id, preset],
+    queryKey: ['pulse-sales', selectedOrg?.id, preset, customStart, customEnd],
     queryFn: () => listSalesActivity(preset),
     enabled: Boolean(selectedOrg?.id),
     staleTime: 30_000,
@@ -292,7 +295,15 @@ export default function PulseDashboardScreen() {
           </View>
 
           <View style={{ gap: 10 }}>
-            <DateRangeSelector value={preset} onChange={onRangeChange} />
+            <DateRangeSelector
+              value={preset}
+              customStart={customStart}
+              customEnd={customEnd}
+              onChange={onRangeChange}
+              onCustomRange={(start, end) => {
+                setCustomRange(start, end);
+              }}
+            />
             <View style={{ flexDirection: 'row', justifyContent: 'flex-start' }}>
               <SpaceSwitcherTrigger
                 label={spaceLabel}
@@ -367,7 +378,7 @@ export default function PulseDashboardScreen() {
                 Financial overview
               </Text>
               <Text style={{ fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted, lineHeight: 17 }}>
-                Profit = insurance + DMV. Cash = bank income − expenses. Don’t mix them.
+                Gross profit = insurance + DMV. Net profit = income - expenses. Do not mix them.
               </Text>
               {!overview.cashflow_available && overview.cashflow_warning ? (
                 <View
@@ -385,7 +396,7 @@ export default function PulseDashboardScreen() {
               ) : null}
               <MetricGrid>
                 <MetricCard
-                  label="Net profit"
+                  label="Gross profit"
                   value={overview.net_profit}
                   badge={overview.badges.profit}
                   accent="green"
@@ -410,18 +421,18 @@ export default function PulseDashboardScreen() {
                   }}
                 />
                 <MetricCard
-                  label="Cash flow"
+                  label="Net profit"
                   value={overview.net_cash_flow}
                   accent="teal"
-                  metaLabel="income − exp"
-                  hint="Bank cash movement"
+                  metaLabel="income - exp"
+                  hint="Bank net profit"
                   onPress={() => {
                     void hapticSelection();
                     router.push('/(tabs)/expenses');
                   }}
                 />
                 <MetricCard
-                  label="Bank income"
+                  label="Income"
                   value={overview.bank_income}
                   accent="teal"
                   metaLabel="finance income"

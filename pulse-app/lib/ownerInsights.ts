@@ -116,7 +116,7 @@ export function buildAttentionItems(params: {
       id: 'profit-down',
       level: 'warning',
       title: 'Profit soft vs prior',
-      body: `Net profit is ${profitDelta.toFixed(0)}% vs the previous period.`,
+      body: `Gross profit is ${profitDelta.toFixed(0)}% vs the previous period.`,
       href: '/(tabs)',
     });
   }
@@ -125,7 +125,7 @@ export function buildAttentionItems(params: {
     items.push({
       id: 'cashflow-unavailable',
       level: 'info',
-      title: 'Bank cash flow limited',
+      title: 'Bank net profit limited',
       body: overview.cashflow_warning || 'Banking metrics may be incomplete for this account.',
       href: '/(tabs)/expenses',
     });
