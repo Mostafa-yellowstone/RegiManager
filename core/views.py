@@ -7781,7 +7781,7 @@ def add_daily_payment(request):
         request.user, org, membership=membership, is_owner=is_owner
     )
 
-    client_name = request.POST.get("client_name", "").strip()
+    client_id = request.POST.get("client_id", "").strip()
     amount = request.POST.get("amount", "0.00").strip()
     payment_type = request.POST.get("payment_type", "").strip()
     payment_method = request.POST.get("payment_method", "").strip()
@@ -7789,29 +7789,31 @@ def add_daily_payment(request):
     notes = request.POST.get("notes", "").strip()
     company_id = request.POST.get("insurance_company", "").strip()
 
-    if not client_name:
-        messages.error(request, "Client name is required.")
-        return _redirect_to_insurance_detail(org, tab="daily-payments", request=request)
+    try:
+        tx_date = dt_parse.strptime(transaction_date, "%Y-%m-%d").date() if transaction_date else timezone.localdate()
+    except ValueError:
+        tx_date = timezone.localdate()
+
+    client = None
+    if client_id.isdigit():
+        client = Client.objects.filter(organization=org, id=int(client_id)).first()
+    if not client:
+        messages.error(
+            request,
+            "Select an existing client from search. Daily payments cannot create a new client profile.",
+        )
+        return _redirect_to_insurance_detail(
+            org, tab="daily-payments", query_params=[f"daily_date={tx_date}"], request=request
+        )
 
     company = None
     if company_id.isdigit():
         company = InsuranceCompany.objects.filter(organization=org, id=int(company_id)).first()
     if not company:
         messages.error(request, "Company name is required.")
-        return _redirect_to_insurance_detail(org, tab="daily-payments", request=request)
-
-    from .client_matching import DuplicateClientError, resolve_client_for_display_name
-
-    try:
-        client = resolve_client_for_display_name(org, client_name, source="insurance")
-    except DuplicateClientError as exc:
-        messages.error(request, exc.message)
-        return _redirect_to_insurance_detail(org, tab="daily-payments", request=request)
-
-    try:
-        tx_date = dt_parse.strptime(transaction_date, "%Y-%m-%d").date() if transaction_date else timezone.localdate()
-    except ValueError:
-        tx_date = timezone.localdate()
+        return _redirect_to_insurance_detail(
+            org, tab="daily-payments", query_params=[f"daily_date={tx_date}"], request=request
+        )
 
     if payment_type not in VALID_PAYMENT_TYPES:
         messages.error(request, "Invalid payment type.")
@@ -7871,7 +7873,7 @@ def add_daily_payment(request):
 @require_POST
 def edit_daily_payment(request, transaction_id):
     from datetime import datetime as dt_parse
-    from .models import DailyPaymentTransaction, InsuranceCompany
+    from .models import DailyPaymentTransaction, Client, InsuranceCompany
     from .daily_payments import VALID_PAYMENT_METHODS, VALID_PAYMENT_TYPES
 
     organizations = _get_user_organizations(request)
@@ -7891,38 +7893,13 @@ def edit_daily_payment(request, transaction_id):
             tab="daily-payments",
             query_params=[f"daily_date={tx.transaction_date}"], request=request)
 
-    client_name = request.POST.get("client_name", "").strip()
+    client_id = request.POST.get("client_id", "").strip()
     amount = request.POST.get("amount", "0.00").strip()
     payment_type = request.POST.get("payment_type", "").strip()
     payment_method = request.POST.get("payment_method", "").strip()
     transaction_date = request.POST.get("transaction_date", "").strip()
     notes = request.POST.get("notes", "").strip()
     company_id = request.POST.get("insurance_company", "").strip()
-
-    if not client_name:
-        messages.error(request, "Client name is required.")
-        return _redirect_to_insurance_detail(org,
-            tab="daily-payments",
-            query_params=[f"daily_date={tx.transaction_date}"], request=request)
-
-    company = tx.insurance_company
-    if company_id.isdigit():
-        found_co = InsuranceCompany.objects.filter(organization=org, id=int(company_id)).first()
-        if found_co:
-            company = found_co
-
-    from .client_matching import DuplicateClientError, resolve_client_for_display_name
-
-    try:
-        client = resolve_client_for_display_name(org, client_name, source="insurance")
-    except DuplicateClientError as exc:
-        messages.error(request, exc.message)
-        return _redirect_to_insurance_detail(
-            org,
-            tab="daily-payments",
-            query_params=[f"daily_date={tx.transaction_date}"],
-            request=request,
-        )
 
     try:
         tx_date = (
@@ -7932,6 +7909,37 @@ def edit_daily_payment(request, transaction_id):
         )
     except ValueError:
         tx_date = tx.transaction_date
+
+    client = tx.client
+    if client_id.isdigit():
+        found_client = Client.objects.filter(organization=org, id=int(client_id)).first()
+        if found_client:
+            client = found_client
+        else:
+            messages.error(request, "Selected client was not found.")
+            return _redirect_to_insurance_detail(
+                org,
+                tab="daily-payments",
+                query_params=[f"daily_date={tx_date}"],
+                request=request,
+            )
+    elif not client_id:
+        messages.error(
+            request,
+            "Select an existing client from search. Daily payments cannot create a new client profile.",
+        )
+        return _redirect_to_insurance_detail(
+            org,
+            tab="daily-payments",
+            query_params=[f"daily_date={tx_date}"],
+            request=request,
+        )
+
+    company = tx.insurance_company
+    if company_id.isdigit():
+        found_co = InsuranceCompany.objects.filter(organization=org, id=int(company_id)).first()
+        if found_co:
+            company = found_co
 
     if payment_type not in VALID_PAYMENT_TYPES:
         messages.error(request, "Invalid payment type.")

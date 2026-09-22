@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth.models import User
-from django.test import Client as TestClient, TestCase
+from django.test import Client as TestClient, TestCase, override_settings
 from django.urls import reverse
 
 from core.models import (
@@ -14,6 +14,10 @@ from core.models import (
 )
 
 
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+)
 class DailyPaymentEditTests(TestCase):
     def setUp(self):
         self.org = Organization.objects.create(name="Daily Pay Org", city="NYC")
@@ -66,7 +70,7 @@ class DailyPaymentEditTests(TestCase):
         response = self.http.post(
             reverse("edit-daily-payment", args=[self.payment.id]),
             {
-                "client_name": "Daily Client",
+                "client_id": str(self.client_obj.id),
                 "amount": "150.00",
                 "payment_type": "renewal",
                 "payment_method": "zelle",
@@ -84,7 +88,7 @@ class DailyPaymentEditTests(TestCase):
         response = self.http.post(
             reverse("edit-daily-payment", args=[self.payment.id]),
             {
-                "client_name": "Daily Client",
+                "client_id": str(self.client_obj.id),
                 "amount": "150.00",
                 "payment_type": "renewal",
                 "payment_method": "zelle",
@@ -104,6 +108,63 @@ class DailyPaymentEditTests(TestCase):
         self.assertEqual(self.payment.updated_by_id, self.banker.id)
         self.assertIsNotNone(self.payment.updated_at)
 
+    def test_add_daily_payment_requires_existing_client_id(self):
+        self.http.login(username="banker", password="password123")
+        from core.models import InsuranceCompany
+
+        company = InsuranceCompany.objects.create(
+            organization=self.org,
+            name="Carrier Co",
+        )
+        before = Client.objects.filter(organization=self.org).count()
+        response = self.http.post(
+            reverse("add-daily-payment"),
+            {
+                "organization": str(self.org.id),
+                "client_name": "Brand New Person",
+                "insurance_company": str(company.id),
+                "amount": "50.00",
+                "payment_type": "monthly_payment",
+                "payment_method": "cash",
+                "transaction_date": self.tx_date.isoformat(),
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Client.objects.filter(organization=self.org).count(), before)
+        self.assertFalse(
+            DailyPaymentTransaction.objects.filter(
+                organization=self.org,
+                amount=Decimal("50.00"),
+            ).exists()
+        )
+
+    def test_add_daily_payment_with_client_id_succeeds(self):
+        self.http.login(username="banker", password="password123")
+        from core.models import InsuranceCompany
+
+        company = InsuranceCompany.objects.create(
+            organization=self.org,
+            name="Carrier Co",
+        )
+        response = self.http.post(
+            reverse("add-daily-payment"),
+            {
+                "organization": str(self.org.id),
+                "client_id": str(self.client_obj.id),
+                "insurance_company": str(company.id),
+                "amount": "75.00",
+                "payment_type": "monthly_payment",
+                "payment_method": "cash",
+                "transaction_date": self.tx_date.isoformat(),
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        payment = DailyPaymentTransaction.objects.get(
+            organization=self.org,
+            amount=Decimal("75.00"),
+        )
+        self.assertEqual(payment.client_id, self.client_obj.id)
+
     def test_daily_payments_tab_shows_edit_controls_for_banking_users_only(self):
         self.http.login(username="banker", password="password123")
         response = self.http.get(
@@ -113,6 +174,8 @@ class DailyPaymentEditTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Edited By")
         self.assertContains(response, 'class="dpt-edit-btn"')
+        self.assertContains(response, "addDailyClientSearch")
+        self.assertContains(response, "Search existing client")
 
         self.http.login(username="agent", password="password123")
         response = self.http.get(
@@ -123,3 +186,4 @@ class DailyPaymentEditTests(TestCase):
         self.assertNotContains(response, "<th>Edited By</th>")
         self.assertNotContains(response, 'class="dpt-edit-btn"')
         self.assertNotContains(response, "editDailyPaymentModal")
+        self.assertContains(response, "addDailyClientSearch")

@@ -106,6 +106,52 @@
     font-weight: 600;
     margin-top: 2px;
   }
+  .dpt-client-picker { position: relative; }
+  .dpt-client-results {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 40;
+    max-height: 240px;
+    overflow-y: auto;
+    background: var(--portal-surface, #fff);
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+  }
+  .dpt-client-results.open { display: block; }
+  .dpt-client-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    border-bottom: 1px solid #f1f5f9;
+    background: transparent;
+    padding: 0.7rem 0.85rem;
+    cursor: pointer;
+  }
+  .dpt-client-item:hover, .dpt-client-item:focus { background: #f8fafc; outline: none; }
+  .dpt-client-item:last-child { border-bottom: none; }
+  .dpt-client-name { font-weight: 800; color: #0f172a; font-size: 0.9rem; }
+  .dpt-client-meta { font-size: 0.75rem; color: #64748b; margin-top: 2px; font-weight: 600; }
+  .dpt-client-empty, .dpt-client-loading {
+    padding: 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #64748b;
+  }
+  .dpt-client-selected {
+    margin-top: 0.45rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #166534;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 0.4rem 0.65rem;
+  }
 </style>
 
 <div class="dpt-hero">
@@ -231,6 +277,7 @@
             data-tx-id="{{ tx.id }}"
             data-amount="{{ tx.amount }}"
             data-display-total="{{ tx.display_total }}"
+            data-client-id="{{ tx.client_id }}"
             data-client-name="{{ tx.client.name|escapejs }}"
             data-company-id="{% if tx.insurance_company_id %}{{ tx.insurance_company_id }}{% endif %}"
             data-payment-type="{{ tx.payment_type }}"
@@ -364,11 +411,24 @@
       <input type="hidden" name="organization" value="{{ active_org.id }}">
       <input type="hidden" name="transaction_date" value="{{ daily_payment_date|date:'Y-m-d' }}">
       <div style="margin-bottom: 1rem;">
-        <label class="field-label">Client Name</label>
-        <input type="text" name="client_name" required class="field-input" list="dailyClientList" placeholder="e.g. John Doe">
-        <datalist id="dailyClientList">
-          {% for c in clients %}<option value="{{ c.name }}"></option>{% endfor %}
-        </datalist>
+        <label class="field-label">Client</label>
+        <div class="dpt-client-picker" id="addDailyClientPicker">
+          <input type="hidden" name="client_id" id="addDailyClientId" value="">
+          <input
+            type="text"
+            id="addDailyClientSearch"
+            class="field-input"
+            placeholder="Search existing client by name, phone, DL, or plate…"
+            autocomplete="off"
+            aria-autocomplete="list"
+            aria-controls="addDailyClientResults"
+          >
+          <div class="dpt-client-results" id="addDailyClientResults" role="listbox"></div>
+          <div class="dpt-client-selected" id="addDailyClientSelected" hidden></div>
+        </div>
+        <p style="margin: 0.4rem 0 0; font-size: 0.75rem; color: #64748b; font-weight: 600;">
+          Search and select an existing insurance client. New profiles are not created here.
+        </p>
       </div>
       <div style="margin-bottom: 1rem;">
         <label class="field-label">Company Name</label>
@@ -486,8 +546,24 @@
         <input type="date" name="transaction_date" id="editDailyPaymentDate" required class="field-input">
       </div>
       <div style="margin-bottom: 1rem;">
-        <label class="field-label">Client Name</label>
-        <input type="text" name="client_name" id="editDailyPaymentClient" required class="field-input" list="dailyClientList" placeholder="e.g. John Doe">
+        <label class="field-label">Client</label>
+        <div class="dpt-client-picker" id="editDailyClientPicker">
+          <input type="hidden" name="client_id" id="editDailyClientId" value="">
+          <input
+            type="text"
+            id="editDailyClientSearch"
+            class="field-input"
+            placeholder="Search existing client by name, phone, DL, or plate…"
+            autocomplete="off"
+            aria-autocomplete="list"
+            aria-controls="editDailyClientResults"
+          >
+          <div class="dpt-client-results" id="editDailyClientResults" role="listbox"></div>
+          <div class="dpt-client-selected" id="editDailyClientSelected" hidden></div>
+        </div>
+        <p style="margin: 0.4rem 0 0; font-size: 0.75rem; color: #64748b; font-weight: 600;">
+          Search and select an existing insurance client. New profiles are not created here.
+        </p>
       </div>
       <div style="margin-bottom: 1rem;">
         <label class="field-label">Company Name</label>
@@ -613,6 +689,125 @@ function closeDailyDateDrawer() {
   document.getElementById('dailyDateDrawer').classList.remove('active');
 }
 
+const DPT_CLIENT_SEARCH_URL = "{% url 'client-search-ajax' %}";
+const DPT_ORG_ID = "{{ active_org.id }}";
+
+function initDailyClientPicker(prefix) {
+  const picker = document.getElementById(prefix + 'ClientPicker');
+  const searchInput = document.getElementById(prefix + 'ClientSearch');
+  const hiddenId = document.getElementById(prefix + 'ClientId');
+  const results = document.getElementById(prefix + 'ClientResults');
+  const selected = document.getElementById(prefix + 'ClientSelected');
+  const form = searchInput && searchInput.closest('form');
+  if (!picker || !searchInput || !hiddenId || !results) return;
+
+  let timer = null;
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function closeResults() {
+    results.classList.remove('open');
+  }
+
+  function pickClient(id, name, meta) {
+    hiddenId.value = String(id);
+    searchInput.value = name;
+    if (selected) {
+      selected.hidden = false;
+      selected.textContent = 'Selected: ' + name + (meta ? ' · ' + meta : '');
+    }
+    closeResults();
+  }
+
+  function setClient(id, name, meta) {
+    if (!id) {
+      hiddenId.value = '';
+      searchInput.value = '';
+      if (selected) selected.hidden = true;
+      closeResults();
+      return;
+    }
+    pickClient(id, name || '', meta || '');
+  }
+
+  function renderItems(items, q) {
+    if (!items.length) {
+      results.innerHTML = '<div class="dpt-client-empty">No clients found for "' + escHtml(q) + '". Add the client in Insurance CRM first.</div>';
+      results.classList.add('open');
+      return;
+    }
+    results.innerHTML = items.map(function (c) {
+      const name = c.name || c.full_name || 'Client';
+      const metaParts = [c.identifier, c.plate].filter(Boolean);
+      const meta = metaParts.join(' · ');
+      return (
+        '<button type="button" class="dpt-client-item" data-id="' + escHtml(c.id) + '" data-name="' + escHtml(name) + '" data-meta="' + escHtml(meta) + '">' +
+          '<div class="dpt-client-name">' + escHtml(name) + '</div>' +
+          (meta ? '<div class="dpt-client-meta">' + escHtml(meta) + '</div>' : '') +
+        '</button>'
+      );
+    }).join('');
+    results.classList.add('open');
+  }
+
+  function doSearch(q) {
+    const url =
+      DPT_CLIENT_SEARCH_URL +
+      '?q=' + encodeURIComponent(q) +
+      '&limit=12&organization=' + encodeURIComponent(DPT_ORG_ID);
+    fetch(url, { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (data) { renderItems(data.results || [], q); })
+      .catch(function () {
+        results.innerHTML = '<div class="dpt-client-empty">Could not load clients. Try again.</div>';
+        results.classList.add('open');
+      });
+  }
+
+  searchInput.addEventListener('input', function () {
+    hiddenId.value = '';
+    if (selected) selected.hidden = true;
+    const q = searchInput.value.trim();
+    clearTimeout(timer);
+    if (q.length < 2) {
+      closeResults();
+      return;
+    }
+    results.innerHTML = '<div class="dpt-client-loading">Searching…</div>';
+    results.classList.add('open');
+    timer = setTimeout(function () { doSearch(q); }, 250);
+  });
+
+  results.addEventListener('click', function (e) {
+    const btn = e.target.closest('.dpt-client-item');
+    if (!btn) return;
+    pickClient(btn.dataset.id, btn.dataset.name, btn.dataset.meta);
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('#' + prefix + 'ClientPicker')) closeResults();
+  });
+
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      if (!hiddenId.value) {
+        e.preventDefault();
+        searchInput.focus();
+        results.innerHTML = '<div class="dpt-client-empty">Search and select an existing client from the list.</div>';
+        results.classList.add('open');
+      }
+    });
+  }
+
+  picker._setClient = setClient;
+}
+
 function toggleAddClearDate(checkbox) {
   const dateInput = document.getElementById('addDailyPaymentClearDate');
   dateInput.disabled = !checkbox.checked;
@@ -647,7 +842,20 @@ function openEditDailyPayment(button) {
   const txId = row.dataset.txId;
   form.action = '{% url "edit-daily-payment" 0 %}'.replace('/0/', '/' + txId + '/');
   document.getElementById('editDailyPaymentDate').value = row.dataset.transactionDate || '';
-  document.getElementById('editDailyPaymentClient').value = row.dataset.clientName || '';
+  const editPicker = document.getElementById('editDailyClientPicker');
+  if (editPicker && editPicker._setClient) {
+    editPicker._setClient(row.dataset.clientId || '', row.dataset.clientName || '');
+  } else {
+    const idInput = document.getElementById('editDailyClientId');
+    const searchInput = document.getElementById('editDailyClientSearch');
+    const selected = document.getElementById('editDailyClientSelected');
+    if (idInput) idInput.value = row.dataset.clientId || '';
+    if (searchInput) searchInput.value = row.dataset.clientName || '';
+    if (selected) {
+      selected.hidden = !row.dataset.clientId;
+      selected.textContent = row.dataset.clientName ? ('Selected: ' + row.dataset.clientName) : '';
+    }
+  }
   const companySel = document.getElementById('editDailyPaymentCompany');
   if (companySel) companySel.value = row.dataset.companyId || '';
   const typeSel = document.getElementById('editDailyPaymentType');
@@ -688,6 +896,10 @@ function openEditDailyPayment(button) {
 document.addEventListener('DOMContentLoaded', function () {
   const addType = document.getElementById('addDailyPaymentType');
   if (addType) toggleDailySection2119(addType);
+  initDailyClientPicker('addDaily');
+  {% if user_can_clear_daily_payments %}
+  initDailyClientPicker('editDaily');
+  {% endif %}
 });
 
 function playClearSweep(row) {
