@@ -23,7 +23,7 @@
                             <label for="search-input">Search Client / Receipt</label>
                             <input type="text" id="search-input" name="q" value="{{ search_query }}" placeholder="Search by name, ID, or receipt...">
                         </div>
-                        <details class="portal-advanced-filters" {% if status_filter or date_from or date_to or org_filter or agent_filter or payment_filter or source_filter or referral_filter or min_amount or max_amount %}open{% endif %} style="width: 100%;">
+                        <details class="portal-advanced-filters" {% if status_filter or date_from or date_to or org_filter or agent_filter or payment_filter or source_filter or referral_filter or plate_type_filter or min_amount or max_amount %}open{% endif %} style="width: 100%;">
                             <summary class="portal-advanced-filter-toggle" style="margin: 0.4rem 0;">
                                 Advanced Filters
                             </summary>
@@ -89,6 +89,15 @@
                                         <option value="">All Referrals</option>
                                         {% for referral in referrals_for_filter %}
                                             <option value="{{ referral.id }}" {% if referral_filter == referral.id|stringformat:"s" %}selected{% endif %}>{{ referral.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group filter-group">
+                                    <label for="plate-type-select">Plate Type</label>
+                                    <select id="plate-type-select" name="plate_type">
+                                        <option value="">All Plate Types</option>
+                                        {% for val, label in plate_type_choices %}
+                                            <option value="{{ val }}" {% if plate_type_filter == val %}selected{% endif %}>{{ label }}</option>
                                         {% endfor %}
                                     </select>
                                 </div>

@@ -2977,6 +2977,7 @@ def service_list(request, service_type):
     payment_filter = request.GET.get('payment_method', '').strip()
     source_filter = request.GET.get('source', '').strip()
     referral_filter = request.GET.get('referral', '').strip()
+    plate_type_filter = request.GET.get('plate_type', '').strip()
     min_amount = request.GET.get('min_amount', '').strip()
     max_amount = request.GET.get('max_amount', '').strip()
     sort_by = request.GET.get('sort_by', '-created_at').strip() or '-created_at'
@@ -3020,6 +3021,10 @@ def service_list(request, service_type):
     referral_ids = set(accessible_referrals.values_list("id", flat=True))
     if referral_filter and referral_filter.isdigit() and int(referral_filter) in referral_ids:
         scope_qs = scope_qs.filter(referral_id=int(referral_filter))
+
+    plate_type_choices = dict(Vehicle.PLATE_TYPES)
+    if plate_type_filter in plate_type_choices:
+        scope_qs = scope_qs.filter(vehicle__plate_type=plate_type_filter)
         
     if date_from:
         scope_qs = scope_qs.filter(transaction_date__gte=date_from)
@@ -3194,11 +3199,13 @@ def service_list(request, service_type):
             "payment_filter": payment_filter,
             "source_filter": source_filter,
             "referral_filter": referral_filter,
+            "plate_type_filter": plate_type_filter,
             "min_amount": min_amount,
             "max_amount": max_amount,
             "sort_by": sort_by,
             "status_choices": ServiceRecord.STATUS_CHOICES,
             "payment_choices": ServiceRecord.PAYMENT_METHODS,
+            "plate_type_choices": Vehicle.PLATE_TYPES,
             "organizations_for_filter": organizations.order_by("name"),
             "agents_for_filter": accessible_agents.order_by("first_name", "last_name", "username"),
             "referrals_for_filter": accessible_referrals,
@@ -4743,6 +4750,7 @@ def finance_hub(request):
     sort_by = crm_sort_by
     referral_filter = request.GET.get("referral", "").strip()
     source_filter = request.GET.get("source", "").strip()
+    plate_type_filter = request.GET.get("plate_type", "").strip()
 
     if org_filter.isdigit():
         records = records.filter(organization_id=int(org_filter))
@@ -4953,6 +4961,9 @@ def finance_hub(request):
             crm_qs = crm_qs.filter(referral_id=int(referral_filter))
         if source_filter:
             crm_qs = crm_qs.filter(source_filter_q(source_filter))
+        plate_type_choices = dict(Vehicle.PLATE_TYPES)
+        if plate_type_filter in plate_type_choices:
+            crm_qs = crm_qs.filter(vehicle__plate_type=plate_type_filter)
         try:
             if min_amount:
                 crm_qs = crm_qs.filter(service_fee__gte=Decimal(min_amount))
@@ -5025,6 +5036,8 @@ def finance_hub(request):
         "sort_by": sort_by,
         "referral_filter": referral_filter,
         "source_filter": source_filter,
+        "plate_type_filter": plate_type_filter,
+        "plate_type_choices": Vehicle.PLATE_TYPES,
         "referrals_for_filter": referrals_for_filter,
         "sources_for_filter": sources_for_filter,
         "crm_page_obj": crm_page_obj,
