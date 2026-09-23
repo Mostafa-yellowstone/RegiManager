@@ -1345,11 +1345,11 @@ class ClientIntake(models.Model):
     weight = models.CharField(max_length=50, blank=True, default="")
     cylinders = models.CharField(max_length=20, blank=True, default="")
     
-    # Dealer partner (when source is dealer — referral source has no partner picker)
+    # Dealer / referral partner (when source is dealer or referral)
     SOURCE_CHOICES = list(INTAKE_SOURCE_CHOICES)
     source = models.CharField(max_length=50, choices=SOURCE_CHOICES, default="google_search")
 
-    # Dealer partner (when source is dealer)
+    # Linked Referral Space partner (when source is dealer or referral)
     selected_referral = models.ForeignKey(
         Referral,
         on_delete=models.SET_NULL,

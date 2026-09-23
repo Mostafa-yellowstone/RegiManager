@@ -29,7 +29,7 @@ def resolve_intake_referral(intake):
     return Referral.objects.create(
         organization_id=intake.organization_id,
         name=name,
-        category="dealer",
+        category="dealer" if (intake.source or "").strip().lower() == "dealer" else "customer",
         address=(intake.partner_address or "").strip(),
         phone_no=(intake.partner_phone or "").strip(),
         email=(intake.partner_email or "").strip() or None,

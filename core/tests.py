@@ -3111,6 +3111,10 @@ class ClientSearchAjaxTests(TestCase):
         self.assertIn("John Michael Smith", names)
 
 
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+)
 class ClientProfileReferralTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="profileuser", password="password123")

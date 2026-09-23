@@ -6718,6 +6718,7 @@ def inventory_detail(request, inventory_id):
             "is_owner": is_owner,
             "active_org": active_org,
             "clients": clients,
+            "referral_partners": Referral.objects.filter(organization=active_org).order_by("name", "category"),
             "insurance_companies": insurance_companies,
             "company_summaries": company_summaries,
             "license_attention": license_attention,
@@ -7118,6 +7119,17 @@ def add_insurance_policy(request):
     except DuplicateClientError as exc:
         messages.error(request, exc.message)
         return _redirect_to_insurance_detail(org, request=request)
+
+    from .client_referral import apply_referral_id_to_client, uses_referral_partner
+
+    source = request.POST.get("source", "walk_in")
+    if uses_referral_partner(source):
+        apply_referral_id_to_client(
+            client,
+            request.POST.get("referral_id"),
+            organization=org,
+            source=source,
+        )
     
     company_id = request.POST.get("insurance_company")
     company = get_object_or_404(InsuranceCompany, id=company_id, organization=org)
@@ -7131,7 +7143,6 @@ def add_insurance_policy(request):
     stage = request.POST.get("stage", "quote")
     status = request.POST.get("status", "active")
     insurance_type = request.POST.get("insurance_type", "")
-    source = request.POST.get("source", "walk_in")
     business_type = request.POST.get("business_type", "new_business")
     bound_date = request.POST.get("bound_date", "").strip()
     if not bound_date:
@@ -7206,6 +7217,17 @@ def edit_insurance_policy(request, policy_id):
         except DuplicateClientError as exc:
             messages.error(request, exc.message)
             return _redirect_to_insurance_detail(policy.organization, request=request)
+
+        from .client_referral import apply_referral_id_to_client, uses_referral_partner
+
+        source = request.POST.get("source", "walk_in")
+        if uses_referral_partner(source):
+            apply_referral_id_to_client(
+                client,
+                request.POST.get("referral_id"),
+                organization=policy.organization,
+                source=source,
+            )
         
         company_id = request.POST.get("insurance_company")
         company = get_object_or_404(InsuranceCompany, id=company_id, organization=policy.organization)
@@ -7222,7 +7244,7 @@ def edit_insurance_policy(request, policy_id):
         policy.stage = request.POST.get("stage", "quote")
         policy.status = request.POST.get("status", "active")
         policy.insurance_type = request.POST.get("insurance_type", "")
-        policy.source = request.POST.get("source", "walk_in")
+        policy.source = source
         policy.business_type = request.POST.get("business_type", "new_business")
         bound_date = request.POST.get("bound_date", "").strip()
         if not bound_date:
@@ -7253,6 +7275,11 @@ def edit_insurance_policy(request, policy_id):
         "id": policy.id,
         "client_name": policy.client.name if policy.client else "",
         "client_id": policy.client_id,
+        "referral_id": (
+            str(policy.client.referral_id)
+            if policy.client_id and policy.client and policy.client.referral_id
+            else ""
+        ),
         "insurance_company_id": policy.insurance_company_id,
         "policy_number": policy.policy_number,
         "premium": str(policy.premium),

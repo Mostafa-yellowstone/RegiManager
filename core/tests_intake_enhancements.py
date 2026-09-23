@@ -4,12 +4,16 @@ from decimal import Decimal
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import Client as TestClient, TestCase
+from django.test import Client as TestClient, TestCase, override_settings
 from django.urls import reverse
 
 from core.models import Client, ClientIntake, ClientNote, Organization, OrganizationMembership, Referral, Vehicle
 
 
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+)
 class IntakePortalEnhancementTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="intakeowner", password="password123")
@@ -57,8 +61,9 @@ class IntakePortalEnhancementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Motorcycle")
         self.assertContains(response, "Flat bed truck")
-        self.assertContains(response, "Dealer / Referral")
-        self.assertNotContains(response, 'value="referral"')
+        self.assertContains(response, 'value="dealer"')
+        self.assertContains(response, 'value="referral"')
+        self.assertContains(response, "Select a partner from Referral Space")
 
     def test_dealer_source_requires_partner_selection(self):
         response = self.http.post(
@@ -66,7 +71,7 @@ class IntakePortalEnhancementTests(TestCase):
             self._base_post(source="dealer"),
         )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "dealer / referral partner")
+        self.assertContains(response, "Please select a dealer or add a new one.")
 
     def test_existing_dealer_selection_saved_on_intake(self):
         response = self.http.post(
@@ -165,15 +170,28 @@ class IntakePortalEnhancementTests(TestCase):
         intake = ClientIntake.objects.get(organization=self.org, first_name="Jane")
         self.assertEqual(intake.body_type, "other")
 
-    def test_referral_source_is_plain_choice_without_dealer(self):
+    def test_referral_source_opens_partner_picker(self):
+        broker = Referral.objects.create(
+            organization=self.org, name="Broker Buddy", category="broker"
+        )
         response = self.http.post(
             reverse("public-intake-direct", args=[self.org.portal_token]),
-            self._base_post(source="referral"),
+            self._base_post(source="referral", referral_select=str(broker.id)),
         )
         self.assertEqual(response.status_code, 302)
         intake = ClientIntake.objects.get(organization=self.org, first_name="Jane")
         self.assertEqual(intake.source, "referral")
-        self.assertIsNone(intake.selected_referral_id)
+        self.assertEqual(intake.selected_referral_id, broker.id)
+
+    def test_referral_source_requires_partner_selection(self):
+        response = self.http.post(
+            reverse("public-intake-direct", args=[self.org.portal_token]),
+            self._base_post(source="referral"),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            ClientIntake.objects.filter(organization=self.org, first_name="Jane").exists()
+        )
 
     def test_pdf_upload_zone_accepts_pdf(self):
         pdf = SimpleUploadedFile("card.pdf", b"%PDF-1.4 test", content_type="application/pdf")

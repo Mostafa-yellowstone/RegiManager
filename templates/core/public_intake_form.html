@@ -421,20 +421,20 @@
                     {% endif %}
 
                     <div id="dealerPanel" class="dealer-panel">
-                        <label style="text-transform: none; letter-spacing: 0;">Dealer</label>
+                        <label id="partnerPanelLabel" style="text-transform: none; letter-spacing: 0;">Partner</label>
                         <select id="dealerSelect" class="form-control" style="max-width: 420px; margin-top: 0.35rem;">
-                            <option value="">Select a dealer...</option>
-                            {% for partner in dealer_partners %}
-                            <option value="{{ partner.id }}">{{ partner.name }}</option>
+                            <option value="">Select a partner from Referral Space...</option>
+                            {% for partner in referral_partners %}
+                            <option value="{{ partner.id }}">{{ partner.name }} ({{ partner.get_category_display }})</option>
                             {% endfor %}
                         </select>
                         <input type="hidden" name="referral_select" id="id_referral_select" value="">
-                        <button type="button" id="toggleNewDealerBtn" class="btn-secondary-outline">+ Add New Dealer</button>
+                        <button type="button" id="toggleNewDealerBtn" class="btn-secondary-outline">+ Add New Partner</button>
 
                         <div id="newDealerBlock" class="dealer-new-block">
                             <div class="form-grid" style="margin-top: 0.75rem;">
                                 <div class="col-span-2">
-                                    <label>Dealer Name</label>
+                                    <label id="partnerNameLabel">Partner Name</label>
                                     {{ form.partner_name }}
                                     {% if form.partner_name.errors %}<p style="color:#dc2626;font-size:0.8rem;">{{ form.partner_name.errors.0 }}</p>{% endif %}
                                 </div>
@@ -859,7 +859,23 @@
 
         function usesDealerSource() {
             const val = sourceSelect ? sourceSelect.value : '';
-            return val === 'dealer';
+            return val === 'dealer' || val === 'referral';
+        }
+
+        function updatePartnerPanelCopy() {
+            const isDealer = sourceSelect && sourceSelect.value === 'dealer';
+            const panelLabel = document.getElementById('partnerPanelLabel');
+            const nameLabel = document.getElementById('partnerNameLabel');
+            if (panelLabel) panelLabel.textContent = isDealer ? 'Dealer / Partner' : 'Referral Partner';
+            if (nameLabel) nameLabel.textContent = isDealer ? 'Dealer Name' : 'Partner Name';
+            if (toggleNewDealerBtn && newDealerBlock && !newDealerBlock.classList.contains('is-visible')) {
+                toggleNewDealerBtn.textContent = isDealer ? '+ Add New Dealer' : '+ Add New Partner';
+            }
+            if (dealerSelect && dealerSelect.options.length) {
+                dealerSelect.options[0].textContent = isDealer
+                    ? 'Select a dealer or partner from Referral Space...'
+                    : 'Select a referral partner from Referral Space...';
+            }
         }
 
         function syncReferralHidden() {
@@ -879,9 +895,10 @@
             if (!dealerPanel) return;
             const show = usesDealerSource();
             dealerPanel.classList.toggle('is-visible', show);
+            if (show) updatePartnerPanelCopy();
             if (!show && newDealerBlock) {
                 newDealerBlock.classList.remove('is-visible');
-                if (toggleNewDealerBtn) toggleNewDealerBtn.textContent = '+ Add New Dealer';
+                if (toggleNewDealerBtn) toggleNewDealerBtn.textContent = '+ Add New Partner';
             }
             syncReferralHidden();
         }
@@ -894,7 +911,7 @@
             dealerSelect.addEventListener('change', function () {
                 if (this.value && newDealerBlock) {
                     newDealerBlock.classList.remove('is-visible');
-                    if (toggleNewDealerBtn) toggleNewDealerBtn.textContent = '+ Add New Dealer';
+                    updatePartnerPanelCopy();
                 }
                 syncReferralHidden();
             });
@@ -903,7 +920,10 @@
             toggleNewDealerBtn.addEventListener('click', function () {
                 const opening = !newDealerBlock.classList.contains('is-visible');
                 newDealerBlock.classList.toggle('is-visible', opening);
-                this.textContent = opening ? 'Cancel New Dealer' : '+ Add New Dealer';
+                const isDealer = sourceSelect && sourceSelect.value === 'dealer';
+                this.textContent = opening
+                    ? (isDealer ? 'Cancel New Dealer' : 'Cancel New Partner')
+                    : (isDealer ? '+ Add New Dealer' : '+ Add New Partner');
                 if (opening && dealerSelect) dealerSelect.value = '';
                 syncReferralHidden();
             });

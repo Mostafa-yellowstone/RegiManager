@@ -97,9 +97,9 @@ def public_intake_portal(request, portal_token=None):
     else:
         form = ClientIntakeForm(organization=organization)
 
-    dealer_partners = Referral.objects.filter(
-        organization=organization, category="dealer"
-    ).order_by("name")
+    referral_partners = Referral.objects.filter(
+        organization=organization
+    ).order_by("name", "category")
 
     return render(
         request,
@@ -110,7 +110,8 @@ def public_intake_portal(request, portal_token=None):
             "standard_services": standard_services,
             "custom_services": custom_services,
             "portal_token": token,
-            "dealer_partners": dealer_partners,
+            "referral_partners": referral_partners,
+            "dealer_partners": referral_partners,  # backward-compatible alias
             "vehicle_types": Vehicle.VEHICLE_TYPES,
             "body_types": Vehicle.BODY_TYPES,
             "fuel_types": Vehicle.FUEL_TYPES,

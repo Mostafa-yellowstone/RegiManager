@@ -2057,7 +2057,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
         <div>
           <label class="field-label">Source</label>
-          <select name="source" id="policySource" class="field-input" style="font-weight: 700;">
+          <select name="source" id="policySource" class="field-input" style="font-weight: 700;" onchange="syncPolicyReferralPartner()">
             <option value="walk_in" style="background:#e0f2fe; color:#075985;">🚶 Walk-in</option>
             <option value="google_search" style="background:#fef9c3; color:#713f12;">🔍 Google Search</option>
             <option value="meta_platform" style="background:#ede9fe; color:#5b21b6;">📘 Meta Platform</option>
@@ -2077,6 +2077,18 @@ html.portal-theme-dark .ins-license-crm-alert__row {
             <option value="rewrite" style="background:#fff7ed; color:#9a3412;">✏️ Rewrite</option>
           </select>
         </div>
+      </div>
+      <div id="policyReferralPartnerWrap" style="display: none; margin-bottom: 1rem;">
+        <label class="field-label" id="policyReferralPartnerLabel">Referral Space Partner</label>
+        <select name="referral_id" id="policyReferralPartner" class="field-input">
+          <option value="">Select partner from Referral Space…</option>
+          {% for partner in referral_partners %}
+          <option value="{{ partner.id }}" data-category="{{ partner.category }}">{{ partner.name }} ({{ partner.get_category_display }})</option>
+          {% endfor %}
+        </select>
+        <p style="margin: 0.35rem 0 0; font-size: 0.75rem; color: #64748b; font-weight: 600;">
+          Shows every partner from Referral Space (dealers, brokers, customers, and more).
+        </p>
       </div>
       <div id="inactiveDateRow" style="display: none; margin-bottom: 1rem;">
         <label class="field-label">Cancellation Date</label>
@@ -2464,6 +2476,23 @@ function toggleInactiveDate() {
   }
 }
 
+function syncPolicyReferralPartner() {
+  const source = document.getElementById('policySource');
+  const wrap = document.getElementById('policyReferralPartnerWrap');
+  const select = document.getElementById('policyReferralPartner');
+  const label = document.getElementById('policyReferralPartnerLabel');
+  if (!source || !wrap) return;
+  const val = (source.value || '').toLowerCase();
+  const show = val === 'dealer' || val === 'referral';
+  wrap.style.display = show ? 'block' : 'none';
+  if (label) {
+    label.textContent = val === 'dealer'
+      ? 'Dealer / Partner (Referral Space)'
+      : 'Referral Partner (Referral Space)';
+  }
+  if (!show && select) select.value = '';
+}
+
 function openAddPolicyModal() {
   document.getElementById('policyModalTitle').textContent = '🛡️ Add Insurance Policy';
   document.getElementById('policyForm').action = "{% url 'add-insurance-policy' %}";
@@ -2475,6 +2504,9 @@ function openAddPolicyModal() {
   document.getElementById('policySource').value = 'walk_in';
   document.getElementById('policyBusinessType').value = 'new_business';
   document.getElementById('policyBoundDate').value = new Date().toISOString().split('T')[0];
+  const partnerSelect = document.getElementById('policyReferralPartner');
+  if (partnerSelect) partnerSelect.value = '';
+  syncPolicyReferralPartner();
   toggleInactiveDate();
   document.getElementById('addPolicyModal').classList.add('active');
 }
@@ -2601,6 +2633,9 @@ function editPolicy(id) {
       document.getElementById('policySource').value = data.source || 'walk_in';
       document.getElementById('policyBusinessType').value = data.business_type || 'new_business';
       document.getElementById('policyBoundDate').value = data.bound_date || '';
+      const partnerSelect = document.getElementById('policyReferralPartner');
+      if (partnerSelect) partnerSelect.value = data.referral_id || '';
+      syncPolicyReferralPartner();
       toggleInactiveDate();
       if (data.status === 'inactive') document.getElementById('policyInactiveDate').value = data.inactive_date || '';
       document.getElementById('policyModalTitle').textContent = '✏️ Edit Insurance Policy';

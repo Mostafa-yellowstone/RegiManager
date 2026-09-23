@@ -292,22 +292,22 @@ class ClientForm(forms.ModelForm):
         elif not self.data:
             self.fields["source"].initial = ""
 
-        referral_choices = [("", "--- Select Dealer ---"), ("new", "+ Create New Dealer")]
-        if organizations.exists():
-            referrals = Referral.objects.filter(
-                organization__in=organizations,
-                category="dealer",
-            ).order_by('name')
-            for d in referrals:
-                referral_choices.insert(1, (str(d.id), d.name))
+        from .client_referral import build_referral_partner_choices
+
+        referral_choices = build_referral_partner_choices(
+            organizations,
+            blank_label="--- Select partner ---",
+            include_new=True,
+            new_label="+ Create New Partner",
+            current_referral=(
+                self.instance.referral
+                if self.instance.pk and self.instance.referral_id
+                else None
+            ),
+        )
         self.fields["referral_select"].choices = referral_choices
         if self.instance.pk and self.instance.referral_id:
-            # Keep current linked partner even if not category=dealer.
-            current_id = str(self.instance.referral_id)
-            if not any(value == current_id for value, _ in referral_choices):
-                referral_choices.insert(1, (current_id, self.instance.referral.name))
-                self.fields["referral_select"].choices = referral_choices
-            self.fields["referral_select"].initial = current_id
+            self.fields["referral_select"].initial = str(self.instance.referral_id)
         self.fields["referral_phone_no"].widget.attrs.update({"class": "phone-mask", "placeholder": "(000) 000 - 0000"})
         # self.fields["referral_balance"].widget.attrs["readonly"] = True
         for field_name, field in self.fields.items():
@@ -881,7 +881,9 @@ class ClientIntakeForm(forms.ModelForm):
             cleaned_data["business_ein"] = ""
 
         source = cleaned_data.get("source")
-        if source != "dealer":
+        from .client_referral import uses_referral_partner
+
+        if not uses_referral_partner(source):
             cleaned_data["partner_name"] = ""
             cleaned_data["partner_phone"] = ""
             cleaned_data["partner_email"] = None
@@ -893,12 +895,13 @@ class ClientIntakeForm(forms.ModelForm):
         partner_name = (cleaned_data.get("partner_name") or "").strip()
         has_existing = ref_select and ref_select != "new"
         has_new = (ref_select == "new" or not ref_select) and partner_name
+        partner_word = "dealer" if source == "dealer" else "referral partner"
         if not has_existing and not has_new:
             raise forms.ValidationError(
-                "Please select a dealer or add a new one."
+                f"Please select a {partner_word} or add a new one."
             )
         if ref_select == "new" and not partner_name:
-            self.add_error("partner_name", "Partner name is required for a new dealer.")
+            self.add_error("partner_name", f"Partner name is required for a new {partner_word}.")
         if has_existing:
             cleaned_data["partner_name"] = ""
             cleaned_data["partner_phone"] = ""
@@ -910,11 +913,13 @@ class ClientIntakeForm(forms.ModelForm):
             try:
                 ref_id = int(ref_select)
             except (TypeError, ValueError):
-                raise forms.ValidationError("Invalid dealer selection.")
+                raise forms.ValidationError(f"Invalid {partner_word} selection.")
             from .models import Referral
 
             if not Referral.objects.filter(id=ref_id, organization=self.organization).exists():
-                raise forms.ValidationError("Selected dealer is not valid for this organization.")
+                raise forms.ValidationError(
+                    f"Selected {partner_word} is not valid for this organization."
+                )
 
         self._validate_intake_duplicates(cleaned_data)
         return cleaned_data
