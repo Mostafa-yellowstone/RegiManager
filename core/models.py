@@ -207,6 +207,10 @@ class OrganizationMembership(models.Model):
         default=False,
         help_text="Can this member manage Defense Driving Course enrollments and packages?",
     )
+    can_manage_staff = models.BooleanField(
+        default=False,
+        help_text="Can this member manage Staff space employee profiles and documents?",
+    )
     can_deal_with_tlc = models.BooleanField(
         default=False,
         help_text="Can this member manage TLC policy profitability records?",
@@ -2338,7 +2342,7 @@ class DailyPaymentTransaction(models.Model):
     class PaymentMethod(models.TextChoices):
         CASH = "cash", "Cash"
         ZELLE = "zelle", "Zelle"
-        CREDIT_CARD = "credit_card", "Credit Card"
+        CREDIT_CARD = "credit_card", "Client's Credit Card"
         CHECKS = "checks", "Checks"
         PAYMENT_HUB = "payment_hub", "Payment Hub"
 
@@ -2962,6 +2966,151 @@ class DefenseDrivingEnrollment(models.Model):
                 enrollment_number=number
             )
             self.enrollment_number = number
+
+
+def staff_photo_upload_path(instance, filename):
+    from django.utils import timezone
+
+    stamp = timezone.now().strftime("%Y/%m")
+    return f"staff_photos/{instance.organization_id}/{stamp}/{filename}"
+
+
+def staff_document_upload_path(instance, filename):
+    from django.utils import timezone
+
+    stamp = timezone.now().strftime("%Y/%m")
+    return (
+        f"staff_documents/{instance.organization_id}/"
+        f"{instance.employee_id}/{stamp}/{filename}"
+    )
+
+
+class StaffEmployee(models.Model):
+    """Employee profile stored in the Staff space (HR folder)."""
+
+    class StatusChoices(models.TextChoices):
+        ACTIVE = "active", "Active"
+        ON_LEAVE = "on_leave", "On Leave"
+        TERMINATED = "terminated", "Terminated"
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="staff_employees",
+    )
+    space = models.ForeignKey(
+        Space,
+        on_delete=models.CASCADE,
+        related_name="staff_employees",
+    )
+    first_name = models.CharField(max_length=80)
+    last_name = models.CharField(max_length=80)
+    email = models.EmailField(blank=True, default="")
+    phone = models.CharField(max_length=40, blank=True, default="")
+    job_title = models.CharField(max_length=120, blank=True, default="")
+    department = models.CharField(max_length=120, blank=True, default="")
+    employment_status = models.CharField(
+        max_length=20,
+        choices=StatusChoices.choices,
+        default=StatusChoices.ACTIVE,
+    )
+    hire_date = models.DateField(blank=True, null=True)
+    date_of_birth = models.DateField(blank=True, null=True)
+    address = models.CharField(max_length=255, blank=True, default="")
+    city = models.CharField(max_length=80, blank=True, default="")
+    state = models.CharField(max_length=40, blank=True, default="")
+    zip_code = models.CharField(max_length=20, blank=True, default="")
+    emergency_contact_name = models.CharField(max_length=120, blank=True, default="")
+    emergency_contact_phone = models.CharField(max_length=40, blank=True, default="")
+    notes = models.TextField(blank=True, default="")
+    photo = models.ImageField(upload_to=staff_photo_upload_path, blank=True, null=True)
+    linked_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="staff_employee_profiles",
+        help_text="Optional link to a login user / agent account.",
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_staff_employees",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["last_name", "first_name"]
+
+    def __str__(self):
+        return self.full_name
+
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}".strip()
+
+    @property
+    def initials(self):
+        parts = [self.first_name[:1], self.last_name[:1]]
+        return "".join(p.upper() for p in parts if p)
+
+
+class StaffDocument(models.Model):
+    """Attachment on a staff employee profile (CV, ID, contract, etc.)."""
+
+    class Category(models.TextChoices):
+        CV = "cv", "CV / Resume"
+        ID = "id", "ID / License"
+        CONTRACT = "contract", "Contract"
+        CERTIFICATE = "certificate", "Certificate"
+        PAYROLL = "payroll", "Payroll"
+        OTHER = "other", "Other"
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="staff_documents",
+    )
+    employee = models.ForeignKey(
+        StaffEmployee,
+        on_delete=models.CASCADE,
+        related_name="documents",
+    )
+    title = models.CharField(max_length=200)
+    category = models.CharField(
+        max_length=20,
+        choices=Category.choices,
+        default=Category.OTHER,
+    )
+    file = models.FileField(upload_to=staff_document_upload_path)
+    notes = models.TextField(blank=True, default="")
+    expires_at = models.DateField(
+        blank=True,
+        null=True,
+        help_text="Optional expiry for IDs, certificates, or work authorization.",
+    )
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_staff_documents",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def file_extension(self):
+        name = (self.file.name or "").rsplit(".", 1)
+        return name[-1].lower() if len(name) > 1 else ""
 
 
 class EmailMarketingList(models.Model):

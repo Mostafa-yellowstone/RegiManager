@@ -10,6 +10,7 @@ from . import (
     referrals,
     services,
     spaces,
+    staff,
     tlc,
 )
 from .site import patch_admin_site
@@ -26,6 +27,7 @@ __all__ = [
     "referrals",
     "services",
     "spaces",
+    "staff",
     "tlc",
     "patch_admin_site",
 ]

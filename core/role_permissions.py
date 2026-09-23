@@ -20,6 +20,7 @@ ROLE_FLAG_FIELDS = (
     "can_deal_with_insurance",
     "can_deal_with_motorclub",
     "can_deal_with_defense_driving",
+    "can_manage_staff",
     "can_deal_with_tlc",
     "can_assign_agent_tasks",
     "can_delete_receipt",
@@ -53,6 +54,7 @@ ROLE_PACKS: dict[str, dict[str, bool]] = {
         # Pack B: Finance/Reports overview only — no banking edits
         "can_view_banking": False,
         "can_deal_with_insurance": False,
+        "can_manage_staff": True,
     },
     Role.ACCOUNTANT: {
         **_FALSE_PACK,
@@ -71,6 +73,7 @@ ROLE_PACKS: dict[str, dict[str, bool]] = {
         "can_view_spaces": True,
         "can_deal_with_motorclub": True,
         "can_deal_with_defense_driving": True,
+        "can_manage_staff": False,
         "can_deal_with_tlc": True,
         "can_view_banking": False,
         "can_assign_agent_tasks": False,

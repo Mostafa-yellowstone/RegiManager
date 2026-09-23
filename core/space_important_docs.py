@@ -16,9 +16,12 @@ from .models import OrganizationMembership, Space, SpaceImportantDocument
 from .views import _get_user_organizations
 
 # Spaces that host the shared Important Documents UI and their manage flags.
+# "__owner__" = only owners/superusers can upload/delete (viewers with space access can download).
 SPACE_DOC_PERMISSION_FLAGS = {
     "motorclub": "can_deal_with_motorclub",
     "defense_driving": "can_deal_with_defense_driving",
+    "custom_inventory": "__owner__",
+    "staff": "can_manage_staff",
 }
 
 
@@ -32,7 +35,7 @@ def user_can_manage_space_docs(is_owner, membership, space: Space) -> bool:
     if not membership:
         return False
     flag = SPACE_DOC_PERMISSION_FLAGS.get(space.key)
-    if not flag:
+    if not flag or flag == "__owner__":
         return False
     return bool(getattr(membership, flag, False))
 

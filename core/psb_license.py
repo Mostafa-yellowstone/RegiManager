@@ -1,4 +1,8 @@
-"""PSB (Organization) license status and renewal alert helpers."""
+"""PSB (Organization) license status and renewal alert helpers.
+
+Owners get staged renewal notifications at 45, 30, and 15 days before
+expiration, plus when the license has already expired.
+"""
 
 from __future__ import annotations
 
@@ -7,8 +11,6 @@ from typing import TYPE_CHECKING, Iterable
 
 from django.utils import timezone
 
-from .insurance_company_license import clamp_alert_days
-
 if TYPE_CHECKING:
     from .models import Organization
 
@@ -16,15 +18,37 @@ EVENT_EXPIRING = "psb_license_expiring"
 EVENT_EXPIRED = "psb_license_expired"
 LICENSE_EVENT_TYPES = (EVENT_EXPIRING, EVENT_EXPIRED)
 
+# Tightest milestone first — used for UI urgency and alert dedupe tokens.
+RENEWAL_MILESTONES = (15, 30, 45)
+
+
+def active_renewal_milestone(days_left: int | None) -> int | str | None:
+    """
+    Return the tightest crossed renewal band.
+
+    - expired -> "expired"
+    - days_left <= 15 -> 15
+    - days_left <= 30 -> 30
+    - days_left <= 45 -> 45
+    - else -> None (no alert)
+    """
+    if days_left is None:
+        return None
+    if days_left < 0:
+        return "expired"
+    for milestone in RENEWAL_MILESTONES:
+        if days_left <= milestone:
+            return milestone
+    return None
+
 
 def psb_license_status(organization: Organization, *, today: date | None = None) -> dict:
     """
-    Compute PSB license renewal status for UI and alerts.
+    Compute PSB / DMV license renewal status for UI and alerts.
 
     States: missing | ok | expiring | expired
     """
     today = today or timezone.localdate()
-    alert_days = clamp_alert_days(getattr(organization, "psbc_license_alert_days", 5))
     effective = organization.psbc_license_effective_date
     expiration = organization.psbc_license_expiration_date
     license_number = (organization.psbc_license or "").strip()
@@ -33,8 +57,10 @@ def psb_license_status(organization: Organization, *, today: date | None = None)
         "license_number": license_number,
         "effective_date": effective,
         "expiration_date": expiration,
-        "alert_days": alert_days,
+        "alert_days": 45,
+        "milestones": list(RENEWAL_MILESTONES),
         "organization_name": organization.name,
+        "milestone": None,
     }
 
     if not expiration:
@@ -43,34 +69,42 @@ def psb_license_status(organization: Organization, *, today: date | None = None)
             **base,
             "state": "missing",
             "days_left": None,
-            "label": "License dates incomplete" if incomplete else "No PSB license expiration on file",
+            "label": "License dates incomplete" if incomplete else "No PSB / DMV license expiration on file",
             "tone": "muted",
             "needs_alert": False,
         }
 
     days_left = (expiration - today).days
+    milestone = active_renewal_milestone(days_left)
+
     if days_left < 0:
         ago = abs(days_left)
         return {
             **base,
             "state": "expired",
             "days_left": days_left,
-            "label": f"PSB license expired {ago} day{'s' if ago != 1 else ''} ago",
+            "milestone": "expired",
+            "label": f"PSB / DMV license expired {ago} day{'s' if ago != 1 else ''} ago",
             "tone": "danger",
             "needs_alert": True,
         }
 
-    if days_left <= alert_days:
+    if milestone is not None:
         if days_left == 0:
-            label = "PSB license expires today — renew now"
+            label = "PSB / DMV license expires today — renew now"
         else:
-            label = f"PSB license renews in {days_left} day{'s' if days_left != 1 else ''}"
+            label = (
+                f"PSB / DMV license renews in {days_left} day"
+                f"{'s' if days_left != 1 else ''} "
+                f"(≤{milestone}-day alert)"
+            )
         return {
             **base,
             "state": "expiring",
             "days_left": days_left,
+            "milestone": milestone,
             "label": label,
-            "tone": "warning",
+            "tone": "warning" if milestone != 15 else "danger",
             "needs_alert": True,
         }
 
@@ -78,7 +112,8 @@ def psb_license_status(organization: Organization, *, today: date | None = None)
         **base,
         "state": "ok",
         "days_left": days_left,
-        "label": f"PSB license OK · {days_left} days left",
+        "milestone": None,
+        "label": f"PSB / DMV license OK · {days_left} days left",
         "tone": "success",
         "needs_alert": False,
     }
@@ -101,15 +136,15 @@ def _alert_recipients_for_org(organization: Organization):
     return list(User.objects.filter(id__in=owner_ids, is_active=True))
 
 
-def _expiration_token(expiration: date) -> str:
-    return expiration.isoformat()
+def _expiration_token(expiration: date, milestone) -> str:
+    return f"{expiration.isoformat()}:{milestone}"
 
 
 def sync_psb_license_alerts(organization: Organization, *, today: date | None = None) -> dict:
     """
     Create/update/clear PSB license renewal notifications for one organization.
 
-    Safe to call repeatedly. Dedupes by event type + expiration date token.
+    Fires once per owner at each milestone (45 → 30 → 15 → expired).
     """
     from .models import Notification
 
@@ -123,17 +158,17 @@ def sync_psb_license_alerts(organization: Organization, *, today: date | None = 
         is_read=False,
     )
 
-    if not status["needs_alert"] or not status["expiration_date"]:
+    if not status["needs_alert"] or not status["expiration_date"] or status["milestone"] is None:
         cleared = open_qs.update(is_read=True)
         return {"created": 0, "cleared": cleared, "state": status["state"]}
 
-    event_type = EVENT_EXPIRED if status["state"] == "expired" else EVENT_EXPIRING
-    token = _expiration_token(status["expiration_date"])
-    title = (
-        f"PSB license expired — {organization.name}"
-        if event_type == EVENT_EXPIRED
-        else f"PSB license renewal due — {organization.name}"
-    )
+    milestone = status["milestone"]
+    event_type = EVENT_EXPIRED if milestone == "expired" else EVENT_EXPIRING
+    token = _expiration_token(status["expiration_date"], milestone)
+    if milestone == "expired":
+        title = f"PSB / DMV license expired — {organization.name}"
+    else:
+        title = f"PSB / DMV license — {milestone} days to renew — {organization.name}"
     message = (
         f"{status['label']}. Expiration: {status['expiration_date']:%b %d, %Y}."
         f" Ref:{token}"
@@ -167,7 +202,7 @@ def sync_psb_license_alerts(organization: Organization, *, today: date | None = 
         )
         created += 1
 
-    return {"created": created, "cleared": 0, "state": status["state"]}
+    return {"created": created, "cleared": 0, "state": status["state"], "milestone": milestone}
 
 
 def organizations_needing_license_attention(

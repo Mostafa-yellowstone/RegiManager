@@ -118,6 +118,21 @@ def build_inventory_space_context(request, card, is_owner, membership):
     supplier_data = supplier_dashboard_data(card)
     suppliers = InventorySupplier.objects.filter(space=card, is_active=True).order_by("name")
 
+    from django.urls import reverse
+
+    from .psb_license import psb_license_status
+    from .space_important_docs import important_docs_context, user_can_manage_space_docs
+
+    docs_ctx = important_docs_context(
+        card,
+        can_manage=user_can_manage_space_docs(is_owner, membership, card),
+        accent="#0d9488",
+    )
+    license_status = psb_license_status(card.organization)
+    license_edit_next = (
+        reverse("inventory-detail", kwargs={"inventory_id": card.id}) + "?tab=documents"
+    )
+
     return {
         "card": card,
         "is_owner": is_owner,
@@ -133,7 +148,10 @@ def build_inventory_space_context(request, card, is_owner, membership):
         "product_filter": product_filter,
         "category_filter": category_filter,
         "suppliers": suppliers,
+        "psb_license_status": license_status,
+        "license_edit_next": license_edit_next,
         **supplier_data,
+        **docs_ctx,
     }
 
 

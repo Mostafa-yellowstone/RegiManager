@@ -73,6 +73,13 @@ CORE_ADMIN_GROUPS = (
                 "DefenseDrivingEnrollment",
             ),
         ),
+        (
+            "Staff",
+            (
+                "StaffEmployee",
+                "StaffDocument",
+            ),
+        ),
     (
         "Insurance CRM",
         (

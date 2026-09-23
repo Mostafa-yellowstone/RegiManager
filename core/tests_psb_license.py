@@ -3,7 +3,7 @@
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -13,6 +13,7 @@ from core.psb_license import psb_license_status, sync_psb_license_alerts
 User = get_user_model()
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class PsbLicenseTests(TestCase):
     def setUp(self):
         self.org = Organization.objects.create(name="PSB License Org", city="NY", state="NY")
@@ -33,18 +34,26 @@ class PsbLicenseTests(TestCase):
         self.today = date(2026, 7, 16)
 
     def test_status_ok_outside_window(self):
-        self.org.psbc_license_expiration_date = self.today + timedelta(days=20)
+        self.org.psbc_license_expiration_date = self.today + timedelta(days=60)
         self.org.save(update_fields=["psbc_license_expiration_date"])
         status = psb_license_status(self.org, today=self.today)
         self.assertEqual(status["state"], "ok")
         self.assertFalse(status["needs_alert"])
 
-    def test_status_expiring_within_alert_days(self):
-        self.org.psbc_license_alert_days = 5
-        self.org.psbc_license_expiration_date = self.today + timedelta(days=3)
-        self.org.save(update_fields=["psbc_license_alert_days", "psbc_license_expiration_date"])
+    def test_status_expiring_at_45_day_milestone(self):
+        self.org.psbc_license_expiration_date = self.today + timedelta(days=40)
+        self.org.save(update_fields=["psbc_license_expiration_date"])
         status = psb_license_status(self.org, today=self.today)
         self.assertEqual(status["state"], "expiring")
+        self.assertEqual(status["milestone"], 45)
+        self.assertTrue(status["needs_alert"])
+
+    def test_status_expiring_within_alert_days(self):
+        self.org.psbc_license_expiration_date = self.today + timedelta(days=3)
+        self.org.save(update_fields=["psbc_license_expiration_date"])
+        status = psb_license_status(self.org, today=self.today)
+        self.assertEqual(status["state"], "expiring")
+        self.assertEqual(status["milestone"], 15)
         self.assertTrue(status["needs_alert"])
         self.assertEqual(status["days_left"], 3)
 
@@ -71,10 +80,27 @@ class PsbLicenseTests(TestCase):
         self.assertEqual(Notification.objects.filter(is_read=False).count(), 1)
         notif = Notification.objects.get()
         self.assertEqual(notif.event_type, "psb_license_expiring")
+        self.assertIn("Ref:", notif.message)
+        self.assertIn(":15", notif.message)
         self.assertEqual(notif.organization_id, self.org.id)
         self.assertIsNone(notif.client_id)
         self.assertIsNone(notif.insurance_company_id)
         self.assertEqual(notif.user_id, self.owner.id)
+
+    def test_sync_fires_new_alert_when_milestone_tightens(self):
+        self.org.psbc_license_expiration_date = self.today + timedelta(days=40)
+        self.org.save(update_fields=["psbc_license_expiration_date"])
+        first = sync_psb_license_alerts(self.org, today=self.today)
+        self.assertEqual(first["created"], 1)
+        self.assertEqual(first["milestone"], 45)
+
+        # Time passes into the 30-day band — new milestone notification.
+        later = self.today + timedelta(days=12)  # 28 days left
+        second = sync_psb_license_alerts(self.org, today=later)
+        self.assertEqual(second["created"], 1)
+        self.assertEqual(second["milestone"], 30)
+        self.assertEqual(Notification.objects.filter(is_read=False).count(), 1)
+        self.assertIn(":30", Notification.objects.filter(is_read=False).get().message)
 
     def test_renewal_clears_open_alerts(self):
         self.org.psbc_license_expiration_date = self.today + timedelta(days=1)

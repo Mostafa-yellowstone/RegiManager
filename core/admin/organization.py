@@ -220,6 +220,7 @@ class OrganizationMembershipAdmin(admin.ModelAdmin):
                     "can_deal_with_insurance",
                     "can_deal_with_motorclub",
                     "can_deal_with_defense_driving",
+                    "can_manage_staff",
                     "can_deal_with_tlc",
                     "can_assign_agent_tasks",
                     "can_delete_receipt",

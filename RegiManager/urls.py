@@ -221,6 +221,12 @@ from core.space_important_docs import (
     download_space_important_document,
     delete_space_important_document,
 )
+from core.staff_views import (
+    save_staff_employee,
+    delete_staff_employee,
+    upload_staff_document,
+    delete_staff_document,
+)
 from core.documents_views import (
     add_document_folder,
     edit_document_folder,
@@ -810,6 +816,10 @@ urlpatterns = [
     path("dashboard/spaces/<int:space_id>/important-docs/upload/", upload_space_important_document, name="upload-space-important-document"),
     path("dashboard/spaces/important-docs/<int:document_id>/download/", download_space_important_document, name="download-space-important-document"),
     path("dashboard/spaces/important-docs/<int:document_id>/delete/", delete_space_important_document, name="delete-space-important-document"),
+    path("dashboard/spaces/staff/<int:space_id>/employee/save/", save_staff_employee, name="save-staff-employee"),
+    path("dashboard/spaces/staff/employee/<int:employee_id>/delete/", delete_staff_employee, name="delete-staff-employee"),
+    path("dashboard/spaces/staff/employee/<int:employee_id>/document/upload/", upload_staff_document, name="upload-staff-document"),
+    path("dashboard/spaces/staff/document/<int:document_id>/delete/", delete_staff_document, name="delete-staff-document"),
     path("dashboard/spaces/documents/<int:space_id>/folder/add/", add_document_folder, name="add-document-folder"),
     path("dashboard/spaces/documents/folder/<int:folder_id>/edit/", edit_document_folder, name="edit-document-folder"),
     path("dashboard/spaces/documents/<int:space_id>/type/add/", add_document_type, name="add-document-type"),

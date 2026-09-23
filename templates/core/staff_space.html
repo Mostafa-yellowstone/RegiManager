@@ -1,0 +1,329 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}{{ card.label }} | Staff{% endblock %}
+
+{% block portal_content %}
+<style>
+.st-tab-btn { padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: var(--portal-text-muted); margin-bottom: -2px; }
+.st-tab-btn.active { color: #4338ca !important; border-bottom: 2px solid #6366f1 !important; }
+.st-tab-panel { display: none; }
+.st-tab-panel.active { display: block; }
+.st-hero { background: linear-gradient(135deg, #1e1b4b 0%, #3730a3 45%, #6366f1 100%); border-radius: 20px; padding: 1.5rem 1.75rem; color: white; margin-bottom: 1.5rem; }
+.st-metric { background: var(--portal-surface); border-radius: 16px; padding: 1.15rem 1.35rem; border: 1px solid var(--portal-border); box-shadow: var(--portal-shadow-sm); }
+.st-metric-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--portal-text-muted); margin-bottom: 0.3rem; }
+.st-metric-value { font-size: 1.55rem; font-weight: 900; color: var(--portal-text); }
+.st-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+.st-card {
+  background: var(--portal-surface); border: 1px solid var(--portal-border); border-radius: 18px;
+  padding: 1.15rem 1.2rem; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  text-align: left; width: 100%; font: inherit; color: inherit;
+}
+.st-card:hover, .st-card.selected { border-color: #a5b4fc; box-shadow: 0 10px 28px rgba(79,70,229,0.12); transform: translateY(-1px); }
+.st-avatar {
+  width: 52px; height: 52px; border-radius: 14px; object-fit: cover;
+  background: linear-gradient(135deg, #6366f1, #818cf8); color: white;
+  display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1rem; flex-shrink: 0;
+}
+.st-chip { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 0.7rem; font-weight: 800; }
+.st-chip-active { background: #dcfce7; color: #166534; }
+.st-chip-on_leave { background: #fef9c3; color: #854d0e; }
+.st-chip-terminated { background: #fee2e2; color: #991b1b; }
+.field-label { display: block; font-size: 0.76rem; font-weight: 800; color: var(--portal-text-muted); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.field-input { width: 100%; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid var(--portal-border); background: var(--portal-surface-muted); color: var(--portal-text); font-size: 0.88rem; outline: none; box-sizing: border-box; }
+.field-input:focus { border-color: #6366f1; }
+.btn-submit { width: 100%; padding: 0.75rem; background: linear-gradient(135deg, #4338ca, #6366f1); border: none; border-radius: 10px; color: white; font-weight: 700; cursor: pointer; font-size: 0.95rem; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.85rem; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.4); backdrop-filter: blur(6px); z-index: 2000; align-items: center; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal-box { background: var(--portal-surface); border-radius: 20px; padding: 1.75rem; max-width: 720px; width: 95%; max-height: 92vh; overflow-y: auto; box-shadow: var(--portal-shadow-lg); border: 1px solid var(--portal-border); }
+.st-detail {
+  background: var(--portal-surface); border: 1px solid var(--portal-border); border-radius: 20px;
+  padding: 1.35rem 1.5rem; margin-top: 1.25rem;
+}
+.st-doc-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  padding: 0.85rem 0; border-bottom: 1px solid var(--portal-border);
+}
+.st-doc-row:last-child { border-bottom: none; }
+@media (max-width: 720px) { .grid-3 { grid-template-columns: 1fr; } .grid-2 { grid-template-columns: 1fr; } }
+</style>
+
+<main class="portal-space-shell">
+  <div class="portal-space-inner portal-space-inner--wide">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1.25rem;margin-bottom:1.5rem;">
+      <div>
+        <div style="display:inline-flex;align-items:center;gap:6px;background:#e0e7ff;color:#4338ca;padding:4px 12px;border-radius:999px;font-size:0.78rem;font-weight:800;text-transform:uppercase;margin-bottom:0.5rem;border:1px solid #c7d2fe;">{{ active_org.name }}</div>
+        <h1 class="portal-space-title">{{ card.label }}</h1>
+        <p class="portal-space-subtitle">{{ card.description|default:"Employee profiles, CVs, and HR documents — organized in one place" }}</p>
+      </div>
+      <a href="{% url 'spaces-home' %}" style="text-decoration:none;padding:9px 16px;background:var(--portal-surface);border:1px solid var(--portal-border);border-radius:10px;font-weight:700;color:var(--portal-text-secondary);font-size:0.88rem;">&larr; Back to Spaces</a>
+    </div>
+
+    <div class="st-hero">
+      <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#c7d2fe;margin-bottom:0.35rem;">Team roster</div>
+      <div style="font-size:2.1rem;font-weight:900;line-height:1;">{{ stats.active_employees }} active</div>
+      <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:0.85rem;font-size:0.85rem;color:#e0e7ff;font-weight:600;">
+        <span>{{ stats.total_employees }} total profiles</span>
+        <span>{{ stats.document_count }} attachments</span>
+        <span>{{ stats.on_leave }} on leave</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--portal-border);margin-bottom:1.75rem;flex-wrap:wrap;">
+      <button type="button" class="st-tab-btn {% if active_tab == 'directory' %}active{% endif %}" onclick="stSwitchTab('directory', this)">Directory</button>
+      <button type="button" class="st-tab-btn {% if active_tab == 'documents' %}active{% endif %}" onclick="stSwitchTab('documents', this)">Space Documents</button>
+    </div>
+
+    <div id="st-tab-directory" class="st-tab-panel {% if active_tab == 'directory' %}active{% endif %}">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+        <form method="get" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+          <input type="hidden" name="tab" value="directory">
+          <input type="text" name="q" value="{{ search }}" placeholder="Search name, title, phone…" class="field-input" style="width:240px;">
+          <select name="status" class="field-input" style="width:auto;">
+            <option value="">All statuses</option>
+            {% for val, label in status_choices %}<option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+        </form>
+        {% if can_manage_staff %}
+        <button type="button" class="btn btn-primary btn-sm" onclick="openEmployeeModal()">+ Add Employee</button>
+        {% endif %}
+      </div>
+
+      <div class="st-grid">
+        {% for e in employees %}
+        <button type="button" class="st-card {% if selected_employee and selected_employee.id == e.id %}selected{% endif %}" onclick="location.href='?tab=directory&employee={{ e.id }}&q={{ search }}&status={{ status_filter }}'">
+          <div style="display:flex;gap:0.85rem;align-items:center;">
+            {% if e.photo %}
+            <img src="{{ e.photo.url }}" alt="" class="st-avatar">
+            {% else %}
+            <div class="st-avatar">{{ e.initials }}</div>
+            {% endif %}
+            <div style="min-width:0;">
+              <div style="font-weight:900;color:var(--portal-text);font-size:1.02rem;">{{ e.full_name }}</div>
+              <div style="font-size:0.8rem;color:var(--portal-text-muted);font-weight:600;margin-top:2px;">{{ e.job_title|default:"Team member" }}{% if e.department %} · {{ e.department }}{% endif %}</div>
+              <div style="margin-top:0.45rem;display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center;">
+                <span class="st-chip st-chip-{{ e.employment_status }}">{{ e.status_label }}</span>
+                <span style="font-size:0.72rem;color:var(--portal-text-muted);font-weight:700;">{{ e.doc_count }} doc{{ e.doc_count|pluralize }}</span>
+              </div>
+            </div>
+          </div>
+        </button>
+        {% empty %}
+        <div style="grid-column:1/-1;text-align:center;padding:2.5rem;color:var(--portal-text-muted);font-weight:600;border:1px dashed var(--portal-border);border-radius:16px;">
+          No employees yet.{% if can_manage_staff %} Add your first team profile to keep CVs and HR docs organized.{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      {% if selected_employee %}
+      <div class="st-detail" id="employeeDetail">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
+          <div style="display:flex;gap:1rem;align-items:center;">
+            {% if selected_employee.photo %}
+            <img src="{{ selected_employee.photo.url }}" alt="" class="st-avatar" style="width:72px;height:72px;border-radius:18px;font-size:1.25rem;">
+            {% else %}
+            <div class="st-avatar" style="width:72px;height:72px;border-radius:18px;font-size:1.25rem;">{{ selected_employee.initials }}</div>
+            {% endif %}
+            <div>
+              <h2 style="margin:0;font-size:1.35rem;color:var(--portal-text);">{{ selected_employee.full_name }}</h2>
+              <div style="color:var(--portal-text-muted);font-weight:600;margin-top:0.25rem;">{{ selected_employee.job_title|default:"—" }} · <span class="st-chip st-chip-{{ selected_employee.employment_status }}">{{ selected_employee.status_label }}</span></div>
+            </div>
+          </div>
+          {% if can_manage_staff %}
+          <div style="display:flex;gap:0.45rem;flex-wrap:wrap;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openEmployeeModal({{ selected_employee.id }})">Edit profile</button>
+            <form method="post" action="{% url 'delete-staff-employee' selected_employee.id %}" onsubmit="return confirm('Remove this employee profile?');">{% csrf_token %}<button type="submit" class="btn btn-sm" style="color:#b91c1c;border:1px solid #fecaca;">Delete</button></form>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="grid-3" style="margin-bottom:1.25rem;">
+          <div class="st-metric"><div class="st-metric-label">Email</div><div style="font-weight:700;color:var(--portal-text);word-break:break-all;">{{ selected_employee.email|default:"—" }}</div></div>
+          <div class="st-metric"><div class="st-metric-label">Phone</div><div style="font-weight:700;color:var(--portal-text);">{{ selected_employee.phone|default:"—" }}</div></div>
+          <div class="st-metric"><div class="st-metric-label">Hire date</div><div style="font-weight:700;color:var(--portal-text);">{% if selected_employee.hire_date %}{{ selected_employee.hire_date|date:"M j, Y" }}{% else %}—{% endif %}</div></div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:1.25rem;">
+          <div>
+            <div class="field-label">Address</div>
+            <div style="font-weight:600;color:var(--portal-text-secondary);">
+              {{ selected_employee.address|default:"—" }}{% if selected_employee.city %}<br>{{ selected_employee.city }}{% if selected_employee.state %}, {{ selected_employee.state }}{% endif %} {{ selected_employee.zip_code }}{% endif %}
+            </div>
+          </div>
+          <div>
+            <div class="field-label">Emergency contact</div>
+            <div style="font-weight:600;color:var(--portal-text-secondary);">
+              {{ selected_employee.emergency_contact_name|default:"—" }}{% if selected_employee.emergency_contact_phone %} · {{ selected_employee.emergency_contact_phone }}{% endif %}
+            </div>
+          </div>
+        </div>
+        {% if selected_employee.notes %}
+        <div style="margin-bottom:1.25rem;">
+          <div class="field-label">Notes</div>
+          <div style="font-weight:600;color:var(--portal-text-secondary);white-space:pre-wrap;">{{ selected_employee.notes }}</div>
+        </div>
+        {% endif %}
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+          <h3 style="margin:0;font-size:1.05rem;color:var(--portal-text);">Attachments &amp; CV</h3>
+          {% if can_manage_staff %}
+          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('staffDocModal').classList.add('active')">+ Upload</button>
+          {% endif %}
+        </div>
+        {% for doc in selected_docs %}
+        <div class="st-doc-row">
+          <div>
+            <div style="font-weight:800;color:var(--portal-text);">{{ doc.title }}</div>
+            <div style="font-size:0.78rem;color:var(--portal-text-muted);font-weight:600;">{{ doc.get_category_display }} · {{ doc.created_at|date:"M j, Y" }}{% if doc.expires_at %} · Expires {{ doc.expires_at|date:"M j, Y" }}{% endif %}</div>
+          </div>
+          <div style="display:flex;gap:0.4rem;">
+            <a href="{{ doc.file.url }}" target="_blank" class="btn btn-secondary btn-sm">View</a>
+            {% if can_manage_staff %}
+            <form method="post" action="{% url 'delete-staff-document' doc.id %}" onsubmit="return confirm('Delete this file?');">{% csrf_token %}<button type="submit" class="btn btn-sm" style="color:#b91c1c;">Delete</button></form>
+            {% endif %}
+          </div>
+        </div>
+        {% empty %}
+        <p style="color:var(--portal-text-muted);font-weight:600;">No attachments yet. Upload a CV, ID, or contract.</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <div id="st-tab-documents" class="st-tab-panel {% if active_tab == 'documents' %}active{% endif %}">
+      {% include "core/partials/space_important_docs.html" %}
+    </div>
+  </div>
+</main>
+
+{% if can_manage_staff %}
+<div class="modal-overlay" id="employeeModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h3 style="margin:0 0 1rem;color:var(--portal-text);" id="employeeModalTitle">Add Employee</h3>
+    <form method="post" action="{% url 'save-staff-employee' card.id %}" enctype="multipart/form-data" id="employeeForm">
+      {% csrf_token %}
+      <input type="hidden" name="employee_id" id="empId" value="">
+      <div class="grid-2">
+        <div><label class="field-label">First name</label><input type="text" name="first_name" id="empFirst" class="field-input" required></div>
+        <div><label class="field-label">Last name</label><input type="text" name="last_name" id="empLast" class="field-input" required></div>
+      </div>
+      <div class="grid-2" style="margin-top:0.85rem;">
+        <div><label class="field-label">Email</label><input type="email" name="email" id="empEmail" class="field-input"></div>
+        <div><label class="field-label">Phone</label><input type="text" name="phone" id="empPhone" class="field-input"></div>
+      </div>
+      <div class="grid-2" style="margin-top:0.85rem;">
+        <div><label class="field-label">Job title</label><input type="text" name="job_title" id="empTitle" class="field-input"></div>
+        <div><label class="field-label">Department</label><input type="text" name="department" id="empDept" class="field-input"></div>
+      </div>
+      <div class="grid-3" style="margin-top:0.85rem;">
+        <div>
+          <label class="field-label">Status</label>
+          <select name="employment_status" id="empStatus" class="field-input">
+            {% for val, label in status_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div><label class="field-label">Hire date</label><input type="date" name="hire_date" id="empHire" class="field-input"></div>
+        <div><label class="field-label">Date of birth</label><input type="date" name="date_of_birth" id="empDob" class="field-input"></div>
+      </div>
+      <div style="margin-top:0.85rem;"><label class="field-label">Address</label><input type="text" name="address" id="empAddress" class="field-input"></div>
+      <div class="grid-3" style="margin-top:0.85rem;">
+        <div><label class="field-label">City</label><input type="text" name="city" id="empCity" class="field-input"></div>
+        <div><label class="field-label">State</label><input type="text" name="state" id="empState" class="field-input"></div>
+        <div><label class="field-label">ZIP</label><input type="text" name="zip_code" id="empZip" class="field-input"></div>
+      </div>
+      <div class="grid-2" style="margin-top:0.85rem;">
+        <div><label class="field-label">Emergency contact</label><input type="text" name="emergency_contact_name" id="empEmergName" class="field-input"></div>
+        <div><label class="field-label">Emergency phone</label><input type="text" name="emergency_contact_phone" id="empEmergPhone" class="field-input"></div>
+      </div>
+      <div style="margin-top:0.85rem;"><label class="field-label">Notes</label><textarea name="notes" id="empNotes" class="field-input" rows="2"></textarea></div>
+      <div style="margin-top:0.85rem;"><label class="field-label">Photo</label><input type="file" name="photo" class="field-input" accept="image/*"></div>
+      <button type="submit" class="btn-submit" style="margin-top:1rem;">Save Employee</button>
+    </form>
+  </div>
+</div>
+
+{% if selected_employee %}
+<div class="modal-overlay" id="staffDocModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box" style="max-width:520px;">
+    <h3 style="margin:0 0 1rem;color:var(--portal-text);">Upload for {{ selected_employee.full_name }}</h3>
+    <form method="post" action="{% url 'upload-staff-document' selected_employee.id %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div style="margin-bottom:0.85rem;"><label class="field-label">Title</label><input type="text" name="title" class="field-input" required placeholder="e.g. Resume 2026"></div>
+      <div style="margin-bottom:0.85rem;">
+        <label class="field-label">Category</label>
+        <select name="category" class="field-input">
+          {% for val, label in doc_categories %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div style="margin-bottom:0.85rem;"><label class="field-label">File</label><input type="file" name="file" class="field-input" required></div>
+      <div style="margin-bottom:0.85rem;"><label class="field-label">Expires (optional)</label><input type="date" name="expires_at" class="field-input"></div>
+      <div><label class="field-label">Notes</label><textarea name="notes" class="field-input" rows="2"></textarea></div>
+      <button type="submit" class="btn-submit" style="margin-top:1rem;">Upload</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+<script>
+const EMPLOYEE_DATA = {
+  {% if selected_employee %}
+  {{ selected_employee.id }}: {
+    first_name: "{{ selected_employee.first_name|escapejs }}",
+    last_name: "{{ selected_employee.last_name|escapejs }}",
+    email: "{{ selected_employee.email|escapejs }}",
+    phone: "{{ selected_employee.phone|escapejs }}",
+    job_title: "{{ selected_employee.job_title|escapejs }}",
+    department: "{{ selected_employee.department|escapejs }}",
+    employment_status: "{{ selected_employee.employment_status }}",
+    hire_date: "{% if selected_employee.hire_date %}{{ selected_employee.hire_date|date:'Y-m-d' }}{% endif %}",
+    date_of_birth: "{% if selected_employee.date_of_birth %}{{ selected_employee.date_of_birth|date:'Y-m-d' }}{% endif %}",
+    address: "{{ selected_employee.address|escapejs }}",
+    city: "{{ selected_employee.city|escapejs }}",
+    state: "{{ selected_employee.state|escapejs }}",
+    zip_code: "{{ selected_employee.zip_code|escapejs }}",
+    emergency_contact_name: "{{ selected_employee.emergency_contact_name|escapejs }}",
+    emergency_contact_phone: "{{ selected_employee.emergency_contact_phone|escapejs }}",
+    notes: "{{ selected_employee.notes|escapejs }}"
+  }
+  {% endif %}
+};
+
+function stSwitchTab(tab, btn) {
+  document.querySelectorAll('.st-tab-panel').forEach(function (el) { el.classList.remove('active'); });
+  document.querySelectorAll('.st-tab-btn').forEach(function (el) { el.classList.remove('active'); });
+  var panel = document.getElementById('st-tab-' + tab);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  var url = new URL(window.location.href);
+  url.searchParams.set('tab', tab);
+  window.history.replaceState({}, '', url);
+}
+
+function openEmployeeModal(id) {
+  document.getElementById('employeeModalTitle').textContent = id ? 'Edit Employee' : 'Add Employee';
+  document.getElementById('empId').value = id || '';
+  var data = id ? EMPLOYEE_DATA[id] : null;
+  document.getElementById('empFirst').value = data ? data.first_name : '';
+  document.getElementById('empLast').value = data ? data.last_name : '';
+  document.getElementById('empEmail').value = data ? data.email : '';
+  document.getElementById('empPhone').value = data ? data.phone : '';
+  document.getElementById('empTitle').value = data ? data.job_title : '';
+  document.getElementById('empDept').value = data ? data.department : '';
+  document.getElementById('empStatus').value = data ? data.employment_status : 'active';
+  document.getElementById('empHire').value = data ? data.hire_date : '';
+  document.getElementById('empDob').value = data ? data.date_of_birth : '';
+  document.getElementById('empAddress').value = data ? data.address : '';
+  document.getElementById('empCity').value = data ? data.city : '';
+  document.getElementById('empState').value = data ? data.state : '';
+  document.getElementById('empZip').value = data ? data.zip_code : '';
+  document.getElementById('empEmergName').value = data ? data.emergency_contact_name : '';
+  document.getElementById('empEmergPhone').value = data ? data.emergency_contact_phone : '';
+  document.getElementById('empNotes').value = data ? data.notes : '';
+  document.getElementById('employeeModal').classList.add('active');
+}
+</script>
+{% endblock %}

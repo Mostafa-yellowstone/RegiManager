@@ -70,6 +70,7 @@
       <button class="tab-btn {% if active_tab == 'buyers' %}active{% endif %}" onclick="switchInvTab('buyers', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">👤 Buyers</button>
       <button class="tab-btn {% if active_tab == 'invoices' %}active{% endif %}" onclick="switchInvTab('invoices', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">🧾 Invoices</button>
       <button class="tab-btn {% if active_tab == 'reports' %}active{% endif %}" onclick="switchInvTab('reports', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">📈 Reports</button>
+      <button class="tab-btn {% if active_tab == 'documents' %}active{% endif %}" onclick="switchInvTab('documents', this)" style="padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: #64748b; margin-bottom: -2px;">📄 Documents</button>
     </div>
 
     <!-- DASHBOARD -->
@@ -290,6 +291,12 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- DOCUMENTS + PSB LICENSE -->
+    <div id="tab-documents" class="tab-panel {% if active_tab == 'documents' %}active{% endif %}">
+      {% include "core/partials/inventory_psb_license.html" %}
+      {% include "core/partials/space_important_docs.html" %}
     </div>
 
   </div>

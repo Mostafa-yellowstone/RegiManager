@@ -20,7 +20,7 @@ PAYMENT_METHOD_META = {
         "accent": "#ede9fe",
     },
     "credit_card": {
-        "label": "Credit Card",
+        "label": "Client's Credit Card",
         "icon": "💳",
         "gradient": "linear-gradient(135deg, #0f172a 0%, #1e3a8a 45%, #3b82f6 100%)",
         "accent": "#dbeafe",

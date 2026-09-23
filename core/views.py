@@ -3467,6 +3467,8 @@ def update_agent_permissions(request):
             membership.can_deal_with_motorclub = value
         elif field == "can_deal_with_defense_driving":
             membership.can_deal_with_defense_driving = value
+        elif field == "can_manage_staff":
+            membership.can_manage_staff = value
         elif field == "can_manage_documents":
             membership.can_manage_documents = value
         elif field == "can_manage_email_marketing":
@@ -6856,6 +6858,11 @@ def inventory_detail(request, inventory_id):
         context = build_defense_driving_space_context(request, card, is_owner, membership)
         return render(request, "core/defense_driving_space.html", context)
 
+    if card.key == "staff":
+        from .staff_views import build_staff_space_context
+        context = build_staff_space_context(request, card, is_owner, membership)
+        return render(request, "core/staff_space.html", context)
+
     if card.key == "documents":
         from .documents_views import build_documents_space_context
         context = build_documents_space_context(request, card, is_owner, membership)
@@ -7025,6 +7032,14 @@ def spaces_home(request):
     from .defense_driving_crm import ensure_default_packages
 
     ensure_default_packages(active_org)
+    Space.objects.get_or_create(
+        organization=active_org,
+        key="staff",
+        defaults={
+            "label": "Staff",
+            "description": "Employee profiles, CVs, and HR documents — organized in one place",
+        },
+    )
     Space.objects.get_or_create(
         organization=active_org,
         key="documents",
