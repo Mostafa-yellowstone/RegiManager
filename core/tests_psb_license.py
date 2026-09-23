@@ -181,3 +181,6 @@ class PsbLicenseTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "PSB license renewal action")
         self.assertContains(response, "PSB License Org")
+        self.assertContains(response, "Edit license dates")
+        self.assertContains(response, "Edit PSB / DMV License")
+        self.assertContains(response, "openPsbLicenseManager")

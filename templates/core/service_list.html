@@ -15,7 +15,9 @@
         </header>
 
         <section class="dashboard-panels">
+            {% if is_owner %}
             {% include "partials/_psb_license_alert.html" %}
+            {% endif %}
             <article class="dashboard-panel full-width-panel">
                 <div class="list-controls">
                     <form method="get" class="search-filter-form">

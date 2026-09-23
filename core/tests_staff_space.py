@@ -48,7 +48,7 @@ class InventoryImportantDocsTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Important Documents")
-        self.assertContains(response, "PSB / DMV License")
+        self.assertNotContains(response, "PSB / DMV License")
 
         upload = self.client.post(
             reverse("upload-space-important-document", args=[self.space.id]),

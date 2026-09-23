@@ -1990,18 +1990,27 @@ def dashboard(request):
 
     from .psb_license import (
         organizations_needing_license_attention,
+        psb_license_status,
         sync_organizations_license_alerts,
     )
 
-    psb_license_orgs = list(organizations)
+    # License alerts + editor are owner-only (never shown to agents).
+    psb_license_orgs = list(owner_orgs) if is_owner else []
     try:
-        sync_organizations_license_alerts(psb_license_orgs)
+        if psb_license_orgs:
+            sync_organizations_license_alerts(psb_license_orgs)
     except Exception:
         pass
-    psb_license_attention = organizations_needing_license_attention(psb_license_orgs)
+    psb_license_attention = (
+        organizations_needing_license_attention(psb_license_orgs) if is_owner else []
+    )
     psb_license_attention_has_expired = any(
         row["status"]["state"] == "expired" for row in psb_license_attention
     )
+    psb_license_manage_orgs = [
+        {"organization": org, "status": psb_license_status(org)}
+        for org in psb_license_orgs
+    ]
 
     return render(
         request,
@@ -2042,6 +2051,7 @@ def dashboard(request):
             "ny_dmv_fee_calculator_url": NY_DMV_FEE_CALCULATOR_URL,
             "psb_license_attention": psb_license_attention,
             "psb_license_attention_has_expired": psb_license_attention_has_expired,
+            "psb_license_manage_orgs": psb_license_manage_orgs,
         },
     )
 
@@ -3185,18 +3195,35 @@ def service_list(request, service_type):
 
     from .psb_license import (
         organizations_needing_license_attention,
+        psb_license_status,
         sync_organizations_license_alerts,
     )
 
-    psb_license_orgs = list(organizations)
+    # Owner-only on service list as well.
+    psb_license_orgs = list(
+        organizations.filter(
+            id__in=OrganizationMembership.objects.filter(
+                user=request.user,
+                role=OrganizationMembership.Role.OWNER,
+                is_active=True,
+            ).values_list("organization_id", flat=True)
+        )
+    ) if is_owner else []
     try:
-        sync_organizations_license_alerts(psb_license_orgs)
+        if psb_license_orgs:
+            sync_organizations_license_alerts(psb_license_orgs)
     except Exception:
         pass
-    psb_license_attention = organizations_needing_license_attention(psb_license_orgs)
+    psb_license_attention = (
+        organizations_needing_license_attention(psb_license_orgs) if is_owner else []
+    )
     psb_license_attention_has_expired = any(
         row["status"]["state"] == "expired" for row in psb_license_attention
     )
+    psb_license_manage_orgs = [
+        {"organization": org, "status": psb_license_status(org)}
+        for org in psb_license_orgs
+    ]
 
     return render(
         request,
@@ -3230,6 +3257,7 @@ def service_list(request, service_type):
             "can_delete_receipt": can_delete_receipt,
             "psb_license_attention": psb_license_attention,
             "psb_license_attention_has_expired": psb_license_attention_has_expired,
+            "psb_license_manage_orgs": psb_license_manage_orgs,
         }
     )
 
