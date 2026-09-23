@@ -1207,7 +1207,7 @@ def open_notification(request, notification_id):
 
     if notif.client_id:
         anchor = f"#note-{notif.note_id}" if notif.note_id else ""
-    return redirect(f"{redirect('client-detail', client_id=notif.client_id).url}{anchor}")
+        return redirect(f"{redirect('client-detail', client_id=notif.client_id).url}{anchor}")
 
     if notif.event_type in {"agent_task_assigned", "quote_lead_assigned"}:
         return redirect(task_board_action_url())

@@ -13,7 +13,10 @@ from core.psb_license import psb_license_status, sync_psb_license_alerts
 User = get_user_model()
 
 
-@override_settings(SECURE_SSL_REDIRECT=False)
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+)
 class PsbLicenseTests(TestCase):
     def setUp(self):
         self.org = Organization.objects.create(name="PSB License Org", city="NY", state="NY")
