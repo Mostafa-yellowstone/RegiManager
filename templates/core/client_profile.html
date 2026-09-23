@@ -246,6 +246,11 @@
                                     Motor Club
                                 </span>
                             {% endif %}
+                            {% if show_defense_driving_card %}
+                                <span style="background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%); color: white; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 5px; border: 1px solid rgba(255,255,255,0.25);">
+                                    Defense Driving
+                                </span>
+                            {% endif %}
                             {% if client.source == "insurance" %}
                                 <span style="
                                     background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
@@ -695,6 +700,39 @@
                         {% endif %}
                         {% else %}
                         <p class="cpp-empty-message">Motor Club history on file (no active plan).</p>
+                        {% endif %}
+                    </div>
+                </section>
+                {% endif %}
+
+                {% if show_defense_driving_card %}
+                <section class="dashboard-panel cpp-ddc-card" style="margin: 0; min-height: 160px;">
+                    <h3 class="cpp-panel-header cpp-panel-header--title">
+                        <span aria-hidden="true" style="color:#0f766e;">🛣</span>
+                        Defense Driving
+                    </h3>
+                    <div style="padding: 1.25rem 1.5rem;">
+                        {% if active_defense_driving %}
+                        <div style="background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%); border: 1px solid #99f6e4; border-radius: 14px; padding: 1.1rem 1.25rem; min-height: 100px;">
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.75rem;flex-wrap:wrap;">
+                                <div>
+                                    <div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:#0f766e;">Active Course</div>
+                                    <div style="font-size:1.2rem;font-weight:900;color:#134e4a;margin-top:0.25rem;">{{ active_defense_driving.package_label }}</div>
+                                    <div style="font-size:0.82rem;color:#115e59;margin-top:0.35rem;font-weight:600;">{{ active_defense_driving.enrollment_number }} · {{ active_defense_driving.channel_label }}</div>
+                                </div>
+                                <span style="background:#0f766e;color:white;padding:4px 10px;border-radius:999px;font-size:0.72rem;font-weight:800;">{{ active_defense_driving.status_label }}</span>
+                            </div>
+                            <div style="display:flex;gap:1.25rem;margin-top:0.85rem;font-size:0.8rem;color:#134e4a;font-weight:600;flex-wrap:wrap;">
+                                <span>Start: <strong>{% if active_defense_driving.start_date %}{{ active_defense_driving.start_date|date:"M j, Y" }}{% else %}—{% endif %}</strong></span>
+                                <span>Completed: <strong>{% if active_defense_driving.completion_date %}{{ active_defense_driving.completion_date|date:"M j, Y" }}{% else %}—{% endif %}</strong></span>
+                                {% if active_defense_driving.certificate_number %}<span>Cert: {{ active_defense_driving.certificate_number }}</span>{% endif %}
+                            </div>
+                        </div>
+                        {% if defense_driving_enrollments|length > 1 %}
+                        <p style="font-size:0.8rem;color:#64748b;margin:0.75rem 0 0;">{{ defense_driving_enrollments|length }} total enrollments on file.</p>
+                        {% endif %}
+                        {% else %}
+                        <p class="cpp-empty-message">Defense Driving history on file (no active enrollment).</p>
                         {% endif %}
                     </div>
                 </section>

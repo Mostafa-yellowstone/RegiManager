@@ -203,6 +203,10 @@ class OrganizationMembership(models.Model):
         default=False,
         help_text="Can this member sell and manage Motor Club roadside memberships?",
     )
+    can_deal_with_defense_driving = models.BooleanField(
+        default=False,
+        help_text="Can this member manage Defense Driving Course enrollments and packages?",
+    )
     can_deal_with_tlc = models.BooleanField(
         default=False,
         help_text="Can this member manage TLC policy profitability records?",
@@ -1609,6 +1613,73 @@ class SpaceDocumentRecord(models.Model):
             self.record_number = number
 
 
+def space_important_document_upload_path(instance, filename):
+    from django.utils import timezone
+
+    stamp = timezone.now().strftime("%Y/%m")
+    return (
+        f"space_important_docs/{instance.organization_id}/"
+        f"{instance.space_id}/{stamp}/{filename}"
+    )
+
+
+class SpaceImportantDocument(models.Model):
+    """Space-level important documents (contracts, licenses, agreements) for Motor Club, DDC, etc."""
+
+    class Category(models.TextChoices):
+        CONTRACT = "contract", "Contract"
+        LICENSE = "license", "License"
+        AGREEMENT = "agreement", "Agreement"
+        CERTIFICATE = "certificate", "Certificate"
+        OTHER = "other", "Other"
+
+    space = models.ForeignKey(
+        Space,
+        on_delete=models.CASCADE,
+        related_name="important_documents",
+    )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="space_important_documents",
+    )
+    title = models.CharField(max_length=200)
+    category = models.CharField(
+        max_length=20,
+        choices=Category.choices,
+        default=Category.OTHER,
+    )
+    file = models.FileField(upload_to=space_important_document_upload_path)
+    notes = models.TextField(blank=True, default="")
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_space_important_documents",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def file_extension(self):
+        name = (self.file.name or "").rsplit(".", 1)
+        return name[-1].lower() if len(name) > 1 else ""
+
+    @property
+    def is_previewable_image(self):
+        return self.file_extension in {"jpg", "jpeg", "png", "gif", "webp"}
+
+    @property
+    def is_previewable_pdf(self):
+        return self.file_extension == "pdf"
+
+
 class KnowledgeHubMaterial(models.Model):
     space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="materials")
     parent = models.ForeignKey(
@@ -2768,6 +2839,129 @@ class MotorclubMembership(models.Model):
             number = f"MC-{self.organization_id}-{self.id:05d}"
             MotorclubMembership.objects.filter(pk=self.pk).update(membership_number=number)
             self.membership_number = number
+
+
+class DefenseDrivingPackage(models.Model):
+    """Admin-configurable Defense Driving course package with profit split defaults."""
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="defense_driving_packages",
+    )
+    name = models.CharField(max_length=120)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    provider_take = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Amount the course provider keeps from the package price.",
+    )
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        unique_together = ("organization", "name")
+
+    def __str__(self):
+        return f"{self.name} (${self.price})"
+
+    @property
+    def psb_profit_default(self):
+        price = Decimal(str(self.price or 0))
+        take = Decimal(str(self.provider_take or 0))
+        if take > price:
+            take = price
+        return price - take
+
+
+class DefenseDrivingEnrollment(models.Model):
+    """Client enrollment in a Defense Driving Course package."""
+
+    class ChannelChoices(models.TextChoices):
+        INSURANCE_CLIENT = "insurance_client", "Insurance Client"
+        DIRECT = "direct", "Direct / Walk-In"
+
+    class StatusChoices(models.TextChoices):
+        ACTIVE = "active", "Active"
+        COMPLETED = "completed", "Completed"
+        PENDING = "pending", "Pending"
+        CANCELLED = "cancelled", "Cancelled"
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="defense_driving_enrollments",
+    )
+    space = models.ForeignKey(
+        Space,
+        on_delete=models.CASCADE,
+        related_name="defense_driving_enrollments",
+    )
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name="defense_driving_enrollments",
+    )
+    package = models.ForeignKey(
+        DefenseDrivingPackage,
+        on_delete=models.PROTECT,
+        related_name="enrollments",
+    )
+    channel = models.CharField(
+        max_length=20,
+        choices=ChannelChoices.choices,
+        default=ChannelChoices.DIRECT,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=StatusChoices.choices,
+        default=StatusChoices.ACTIVE,
+    )
+    enrollment_number = models.CharField(max_length=40, blank=True, default="")
+    certificate_number = models.CharField(max_length=80, blank=True, default="")
+    start_date = models.DateField(blank=True, null=True)
+    completion_date = models.DateField(blank=True, null=True)
+    provider_profit = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
+    psb_profit = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+    )
+    notes = models.TextField(blank=True, default="")
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="added_defense_driving_enrollments",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        label = self.enrollment_number or f"DDC-{self.id}"
+        return f"{label} — {self.client.name}"
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        if is_new and not self.enrollment_number:
+            number = f"DDC-{self.organization_id}-{self.id:05d}"
+            DefenseDrivingEnrollment.objects.filter(pk=self.pk).update(
+                enrollment_number=number
+            )
+            self.enrollment_number = number
 
 
 class EmailMarketingList(models.Model):

@@ -208,6 +208,19 @@ from core.motorclub_views import (
     add_motorclub_b2b_partner,
     delete_motorclub_b2b_partner,
 )
+from core.defense_driving_views import (
+    add_defense_driving_enrollment,
+    add_defense_driving_enrollment_from_client,
+    edit_defense_driving_enrollment,
+    delete_defense_driving_enrollment,
+    save_defense_driving_package,
+    delete_defense_driving_package,
+)
+from core.space_important_docs import (
+    upload_space_important_document,
+    download_space_important_document,
+    delete_space_important_document,
+)
 from core.documents_views import (
     add_document_folder,
     edit_document_folder,
@@ -534,6 +547,11 @@ urlpatterns = [
         add_motorclub_membership_from_client,
         name="add-motorclub-membership-client",
     ),
+    path(
+        "dashboard/clients/<int:client_id>/defense-driving/add/",
+        add_defense_driving_enrollment_from_client,
+        name="add-defense-driving-enrollment-client",
+    ),
     path("dashboard/clients/<int:client_id>/add-vehicle/", add_vehicle, name="add-vehicle"),
     path("dashboard/vehicles/<int:vehicle_id>/", vehicle_detail, name="vehicle-detail"),
     path("dashboard/vehicles/<int:vehicle_id>/edit/", edit_vehicle, name="edit-vehicle"),
@@ -784,6 +802,14 @@ urlpatterns = [
     path("dashboard/spaces/motorclub/member/<int:membership_id>/delete/", delete_motorclub_membership, name="delete-motorclub-membership"),
     path("dashboard/spaces/motorclub/<int:space_id>/b2b/add/", add_motorclub_b2b_partner, name="add-motorclub-b2b-partner"),
     path("dashboard/spaces/motorclub/b2b/<int:partner_id>/delete/", delete_motorclub_b2b_partner, name="delete-motorclub-b2b-partner"),
+    path("dashboard/spaces/defense-driving/<int:space_id>/enrollment/add/", add_defense_driving_enrollment, name="add-defense-driving-enrollment"),
+    path("dashboard/spaces/defense-driving/enrollment/<int:enrollment_id>/edit/", edit_defense_driving_enrollment, name="edit-defense-driving-enrollment"),
+    path("dashboard/spaces/defense-driving/enrollment/<int:enrollment_id>/delete/", delete_defense_driving_enrollment, name="delete-defense-driving-enrollment"),
+    path("dashboard/spaces/defense-driving/<int:space_id>/package/save/", save_defense_driving_package, name="save-defense-driving-package"),
+    path("dashboard/spaces/defense-driving/package/<int:package_id>/delete/", delete_defense_driving_package, name="delete-defense-driving-package"),
+    path("dashboard/spaces/<int:space_id>/important-docs/upload/", upload_space_important_document, name="upload-space-important-document"),
+    path("dashboard/spaces/important-docs/<int:document_id>/download/", download_space_important_document, name="download-space-important-document"),
+    path("dashboard/spaces/important-docs/<int:document_id>/delete/", delete_space_important_document, name="delete-space-important-document"),
     path("dashboard/spaces/documents/<int:space_id>/folder/add/", add_document_folder, name="add-document-folder"),
     path("dashboard/spaces/documents/folder/<int:folder_id>/edit/", edit_document_folder, name="edit-document-folder"),
     path("dashboard/spaces/documents/<int:space_id>/type/add/", add_document_type, name="add-document-type"),

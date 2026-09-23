@@ -1,0 +1,203 @@
+{# Shared Important Documents panel. Expects important_docs*, can_manage_important_docs, important_docs_accent, important_docs_space #}
+{% with accent=important_docs_accent|default:"#2563eb" space=important_docs_space %}
+<style>
+.sid-wrap { --sid-accent: {{ accent }}; }
+.sid-hero {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--sid-accent) 85%, #0f172a) 0%, var(--sid-accent) 100%);
+  border-radius: 18px;
+  padding: 1.35rem 1.5rem;
+  color: white;
+  margin-bottom: 1.35rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.sid-hero-title { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; margin-bottom: 0.3rem; }
+.sid-hero-value { font-size: 1.85rem; font-weight: 900; line-height: 1.1; }
+.sid-hero-meta { font-size: 0.85rem; opacity: 0.9; margin-top: 0.35rem; font-weight: 600; }
+.sid-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+.sid-card {
+  background: var(--portal-surface);
+  border: 1px solid var(--portal-border);
+  border-radius: 16px;
+  padding: 1.15rem 1.2rem;
+  box-shadow: var(--portal-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.sid-card:hover { border-color: color-mix(in srgb, var(--sid-accent) 45%, var(--portal-border)); box-shadow: var(--portal-shadow-md, var(--portal-shadow-sm)); }
+.sid-chip {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: color-mix(in srgb, var(--sid-accent) 14%, transparent);
+  color: var(--sid-accent);
+}
+.sid-title { font-size: 1.02rem; font-weight: 800; color: var(--portal-text); margin: 0; line-height: 1.3; }
+.sid-meta { font-size: 0.78rem; color: var(--portal-text-muted); font-weight: 600; }
+.sid-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: var(--portal-surface-muted);
+  color: var(--portal-text-muted);
+  border: 1px solid var(--portal-border);
+}
+.sid-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: auto; padding-top: 0.35rem; }
+.sid-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  color: var(--portal-text-muted);
+  font-weight: 600;
+  background: var(--portal-surface);
+  border: 1px dashed var(--portal-border);
+  border-radius: 16px;
+}
+.sid-modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.4);
+  backdrop-filter: blur(6px); z-index: 2100; align-items: center; justify-content: center;
+}
+.sid-modal-overlay.active { display: flex; }
+.sid-modal-box {
+  background: var(--portal-surface); border-radius: 20px; padding: 1.75rem;
+  max-width: 560px; width: 95%; max-height: 92vh; overflow-y: auto;
+  box-shadow: var(--portal-shadow-lg); border: 1px solid var(--portal-border);
+}
+.sid-modal-box.preview { max-width: 900px; }
+.sid-field-label {
+  display: block; font-size: 0.76rem; font-weight: 800; color: var(--portal-text-muted);
+  margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.sid-field-input {
+  width: 100%; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid var(--portal-border);
+  background: var(--portal-surface-muted); color: var(--portal-text); font-size: 0.88rem;
+  outline: none; box-sizing: border-box;
+}
+.sid-field-input:focus { border-color: var(--sid-accent); }
+.sid-btn-submit {
+  width: 100%; padding: 0.75rem; background: var(--sid-accent); border: none; border-radius: 10px;
+  color: white; font-weight: 700; cursor: pointer; font-size: 0.95rem; margin-top: 1rem;
+}
+.sid-preview-frame { width: 100%; min-height: 70vh; border: none; border-radius: 12px; background: #0f172a; }
+.sid-preview-img { max-width: 100%; max-height: 70vh; display: block; margin: 0 auto; border-radius: 12px; }
+</style>
+
+<div class="sid-wrap">
+  <div class="sid-hero">
+    <div>
+      <div class="sid-hero-title">Important Documents</div>
+      <div class="sid-hero-value">{{ important_docs_count }} file{% if important_docs_count != 1 %}s{% endif %}</div>
+      <div class="sid-hero-meta">Contracts, licenses, agreements &amp; certificates for this space</div>
+    </div>
+    {% if can_manage_important_docs %}
+    <button type="button" class="btn btn-primary btn-sm" style="background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;" onclick="document.getElementById('sidUploadModal').classList.add('active')">+ Upload Document</button>
+    {% endif %}
+  </div>
+
+  <div class="sid-grid">
+    {% for doc in important_docs %}
+    <article class="sid-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.5rem;">
+        <span class="sid-chip">{{ doc.get_category_display }}</span>
+        <span class="sid-badge">{{ doc.file_extension|upper|default:"FILE" }}</span>
+      </div>
+      <h4 class="sid-title">{{ doc.title }}</h4>
+      <div class="sid-meta">
+        {% if doc.uploaded_by %}{{ doc.uploaded_by.get_full_name|default:doc.uploaded_by.username }}{% else %}Unknown{% endif %}
+        · {{ doc.created_at|date:"M j, Y" }}
+      </div>
+      {% if doc.notes %}<div class="sid-meta" style="color:var(--portal-text-secondary);">{{ doc.notes|truncatewords:18 }}</div>{% endif %}
+      <div class="sid-actions">
+        {% if doc.is_previewable_pdf or doc.is_previewable_image %}
+        <button type="button" class="btn btn-secondary btn-sm"
+          onclick="sidOpenPreview('{% url 'download-space-important-document' doc.id %}', '{{ doc.title|escapejs }}', {% if doc.is_previewable_pdf %}true{% else %}false{% endif %})">Preview</button>
+        {% endif %}
+        <a href="{% url 'download-space-important-document' doc.id %}?download=1" class="btn btn-secondary btn-sm">Download</a>
+        {% if can_manage_important_docs %}
+        <form method="post" action="{% url 'delete-space-important-document' doc.id %}" style="display:inline;" onsubmit="return confirm('Delete this document?');">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm" style="color:#b91c1c;border:1px solid #fecaca;">Delete</button>
+        </form>
+        {% endif %}
+      </div>
+    </article>
+    {% empty %}
+    <div class="sid-empty">No important documents yet.{% if can_manage_important_docs %} Upload contracts, licenses, or agreements to keep them with this space.{% endif %}</div>
+    {% endfor %}
+  </div>
+</div>
+
+{% if can_manage_important_docs %}
+<div class="sid-modal-overlay" id="sidUploadModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="sid-modal-box">
+    <h3 style="margin:0 0 1rem;color:var(--portal-text);">Upload Important Document</h3>
+    <form method="post" action="{% url 'upload-space-important-document' space.id %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div style="margin-bottom:0.85rem;">
+        <label class="sid-field-label">Title</label>
+        <input type="text" name="title" class="sid-field-input" required placeholder="e.g. Provider service agreement 2026">
+      </div>
+      <div style="margin-bottom:0.85rem;">
+        <label class="sid-field-label">Category</label>
+        <select name="category" class="sid-field-input">
+          {% for val, label in important_doc_categories %}
+          <option value="{{ val }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="margin-bottom:0.85rem;">
+        <label class="sid-field-label">File</label>
+        <input type="file" name="file" class="sid-field-input" required accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx">
+      </div>
+      <div>
+        <label class="sid-field-label">Notes (optional)</label>
+        <textarea name="notes" class="sid-field-input" rows="2" placeholder="Expiry, parties, reference numbers…"></textarea>
+      </div>
+      <button type="submit" class="sid-btn-submit">Upload</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="sid-modal-overlay" id="sidPreviewModal" onclick="if(event.target===this)sidClosePreview()">
+  <div class="sid-modal-box preview">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem;gap:1rem;">
+      <h3 id="sidPreviewTitle" style="margin:0;color:var(--portal-text);font-size:1.05rem;"></h3>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="sidClosePreview()">Close</button>
+    </div>
+    <div id="sidPreviewBody"></div>
+  </div>
+</div>
+
+<script>
+function sidOpenPreview(url, title, isPdf) {
+  var modal = document.getElementById('sidPreviewModal');
+  var body = document.getElementById('sidPreviewBody');
+  document.getElementById('sidPreviewTitle').textContent = title || 'Preview';
+  if (isPdf) {
+    body.innerHTML = '<iframe class="sid-preview-frame" src="' + url + '" title="Document preview"></iframe>';
+  } else {
+    body.innerHTML = '<img class="sid-preview-img" src="' + url + '" alt="' + (title || 'Preview') + '">';
+  }
+  modal.classList.add('active');
+}
+function sidClosePreview() {
+  var modal = document.getElementById('sidPreviewModal');
+  var body = document.getElementById('sidPreviewBody');
+  modal.classList.remove('active');
+  body.innerHTML = '';
+}
+</script>
+{% endwith %}

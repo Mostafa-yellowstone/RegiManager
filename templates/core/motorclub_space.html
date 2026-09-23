@@ -112,6 +112,7 @@ html.portal-theme-dark .mc-chip-b2b { background: rgba(234,88,12,0.2); color: #f
       <button type="button" class="mc-tab-btn {% if active_tab == 'members' %}active{% endif %}" onclick="mcSwitchTab('members', this)">👥 Members CRM</button>
       <button type="button" class="mc-tab-btn {% if active_tab == 'b2b' %}active{% endif %}" onclick="mcSwitchTab('b2b', this)">🏢 B2B Partners</button>
       <button type="button" class="mc-tab-btn {% if active_tab == 'configuration' %}active{% endif %}" onclick="mcSwitchTab('configuration', this)">⚙️ Configuration</button>
+      <button type="button" class="mc-tab-btn {% if active_tab == 'documents' %}active{% endif %}" onclick="mcSwitchTab('documents', this)">📄 Documents</button>
     </div>
 
     <!-- Dashboard -->
@@ -266,6 +267,11 @@ html.portal-theme-dark .mc-chip-b2b { background: rgba(234,88,12,0.2); color: #f
       {% else %}
       <p style="color:var(--portal-text-muted);">You do not have permission to edit Motor Club configuration.</p>
       {% endif %}
+    </div>
+
+    <!-- Documents -->
+    <div id="mc-tab-documents" class="mc-tab-panel {% if active_tab == 'documents' %}active{% endif %}">
+      {% include "core/partials/space_important_docs.html" %}
     </div>
 
   </div>

@@ -34,37 +34,45 @@ CORE_ADMIN_GROUPS = (
             "ReferralPayment",
         ),
     ),
-    (
-        "Spaces & Documents",
         (
-            "Space",
-            "KnowledgeHubMaterial",
-            "DocumentFolder",
-            "SpaceDocumentType",
-            "SpaceDocumentRecord",
+            "Spaces & Documents",
+            (
+                "Space",
+                "KnowledgeHubMaterial",
+                "DocumentFolder",
+                "SpaceDocumentType",
+                "SpaceDocumentRecord",
+                "SpaceImportantDocument",
+            ),
         ),
-    ),
-    (
-        "Inventory",
         (
-            "InventoryCategory",
-            "InventoryProduct",
-            "InventoryBuyer",
-            "InventoryInvoice",
-            "InventoryStockMovement",
-            "InventorySupplier",
-            "InventoryPurchase",
-            "InventoryPurchaseLine",
+            "Inventory",
+            (
+                "InventoryCategory",
+                "InventoryProduct",
+                "InventoryBuyer",
+                "InventoryInvoice",
+                "InventoryStockMovement",
+                "InventorySupplier",
+                "InventoryPurchase",
+                "InventoryPurchaseLine",
+            ),
         ),
-    ),
-    (
-        "Motor Club",
         (
-            "MotorclubConfig",
-            "MotorclubB2BPartner",
-            "MotorclubMembership",
+            "Motor Club",
+            (
+                "MotorclubConfig",
+                "MotorclubB2BPartner",
+                "MotorclubMembership",
+            ),
         ),
-    ),
+        (
+            "Defense Driving",
+            (
+                "DefenseDrivingPackage",
+                "DefenseDrivingEnrollment",
+            ),
+        ),
     (
         "Insurance CRM",
         (

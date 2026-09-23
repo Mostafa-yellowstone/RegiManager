@@ -219,6 +219,7 @@ class OrganizationMembershipAdmin(admin.ModelAdmin):
                     "can_trigger_automation",
                     "can_deal_with_insurance",
                     "can_deal_with_motorclub",
+                    "can_deal_with_defense_driving",
                     "can_deal_with_tlc",
                     "can_assign_agent_tasks",
                     "can_delete_receipt",

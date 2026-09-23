@@ -29,6 +29,7 @@ from .motorclub_crm import (
 )
 from .client_search import build_client_name_search_q
 from .space_access import get_org_membership, require_space_access
+from .space_important_docs import important_docs_context, user_can_manage_space_docs
 from .views import _get_user_organizations
 
 
@@ -136,6 +137,11 @@ def build_motorclub_space_context(request, card, is_owner, membership):
         enrich_membership(row)
 
     can_manage = is_owner or (membership and membership.can_deal_with_motorclub)
+    docs_ctx = important_docs_context(
+        card,
+        can_manage=user_can_manage_space_docs(is_owner, membership, card),
+        accent="#ea580c",
+    )
 
     return {
         "card": card,
@@ -161,6 +167,7 @@ def build_motorclub_space_context(request, card, is_owner, membership):
         "partner_filter": partner_filter,
         "channel_choices": MotorclubMembership.ChannelChoices.choices,
         "status_choices": MotorclubMembership.StatusChoices.choices,
+        **docs_ctx,
     }
 
 

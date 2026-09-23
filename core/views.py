@@ -868,6 +868,18 @@ def client_detail(request, client_id):
     active_motorclub = pick_active_motorclub(motorclub_memberships)
     show_motorclub_card = bool(motorclub_memberships)
 
+    from .defense_driving_crm import (
+        enrich_enrollment,
+        get_client_defense_driving_enrollments,
+        pick_active_enrollment,
+    )
+
+    defense_driving_enrollments = get_client_defense_driving_enrollments(client)
+    for ddc in defense_driving_enrollments:
+        enrich_enrollment(ddc)
+    active_defense_driving = pick_active_enrollment(defense_driving_enrollments)
+    show_defense_driving_card = bool(defense_driving_enrollments)
+
     can_delete_receipt = user_can_delete_receipt(request.user, client.organization_id)
     can_delete_vehicle = user_can_delete_vehicle(request.user, client.organization_id)
 
@@ -888,6 +900,9 @@ def client_detail(request, client_id):
         "motorclub_memberships": motorclub_memberships,
         "active_motorclub": active_motorclub,
         "show_motorclub_card": show_motorclub_card,
+        "defense_driving_enrollments": defense_driving_enrollments,
+        "active_defense_driving": active_defense_driving,
+        "show_defense_driving_card": show_defense_driving_card,
         "notes": notes,
         "assignable_agents": assignable_agents,
         "total_spend": total_spend,
@@ -3450,6 +3465,8 @@ def update_agent_permissions(request):
             membership.can_manage_knowledge_hub = value
         elif field == "can_deal_with_motorclub":
             membership.can_deal_with_motorclub = value
+        elif field == "can_deal_with_defense_driving":
+            membership.can_deal_with_defense_driving = value
         elif field == "can_manage_documents":
             membership.can_manage_documents = value
         elif field == "can_manage_email_marketing":
@@ -6834,6 +6851,11 @@ def inventory_detail(request, inventory_id):
         context = build_motorclub_space_context(request, card, is_owner, membership)
         return render(request, "core/motorclub_space.html", context)
 
+    if card.key == "defense_driving":
+        from .defense_driving_views import build_defense_driving_space_context
+        context = build_defense_driving_space_context(request, card, is_owner, membership)
+        return render(request, "core/defense_driving_space.html", context)
+
     if card.key == "documents":
         from .documents_views import build_documents_space_context
         context = build_documents_space_context(request, card, is_owner, membership)
@@ -6992,6 +7014,17 @@ def spaces_home(request):
             "description": "Roadside assistance memberships — insurance upsell & B2B partnerships",
         },
     )
+    Space.objects.get_or_create(
+        organization=active_org,
+        key="defense_driving",
+        defaults={
+            "label": "Defense Driving Course",
+            "description": "Defense Driving Course enrollments — packages, certificates & profit tracking",
+        },
+    )
+    from .defense_driving_crm import ensure_default_packages
+
+    ensure_default_packages(active_org)
     Space.objects.get_or_create(
         organization=active_org,
         key="documents",

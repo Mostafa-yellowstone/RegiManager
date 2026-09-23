@@ -1,0 +1,481 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}{{ card.label }} | Defense Driving{% endblock %}
+
+{% block portal_content %}
+<style>
+.ddc-tab-btn { padding: 0.7rem 1.25rem; border: none; background: transparent; font-weight: 700; font-size: 0.9rem; cursor: pointer; border-bottom: 2px solid transparent; color: var(--portal-text-muted); margin-bottom: -2px; transition: color 0.2s; }
+.ddc-tab-btn.active { color: #0f766e !important; border-bottom: 2px solid #14b8a6 !important; }
+.ddc-tab-panel { display: none; }
+.ddc-tab-panel.active { display: block; }
+.ddc-metric { background: var(--portal-surface); border-radius: 16px; padding: 1.25rem 1.5rem; border: 1px solid var(--portal-border); box-shadow: var(--portal-shadow-sm); }
+.ddc-metric-label { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--portal-text-muted); margin-bottom: 0.35rem; }
+.ddc-metric-value { font-size: 1.65rem; font-weight: 900; color: var(--portal-text); line-height: 1.1; }
+.ddc-metric-meta { font-size: 0.8rem; color: var(--portal-text-muted); margin-top: 0.25rem; font-weight: 600; }
+.ddc-hero { background: linear-gradient(135deg, #134e4a 0%, #0f766e 45%, #14b8a6 100%); border-radius: 20px; padding: 1.5rem 1.75rem; color: white; margin-bottom: 1.5rem; }
+.ddc-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.ddc-table th { padding: 0.85rem 1rem; background: var(--portal-surface-muted); border-bottom: 1px solid var(--portal-border); color: var(--portal-text-muted); font-weight: 700; font-size: 0.72rem; text-transform: uppercase; text-align: left; }
+.ddc-table td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--portal-border); color: var(--portal-text-secondary); font-weight: 600; }
+.ddc-table tr:hover td { background: var(--portal-surface-muted); }
+.ddc-chip { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; }
+.ddc-chip-active { background: #dcfce7; color: #166534; }
+.ddc-chip-completed { background: #ccfbf1; color: #0f766e; }
+.ddc-chip-pending { background: #fef9c3; color: #854d0e; }
+.ddc-chip-cancelled { background: #fee2e2; color: #991b1b; }
+.ddc-chip-insurance_client { background: #eef2ff; color: #4338ca; }
+.ddc-chip-direct { background: #f1f5f9; color: #475569; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.35); backdrop-filter: blur(6px); z-index: 2000; align-items: center; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal-box { background: var(--portal-surface); border-radius: 20px; padding: 1.75rem; max-width: 600px; width: 95%; max-height: 92vh; overflow-y: auto; box-shadow: var(--portal-shadow-lg); border: 1px solid var(--portal-border); }
+.modal-box.wide { max-width: 760px; }
+.field-label { display: block; font-size: 0.76rem; font-weight: 800; color: var(--portal-text-muted); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.field-input { width: 100%; padding: 0.65rem 0.9rem; border-radius: 8px; border: 1px solid var(--portal-border); background: var(--portal-surface-muted); color: var(--portal-text); font-size: 0.88rem; outline: none; box-sizing: border-box; }
+.field-input:focus { border-color: #14b8a6; }
+.btn-submit { width: 100%; padding: 0.75rem; background: linear-gradient(135deg, #0f766e, #14b8a6); border: none; border-radius: 10px; color: white; font-weight: 700; cursor: pointer; font-size: 0.95rem; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+.pkg-card { border: 1px solid var(--portal-border); border-radius: 14px; padding: 1.1rem 1.2rem; background: var(--portal-surface-muted); }
+.pkg-card-price { font-size: 1.4rem; font-weight: 900; color: #0f766e; }
+.ddc-client-picker { position: relative; }
+.ddc-client-results {
+  display: none; position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30;
+  background: var(--portal-surface); border: 1px solid var(--portal-border); border-radius: 12px;
+  box-shadow: var(--portal-shadow-lg); max-height: 260px; overflow-y: auto;
+}
+.ddc-client-results.open { display: block; }
+.ddc-client-item {
+  display: block; width: 100%; text-align: left; border: none; background: transparent;
+  padding: 0.7rem 0.9rem; cursor: pointer; border-bottom: 1px solid var(--portal-border);
+}
+.ddc-client-item:hover, .ddc-client-item:focus { background: var(--portal-surface-muted); outline: none; }
+.ddc-client-item:last-child { border-bottom: none; }
+.ddc-client-name { font-weight: 800; color: var(--portal-text); font-size: 0.9rem; }
+.ddc-client-meta { font-size: 0.75rem; color: var(--portal-text-muted); margin-top: 2px; font-weight: 600; }
+.ddc-client-empty, .ddc-client-loading { padding: 0.85rem 0.9rem; color: var(--portal-text-muted); font-size: 0.85rem; font-weight: 600; }
+.ddc-client-selected { margin-top: 0.45rem; font-size: 0.8rem; font-weight: 700; color: #0f766e; }
+</style>
+
+<main class="portal-space-shell">
+  <div class="portal-space-inner portal-space-inner--wide">
+
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1.25rem;margin-bottom:1.5rem;">
+      <div>
+        <div style="display:inline-flex;align-items:center;gap:6px;background:#ccfbf1;color:#0f766e;padding:4px 12px;border-radius:999px;font-size:0.78rem;font-weight:800;text-transform:uppercase;margin-bottom:0.5rem;border:1px solid #99f6e4;">{{ active_org.name }}</div>
+        <h1 class="portal-space-title">{{ card.label }}</h1>
+        <p class="portal-space-subtitle">{{ card.description|default:"Defense Driving Course enrollments — packages, certificates &amp; profit tracking" }}</p>
+      </div>
+      <a href="{% url 'spaces-home' %}" style="text-decoration:none;padding:9px 16px;background:var(--portal-surface);border:1px solid var(--portal-border);border-radius:10px;font-weight:700;color:var(--portal-text-secondary);font-size:0.88rem;">&larr; Back to Spaces</a>
+    </div>
+
+    <div class="ddc-hero">
+      <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#99f6e4;margin-bottom:0.35rem;">Active PSB Defense Driving Revenue</div>
+      <div style="font-size:2.2rem;font-weight:900;line-height:1;">${{ stats.psb_revenue|floatformat:2 }}</div>
+      <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:0.85rem;font-size:0.85rem;color:#ccfbf1;font-weight:600;">
+        <span>{{ stats.active_enrollments }} active enrollments</span>
+        <span>{{ stats.client_count }} clients</span>
+        <span>{{ stats.insurance_channel_count }} via insurance</span>
+        <span>{{ stats.completed_enrollments }} completed</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--portal-border);margin-bottom:1.75rem;flex-wrap:wrap;">
+      <button type="button" class="ddc-tab-btn {% if active_tab == 'dashboard' %}active{% endif %}" onclick="ddcSwitchTab('dashboard', this)">Overview</button>
+      <button type="button" class="ddc-tab-btn {% if active_tab == 'enrollments' %}active{% endif %}" onclick="ddcSwitchTab('enrollments', this)">Enrollments</button>
+      <button type="button" class="ddc-tab-btn {% if active_tab == 'packages' %}active{% endif %}" onclick="ddcSwitchTab('packages', this)">Packages</button>
+      <button type="button" class="ddc-tab-btn {% if active_tab == 'documents' %}active{% endif %}" onclick="ddcSwitchTab('documents', this)">Documents</button>
+    </div>
+
+    <div id="ddc-tab-dashboard" class="ddc-tab-panel {% if active_tab == 'dashboard' %}active{% endif %}">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem;">
+        <div class="ddc-metric"><div class="ddc-metric-label">Total Enrollments</div><div class="ddc-metric-value">{{ stats.total_enrollments }}</div></div>
+        <div class="ddc-metric"><div class="ddc-metric-label">Clients</div><div class="ddc-metric-value">{{ stats.client_count }}</div></div>
+        <div class="ddc-metric"><div class="ddc-metric-label">Provider Revenue</div><div class="ddc-metric-value">${{ stats.provider_revenue|floatformat:2 }}</div><div class="ddc-metric-meta">Course provider share</div></div>
+        <div class="ddc-metric"><div class="ddc-metric-label">PSB Revenue</div><div class="ddc-metric-value">${{ stats.psb_revenue|floatformat:2 }}</div><div class="ddc-metric-meta">Your course profit</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;">
+        {% for row in stats.by_package %}
+        <div class="pkg-card">
+          <div style="font-size:0.78rem;font-weight:800;color:var(--portal-text-muted);text-transform:uppercase;">{{ row.package__name }}</div>
+          <div class="pkg-card-price" style="margin-top:0.35rem;">{{ row.count }}</div>
+          <div style="font-size:0.75rem;color:var(--portal-text-muted);margin-top:0.25rem;">active enrollments</div>
+        </div>
+        {% empty %}
+        <div style="grid-column:1/-1;color:var(--portal-text-muted);font-weight:600;">No active enrollments by package yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div id="ddc-tab-enrollments" class="ddc-tab-panel {% if active_tab == 'enrollments' %}active{% endif %}">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+        <form method="get" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+          <input type="hidden" name="tab" value="enrollments">
+          <input type="text" name="q" value="{{ search }}" placeholder="Search name, cert #, enrollment #…" class="field-input" style="width:240px;">
+          <select name="channel" class="field-input" style="width:auto;">
+            <option value="">All channels</option>
+            {% for val, label in channel_choices %}<option value="{{ val }}" {% if channel_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          <select name="status" class="field-input" style="width:auto;">
+            <option value="">All statuses</option>
+            {% for val, label in status_choices %}<option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          <select name="package" class="field-input" style="width:auto;">
+            <option value="">All packages</option>
+            {% for p in packages %}<option value="{{ p.id }}" {% if package_filter == p.id|stringformat:'s' %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+        </form>
+        {% if can_manage_defense_driving %}
+        <button type="button" onclick="document.getElementById('addEnrollmentModal').classList.add('active')" class="btn btn-primary btn-sm">+ Add Enrollment</button>
+        {% endif %}
+      </div>
+
+      <div style="background:var(--portal-surface);border:1px solid var(--portal-border);border-radius:16px;overflow:hidden;">
+        <table class="ddc-table">
+          <thead>
+            <tr>
+              <th>Enrollment #</th>
+              <th>Client</th>
+              <th>Package</th>
+              <th>Channel</th>
+              <th>Start</th>
+              <th>Completed</th>
+              <th>Provider $</th>
+              <th>PSB $</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in enrollments %}
+            <tr>
+              <td><strong>{{ e.enrollment_number }}</strong>{% if e.certificate_number %}<br><small style="color:var(--portal-text-muted);">Cert: {{ e.certificate_number }}</small>{% endif %}</td>
+              <td><a href="{% url 'client-detail' e.client.id %}" style="color:#0f766e;text-decoration:none;font-weight:700;">{{ e.client.name }}</a></td>
+              <td>{{ e.package_label }}</td>
+              <td><span class="ddc-chip ddc-chip-{{ e.channel }}">{{ e.channel_label }}</span></td>
+              <td>{% if e.start_date %}{{ e.start_date|date:"M j, Y" }}{% else %}—{% endif %}</td>
+              <td>{% if e.completion_date %}{{ e.completion_date|date:"M j, Y" }}{% else %}—{% endif %}</td>
+              <td>${{ e.provider_profit|floatformat:2 }}</td>
+              <td style="color:#0f766e;font-weight:800;">${{ e.psb_profit|floatformat:2 }}</td>
+              <td><span class="ddc-chip ddc-chip-{{ e.status }}">{{ e.status_label }}</span></td>
+              <td style="white-space:nowrap;">
+                {% if can_manage_defense_driving %}
+                <button type="button" class="btn btn-secondary btn-sm" onclick="openEditEnrollment({{ e.id }}, '{{ e.package_id }}', '{{ e.status }}', '{{ e.channel }}', '{{ e.provider_profit }}', '{{ e.psb_profit }}', '{{ e.certificate_number|escapejs }}', '{{ e.notes|escapejs }}')">Edit</button>
+                <form method="post" action="{% url 'delete-defense-driving-enrollment' e.id %}" style="display:inline;" onsubmit="return confirm('Remove this enrollment?');">{% csrf_token %}<button type="submit" class="btn btn-sm" style="color:#b91c1c;border:1px solid #fecaca;">Delete</button></form>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--portal-text-muted);">No enrollments yet. Add a client to a course package.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if enrollments_page.has_other_pages %}
+      <div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+        {% if enrollments_page.has_previous %}<a href="?tab=enrollments&page={{ enrollments_page.previous_page_number }}&q={{ search }}&channel={{ channel_filter }}&status={{ status_filter }}&package={{ package_filter }}" class="btn btn-secondary btn-sm">← Prev</a>{% endif %}
+        <span style="padding:0.4rem 0.8rem;color:var(--portal-text-muted);font-weight:600;">Page {{ enrollments_page.number }} of {{ enrollments_page.paginator.num_pages }}</span>
+        {% if enrollments_page.has_next %}<a href="?tab=enrollments&page={{ enrollments_page.next_page_number }}&q={{ search }}&channel={{ channel_filter }}&status={{ status_filter }}&package={{ package_filter }}" class="btn btn-secondary btn-sm">Next →</a>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    <div id="ddc-tab-packages" class="ddc-tab-panel {% if active_tab == 'packages' %}active{% endif %}">
+      {% if can_manage_defense_driving %}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem;">
+        <p style="color:var(--portal-text-secondary);margin:0;max-width:560px;">Configure course packages and provider take. PSB profit = price − provider take (applied to new enrollments).</p>
+        <button type="button" class="btn btn-primary btn-sm" onclick="openPackageModal()">+ Add Package</button>
+      </div>
+      {% endif %}
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;">
+        {% for p in packages %}
+        <div class="ddc-metric" style="{% if not p.is_active %}opacity:0.55;{% endif %}">
+          <div style="display:flex;justify-content:space-between;align-items:start;gap:0.5rem;">
+            <strong style="font-size:1.05rem;color:var(--portal-text);">{{ p.name }}</strong>
+            {% if can_manage_defense_driving %}
+            <div style="display:flex;gap:0.35rem;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="openPackageModal({{ p.id }}, '{{ p.name|escapejs }}', '{{ p.price }}', '{{ p.provider_take }}', {{ p.sort_order }}, {{ p.is_active|yesno:'true,false' }})">Edit</button>
+              {% if is_owner %}
+              <form method="post" action="{% url 'delete-defense-driving-package' p.id %}" onsubmit="return confirm('Remove or deactivate this package?');">{% csrf_token %}<button type="submit" style="border:none;background:none;color:#b91c1c;cursor:pointer;font-size:0.8rem;">Remove</button></form>
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+          <div class="pkg-card-price" style="margin-top:0.5rem;">${{ p.price|floatformat:2 }}</div>
+          <div style="font-size:0.82rem;color:var(--portal-text-muted);margin-top:0.35rem;">Provider: ${{ p.provider_take|floatformat:2 }} · PSB: <strong style="color:#0f766e;">${{ p.psb_profit_default|floatformat:2 }}</strong></div>
+          {% if not p.is_active %}<div style="font-size:0.75rem;color:#b91c1c;margin-top:0.4rem;font-weight:700;">Inactive</div>{% endif %}
+        </div>
+        {% empty %}
+        <div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--portal-text-muted);">No packages configured.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div id="ddc-tab-documents" class="ddc-tab-panel {% if active_tab == 'documents' %}active{% endif %}">
+      {% include "core/partials/space_important_docs.html" %}
+    </div>
+
+  </div>
+</main>
+
+{% if can_manage_defense_driving %}
+<div class="modal-overlay" id="addEnrollmentModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box wide">
+    <h3 style="margin:0 0 1rem;color:var(--portal-text);">Add Defense Driving Enrollment</h3>
+    <form method="post" action="{% url 'add-defense-driving-enrollment' card.id %}">
+      {% csrf_token %}
+      <div class="grid-2">
+        <div>
+          <label class="field-label">Sales channel</label>
+          <select name="channel" class="field-input">
+            {% for val, label in channel_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Course package</label>
+          <select name="package_id" class="field-input" id="ddcPackage" onchange="ddcUpdateProfits()">
+            {% for p in active_packages %}
+            <option value="{{ p.id }}" data-provider="{{ p.provider_take }}" data-psb="{{ p.psb_profit_default }}">{{ p.name }} — ${{ p.price|floatformat:2 }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:0.85rem;">
+        <label class="field-label">Client</label>
+        <div class="ddc-client-picker" id="ddcClientPicker">
+          <input type="hidden" name="client_id" id="ddcClientId" value="">
+          <input type="text" id="ddcClientSearch" class="field-input" placeholder="Type name, phone, driver license, or plate…" autocomplete="off">
+          <div class="ddc-client-results" id="ddcClientResults" role="listbox"></div>
+          <div class="ddc-client-selected" id="ddcClientSelected" hidden></div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:0.85rem;">
+        <div>
+          <label class="field-label">Status</label>
+          <select name="status" class="field-input">
+            {% for val, label in status_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Certificate #</label>
+          <input type="text" name="certificate_number" class="field-input">
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:0.85rem;">
+        <div>
+          <label class="field-label">Provider profit ($)</label>
+          <input type="number" step="0.01" name="provider_profit" id="ddcProviderProfit" class="field-input">
+        </div>
+        <div>
+          <label class="field-label">PSB profit ($)</label>
+          <input type="number" step="0.01" name="psb_profit" id="ddcPsbProfit" class="field-input">
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:0.85rem;">
+        <div><label class="field-label">Start date</label><input type="date" name="start_date" class="field-input"></div>
+        <div><label class="field-label">Completion date</label><input type="date" name="completion_date" class="field-input"></div>
+      </div>
+      <div style="margin-top:0.85rem;">
+        <label class="field-label">Notes</label>
+        <textarea name="notes" class="field-input" rows="2"></textarea>
+      </div>
+      <button type="submit" class="btn-submit" style="margin-top:1rem;">Add Enrollment</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editEnrollmentModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box wide">
+    <h3 style="margin:0 0 1rem;color:var(--portal-text);">Edit Enrollment</h3>
+    <form method="post" id="editEnrollmentForm" action="">
+      {% csrf_token %}
+      <div class="grid-2">
+        <div>
+          <label class="field-label">Package</label>
+          <select name="package_id" id="editPackage" class="field-input">
+            {% for p in packages %}<option value="{{ p.id }}">{{ p.name }} — ${{ p.price|floatformat:2 }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Status</label>
+          <select name="status" id="editStatus" class="field-input">
+            {% for val, label in status_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:0.85rem;">
+        <div>
+          <label class="field-label">Channel</label>
+          <select name="channel" id="editChannel" class="field-input">
+            {% for val, label in channel_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Certificate #</label>
+          <input type="text" name="certificate_number" id="editCert" class="field-input">
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:0.85rem;">
+        <div><label class="field-label">Provider profit ($)</label><input type="number" step="0.01" name="provider_profit" id="editProvider" class="field-input"></div>
+        <div><label class="field-label">PSB profit ($)</label><input type="number" step="0.01" name="psb_profit" id="editPsb" class="field-input"></div>
+      </div>
+      <div style="margin-top:0.85rem;">
+        <label class="field-label">Notes</label>
+        <textarea name="notes" id="editNotes" class="field-input" rows="2"></textarea>
+      </div>
+      <button type="submit" class="btn-submit" style="margin-top:1rem;">Save Changes</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="packageModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box">
+    <h3 style="margin:0 0 1rem;color:var(--portal-text);" id="packageModalTitle">Add Package</h3>
+    <form method="post" action="{% url 'save-defense-driving-package' card.id %}">
+      {% csrf_token %}
+      <input type="hidden" name="package_id" id="pkgId" value="">
+      <div style="margin-bottom:0.85rem;">
+        <label class="field-label">Name</label>
+        <input type="text" name="name" id="pkgName" class="field-input" required>
+      </div>
+      <div class="grid-2">
+        <div>
+          <label class="field-label">Price ($)</label>
+          <input type="number" step="0.01" min="0" name="price" id="pkgPrice" class="field-input" required>
+        </div>
+        <div>
+          <label class="field-label">Provider take ($)</label>
+          <input type="number" step="0.01" min="0" name="provider_take" id="pkgProvider" class="field-input" required>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:0.85rem;">
+        <div>
+          <label class="field-label">Sort order</label>
+          <input type="number" name="sort_order" id="pkgSort" class="field-input" value="0">
+        </div>
+        <div style="display:flex;align-items:flex-end;padding-bottom:0.4rem;">
+          <label style="display:flex;align-items:center;gap:0.5rem;font-weight:700;color:var(--portal-text);">
+            <input type="checkbox" name="is_active" id="pkgActive" checked> Active
+          </label>
+        </div>
+      </div>
+      <button type="submit" class="btn-submit" style="margin-top:1rem;">Save Package</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<script>
+const DDC_ORG_ID = {{ active_org.id }};
+const DDC_CLIENT_SEARCH_URL = "{% url 'client-search-ajax' %}";
+const DDC_EDIT_URL_TMPL = "{% url 'edit-defense-driving-enrollment' 0 %}".replace('/0/', '/__ID__/');
+
+function ddcSwitchTab(tab, btn) {
+  document.querySelectorAll('.ddc-tab-panel').forEach(function (el) { el.classList.remove('active'); });
+  document.querySelectorAll('.ddc-tab-btn').forEach(function (el) { el.classList.remove('active'); });
+  var panel = document.getElementById('ddc-tab-' + tab);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  var url = new URL(window.location.href);
+  url.searchParams.set('tab', tab);
+  window.history.replaceState({}, '', url);
+}
+
+function ddcUpdateProfits() {
+  var sel = document.getElementById('ddcPackage');
+  if (!sel || !sel.selectedOptions.length) return;
+  var opt = sel.selectedOptions[0];
+  document.getElementById('ddcProviderProfit').value = opt.dataset.provider || '';
+  document.getElementById('ddcPsbProfit').value = opt.dataset.psb || '';
+}
+ddcUpdateProfits();
+
+function openEditEnrollment(id, packageId, status, channel, provider, psb, cert, notes) {
+  document.getElementById('editEnrollmentForm').action = DDC_EDIT_URL_TMPL.replace('__ID__', id);
+  document.getElementById('editPackage').value = String(packageId);
+  document.getElementById('editStatus').value = status;
+  document.getElementById('editChannel').value = channel;
+  document.getElementById('editProvider').value = provider;
+  document.getElementById('editPsb').value = psb;
+  document.getElementById('editCert').value = cert || '';
+  document.getElementById('editNotes').value = notes || '';
+  document.getElementById('editEnrollmentModal').classList.add('active');
+}
+
+function openPackageModal(id, name, price, provider, sortOrder, isActive) {
+  document.getElementById('packageModalTitle').textContent = id ? 'Edit Package' : 'Add Package';
+  document.getElementById('pkgId').value = id || '';
+  document.getElementById('pkgName').value = name || '';
+  document.getElementById('pkgPrice').value = price || '';
+  document.getElementById('pkgProvider').value = provider || '';
+  document.getElementById('pkgSort').value = sortOrder != null ? sortOrder : 0;
+  document.getElementById('pkgActive').checked = isActive !== false;
+  document.getElementById('packageModal').classList.add('active');
+}
+
+(function initClientPicker() {
+  var searchInput = document.getElementById('ddcClientSearch');
+  var hiddenId = document.getElementById('ddcClientId');
+  var results = document.getElementById('ddcClientResults');
+  var selected = document.getElementById('ddcClientSelected');
+  if (!searchInput || !hiddenId || !results) return;
+  var timer = null;
+
+  function escHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+  function closeResults() { results.classList.remove('open'); results.innerHTML = ''; }
+  function renderItems(items, q) {
+    if (!items.length) {
+      results.innerHTML = '<div class="ddc-client-empty">No clients found for "' + escHtml(q) + '"</div>';
+      results.classList.add('open');
+      return;
+    }
+    results.innerHTML = items.map(function (c) {
+      var name = c.name || c.full_name || 'Client';
+      var meta = [c.identifier, c.plate].filter(Boolean).join(' · ');
+      return (
+        '<button type="button" class="ddc-client-item" data-id="' + escHtml(c.id) + '" data-name="' + escHtml(name) + '">' +
+          '<div class="ddc-client-name">' + escHtml(name) + '</div>' +
+          (meta ? '<div class="ddc-client-meta">' + escHtml(meta) + '</div>' : '') +
+        '</button>'
+      );
+    }).join('');
+    results.classList.add('open');
+  }
+  function doSearch(q) {
+    var url = DDC_CLIENT_SEARCH_URL + '?q=' + encodeURIComponent(q) + '&limit=12&organization=' + encodeURIComponent(DDC_ORG_ID);
+    fetch(url, { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (data) { renderItems(data.results || [], q); })
+      .catch(function () {
+        results.innerHTML = '<div class="ddc-client-empty">Could not load clients. Try again.</div>';
+        results.classList.add('open');
+      });
+  }
+  searchInput.addEventListener('input', function () {
+    hiddenId.value = '';
+    selected.hidden = true;
+    var q = searchInput.value.trim();
+    clearTimeout(timer);
+    if (q.length < 2) { closeResults(); return; }
+    results.innerHTML = '<div class="ddc-client-loading">Searching…</div>';
+    results.classList.add('open');
+    timer = setTimeout(function () { doSearch(q); }, 250);
+  });
+  results.addEventListener('click', function (e) {
+    var btn = e.target.closest('.ddc-client-item');
+    if (!btn) return;
+    hiddenId.value = btn.dataset.id;
+    searchInput.value = btn.dataset.name;
+    selected.textContent = 'Selected: ' + btn.dataset.name;
+    selected.hidden = false;
+    closeResults();
+  });
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('#ddcClientPicker')) closeResults();
+  });
+})();
+</script>
+{% endblock %}
