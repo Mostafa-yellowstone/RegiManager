@@ -99,6 +99,8 @@ def _client_vehicles(client):
 def _best_next_payment(client) -> dict | None:
     best = None
     for policy in _client_policies(client):
+        if policy.status in (InsurancePolicy.StatusChoices.INACTIVE, InsurancePolicy.StatusChoices.REJECTED):
+            continue
         summary = summarize_insurance_schedule(policy)
         due_date = summary.get("next_due_date")
         if not due_date:

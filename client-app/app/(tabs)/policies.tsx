@@ -62,14 +62,15 @@ export default function PoliciesScreen() {
       {!rows.length && !loading ? <Text style={styles.empty}>No policies on file.</Text> : null}
 
       {rows.map((p) => {
-        const active = (p.status_display || p.status || '').toLowerCase().includes('active');
+        const active = (p.status_display || p.status || '').toLowerCase() === 'active';
+        const isInactive = (p.status || '').toLowerCase() === 'inactive' || (p.status || '').toLowerCase() === 'rejected';
         return (
           <Link key={p.id} href={`/policy/${p.id}`} asChild>
             <Pressable style={styles.card}>
               <View style={styles.top}>
                 <Text style={styles.number}>{p.policy_number}</Text>
-                <View style={[styles.pill, { backgroundColor: active ? Colors.successLight : '#FEF3C7' }]}>
-                  <Text style={[styles.pillText, { color: active ? Colors.success : Colors.warning }]}>
+                <View style={[styles.pill, { backgroundColor: active ? Colors.successLight : isInactive ? '#FEE2E2' : '#FEF3C7' }]}>
+                  <Text style={[styles.pillText, { color: active ? Colors.success : isInactive ? Colors.danger : Colors.warning }]}>
                     {(p.status_display || p.status || 'Policy').toUpperCase()}
                   </Text>
                 </View>
@@ -79,9 +80,9 @@ export default function PoliciesScreen() {
                 <Text style={styles.meta}>
                   {p.next_due_date
                     ? `Next due ${p.next_due_date}${p.next_due_amount ? ` · ${money(p.next_due_amount)}` : ''}`
-                    : 'No open installment'}
+                    : isInactive ? 'Inactive / Cancelled policy' : 'No open installment'}
                 </Text>
-                {p.remaining_amount ? (
+                {p.remaining_amount && !isInactive ? (
                   <Text style={styles.remain}>{money(p.remaining_amount)} left</Text>
                 ) : null}
               </View>

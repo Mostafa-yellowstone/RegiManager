@@ -48,7 +48,11 @@ def client_profile_payload(client: Client) -> dict:
 
 def schedule_payload(policy: InsurancePolicy) -> dict:
     summary = summarize_insurance_schedule(policy)
-    remaining_amount = sum((r.total_due for r in summary["installments"] if not r.is_paid), Decimal("0.00"))
+    is_inactive = policy.status in (InsurancePolicy.StatusChoices.INACTIVE, InsurancePolicy.StatusChoices.REJECTED)
+    if is_inactive:
+        remaining_amount = Decimal("0.00")
+    else:
+        remaining_amount = sum((r.total_due for r in summary["installments"] if not r.is_paid), Decimal("0.00"))
     paid_amount = sum((r.total_due for r in summary["installments"] if r.is_paid), Decimal("0.00"))
     installments = []
     for row in summary["installments"]:
@@ -69,12 +73,16 @@ def schedule_payload(policy: InsurancePolicy) -> dict:
     return {
         "total": summary["total"],
         "paid": summary["paid"],
-        "remaining": summary["open"],
+        "remaining": 0 if is_inactive else summary["open"],
         "paid_amount": _money(paid_amount),
         "remaining_amount": _money(remaining_amount),
-        "next_due_date": summary["next_due_date"].isoformat() if summary.get("next_due_date") else None,
-        "next_due_amount": _money(summary["next_due_amount"]) if summary.get("next_due_amount") is not None else None,
-        "next_installment_id": next_row.id if next_row else None,
+        "next_due_date": None if is_inactive else (
+            summary["next_due_date"].isoformat() if summary.get("next_due_date") else None
+        ),
+        "next_due_amount": None if is_inactive else (
+            _money(summary["next_due_amount"]) if summary.get("next_due_amount") is not None else None
+        ),
+        "next_installment_id": None if is_inactive else (next_row.id if next_row else None),
         "installments": installments,
     }
 
@@ -99,7 +107,11 @@ def _policy_vehicle_label(policy: InsurancePolicy) -> str:
 def policy_list_item(policy: InsurancePolicy) -> dict:
     company = policy.insurance_company.name if policy.insurance_company_id else ""
     summary = summarize_insurance_schedule(policy)
-    remaining_amount = sum((r.total_due for r in summary["installments"] if not r.is_paid), Decimal("0.00"))
+    is_inactive = policy.status in (InsurancePolicy.StatusChoices.INACTIVE, InsurancePolicy.StatusChoices.REJECTED)
+    if is_inactive:
+        remaining_amount = Decimal("0.00")
+    else:
+        remaining_amount = sum((r.total_due for r in summary["installments"] if not r.is_paid), Decimal("0.00"))
     vehicle_label = _policy_vehicle_label(policy)
     return {
         "id": policy.id,
@@ -118,9 +130,13 @@ def policy_list_item(policy: InsurancePolicy) -> dict:
         "start_date": policy.start_date.isoformat() if policy.start_date else None,
         "end_date": policy.end_date.isoformat() if getattr(policy, "end_date", None) else None,
         "renewal_date": policy.renewal_date.isoformat() if getattr(policy, "renewal_date", None) else None,
-        "next_due_date": summary["next_due_date"].isoformat() if summary.get("next_due_date") else None,
-        "next_due_amount": _money(summary["next_due_amount"]) if summary.get("next_due_amount") is not None else None,
-        "remaining_payments": summary["open"],
+        "next_due_date": None if is_inactive else (
+            summary["next_due_date"].isoformat() if summary.get("next_due_date") else None
+        ),
+        "next_due_amount": None if is_inactive else (
+            _money(summary["next_due_amount"]) if summary.get("next_due_amount") is not None else None
+        ),
+        "remaining_payments": 0 if is_inactive else summary["open"],
         "remaining_amount": _money(remaining_amount),
     }
 
@@ -572,6 +588,8 @@ def build_upcoming_items(client: Client, *, days: int = 90) -> list[dict]:
     items: list[dict] = []
 
     for policy in InsurancePolicy.objects.filter(client=client).select_related("insurance_company"):
+        if policy.status in (InsurancePolicy.StatusChoices.INACTIVE, InsurancePolicy.StatusChoices.REJECTED):
+            continue
         summary = summarize_insurance_schedule(policy)
         due = summary.get("next_due_date")
         if due and today <= due <= horizon:

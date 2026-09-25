@@ -13,7 +13,10 @@ def next_payment_due(policy: InsurancePolicy, *, today: date | None = None):
     """
     Earliest unpaid installment due on/after today.
     If all unpaid rows are past-due, return the soonest unpaid due date.
+    Inactive / rejected policies have no remaining premium (same as portal).
     """
+    if policy.status in (InsurancePolicy.StatusChoices.INACTIVE, InsurancePolicy.StatusChoices.REJECTED):
+        return None
     today = today or timezone.localdate()
     unpaid = list(
         InsurancePolicyInstallment.objects.filter(policy=policy, is_paid=False)
@@ -34,6 +37,16 @@ def summarize_insurance_schedule(policy: InsurancePolicy, *, today: date | None 
             "due_date", "installment_number"
         )
     )
+    if policy.status in (InsurancePolicy.StatusChoices.INACTIVE, InsurancePolicy.StatusChoices.REJECTED):
+        return {
+            "installments": rows,
+            "total": len(rows),
+            "paid": len([r for r in rows if r.is_paid]),
+            "open": 0,
+            "next_due": None,
+            "next_due_date": None,
+            "next_due_amount": None,
+        }
     unpaid = [r for r in rows if not r.is_paid]
     next_row = next_payment_due(policy, today=today)
     return {
@@ -45,3 +58,4 @@ def summarize_insurance_schedule(policy: InsurancePolicy, *, today: date | None 
         "next_due_date": next_row.due_date if next_row else None,
         "next_due_amount": next_row.total_due if next_row else None,
     }
+

@@ -138,6 +138,37 @@ class ClientAppAPITests(APITestCase):
         self.assertEqual(schedule.status_code, status.HTTP_200_OK)
         self.assertEqual(schedule.data["remaining"], 1)
 
+    def test_inactive_policy_decreases_remaining_premium(self):
+        token = self._login().data["token"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token}")
+        
+        # Verify active policy has open payment
+        home = self.client.get(self.home_url)
+        self.assertIsNotNone(home.data["next_payment"])
+
+        # Change policy status to INACTIVE
+        self.policy.status = InsurancePolicy.StatusChoices.INACTIVE
+        self.policy.save(update_fields=["status"])
+
+        # Home screen should no longer show next_payment for inactive policy
+        home_after = self.client.get(self.home_url)
+        self.assertIsNone(home_after.data["next_payment"])
+
+        # Policy list remaining premium must also drop to 0.00
+        policies = self.client.get(self.policies_url)
+        self.assertEqual(policies.status_code, status.HTTP_200_OK)
+        self.assertEqual(policies.data["results"][0]["remaining_amount"], "0.00")
+        self.assertEqual(policies.data["results"][0]["remaining_payments"], 0)
+        self.assertIsNone(policies.data["results"][0]["next_due_date"])
+
+        # Policy schedule remaining should be 0 and remaining_amount 0.00
+        schedule = self.client.get(
+            reverse("api-client-policy-schedule", kwargs={"policy_id": self.policy.id})
+        )
+        self.assertEqual(schedule.data["remaining"], 0)
+        self.assertEqual(schedule.data["remaining_amount"], "0.00")
+        self.assertIsNone(schedule.data["next_due_date"])
+
     def test_logout_revokes_session(self):
         token = self._login().data["token"]
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {token}")

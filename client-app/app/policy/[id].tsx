@@ -77,7 +77,8 @@ export default function PolicyDetailScreen() {
   const payments = data?.payments || [];
   const idCards = data?.id_cards || [];
   const documents = data?.documents || [];
-  const isActive = data?.status === 'active' || data?.status_display?.toLowerCase().includes('active');
+  const isActive = (data?.status || '').toLowerCase() === 'active';
+  const isInactive = (data?.status || '').toLowerCase() === 'inactive' || (data?.status || '').toLowerCase() === 'rejected';
 
   return (
     <ScrollView
@@ -102,13 +103,13 @@ export default function PolicyDetailScreen() {
               <View
                 style={[
                   styles.statusBadge,
-                  { backgroundColor: isActive ? Colors.successLight : Colors.warningLight },
+                  { backgroundColor: isActive ? Colors.successLight : isInactive ? '#FEE2E2' : Colors.warningLight },
                 ]}
               >
                 <Text
                   style={[
                     styles.statusBadgeText,
-                    { color: isActive ? Colors.success : Colors.warning },
+                    { color: isActive ? Colors.success : isInactive ? Colors.danger : Colors.warning },
                   ]}
                 >
                   {(data.status_display || data.status || 'Active').toUpperCase()}
@@ -153,7 +154,9 @@ export default function PolicyDetailScreen() {
                 {schedule.next_due_amount ? ` · ${money(schedule.next_due_amount)}` : ''}
               </Text>
             ) : (
-              <Text style={styles.allPaidText}>All scheduled payments complete</Text>
+              <Text style={styles.allPaidText}>
+                {isInactive ? 'Policy is inactive / cancelled' : 'All scheduled payments complete'}
+              </Text>
             )}
           </View>
 

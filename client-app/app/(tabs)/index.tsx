@@ -76,7 +76,9 @@ export default function HomeScreen() {
   const chatUnread = data?.chat_unread || 0;
   const orgName = data?.organization_name || 'RegiManager';
   const agent = data?.linked_agent || {};
-  const policies = data?.policies || [];
+  const policies = (data?.policies || []).filter(
+    (p: any) => String(p.status || '').toLowerCase() === 'active',
+  );
   const vehicles = (data?.vehicles || []).filter((v: any) => v.source !== 'policy').slice(0, 4);
   const services = data?.recent_services || [];
   const clientName = client?.full_name || client?.first_name || 'Client';
