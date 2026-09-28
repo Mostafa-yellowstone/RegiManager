@@ -58,5 +58,5 @@ class AgencyLicenseTests(TestCase):
         self.client.login(username="lic_owner", password="pass")
         response = self.client.get(reverse("inventory-detail", args=[self.space.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Create state folder")
+        self.assertContains(response, "Add state")
         self.assertContains(response, "New York")

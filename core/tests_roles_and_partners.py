@@ -128,7 +128,7 @@ class ManagerAccountantPortalTests(TestCase):
         self.client.login(username="mgr", password="password123")
         home = self.client.get(reverse("agent-portal-home"))
         self.assertEqual(home.status_code, 200)
-        self.assertContains(home, "Add a personal task")
+        self.assertContains(home, "Add task")
         self.assertContains(home, "Day audit trail")
 
         resp = self.client.post(

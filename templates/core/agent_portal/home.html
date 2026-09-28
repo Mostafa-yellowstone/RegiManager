@@ -4,11 +4,12 @@
 {% block title %}My Portal | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=14">
+<link rel="stylesheet" href="{% static 'core/css/agent_portal.css' %}?v=15">
+<link rel="stylesheet" href="{% static 'core/css/agent_tasks_board.css' %}?v=9">
 {% endblock %}
 
 {% block portal_content %}
-<main class="agent-portal" style="padding:1.5rem 2rem 4rem;max-width:100%;">
+<main class="agent-portal atb ap-crm" data-toggle-url-template="{% url 'agent-portal-toggle-task' 0 %}" style="padding:1.25rem 1.5rem 3rem;max-width:100%;width:100%;">
     <section class="agent-portal__hero">
         <div class="agent-portal__identity">
             <form method="post" action="{% url 'agent-portal-upload-photo' %}" enctype="multipart/form-data" class="agent-photo-form" id="agentPhotoForm">
@@ -49,90 +50,86 @@
         </div>
     </section>
 
-        <div class="agent-portal__grid">
-        <section class="agent-card agent-card--attendance" style="background:var(--ap-card);border:1px solid var(--ap-line);border-radius:24px;padding:1.35rem 1.4rem;box-shadow:0 14px 32px rgba(15,23,42,0.05);">
-            <header class="agent-card__head">
-                <h2>Attendance</h2>
-                {% if attendance %}
-                <span class="agent-pill {% if attendance.is_open %}agent-pill--live{% else %}agent-pill--done{% endif %}">
-                    {% if attendance.is_open %}On shift{% else %}Closed{% endif %}
-                </span>
-                {% else %}
-                <span class="agent-pill agent-pill--done">Off shift</span>
-                {% endif %}
-            </header>
-            <p class="agent-card__lead">
-                New York shift only: <strong>{{ open_display }} – {{ close_display }} NY</strong>
-                on <strong>{{ work_date|date:"D, M j, Y" }}</strong>.
-                Check-in starts at login inside that window and auto-closes at {{ close_display }} NY.
-            </p>
-            <dl class="agent-attendance-stats">
-                <div>
-                    <dt>Check-in (NY)</dt>
-                    <dd>{{ opened_display }}</dd>
-                </div>
-                <div>
-                    <dt>Shift ends (NY)</dt>
-                    <dd>{{ close_display }}</dd>
-                </div>
-                <div>
-                    <dt>Status</dt>
-                    <dd>{% if not attendance %}No session yet{% elif attendance.closed_at %}Ended {{ closed_display }}{% else %}In progress{% endif %}</dd>
-                </div>
-            </dl>
-        </section>
+    <div class="ap-shift">
+        {% if attendance and not attendance.closed_at %}
+        <span class="agent-pill agent-pill--live">On shift</span>
+        {% elif attendance %}
+        <span class="agent-pill agent-pill--done">Shift closed</span>
+        {% else %}
+        <span class="agent-pill agent-pill--done">Off shift</span>
+        {% endif %}
+        <span>{{ work_date|date:"D, M j" }} · {{ open_display }}–{{ close_display }} NY</span>
+        <span>{% if attendance and attendance.opened_at %}Checked in {{ opened_display }}{% else %}No check-in yet{% endif %}</span>
+    </div>
 
-        <section class="agent-card agent-card--tasks" style="background:var(--ap-card);border:1px solid var(--ap-line);border-radius:24px;padding:1.35rem 1.4rem;box-shadow:0 14px 32px rgba(15,23,42,0.05);">
-            <header class="agent-card__head">
-                <h2>My tasks</h2>
-                <a class="agent-pill agent-pill--link" href="{% url 'agent-portal-tasks-board' %}">{{ task_progress.done }}/{{ task_progress.total }} · Board</a>
-            </header>
-            {% if can_add_own_tasks and assign_form %}
-            <form method="post" action="{% url 'agent-portal-create-task' %}" class="agent-self-task-form" style="display:grid;gap:0.55rem;margin-bottom:0.9rem;padding:0.85rem;border-radius:14px;background:var(--ap-accent-soft,rgba(15,118,110,0.08));border:1px solid var(--ap-line,rgba(20,33,43,0.1));">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{% url 'agent-portal-home' %}">
-                <input type="hidden" name="assigned_to" value="{{ membership.id }}">
-                <strong style="font-size:0.82rem;">Add a personal task</strong>
-                {{ assign_form.title }}
-                {{ assign_form.description }}
-                <div style="display:flex;gap:0.55rem;flex-wrap:wrap;align-items:end;">
-                    <label style="flex:1;min-width:140px;font-size:0.72rem;font-weight:700;">Due (optional){{ assign_form.due_date }}</label>
-                    <button type="submit" class="btn btn-primary" style="height:fit-content;">Add task</button>
-                </div>
-            </form>
-            {% endif %}
-            <div class="agent-progress" data-percent="{{ task_progress.percent }}" style="--progress: {{ task_progress.percent }};">
-                <div class="agent-progress__ring" aria-hidden="true">
-                    <svg viewBox="0 0 36 36">
-                        <path class="agent-progress__bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
-                        <path class="agent-progress__fg" stroke-dasharray="{{ task_progress.percent }}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
-                    </svg>
-                    <strong id="taskProgressPct">{{ task_progress.percent }}%</strong>
-                </div>
-                <p>Staged checklist — open the board to move stages and leave a completion note.</p>
+    <section class="ap-crm-panel">
+        <header class="ap-crm-head">
+            <h2>Tasks</h2>
+            <div class="ap-crm-filters" role="tablist">
+                <button type="button" class="is-active" data-ap-filter="open">Open</button>
+                <button type="button" data-ap-filter="todo">To do</button>
+                <button type="button" data-ap-filter="in_progress">In progress</button>
+                <button type="button" data-ap-filter="waiting">Waiting</button>
+                <button type="button" data-ap-filter="done">Done</button>
+                <button type="button" data-ap-filter="all">All</button>
             </div>
-            <ul class="agent-task-list" id="agentTaskList">
-                {% for task in task_progress.open_tasks %}
-                <li class="agent-task" data-task-id="{{ task.id }}" style="--task-i:{{ forloop.counter0 }};">
-                    <a href="{% url 'agent-portal-tasks-board' %}" class="agent-check" style="text-decoration:none;color:inherit;">
-                        <span class="agent-check__box" aria-hidden="true" style="border-radius:999px;font-size:0.55rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center;width:auto;min-width:4.5rem;padding:0.2rem 0.45rem;">{{ task.get_status_display }}</span>
-                        <span class="agent-check__label">
+        </header>
+        {% if can_add_own_tasks and assign_form %}
+        <form method="post" action="{% url 'agent-portal-create-task' %}" class="ap-crm-add">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'agent-portal-home' %}">
+            <input type="hidden" name="assigned_to" value="{{ membership.id }}">
+            {{ assign_form.title }}
+            {{ assign_form.description }}
+            {{ assign_form.due_date }}
+            <button type="submit" class="btn btn-primary">Add task</button>
+        </form>
+        {% endif %}
+        <div class="ap-crm-table-wrap">
+            <table class="ap-crm-table">
+                <thead>
+                    <tr>
+                        <th>Task</th>
+                        <th>Stage</th>
+                        <th>Due</th>
+                        <th>From</th>
+                        <th>Move</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in task_progress.tasks %}
+                    <tr class="agent-task" data-task-id="{{ task.id }}" data-status="{{ task.status }}" data-open="{% if task.is_done %}0{% else %}1{% endif %}">
+                        <td>
                             <strong>{{ task.title }}</strong>
-                            {% if task.description %}<small>{{ task.description|linebreaksbr }}</small>{% endif %}
+                            {% if task.description %}<small>{{ task.description|truncatechars:120 }}</small>{% endif %}
                             {% include "core/partials/agent_task_crm_records.html" %}
-                            {% if task.due_date %}<em>Due {{ task.due_date|date:"M j" }}</em>{% endif %}
-                        </span>
-                    </a>
-                </li>
-                {% empty %}
-                <li class="agent-empty">No open tasks — add one above or open the board.</li>
-                {% endfor %}
-            </ul>
-        </section>
-        </div><!-- /.agent-portal__grid -->
+                        </td>
+                        <td><span class="atb-status-chip is-{{ task.status }}">{{ task.get_status_display }}</span></td>
+                        <td>{% if task.due_date %}{{ task.due_date|date:"M j" }}{% else %}—{% endif %}</td>
+                        <td>{% if task.created_by %}{{ task.created_by.get_full_name|default:task.created_by.username }}{% else %}—{% endif %}</td>
+                        <td class="ap-crm-moves">
+                            {% if task.status != 'in_progress' %}
+                            <button type="button" class="atb-stage-btn" data-set-status="in_progress" data-task-id="{{ task.id }}" data-task-title="{{ task.title|escape }}">In progress</button>
+                            {% endif %}
+                            {% if task.status != 'waiting' %}
+                            <button type="button" class="atb-stage-btn" data-set-status="waiting" data-task-id="{{ task.id }}" data-task-title="{{ task.title|escape }}">Waiting</button>
+                            {% endif %}
+                            {% if not task.is_done %}
+                            <button type="button" class="atb-stage-btn atb-stage-btn--done" data-complete-task data-task-id="{{ task.id }}" data-task-title="{{ task.title|escape }}">Complete</button>
+                            {% else %}
+                            <button type="button" class="atb-stage-btn" data-set-status="todo" data-task-id="{{ task.id }}" data-task-title="{{ task.title|escape }}">Reopen</button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="ap-crm-empty">No tasks assigned yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
 
-        <!-- Full-width timeline below the 2-col grid -->
-        <section class="agent-card agent-card--timeline" style="background:var(--ap-card);border:1px solid var(--ap-line);border-radius:24px;padding:1.35rem 1.4rem;box-shadow:0 14px 32px rgba(15,23,42,0.05);">
+    <section class="ap-crm-panel ap-crm-audit">
             <header class="agent-card__head">
                 <h2>Day audit trail</h2>
                 <form method="get" style="display:flex;align-items:center;gap:0.45rem;">
@@ -193,7 +190,6 @@
                 {% endif %}
             </ol>
         </section>
-    </div>
 
 {% if can_view_spaces %}
 <dialog class="agent-spaces-modal" id="spacesPickerModal" aria-labelledby="spacesPickerTitle">
@@ -252,8 +248,46 @@
 </dialog>
 {% endif %}
 </main>
+
+<dialog class="atb-modal" id="atbCompleteModal">
+    <form method="dialog" class="atb-modal__card" id="atbCompleteForm">
+        <h3 id="atbCompleteHeading">Update task</h3>
+        <p class="atb-modal__lead" id="atbCompleteLead">Add a progress note for this stage.</p>
+        <p class="atb-modal__task" id="atbCompleteTaskTitle"></p>
+        <label class="atb-modal__label" for="atbCompleteNote">Progress note</label>
+        <textarea id="atbCompleteNote" name="completion_note" rows="4" required placeholder="What is happening at this stage?"></textarea>
+        <p class="atb-modal__error" id="atbCompleteError" hidden></p>
+        <div class="atb-modal__actions">
+            <button type="button" class="btn btn-secondary" id="atbCompleteCancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="atbCompleteSubmit">Save</button>
+        </div>
+    </form>
+</dialog>
 {% endblock %}
 
 {% block portal_scripts %}
 <script src="{% static 'core/js/agent_portal.js' %}?v=4" defer></script>
+<script src="{% static 'core/js/agent_tasks_board.js' %}?v=3" defer></script>
+<script>
+(function () {
+  var buttons = document.querySelectorAll("[data-ap-filter]");
+  var rows = document.querySelectorAll(".ap-crm-table tbody tr[data-status]");
+  function apply(filter) {
+    rows.forEach(function (row) {
+      var status = row.getAttribute("data-status");
+      var open = row.getAttribute("data-open") === "1";
+      var show = filter === "all" || (filter === "open" && open) || status === filter;
+      row.hidden = !show;
+    });
+  }
+  buttons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      buttons.forEach(function (other) { other.classList.remove("is-active"); });
+      btn.classList.add("is-active");
+      apply(btn.getAttribute("data-ap-filter"));
+    });
+  });
+  apply("open");
+})();
+</script>
 {% endblock %}
