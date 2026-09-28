@@ -1,7 +1,7 @@
 import csv
 import io
 import datetime
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.core.exceptions import PermissionDenied
@@ -397,9 +397,14 @@ def psb_backup_download(request, org_id):
     """Download a full PSB backup zip for local disaster-recovery storage."""
     _require_superuser(request)
     organization = get_object_or_404(Organization, pk=org_id)
-    payload = export_organization_zip(organization)
+    try:
+        payload = export_organization_zip(organization)
+    except Exception as exc:
+        messages.error(request, f"Backup download failed: {exc}")
+        return redirect("admin:core_organization_change", org_id)
     response = HttpResponse(payload, content_type="application/zip")
     response["Content-Disposition"] = f'attachment; filename="{backup_filename(organization)}"'
+    response["Content-Length"] = str(len(payload))
     return response
 
 

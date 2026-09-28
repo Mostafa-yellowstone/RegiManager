@@ -160,3 +160,15 @@ def portal_timezone(request):
         "portal_timezone_name": tz_name,
         "portal_timezone_label": timezone_label(tz_name),
     }
+
+
+def agency_license_alerts(request):
+    if not getattr(request.user, "is_authenticated", False):
+        return {"agency_license_alerts": []}
+    try:
+        from .agency_licenses import attention_rows_for_user
+
+        rows = attention_rows_for_user(request.user)
+    except Exception:
+        rows = []
+    return {"agency_license_alerts": rows}

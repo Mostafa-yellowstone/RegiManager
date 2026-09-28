@@ -12,6 +12,7 @@ from . import (
     spaces,
     staff,
     tlc,
+    licenses,
 )
 from .site import patch_admin_site
 
@@ -29,5 +30,6 @@ __all__ = [
     "spaces",
     "staff",
     "tlc",
+    "licenses",
     "patch_admin_site",
 ]

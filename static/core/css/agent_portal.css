@@ -1622,3 +1622,17 @@
 }
 .atb-crm-record a { color: #0f766e; }
 
+.agent-portal__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+  align-items: start;
+}
+.agent-space-tile__key { display: none; }
+.space-card-key { display: none; }
+@media (max-width: 960px) {
+  .agent-portal__grid { grid-template-columns: 1fr; }
+  .agent-portal { padding-left: 1rem !important; padding-right: 1rem !important; }
+}
+

@@ -11,6 +11,7 @@ from __future__ import annotations
 import io
 import json
 import logging
+import uuid
 import zipfile
 from datetime import date, datetime, time
 from decimal import Decimal
@@ -267,6 +268,9 @@ def _register():
         via_tlc_txn("core.tlcreceipt"),
         sitenews_org("core.sitenews"),
         org_fk("core.notification"),
+        org_fk("core.agencylicensefolder"),
+        org_fk("core.agencylicense"),
+        org_fk("core.agencylicensedocument"),
     ]
 
     # Drop any model that isn't installed (forward-compat).
@@ -281,8 +285,12 @@ def _register():
 
 
 def _json_safe(value: Any) -> Any:
-    if value is None:
-        return None
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(item) for item in value]
     if isinstance(value, Decimal):
         return str(value)
     if isinstance(value, datetime):
@@ -291,11 +299,13 @@ def _json_safe(value: Any) -> Any:
         return value.isoformat()
     if isinstance(value, time):
         return value.isoformat()
+    if isinstance(value, uuid.UUID):
+        return str(value)
     if isinstance(value, (bytes, bytearray)):
         return None
     if isinstance(value, Path):
         return str(value)
-    return value
+    return str(value)
 
 
 def _user_ref(user) -> dict | None:

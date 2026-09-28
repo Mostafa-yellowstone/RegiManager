@@ -1,0 +1,159 @@
+{% extends "base_portal.html" %}
+{% block title %}Licenses | RegiManager{% endblock %}
+{% block portal_content %}
+<style>
+.lic-shell { width: 100%; max-width: none; padding: 0 0 3rem; box-sizing: border-box; }
+.lic-hero { display: flex; justify-content: space-between; gap: 1.5rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.lic-hero h1 { margin: 0.2rem 0 0; font-size: clamp(1.8rem, 3vw, 2.4rem); letter-spacing: -0.03em; }
+.lic-kicker { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #4f46e5; }
+.lic-lead { margin: 0.4rem 0 0; color: #64748b; max-width: 40rem; }
+.lic-stats { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.lic-stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 0.85rem 1.1rem; min-width: 8rem; }
+.lic-stat strong { display: block; font-size: 1.35rem; }
+.lic-stat span { color: #64748b; font-size: 0.78rem; font-weight: 700; }
+.lic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
+.lic-card, .lic-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 18px; padding: 1.1rem 1.15rem; box-shadow: 0 8px 20px rgba(15,23,42,0.04); }
+.lic-card { text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: 0.35rem; min-height: 132px; }
+.lic-card:hover { border-color: #c7d2fe; transform: translateY(-2px); }
+.lic-card b { font-size: 1.05rem; }
+.lic-card small { color: #64748b; font-weight: 700; }
+.lic-layout { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; gap: 1.25rem; align-items: start; }
+.lic-form { display: grid; gap: 0.65rem; }
+.lic-form input, .lic-form select, .lic-form textarea { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.65rem 0.75rem; font: inherit; }
+.lic-row { display: flex; justify-content: space-between; gap: 0.75rem; align-items: center; padding: 0.85rem 0; border-bottom: 1px solid #f1f5f9; text-decoration: none; color: inherit; }
+.lic-pill { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; border-radius: 999px; padding: 0.25rem 0.55rem; background: #eef2ff; color: #3730a3; }
+.lic-pill.is-expired, .lic-pill.is-expiring { background: #ffedd5; color: #9a3412; }
+.lic-pill.is-expired { background: #fee2e2; color: #b91c1c; }
+.lic-docs { display: grid; gap: 0.55rem; margin-top: 0.8rem; }
+.lic-doc { display: flex; justify-content: space-between; gap: 0.75rem; align-items: center; background: #f8fafc; border-radius: 12px; padding: 0.7rem 0.8rem; }
+@media (max-width: 900px) { .lic-layout { grid-template-columns: 1fr; } }
+html.portal-theme-dark .lic-card, html.portal-theme-dark .lic-panel, html.portal-theme-dark .lic-stat { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+</style>
+<main class="dashboard-shell lic-shell">
+  <div class="lic-hero">
+    <div>
+      <div class="lic-kicker">{{ card.organization.name }}</div>
+      <h1>Licenses</h1>
+      <p class="lic-lead">Group licenses by state, open one to store photos and documents, and set your own reminder days (for example 45, 30, and 5).</p>
+    </div>
+    <div class="lic-stats">
+      <div class="lic-stat"><strong>{{ folders|length }}</strong><span>States</span></div>
+      <div class="lic-stat"><strong>{{ license_count }}</strong><span>Active licenses</span></div>
+      <div class="lic-stat"><strong>{{ due_count }}</strong><span>Need attention</span></div>
+    </div>
+  </div>
+
+  {% if not selected_folder %}
+  <div class="lic-layout">
+    <section class="lic-panel">
+      <h2 style="margin:0 0 0.8rem;font-size:1.05rem;">Add a state</h2>
+      {% if can_manage_licenses %}
+      <form method="post" action="{% url 'save-license-folder' card.id %}" class="lic-form">
+        {% csrf_token %}
+        <select name="state_code" required>
+          <option value="">Choose a US state</option>
+          {% for code, name in available_states %}
+          <option value="{{ code }}">{{ name }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-primary" type="submit">Create state folder</button>
+      </form>
+      {% endif %}
+    </section>
+    <section>
+      <div class="lic-grid">
+        {% for folder in folders %}
+        <a class="lic-card" href="?folder={{ folder.id }}">
+          <small>{{ folder.state_code }}</small>
+          <b>{{ folder.state_name }}</b>
+          <span>Open licenses</span>
+        </a>
+        {% empty %}
+        <div class="lic-panel">No states yet. Add one to start filing licenses.</div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+  {% else %}
+  <p style="margin:0 0 1rem;"><a href="{% url 'inventory-detail' card.id %}">&larr; All states</a></p>
+  <div class="lic-layout">
+    <section class="lic-panel">
+      <h2 style="margin:0 0 0.35rem;font-size:1.15rem;">{{ selected_folder.state_name }}</h2>
+      <p style="margin:0 0 1rem;color:#64748b;">{{ selected_folder.state_code }}</p>
+      {% if can_manage_licenses %}
+      <form method="post" action="{% url 'save-agency-license' card.id %}" class="lic-form">
+        {% csrf_token %}
+        <input type="hidden" name="folder_id" value="{{ selected_folder.id }}">
+        {% if selected_license %}<input type="hidden" name="license_id" value="{{ selected_license.id }}">{% endif %}
+        <input type="text" name="title" required placeholder="License name" value="{{ selected_license.title|default:'' }}">
+        <input type="text" name="license_number" placeholder="License number" value="{{ selected_license.license_number|default:'' }}">
+        <input type="text" name="holder_name" placeholder="Holder / business" value="{{ selected_license.holder_name|default:'' }}">
+        <label style="font-size:0.75rem;font-weight:800;color:#64748b;">Expiration
+          <input type="date" name="expiration_date" value="{% if selected_license.expiration_date %}{{ selected_license.expiration_date|date:'Y-m-d' }}{% endif %}">
+        </label>
+        <label style="font-size:0.75rem;font-weight:800;color:#64748b;">Reminder days (comma separated)
+          <input type="text" name="reminder_days" value="{{ selected_license.reminder_days|default:'45,30,5' }}" placeholder="45,30,5">
+        </label>
+        <textarea name="notes" rows="3" placeholder="Notes">{{ selected_license.notes|default:'' }}</textarea>
+        <button class="btn btn-primary" type="submit">{% if selected_license %}Save license{% else %}Add license{% endif %}</button>
+      </form>
+      {% endif %}
+    </section>
+    <section class="lic-panel">
+      {% if selected_license %}
+        <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;">
+          <div>
+            <h2 style="margin:0;">{{ selected_license.title }}</h2>
+            <p style="margin:0.35rem 0 0;color:#64748b;">
+              {% if selected_license.license_number %}No. {{ selected_license.license_number }} · {% endif %}
+              {{ selected_license.renewal.label }}
+            </p>
+          </div>
+          <span class="lic-pill is-{{ selected_license.renewal.state }}">{{ selected_license.renewal.state }}</span>
+        </div>
+        {% if can_manage_licenses %}
+        <form method="post" action="{% url 'upload-agency-license-document' selected_license.id %}" enctype="multipart/form-data" class="lic-form" style="margin-top:1rem;">
+          {% csrf_token %}
+          <input type="text" name="title" placeholder="Document title (optional)">
+          <input type="file" name="file" accept="image/*,.pdf,.doc,.docx" required>
+          <button class="btn btn-secondary" type="submit">Upload photo or document</button>
+        </form>
+        {% endif %}
+        <div class="lic-docs">
+          {% for doc in selected_license.documents.all %}
+          <div class="lic-doc">
+            <a href="{{ doc.file.url }}" target="_blank" rel="noopener">{{ doc.title|default:doc.file.name }}</a>
+            {% if can_manage_licenses %}
+            <form method="post" action="{% url 'delete-agency-license-document' doc.id %}">{% csrf_token %}<button class="btn btn-secondary btn-sm" type="submit">Remove</button></form>
+            {% endif %}
+          </div>
+          {% empty %}
+          <p style="color:#64748b;">No documents yet.</p>
+          {% endfor %}
+        </div>
+        {% if can_manage_licenses %}
+        <form method="post" action="{% url 'delete-agency-license' selected_license.id %}" style="margin-top:1rem;" onsubmit="return confirm('Delete this license?');">
+          {% csrf_token %}
+          <button class="btn btn-secondary" type="submit">Delete license</button>
+        </form>
+        {% endif %}
+        <p style="margin-top:1rem;"><a href="?folder={{ selected_folder.id }}">Back to {{ selected_folder.state_name }} licenses</a></p>
+      {% else %}
+        <h2 style="margin:0 0 0.5rem;">Licenses in {{ selected_folder.state_name }}</h2>
+        {% for lic in licenses %}
+        <a class="lic-row" href="?folder={{ selected_folder.id }}&license={{ lic.id }}">
+          <span>
+            <strong>{{ lic.title }}</strong><br>
+            <small style="color:#64748b;">{{ lic.renewal.label }}{% if lic.license_number %} · {{ lic.license_number }}{% endif %}</small>
+          </span>
+          <span class="lic-pill is-{{ lic.renewal.state }}">{{ lic.renewal.state }}</span>
+        </a>
+        {% empty %}
+        <p style="color:#64748b;">No licenses in this state yet.</p>
+        {% endfor %}
+      {% endif %}
+    </section>
+  </div>
+  {% endif %}
+</main>
+{% endblock %}

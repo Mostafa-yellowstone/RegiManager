@@ -3437,6 +3437,121 @@ from .agent_portal_models import (  # noqa: E402,F401
     AgentTask,
 )
 
+def agency_license_upload_path(instance, filename):
+    from django.utils import timezone
+
+    stamp = timezone.now().strftime("%Y/%m")
+    return (
+        f"agency_licenses/{instance.organization_id}/"
+        f"{instance.license_id}/{stamp}/{filename}"
+    )
+
+
+class AgencyLicenseFolder(models.Model):
+    """US-state bucket inside the Licenses space."""
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="agency_license_folders",
+    )
+    space = models.ForeignKey(
+        Space,
+        on_delete=models.CASCADE,
+        related_name="agency_license_folders",
+    )
+    state_code = models.CharField(max_length=2)
+    state_name = models.CharField(max_length=80)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["state_name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "state_code"],
+                name="uniq_agency_license_folder_state",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.state_name} ({self.state_code})"
+
+
+class AgencyLicense(models.Model):
+    """A bureau / agency license with custom renewal reminder offsets."""
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="agency_licenses",
+    )
+    space = models.ForeignKey(
+        Space,
+        on_delete=models.CASCADE,
+        related_name="agency_licenses",
+    )
+    folder = models.ForeignKey(
+        AgencyLicenseFolder,
+        on_delete=models.CASCADE,
+        related_name="licenses",
+    )
+    title = models.CharField(max_length=180)
+    license_number = models.CharField(max_length=80, blank=True, default="")
+    holder_name = models.CharField(max_length=180, blank=True, default="")
+    expiration_date = models.DateField(blank=True, null=True)
+    reminder_days = models.CharField(
+        max_length=80,
+        default="45,30,5",
+        help_text="Comma-separated days before expiration, e.g. 45,30,5",
+    )
+    notes = models.TextField(blank=True, default="")
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_agency_licenses",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["expiration_date", "title"]
+
+    def __str__(self):
+        return self.title
+
+
+class AgencyLicenseDocument(models.Model):
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="agency_license_documents",
+    )
+    license = models.ForeignKey(
+        AgencyLicense,
+        on_delete=models.CASCADE,
+        related_name="documents",
+    )
+    title = models.CharField(max_length=180, blank=True, default="")
+    file = models.FileField(upload_to=agency_license_upload_path)
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_agency_license_documents",
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+
+    def __str__(self):
+        return self.title or self.file.name
+
+
 # Insurance Targets & Forecast planner
 from .insurance_targets_models import (  # noqa: E402,F401
     InsuranceLineTarget,

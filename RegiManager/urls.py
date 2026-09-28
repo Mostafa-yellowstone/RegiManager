@@ -227,6 +227,13 @@ from core.staff_views import (
     upload_staff_document,
     delete_staff_document,
 )
+from core.license_views import (
+    save_license_folder,
+    save_agency_license,
+    delete_agency_license,
+    upload_agency_license_document,
+    delete_agency_license_document,
+)
 from core.documents_views import (
     add_document_folder,
     edit_document_folder,
@@ -820,6 +827,11 @@ urlpatterns = [
     path("dashboard/spaces/staff/employee/<int:employee_id>/delete/", delete_staff_employee, name="delete-staff-employee"),
     path("dashboard/spaces/staff/employee/<int:employee_id>/document/upload/", upload_staff_document, name="upload-staff-document"),
     path("dashboard/spaces/staff/document/<int:document_id>/delete/", delete_staff_document, name="delete-staff-document"),
+    path("dashboard/spaces/licenses/<int:space_id>/folder/save/", save_license_folder, name="save-license-folder"),
+    path("dashboard/spaces/licenses/<int:space_id>/license/save/", save_agency_license, name="save-agency-license"),
+    path("dashboard/spaces/licenses/<int:license_id>/delete/", delete_agency_license, name="delete-agency-license"),
+    path("dashboard/spaces/licenses/<int:license_id>/document/upload/", upload_agency_license_document, name="upload-agency-license-document"),
+    path("dashboard/spaces/licenses/document/<int:document_id>/delete/", delete_agency_license_document, name="delete-agency-license-document"),
     path("dashboard/spaces/documents/<int:space_id>/folder/add/", add_document_folder, name="add-document-folder"),
     path("dashboard/spaces/documents/folder/<int:folder_id>/edit/", edit_document_folder, name="edit-document-folder"),
     path("dashboard/spaces/documents/<int:space_id>/type/add/", add_document_type, name="add-document-type"),

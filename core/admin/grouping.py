@@ -80,6 +80,14 @@ CORE_ADMIN_GROUPS = (
                 "StaffDocument",
             ),
         ),
+        (
+            "Licenses",
+            (
+                "AgencyLicenseFolder",
+                "AgencyLicense",
+                "AgencyLicenseDocument",
+            ),
+        ),
     (
         "Insurance CRM",
         (

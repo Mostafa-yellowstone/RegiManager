@@ -164,6 +164,7 @@ TEMPLATES = [
                 "core.translations.translation_processor",
                 "core.context_processors.automation_status",
                 "core.context_processors.portal_timezone",
+                "core.context_processors.agency_license_alerts",
             ],
         },
     },

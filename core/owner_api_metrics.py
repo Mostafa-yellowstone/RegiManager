@@ -52,6 +52,7 @@ def ensure_default_spaces(organization: Organization) -> None:
         ("motorclub", "Motor Club", "Motor club memberships and partners"),
         ("documents", "Documents", "Document management space"),
         ("tlc", "TLC", "TLC Policy Profitability Engine"),
+        ("licenses", "Licenses", "State license folders, documents, and renewal reminders"),
     ]
     for key, label, description in defaults:
         Space.objects.get_or_create(

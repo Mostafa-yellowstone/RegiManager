@@ -1,0 +1,15 @@
+{% if agency_license_alerts %}
+<style>
+.agency-lic-banner { margin: 0 0 1rem; border-radius: 16px; border: 1px solid #f59e0b; background: linear-gradient(135deg,#fffbeb,#ffedd5); padding: 0.9rem 1rem; }
+.agency-lic-banner a { color: #9a3412; font-weight: 800; text-decoration: none; }
+.agency-lic-banner ul { margin: 0.45rem 0 0; padding-left: 1.1rem; }
+</style>
+<div class="agency-lic-banner" role="status">
+  <strong>License reminders</strong>
+  <ul>
+    {% for row in agency_license_alerts %}
+    <li><a href="{{ row.url }}">{{ row.license.title }}</a> — {{ row.status.label }}{% if row.license.folder %} · {{ row.license.folder.state_code }}{% endif %}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}

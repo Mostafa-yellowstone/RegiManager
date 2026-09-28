@@ -914,3 +914,13 @@
   box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.2);
 }
 
+.atb-card__actions,
+.atb-list-row__side {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+.atb-column__head h2 { margin: 0; }
+.atb { width: 100%; max-width: none; }
+

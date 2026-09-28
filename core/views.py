@@ -6891,6 +6891,11 @@ def inventory_detail(request, inventory_id):
         context = build_staff_space_context(request, card, is_owner, membership)
         return render(request, "core/staff_space.html", context)
 
+    if card.key == "licenses":
+        from .license_views import build_licenses_space_context
+        context = build_licenses_space_context(request, card, is_owner, membership)
+        return render(request, "core/licenses_space.html", context)
+
     if card.key == "documents":
         from .documents_views import build_documents_space_context
         context = build_documents_space_context(request, card, is_owner, membership)
@@ -7066,6 +7071,14 @@ def spaces_home(request):
         defaults={
             "label": "Staff",
             "description": "Employee profiles, CVs, and HR documents — organized in one place",
+        },
+    )
+    Space.objects.get_or_create(
+        organization=active_org,
+        key="licenses",
+        defaults={
+            "label": "Licenses",
+            "description": "State license folders, documents, and custom renewal reminders",
         },
     )
     Space.objects.get_or_create(
