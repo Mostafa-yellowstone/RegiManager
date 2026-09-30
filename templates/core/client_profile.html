@@ -36,6 +36,48 @@
         align-items: center;
         gap: 0.55rem;
     }
+    .cpp-merge-btn {
+        display: inline-flex;
+        align-items: center;
+        height: 42px;
+        padding: 0 0.9rem;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        color: #f8fafc;
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        cursor: pointer;
+    }
+    .cpp-merge-btn:hover {
+        background: rgba(255, 255, 255, 0.22);
+    }
+    .cpp-merge-results {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        margin-top: 0.75rem;
+    }
+    .cpp-merge-hit {
+        text-align: left;
+        width: 100%;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        border-radius: 10px;
+        padding: 0.65rem 0.75rem;
+        cursor: pointer;
+        color: #0f172a;
+    }
+    .cpp-merge-hit.is-selected {
+        border-color: #6366f1;
+        background: #eef2ff;
+    }
+    html.portal-theme-dark .cpp-merge-hit {
+        background: #1e293b;
+        border-color: #334155;
+        color: #e2e8f0;
+    }
     .cpp-app-access-btn {
         position: relative;
     }
@@ -198,6 +240,12 @@
                         style="display: inline-block; background: rgba(255,255,255,0.1); border: none; color: white; text-decoration: none; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.9rem; margin: 0;">&larr;
                         Back to List</a>
                     <div class="cpp-hero-actions">
+                        <button type="button"
+                            class="cpp-merge-btn"
+                            title="Merge another profile into this one"
+                            onclick="document.getElementById('mergeClientModal').classList.add('active')">
+                            Merge profiles
+                        </button>
                         <button type="button"
                             class="cpp-profile-edit-btn"
                             id="clientChatOpenBtn"
@@ -363,7 +411,7 @@
                             <div id="note-{{ note.id }}" class="cpp-note-card">
                                 <div style="display:flex; justify-content: space-between; gap: 1rem; align-items:flex-start; flex-wrap:wrap;">
                                     <div class="cpp-note-author">
-                                        {{ note.created_by.get_full_name|default:note.created_by.username|default:"System" }}
+                                        {% if note.created_by %}{{ note.created_by.get_full_name|default:note.created_by.username }}{% else %}System{% endif %}
                                         <span class="cpp-note-date">• {{ note.created_at|date:"M d, Y H:i" }}</span>
                                     </div>
                                     {% if note.follow_up_date %}
@@ -1486,6 +1534,93 @@
     openChat();
   }
   pollLoop();
+})();
+</script>
+
+<div class="cpp-app-access-modal modal-overlay" id="mergeClientModal">
+    <div class="modal-box" role="dialog" aria-labelledby="mergeClientTitle">
+        <h2 id="mergeClientTitle" style="margin: 0 0 0.4rem; font-size: 1.15rem;">Merge into this profile</h2>
+        <p style="margin: 0 0 0.9rem; color: #64748b; font-size: 0.9rem;">
+            Search for the other profile (insurance, DMV, or anything else). Its vehicles, policies, and notes move onto
+            <strong>{{ client.full_display_name }}</strong>. The duplicate is removed, and the whole office sees one profile.
+        </p>
+        <label for="mergeClientSearch" style="font-size: 0.8rem; font-weight: 700;">Other profile</label>
+        <input id="mergeClientSearch" type="search" placeholder="Name, license, phone, or plate" autocomplete="off"
+            style="width: 100%; margin-top: 0.35rem; padding: 0.6rem 0.7rem; border-radius: 10px; border: 1px solid #cbd5e1;">
+        <div class="cpp-merge-results" id="mergeClientResults"></div>
+        <form method="post" action="{% url 'merge-client-profiles' client.id %}" id="mergeClientForm" style="margin-top: 1rem;">
+            {% csrf_token %}
+            <input type="hidden" name="other_client_id" id="mergeOtherClientId" value="">
+            <p id="mergeClientPicked" style="min-height: 1.2rem; font-size: 0.85rem; margin: 0 0 0.75rem;"></p>
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('mergeClientModal').classList.remove('active')">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="mergeClientSubmit" disabled>Merge into this profile</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+(function () {
+  var search = document.getElementById("mergeClientSearch");
+  var results = document.getElementById("mergeClientResults");
+  var picked = document.getElementById("mergeClientPicked");
+  var hidden = document.getElementById("mergeOtherClientId");
+  var submit = document.getElementById("mergeClientSubmit");
+  var form = document.getElementById("mergeClientForm");
+  var selfId = "{{ client.id }}";
+  var timer = null;
+  if (!search) return;
+
+  function choose(id, label) {
+    hidden.value = id;
+    picked.textContent = "Bring in " + label + ".";
+    submit.disabled = false;
+    results.querySelectorAll(".cpp-merge-hit").forEach(function (btn) {
+      btn.classList.toggle("is-selected", btn.getAttribute("data-id") === String(id));
+    });
+  }
+
+  search.addEventListener("input", function () {
+    hidden.value = "";
+    submit.disabled = true;
+    picked.textContent = "";
+    clearTimeout(timer);
+    var q = search.value.trim();
+    if (q.length < 2) {
+      results.innerHTML = "";
+      return;
+    }
+    timer = setTimeout(function () {
+      var url = "{% url 'client-search-ajax' %}?organization={{ client.organization_id }}&limit=8&q=" + encodeURIComponent(q);
+      fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } })
+        .then(function (response) { return response.json(); })
+        .then(function (data) {
+          results.innerHTML = "";
+          (data.results || []).forEach(function (row) {
+            if (String(row.id) === selfId) return;
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "cpp-merge-hit";
+            btn.setAttribute("data-id", row.id);
+            var extra = row.identifier || row.plate || "";
+            btn.textContent = row.name + (extra ? " · " + extra : "");
+            btn.addEventListener("click", function () { choose(row.id, row.name); });
+            results.appendChild(btn);
+          });
+        });
+    }, 220);
+  });
+
+  form.addEventListener("submit", function (event) {
+    if (!hidden.value) {
+      event.preventDefault();
+      return;
+    }
+    var label = picked.textContent || "this profile";
+    if (!window.confirm("Merge " + label + " into {{ client.full_display_name|escapejs }}? This cannot be undone from the screen.")) {
+      event.preventDefault();
+    }
+  });
 })();
 </script>
 

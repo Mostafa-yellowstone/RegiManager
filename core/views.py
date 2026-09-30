@@ -5838,6 +5838,40 @@ from .intake_views import (  # noqa: E402, F401
 )
 
 @login_required
+@require_POST
+def merge_client_profiles(request, client_id):
+    """Fold another profile in this office into the open client."""
+    from .client_merge import ClientMergeError, merge_clients
+
+    keeper = get_object_or_404(Client, id=client_id)
+    if not _has_active_org_access(request.user, keeper.organization_id):
+        deny_access("Access denied.")
+
+    other_raw = (request.POST.get("other_client_id") or "").strip()
+    if not other_raw.isdigit():
+        messages.error(request, "Choose the profile you want to merge in.")
+        return redirect("client-detail", client_id=keeper.id)
+
+    source = get_object_or_404(
+        Client,
+        id=int(other_raw),
+        organization_id=keeper.organization_id,
+    )
+    try:
+        merge_clients(keeper, source, actor=request.user)
+    except ClientMergeError as exc:
+        messages.error(request, str(exc))
+        return redirect("client-detail", client_id=keeper.id)
+
+    messages.success(
+        request,
+        "Those two profiles are now one. Insurance, DMV, and the rest of the records "
+        "are on this profile for the whole office.",
+    )
+    return redirect("client-detail", client_id=keeper.id)
+
+
+@login_required
 def client_search_ajax(request):
     """
     Lightweight JSON endpoint for the dashboard command bar live search.
