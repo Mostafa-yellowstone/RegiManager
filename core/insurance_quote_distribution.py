@@ -441,6 +441,9 @@ def assign_lead(
             "updated_at",
         ]
     )
+    from .insurance_quote_crm import sync_quote_lead_to_crm
+
+    sync_quote_lead_to_crm(lead)
 
     # Save notification in the same DB transaction as the assignment so it always exists.
     notif = _create_quote_assignment_notification(lead, reassigned=reassigned)

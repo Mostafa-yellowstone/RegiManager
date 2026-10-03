@@ -489,6 +489,9 @@ def create_quote_lead(request):
     from .realtime import publish_org_quote_event
 
     lead.refresh_from_db()
+    from .insurance_quote_crm import sync_quote_lead_to_crm
+
+    sync_quote_lead_to_crm(lead)
     _refresh_linked_task_description(lead)
     publish_org_quote_event(
         org.id,
@@ -693,6 +696,9 @@ def edit_quote_lead(request, lead_id: int):
     from .realtime import publish_org_quote_event
 
     lead.refresh_from_db()
+    from .insurance_quote_crm import sync_quote_lead_to_crm
+
+    sync_quote_lead_to_crm(lead)
     publish_org_quote_event(
         org.id,
         "quote_pipeline.changed",

@@ -2088,11 +2088,31 @@ class InsurancePolicy(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="insurance_policies")
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="insurance_policies")
     policy_number = models.CharField(max_length=100)
-    insurance_company = models.ForeignKey(InsuranceCompany, on_delete=models.CASCADE, related_name="policies")
+    insurance_company = models.ForeignKey(
+        InsuranceCompany,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="policies",
+    )
     premium = models.DecimalField(max_digits=12, decimal_places=2)
-    broker_fee = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, blank=True, help_text="Broker fee taken by the agent")
-    commission_rate = models.DecimalField(max_digits=5, decimal_places=2, help_text="Commission rate in percentage (e.g. 15.00 for 15%)")
-    commission_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True)
+    broker_fee = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Broker fee taken by the agent. Blank until it is entered.",
+    )
+    commission_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Commission rate in percentage (e.g. 15.00 for 15%). Blank until it is entered.",
+    )
+    commission_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, default=None)
     INSURANCE_TYPE_CHOICES = [
         ("auto_personal", "AUTO PERSONAL"),
         ("motor_cycle", "MOTOR CYCLE"),
@@ -2194,8 +2214,11 @@ class InsurancePolicy(models.Model):
         if self.renewal_date is None and self.end_date:
             self.renewal_date = self.end_date
 
-        # Calculate commission_amount
-        self.commission_amount = Decimal(str(self.premium)) * (Decimal(str(self.commission_rate)) / Decimal("100.00"))
+        if self.commission_rate is None:
+            self.commission_amount = None
+        else:
+            premium = self.premium if self.premium is not None else Decimal("0.00")
+            self.commission_amount = Decimal(str(premium)) * (Decimal(str(self.commission_rate)) / Decimal("100.00"))
         
         from .insurance_commissions import calculate_unearned_commission
 

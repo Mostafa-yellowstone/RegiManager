@@ -134,7 +134,7 @@ html.portal-theme-dark .ins-overview-table.ins-table td {
           <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:#93c5fd;margin-bottom:0.35rem;">Insurance policy</div>
           <h1 style="margin:0;font-size:clamp(1.45rem,3vw,2rem);letter-spacing:-0.02em;">{{ policy.policy_number }}</h1>
           <p style="margin:0.4rem 0 0;color:#cbd5e1;font-weight:600;">
-            {{ overview_named_insured }} · {{ policy.insurance_company.name }}
+            {{ overview_named_insured }}{% if policy.insurance_company %} · {{ policy.insurance_company.name }}{% endif %}
             · {{ policy.get_status_display }} · {{ policy.get_stage_display }}
           </p>
         </div>
@@ -179,7 +179,7 @@ html.portal-theme-dark .ins-overview-table.ins-table td {
           <dt>Business Type</dt><dd>{{ policy.get_business_type_display }}</dd>
           <dt>Named Insured</dt><dd>{{ overview_named_insured }}</dd>
           <dt>Insured Address</dt><dd>{{ overview_address }}</dd>
-          <dt>Company</dt><dd>{{ policy.insurance_company.name }}</dd>
+          <dt>Company</dt><dd>{% if policy.insurance_company %}{{ policy.insurance_company.name }}{% else %}—{% endif %}</dd>
           <dt>Source</dt><dd>{{ policy.get_source_display }}</dd>
           <dt>Bound Date</dt><dd>{{ policy.bound_date|date:"M j, Y"|default:"—" }}</dd>
           <dt>VIN / Plate</dt><dd>{{ policy.vin|default:"—" }} / {{ policy.plate_number|default:"—" }}</dd>
@@ -195,9 +195,9 @@ html.portal-theme-dark .ins-overview-table.ins-table td {
           <dt>Status</dt><dd>{{ policy.get_status_display }}</dd>
           <dt>Stage</dt><dd>{{ policy.get_stage_display }}</dd>
           <dt>Premium</dt><dd>${{ policy.premium }}</dd>
-          <dt>Broker Fee</dt><dd>${{ policy.broker_fee }}</dd>
-          <dt>Commission Rate</dt><dd>{{ policy.commission_rate }}%</dd>
-          <dt>Commission</dt><dd>${{ policy.commission_amount }}</dd>
+          <dt>Broker Fee</dt><dd>{% if policy.broker_fee is not None %}${{ policy.broker_fee }}{% else %}—{% endif %}</dd>
+          <dt>Commission Rate</dt><dd>{% if policy.commission_rate is not None %}{{ policy.commission_rate }}%{% else %}—{% endif %}</dd>
+          <dt>Commission</dt><dd>{% if policy.commission_amount is not None %}${{ policy.commission_amount }}{% else %}—{% endif %}</dd>
           <dt>Next Due</dt>
           <dd>
             {% if schedule.next_due_date %}

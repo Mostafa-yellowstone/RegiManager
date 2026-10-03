@@ -778,10 +778,10 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #a5b
                 </span>
                 {% else %}—{% endif %}
               </td>
-              <td style="font-size: 0.85rem; font-weight: 700;">{{ policy.insurance_company.name }}</td>
+              <td style="font-size: 0.85rem; font-weight: 700;">{% if policy.insurance_company %}{{ policy.insurance_company.name }}{% else %}—{% endif %}</td>
               <td style="font-weight: 800;">${{ policy.premium|floatformat:2 }}</td>
-              <td style="color: var(--green); font-weight: 700;">${{ policy.commission_amount|floatformat:2 }}</td>
-              <td style="color: #475569; font-weight: 700;">${{ policy.broker_fee|floatformat:2 }}</td>
+              <td style="color: var(--green); font-weight: 700;">{% if policy.commission_amount is not None %}${{ policy.commission_amount|floatformat:2 }}{% else %}—{% endif %}</td>
+              <td style="color: #475569; font-weight: 700;">{% if policy.broker_fee is not None %}${{ policy.broker_fee|floatformat:2 }}{% else %}—{% endif %}</td>
               <td>{% if policy.stage == 'quote' %}<span class="chip chip-quote">{{ policy.get_stage_display }}</span>{% elif policy.stage == 'endorsement' %}<span class="chip chip-endorsement">{{ policy.get_stage_display }}</span>{% else %}<span class="chip chip-bound">{{ policy.get_stage_display }}</span>{% endif %}</td>
               <td>
                 {% if policy.status == 'active' %}<span class="chip chip-active">Active</span>

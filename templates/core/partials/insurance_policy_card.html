@@ -33,7 +33,7 @@
                 ">🛡️</div>
                 <div>
                     <div style="font-size: 0.65rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.9;">Insurance Policy</div>
-                    <div style="font-size: 0.78rem; font-weight: 600; opacity: 0.85;">{{ policy.insurance_company.name }}</div>
+                    <div style="font-size: 0.78rem; font-weight: 600; opacity: 0.85;">{% if policy.insurance_company %}{{ policy.insurance_company.name }}{% else %}No company yet{% endif %}</div>
                 </div>
             </div>
             {% if policy.get_insurance_type_display %}
@@ -65,7 +65,7 @@
             </div>
             <div>
                 <div style="opacity: 0.75; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;">Broker Fee</div>
-                <div style="font-weight: 800; font-size: 1rem;">${{ policy.broker_fee }}</div>
+                <div style="font-weight: 800; font-size: 1rem;">{% if policy.broker_fee is not None %}${{ policy.broker_fee }}{% else %}—{% endif %}</div>
             </div>
             <div>
                 <div style="opacity: 0.75; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;">Period</div>

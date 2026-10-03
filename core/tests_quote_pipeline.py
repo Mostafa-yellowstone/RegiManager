@@ -1,9 +1,10 @@
 from datetime import date, timedelta
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -28,7 +29,7 @@ from core.insurance_quote_pipeline_models import (
     InsuranceQuoteLead,
     InsuranceQuoteLeadDocument,
 )
-from core.models import Notification, Organization, OrganizationMembership
+from core.models import Client, InsurancePolicy, Notification, Organization, OrganizationMembership
 from core.role_permissions import apply_role_permission_pack
 
 
@@ -41,6 +42,11 @@ def _open_attendance(membership, organization, work_date):
     )
 
 
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    SESSION_COOKIE_SECURE=False,
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+)
 class QuotePipelineDistributionTests(TestCase):
     def setUp(self):
         self.org = Organization.objects.create(name="Quote Org", city="NYC")
@@ -380,6 +386,18 @@ class QuotePipelineDistributionTests(TestCase):
         self.assertIn("D1234567", lead.agent_task.description)
         self.assertEqual(lead.additional_drivers.count(), 0)
         self.assertEqual(lead.additional_vehicles.count(), 0)
+        lead.refresh_from_db()
+        policy = lead.crm_policy
+        self.assertIsNotNone(policy)
+        self.assertEqual(policy.status, InsurancePolicy.StatusChoices.PENDING)
+        self.assertEqual(policy.premium, Decimal("0.00"))
+        self.assertIsNone(policy.insurance_company_id)
+        self.assertIsNone(policy.broker_fee)
+        self.assertIsNone(policy.commission_rate)
+        self.assertIsNone(policy.commission_amount)
+        self.assertEqual(policy.added_by_id, self.agent.user_id)
+        self.assertEqual(policy.client.phone_number, "5554445555")
+        self.assertEqual(Client.objects.filter(organization=self.org).count(), 1)
 
         # Re-save with an additional driver and car via edit.
         self.client.login(username="qmgr", password="password123")
@@ -459,6 +477,12 @@ class QuotePipelineDistributionTests(TestCase):
             actor=self.owner_user,
         )
         lead.refresh_from_db()
+        policy.refresh_from_db()
+        self.assertEqual(InsurancePolicy.objects.filter(organization=self.org).count(), 1)
+        self.assertEqual(policy.added_by_id, self.agent2.user_id)
+        self.assertEqual(policy.status, InsurancePolicy.StatusChoices.PENDING)
+        self.assertIsNone(policy.broker_fee)
+        self.assertIsNone(policy.commission_rate)
         self.assertTrue(
             can_view_quote_lead_documents(
                 self.agent2_user, lead, membership=self.agent2

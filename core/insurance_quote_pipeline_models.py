@@ -124,6 +124,14 @@ class InsuranceQuoteLead(models.Model):
         blank=True,
         related_name="quote_leads",
     )
+    crm_policy = models.ForeignKey(
+        "InsurancePolicy",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="quote_leads",
+        help_text="CRM policy created from this quote. Reassignment updates that policy's agent.",
+    )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 

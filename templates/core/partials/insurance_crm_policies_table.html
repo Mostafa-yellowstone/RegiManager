@@ -41,12 +41,12 @@
                 </span>
                 {% else %}—{% endif %}
               </td>
-              <td>{{ policy.insurance_company.name }}</td>
+              <td>{% if policy.insurance_company %}{{ policy.insurance_company.name }}{% else %}—{% endif %}</td>
               <td style="font-weight: 800;">${{ policy.premium }}</td>
               {% if user_can_view_banking %}
-              <td style="font-weight: 700; color: #475569;">${{ policy.broker_fee }}</td>
-              <td>{{ policy.commission_rate }}%</td>
-              <td style="color: #16a34a; font-weight: 800;">${{ policy.commission_amount }}</td>
+              <td style="font-weight: 700; color: #475569;">{% if policy.broker_fee is not None %}${{ policy.broker_fee }}{% else %}—{% endif %}</td>
+              <td>{% if policy.commission_rate is not None %}{{ policy.commission_rate }}%{% else %}—{% endif %}</td>
+              <td style="color: #16a34a; font-weight: 800;">{% if policy.commission_amount is not None %}${{ policy.commission_amount }}{% else %}—{% endif %}</td>
               {% endif %}
               <td>
                 {% if policy.added_by %}

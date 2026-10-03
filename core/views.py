@@ -7352,18 +7352,21 @@ def edit_insurance_policy(request, policy_id):
                 source=source,
             )
         
-        company_id = request.POST.get("insurance_company")
-        company = get_object_or_404(InsuranceCompany, id=company_id, organization=policy.organization)
-        
+        company_id = (request.POST.get("insurance_company") or "").strip()
+        if company_id:
+            policy.insurance_company = get_object_or_404(
+                InsuranceCompany, id=company_id, organization=policy.organization
+            )
+
         policy.client = client
-        policy.insurance_company = company
         policy.policy_number = request.POST.get("policy_number", "").strip()
         policy.premium = Decimal(request.POST.get("premium", "0.00").strip() or "0.00")
-        policy.broker_fee = Decimal(request.POST.get("broker_fee", "0.00").strip() or "0.00")
-        if can_edit_commission:
-            policy.commission_rate = Decimal(
-                request.POST.get("commission_rate", "0.00").strip() or "0.00"
-            )
+        if "broker_fee" in request.POST:
+            raw_broker = request.POST.get("broker_fee", "").strip()
+            policy.broker_fee = Decimal(raw_broker) if raw_broker else None
+        if can_edit_commission and "commission_rate" in request.POST:
+            raw_rate = request.POST.get("commission_rate", "").strip()
+            policy.commission_rate = Decimal(raw_rate) if raw_rate else None
         policy.stage = request.POST.get("stage", "quote")
         policy.status = request.POST.get("status", "active")
         policy.insurance_type = request.POST.get("insurance_type", "")
@@ -7406,8 +7409,8 @@ def edit_insurance_policy(request, policy_id):
         "insurance_company_id": policy.insurance_company_id,
         "policy_number": policy.policy_number,
         "premium": str(policy.premium),
-        "broker_fee": str(policy.broker_fee),
-        "commission_rate": str(policy.commission_rate),
+        "broker_fee": "" if policy.broker_fee is None else str(policy.broker_fee),
+        "commission_rate": "" if policy.commission_rate is None else str(policy.commission_rate),
         "stage": policy.stage,
         "status": policy.status,
         "insurance_type": policy.insurance_type,
