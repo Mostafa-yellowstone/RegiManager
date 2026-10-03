@@ -1,6 +1,6 @@
 import io
 import zipfile
-from datetime import date
+from datetime import date, datetime, timezone as dt_timezone
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -115,8 +115,8 @@ class KintoneImportTests(TestCase):
         self.assertEqual(result["clients_created"], 0)
         self.assertEqual(result["clients_skipped"], 1)
         self.assertEqual(existing.external_key, "630858905")
-        self.assertEqual(existing.city, "Queens")
-        self.assertEqual(existing.phone_number, "(646) 469-1374")
+        self.assertEqual(existing.city, "Bronx")
+        self.assertEqual(existing.phone_number, "6464691374")
         self.assertEqual(existing.vehicles.count(), 1)
 
     def test_zip_of_both_sheets_builds_one_profile(self):
@@ -181,10 +181,71 @@ class KintoneImportTests(TestCase):
         self.assertContains(status_page, "Profiles created")
         self.assertEqual(Client.objects.filter(external_key="630858905").count(), 1)
 
+    def test_reimport_overwrites_year_make_model_and_vin_without_a_copy(self):
+        self.import_bundle()
+        vehicle = Vehicle.objects.get()
+        vehicle.vin = "KT20797"
+        vehicle.year = 2001
+        vehicle.make = "Generated"
+        vehicle.model = "Placeholder"
+        vehicle.is_legacy_vin = True
+        vehicle.save()
+
+        again = self.import_bundle()
+        vehicle.refresh_from_db()
+
+        self.assertEqual(Vehicle.objects.count(), 1)
+        self.assertEqual(Client.objects.count(), 1)
+        self.assertEqual(again["vehicles_created"], 0)
+        self.assertEqual(vehicle.vin, "AF181013518")
+        self.assertEqual(vehicle.year, 1997)
+        self.assertEqual(vehicle.model, "DIO")
+        self.assertFalse(vehicle.vin.startswith("KT"))
+
+    def test_reimport_overwrites_a_transaction_instead_of_copying_it(self):
+        self.import_bundle()
+        record = ServiceRecord.objects.get()
+        record.processing_fee = Decimal("1.00")
+        record.dmv_fee = Decimal("1.00")
+        record.save()
+
+        again = self.import_bundle()
+        record.refresh_from_db()
+
+        self.assertEqual(ServiceRecord.objects.count(), 1)
+        self.assertEqual(again["transactions_created"], 0)
+        self.assertEqual(again["transactions_skipped"], 1)
+        self.assertEqual(record.dmv_fee, Decimal("0.00"))
+        self.assertEqual(record.paid_amount, Decimal("25.00"))
+
+    def test_many_transactions_in_the_same_second_are_all_saved(self):
+        clients = "Client,License Number,Phone number\nTORRES DENNIS MIGUEL,630858905,6464691374\n"
+        vehicles = "VehicleId,Client,License Number,PlateNumber,Year,Make,Model,VIN\n20797,TORRES DENNIS MIGUEL,630858905,777BN4,1997,HONDA,DIO,AF181013518\n"
+        lines = ["Terminal Number,Transaction Date,Client,VIN,SubTotalXpress,SubTotalDMV,Sales Tax,GrandTotal,CC Fees,Payments,Outstanding"]
+        for amount in range(1, 9):
+            lines.append(f"999,5/22/2026,TORRES DENNIS M,AF181013518,{amount},10,0,{amount + 10},0,{amount + 10},0")
+        transactions = "\n".join(lines) + "\n"
+        fixed = datetime(2026, 5, 22, 12, 0, 0, tzinfo=dt_timezone.utc)
+        with patch("core.models.timezone.now", return_value=fixed):
+            result = import_kintone(
+                organization=self.org,
+                actor=self.user,
+                clients_file=csv_file("clients.csv", clients),
+                vehicles_file=csv_file("vehicles.csv", vehicles),
+                transactions_file=csv_file("transactions.csv", transactions),
+            )
+        vehicle = Vehicle.objects.get()
+        self.assertEqual(result["transactions_created"], 8, result["errors"])
+        self.assertEqual(ServiceRecord.objects.filter(vehicle=vehicle).count(), 8)
+        self.assertEqual(vehicle.year, 1997)
+        self.assertEqual(vehicle.make, "HONDA")
+        self.assertEqual(vehicle.model, "DIO")
+        self.assertEqual(vehicle.vin, "AF181013518")
+
     def test_admin_page_explains_the_skip(self):
         self.client.force_login(self.user)
         response = self.client.get(reverse("admin:kintone-import"))
-        self.assertContains(response, "it is skipped")
+        self.assertContains(response, "this upload updates it")
         self.assertContains(response, "License Number")
         self.assertContains(response, "one zip")
 

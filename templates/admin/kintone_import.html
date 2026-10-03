@@ -11,9 +11,9 @@
         (TORRES DENNIS M, VIN AF181013518). Client Number 16269 and VehicleId 20797 are not the link.
     </p>
     <p style="color:#475569;line-height:1.5;">
-        If that profile is already in this office, it is skipped. A second copy is not created.
-        The vehicle is still added to the existing profile when it is not already there.
-        Files listed in an Attachments column can go in the same zip.
+        If that profile, vehicle, or transaction is already in this office, this upload updates it.
+        A second copy is not created. Year, make, model, and VIN are copied from the sheet as they are.
+        A VIN is not generated. Files listed in an Attachments column can go in the same zip.
     </p>
 
     <form method="post" enctype="multipart/form-data" style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:20px;">
@@ -55,9 +55,9 @@
     {% if results %}
     <div style="margin-top:20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;">
         <p><strong>Profiles created:</strong> {{ results.clients_created }}</p>
-        <p><strong>Profiles skipped (already exist):</strong> {{ results.clients_skipped }}</p>
-        <p><strong>Vehicles created / skipped:</strong> {{ results.vehicles_created }} / {{ results.vehicles_skipped }}</p>
-        <p><strong>Transactions created / skipped:</strong> {{ results.transactions_created }} / {{ results.transactions_skipped }}</p>
+        <p><strong>Profiles updated (already in the office):</strong> {{ results.clients_skipped }}</p>
+        <p><strong>Vehicles created / updated:</strong> {{ results.vehicles_created }} / {{ results.vehicles_skipped }}</p>
+        <p><strong>Transactions created / updated:</strong> {{ results.transactions_created }} / {{ results.transactions_skipped }}</p>
         <p><strong>Documents created / skipped:</strong> {{ results.documents_created }} / {{ results.documents_skipped }}</p>
         {% if results.errors %}
         <ul>

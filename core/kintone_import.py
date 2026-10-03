@@ -1,8 +1,8 @@
 """Join Kintone CSV exports into one profile per unique column.
 
-An existing profile is never copied. If the unique number, driver license,
-or the same name and phone is already in the office, that profile is skipped
-and only missing vehicles, transactions, and documents are added.
+An existing profile is never copied. A second upload updates that profile,
+its vehicles, and its transactions from the sheet. Year, make, model, and VIN
+are stored as exported. A VIN is not generated.
 """
 
 import csv
@@ -20,12 +20,13 @@ from decimal import Decimal, InvalidOperation
 
 from django.core.cache import cache
 from django.core.files.base import ContentFile
-from django.db import close_old_connections, transaction
+from django.db import IntegrityError, close_old_connections, transaction
 from django.utils import timezone
 from django.utils.timezone import is_naive, make_aware
 from openpyxl import load_workbook
 
 from .models import Client, ClientNote, Organization, ServiceDocument, ServiceRecord, Vehicle
+from .vin_validation import is_modern_vin
 
 LINK_ALIASES = (
     "unique",
@@ -51,6 +52,8 @@ DATE_FORMATS = (
     "%m/%d/%Y %H:%M",
     "%m/%d/%Y %I:%M %p",
     "%m/%d/%Y",
+    "%b %d, %Y",
+    "%B %d, %Y",
     "%Y-%m-%d",
     "%m-%d-%Y",
 )
@@ -90,6 +93,42 @@ def pick(row, *names):
         if value:
             return value
     return ""
+
+
+def column_text(row, *labels, avoid=()):
+    """Read a sheet cell by its header, including Vehicle Make / Model Name style names."""
+    found = pick(row, *labels)
+    if found:
+        return found
+    words = [header_key(label) for label in labels]
+    blocked = {header_key(label) for label in avoid}
+    for key, value in row.items():
+        parts = [part for part in str(key).split("_") if part]
+        if blocked & set(parts):
+            continue
+        compact = str(key).replace("_", "")
+        if any(word in parts or compact == word.replace("_", "") for word in words):
+            text = cell_str(value)
+            if text:
+                return text
+    return ""
+
+
+def sheet_vin(row):
+    """VIN exactly as exported. Nothing is generated when the cell is empty."""
+    return column_text(
+        row,
+        "vin",
+        "vin_number",
+        "vin_no",
+        "vehicle_vin",
+        "vehicle_identification_number",
+    ).strip().upper()
+
+
+def generated_vin(vin):
+    compact = alnum(vin)
+    return compact.startswith("KT") and not is_modern_vin(compact)
 
 
 def normalize_key(value):
@@ -144,9 +183,10 @@ def parse_when(value):
 
 
 def parse_year(value):
-    digits = re.sub(r"\D", "", cell_str(value))
-    if len(digits) == 4 and digits.startswith(("19", "20")):
-        return int(digits)
+    text = cell_str(value).split(".")[0]
+    digits = re.sub(r"\D", "", text)
+    if len(digits) >= 4 and digits[:4].startswith(("19", "20")):
+        return int(digits[:4])
     return None
 
 
@@ -155,9 +195,14 @@ def parse_money(value):
     if not text:
         return Decimal("0.00")
     try:
-        return Decimal(text)
+        return Decimal(text).quantize(Decimal("0.01"))
     except InvalidOperation:
         return Decimal("0.00")
+
+
+def normalized_name(value):
+    text = re.sub(r"[^A-Za-z0-9]+", " ", cell_str(value).upper())
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def split_filenames(value):
@@ -404,6 +449,8 @@ class KintoneImporter:
         self.skipped_vehicles = 0
         self.created_transactions = 0
         self.skipped_transactions = 0
+        self.unmatched_transactions = 0
+        self._people = []
         self.created_documents = 0
         self.skipped_documents = 0
         self.errors = []
@@ -414,6 +461,8 @@ class KintoneImporter:
         self._by_phone_name = {}
         self._vehicles_by_vin = None
         self._vehicles_by_plate = {}
+        self._vehicles_by_number = {}
+        self._records_by_case = {}
         self._case_ids = set()
 
     def remember(self, key, client, created):
@@ -426,12 +475,24 @@ class KintoneImporter:
         else:
             self.skipped_clients += 1
 
+    def _remember_vehicle(self, vehicle, previous_vin=""):
+        if previous_vin:
+            self._vehicles_by_vin.pop(alnum(previous_vin), None)
+        if vehicle.vin:
+            self._vehicles_by_vin[alnum(vehicle.vin)] = vehicle
+        if vehicle.plate_number:
+            self._vehicles_by_plate[(vehicle.client_id, vehicle.plate_number.upper())] = vehicle
+        if vehicle.vehicle_number:
+            self._vehicles_by_number[(vehicle.client_id, vehicle.vehicle_number)] = vehicle
+
     def preload(self):
         """Load the office once so each spreadsheet row does not query the database."""
         self._by_external = {}
         self._license_index = {}
         self._by_phone_name = {}
+        self._people = []
         for candidate in Client.objects.filter(organization=self.organization):
+            self._people.append(candidate)
             if candidate.external_key:
                 self._by_external[candidate.external_key] = candidate
             if candidate.driver_license:
@@ -442,14 +503,18 @@ class KintoneImporter:
             self.index_name(candidate, {})
         self._vehicles_by_vin = {}
         self._vehicles_by_plate = {}
+        self._vehicles_by_number = {}
         for vehicle in Vehicle.objects.filter(client__organization=self.organization).select_related("client"):
-            if vehicle.vin:
-                self._vehicles_by_vin.setdefault(vehicle.vin.upper(), vehicle)
-            if vehicle.plate_number:
-                self._vehicles_by_plate[(vehicle.client_id, vehicle.plate_number.upper())] = vehicle
-        self._case_ids = set(
-            ServiceRecord.objects.filter(case_id__startswith="KT").values_list("case_id", flat=True)
-        )
+            self._remember_vehicle(vehicle)
+        self._records_by_case = {
+            record.case_id: record
+            for record in ServiceRecord.objects.filter(
+                organization=self.organization,
+                case_id__startswith="KT",
+            ).select_related("vehicle")
+            if record.case_id
+        }
+        self._case_ids = set(self._records_by_case)
 
     def license_index(self):
         if self._license_index is None:
@@ -477,6 +542,59 @@ class KintoneImporter:
             return self._by_phone_name.get((first.upper(), last.upper(), phone[-10:]))
         return None
 
+    def _overwrite_client(self, client, row, key):
+        """Write the sheet onto the profile that is already in the office."""
+        first, last, middle = person_from_row(row)
+        gender = pick(row, "gender", "sex").lower()
+        if gender.startswith("m"):
+            gender = "male"
+        elif gender.startswith("f"):
+            gender = "female"
+        else:
+            gender = ""
+        state = pick(row, "state").upper()[:2]
+        if state not in {code for code, _label in Client.US_STATES}:
+            state = ""
+        phone = phone_digits(pick(row, "phone_number", "phone", "phone_no", "mobile", "tel"))
+        license_number = normalize_key(pick(row, "driver_license", "dl", "dl_number", "license_number"))
+        born = parse_when(pick(row, "dob", "date_of_birth", "birthdate", "birth_date"))
+        category = pick(row, "applicant_type", "category", "account_type", "client_type").lower()
+        values = {
+            "first_name": first[:100],
+            "last_name": last[:100],
+            "middle_name": middle[:100],
+            "phone_number": phone[:20],
+            "email": pick(row, "email", "email_address"),
+            "gender": gender or None,
+            "city": tidy_name(pick(row, "city"))[:100],
+            "state": state,
+            "zip_code": pick(row, "zip_code", "zip", "zipcode")[:10],
+            "county": tidy_name(pick(row, "county"))[:100],
+            "street_address": pick(row, "street_address", "street", "address")[:200],
+            "driver_license": (license_number or "")[:50],
+            "dob": born.date() if born else None,
+        }
+        if category:
+            values["is_commercial"] = category in {"commercial", "business", "dealer"}
+        if key and not client.external_key:
+            values["external_key"] = key[:64]
+        updates = []
+        for attr, value in values.items():
+            if value in (None, ""):
+                continue
+            if getattr(client, attr) != value:
+                setattr(client, attr, value)
+                updates.append(attr)
+        if updates:
+            client.save(update_fields=updates)
+        if client.external_key:
+            self._by_external[client.external_key] = client
+        if client.driver_license:
+            self.license_index()[alnum(client.driver_license)] = client
+        phone_key = phone_digits(client.phone_number)
+        if len(phone_key) >= 10 and client.first_name and client.last_name:
+            self._by_phone_name[(client.first_name.upper(), client.last_name.upper(), phone_key[-10:])] = client
+
     def client_for(self, key, row):
         key = normalize_key(key)
         if not key:
@@ -486,10 +604,7 @@ class KintoneImporter:
             return cached
         existing = self.find_existing(key, row)
         if existing is not None:
-            if not existing.external_key:
-                existing.external_key = key[:64]
-                existing.save(update_fields=["external_key"])
-                self._by_external[existing.external_key] = existing
+            self._overwrite_client(existing, row, key)
             self.remember(key, existing, created=False)
             self.index_name(existing, row)
             return existing
@@ -553,16 +668,18 @@ class KintoneImporter:
             self._by_phone_name[(client.first_name.upper(), client.last_name.upper(), phone_key[-10:])] = client
         self.remember(key, client, created=True)
         self.index_name(client, row)
+        self._people.append(client)
         return client
 
     def name_key(self, row):
         full = pick(row, "client", "name", "full_name", "client_name", "customer_name")
-        return re.sub(r"\s+", " ", full).strip().upper()
+        return normalized_name(full)
 
     def index_name(self, client, row):
         values = [
             self.name_key(row),
-            re.sub(r"\s+", " ", f"{client.last_name} {client.first_name} {client.middle_name}").strip().upper(),
+            normalized_name(f"{client.last_name} {client.first_name} {client.middle_name}"),
+            normalized_name(f"{client.last_name} {client.first_name}"),
         ]
         for value in values:
             if value:
@@ -578,37 +695,112 @@ class KintoneImporter:
             if "motorcycle" in name.lower():
                 self.motorcycle_keys.add(key)
 
-    def vehicle_for(self, client, row, create=True):
-        vin = pick(row, "vin", "vin_number").upper()
-        plate = pick(row, "plate_number", "plate", "license_plate").upper()
-        record_number = pick(row, "vehicle_id", "record_number", "record_no", "record_id")
+    def _sheet_vehicle(self, row):
+        vin = sheet_vin(row)[:50]
+        plate = column_text(row, "plate_number", "plate", "license_plate").upper()[:50]
+        record_number = column_text(row, "vehicle_id", "record_number", "record_no", "record_id")[:50]
+        year = parse_year(column_text(row, "year", "yr", "model_year"))
+        make = column_text(row, "make", "manufacturer", "brand", avoid=("year",))[:100]
+        model = column_text(row, "model", "model_name", avoid=("year",))[:100]
+        return vin, plate, record_number, year, make, model
+
+    def _find_vehicle(self, client, vin, plate, record_number):
         if self._vehicles_by_vin is None:
             self.preload()
         if vin:
-            other = self._vehicles_by_vin.get(vin)
-            if other is not None and other.client_id != client.pk:
-                if create:
-                    self.errors.append(f"VIN {vin} already belongs to {other.client.name}, so it was skipped.")
-                    self.skipped_vehicles += 1
-                return None
-            if other is not None:
-                if create:
-                    self.skipped_vehicles += 1
-                return other
-        elif plate:
-            current = self._vehicles_by_plate.get((client.pk, plate))
-            if current:
-                if create:
-                    self.skipped_vehicles += 1
-                return current
+            found = self._vehicles_by_vin.get(alnum(vin))
+            if found is not None and found.client_id == client.pk:
+                return found
+        if plate:
+            found = self._vehicles_by_plate.get((client.pk, plate))
+            if found is not None:
+                return found
+        if record_number:
+            found = self._vehicles_by_number.get((client.pk, record_number))
+            if found is not None:
+                return found
+        if vin:
+            return self._vehicles_by_vin.get(alnum(vin))
+        return None
+
+    def _apply_vehicle_sheet(self, vehicle, row, client):
+        vin, plate, record_number, year, make, model = self._sheet_vehicle(row)
+        previous_vin = vehicle.vin
+        plate_type_raw = pick(row, "plate_type").lower()
+        explicit_type = pick(row, "vehicle_type", "body_type").lower()
+        if "motor" in explicit_type or "motor" in plate_type_raw:
+            vehicle_type = "motorcycle"
+        elif explicit_type in {code for code, _label in Vehicle.VEHICLE_TYPES}:
+            vehicle_type = explicit_type
+        elif client.external_key in self.motorcycle_keys:
+            vehicle_type = "motorcycle"
+        else:
+            vehicle_type = ""
+        if "motor" in plate_type_raw:
+            plate_type = "motorcycle"
+        elif plate_type_raw in {code for code, _label in Vehicle.PLATE_TYPES}:
+            plate_type = plate_type_raw
+        else:
+            plate_type = ""
+        fuel = pick(row, "fuel_type", "fuel").lower()
+        body = pick(row, "body_type").lower()
+        reg_effective = parse_when(column_text(row, "registration_effective_date", "reg_effective_date"))
+        reg_expires = parse_when(column_text(row, "registration_expiration_date", "reg_expiration_date"))
+        ins_effective = parse_when(column_text(row, "insurance_effective_date", "ins_effective_date"))
+        ins_expires = parse_when(column_text(row, "insurance_expiration_date", "ins_expiration_date"))
+        values = {
+            "plate_number": plate,
+            "year": year,
+            "make": make,
+            "model": model,
+            "color": column_text(row, "color", "colour")[:50],
+            "weight": column_text(row, "weight", "gross_weight")[:50],
+            "cylinders": column_text(row, "cylinders", "engine_cylinders")[:20],
+            "vehicle_type": vehicle_type,
+            "plate_type": plate_type,
+            "fuel_type": fuel if fuel in {code for code, _label in Vehicle.FUEL_TYPES} else "",
+            "body_type": body if body in {code for code, _label in Vehicle.BODY_TYPES} else None,
+            "insurance_company": column_text(row, "insurance_company", "insurance", "carrier")[:150],
+            "registration_effective_date": reg_effective.date() if reg_effective else None,
+            "registration_expiration_date": reg_expires.date() if reg_expires else None,
+            "insurance_effective_date": ins_effective.date() if ins_effective else None,
+            "insurance_expiration_date": ins_expires.date() if ins_expires else None,
+            "vehicle_number": record_number,
+        }
+        if vin:
+            values["vin"] = vin[:50]
+            values["is_legacy_vin"] = not is_modern_vin(vin)
+        updates = []
+        for attr, value in values.items():
+            if value in (None, ""):
+                continue
+            if getattr(vehicle, attr) != value:
+                setattr(vehicle, attr, value)
+                updates.append(attr)
+        if updates:
+            vehicle.save(update_fields=updates)
+        self._remember_vehicle(vehicle, previous_vin=previous_vin)
+        return vehicle
+
+    def vehicle_for(self, client, row, create=True):
+        vin, plate, record_number, year, make, model = self._sheet_vehicle(row)
+        current = self._find_vehicle(client, vin, plate, record_number)
+        if current is not None and current.client_id != client.pk:
+            if create:
+                self.errors.append(f"VIN {vin or current.vin} already belongs to {current.client.name}, so it was not copied.")
+                self.skipped_vehicles += 1
+            return None
+        if current is not None:
+            if create:
+                self._apply_vehicle_sheet(current, row, client)
+                self.skipped_vehicles += 1
+            return current
         if not create:
             return None
-        if not vin:
-            vin = f"KT{re.sub(r'[^A-Z0-9]', '', (record_number or plate or client.external_key).upper())}"[:50]
-            current = self._vehicles_by_vin.get(vin)
-            if current:
-                self.skipped_vehicles += 1
-                return current
+        if not vin and not plate and not record_number:
+            self.errors.append("A vehicle row had no VIN, so one was not generated.")
+            return None
+        stored_vin = (vin or plate or record_number)[:50]
         plate_type_raw = pick(row, "plate_type").lower()
         explicit_type = pick(row, "vehicle_type", "body_type").lower()
         if "motor" in explicit_type or "motor" in plate_type_raw:
@@ -627,78 +819,108 @@ class KintoneImporter:
             plate_type = "motorcycle" if vehicle_type == "motorcycle" else "personal"
         fuel = pick(row, "fuel_type", "fuel").lower()
         body = pick(row, "body_type").lower()
-        reg_effective = parse_when(pick(row, "registration_effective_date", "reg_effective_date"))
-        reg_expires = parse_when(pick(row, "registration_expiration_date", "reg_expiration_date"))
-        ins_effective = parse_when(pick(row, "insurance_effective_date", "ins_effective_date"))
-        ins_expires = parse_when(pick(row, "insurance_expiration_date", "ins_expiration_date"))
+        reg_effective = parse_when(column_text(row, "registration_effective_date", "reg_effective_date"))
+        reg_expires = parse_when(column_text(row, "registration_expiration_date", "reg_expiration_date"))
+        ins_effective = parse_when(column_text(row, "insurance_effective_date", "ins_effective_date"))
+        ins_expires = parse_when(column_text(row, "insurance_expiration_date", "ins_expiration_date"))
         vehicle = Vehicle(
             client=client,
-            vin=vin[:50],
-            is_legacy_vin=len(vin) != 17 or any(char in vin for char in "IOQ"),
-            plate_number=plate[:50],
-            year=parse_year(pick(row, "year", "model_year")),
-            make=pick(row, "make", "brand")[:100],
-            model=pick(row, "model")[:100],
-            color=pick(row, "color", "colour")[:50],
-            weight=pick(row, "weight", "gross_weight")[:50],
-            cylinders=pick(row, "cylinders", "engine_cylinders")[:20],
+            vin=stored_vin,
+            is_legacy_vin=not is_modern_vin(stored_vin),
+            plate_number=plate,
+            year=year,
+            make=make,
+            model=model,
+            color=column_text(row, "color", "colour")[:50],
+            weight=column_text(row, "weight", "gross_weight")[:50],
+            cylinders=column_text(row, "cylinders", "engine_cylinders")[:20],
             vehicle_type=vehicle_type,
             plate_type=plate_type,
             fuel_type=fuel if fuel in {code for code, _label in Vehicle.FUEL_TYPES} else "gas",
             body_type=body if body in {code for code, _label in Vehicle.BODY_TYPES} else None,
-            insurance_company=pick(row, "insurance_company", "insurance", "carrier")[:150],
+            insurance_company=column_text(row, "insurance_company", "insurance", "carrier")[:150],
             registration_effective_date=reg_effective.date() if reg_effective else None,
             registration_expiration_date=reg_expires.date() if reg_expires else None,
             insurance_effective_date=ins_effective.date() if ins_effective else None,
             insurance_expiration_date=ins_expires.date() if ins_expires else None,
-            vehicle_number=(record_number or "")[:50],
+            vehicle_number=record_number,
         )
         with transaction.atomic():
             vehicle.save()
-        if vehicle.vin:
-            self._vehicles_by_vin[vehicle.vin.upper()] = vehicle
-        if vehicle.plate_number:
-            self._vehicles_by_plate[(client.pk, vehicle.plate_number.upper())] = vehicle
+        self._remember_vehicle(vehicle)
         self.created_vehicles += 1
         return vehicle
 
+    def _clients_for_name(self, name):
+        name = normalized_name(name)
+        if not name:
+            return []
+        exact = [client for stored, client in self.by_name.items() if stored == name]
+        unique = []
+        for client in exact:
+            if client not in unique:
+                unique.append(client)
+        if len(unique) == 1:
+            return unique
+        parts = name.split()
+        if len(parts) < 2:
+            return unique
+        found = self._people_named(parts[0], parts[1], " ".join(parts[2:]))
+        if not found and len(parts) == 2:
+            swapped = self._people_named(parts[1], parts[0], "")
+            found = swapped if len(swapped) == 1 else []
+        if found:
+            return found
+        prefix = []
+        for stored, client in self.by_name.items():
+            if (stored.startswith(name) or name.startswith(stored)) and client not in prefix:
+                prefix.append(client)
+        return prefix
+
+    def _people_named(self, last, first, rest):
+        found = []
+        for client in self._people:
+            if normalized_name(client.last_name) != last or normalized_name(client.first_name) != first:
+                continue
+            middle = normalized_name(client.middle_name)
+            if rest and not (middle.startswith(rest) or (middle and rest.startswith(middle))):
+                continue
+            if client not in found:
+                found.append(client)
+        return found
+
     def client_for_transaction(self, row):
-        vin = pick(row, "vin", "vin_number").upper()
+        vin = sheet_vin(row)
+        if self._vehicles_by_vin is None:
+            self.preload()
         if vin:
-            if self._vehicles_by_vin is None:
-                self.preload()
-            vehicle = self._vehicles_by_vin.get(vin)
+            vehicle = self._vehicles_by_vin.get(alnum(vin))
             if vehicle is not None:
                 return vehicle.client
-        name = self.name_key(row)
-        if name and name in self.by_name:
-            return self.by_name[name]
-        if len(name) >= 8 and " " in name:
-            matches = []
-            for stored, client in self.by_name.items():
-                if stored.startswith(name) or name.startswith(stored):
-                    if client not in matches:
-                        matches.append(client)
-            if len(matches) == 1:
-                return matches[0]
+        matches = self._clients_for_name(self.name_key(row))
+        if len(matches) == 1:
+            return matches[0]
         key = row_link_value(row, self.link_header)
         if key and key in self.clients:
             return self.clients[key]
         return None
 
-    def add_transaction(self, client, row):
+    def _transaction_amounts(self, row):
         label = pick(row, "service", "service_type", "transaction", "transaction_type", "description")
-        xpress = parse_money(pick(row, "subtotal_xpress", "subtotalxpress", "processing_fee"))
-        dmv = parse_money(pick(row, "subtotal_dmv", "subtotaldmv", "dmv_fee"))
-        tax = parse_money(pick(row, "sales_tax", "salestax"))
-        grand = parse_money(pick(row, "grand_total", "grandtotal", "total", "service_fee", "fee", "amount", "price"))
-        paid = parse_money(pick(row, "payments", "paid_amount", "payment"))
-        if not label and not any((xpress, dmv, tax, grand, paid)):
-            return
-        service_type = service_type_for(label) if label else "other"
-        when = parse_when(pick(row, "transaction_date", "date", "created_datetime", "datetime"))
-        terminal = pick(row, "terminal_number", "terminal")
-        vin = pick(row, "vin", "vin_number").upper()
+        xpress = parse_money(column_text(row, "subtotal_xpress", "subtotalxpress", "processing_fee"))
+        dmv = parse_money(column_text(row, "subtotal_dmv", "subtotaldmv", "dmv_fee"))
+        tax = parse_money(column_text(row, "sales_tax", "salestax"))
+        grand = parse_money(column_text(row, "grand_total", "grandtotal", "total", "service_fee", "fee", "amount", "price"))
+        paid = parse_money(column_text(row, "payments", "paid_amount", "payment"))
+        cc = parse_money(column_text(row, "cc_fees", "cc_fee", "credit_card_fee"))
+        return label, xpress, dmv, tax, grand, paid, cc
+
+    def _write_transaction(self, record, client, row, vehicle, case_id, creating):
+        label, xpress, dmv, tax, grand, paid, cc = self._transaction_amounts(row)
+        service_type = service_type_for(label) if label else (record.service_type or "other")
+        when = parse_when(column_text(row, "transaction_date", "date", "created_datetime", "datetime"))
+        terminal = column_text(row, "terminal_number", "terminal")[:80]
+        vin = sheet_vin(row)[:100]
         sales_for_record = tax
         tax_note = ""
         if grand and abs((xpress + dmv) - grand) <= Decimal("0.02") and abs((xpress + dmv + tax) - grand) > Decimal("0.02"):
@@ -706,50 +928,71 @@ class KintoneImporter:
             if tax:
                 tax_note = f" Sales tax listed on the sheet: {tax}."
         if not paid and grand:
-            outstanding = parse_money(pick(row, "outstanding"))
-            paid = grand - outstanding
-        digest = hashlib.sha1(
-            f"{self.organization.id}|{client.pk}|{vin}|{when}|{grand}|{terminal}|{xpress}|{dmv}".encode()
-        ).hexdigest()[:16]
-        case_id = f"KT{digest}"
-        if case_id in self._case_ids or ServiceRecord.objects.filter(case_id=case_id).exists():
-            self._case_ids.add(case_id)
-            self.skipped_transactions += 1
+            paid = grand - parse_money(column_text(row, "outstanding"))
+        notes = "Imported from Kintone."
+        if terminal:
+            notes = f"{notes} Terminal {terminal}."
+        if label and service_type == "other":
+            notes = f"{notes} Service: {label}."
+        if cc:
+            notes = f"{notes} CC fees listed on the sheet: {cc}."
+        notes = f"{notes}{tax_note}".strip()
+        outstanding_left = parse_money(column_text(row, "outstanding")) if column_text(row, "outstanding") else None
+        record.vehicle = vehicle
+        record.service_type = service_type
+        record.processing_fee = xpress
+        record.dmv_fee = dmv
+        record.sales_tax = sales_for_record
+        record.other_fees = cc
+        record.paid_amount = paid
+        record.terminal_number = terminal
+        record.transaction_date = when.date() if when else record.transaction_date or timezone.now().date()
+        record.status = "completed" if outstanding_left == Decimal("0.00") or (grand and paid >= grand) else "pending"
+        record.notes = notes
+        record.case_id = case_id
+        record.client_name = client.name
+        record.vin = vin or record.vin
+        if creating and not record.receipt_number:
+            record.receipt_number = f"KTR-{case_id}"[:60]
+        with transaction.atomic():
+            record.save()
+        self._records_by_case[case_id] = record
+        self._case_ids.add(case_id)
+
+    def add_transaction(self, client, row):
+        label, xpress, dmv, tax, grand, paid, cc = self._transaction_amounts(row)
+        when = parse_when(column_text(row, "transaction_date", "date", "created_datetime", "datetime"))
+        terminal = column_text(row, "terminal_number", "terminal")
+        vin = sheet_vin(row)
+        record_no = column_text(row, "record_number", "record_no", "transaction_id")
+        if not label and not any((xpress, dmv, tax, grand, paid, cc)) and when is None and not terminal:
             return
+        if record_no:
+            identity = f"{self.organization.id}|record|{record_no}"
+        else:
+            day = when.date().isoformat() if when else ""
+            identity = f"{self.organization.id}|{client.pk}|{alnum(vin)}|{day}|{terminal}|{xpress}|{dmv}|{grand}"
+        case_id = "KT" + hashlib.sha1(identity.encode()).hexdigest()[:16]
+        existing = self._records_by_case.get(case_id)
         vehicle = self.vehicle_for(client, row, create=False)
         if vehicle is None:
             vehicle = client.vehicles.order_by("id").first()
         if vehicle is None:
             vehicle = self.vehicle_for(client, row, create=True)
         if vehicle is None:
+            self.errors.append(f"Transaction for {client.name} had no vehicle, so it was not added.")
+            self.unmatched_transactions += 1
             return
-        notes = "Imported from Kintone."
-        if terminal:
-            notes = f"{notes} Terminal {terminal}."
-        if label and service_type == "other":
-            notes = f"{notes} Service: {label}."
-        notes = f"{notes}{tax_note}"
-        outstanding_left = parse_money(pick(row, "outstanding")) if pick(row, "outstanding") else None
+        if existing is not None:
+            self._write_transaction(existing, client, row, vehicle, case_id, creating=False)
+            self.skipped_transactions += 1
+            return
         record = ServiceRecord(
             organization=self.organization,
             handled_by=self.actor,
-            vehicle=vehicle,
-            service_type=service_type,
-            processing_fee=xpress,
-            dmv_fee=dmv,
-            sales_tax=sales_for_record,
-            paid_amount=paid,
-            terminal_number=terminal[:80],
-            transaction_date=when.date() if when else timezone.now().date(),
-            status="completed" if outstanding_left == Decimal("0.00") or (grand and paid >= grand) else "pending",
-            notes=notes.strip(),
             case_id=case_id,
-            client_name=client.name,
-            vin=vin,
         )
-        with transaction.atomic():
-            record.save()
-        self._case_ids.add(case_id)
+        self._write_transaction(record, client, row, vehicle, case_id, creating=True)
         self.created_transactions += 1
 
     def attach_files(self):
@@ -819,6 +1062,7 @@ class KintoneImporter:
             "vehicles_skipped": self.skipped_vehicles,
             "transactions_created": self.created_transactions,
             "transactions_skipped": self.skipped_transactions,
+            "transactions_unmatched": self.unmatched_transactions,
             "documents_created": self.created_documents,
             "documents_skipped": self.skipped_documents,
             "errors": self.errors[:40],
@@ -997,5 +1241,5 @@ def start_kintone_import(organization_id, user_id, bundle_path, bundle_name, lin
     if "test" in sys.argv:
         _run_kintone_import_job(*args)
         return job_id
-    threading.Thread(target=_run_kintone_import_job, args=args, daemon=True).start()
+    threading.Thread(target=_run_kintone_import_job, args=args, daemon=False).start()
     return job_id
