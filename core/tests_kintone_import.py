@@ -163,6 +163,24 @@ class KintoneImportTests(TestCase):
         self.assertEqual(record.vin, "AF181013518")
         self.assertEqual(Client.objects.filter(organization=self.org).count(), 1)
 
+    def test_zip_upload_returns_without_waiting_for_the_import(self):
+        clients = "Created datetime,Client,License Number,Phone number\n8/25/2026 9:36,TORRES DENNIS MIGUEL,630858905,6464691374\n"
+        vehicles = "VehicleId,Client,License Number,PlateNumber,VIN\n20797,TORRES DENNIS MIGUEL,630858905,777BN4,AF181013518\n"
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr("clients.csv", clients)
+            archive.writestr("vehicles.csv", vehicles)
+        bundle = SimpleUploadedFile("kintone.zip", buffer.getvalue(), content_type="application/zip")
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("admin:kintone-import"),
+            {"organization": self.org.id, "bundle_zip": bundle},
+        )
+        self.assertEqual(response.status_code, 302)
+        status_page = self.client.get(response["Location"])
+        self.assertContains(status_page, "Profiles created")
+        self.assertEqual(Client.objects.filter(external_key="630858905").count(), 1)
+
     def test_admin_page_explains_the_skip(self):
         self.client.force_login(self.user)
         response = self.client.get(reverse("admin:kintone-import"))

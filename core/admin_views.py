@@ -389,37 +389,34 @@ def crm_import_view(request):
 
 def kintone_import_view(request):
     """Import Kintone client, vehicle, transaction, and document exports as one profile."""
-    from .kintone_import import import_kintone
+    from .kintone_import import copy_uploaded_zip, kintone_import_status, start_kintone_import
 
     organizations = Organization.objects.filter(is_active=True).order_by("name")
-    results = None
+    job = kintone_import_status((request.GET.get("job") or "").strip())
     if request.method == "POST":
         org_id = request.POST.get("organization")
         bundle = request.FILES.get("bundle_zip") or request.FILES.get("documents_zip")
-        clients_file = request.FILES.get("clients_file")
-        if not org_id or not (bundle or clients_file):
+        if not org_id or not bundle:
             messages.error(request, "Upload a zip that contains the client sheet and the vehicle sheet.")
         else:
             org = get_object_or_404(Organization, id=org_id)
             try:
-                results = import_kintone(
-                    organization=org,
-                    actor=request.user,
-                    clients_file=clients_file,
-                    vehicles_file=request.FILES.get("vehicles_file"),
-                    transactions_file=request.FILES.get("transactions_file"),
-                    documents_zip=bundle,
-                    link_column=request.POST.get("link_column") or "",
-                )
-                messages.success(
-                    request,
-                    "Kintone import finished. Existing profiles were skipped, not copied.",
+                bundle_path = copy_uploaded_zip(bundle)
+                job_id = start_kintone_import(
+                    org.id,
+                    request.user.id,
+                    bundle_path,
+                    bundle.name,
+                    request.POST.get("link_column") or "",
                 )
             except Exception as exc:
                 messages.error(request, f"Import failed: {exc}")
+            else:
+                return redirect(f"{request.path}?job={job_id}")
     return render(request, "admin/kintone_import.html", {
         "organizations": organizations,
-        "results": results,
+        "job": job,
+        "results": (job or {}).get("results"),
         "title": "Kintone Import",
     })
 

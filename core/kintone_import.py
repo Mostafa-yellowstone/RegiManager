@@ -10,17 +10,22 @@ import hashlib
 import io
 import os
 import re
+import sys
+import tempfile
+import threading
+import uuid
 import zipfile
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
+from django.core.cache import cache
 from django.core.files.base import ContentFile
-from django.db import transaction
+from django.db import close_old_connections, transaction
 from django.utils import timezone
 from django.utils.timezone import is_naive, make_aware
 from openpyxl import load_workbook
 
-from .models import Client, ClientNote, ServiceDocument, ServiceRecord, Vehicle
+from .models import Client, ClientNote, Organization, ServiceDocument, ServiceRecord, Vehicle
 
 LINK_ALIASES = (
     "unique",
@@ -405,6 +410,11 @@ class KintoneImporter:
         self._zip = None
         self._zip_index = {}
         self._license_index = None
+        self._by_external = {}
+        self._by_phone_name = {}
+        self._vehicles_by_vin = None
+        self._vehicles_by_plate = {}
+        self._case_ids = set()
 
     def remember(self, key, client, created):
         self.clients[key] = client
@@ -416,15 +426,40 @@ class KintoneImporter:
         else:
             self.skipped_clients += 1
 
+    def preload(self):
+        """Load the office once so each spreadsheet row does not query the database."""
+        self._by_external = {}
+        self._license_index = {}
+        self._by_phone_name = {}
+        for candidate in Client.objects.filter(organization=self.organization):
+            if candidate.external_key:
+                self._by_external[candidate.external_key] = candidate
+            if candidate.driver_license:
+                self._license_index.setdefault(alnum(candidate.driver_license), candidate)
+            phone = phone_digits(candidate.phone_number)
+            if len(phone) >= 10 and candidate.first_name and candidate.last_name:
+                self._by_phone_name[(candidate.first_name.upper(), candidate.last_name.upper(), phone[-10:])] = candidate
+            self.index_name(candidate, {})
+        self._vehicles_by_vin = {}
+        self._vehicles_by_plate = {}
+        for vehicle in Vehicle.objects.filter(client__organization=self.organization).select_related("client"):
+            if vehicle.vin:
+                self._vehicles_by_vin.setdefault(vehicle.vin.upper(), vehicle)
+            if vehicle.plate_number:
+                self._vehicles_by_plate[(vehicle.client_id, vehicle.plate_number.upper())] = vehicle
+        self._case_ids = set(
+            ServiceRecord.objects.filter(case_id__startswith="KT").values_list("case_id", flat=True)
+        )
+
     def license_index(self):
         if self._license_index is None:
-            self._license_index = {}
-            for candidate in Client.objects.filter(organization=self.organization).exclude(driver_license=""):
-                self._license_index.setdefault(alnum(candidate.driver_license), candidate)
+            self.preload()
         return self._license_index
 
     def find_existing(self, key, row):
-        found = Client.objects.filter(organization=self.organization, external_key=key).first()
+        if self._license_index is None:
+            self.preload()
+        found = self._by_external.get(key)
         if found:
             return found
         license_values = {alnum(key)}
@@ -433,21 +468,13 @@ class KintoneImporter:
             license_values.add(alnum(license_number))
         license_values.discard("")
         for value in license_values:
-            found = self.license_index().get(value)
+            found = self._license_index.get(value)
             if found is not None:
                 return found
         phone = phone_digits(pick(row, "phone_number", "phone", "phone_no", "mobile", "tel"))
         first, last, _middle = person_from_row(row)
         if len(phone) >= 10 and first and last:
-            candidates = Client.objects.filter(
-                organization=self.organization,
-                first_name__iexact=first,
-                last_name__iexact=last,
-            )
-            for candidate in candidates:
-                stored = phone_digits(candidate.phone_number)
-                if len(stored) >= 10 and stored[-10:] == phone[-10:]:
-                    return candidate
+            return self._by_phone_name.get((first.upper(), last.upper(), phone[-10:]))
         return None
 
     def client_for(self, key, row):
@@ -462,6 +489,7 @@ class KintoneImporter:
             if not existing.external_key:
                 existing.external_key = key[:64]
                 existing.save(update_fields=["external_key"])
+                self._by_external[existing.external_key] = existing
             self.remember(key, existing, created=False)
             self.index_name(existing, row)
             return existing
@@ -518,6 +546,11 @@ class KintoneImporter:
                 Client.objects.filter(pk=client.pk).update(created_at=created_at)
                 client.created_at = created_at
         self.license_index()[alnum(client.driver_license)] = client
+        if client.external_key:
+            self._by_external[client.external_key] = client
+        phone_key = phone_digits(client.phone_number)
+        if len(phone_key) >= 10:
+            self._by_phone_name[(client.first_name.upper(), client.last_name.upper(), phone_key[-10:])] = client
         self.remember(key, client, created=True)
         self.index_name(client, row)
         return client
@@ -549,24 +582,21 @@ class KintoneImporter:
         vin = pick(row, "vin", "vin_number").upper()
         plate = pick(row, "plate_number", "plate", "license_plate").upper()
         record_number = pick(row, "vehicle_id", "record_number", "record_no", "record_id")
+        if self._vehicles_by_vin is None:
+            self.preload()
         if vin:
-            other = (
-                Vehicle.objects.filter(vin__iexact=vin, client__organization=self.organization)
-                .exclude(client=client)
-                .first()
-            )
-            if other:
+            other = self._vehicles_by_vin.get(vin)
+            if other is not None and other.client_id != client.pk:
                 if create:
                     self.errors.append(f"VIN {vin} already belongs to {other.client.name}, so it was skipped.")
                     self.skipped_vehicles += 1
                 return None
-            current = Vehicle.objects.filter(client=client, vin__iexact=vin).first()
-            if current:
+            if other is not None:
                 if create:
                     self.skipped_vehicles += 1
-                return current
+                return other
         elif plate:
-            current = Vehicle.objects.filter(client=client, plate_number__iexact=plate).first()
+            current = self._vehicles_by_plate.get((client.pk, plate))
             if current:
                 if create:
                     self.skipped_vehicles += 1
@@ -575,7 +605,7 @@ class KintoneImporter:
             return None
         if not vin:
             vin = f"KT{re.sub(r'[^A-Z0-9]', '', (record_number or plate or client.external_key).upper())}"[:50]
-            current = Vehicle.objects.filter(client=client, vin__iexact=vin).first()
+            current = self._vehicles_by_vin.get(vin)
             if current:
                 self.skipped_vehicles += 1
                 return current
@@ -625,17 +655,19 @@ class KintoneImporter:
         )
         with transaction.atomic():
             vehicle.save()
+        if vehicle.vin:
+            self._vehicles_by_vin[vehicle.vin.upper()] = vehicle
+        if vehicle.plate_number:
+            self._vehicles_by_plate[(client.pk, vehicle.plate_number.upper())] = vehicle
         self.created_vehicles += 1
         return vehicle
 
     def client_for_transaction(self, row):
         vin = pick(row, "vin", "vin_number").upper()
         if vin:
-            vehicle = (
-                Vehicle.objects.filter(vin__iexact=vin, client__organization=self.organization)
-                .select_related("client")
-                .first()
-            )
+            if self._vehicles_by_vin is None:
+                self.preload()
+            vehicle = self._vehicles_by_vin.get(vin)
             if vehicle is not None:
                 return vehicle.client
         name = self.name_key(row)
@@ -680,7 +712,8 @@ class KintoneImporter:
             f"{self.organization.id}|{client.pk}|{vin}|{when}|{grand}|{terminal}|{xpress}|{dmv}".encode()
         ).hexdigest()[:16]
         case_id = f"KT{digest}"
-        if ServiceRecord.objects.filter(case_id=case_id).exists():
+        if case_id in self._case_ids or ServiceRecord.objects.filter(case_id=case_id).exists():
+            self._case_ids.add(case_id)
             self.skipped_transactions += 1
             return
         vehicle = self.vehicle_for(client, row, create=False)
@@ -716,6 +749,7 @@ class KintoneImporter:
         )
         with transaction.atomic():
             record.save()
+        self._case_ids.add(case_id)
         self.created_transactions += 1
 
     def attach_files(self):
@@ -859,6 +893,7 @@ def import_kintone(
     require_link_header(vehicle_rows, link_header, "vehicles")
 
     importer = KintoneImporter(organization, actor, link_header)
+    importer.preload()
     importer._zip = archive
     importer._zip_index = zip_index
     try:
@@ -871,3 +906,96 @@ def import_kintone(
         return importer.result()
     finally:
         importer.close()
+
+
+def _job_cache_key(job_id):
+    return f"kintone-import:{job_id}"
+
+
+def kintone_import_status(job_id):
+    if not job_id:
+        return None
+    try:
+        return cache.get(_job_cache_key(job_id))
+    except Exception:
+        return None
+
+
+def _remember_job(job_id, payload):
+    try:
+        cache.set(_job_cache_key(job_id), payload, timeout=60 * 60)
+    except Exception:
+        pass
+
+
+class _PathUpload:
+    def __init__(self, path, name):
+        self.name = name
+        self._file = open(path, "rb")
+
+    def seek(self, offset, whence=0):
+        return self._file.seek(offset, whence)
+
+    def read(self, size=-1):
+        return self._file.read(size)
+
+    def tell(self):
+        return self._file.tell()
+
+    def seekable(self):
+        return True
+
+    def readable(self):
+        return True
+
+    def __getattr__(self, name):
+        return getattr(self._file, name)
+
+    def close(self):
+        self._file.close()
+
+
+def copy_uploaded_zip(uploaded):
+    handle, path = tempfile.mkstemp(suffix=".zip")
+    os.close(handle)
+    with open(path, "wb") as stored:
+        for chunk in uploaded.chunks():
+            stored.write(chunk)
+    return path
+
+
+def _run_kintone_import_job(job_id, organization_id, user_id, bundle_path, bundle_name, link_column):
+    from django.contrib.auth.models import User
+
+    close_old_connections()
+    upload = None
+    try:
+        organization = Organization.objects.get(pk=organization_id)
+        actor = User.objects.get(pk=user_id)
+        upload = _PathUpload(bundle_path, bundle_name)
+        result = import_kintone(
+            organization=organization,
+            actor=actor,
+            documents_zip=upload,
+            link_column=link_column,
+        )
+        _remember_job(job_id, {"status": "done", "results": result})
+    except Exception as exc:
+        _remember_job(job_id, {"status": "error", "error": str(exc)})
+    finally:
+        if upload is not None:
+            upload.close()
+        if bundle_path and os.path.exists(bundle_path):
+            os.remove(bundle_path)
+        close_old_connections()
+
+
+def start_kintone_import(organization_id, user_id, bundle_path, bundle_name, link_column):
+    job_id = uuid.uuid4().hex
+    _remember_job(job_id, {"status": "running"})
+    args = (job_id, organization_id, user_id, bundle_path, bundle_name, link_column)
+    if "test" in sys.argv:
+        _run_kintone_import_job(*args)
+        return job_id
+    threading.Thread(target=_run_kintone_import_job, args=args, daemon=True).start()
+    return job_id

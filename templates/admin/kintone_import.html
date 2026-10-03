@@ -40,6 +40,18 @@
         </button>
     </form>
 
+    {% if job.status == "running" %}
+    <div style="margin:16px 0;padding:14px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">
+        <strong>Import is running.</strong>
+        The file is in. You can leave this page open; it refreshes until the profiles are finished.
+        A large zip no longer has to finish before the site stops waiting.
+    </div>
+    <meta http-equiv="refresh" content="4">
+    {% elif job.status == "error" %}
+    <div style="margin:16px 0;padding:14px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;">
+        <strong>Import failed.</strong> {{ job.error }}
+    </div>
+    {% endif %}
     {% if results %}
     <div style="margin-top:20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;">
         <p><strong>Profiles created:</strong> {{ results.clients_created }}</p>
