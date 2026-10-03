@@ -141,6 +141,7 @@ def build_full_client_search_q(query: str) -> Q:
     combined |= Q(city__icontains=q)
     combined |= Q(business_name__icontains=q)
     combined |= Q(business_ein__icontains=q)
+    combined |= Q(external_key__icontains=q)
     combined |= Q(vehicles__plate_number__icontains=q)
     return combined
 

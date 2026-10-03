@@ -460,7 +460,14 @@ class Client(SoftDeleteModel):
         default="",
         help_text="Hashed PIN for the client mobile app. Never store plaintext.",
     )
-    
+    external_key = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="Shared import key (Kintone unique column) that ties vehicles, transactions, and documents to this profile.",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property
@@ -533,6 +540,13 @@ class Client(SoftDeleteModel):
         indexes = [
             models.Index(fields=["organization", "-created_at"]),
             models.Index(fields=["organization", "last_name", "first_name"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "external_key"],
+                condition=models.Q(deleted_at__isnull=True) & ~models.Q(external_key=""),
+                name="uniq_client_external_key_per_org",
+            ),
         ]
 
     def set_app_pin(self, raw_pin: str) -> None:

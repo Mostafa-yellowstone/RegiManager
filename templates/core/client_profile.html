@@ -330,6 +330,11 @@
                             via <a href="{% url 'referral-profile' client.referral.id %}" style="color: #a5b4fc; text-decoration: none; font-weight: 800; border-bottom: 1px solid rgba(165,180,252,0.45);">{{ client.referral.name }}</a>
                         </p>
                         {% endif %}
+                        {% if client.external_key and client.external_key != client.driver_license %}
+                        <span style="color:#e2e8f0; font-size: 0.95rem;">
+                            <strong style="color:#cbd5e1;">Client #:</strong> {{ client.external_key }}
+                        </span>
+                        {% endif %}
                         {% if not client.is_commercial and client.driver_license %}
                         <p style="color: #94a3b8; margin: 0.25rem 0 0; font-size: 0.85rem;">
                             <strong style="color:#cbd5e1;">DL:</strong> {{ client.driver_license }}

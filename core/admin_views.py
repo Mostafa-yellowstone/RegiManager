@@ -387,6 +387,43 @@ def crm_import_view(request):
     })
 
 
+def kintone_import_view(request):
+    """Import Kintone client, vehicle, transaction, and document exports as one profile."""
+    from .kintone_import import import_kintone
+
+    organizations = Organization.objects.filter(is_active=True).order_by("name")
+    results = None
+    if request.method == "POST":
+        org_id = request.POST.get("organization")
+        clients_file = request.FILES.get("clients_file")
+        if not org_id or not clients_file:
+            messages.error(request, "Choose the office and upload the clients CSV.")
+        else:
+            org = get_object_or_404(Organization, id=org_id)
+            try:
+                results = import_kintone(
+                    organization=org,
+                    actor=request.user,
+                    clients_file=clients_file,
+                    vehicles_file=request.FILES.get("vehicles_file"),
+                    transactions_file=request.FILES.get("transactions_file"),
+                    documents_file=request.FILES.get("documents_file"),
+                    documents_zip=request.FILES.get("documents_zip"),
+                    link_column=request.POST.get("link_column") or "",
+                )
+                messages.success(
+                    request,
+                    "Kintone import finished. Existing profiles were skipped, not copied.",
+                )
+            except Exception as exc:
+                messages.error(request, f"Import failed: {exc}")
+    return render(request, "admin/kintone_import.html", {
+        "organizations": organizations,
+        "results": results,
+        "title": "Kintone Import",
+    })
+
+
 def _require_superuser(request):
     if not request.user.is_authenticated or not request.user.is_superuser:
         raise PermissionDenied("PSB backup and restore are limited to superusers.")

@@ -1,0 +1,64 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div style="max-width:820px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+    <h1 style="margin-bottom:8px;">Import from Kintone</h1>
+    <p style="color:#475569;line-height:1.5;">
+        Export each Kintone app to CSV, then upload them together. The client, the vehicle, and the transaction
+        must share one column whose value is the same on every row. In your example that value is
+        <strong>630858905</strong>, not the Kintone record number (16269 on the client and 20797 on the vehicle).
+    </p>
+    <p style="color:#475569;line-height:1.5;">
+        If that profile is already in this office, it is skipped. A second copy is not created.
+        Vehicles, transactions, and documents that are not already on that profile are still added.
+    </p>
+    <ol style="color:#334155;line-height:1.55;">
+        <li>In each Kintone app, keep the same unique field.</li>
+        <li>Export clients, vehicles, and transactions as CSV.</li>
+        <li>Export the document list as CSV, and download the files into one zip. The file name in the sheet must match the file name in the zip.</li>
+    </ol>
+
+    <form method="post" enctype="multipart/form-data" style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:20px;">
+        {% csrf_token %}
+        <p>
+            <label for="organization"><strong>Office</strong></label><br>
+            <select name="organization" id="organization" required style="min-width:280px;padding:8px;">
+                <option value="">Select an office</option>
+                {% for org in organizations %}
+                <option value="{{ org.id }}">{{ org.name }}</option>
+                {% endfor %}
+            </select>
+        </p>
+        <p>
+            <label for="link_column"><strong>Unique column name</strong></label><br>
+            <input name="link_column" id="link_column" placeholder="Unique" style="min-width:280px;padding:8px;">
+            <span style="color:#64748b;font-size:0.9em;">Leave blank if the column is already named Unique, Client Number, or Customer ID.</span>
+        </p>
+        <p><label><strong>Clients CSV</strong></label><br><input type="file" name="clients_file" accept=".csv,.xlsx" required></p>
+        <p><label><strong>Vehicles CSV</strong></label><br><input type="file" name="vehicles_file" accept=".csv,.xlsx"></p>
+        <p><label><strong>Transactions CSV</strong></label><br><input type="file" name="transactions_file" accept=".csv,.xlsx"></p>
+        <p><label><strong>Documents CSV</strong></label><br><input type="file" name="documents_file" accept=".csv,.xlsx"></p>
+        <p><label><strong>Document files zip</strong></label><br><input type="file" name="documents_zip" accept=".zip"></p>
+        <button type="submit" style="background:#0f766e;color:#fff;border:0;border-radius:6px;padding:10px 16px;font-weight:700;cursor:pointer;">
+            Import
+        </button>
+    </form>
+
+    {% if results %}
+    <div style="margin-top:20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;">
+        <p><strong>Profiles created:</strong> {{ results.clients_created }}</p>
+        <p><strong>Profiles skipped (already exist):</strong> {{ results.clients_skipped }}</p>
+        <p><strong>Vehicles created / skipped:</strong> {{ results.vehicles_created }} / {{ results.vehicles_skipped }}</p>
+        <p><strong>Transactions created / skipped:</strong> {{ results.transactions_created }} / {{ results.transactions_skipped }}</p>
+        <p><strong>Documents created / skipped:</strong> {{ results.documents_created }} / {{ results.documents_skipped }}</p>
+        {% if results.errors %}
+        <ul>
+            {% for error in results.errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

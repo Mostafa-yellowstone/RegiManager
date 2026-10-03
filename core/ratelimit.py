@@ -14,6 +14,30 @@ def client_ip(request):
     return request.META.get("REMOTE_ADDR", "unknown")
 
 
+def consume_rate_limit(raw_key, *, limit, window_seconds):
+    """
+    Count one hit. Return True when the request is allowed.
+
+    A cache outage must not take the page down, so any cache error allows
+    the request through.
+    """
+    cache_key = "rl:" + hashlib.sha256(str(raw_key).encode()).hexdigest()[:32]
+    try:
+        if cache.add(cache_key, 1, timeout=window_seconds):
+            return True
+        try:
+            count = cache.incr(cache_key)
+        except ValueError:
+            cache.add(cache_key, 1, timeout=window_seconds)
+            return True
+    except Exception:
+        return True
+    try:
+        return int(count) <= int(limit)
+    except (TypeError, ValueError):
+        return True
+
+
 def rate_limit(*, key_prefix, limit, window_seconds=60, json_response=False):
     """
     Decorator: allow `limit` requests per `window_seconds` per IP (+ user if authenticated).
@@ -24,14 +48,11 @@ def rate_limit(*, key_prefix, limit, window_seconds=60, json_response=False):
         def wrapped(request, *args, **kwargs):
             user_part = str(request.user.pk) if getattr(request.user, "is_authenticated", False) else "anon"
             raw = f"{key_prefix}:{user_part}:{client_ip(request)}"
-            cache_key = "rl:" + hashlib.sha256(raw.encode()).hexdigest()[:32]
-            count = cache.get(cache_key, 0)
-            if count >= limit:
+            if not consume_rate_limit(raw, limit=limit, window_seconds=window_seconds):
                 message = "Too many requests. Please wait a moment and try again."
                 if json_response:
                     return JsonResponse({"error": message}, status=429)
                 return HttpResponse(message, status=429, content_type="text/plain")
-            cache.set(cache_key, count + 1, timeout=window_seconds)
             return view_func(request, *args, **kwargs)
 
         return wrapped

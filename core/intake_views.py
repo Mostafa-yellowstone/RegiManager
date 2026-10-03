@@ -1,10 +1,7 @@
 """Public intake portal and staff approval workflows."""
 
-import hashlib
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.cache import cache
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
@@ -29,7 +26,7 @@ from .intake_fee_estimates import (
     NY_SALES_TAX_CALCULATOR_URL,
     show_ny_fee_estimate_section,
 )
-from .ratelimit import client_ip
+from .ratelimit import client_ip, consume_rate_limit
 
 
 def _check_intake_post_rate(request):
@@ -39,13 +36,11 @@ def _check_intake_post_rate(request):
 
     if settings.DEBUG or "test" in sys.argv:
         return True
-    raw = f"intake_post:{client_ip(request)}"
-    cache_key = "rl:" + hashlib.sha256(raw.encode()).hexdigest()[:32]
-    count = cache.get(cache_key, 0)
-    if count >= 5:
-        return False
-    cache.set(cache_key, count + 1, timeout=60)
-    return True
+    return consume_rate_limit(
+        f"intake_post:{client_ip(request)}",
+        limit=5,
+        window_seconds=60,
+    )
 
 
 @ensure_csrf_cookie
