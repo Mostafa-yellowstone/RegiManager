@@ -395,9 +395,10 @@ def kintone_import_view(request):
     results = None
     if request.method == "POST":
         org_id = request.POST.get("organization")
+        bundle = request.FILES.get("bundle_zip") or request.FILES.get("documents_zip")
         clients_file = request.FILES.get("clients_file")
-        if not org_id or not clients_file:
-            messages.error(request, "Choose the office and upload the clients CSV.")
+        if not org_id or not (bundle or clients_file):
+            messages.error(request, "Upload a zip that contains the client sheet and the vehicle sheet.")
         else:
             org = get_object_or_404(Organization, id=org_id)
             try:
@@ -407,8 +408,7 @@ def kintone_import_view(request):
                     clients_file=clients_file,
                     vehicles_file=request.FILES.get("vehicles_file"),
                     transactions_file=request.FILES.get("transactions_file"),
-                    documents_file=request.FILES.get("documents_file"),
-                    documents_zip=request.FILES.get("documents_zip"),
+                    documents_zip=bundle,
                     link_column=request.POST.get("link_column") or "",
                 )
                 messages.success(
