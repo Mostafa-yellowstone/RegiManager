@@ -1,6 +1,7 @@
 /**
- * 🎃 REGIMANAGER HALLOWEEN FESTIVAL JAVASCRIPT ENGINE
- * Handles spider silk descent, character badge Injection, theme switching, and spooky particle effects.
+ * 🎃 REGIMANAGER ULTRA-SCARY HALLOWEEN FESTIVAL JAVASCRIPT ENGINE
+ * Handles corner cobwebs, flying bats & specters, rising pumpkin embers,
+ * spider descent, character badges, and per-PSB theme switching.
  */
 (function () {
   'use strict';
@@ -9,16 +10,81 @@
     var isMasterEnabled = document.body.dataset.halloweenMaster !== 'false';
     var savedChoice = localStorage.getItem('rm_halloween_choice');
 
-    // Default to active if master enabled, unless user explicitly turned off
     var isActive = isMasterEnabled && savedChoice !== 'off';
 
     if (isActive) {
       document.body.classList.add('halloween-active');
+      injectCornerCobwebs();
+      injectParticles();
       injectSpiderDescent();
       injectCharacterBadges();
     }
 
     injectHeaderToggle(isActive);
+  }
+
+  function injectCornerCobwebs() {
+    if (document.getElementById('hw-cobweb-left')) return;
+
+    var svgCobweb = [
+      '<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">',
+      '  <path d="M0 0 L100 0 L0 100 Z" fill="rgba(168,85,247,0.05)"/>',
+      '  <path d="M0 0 L100 0 M0 0 L85 30 M0 0 L65 65 M0 0 L30 85 M0 0 L0 100" stroke="#a855f7" stroke-width="1.5" stroke-linecap="round"/>',
+      '  <path d="M20 0 Q25 12 0 20 M40 0 Q48 24 0 40 M60 0 Q72 36 0 60 M80 0 Q94 48 0 80" stroke="#ff7518" stroke-width="1" fill="none"/>',
+      '  <path d="M30 0 Q38 18 0 30 M50 0 Q62 30 0 50 M70 0 Q84 42 0 70" stroke="#a855f7" stroke-width="1" fill="none"/>',
+      '</svg>'
+    ].join('');
+
+    var leftWeb = document.createElement('div');
+    leftWeb.id = 'hw-cobweb-left';
+    leftWeb.className = 'hw-cobweb-corner-left';
+    leftWeb.innerHTML = svgCobweb;
+
+    var rightWeb = document.createElement('div');
+    rightWeb.id = 'hw-cobweb-right';
+    rightWeb.className = 'hw-cobweb-corner-right';
+    rightWeb.innerHTML = svgCobweb;
+
+    document.body.appendChild(leftWeb);
+    document.body.appendChild(rightWeb);
+  }
+
+  function injectParticles() {
+    if (document.getElementById('hw-particle-layer')) return;
+
+    var layer = document.createElement('div');
+    layer.id = 'hw-particle-layer';
+    layer.className = 'hw-particle-layer';
+
+    // 🦇 Flying Bats
+    for (var b = 0; b < 3; b++) {
+      var bat = document.createElement('div');
+      bat.className = 'hw-bat';
+      bat.style.animationDelay = (b * 4.5) + 's';
+      bat.innerHTML = '<svg viewBox="0 0 64 32" fill="#a855f7"><path d="M32 16 C24 0 8 4 0 16 C10 16 18 24 32 32 C46 24 54 16 64 16 C56 4 40 0 32 16 Z"/></svg>';
+      layer.appendChild(bat);
+    }
+
+    // 👻 Floating Ghost Specter
+    for (var g = 0; g < 2; g++) {
+      var ghost = document.createElement('div');
+      ghost.className = 'hw-ghost-specter';
+      ghost.style.animationDelay = (g * 7) + 's';
+      ghost.innerText = '👻';
+      layer.appendChild(ghost);
+    }
+
+    // 🎃 Rising Pumpkin Embers
+    for (var p = 0; p < 4; p++) {
+      var pumpkin = document.createElement('div');
+      pumpkin.className = 'hw-pumpkin-ember';
+      pumpkin.style.left = (15 + p * 24) + 'vw';
+      pumpkin.style.animationDelay = (p * 3.2) + 's';
+      pumpkin.innerText = '🎃';
+      layer.appendChild(pumpkin);
+    }
+
+    document.body.appendChild(layer);
   }
 
   function injectSpiderDescent() {
@@ -35,14 +101,13 @@
       '  <path d="M50 45 C20 15, 10 35, 5 40 M50 45 C80 15, 90 35, 95 40" stroke="#a855f7" stroke-width="4" stroke-linecap="round"/>',
       '  <path d="M50 50 C15 30, 5 55, 2 65 M50 50 C85 30, 95 55, 98 65" stroke="#a855f7" stroke-width="4" stroke-linecap="round"/>',
       '  <path d="M50 55 C20 70, 10 85, 15 95 M50 55 C80 70, 90 85, 85 95" stroke="#a855f7" stroke-width="4" stroke-linecap="round"/>',
-      '  <!-- Spider Body & Eyes -->',
+      '  <!-- Spider Body & Glowing Red/Yellow Eyes -->',
       '  <ellipse cx="50" cy="40" rx="14" ry="12" fill="#140d24" stroke="#ff7518" stroke-width="3"/>',
       '  <circle cx="50" cy="65" r="20" fill="#0a0612" stroke="#a855f7" stroke-width="3"/>',
-      '  <!-- Glowing Red/Yellow Eyes -->',
-      '  <circle cx="44" cy="38" r="3" fill="#ff7518"/>',
-      '  <circle cx="56" cy="38" r="3" fill="#ff7518"/>',
-      '  <circle cx="48" cy="43" r="2" fill="#00ff66"/>',
-      '  <circle cx="52" cy="43" r="2" fill="#00ff66"/>',
+      '  <circle cx="44" cy="38" r="3.5" fill="#ff7518"/>',
+      '  <circle cx="56" cy="38" r="3.5" fill="#ff7518"/>',
+      '  <circle cx="48" cy="43" r="2.5" fill="#00ff66"/>',
+      '  <circle cx="52" cy="43" r="2.5" fill="#00ff66"/>',
       '</svg>'
     ].join('');
 
@@ -51,31 +116,26 @@
     var thread = document.getElementById('hw-thread');
     var spiderSvg = document.getElementById('hw-spider-svg');
 
-    // Smooth scroll silk thread extension
     window.addEventListener('scroll', function () {
       var scrollPos = window.scrollY || document.documentElement.scrollTop;
-      var newHeight = Math.min(Math.max(100 + scrollPos * 0.4, 80), 450);
+      var newHeight = Math.min(Math.max(120 + scrollPos * 0.45, 90), 500);
       if (thread) {
         thread.style.height = newHeight + 'px';
       }
     });
 
-    // Click handler: Spider scuttles back to top with animation!
     if (spiderSvg) {
       spiderSvg.addEventListener('click', function () {
         spiderSvg.classList.add('hw-spider-scuttling');
         setTimeout(function () {
           spiderSvg.classList.remove('hw-spider-scuttling');
-          if (thread) thread.style.height = '80px';
+          if (thread) thread.style.height = '90px';
         }, 850);
       });
     }
   }
 
   function injectCharacterBadges() {
-    // Inject character badges on Space headers or main navigation titles
-    var pageText = document.body.innerText.toLowerCase();
-
     var spaceTitles = document.querySelectorAll('.space-header h1, .inventory-title, .dashboard-title, h1');
     spaceTitles.forEach(function (el) {
       if (el.dataset.hwBadged) return;
@@ -128,14 +188,20 @@
         btn.innerHTML = '👻 Halloween OFF';
         var spider = document.getElementById('hw-spider-wrapper');
         if (spider) spider.style.display = 'none';
+        var particles = document.getElementById('hw-particle-layer');
+        if (particles) particles.style.display = 'none';
       } else {
         document.body.classList.add('halloween-active');
         localStorage.setItem('rm_halloween_choice', 'on');
         btn.innerHTML = '🎃 Halloween ON';
+        injectCornerCobwebs();
+        injectParticles();
         injectSpiderDescent();
         injectCharacterBadges();
         var spider = document.getElementById('hw-spider-wrapper');
         if (spider) spider.style.display = 'flex';
+        var particles = document.getElementById('hw-particle-layer');
+        if (particles) particles.style.display = 'block';
       }
     });
 

@@ -271,6 +271,7 @@ class ClientHomeView(ClientAppAPIView):
                 "recent_receipts": receipts,
                 "recent_services": recent_services,
                 "policies": [policy_list_item(p) for p in policies],
+                "halloween_theme_enabled": getattr(getattr(client, "organization", None), "is_halloween_theme_enabled", True),
             }
         )
 
