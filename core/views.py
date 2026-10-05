@@ -5280,12 +5280,43 @@ def toggle_psb_automation(request):
     
     psb = membership.organization
     psb.is_automation_enabled = enabled
-    psb.save()
+    psb.save(update_fields=["is_automation_enabled"])
+    from django.core.cache import cache
+    cache.delete(f"nav_ctx:v2:{request.user.pk}:{psb.id}")
 
     return JsonResponse({
         "status": "success",
         "psb_id": psb.id,
         "is_automation_enabled": psb.is_automation_enabled
+    })
+
+
+@require_POST
+@login_required
+def toggle_halloween_theme(request):
+    """Office-wide Halloween theme switch. Organization owners only."""
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"status": "error", "message": "Invalid request payload."}, status=400)
+    psb_id = data.get("psb_id")
+    enabled = bool(data.get("enabled"))
+    if not psb_id or not _has_active_owner_access(request.user, psb_id):
+        return JsonResponse({"status": "error", "message": "Permission denied."}, status=403)
+
+    psb = get_object_or_404(
+        Organization,
+        id=psb_id,
+        is_active=True,
+    )
+    psb.is_halloween_theme_enabled = enabled
+    psb.save(update_fields=["is_halloween_theme_enabled"])
+    from django.core.cache import cache
+    cache.delete(f"nav_ctx:v2:{request.user.pk}:{psb.id}")
+    return JsonResponse({
+        "status": "success",
+        "psb_id": psb.id,
+        "is_halloween_theme_enabled": psb.is_halloween_theme_enabled,
     })
 
 

@@ -21,6 +21,7 @@
     }
 
     injectHeaderToggle(isActive);
+    bindOfficeToggles();
   }
 
   function injectCornerCobwebs() {
@@ -170,42 +171,83 @@
     return span;
   }
 
+  function csrfToken() {
+    var input = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (input) return input.value;
+    var match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
+  }
+
+  function postOfficeToggle(btn) {
+    var nextEnabled = btn.getAttribute('data-enabled') !== '1';
+    btn.disabled = true;
+    fetch(btn.getAttribute('data-url'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken()
+      },
+      body: JSON.stringify({
+        psb_id: btn.getAttribute('data-org'),
+        enabled: nextEnabled
+      })
+    }).then(function (response) {
+      if (!response.ok) throw new Error('toggle failed');
+      if (btn.id === 'portalHalloweenToggle') {
+        localStorage.setItem('rm_halloween_choice', nextEnabled ? 'on' : 'off');
+      }
+      window.location.reload();
+    }).catch(function () {
+      btn.disabled = false;
+    });
+  }
+
+  function bindOfficeToggles() {
+    ['portalHalloweenToggle', 'portalAutomationToggle'].forEach(function (id) {
+      var btn = document.getElementById(id);
+      if (!btn || !btn.getAttribute('data-url')) return;
+      btn.addEventListener('click', function () {
+        postOfficeToggle(btn);
+      });
+    });
+  }
+
   function injectHeaderToggle(isActive) {
-    var headerActions = document.querySelector('.nav-actions, .header-right, .user-menu');
-    if (!headerActions || document.getElementById('hw-toggle-btn')) return;
+    var btn = document.getElementById('portalHalloweenToggle');
+    if (!btn || btn.getAttribute('data-url')) return;
 
-    var btn = document.createElement('button');
-    btn.id = 'hw-toggle-btn';
-    btn.className = 'hw-toggle-btn';
-    btn.type = 'button';
-    btn.innerHTML = isActive ? '🎃 Halloween ON' : '👻 Halloween OFF';
-
+    btn.innerHTML = isActive ? '🎃 Halloween' : 'Halloween off';
+    btn.classList.toggle('is-on', isActive);
     btn.addEventListener('click', function () {
       var currentlyActive = document.body.classList.contains('halloween-active');
       if (currentlyActive) {
         document.body.classList.remove('halloween-active');
         localStorage.setItem('rm_halloween_choice', 'off');
-        btn.innerHTML = '👻 Halloween OFF';
+        btn.innerHTML = 'Halloween off';
+        btn.classList.remove('is-on');
         var spider = document.getElementById('hw-spider-wrapper');
         if (spider) spider.style.display = 'none';
         var particles = document.getElementById('hw-particle-layer');
         if (particles) particles.style.display = 'none';
+        ['hw-cobweb-left', 'hw-cobweb-right'].forEach(function (cobwebId) {
+          var cobweb = document.getElementById(cobwebId);
+          if (cobweb) cobweb.style.display = 'none';
+        });
       } else {
         document.body.classList.add('halloween-active');
         localStorage.setItem('rm_halloween_choice', 'on');
-        btn.innerHTML = '🎃 Halloween ON';
+        btn.innerHTML = '🎃 Halloween';
+        btn.classList.add('is-on');
         injectCornerCobwebs();
         injectParticles();
         injectSpiderDescent();
         injectCharacterBadges();
-        var spider = document.getElementById('hw-spider-wrapper');
-        if (spider) spider.style.display = 'flex';
-        var particles = document.getElementById('hw-particle-layer');
-        if (particles) particles.style.display = 'block';
+        var spiderOn = document.getElementById('hw-spider-wrapper');
+        if (spiderOn) spiderOn.style.display = 'flex';
+        var particlesOn = document.getElementById('hw-particle-layer');
+        if (particlesOn) particlesOn.style.display = 'block';
       }
     });
-
-    headerActions.prepend(btn);
   }
 
   if (document.readyState === 'loading') {

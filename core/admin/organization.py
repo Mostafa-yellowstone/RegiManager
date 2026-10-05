@@ -104,6 +104,7 @@ class OrganizationAdmin(admin.ModelAdmin):
         ("Features", {
             "fields": (
                 "is_automation_enabled",
+                "is_halloween_theme_enabled",
                 "is_public_intake_enabled",
                 "intake_link_display",
             ),

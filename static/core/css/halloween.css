@@ -285,6 +285,40 @@ body.halloween-active .nav-brand img {
 .hw-char-werewolf { background: rgba(255, 117, 24, 0.12); color: #ea580c; border: 1px solid #ff7518; }
 .hw-char-witch { background: rgba(168, 85, 247, 0.12); color: #9333ea; border: 1px solid #c084fc; }
 
+.portal-feature-toggle {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 0.75rem;
+  border-radius: 10px;
+  border: 1px solid #d6cdc0;
+  background: #fffdfb;
+  color: #44403c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.portal-feature-toggle.is-on {
+  border-color: #fdba74;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+html.portal-theme-dark .portal-feature-toggle {
+  border-color: #3d4f66;
+  background: #141c28;
+  color: #e2e8f0;
+}
+
+html.portal-theme-dark .portal-feature-toggle.is-on {
+  border-color: #c2410c;
+  background: rgba(234, 88, 12, 0.18);
+  color: #ffedd5;
+}
+
 /* Header Toggle Button */
 .hw-toggle-btn {
   display: inline-flex;

@@ -22,6 +22,19 @@
                 <svg class="portal-mobile-nav-icon portal-mobile-nav-icon--close" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
 
+            {% if is_owner and office_org %}
+            <button type="button" id="portalHalloweenToggle" class="portal-feature-toggle{% if halloween_enabled %} is-on{% endif %}" data-url="{% url 'toggle-halloween-theme' %}" data-org="{{ office_org.id }}" data-enabled="{% if halloween_enabled %}1{% else %}0{% endif %}" title="Turn the Halloween theme on or off for {{ office_org.name }}">
+                {% if halloween_enabled %}🎃 Halloween{% else %}Halloween off{% endif %}
+            </button>
+            <button type="button" id="portalAutomationToggle" class="portal-feature-toggle{% if automation_enabled %} is-on{% endif %}" data-url="{% url 'toggle-psb-automation' %}" data-org="{{ office_org.id }}" data-enabled="{% if automation_enabled %}1{% else %}0{% endif %}" title="Turn Automation Hub on or off for {{ office_org.name }}">
+                {% if automation_enabled %}Automation on{% else %}Automation off{% endif %}
+            </button>
+            {% elif halloween_enabled %}
+            <button type="button" id="portalHalloweenToggle" class="portal-feature-toggle is-on" data-enabled="1" title="Hide the Halloween theme on this browser">
+                🎃 Halloween
+            </button>
+            {% endif %}
+
             <button type="button" id="portalThemeToggle" class="portal-theme-toggle nav-icon-btn" aria-label="Toggle dark mode" title="Toggle light/dark mode">
                 <svg class="portal-theme-icon portal-theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
