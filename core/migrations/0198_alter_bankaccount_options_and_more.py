@@ -6,6 +6,30 @@ from decimal import Decimal
 from django.db import migrations, models
 
 
+class RenameIndexIfPresent(migrations.RenameIndex):
+    """Rename an index when the historical name exists, and skip it otherwise.
+
+    0198 was generated against index names that are not present in every
+    deployed migration state. Skipping a missing name lets migrate finish.
+    """
+
+    def state_forwards(self, app_label, state):
+        model_state = state.models[app_label, self.model_name_lower]
+        names = {index.name for index in model_state.options.get("indexes", [])}
+        if self.old_name not in names:
+            return
+        super().state_forwards(app_label, state)
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        from_model_state = from_state.models[app_label, self.model_name_lower]
+        names = {index.name for index in from_model_state.options.get("indexes", [])}
+        if self.old_name not in names:
+            return
+        if self.old_name == self.new_name:
+            return
+        super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -73,47 +97,27 @@ class Migration(migrations.Migration):
             name='tlcreceipt',
             options={'ordering': ['-generated_at', '-id'], 'verbose_name': 'TLC receipt', 'verbose_name_plural': 'TLC receipts'},
         ),
-        migrations.RemoveIndex(
-            model_name='banktransaction',
-            name='core_banktx_acct_date_idx',
-        ),
-        migrations.RemoveIndex(
-            model_name='insurancepolicy',
-            name='core_inspol_org_stage_bound_idx',
-        ),
-        migrations.RemoveIndex(
-            model_name='insurancepolicy',
-            name='core_inspol_org_stage_stat_idx',
-        ),
-        migrations.RemoveIndex(
-            model_name='insurancepolicy',
-            name='core_inspol_org_co_stage_idx',
-        ),
-        migrations.RemoveIndex(
-            model_name='servicerecord',
-            name='core_svcrec_org_txdate_idx',
-        ),
-        migrations.RenameIndex(
+        RenameIndexIfPresent(
             model_name='agentactivityevent',
             new_name='core_agenta_organiz_5fb9b9_idx',
             old_name='core_agenta_organiz_7f2c1a_idx',
         ),
-        migrations.RenameIndex(
+        RenameIndexIfPresent(
             model_name='clientchatmessage',
             new_name='core_client_client__a64a2b_idx',
             old_name='core_client_client__7a2e1a_idx',
         ),
-        migrations.RenameIndex(
+        RenameIndexIfPresent(
             model_name='clientchatmessage',
             new_name='core_client_client__342fb4_idx',
             old_name='core_client_client__b8c1d2_idx',
         ),
-        migrations.RenameIndex(
+        RenameIndexIfPresent(
             model_name='insurancequotelead',
             new_name='core_insura_organiz_8fb9a6_idx',
             old_name='core_insura_organiz_quote_stg_idx',
         ),
-        migrations.RenameIndex(
+        RenameIndexIfPresent(
             model_name='insurancequotelead',
             new_name='core_insura_organiz_f0d2e2_idx',
             old_name='core_insura_organiz_quote_asg_idx',

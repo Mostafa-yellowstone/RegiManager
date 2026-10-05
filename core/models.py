@@ -867,6 +867,7 @@ class ServiceRecord(SoftDeleteModel):
         indexes = [
             models.Index(fields=["organization", "created_at"]),
             models.Index(fields=["organization", "status", "created_at"]),
+            models.Index(fields=["organization", "transaction_date"], name="core_svcrec_org_txdate_idx"),
         ]
 
     def get_payment_method_display(self):
@@ -2192,6 +2193,11 @@ class InsurancePolicy(models.Model):
         ordering = ["-created_at"]
         verbose_name = "Insurance policy"
         verbose_name_plural = "Insurance policies"
+        indexes = [
+            models.Index(fields=["organization", "stage", "bound_date"], name="core_pol_org_stg_bound_idx"),
+            models.Index(fields=["organization", "stage", "status"], name="core_inspol_org_stage_stat_idx"),
+            models.Index(fields=["organization", "insurance_company", "stage"], name="core_inspol_org_co_stage_idx"),
+        ]
 
     def __str__(self):
         return f"{self.policy_number} - {self.client.name if self.client else 'Unknown'}"
@@ -2583,6 +2589,9 @@ class BankTransaction(models.Model):
         ordering = ["-date", "-created_at"]
         verbose_name = "Bank transaction"
         verbose_name_plural = "Bank transactions"
+        indexes = [
+            models.Index(fields=["bank_account", "date"], name="core_banktx_acct_date_idx"),
+        ]
 
     def __str__(self):
         return f"{self.transaction_type.upper()}: ${self.amount} ({self.category})"
