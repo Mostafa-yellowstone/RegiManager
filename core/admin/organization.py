@@ -71,9 +71,11 @@ class OrganizationAdmin(admin.ModelAdmin):
         "is_public_intake_enabled",
         "is_public_insurance_intake_enabled",
         "is_automation_enabled",
+        "is_halloween_theme_enabled",
         "backup_download_link",
     )
-    list_filter = ("state", "city", "is_public_intake_enabled", "is_public_insurance_intake_enabled", "is_automation_enabled")
+    list_editable = ("is_halloween_theme_enabled",)
+    list_filter = ("state", "city", "is_public_intake_enabled", "is_public_insurance_intake_enabled", "is_automation_enabled", "is_halloween_theme_enabled")
     search_fields = ("name", "address_line", "city", "state", "phone_number", "email", "psbc_license")
     readonly_fields = ("intake_link_display", "insurance_intake_link_display", "backup_download_link")
     inlines = [MembershipInline]

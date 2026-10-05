@@ -1,4 +1,3 @@
-import json
 from datetime import date
 from decimal import Decimal
 
@@ -110,53 +109,3 @@ class InsuranceBookPremiumCardsTests(TestCase):
         self.assertContains(response, "$1250.50")
         self.assertContains(response, "$800.00")
         self.assertContains(response, "$400.00")
-
-
-@override_settings(
-    SECURE_SSL_REDIRECT=False,
-    SESSION_COOKIE_SECURE=False,
-    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
-)
-class OfficeThemeAndAutomationToggleTests(TestCase):
-    def setUp(self):
-        self.org = Organization.objects.create(name="Toggle Org", city="NYC", is_automation_enabled=False)
-        self.owner = User.objects.create_user(username="toggleowner", password="password123")
-        self.agent = User.objects.create_user(username="toggleagent", password="password123")
-        OrganizationMembership.objects.create(
-            user=self.owner,
-            organization=self.org,
-            role=OrganizationMembership.Role.OWNER,
-            is_active=True,
-        )
-        OrganizationMembership.objects.create(
-            user=self.agent,
-            organization=self.org,
-            role=OrganizationMembership.Role.AGENT,
-            is_active=True,
-        )
-        self.http = DjangoClient()
-
-    def _post(self, url_name, enabled):
-        return self.http.post(
-            reverse(url_name),
-            data=json.dumps({"psb_id": self.org.id, "enabled": enabled}),
-            content_type="application/json",
-        )
-
-    def test_owner_can_switch_halloween_and_automation(self):
-        self.http.login(username="toggleowner", password="password123")
-        halloween = self._post("toggle-halloween-theme", False)
-        self.assertEqual(halloween.status_code, 200)
-        self.org.refresh_from_db()
-        self.assertFalse(self.org.is_halloween_theme_enabled)
-        automation = self._post("toggle-psb-automation", True)
-        self.assertEqual(automation.status_code, 200)
-        self.org.refresh_from_db()
-        self.assertTrue(self.org.is_automation_enabled)
-
-    def test_agent_cannot_switch_office_controls(self):
-        self.http.login(username="toggleagent", password="password123")
-        response = self._post("toggle-halloween-theme", False)
-        self.assertEqual(response.status_code, 403)
-        self.org.refresh_from_db()
-        self.assertTrue(self.org.is_halloween_theme_enabled)

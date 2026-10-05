@@ -6,7 +6,7 @@ from .models import OrganizationMembership
 
 
 def _membership_context(request):
-    cache_key = f"nav_ctx:v2:{request.user.pk}:{request.session.get('active_org_id')}"
+    cache_key = f"nav_ctx:{request.user.pk}:{request.session.get('active_org_id')}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -67,12 +67,8 @@ def _membership_context(request):
         else ""
     )
 
-    office_org = active_organization or (user_organizations[0] if user_organizations else None)
-
     result = {
         "automation_enabled": enabled,
-        "is_owner": is_owner,
-        "office_org": office_org,
         "user_nav_role": user_nav_role,
         "can_view_partners": can_view_partners,
         "can_view_finance_bi": can_view_finance_bi,
@@ -91,8 +87,6 @@ def automation_status(request):
     if not request.user.is_authenticated:
         return {
             "automation_enabled": False,
-            "is_owner": False,
-            "office_org": None,
             "user_nav_role": "PSB Agent",
             "can_view_partners": False,
             "can_view_finance_bi": False,
