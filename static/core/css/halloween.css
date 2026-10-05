@@ -1,152 +1,184 @@
 /* ==========================================================================
-   🎃 REGIMANAGER ULTRA-SCARY HALLOWEEN FESTIVAL ENGINE
-   Full Spiderman Cobwebs, Flying Bats & Ghosts, Glowing Pumpkins, Dripping Scary Logo,
-   High-Detail Monster Characters & 100% High-Contrast Typography Readability.
+   🎃 REGIMANAGER HALLOWEEN FESTIVAL ENGINE — DUAL LIGHT & DARK MODE
+   Calm, Eye-Friendly Light & Dark Themes + Preserved Halloween Animations:
+   Spider Descent, Spiderman Cobwebs, Flying Bats/Ghosts, Characters & Scary Logo.
    ========================================================================== */
 
 :root {
-  --hw-bg-dark: #090510;
-  --hw-card-bg: #140c24;
-  --hw-card-border: rgba(168, 85, 247, 0.35);
-  --hw-pumpkin: #ff7518;
-  --hw-pumpkin-glow: rgba(255, 117, 24, 0.45);
-  --hw-slime: #00ff66;
-  --hw-slime-glow: rgba(0, 255, 102, 0.4);
-  --hw-phantom: #a855f7;
-  --hw-vampire-red: #e11d48;
-  --hw-blood: #990000;
+  /* Light Mode Halloween Palette */
+  --hw-light-bg: #f8fafc;
+  --hw-light-card: #ffffff;
+  --hw-light-card-border: #e2e8f0;
+  --hw-light-text-main: #0f172a;
+  --hw-light-text-sub: #475569;
   
-  /* High Contrast Typography Tokens */
-  --hw-text-primary: #ffffff;
-  --hw-text-secondary: #e2e8f0;
-  --hw-text-muted: #cbd5e1;
+  /* Dark Mode Halloween Palette */
+  --hw-dark-bg: #0d081a;
+  --hw-dark-card: #160e28;
+  --hw-dark-card-border: rgba(168, 85, 247, 0.3);
+  --hw-dark-text-main: #f8fafc;
+  --hw-dark-text-sub: #cbd5e1;
+
+  /* Shared Halloween Accent Colors */
+  --hw-pumpkin: #ff7518;
+  --hw-pumpkin-deep: #ea580c;
+  --hw-pumpkin-glow: rgba(255, 117, 24, 0.35);
+  --hw-phantom: #8b5cf6;
+  --hw-phantom-glow: rgba(139, 92, 246, 0.3);
+  --hw-slime: #10b981;
+  --hw-vampire-red: #e11d48;
 }
 
-/* --------------------------------------------------------------------------
-   🎃 BASE THEME & CRISP READABILITY IN LIGHT/DARK MODE
-   -------------------------------------------------------------------------- */
-body.halloween-active {
-  background-color: var(--hw-bg-dark) !important;
-  color: var(--hw-text-primary) !important;
-  transition: background-color 0.4s ease, color 0.4s ease;
+/* ==========================================================================
+   ☀️ 1. HALLOWEEN LIGHT MODE
+   Warm paper surfaces. Menu and service cards stay high-contrast and quiet.
+   ========================================================================== */
+html:not(.portal-theme-dark) body.halloween-active {
+  background-color: #f6f3ee;
+  color: #1c1917;
 }
 
-/* Ensure all headings, table text, form labels, and links remain 100% crisp & readable */
-body.halloween-active h1,
-body.halloween-active h2,
-body.halloween-active h3,
-body.halloween-active h4,
-body.halloween-active .card-title,
-body.halloween-active .stat-title,
-body.halloween-active th,
-body.halloween-active td {
-  color: var(--hw-text-primary) !important;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+html:not(.portal-theme-dark) body.halloween-active .top-nav__bar {
+  background: rgba(255, 252, 247, 0.94);
+  border-bottom-color: #e7e0d6;
 }
 
-body.halloween-active p,
-body.halloween-active span,
-body.halloween-active label,
-body.halloween-active .text-muted,
-body.halloween-active .meta-text {
-  color: var(--hw-text-secondary) !important;
+html:not(.portal-theme-dark) body.halloween-active .nav-link {
+  color: #44403c;
+  font-weight: 700;
 }
 
-body.halloween-active input,
-body.halloween-active select,
-body.halloween-active textarea {
-  background-color: #1a102e !important;
-  color: #ffffff !important;
-  border: 1px solid var(--hw-pumpkin) !important;
-  box-shadow: 0 0 10px rgba(255, 117, 24, 0.2) inset !important;
+html:not(.portal-theme-dark) body.halloween-active .nav-link:hover {
+  color: #292524;
+  background: #f5efe6;
 }
 
-/* --------------------------------------------------------------------------
-   🦇 FLOATING MONSTERS & PARTICLES (BATS, GHOSTS, FIREBALL PUMPKINS)
-   -------------------------------------------------------------------------- */
-.hw-particle-layer {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  pointer-events: none;
-  z-index: 1;
-  overflow: hidden;
+html:not(.portal-theme-dark) body.halloween-active .nav-link.active {
+  color: #292524;
+  background: #efe4d4;
+  box-shadow: none;
 }
 
-/* Flying Bat Silhouette */
-.hw-bat {
-  position: absolute;
-  width: 36px;
-  height: 24px;
-  opacity: 0.7;
-  filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.6));
-  animation: hw-bat-fly 14s infinite linear;
+html:not(.portal-theme-dark) body.halloween-active .service-stat-card,
+html:not(.portal-theme-dark) body.halloween-active .service-card,
+html:not(.portal-theme-dark) body.halloween-active .space-card,
+html:not(.portal-theme-dark) body.halloween-active .inventory-card {
+  background: #fffdfb;
+  color: #1c1917;
+  border: 1px solid #e7e0d6;
+  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04);
 }
 
-@keyframes hw-bat-fly {
-  0% { transform: translate(-50px, 20vh) scale(0.6) rotate(15deg); opacity: 0; }
-  20% { opacity: 0.8; }
-  50% { transform: translate(50vw, 45vh) scale(1) rotate(-10deg); }
-  80% { opacity: 0.8; }
-  100% { transform: translate(105vw, 15vh) scale(0.5) rotate(20deg); opacity: 0; }
+html:not(.portal-theme-dark) body.halloween-active .service-stat-card h3,
+html:not(.portal-theme-dark) body.halloween-active .service-card h3 {
+  color: #1c1917;
 }
 
-/* Floating Ghost Specter */
-.hw-ghost-specter {
-  position: absolute;
-  font-size: 2rem;
-  opacity: 0.65;
-  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.8));
-  animation: hw-ghost-float 18s infinite ease-in-out alternate;
+html:not(.portal-theme-dark) body.halloween-active .service-stat-card p,
+html:not(.portal-theme-dark) body.halloween-active .service-card p {
+  color: #57534e;
 }
 
-@keyframes hw-ghost-float {
-  0% { transform: translate(10vw, 80vh) scale(0.9); }
-  50% { transform: translate(60vw, 30vh) scale(1.2) rotate(10deg); }
-  100% { transform: translate(85vw, 75vh) scale(0.85) rotate(-10deg); }
+html:not(.portal-theme-dark) body.halloween-active .service-stat-card:hover,
+html:not(.portal-theme-dark) body.halloween-active .service-card:hover,
+html:not(.portal-theme-dark) body.halloween-active .space-card:hover,
+html:not(.portal-theme-dark) body.halloween-active .inventory-card:hover {
+  border-color: #d6cdc0;
+  box-shadow: 0 8px 20px rgba(28, 25, 23, 0.06);
 }
 
-/* Glowing Fireball Pumpkin Particle */
-.hw-pumpkin-ember {
-  position: absolute;
-  font-size: 1.4rem;
-  opacity: 0.75;
-  filter: drop-shadow(0 0 14px var(--hw-pumpkin));
-  animation: hw-pumpkin-rise 12s infinite ease-in;
+html:not(.portal-theme-dark) body.halloween-active input,
+html:not(.portal-theme-dark) body.halloween-active select,
+html:not(.portal-theme-dark) body.halloween-active textarea {
+  background-color: #fffdfb;
+  color: #1c1917;
+  border-color: #d6cdc0;
 }
 
-@keyframes hw-pumpkin-rise {
-  0% { transform: translateY(105vh) scale(0.6); opacity: 0; }
-  20% { opacity: 0.9; }
-  80% { opacity: 0.8; }
-  100% { transform: translateY(-10vh) scale(1.1) rotate(360deg); opacity: 0; }
+/* ==========================================================================
+   🌙 2. HALLOWEEN DARK MODE
+   Same calm contrast as the portal night theme, without neon card glow.
+   ========================================================================== */
+html.portal-theme-dark body.halloween-active {
+  background-color: #0f141c;
+  color: #f1f5f9;
 }
 
-/* --------------------------------------------------------------------------
-   🕸️ SPIDERMAN-STYLE CORNER COBWEBS & SPIDER DESCENT
-   -------------------------------------------------------------------------- */
+html.portal-theme-dark body.halloween-active .top-nav__bar {
+  background: rgba(18, 24, 34, 0.94);
+  border-bottom-color: #2d3a4d;
+}
+
+html.portal-theme-dark body.halloween-active .nav-link {
+  color: #e2e8f0;
+}
+
+html.portal-theme-dark body.halloween-active .nav-link:hover {
+  color: #fff7ed;
+  background: rgba(255, 247, 237, 0.08);
+}
+
+html.portal-theme-dark body.halloween-active .nav-link.active {
+  color: #ffedd5;
+  background: rgba(234, 88, 12, 0.22);
+  box-shadow: none;
+}
+
+html.portal-theme-dark body.halloween-active .service-stat-card,
+html.portal-theme-dark body.halloween-active .service-card,
+html.portal-theme-dark body.halloween-active .space-card,
+html.portal-theme-dark body.halloween-active .inventory-card {
+  background: #1a2332;
+  color: #f1f5f9;
+  border: 1px solid #2d3a4d;
+  box-shadow: none;
+}
+
+html.portal-theme-dark body.halloween-active .service-stat-card h3,
+html.portal-theme-dark body.halloween-active .service-card h3 {
+  color: #f8fafc;
+}
+
+html.portal-theme-dark body.halloween-active .service-stat-card p,
+html.portal-theme-dark body.halloween-active .service-card p {
+  color: #cbd5e1;
+}
+
+html.portal-theme-dark body.halloween-active .service-stat-card:hover,
+html.portal-theme-dark body.halloween-active .service-card:hover {
+  border-color: #3d4f66;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+}
+
+html.portal-theme-dark body.halloween-active input,
+html.portal-theme-dark body.halloween-active select,
+html.portal-theme-dark body.halloween-active textarea {
+  background-color: #141c28;
+  color: #f8fafc;
+  border-color: #3d4f66;
+}
+
+/* ==========================================================================
+   🕷️ 3. SPIDERMAN CORNER COBWEBS & SPIDER DESCENT ENGINE
+   ========================================================================== */
 .hw-cobweb-corner-left,
 .hw-cobweb-corner-right {
   position: fixed;
   top: 0;
-  width: 180px;
-  height: 180px;
+  width: 170px;
+  height: 170px;
   pointer-events: none;
   z-index: 99998;
-  opacity: 0.75;
-  filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.5));
+  opacity: 0.7;
 }
 
 .hw-cobweb-corner-left { left: 0; }
 .hw-cobweb-corner-right { right: 0; transform: scaleX(-1); }
 
-/* Spider Silk & Body */
 #hw-spider-wrapper {
   position: fixed;
   top: 0;
-  right: 60px;
+  right: 55px;
   z-index: 99999;
   pointer-events: none;
   display: flex;
@@ -158,17 +190,17 @@ body.halloween-active textarea {
 
 .hw-silk-thread {
   width: 2px;
-  height: 140px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.8) 0%, rgba(255, 117, 24, 0.9) 100%);
-  box-shadow: 0 0 10px var(--hw-pumpkin);
+  height: 130px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.8) 0%, var(--hw-pumpkin) 100%);
+  box-shadow: 0 0 8px var(--hw-pumpkin);
   transition: height 0.15s ease-out;
 }
 
 .hw-spider-body {
-  width: 50px;
-  height: 50px;
+  width: 48px;
+  height: 48px;
   cursor: pointer;
-  filter: drop-shadow(0 4px 16px var(--hw-pumpkin));
+  filter: drop-shadow(0 4px 14px var(--hw-pumpkin));
   animation: hw-spider-sway 3s ease-in-out infinite alternate;
   transform-origin: top center;
   transition: transform 0.25s ease;
@@ -176,69 +208,102 @@ body.halloween-active textarea {
 
 .hw-spider-body:hover {
   transform: scale(1.3) rotate(12deg);
-  filter: drop-shadow(0 0 20px var(--hw-slime));
 }
 
 @keyframes hw-spider-sway {
   0% { transform: rotate(-8deg); }
-  50% { transform: rotate(10deg); }
-  100% { transform: rotate(-6deg); }
+  100% { transform: rotate(10deg); }
 }
 
-/* --------------------------------------------------------------------------
-   🩸 SCARY & UGLY HALLOWEEN BRAND LOGO EDITION
-   -------------------------------------------------------------------------- */
+/* ==========================================================================
+   🦇 4. BATS & SPECTERS PARTICLE ATMOSPHERE
+   ========================================================================== */
+.hw-particle-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.hw-bat {
+  position: absolute;
+  width: 34px;
+  height: 22px;
+  opacity: 0.65;
+  animation: hw-bat-fly 14s infinite linear;
+}
+
+@keyframes hw-bat-fly {
+  0% { transform: translate(-50px, 15vh) scale(0.6) rotate(15deg); opacity: 0; }
+  20% { opacity: 0.8; }
+  50% { transform: translate(50vw, 40vh) scale(1) rotate(-10deg); }
+  100% { transform: translate(105vw, 15vh) scale(0.5) opacity: 0; }
+}
+
+.hw-ghost-specter {
+  position: absolute;
+  font-size: 1.9rem;
+  opacity: 0.6;
+  animation: hw-ghost-float 18s infinite ease-in-out alternate;
+}
+
+@keyframes hw-ghost-float {
+  0% { transform: translate(10vw, 75vh) scale(0.9); }
+  50% { transform: translate(60vw, 30vh) scale(1.15) rotate(10deg); }
+  100% { transform: translate(85vw, 70vh) scale(0.85); }
+}
+
+/* ==========================================================================
+   🩸 5. SCARY LOGO EDITION & CHARACTER BADGES
+   ========================================================================== */
 body.halloween-active .brand-logo,
 body.halloween-active .site-footer-brand img,
 body.halloween-active .nav-brand img {
   position: relative;
-  filter: drop-shadow(0 0 12px var(--hw-blood)) drop-shadow(0 0 22px var(--hw-pumpkin)) !important;
-  animation: hw-ugly-logo-pulse 2.5s infinite alternate ease-in-out;
+  filter: drop-shadow(0 0 10px rgba(225, 29, 72, 0.8)) drop-shadow(0 0 18px var(--hw-pumpkin)) !important;
 }
 
-@keyframes hw-ugly-logo-pulse {
-  0% { filter: drop-shadow(0 0 8px var(--hw-blood)) drop-shadow(0 0 14px var(--hw-pumpkin)); }
-  100% { filter: drop-shadow(0 0 20px var(--hw-blood)) drop-shadow(0 0 32px var(--hw-slime)); }
-}
-
-/* --------------------------------------------------------------------------
-   🧛‍♂️ HIGH-DETAIL CHARACTER CARDS & BADGES
-   -------------------------------------------------------------------------- */
-body.halloween-active .card,
-body.halloween-active .inventory-card,
-body.halloween-active .space-card,
-body.halloween-active .stat-card {
-  background: var(--hw-card-bg) !important;
-  border: 1px solid var(--hw-card-border) !important;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.8) !important;
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
-}
-
-body.halloween-active .card:hover,
-body.halloween-active .inventory-card:hover,
-body.halloween-active .space-card:hover,
-body.halloween-active .stat-card:hover {
-  transform: translateY(-6px) scale(1.01);
-  border-color: var(--hw-pumpkin) !important;
-  box-shadow: 0 14px 36px var(--hw-pumpkin-glow), 0 0 20px rgba(168, 85, 247, 0.4) !important;
-}
-
-/* Character Badges */
 .hw-char-badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 14px;
+  gap: 6px;
+  padding: 4px 12px;
   border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 800;
-  letter-spacing: 0.5px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
   text-transform: uppercase;
-  text-shadow: 0 1px 2px #000;
 }
 
-.hw-char-vampire { background: rgba(225, 29, 72, 0.2); color: #ff4d6d; border: 1px solid #ff4d6d; }
-.hw-char-ghost { background: rgba(248, 250, 252, 0.18); color: #ffffff; border: 1px solid #ffffff; }
-.hw-char-frankenstein { background: rgba(0, 255, 102, 0.2); color: #00ff66; border: 1px solid #00ff66; }
-.hw-char-werewolf { background: rgba(255, 117, 24, 0.2); color: #ff8c38; border: 1px solid #ff8c38; }
-.hw-char-witch { background: rgba(168, 85, 247, 0.2); color: #d8b4fe; border: 1px solid #d8b4fe; }
+.hw-char-vampire { background: rgba(225, 29, 72, 0.12); color: #e11d48; border: 1px solid #ff4d6d; }
+.hw-char-ghost { background: rgba(139, 92, 246, 0.12); color: #7c3aed; border: 1px solid #8b5cf6; }
+.hw-char-frankenstein { background: rgba(16, 185, 129, 0.12); color: #059669; border: 1px solid #10b981; }
+.hw-char-werewolf { background: rgba(255, 117, 24, 0.12); color: #ea580c; border: 1px solid #ff7518; }
+.hw-char-witch { background: rgba(168, 85, 247, 0.12); color: #9333ea; border: 1px solid #c084fc; }
+
+/* Header Toggle Button */
+.hw-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(255, 117, 24, 0.12);
+  border: 1px solid var(--hw-pumpkin);
+  border-radius: 999px;
+  color: var(--hw-pumpkin-deep);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  user-select: none;
+}
+
+.hw-toggle-btn:hover {
+  background: var(--hw-pumpkin);
+  color: #ffffff;
+  box-shadow: 0 0 14px var(--hw-pumpkin-glow);
+}
