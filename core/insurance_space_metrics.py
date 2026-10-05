@@ -128,6 +128,12 @@ def period_stats(policy_qs, start, end):
         broker_fee=Sum("broker_fee"),
         earned_commission=Sum("commission_amount"),
     )
+    by_business = {
+        row["business_type"]: float(row["total"] or 0)
+        for row in period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="active")
+        .values("business_type")
+        .annotate(total=Sum("premium"))
+    }
     return {
         "quotes": quotes,
         "bound": bound,
@@ -135,6 +141,9 @@ def period_stats(policy_qs, start, end):
         "premium": float(bound_stats["premium"] or 0),
         "earned_commission": float(bound_stats["earned_commission"] or 0),
         "broker_fee": float(bound_stats["broker_fee"] or 0),
+        "new_business_premium": by_business.get(InsurancePolicy.BusinessTypeChoices.NEW_BUSINESS, 0),
+        "renewal_premium": by_business.get(InsurancePolicy.BusinessTypeChoices.RENEWAL, 0),
+        "rewrite_premium": by_business.get(InsurancePolicy.BusinessTypeChoices.REWRITE, 0),
     }
 
 
