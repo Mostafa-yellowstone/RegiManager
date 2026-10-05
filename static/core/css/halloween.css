@@ -1,0 +1,249 @@
+/* ==========================================================================
+   🎃 REGIMANAGER HALLOWEEN FESTIVAL THEME & ANIMATION ENGINE
+   ========================================================================== */
+
+:root {
+  --hw-bg-dark: #0a0612;
+  --hw-card-bg: #140d24;
+  --hw-pumpkin: #ff7518;
+  --hw-pumpkin-glow: rgba(255, 117, 24, 0.4);
+  --hw-slime: #00ff66;
+  --hw-slime-glow: rgba(0, 255, 102, 0.35);
+  --hw-phantom: #a855f7;
+  --hw-phantom-glow: rgba(168, 85, 247, 0.35);
+  --hw-vampire: #e11d48;
+  --hw-ghost: #f8fafc;
+}
+
+/* Base Halloween Glow & Background Texture */
+body.halloween-active {
+  background-color: var(--hw-bg-dark) !important;
+  color: #f1f5f9 !important;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* Halloween Background Mist Gradient */
+body.halloween-active::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: 
+    radial-gradient(circle at 15% 20%, rgba(255, 117, 24, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 85% 70%, rgba(168, 85, 247, 0.09) 0%, transparent 45%),
+    radial-gradient(circle at 50% 90%, rgba(0, 255, 102, 0.05) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* --------------------------------------------------------------------------
+   🕷️ DESCENDING SILK SPIDER & NET ANIMATION
+   -------------------------------------------------------------------------- */
+#hw-spider-wrapper {
+  position: fixed;
+  top: 0;
+  right: 45px;
+  z-index: 99999;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform 0.1s linear;
+}
+
+#hw-spider-wrapper.active {
+  pointer-events: auto;
+}
+
+.hw-silk-thread {
+  width: 2px;
+  height: 120px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(168, 85, 247, 0.8) 100%);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.6);
+  transition: height 0.2s ease-out;
+}
+
+.hw-spider-body {
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  filter: drop-shadow(0 4px 12px rgba(168, 85, 247, 0.7));
+  animation: hw-spider-sway 3.5s ease-in-out infinite alternate;
+  transform-origin: top center;
+  transition: transform 0.3s ease;
+}
+
+.hw-spider-body:hover {
+  transform: scale(1.25) rotate(10deg);
+  filter: drop-shadow(0 0 16px var(--hw-pumpkin));
+}
+
+@keyframes hw-spider-sway {
+  0% { transform: rotate(-6deg); }
+  50% { transform: rotate(8deg); }
+  100% { transform: rotate(-4deg); }
+}
+
+@keyframes hw-spider-scuttle {
+  0% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-40px) scale(0.9); }
+  100% { transform: translateY(-100%) scale(0.5); }
+}
+
+.hw-spider-scuttling {
+  animation: hw-spider-scuttle 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+}
+
+/* --------------------------------------------------------------------------
+   🦇 SCARY EDITION BRAND LOGO
+   -------------------------------------------------------------------------- */
+body.halloween-active .site-footer-brand img,
+body.halloween-active .brand-logo,
+body.halloween-active .nav-brand img {
+  position: relative;
+  filter: drop-shadow(0 0 10px var(--hw-pumpkin)) drop-shadow(0 0 20px var(--hw-phantom));
+  animation: hw-logo-pulse 3s infinite alternate ease-in-out;
+}
+
+@keyframes hw-logo-pulse {
+  0% { filter: drop-shadow(0 0 6px var(--hw-pumpkin)) drop-shadow(0 0 12px var(--hw-phantom)); }
+  100% { filter: drop-shadow(0 0 16px var(--hw-pumpkin)) drop-shadow(0 0 28px var(--hw-slime)); }
+}
+
+/* --------------------------------------------------------------------------
+   🧛‍♂️ HALLOWEEN CHARACTER SPACE BADGES & CARDS
+   -------------------------------------------------------------------------- */
+body.halloween-active .card,
+body.halloween-active .inventory-card,
+body.halloween-active .space-card,
+body.halloween-active .stat-card {
+  background: var(--hw-card-bg) !important;
+  border: 1px solid rgba(168, 85, 247, 0.25) !important;
+  box-shadow: 0 8px 24px rgba(10, 6, 18, 0.6) !important;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+body.halloween-active .card:hover,
+body.halloween-active .inventory-card:hover,
+body.halloween-active .space-card:hover,
+body.halloween-active .stat-card:hover {
+  transform: translateY(-5px) scale(1.01);
+  border-color: var(--hw-pumpkin) !important;
+  box-shadow: 0 12px 32px var(--hw-pumpkin-glow), 0 0 15px rgba(168, 85, 247, 0.3) !important;
+}
+
+/* Character Badge Overlays */
+.hw-char-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.hw-char-vampire {
+  background: rgba(225, 29, 72, 0.15);
+  color: #ff4d6d;
+  border: 1px solid rgba(225, 29, 72, 0.4);
+}
+
+.hw-char-ghost {
+  background: rgba(248, 250, 252, 0.12);
+  color: #e2e8f0;
+  border: 1px solid rgba(248, 250, 252, 0.3);
+}
+
+.hw-char-frankenstein {
+  background: rgba(0, 255, 102, 0.12);
+  color: #00ff66;
+  border: 1px solid rgba(0, 255, 102, 0.35);
+}
+
+.hw-char-werewolf {
+  background: rgba(255, 117, 24, 0.15);
+  color: #ff8c38;
+  border: 1px solid rgba(255, 117, 24, 0.4);
+}
+
+.hw-char-witch {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+/* --------------------------------------------------------------------------
+   🧪 BUBBLING WITCH CAULDRON SUCCESS MODAL
+   -------------------------------------------------------------------------- */
+body.halloween-active .portal-swal-popup {
+  background: #120a21 !important;
+  border: 2px solid var(--hw-pumpkin) !important;
+  box-shadow: 0 0 40px var(--hw-pumpkin-glow), 0 0 20px var(--hw-slime-glow) !important;
+  border-radius: 20px !important;
+  position: relative;
+  overflow: hidden;
+}
+
+body.halloween-active .portal-swal-popup::before {
+  content: "🧙‍♀️ 🧪 🎃";
+  position: absolute;
+  top: -15px;
+  right: 15px;
+  font-size: 2.2rem;
+  opacity: 0.8;
+  animation: hw-cauldron-float 2.5s infinite alternate ease-in-out;
+}
+
+@keyframes hw-cauldron-float {
+  0% { transform: translateY(0) rotate(-5deg); }
+  100% { transform: translateY(8px) rotate(5deg); }
+}
+
+body.halloween-active .portal-swal-title {
+  color: var(--hw-pumpkin) !important;
+  text-shadow: 0 0 10px var(--hw-pumpkin-glow);
+  font-weight: 800 !important;
+}
+
+body.halloween-active .portal-swal-text {
+  color: #cbd5e1 !important;
+}
+
+body.halloween-active .portal-swal-confirm {
+  background: linear-gradient(135deg, var(--hw-pumpkin) 0%, #d97706 100%) !important;
+  color: #fff !important;
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 16px var(--hw-pumpkin-glow) !important;
+}
+
+/* --------------------------------------------------------------------------
+   🎃 HALLOWEEN HEADER TOGGLE SWITCHER
+   -------------------------------------------------------------------------- */
+.hw-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(255, 117, 24, 0.15);
+  border: 1px solid var(--hw-pumpkin);
+  border-radius: 999px;
+  color: var(--hw-pumpkin);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.hw-toggle-btn:hover {
+  background: var(--hw-pumpkin);
+  color: #fff;
+  box-shadow: 0 0 16px var(--hw-pumpkin-glow);
+  transform: scale(1.05);
+}

@@ -85,3 +85,14 @@ export const Shadows = {
     elevation: 6,
   },
 };
+
+export const HalloweenColors = {
+  bgDark: '#0A0612',
+  cardBg: '#140D24',
+  pumpkin: '#FF7518',
+  pumpkinGlow: 'rgba(255, 117, 24, 0.4)',
+  slime: '#00FF66',
+  phantom: '#A855F7',
+  vampire: '#E11D48',
+  ghost: '#F8FAFC',
+};

@@ -162,6 +162,22 @@ def portal_timezone(request):
     }
 
 
+def halloween_theme(request):
+    """Expose master halloween_enabled setting to all template contexts."""
+    try:
+        from .models import Organization
+        org_id = request.session.get("active_org_id") if hasattr(request, "session") else None
+        if org_id:
+            org = Organization.objects.filter(id=org_id).first()
+            if org:
+                return {"halloween_enabled": bool(org.is_halloween_theme_enabled)}
+        # Fallback to check if any organization has it enabled
+        enabled = Organization.objects.filter(is_halloween_theme_enabled=True).exists()
+        return {"halloween_enabled": enabled}
+    except Exception:
+        return {"halloween_enabled": True}
+
+
 def agency_license_alerts(request):
     if not getattr(request.user, "is_authenticated", False):
         return {"agency_license_alerts": []}
