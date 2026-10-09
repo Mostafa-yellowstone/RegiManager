@@ -13,6 +13,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from .access import organizations_for_user
+from .text_search import apply_text_search
 from .agent_portal_forms import AgentProfilePhotoForm, AgentTaskAssignForm, AgentTaskEditForm
 from .agent_portal_models import AgentTask
 from .agent_portal_services import (
@@ -370,13 +371,17 @@ def agent_portal_manage_tasks(request):
     elif selected_status in {c.value for c in AgentTask.Status}:
         tasks = tasks.filter(status=selected_status)
     if search_query:
-        tasks = tasks.filter(
-            Q(title__icontains=search_query)
-            | Q(description__icontains=search_query)
-            | Q(completion_note__icontains=search_query)
-            | Q(assigned_to__user__first_name__icontains=search_query)
-            | Q(assigned_to__user__last_name__icontains=search_query)
-            | Q(assigned_to__user__username__icontains=search_query)
+        tasks = apply_text_search(
+            tasks,
+            search_query,
+            [
+                "title",
+                "description",
+                "completion_note",
+                "assigned_to__user__first_name",
+                "assigned_to__user__last_name",
+                "assigned_to__user__username",
+            ],
         )
 
     task_list = list(tasks[:300])

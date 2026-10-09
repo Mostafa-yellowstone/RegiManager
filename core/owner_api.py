@@ -11,6 +11,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .text_search import apply_text_search
 from .finance_hub_metrics import (
     build_daily_payment_cards,
     build_insurance_daily_payment_cards,
@@ -488,15 +489,19 @@ class OwnerFinanceRecordsView(OwnerAPIBase):
             if agent_id.isdigit():
                 qs = qs.filter(recorded_by_id=int(agent_id))
             if search_q:
-                from django.db.models import Q
-
-                qs = qs.filter(
-                    Q(client__name__icontains=search_q)
-                    | Q(notes__icontains=search_q)
-                    | Q(recorded_by__username__icontains=search_q)
-                    | Q(recorded_by__first_name__icontains=search_q)
-                    | Q(recorded_by__last_name__icontains=search_q)
-                    | Q(insurance_company__name__icontains=search_q)
+                qs = apply_text_search(
+                    qs,
+                    search_q,
+                    [
+                        "client__first_name",
+                        "client__last_name",
+                        "client__business_name",
+                        "notes",
+                        "recorded_by__username",
+                        "recorded_by__first_name",
+                        "recorded_by__last_name",
+                        "insurance_company__name",
+                    ],
                 )
             if min_amount:
                 try:

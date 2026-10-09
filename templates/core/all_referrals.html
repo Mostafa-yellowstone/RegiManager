@@ -443,6 +443,7 @@
     </div>
 </div>
 
+<script src="{% static 'core/js/search_text.js' %}?v=1"></script>
 <script>
 function handleReferralCategorySelect(sel) {
     if (sel.value === '__add_new__') {
@@ -513,7 +514,7 @@ function submitQuickAddReferralCategory() {
 
 // ── Client-side filter ────────────────────────────────────────────────
 function filterReferrals() {
-    const q        = document.getElementById('refSearch').value.toLowerCase().trim();
+    const q        = document.getElementById('refSearch').value;
     const category = document.getElementById('refCategory').value;
     const status   = document.getElementById('refStatus').value;
     const cards    = document.querySelectorAll('#refGrid .ref-card-link');
@@ -526,7 +527,8 @@ function filterReferrals() {
         const cat   = card.dataset.category|| '';
         const st    = card.dataset.status  || '';
 
-        const matchText     = !q        || name.includes(q) || email.includes(q) || phone.includes(q);
+        const blob = name + " " + email + " " + phone;
+        const matchText = !q || (window.regiSearchMatch ? window.regiSearchMatch(blob, q) : blob.toLowerCase().includes(q.toLowerCase()));
         const matchCategory = !category || cat === category;
         const matchStatus   = !status   || st  === status;
 
@@ -537,6 +539,20 @@ function filterReferrals() {
             card.style.display = 'none';
         }
     });
+
+    if (visible === 0 && q && window.regiSearchNear) {
+        cards.forEach(card => {
+            const name = card.dataset.name || '';
+            const cat = card.dataset.category || '';
+            const st = card.dataset.status || '';
+            const matchCategory = !category || cat === category;
+            const matchStatus = !status || st === status;
+            if (matchCategory && matchStatus && window.regiSearchNear(name, q)) {
+                card.style.display = '';
+                visible++;
+            }
+        });
+    }
 
     const noRes = document.getElementById('ref-no-results');
     const count = document.getElementById('refCount');

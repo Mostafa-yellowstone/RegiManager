@@ -16,6 +16,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from .access import organizations_for_user
+from .text_search import apply_text_search
 from .agent_portal_forms import AgentTaskAssignForm
 from .agent_portal_models import AgentTask
 from .agent_portal_services import can_manage_agent_tasks
@@ -85,12 +86,7 @@ def _filter_contacts(queryset, request):
     has_email = (request.GET.get("has_email") or request.POST.get("has_email") or "").strip()
 
     if q:
-        queryset = queryset.filter(
-            Q(name__icontains=q)
-            | Q(email__icontains=q)
-            | Q(phone__icontains=q)
-            | Q(city__icontains=q)
-        )
+        queryset = apply_text_search(queryset, q, ["name", "email", "phone", "city"])
     if state:
         queryset = queryset.filter(state__iexact=state)
     if city:

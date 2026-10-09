@@ -55,47 +55,32 @@ def build_client_name_search_q(query: str, *, prefix: str = "") -> Q:
     middle_name = f"{prefix}middle_name"
     business_name = f"{prefix}business_name"
 
+    from .text_search import field_contains_q
+
     name_q = (
-        Q(**{f"{first_name}__icontains": q})
-        | Q(**{f"{last_name}__icontains": q})
-        | Q(**{f"{middle_name}__icontains": q})
-        | Q(**{f"{business_name}__icontains": q})
+        field_contains_q(first_name, q)
+        | field_contains_q(last_name, q)
+        | field_contains_q(middle_name, q)
+        | field_contains_q(business_name, q)
     )
 
     if "," in q:
         pieces = [p.strip() for p in q.split(",", 1)]
         if len(pieces) == 2 and pieces[0] and pieces[1]:
-            name_q |= Q(
-                **{
-                    f"{last_name}__icontains": pieces[0],
-                    f"{first_name}__icontains": pieces[1],
-                }
-            )
+            name_q |= field_contains_q(last_name, pieces[0]) & field_contains_q(first_name, pieces[1])
 
     tokens = [t for t in q.replace(",", " ").split() if t]
     if len(tokens) >= 2:
         first_token = tokens[0]
         remaining = " ".join(tokens[1:])
-        name_q |= Q(
-            **{
-                f"{first_name}__icontains": first_token,
-                f"{last_name}__icontains": remaining,
-            }
-        )
-        name_q |= Q(
-            **{
-                f"{last_name}__icontains": first_token,
-                f"{first_name}__icontains": remaining,
-            }
-        )
+        name_q |= field_contains_q(first_name, first_token) & field_contains_q(last_name, remaining)
+        name_q |= field_contains_q(last_name, first_token) & field_contains_q(first_name, remaining)
 
         if len(tokens) >= 3:
-            name_q |= Q(
-                **{
-                    f"{first_name}__icontains": tokens[0],
-                    f"{middle_name}__icontains": tokens[1],
-                    f"{last_name}__icontains": " ".join(tokens[2:]),
-                }
+            name_q |= (
+                field_contains_q(first_name, tokens[0])
+                & field_contains_q(middle_name, tokens[1])
+                & field_contains_q(last_name, " ".join(tokens[2:]))
             )
 
     return name_q
@@ -137,12 +122,10 @@ def build_full_client_search_q(query: str) -> Q:
     combined = build_client_name_search_q(q)
     combined |= build_driver_license_search_q(q)
     combined |= build_phone_search_q(q)
-    combined |= Q(email__icontains=q)
-    combined |= Q(city__icontains=q)
-    combined |= Q(business_name__icontains=q)
-    combined |= Q(business_ein__icontains=q)
-    combined |= Q(external_key__icontains=q)
-    combined |= Q(vehicles__plate_number__icontains=q)
+    from .text_search import field_contains_q
+
+    for field in ("email", "city", "business_name", "business_ein", "external_key", "vehicles__plate_number"):
+        combined |= field_contains_q(field, q)
     return combined
 
 
@@ -198,11 +181,13 @@ def _name_score(client, query: str) -> int:
     if not client_matches_name_query(client, query):
         return 0
 
-    q_lower = query.strip().lower()
-    full = (client.full_display_name or client.name or "").lower()
-    if full == q_lower:
+    from .text_search import collapse_text, compact_text
+
+    q_collapsed = collapse_text(query).lower()
+    full = collapse_text(client.full_display_name or client.name or "").lower()
+    if full == q_collapsed or compact_text(full) == compact_text(q_collapsed):
         return 450
-    if q_lower in full or full in q_lower:
+    if q_collapsed in full or full in q_collapsed or compact_text(q_collapsed) in compact_text(full):
         return 350
     return 300
 
@@ -274,6 +259,17 @@ def search_clients_ranked(organizations, query: str, *, limit: int = 8) -> list:
     if exact_dl_id and exact_dl_id not in candidate_ids:
         candidate_ids.insert(0, exact_dl_id)
 
+    used_nearest = False
+    if not candidate_ids:
+        from .text_search import nearest_ids
+
+        used_nearest = True
+        candidate_ids = nearest_ids(
+            Client.objects.filter(organization__in=organizations),
+            q,
+            ["first_name", "last_name", "middle_name", "business_name"],
+        )[:limit]
+
     if not candidate_ids:
         return []
 
@@ -296,7 +292,9 @@ def search_clients_ranked(organizations, query: str, *, limit: int = 8) -> list:
             continue
         score = score_client_match(client, q, plates_by_client.get(cid, []))
         if score <= 0 and cid != exact_dl_id:
-            continue
+            if not used_nearest:
+                continue
+            score = 40
         if cid == exact_dl_id:
             score = max(score, 1000)
         ranked.append((score, cid))

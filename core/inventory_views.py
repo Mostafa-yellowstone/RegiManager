@@ -18,6 +18,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
 from .policies import redirect_back
+from .text_search import apply_text_search
 from .inventory_crm import (
     apply_invoice_stock_deductions,
     category_stats,
@@ -106,9 +107,7 @@ def build_inventory_space_context(request, card, is_owner, membership):
     product_filter = request.GET.get("product_q", "").strip()
     category_filter = request.GET.get("category_id", "").strip()
     if product_filter:
-        products_qs = products_qs.filter(
-            Q(name__icontains=product_filter) | Q(sku__icontains=product_filter)
-        )
+        products_qs = apply_text_search(products_qs, product_filter, ["name", "sku"])
     if category_filter.isdigit():
         products_qs = products_qs.filter(category_id=int(category_filter))
     products = list(products_qs)

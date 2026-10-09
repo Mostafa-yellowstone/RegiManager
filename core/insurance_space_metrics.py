@@ -99,16 +99,39 @@ def filter_policies_by_quote_period(policy_qs, start, end):
     )
 
 
+def filter_policies_by_search(policy_qs, query: str):
+    """Space-insensitive policy search, then the closest client or insured name."""
+    from .text_search import apply_text_search
+
+    q = (query or "").strip()
+    if not q:
+        return policy_qs
+    return apply_text_search(
+        policy_qs,
+        q,
+        [
+            "policy_number",
+            "named_insured",
+            "client__first_name",
+            "client__last_name",
+            "client__middle_name",
+            "client__business_name",
+        ],
+        extra_q=build_insurance_policy_search_q(q),
+    )
+
+
 def build_insurance_policy_search_q(query: str) -> Q:
     """Case-insensitive match on policy number, named insured, or client full name."""
     from .client_search import build_client_name_search_q
+
+    from .text_search import text_search_q
 
     q = (query or "").strip()
     if not q:
         return Q()
     return (
-        Q(policy_number__icontains=q)
-        | Q(named_insured__icontains=q)
+        text_search_q(q, ["policy_number", "named_insured"])
         | build_client_name_search_q(q, prefix="client__")
     )
 

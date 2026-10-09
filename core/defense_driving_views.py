@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
 from .client_search import build_client_name_search_q
+from .text_search import apply_text_search
 from .defense_driving_crm import (
     defense_driving_dashboard_stats,
     enrich_enrollment,
@@ -101,15 +102,21 @@ def build_defense_driving_space_context(request, card, is_owner, membership):
         .order_by("-created_at")
     )
     if search:
-        enrollments_qs = enrollments_qs.filter(
-            Q(enrollment_number__icontains=search)
-            | Q(certificate_number__icontains=search)
-            | Q(client__email__icontains=search)
-            | Q(client__phone_number__icontains=search)
-            | Q(client__driver_license__icontains=search)
-            | Q(client__business_name__icontains=search)
-            | build_client_name_search_q(search, prefix="client__")
-        ).distinct()
+        enrollments_qs = apply_text_search(
+            enrollments_qs,
+            search,
+            [
+                "enrollment_number",
+                "certificate_number",
+                "client__email",
+                "client__phone_number",
+                "client__driver_license",
+                "client__business_name",
+                "client__first_name",
+                "client__last_name",
+            ],
+            extra_q=build_client_name_search_q(search, prefix="client__"),
+        )
     if channel_filter:
         enrollments_qs = enrollments_qs.filter(channel=channel_filter)
     if status_filter:

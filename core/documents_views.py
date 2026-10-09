@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_POST
 
 from .http import deny_access
+from .text_search import apply_text_search
 from .models import (
     DocumentFolder,
     OrganizationMembership,
@@ -114,13 +115,10 @@ def build_documents_space_context(request, card, is_owner, membership):
         .order_by("-created_at")
     )
     if search:
-        records_qs = records_qs.filter(
-            Q(record_number__icontains=search)
-            | Q(order_number__icontains=search)
-            | Q(range_start__icontains=search)
-            | Q(range_end__icontains=search)
-            | Q(document_type__name__icontains=search)
-            | Q(notes__icontains=search)
+        records_qs = apply_text_search(
+            records_qs,
+            search,
+            ["record_number", "order_number", "range_start", "range_end", "document_type__name", "notes"],
         )
     if type_filter.isdigit():
         records_qs = records_qs.filter(document_type_id=int(type_filter))

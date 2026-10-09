@@ -65,6 +65,7 @@ from django.views.decorators.http import require_POST
 from django.db.utils import OperationalError, ProgrammingError
 from datetime import timedelta
 from .client_search import build_full_client_search_q
+from .text_search import apply_text_search
 from .tasks import send_automation_email
 from .models import AutomationLog, FinanceStrategyNote, ClientNote, Notification
 from .source_choices import (
@@ -84,7 +85,7 @@ from .insurance_space_metrics import (
     build_adjusted_unearned_for_org,
     build_agent_stats,
     build_company_summaries,
-    build_insurance_policy_search_q,
+    filter_policies_by_search,
     decorate_policies,
     filter_policies_by_quote_period,
     period_stats,
@@ -789,9 +790,10 @@ def add_client(request):
             memberships__role=OrganizationMembership.Role.OWNER,
             is_active=True
         )
-        clients_qs = Client.objects.filter(
-            Q(ssn=search_q) | Q(driver_license=search_q) | Q(last_name__icontains=search_q) | Q(business_name__icontains=search_q),
-            organization__in=all_owner_orgs
+        clients_qs = apply_text_search(
+            Client.objects.filter(organization__in=all_owner_orgs),
+            search_q,
+            ["first_name", "last_name", "business_name", "driver_license", "ssn"],
         )
         
         # If a specific active org is selected, we exclude it to find matches in OTHER branches.
@@ -3035,12 +3037,20 @@ def service_list(request, service_type):
     export_type = request.GET.get('export', '').strip().lower()
 
     if search_query:
-        scope_qs = scope_qs.filter(
-            Q(client_name__icontains=search_query) |
-            Q(client_identifier__icontains=search_query) |
-            Q(receipt_number__icontains=search_query) |
-            Q(vehicle__client__first_name__icontains=search_query) |
-            Q(vehicle__client__last_name__icontains=search_query)
+        from .client_search import build_client_name_search_q
+
+        scope_qs = apply_text_search(
+            scope_qs,
+            search_query,
+            [
+                "client_name",
+                "client_identifier",
+                "receipt_number",
+                "vehicle__client__first_name",
+                "vehicle__client__last_name",
+                "vehicle__client__business_name",
+            ],
+            extra_q=build_client_name_search_q(search_query, prefix="vehicle__client__"),
         )
 
     if status_filter in dict(ServiceRecord.STATUS_CHOICES):
@@ -3313,11 +3323,19 @@ def service_search_ajax(request):
         scope_qs = scope_qs.filter(service_type=service_type)
 
     if search_query:
-        scope_qs = scope_qs.filter(
-            Q(client_name__icontains=search_query) |
-            Q(receipt_number__icontains=search_query) |
-            Q(vehicle__client__first_name__icontains=search_query) |
-            Q(vehicle__client__last_name__icontains=search_query)
+        from .client_search import build_client_name_search_q
+
+        scope_qs = apply_text_search(
+            scope_qs,
+            search_query,
+            [
+                "client_name",
+                "receipt_number",
+                "vehicle__client__first_name",
+                "vehicle__client__last_name",
+                "vehicle__client__business_name",
+            ],
+            extra_q=build_client_name_search_q(search_query, prefix="vehicle__client__"),
         )
 
     if status_filter:
@@ -3925,10 +3943,10 @@ def audit_log_list(request):
     date_to = request.GET.get('date_to', '').strip()
 
     if search_query:
-        scope_qs = scope_qs.filter(
-            Q(actor__username__icontains=search_query) |
-            Q(service_record__receipt_number__icontains=search_query) |
-            Q(details__icontains=search_query)
+        scope_qs = apply_text_search(
+            scope_qs,
+            search_query,
+            ["actor__username", "actor__first_name", "actor__last_name", "service_record__receipt_number", "details"],
         )
         
     if action_filter:
@@ -5019,12 +5037,20 @@ def finance_hub(request):
         if date_to:
             crm_qs = crm_qs.filter(transaction_date__lte=date_to)
         if search_query:
-            crm_qs = crm_qs.filter(
-                Q(client_name__icontains=search_query)
-                | Q(client_identifier__icontains=search_query)
-                | Q(receipt_number__icontains=search_query)
-                | Q(vehicle__client__first_name__icontains=search_query)
-                | Q(vehicle__client__last_name__icontains=search_query)
+            from .client_search import build_client_name_search_q
+
+            crm_qs = apply_text_search(
+                crm_qs,
+                search_query,
+                [
+                    "client_name",
+                    "client_identifier",
+                    "receipt_number",
+                    "vehicle__client__first_name",
+                    "vehicle__client__last_name",
+                    "vehicle__client__business_name",
+                ],
+                extra_q=build_client_name_search_q(search_query, prefix="vehicle__client__"),
             )
         payment_choice_keys = {key for key, _ in payment_choices}
         if payment_filter in payment_choice_keys:
@@ -5643,14 +5669,10 @@ def portal_intake_list(request):
     profit_date_to = request.GET.get("profit_date_to", "").strip()
 
     if query:
-        intakes = intakes.filter(
-            Q(first_name__icontains=query)
-            | Q(last_name__icontains=query)
-            | Q(business_name__icontains=query)
-            | Q(vin__icontains=query)
-            | Q(phone_number__icontains=query)
-            | Q(email__icontains=query)
-            | Q(driver_license__icontains=query)
+        intakes = apply_text_search(
+            intakes,
+            query,
+            ["first_name", "last_name", "business_name", "vin", "phone_number", "email", "driver_license"],
         )
 
     valid_statuses = {key for key, _ in ClientIntake.Status.choices}
@@ -6424,7 +6446,7 @@ def inventory_detail(request, inventory_id):
         # Filter policies for the CRM table (selected period uses quote date)
         policies = filter_policies_by_quote_period(all_policies, comp_start, comp_end)
         if search_query:
-            policies = policies.filter(build_insurance_policy_search_q(search_query))
+            policies = filter_policies_by_search(policies, search_query)
         if stage_filter:
             policies = policies.filter(stage=stage_filter)
         if status_filter:
@@ -6513,11 +6535,10 @@ def inventory_detail(request, inventory_id):
 
         bank_transactions = all_bank_transactions
         if bank_search:
-            from django.db.models import Q
-            bank_transactions = bank_transactions.filter(
-                Q(category__icontains=bank_search) |
-                Q(description__icontains=bank_search) |
-                Q(bank_account__account_name__icontains=bank_search)
+            bank_transactions = apply_text_search(
+                bank_transactions,
+                bank_search,
+                ["category", "description", "bank_account__account_name"],
             )
         if bank_account_filter:
             bank_transactions = bank_transactions.filter(bank_account_id=bank_account_filter)
@@ -8728,7 +8749,7 @@ def insurance_company_detail(request, company_id):
     ).select_related("client", "added_by")
 
     if search_query:
-        policies = policies.filter(build_insurance_policy_search_q(search_query))
+        policies = filter_policies_by_search(policies, search_query)
     if stage_filter:
         policies = policies.filter(stage=stage_filter)
     if status_filter:
@@ -9058,7 +9079,7 @@ def insurance_agent_detail(request, user_id):
 
     policies = all_agent_policies
     if search_query:
-        policies = policies.filter(build_insurance_policy_search_q(search_query))
+        policies = filter_policies_by_search(policies, search_query)
     if stage_filter:
         policies = policies.filter(stage=stage_filter)
     if status_filter:

@@ -14,6 +14,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from .access import organizations_for_user
+from .text_search import apply_text_search
 from .http import deny_access
 from .insurance_quote_distribution import (
     assign_lead,
@@ -961,15 +962,10 @@ def quote_records(request):
     if accident:
         leads_qs = leads_qs.filter(has_accident=True)
     if q:
-        leads_qs = leads_qs.filter(
-            Q(client_name__icontains=q)
-            | Q(phone__icontains=q)
-            | Q(email__icontains=q)
-            | Q(vin__icontains=q)
-            | Q(vehicle_make__icontains=q)
-            | Q(vehicle_model__icontains=q)
-            | Q(city__icontains=q)
-            | Q(notes__icontains=q)
+        leads_qs = apply_text_search(
+            leads_qs,
+            q,
+            ["client_name", "phone", "email", "vin", "vehicle_make", "vehicle_model", "city", "notes"],
         )
 
     paginator = Paginator(leads_qs, 25)

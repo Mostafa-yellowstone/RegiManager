@@ -429,6 +429,7 @@
 
 {% if records.count > 0 %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'core/js/search_text.js' %}?v=1"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const pieLabels = JSON.parse('{{ chart_labels|escapejs }}');
@@ -547,7 +548,7 @@ document.getElementById('paymentModal').addEventListener('click', function(e) {
 });
 
 function filterLedger() {
-    const searchVal = document.getElementById('ledgerSearch').value.toLowerCase();
+    const searchVal = document.getElementById('ledgerSearch').value;
     const statusVal = document.getElementById('ledgerStatusFilter').value.toLowerCase();
     const table = document.getElementById('ledgerTable');
     const trs = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
@@ -564,8 +565,8 @@ function filterLedger() {
             const statusTxt = (statusTd.textContent || statusTd.innerText).toLowerCase();
             const notesTxt = notesTd.textContent || notesTd.innerText;
             
-            const combined = (dateTxt + " " + statusTxt + " " + notesTxt).toLowerCase();
-            const matchesSearch = combined.indexOf(searchVal) > -1;
+            const combined = dateTxt + " " + statusTxt + " " + notesTxt;
+            const matchesSearch = !searchVal || (window.regiSearchMatch ? window.regiSearchMatch(combined, searchVal) : combined.toLowerCase().indexOf(searchVal.toLowerCase()) > -1);
             
             let matchesStatus = true;
             if (statusVal === 'paid') {

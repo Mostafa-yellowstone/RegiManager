@@ -1,6 +1,8 @@
 """Staff space CRM helpers."""
 
-from django.db.models import Count, Q
+from django.db.models import Count
+
+from .text_search import apply_text_search
 
 from .models import StaffDocument, StaffEmployee
 
@@ -31,13 +33,10 @@ def enrich_employee(employee):
 
 def filter_employees(qs, *, search="", status=""):
     if search:
-        qs = qs.filter(
-            Q(first_name__icontains=search)
-            | Q(last_name__icontains=search)
-            | Q(email__icontains=search)
-            | Q(phone__icontains=search)
-            | Q(job_title__icontains=search)
-            | Q(department__icontains=search)
+        qs = apply_text_search(
+            qs,
+            search,
+            ["first_name", "last_name", "email", "phone", "job_title", "department"],
         )
     if status:
         qs = qs.filter(employment_status=status)

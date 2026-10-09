@@ -311,6 +311,7 @@
 </div>
 
 <script src="{% static 'core/js/dashboard.js' %}?v=3"></script>
+<script src="{% static 'core/js/search_text.js' %}?v=1"></script>
 <script>
     // After a successful upload on the vehicle detail page, refresh the docs table.
     // This uses the _onUploadSuccess hook that the global XHR-based proceedWithUpload calls.
@@ -342,12 +343,13 @@
         });
 
         function applyDmvHubFilters() {
-            const query = (searchInput?.value || '').trim().toLowerCase();
+            const query = (searchInput?.value || '').trim();
             const activeFilter = categorySelect?.value || 'all';
             let visibleCount = 0;
 
             rows.forEach((row) => {
-                const matchesSearch = !query || (row.dataset.vdDmvSearch || '').includes(query);
+                const haystack = row.dataset.vdDmvSearch || '';
+                const matchesSearch = !query || (window.regiSearchMatch ? window.regiSearchMatch(haystack, query) : haystack.toLowerCase().includes(query.toLowerCase()));
                 const matchesCategory = activeFilter === 'all' || row.dataset.vdDmvCategory === activeFilter;
                 const visible = matchesSearch && matchesCategory;
                 row.style.display = visible ? '' : 'none';

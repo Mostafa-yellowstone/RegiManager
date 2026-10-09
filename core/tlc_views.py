@@ -12,6 +12,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from .http import deny_access
+from .text_search import apply_text_search
 from .insurance_permissions import can_edit_added_org_record
 from .models import Client, OrganizationMembership, Space, Vehicle
 from .space_access import require_space_access
@@ -150,14 +151,18 @@ def build_tlc_space_context(request, card, is_owner, membership):
         .order_by("-created_at")
     )
     if search:
-        policies_qs = policies_qs.filter(
-            Q(policy_number__icontains=search)
-            | Q(named_insured__icontains=search)
-            | Q(business_name__icontains=search)
-            | Q(carrier__icontains=search)
-            | Q(vin__icontains=search)
-            | Q(plate_number__icontains=search)
-            | Q(tlc_base_number__icontains=search)
+        policies_qs = apply_text_search(
+            policies_qs,
+            search,
+            [
+                "policy_number",
+                "named_insured",
+                "business_name",
+                "carrier",
+                "vin",
+                "plate_number",
+                "tlc_base_number",
+            ],
         )
     if status_filter:
         policies_qs = policies_qs.filter(status=status_filter)

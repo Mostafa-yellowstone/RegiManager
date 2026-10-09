@@ -816,9 +816,10 @@
     </section>
 </main>
 
+<script src="{% static 'core/js/search_text.js' %}?v=1"></script>
 <script>
     function filterTransactions() {
-        const searchVal = document.getElementById('transactionSearch').value.toLowerCase();
+        const searchVal = document.getElementById('transactionSearch').value;
         const statusVal = document.getElementById('statusFilter').value.toLowerCase();
         const table = document.getElementById('transactionTable');
         const trs = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
@@ -838,8 +839,8 @@
                 const statusTxt = (statusTd.textContent || statusTd.innerText).toLowerCase();
                 const agentTxt = agentTd.textContent || agentTd.innerText;
 
-                const combined = (serviceTxt + " " + receiptTxt + " " + agentTxt).toLowerCase();
-                const matchesSearch = combined.indexOf(searchVal) > -1;
+                const combined = serviceTxt + " " + receiptTxt + " " + agentTxt;
+                const matchesSearch = !searchVal || (window.regiSearchMatch ? window.regiSearchMatch(combined, searchVal) : combined.toLowerCase().indexOf(searchVal.toLowerCase()) > -1);
 
                 let matchesStatus = true;
                 if (statusVal !== 'all') {

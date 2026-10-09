@@ -138,15 +138,13 @@ def search_directory_entries(card, query, kind):
     base = _entry_base(card, kind)
     if not query:
         return list(base.order_by("name")), "all"
+    from .text_search import collapse_text, text_search_q
+
+    query = collapse_text(query)
     digits = _digits(query)
-    clauses = (
-        Q(name__icontains=query)
-        | Q(email__icontains=query)
-        | Q(phones__number__icontains=query)
-        | Q(phones__label__icontains=query)
-        | Q(website__icontains=query)
-        | Q(portal_url__icontains=query)
-        | Q(category__icontains=query)
+    clauses = text_search_q(
+        query,
+        ["name", "email", "phones__number", "phones__label", "website", "portal_url", "category"],
     )
     if len(digits) >= 3:
         clauses |= Q(phones__number__icontains=digits)

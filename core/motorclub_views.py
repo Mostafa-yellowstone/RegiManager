@@ -28,6 +28,7 @@ from .motorclub_crm import (
     tier_preview_rows,
 )
 from .client_search import build_client_name_search_q
+from .text_search import apply_text_search
 from .space_access import get_org_membership, require_space_access
 from .space_important_docs import important_docs_context, user_can_manage_space_docs
 from .views import _get_user_organizations
@@ -111,16 +112,22 @@ def build_motorclub_space_context(request, card, is_owner, membership):
         .order_by("-created_at")
     )
     if search:
-        memberships_qs = memberships_qs.filter(
-            Q(membership_number__icontains=search)
-            | Q(b2b_partner__name__icontains=search)
-            | Q(client__email__icontains=search)
-            | Q(client__phone_number__icontains=search)
-            | Q(client__driver_license__icontains=search)
-            | Q(client__business_name__icontains=search)
-            | Q(client__business_ein__icontains=search)
-            | build_client_name_search_q(search, prefix="client__")
-        ).distinct()
+        memberships_qs = apply_text_search(
+            memberships_qs,
+            search,
+            [
+                "membership_number",
+                "b2b_partner__name",
+                "client__email",
+                "client__phone_number",
+                "client__driver_license",
+                "client__business_name",
+                "client__business_ein",
+                "client__first_name",
+                "client__last_name",
+            ],
+            extra_q=build_client_name_search_q(search, prefix="client__"),
+        )
     if channel_filter:
         memberships_qs = memberships_qs.filter(channel=channel_filter)
     if status_filter:
