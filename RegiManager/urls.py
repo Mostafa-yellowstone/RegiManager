@@ -229,6 +229,7 @@ from core.staff_views import (
     delete_staff_document,
 )
 from core.directory_views import (
+    directory_search,
     save_directory_entry,
     delete_directory_entry,
     save_directory_phone,
@@ -841,6 +842,7 @@ urlpatterns = [
     path("dashboard/spaces/staff/employee/<int:employee_id>/delete/", delete_staff_employee, name="delete-staff-employee"),
     path("dashboard/spaces/staff/employee/<int:employee_id>/document/upload/", upload_staff_document, name="upload-staff-document"),
     path("dashboard/spaces/staff/document/<int:document_id>/delete/", delete_staff_document, name="delete-staff-document"),
+    path("dashboard/spaces/directory/<int:space_id>/search/", directory_search, name="directory-search"),
     path("dashboard/spaces/directory/<int:space_id>/entry/save/", save_directory_entry, name="save-directory-entry"),
     path("dashboard/spaces/directory/entry/<int:entry_id>/delete/", delete_directory_entry, name="delete-directory-entry"),
     path("dashboard/spaces/directory/<int:space_id>/phone/save/", save_directory_phone, name="save-directory-phone"),

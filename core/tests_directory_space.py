@@ -3,7 +3,7 @@ from django.test import Client as TestClient
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from core.directory_models import DirectoryCredential, DirectoryEntry, DirectoryPhone
+from core.directory_models import DirectoryCredential, DirectoryEntry, DirectoryNote, DirectoryPhone
 from core.models import Organization, OrganizationMembership, Space
 
 
@@ -77,10 +77,27 @@ class DirectorySpaceTests(TestCase):
             DirectoryCredential.objects.filter(entry=entry, username="desk@gmail.com", secret="office-secret").exists()
         )
 
+        noted = self.client.post(
+            reverse("save-directory-entry", args=[space.id]),
+            {
+                "entry_id": entry.id,
+                "name": "Acme Carrier",
+                "kind": "company",
+                "email": "desk@acme.example",
+                "note_title": ["Hours", "Billing"],
+                "note_body": ["Opens at 9", "Net 30"],
+            },
+        )
+        self.assertEqual(noted.status_code, 302)
+        self.assertEqual(list(DirectoryNote.objects.filter(entry=entry).values_list("title", flat=True)), ["Hours", "Billing"])
+
         listing = self.client.get(reverse("inventory-detail", args=[space.id]))
         self.assertEqual(listing.status_code, 200)
         self.assertContains(listing, "Acme Carrier")
-        self.assertContains(listing, "Claims")
+        self.assertContains(listing, "718-555-0100")
+        self.assertContains(listing, "desk@acme.example")
+        self.assertNotContains(listing, "Claims")
+        self.assertNotContains(listing, "Hours")
         self.assertNotContains(listing, "office-secret")
 
         composer = self.client.get(reverse("inventory-detail", args=[space.id]) + "?new=1")
@@ -91,8 +108,44 @@ class DirectorySpaceTests(TestCase):
         detail = self.client.get(reverse("inventory-detail", args=[space.id]) + f"?entry={entry.id}")
         self.assertContains(detail, "desk@gmail.com")
         self.assertContains(detail, "office-secret")
+        self.assertContains(detail, "Note 1")
+        self.assertContains(detail, "Hours")
+        self.assertContains(detail, "Note 2")
+        self.assertContains(detail, "Billing")
         self.assertContains(detail, "Update")
         self.assertContains(detail, "Delete")
+
+    def test_live_search_matches_phone_and_nearest_name(self):
+        space = Space.objects.create(organization=self.org, key="directory", label="Directory")
+        self.membership.accessible_spaces.add(space)
+        entry = DirectoryEntry.objects.create(
+            organization=self.org,
+            space=space,
+            kind=DirectoryEntry.Kind.COMPANY,
+            name="Acme Carrier",
+            email="desk@acme.example",
+        )
+        DirectoryPhone.objects.create(entry=entry, label="Claims", number="718-555-0100")
+        page = self.client.get(reverse("inventory-detail", args=[space.id]))
+        self.assertContains(page, "margin: 10px")
+        self.assertContains(page, "dirSearch")
+
+        exact = self.client.get(reverse("directory-search", args=[space.id]), {"q": "555-0100"})
+        self.assertEqual(exact.status_code, 200)
+        exact_body = exact.json()
+        self.assertEqual(exact_body["mode"], "exact")
+        self.assertEqual(exact_body["results"][0]["name"], "Acme Carrier")
+        self.assertNotIn("office-secret", exact.content.decode())
+
+        near = self.client.get(reverse("directory-search", args=[space.id]), {"q": "Axme"})
+        self.assertEqual(near.status_code, 200)
+        near_body = near.json()
+        self.assertIn(near_body["mode"], ("exact", "near"))
+        self.assertEqual(near_body["results"][0]["name"], "Acme Carrier")
+
+        missing = self.client.get(reverse("directory-search", args=[space.id]), {"q": "zzzz-not-a-company"})
+        self.assertEqual(missing.json()["mode"], "none")
+        self.assertEqual(missing.json()["results"], [])
 
     def test_shared_account_kind_and_agent_without_access_is_denied(self):
         space = Space.objects.create(organization=self.org, key="directory", label="Directory")

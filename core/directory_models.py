@@ -47,9 +47,25 @@ class DirectoryEntry(models.Model):
 
     class Meta:
         ordering = ["name", "id"]
+        indexes = [
+            models.Index(fields=["space", "name"], name="dir_ent_space_name"),
+        ]
 
     def __str__(self):
         return self.name
+
+
+class DirectoryNote(models.Model):
+    entry = models.ForeignKey(DirectoryEntry, on_delete=models.CASCADE, related_name="note_items")
+    title = models.CharField(max_length=120)
+    body = models.TextField(blank=True, default="")
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+    def __str__(self):
+        return self.title
 
 
 class DirectoryPhone(models.Model):
@@ -60,6 +76,9 @@ class DirectoryPhone(models.Model):
 
     class Meta:
         ordering = ["id"]
+        indexes = [
+            models.Index(fields=["entry", "number"], name="dir_phone_entry_num"),
+        ]
 
     def __str__(self):
         return f"{self.label}: {self.number}"

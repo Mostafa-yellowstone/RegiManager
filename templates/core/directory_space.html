@@ -2,7 +2,7 @@
 {% block title %}Directory | RegiManager{% endblock %}
 {% block portal_content %}
 <style>
-.dir-page { width: 100%; max-width: none; margin: 0; padding: 0.15rem 0 2.5rem; color: #0f172a; }
+main.dashboard-shell.dir-page { width: auto; max-width: none; margin: 10px; padding: 0 0 2.5rem; color: #0f172a; box-sizing: border-box; }
 .dir-hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; padding: 1.2rem 1.35rem; border-radius: 22px; background: radial-gradient(520px 140px at 0% 0%, rgba(14,165,233,.16), transparent 70%), linear-gradient(135deg, #fff, #f8fafc); border: 1px solid #e2e8f0; }
 .dir-kicker { font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #0369a1; }
 .dir-hero h1 { margin: .15rem 0 0; font-size: 1.7rem; letter-spacing: -.03em; }
@@ -23,7 +23,8 @@
 .dir-span-4 { grid-column: 1 / -1; }
 .dir-phones { grid-column: 1 / -1; display: grid; gap: .6rem; }
 .dir-phone-row { display: grid; grid-template-columns: 1.2fr 1fr .6fr; gap: .6rem; }
-.dir-filters { display: flex; gap: .7rem; align-items: end; flex-wrap: wrap; margin-bottom: .9rem; }
+.dir-filters { display: flex; gap: .7rem; align-items: end; flex-wrap: wrap; margin-bottom: .35rem; }
+.dir-search-status { min-height: 1.25rem; margin: 0 0 .75rem; color: #64748b; font-size: .88rem; font-weight: 650; }
 .dir-filters label { min-width: min(420px, 100%); }
 .dir-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: .85rem; }
 .dir-card { display: grid; gap: .35rem; min-height: 148px; padding: .95rem 1rem; border-radius: 18px; background: #fff; border: 1px solid #e2e8f0; text-decoration: none; color: inherit; box-shadow: 0 8px 18px rgba(15,23,42,.04); }
@@ -47,6 +48,32 @@
 .dir-line { display: flex; justify-content: space-between; gap: .75rem; align-items: center; padding: .8rem .95rem; border-radius: 14px; border: 1px solid #e2e8f0; }
 .dir-secret { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .dir-empty { padding: 1.4rem .2rem; color: #64748b; font-weight: 650; }
+.dir-note-list { display: flex; flex-wrap: wrap; gap: .7rem; margin-top: 1rem; }
+.dir-note { flex: 1 1 210px; max-width: 320px; padding: .85rem .95rem; border-radius: 16px; border: 1px solid transparent; }
+.dir-note-kicker { font-size: .68rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.dir-note-badge { display: inline-flex; margin-top: .35rem; border-radius: 999px; padding: .28rem .7rem; font-size: .82rem; font-weight: 800; }
+.dir-note p { margin: .55rem 0 0; font-size: .92rem; line-height: 1.45; }
+.dir-card-notes { display: flex; flex-wrap: wrap; gap: .3rem; }
+.dir-tone-0 { background: #fff7ed; border-color: #fdba74; color: #9a3412; }
+.dir-tone-0 .dir-note-badge { background: #f97316; color: #fff; }
+.dir-tone-1 { background: #eff6ff; border-color: #93c5fd; color: #1e3a8a; }
+.dir-tone-1 .dir-note-badge { background: #2563eb; color: #fff; }
+.dir-tone-2 { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; }
+.dir-tone-2 .dir-note-badge { background: #059669; color: #fff; }
+.dir-tone-3 { background: #f5f3ff; border-color: #c4b5fd; color: #5b21b6; }
+.dir-tone-3 .dir-note-badge { background: #7c3aed; color: #fff; }
+.dir-tone-4 { background: #fff1f2; border-color: #fda4af; color: #9f1239; }
+.dir-tone-4 .dir-note-badge { background: #e11d48; color: #fff; }
+.dir-tone-5 { background: #fefce8; border-color: #fde047; color: #854d0e; }
+.dir-tone-5 .dir-note-badge { background: #ca8a04; color: #fff; }
+.dir-card .dir-note-badge { margin-top: 0; }
+span.dir-note-badge.dir-tone-0 { background: #f97316; color: #fff; }
+span.dir-note-badge.dir-tone-1 { background: #2563eb; color: #fff; }
+span.dir-note-badge.dir-tone-2 { background: #059669; color: #fff; }
+span.dir-note-badge.dir-tone-3 { background: #7c3aed; color: #fff; }
+span.dir-note-badge.dir-tone-4 { background: #e11d48; color: #fff; }
+span.dir-note-badge.dir-tone-5 { background: #ca8a04; color: #fff; }
+.dir-note-row { display: grid; grid-template-columns: minmax(180px, 280px) 1fr; gap: .6rem; align-items: start; }
 @media (max-width: 980px) {
   .dir-form, .dir-facts { grid-template-columns: 1fr 1fr; }
   .dir-span-2, .dir-span-4, .dir-phones { grid-column: 1 / -1; }
@@ -109,7 +136,24 @@ html.portal-theme-dark .dir-card small, html.portal-theme-dark .dir-muted, html.
         {% if cred.login_url %}<div class="dir-fact"><span class="dir-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg></span><div><b>Login link</b><a href="{{ cred.login_url }}" target="_blank" rel="noopener">Open</a></div></div>{% endif %}
       {% endif %}
     </div>
-    {% if selected_entry.notes %}<p class="dir-muted" style="margin:1rem 0 0;">{{ selected_entry.notes }}</p>{% endif %}
+    {% if selected_entry.note_items.all or selected_entry.notes %}
+    <div class="dir-note-list">
+      {% for note in selected_entry.note_items.all %}
+      {% cycle '0' '1' '2' '3' '4' '5' as note_tone silent %}
+      <article class="dir-note dir-tone-{{ note_tone }}">
+        <div class="dir-note-kicker">Note {{ forloop.counter }}</div>
+        <span class="dir-note-badge">{{ note.title }}</span>
+        {% if note.body %}<p>{{ note.body }}</p>{% endif %}
+      </article>
+      {% empty %}
+      <article class="dir-note dir-tone-0">
+        <div class="dir-note-kicker">Note 1</div>
+        <span class="dir-note-badge">Notes</span>
+        <p>{{ selected_entry.notes }}</p>
+      </article>
+      {% endfor %}
+    </div>
+    {% endif %}
     {% if selected_entry.kind == 'company' %}
     <div class="dir-lines">
       <h3 style="margin:.4rem 0 0;">Phone lines</h3>
@@ -158,7 +202,6 @@ html.portal-theme-dark .dir-card small, html.portal-theme-dark .dir-muted, html.
           <label>Website<input name="website" value="{{ selected_entry.website|default:'' }}" placeholder="https://"></label>
           <label>Portal link<input name="portal_url" value="{{ selected_entry.portal_url|default:'' }}" placeholder="https://"></label>
           <label class="dir-span-2">Address<input name="address" value="{{ selected_entry.address|default:'' }}"></label>
-          <label class="dir-span-2">Notes<textarea name="notes" rows="2">{{ selected_entry.notes|default:'' }}</textarea></label>
           <div class="dir-phones" id="dirPhones">
             <div style="display:flex;justify-content:space-between;align-items:center;"><strong>Phone lines</strong><button class="dir-btn secondary" type="button" id="dirAddPhone">Add line</button></div>
             {% if selected_entry %}
@@ -187,9 +230,33 @@ html.portal-theme-dark .dir-card small, html.portal-theme-dark .dir-muted, html.
           <label>Password<input name="secret" autocomplete="new-password" placeholder="{% if cred.secret %}Leave blank to keep the current password{% endif %}"></label>
           <label>Login link<input name="login_url" value="{{ cred.login_url|default:'' }}" placeholder="https://"></label>
           <label class="dir-span-2">Login note<input name="credential_notes" value="{{ cred.notes|default:'' }}" placeholder="Shared inbox, 2FA on Maria's phone"></label>
-          <label class="dir-span-2">Notes<textarea name="notes" rows="2">{{ selected_entry.notes|default:'' }}</textarea></label>
         </div>
         {% endwith %}
+      </div>
+      <div class="dir-phones" id="dirNotes">
+        <div style="display:flex;justify-content:space-between;align-items:center;"><strong>Notes</strong><button class="dir-btn secondary" type="button" id="dirAddNote">Add note</button></div>
+        {% if selected_entry %}
+          {% for note in selected_entry.note_items.all %}
+          <div class="dir-note-row">
+            <input type="hidden" name="note_id" value="{{ note.id }}">
+            <label>Note {{ forloop.counter }} title<input name="note_title" value="{{ note.title }}" placeholder="Hours, billing, portal"></label>
+            <label class="dir-span-2">Note {{ forloop.counter }}<textarea name="note_body" rows="2">{{ note.body }}</textarea></label>
+          </div>
+          {% empty %}
+          {% if selected_entry.notes %}
+          <div class="dir-note-row">
+            <input type="hidden" name="note_id" value="">
+            <label>Note 1 title<input name="note_title" value="Notes"></label>
+            <label class="dir-span-2">Note 1<textarea name="note_body" rows="2">{{ selected_entry.notes }}</textarea></label>
+          </div>
+          {% endif %}
+          {% endfor %}
+        {% endif %}
+        <div class="dir-note-row">
+          <input type="hidden" name="note_id" value="">
+          <label>Note title<input name="note_title" placeholder="Hours, billing, portal"></label>
+          <label class="dir-span-2">Note<textarea name="note_body" rows="2" placeholder="What to remember"></textarea></label>
+        </div>
       </div>
       <div class="dir-actions"><button class="dir-btn" type="submit">{% if directory_editing %}Update{% else %}Add{% endif %}</button></div>
     </form>
@@ -199,39 +266,26 @@ html.portal-theme-dark .dir-card small, html.portal-theme-dark .dir-muted, html.
 
   {% if not selected_entry %}
   <section class="dir-board">
-    <form class="dir-filters" method="get">
+    <form class="dir-filters" id="dirSearchForm" method="get" data-search-url="{% url 'directory-search' card.id %}" autocomplete="off">
       {% if directory_creating %}<input type="hidden" name="new" value="1">{% endif %}
-      <label>Search<input name="q" value="{{ directory_query }}" placeholder="Name, phone, email, portal"></label>
+      <label>Search<input id="dirSearch" name="q" value="{{ directory_query }}" placeholder="Name, phone, or email" aria-controls="dirGrid"></label>
       <label>Type
-        <select name="kind">
+        <select id="dirKindFilter" name="kind">
           <option value="">All</option>
           {% for value, label in directory_form_kinds %}
           <option value="{{ value }}" {% if directory_kind == value %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
       </label>
-      <button class="dir-btn" type="submit">Search</button>
     </form>
-    <div class="dir-grid">
+    <p class="dir-search-status" id="dirSearchStatus" role="status"></p>
+    <div class="dir-grid" id="dirGrid">
       {% for entry in entries %}
-      {% with cred=entry.credentials.first phone=entry.phones.first %}
       <a class="dir-card" href="?entry={{ entry.id }}{% if directory_query %}&q={{ directory_query|urlencode }}{% endif %}">
-        <div class="dir-card-top">
-          <span class="dir-ico" aria-hidden="true">
-            {% if entry.kind == 'company' %}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg>
-            {% elif entry.kind == 'shared_account' %}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-            {% else %}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>{% endif %}
-          </span>
-          <span class="dir-pill">{{ entry.get_kind_display }}</span>
-        </div>
         <strong>{{ entry.name }}</strong>
-        {% if entry.category %}<small>{{ entry.category }}</small>{% endif %}
-        {% if entry.phones.all %}
-          {% for phone in entry.phones.all %}{% if forloop.counter <= 2 %}<small>{{ phone.label }} · {{ phone.number }}</small>{% endif %}{% endfor %}
-        {% elif cred.username %}<small>{{ cred.username }}</small>{% elif entry.email %}<small>{{ entry.email }}</small>{% endif %}
-        {% if entry.website %}<small>Website</small>{% elif entry.portal_url %}<small>Portal</small>{% elif cred.login_url %}<small>Login link</small>{% endif %}
+        {% for phone in entry.phones.all %}<small>{{ phone.number }}</small>{% endfor %}
+        {% if entry.email %}<small>{{ entry.email }}</small>{% endif %}
       </a>
-      {% endwith %}
       {% empty %}
       <div class="dir-empty">No directory cards yet. Add a company, a login, or a shared account.</div>
       {% endfor %}
@@ -261,6 +315,79 @@ html.portal-theme-dark .dir-card small, html.portal-theme-dark .dir-muted, html.
         if (input.name === 'phone_id') input.remove();
         else input.value = '';
       });
+      list.appendChild(copy);
+    });
+  }
+  var searchForm = document.getElementById('dirSearchForm');
+  var searchInput = document.getElementById('dirSearch');
+  var kindFilter = document.getElementById('dirKindFilter');
+  var searchStatus = document.getElementById('dirSearchStatus');
+  var grid = document.getElementById('dirGrid');
+  var searchTimer = null;
+  var searchCtrl = null;
+  function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, function (ch) {
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+    });
+  }
+  function paintSearch(data) {
+    if (!grid || !searchStatus) return;
+    var q = data.query || '';
+    if (data.mode === 'none') {
+      searchStatus.textContent = 'No records match “' + q + '”. Try part of the name, phone, or email.';
+      grid.innerHTML = '';
+      return;
+    }
+    if (data.mode === 'near') {
+      searchStatus.textContent = 'No exact match for “' + q + '”. Showing the closest ' + data.count + ' record' + (data.count === 1 ? '' : 's') + '.';
+    } else if (data.mode === 'exact') {
+      searchStatus.textContent = data.count + ' match' + (data.count === 1 ? '' : 'es');
+    } else {
+      searchStatus.textContent = '';
+    }
+    if (!data.results.length) {
+      grid.innerHTML = '<div class="dir-empty">No directory cards yet. Add a company, a login, or a shared account.</div>';
+      return;
+    }
+    grid.innerHTML = data.results.map(function (row) {
+      var phones = (row.phones || []).map(function (number) { return '<small>' + escapeHtml(number) + '</small>'; }).join('');
+      var email = row.email ? '<small>' + escapeHtml(row.email) + '</small>' : '';
+      return '<a class="dir-card" href="' + escapeHtml(row.url) + '"><strong>' + escapeHtml(row.name) + '</strong>' + phones + email + '</a>';
+    }).join('');
+  }
+  function runSearch() {
+    if (!searchForm || !searchInput) return;
+    if (searchCtrl) searchCtrl.abort();
+    searchCtrl = new AbortController();
+    var q = searchInput.value.trim();
+    var kindValue = kindFilter ? kindFilter.value : '';
+    if (searchStatus && q) searchStatus.textContent = 'Searching…';
+    var url = searchForm.dataset.searchUrl + '?q=' + encodeURIComponent(q) + '&kind=' + encodeURIComponent(kindValue);
+    fetch(url, {headers: {'X-Requested-With': 'fetch'}, signal: searchCtrl.signal})
+      .then(function (response) { return response.json(); })
+      .then(paintSearch)
+      .catch(function (error) { if (error.name !== 'AbortError' && searchStatus) searchStatus.textContent = 'Search could not finish. Try again.'; });
+  }
+  if (searchForm) {
+    searchForm.addEventListener('submit', function (event) { event.preventDefault(); runSearch(); });
+  }
+  if (searchInput) {
+    searchInput.addEventListener('input', function () {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(runSearch, 180);
+    });
+  }
+  if (kindFilter) kindFilter.addEventListener('change', runSearch);
+  var addNote = document.getElementById('dirAddNote');
+  if (addNote) {
+    addNote.addEventListener('click', function () {
+      var list = document.getElementById('dirNotes');
+      var rows = list.querySelectorAll('.dir-note-row');
+      var copy = rows[rows.length - 1].cloneNode(true);
+      copy.querySelectorAll('input, textarea').forEach(function (input) { input.value = ''; });
+      var labels = copy.querySelectorAll('label');
+      if (labels[0]) labels[0].firstChild.textContent = 'Note title';
+      if (labels[1]) labels[1].firstChild.textContent = 'Note';
       list.appendChild(copy);
     });
   }

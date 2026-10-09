@@ -3626,6 +3626,7 @@ from .insurance_esign_models import (  # noqa: E402,F401
 from .directory_models import (  # noqa: E402,F401
     DirectoryCredential,
     DirectoryEntry,
+    DirectoryNote,
     DirectoryPhone,
 )
 
