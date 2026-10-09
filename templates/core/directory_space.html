@@ -2,7 +2,7 @@
 {% block title %}Directory | RegiManager{% endblock %}
 {% block portal_content %}
 <style>
-.dir-page { width: min(1180px, 100%); margin: 0 auto; padding: 0.25rem 0 2.5rem; color: #0f172a; }
+.dir-page { width: 100%; max-width: none; margin: 0; padding: 0.25rem 0 2.5rem; color: #0f172a; }
 .dir-hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; padding: 1.15rem 1.25rem; border-radius: 18px; background: radial-gradient(420px 120px at 0% 0%, rgba(14,165,233,0.14), transparent 70%), linear-gradient(135deg, #fff, #f8fafc); border: 1px solid #e2e8f0; }
 .dir-kicker { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #0369a1; }
 .dir-hero h1 { margin: 0.15rem 0 0; font-size: 1.65rem; letter-spacing: -0.03em; }
@@ -11,7 +11,14 @@
 .dir-panel + .dir-panel { margin-top: 1rem; }
 .dir-panel__head { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; padding: 0.9rem 1.05rem; border-bottom: 1px solid #eef2f7; background: #f8fafc; }
 .dir-panel__head h2 { margin: 0; font-size: 0.98rem; }
+.dir-split { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; margin-top: 1rem; }
+.dir-split .dir-panel { margin-top: 0; }
+.dir-split + .dir-panel { margin-top: 1rem; }
 .dir-form, .dir-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.7rem; padding: 1rem; align-items: end; }
+.dir-split .dir-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 1400px) {
+  .dir-form--record { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
 .dir-form label, .dir-filters label { display: grid; gap: 0.3rem; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
 .dir-form input, .dir-form select, .dir-form textarea, .dir-filters input, .dir-filters select { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.6rem 0.7rem; font: inherit; color: #0f172a; background: #fff; }
 .dir-span-2 { grid-column: span 2; }
@@ -32,6 +39,7 @@
 .dir-empty { padding: 1.25rem 1rem; color: #64748b; font-weight: 650; }
 .dir-note { margin: 0; padding: 0 1rem 1rem; color: #64748b; font-size: 0.82rem; }
 @media (max-width: 980px) {
+  .dir-split { grid-template-columns: 1fr; }
   .dir-form, .dir-filters { grid-template-columns: 1fr 1fr; }
   .dir-span-2, .dir-span-4 { grid-column: 1 / -1; }
   .dir-table { display: block; overflow-x: auto; }
@@ -40,7 +48,7 @@ html.portal-theme-dark .dir-page { color: #e2e8f0; }
 html.portal-theme-dark .dir-hero, html.portal-theme-dark .dir-panel, html.portal-theme-dark .dir-form input, html.portal-theme-dark .dir-form select, html.portal-theme-dark .dir-form textarea, html.portal-theme-dark .dir-filters input, html.portal-theme-dark .dir-filters select { background: #0f172a; border-color: #334155; color: #e2e8f0; }
 html.portal-theme-dark .dir-panel__head, html.portal-theme-dark .dir-table th { background: #111827; }
 </style>
-<main class="dashboard-shell dir-page">
+<main class="dashboard-shell dashboard-shell--fluid dir-page">
   <div class="dir-hero">
     <div>
       <div class="dir-kicker">{{ card.organization.name }}</div>
@@ -55,7 +63,7 @@ html.portal-theme-dark .dir-panel__head, html.portal-theme-dark .dir-table th { 
       {% if selected_entry %}<a class="dir-link secondary" href="{% url 'inventory-detail' card.id %}">All records</a>{% endif %}
     </div>
     {% if can_manage_directory %}
-    <form class="dir-form" method="post" action="{% url 'save-directory-entry' card.id %}">
+    <form class="dir-form dir-form--record" method="post" action="{% url 'save-directory-entry' card.id %}">
       {% csrf_token %}
       {% if selected_entry %}<input type="hidden" name="entry_id" value="{{ selected_entry.id }}">{% endif %}
       <label>Name
@@ -100,6 +108,7 @@ html.portal-theme-dark .dir-panel__head, html.portal-theme-dark .dir-table th { 
   </section>
 
   {% if selected_entry %}
+  <div class="dir-split">
   <section class="dir-panel">
     <div class="dir-panel__head"><h2>Phone lines</h2></div>
     {% for phone in selected_entry.phones.all %}
@@ -156,6 +165,7 @@ html.portal-theme-dark .dir-panel__head, html.portal-theme-dark .dir-table th { 
     </form>
     {% endif %}
   </section>
+  </div>
   {% endif %}
 
   <section class="dir-panel">
