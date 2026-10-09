@@ -13,7 +13,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
-from .directory_models import DirectoryCredential, DirectoryEntry, DirectoryNote, DirectoryPhone
+from .directory_models import DirectoryCredential, DirectoryEntry, DirectoryNote, DirectoryPhone, format_us_phone
 from .http import deny_access
 from .models import OrganizationMembership, Space
 from .space_access import require_space_access
@@ -150,6 +150,10 @@ def search_directory_entries(card, query, kind):
     )
     if len(digits) >= 3:
         clauses |= Q(phones__number__icontains=digits)
+        phone_rows = DirectoryPhone.objects.filter(entry__in=base).only("entry_id", "number")
+        digit_ids = [phone.entry_id for phone in phone_rows if digits in _digits(phone.number)]
+        if digit_ids:
+            clauses |= Q(id__in=digit_ids)
     matched_ids = list(base.filter(clauses).values_list("id", flat=True).distinct())
     if matched_ids:
         rows = list(DirectoryEntry.objects.filter(id__in=matched_ids).prefetch_related("phones", "credentials", "note_items"))
@@ -174,7 +178,7 @@ def directory_search_payload(card, entries, mode, query):
             {
                 "id": entry.id,
                 "name": entry.name,
-                "phones": [phone.number for phone in entry.phones.all() if phone.number],
+                "phones": [phone.formatted_number() for phone in entry.phones.all() if phone.number],
                 "email": entry.email,
                 "url": f"?entry={entry.id}",
             }
@@ -295,7 +299,7 @@ def _save_company_phones(entry, request):
     phone_ids = request.POST.getlist("phone_id")
     for index, number in enumerate(numbers):
         label = (labels[index] if index < len(labels) else "").strip()
-        number = (number or "").strip()
+        number = format_us_phone(number)
         extension = (extensions[index] if index < len(extensions) else "").strip()
         phone_id = (phone_ids[index] if index < len(phone_ids) else "").strip()
         if phone_id.isdigit():
@@ -360,7 +364,7 @@ def save_directory_phone(request, space_id):
         deny_access("You cannot edit the directory.")
     entry = get_object_or_404(DirectoryEntry, id=request.POST.get("entry_id"), space=card)
     label = (request.POST.get("label") or "").strip()
-    number = (request.POST.get("number") or "").strip()
+    number = format_us_phone(request.POST.get("number"))
     if not label or not number:
         messages.error(request, "Phone line needs a name and a number.")
         return redirect(_url(card, entry.id))

@@ -79,9 +79,95 @@ span.dir-note-badge.dir-tone-5 { background: #ca8a04; color: #fff; }
   .dir-span-2, .dir-span-4, .dir-phones { grid-column: 1 / -1; }
   .dir-phone-row { grid-template-columns: 1fr; }
 }
-html.portal-theme-dark .dir-page { color: #e2e8f0; }
-html.portal-theme-dark .dir-hero, html.portal-theme-dark .dir-panel, html.portal-theme-dark .dir-card, html.portal-theme-dark .dir-fact, html.portal-theme-dark .dir-line, html.portal-theme-dark .dir-form input, html.portal-theme-dark .dir-form select, html.portal-theme-dark .dir-form textarea, html.portal-theme-dark .dir-filters input, html.portal-theme-dark .dir-filters select { background: #0f172a; border-color: #334155; color: #e2e8f0; -webkit-text-fill-color: #e2e8f0; }
-html.portal-theme-dark .dir-card small, html.portal-theme-dark .dir-muted, html.portal-theme-dark .dir-hero p { color: #94a3b8; }
+html.portal-theme-dark body.portal-body .dir-page { color: #f1f5f9; }
+html.portal-theme-dark body.portal-body .dir-page h1,
+html.portal-theme-dark body.portal-body .dir-page h2,
+html.portal-theme-dark body.portal-body .dir-page h3,
+html.portal-theme-dark body.portal-body .dir-page strong { color: #f8fafc; }
+html.portal-theme-dark body.portal-body .dir-hero,
+html.portal-theme-dark body.portal-body .dir-panel,
+html.portal-theme-dark body.portal-body .dir-card {
+  background: #1a2332;
+  border-color: #2d3a4d;
+  color: #f1f5f9;
+  box-shadow: none;
+}
+html.portal-theme-dark body.portal-body .dir-fact,
+html.portal-theme-dark body.portal-body .dir-line {
+  background: #141c28;
+  border-color: #2d3a4d;
+  color: #f1f5f9;
+}
+html.portal-theme-dark body.portal-body .dir-panel__head { border-bottom-color: #2d3a4d; }
+html.portal-theme-dark body.portal-body .dir-kicker { color: #7dd3fc; }
+html.portal-theme-dark body.portal-body .dir-form label,
+html.portal-theme-dark body.portal-body .dir-filters label,
+html.portal-theme-dark body.portal-body .dir-fact b,
+html.portal-theme-dark body.portal-body .dir-search-status,
+html.portal-theme-dark body.portal-body .dir-hero p,
+html.portal-theme-dark body.portal-body .dir-card small,
+html.portal-theme-dark body.portal-body .dir-muted,
+html.portal-theme-dark body.portal-body .dir-empty,
+html.portal-theme-dark body.portal-body .dir-note-kicker { color: #cbd5e1; }
+html.portal-theme-dark body.portal-body .dir-fact a { color: #7dd3fc; }
+html.portal-theme-dark body.portal-body .dir-count,
+html.portal-theme-dark body.portal-body .dir-pill,
+html.portal-theme-dark body.portal-body .dir-ico {
+  background: #16324a;
+  border-color: #3d4f66;
+  color: #e0f2fe;
+}
+html.portal-theme-dark body.portal-body .dir-card:hover { border-color: #3d6f99; }
+html.portal-theme-dark body.portal-body .dir-page input,
+html.portal-theme-dark body.portal-body .dir-page select,
+html.portal-theme-dark body.portal-body .dir-page textarea {
+  background: #141c28 !important;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  caret-color: #f8fafc;
+  border: 1px solid #3d4f66 !important;
+  box-shadow: none;
+}
+html.portal-theme-dark body.portal-body .dir-page input::placeholder,
+html.portal-theme-dark body.portal-body .dir-page textarea::placeholder {
+  color: #94a3b8;
+  -webkit-text-fill-color: #94a3b8;
+}
+html.portal-theme-dark body.portal-body .dir-page select option { background: #141c28; color: #f8fafc; }
+html.portal-theme-dark body.portal-body .dir-page input:focus,
+html.portal-theme-dark body.portal-body .dir-page select:focus,
+html.portal-theme-dark body.portal-body .dir-page textarea:focus {
+  border-color: #7dd3fc !important;
+  box-shadow: 0 0 0 3px rgba(125, 211, 252, 0.16);
+}
+html.portal-theme-dark body.portal-body .dir-page input:-webkit-autofill {
+  -webkit-text-fill-color: #f8fafc !important;
+  box-shadow: 0 0 0 1000px #141c28 inset !important;
+}
+html.portal-theme-dark body.portal-body .dir-page .dir-btn,
+html.portal-theme-dark body.portal-body .dir-page .dir-link {
+  background: #1e4b73;
+  color: #f8fafc;
+  border: 1px solid #3d6f99;
+  box-shadow: none;
+}
+html.portal-theme-dark body.portal-body .dir-page .dir-btn.secondary,
+html.portal-theme-dark body.portal-body .dir-page .dir-link.secondary {
+  background: #1a2332;
+  color: #e2e8f0;
+  border: 1px solid #3d4f66;
+}
+html.portal-theme-dark body.portal-body .dir-page .dir-btn.danger {
+  background: rgba(127, 29, 29, 0.42);
+  color: #fecaca;
+  border: 1px solid #9f1239;
+}
+html.portal-theme-dark body.portal-body .dir-tone-0 { background: rgba(249, 115, 22, 0.14); border-color: #9a3412; color: #fed7aa; }
+html.portal-theme-dark body.portal-body .dir-tone-1 { background: rgba(37, 99, 235, 0.16); border-color: #1e3a8a; color: #dbeafe; }
+html.portal-theme-dark body.portal-body .dir-tone-2 { background: rgba(5, 150, 105, 0.16); border-color: #065f46; color: #d1fae5; }
+html.portal-theme-dark body.portal-body .dir-tone-3 { background: rgba(124, 58, 237, 0.16); border-color: #5b21b6; color: #ede9fe; }
+html.portal-theme-dark body.portal-body .dir-tone-4 { background: rgba(225, 29, 72, 0.14); border-color: #9f1239; color: #ffe4e6; }
+html.portal-theme-dark body.portal-body .dir-tone-5 { background: rgba(202, 138, 4, 0.16); border-color: #854d0e; color: #fef9c3; }
 </style>
 <main class="dashboard-shell dashboard-shell--fluid dir-page">
   <div class="dir-hero">
@@ -158,7 +244,7 @@ html.portal-theme-dark .dir-card small, html.portal-theme-dark .dir-muted, html.
     <div class="dir-lines">
       <h3 style="margin:.4rem 0 0;">Phone lines</h3>
       {% for phone in selected_entry.phones.all %}
-      <div class="dir-line"><div><strong>{{ phone.label }}</strong><div class="dir-muted">{{ phone.number }}{% if phone.extension %} · ext {{ phone.extension }}{% endif %}</div></div></div>
+      <div class="dir-line"><div><strong>{{ phone.label }}</strong><div class="dir-muted">{{ phone.formatted_number }}{% if phone.extension %} · ext {{ phone.extension }}{% endif %}</div></div></div>
       {% empty %}<div class="dir-empty">No phone lines yet. Use Update to add them.</div>{% endfor %}
     </div>
     {% endif %}
@@ -209,14 +295,14 @@ html.portal-theme-dark .dir-card small, html.portal-theme-dark .dir-muted, html.
               <div class="dir-phone-row">
                 <input type="hidden" name="phone_id" value="{{ phone.id }}">
                 <label>Line name<input name="phone_label" value="{{ phone.label }}" placeholder="Claims desk"></label>
-                <label>Number<input name="phone_number" value="{{ phone.number }}" placeholder="(718) 555-0100"></label>
+                <label>Number<input name="phone_number" inputmode="tel" autocomplete="tel" value="{{ phone.formatted_number }}" placeholder="(718) 555-0100"></label>
                 <label>Ext<input name="phone_extension" value="{{ phone.extension }}"></label>
               </div>
               {% endfor %}
             {% endif %}
             <div class="dir-phone-row">
               <label>Line name<input name="phone_label" placeholder="Claims desk"></label>
-              <label>Number<input name="phone_number" placeholder="(718) 555-0100"></label>
+              <label>Number<input name="phone_number" inputmode="tel" autocomplete="tel" placeholder="(718) 555-0100"></label>
               <label>Ext<input name="phone_extension"></label>
             </div>
           </div>
@@ -283,7 +369,7 @@ html.portal-theme-dark .dir-card small, html.portal-theme-dark .dir-muted, html.
       {% for entry in entries %}
       <a class="dir-card" href="?entry={{ entry.id }}{% if directory_query %}&q={{ directory_query|urlencode }}{% endif %}">
         <strong>{{ entry.name }}</strong>
-        {% for phone in entry.phones.all %}<small>{{ phone.number }}</small>{% endfor %}
+        {% for phone in entry.phones.all %}<small>{{ phone.formatted_number }}</small>{% endfor %}
         {% if entry.email %}<small>{{ entry.email }}</small>{% endif %}
       </a>
       {% empty %}
@@ -304,6 +390,34 @@ html.portal-theme-dark .dir-card small, html.portal-theme-dark .dir-muted, html.
       panel.querySelectorAll('input, textarea, select').forEach(function (field) { field.disabled = !on; });
     });
   }
+  function formatUsPhone(value) {
+    var digits = String(value || '').replace(/\D/g, '');
+    if (digits.length === 11 && digits.charAt(0) === '1') digits = digits.slice(1);
+    digits = digits.slice(0, 10);
+    if (!digits) return '';
+    if (digits.length < 4) return '(' + digits;
+    if (digits.length < 7) return '(' + digits.slice(0, 3) + ') ' + digits.slice(3);
+    return '(' + digits.slice(0, 3) + ') ' + digits.slice(3, 6) + '-' + digits.slice(6);
+  }
+  function paintPhone(input) {
+    var next = formatUsPhone(input.value);
+    if (input.value !== next) {
+      input.value = next;
+      if (typeof input.setSelectionRange === 'function') input.setSelectionRange(next.length, next.length);
+    }
+  }
+  document.querySelectorAll('input[name="phone_number"]').forEach(paintPhone);
+  document.addEventListener('input', function (event) {
+    if (event.target && event.target.name === 'phone_number') paintPhone(event.target);
+  });
+  document.addEventListener('paste', function (event) {
+    var input = event.target;
+    if (!input || input.name !== 'phone_number') return;
+    var pasted = (event.clipboardData || window.clipboardData).getData('text');
+    if (!pasted) return;
+    event.preventDefault();
+    input.value = formatUsPhone(pasted);
+  });
   if (kind) { kind.addEventListener('change', applyKind); applyKind(); }
   var addPhone = document.getElementById('dirAddPhone');
   if (addPhone) {

@@ -47,17 +47,17 @@ class DirectorySpaceTests(TestCase):
                 "portal_url": "https://portal.acme.example",
                 "email": "desk@acme.example",
                 "phone_label": "Main desk",
-                "phone_number": "718-555-0199",
+                "phone_number": "+1 (718) 555-0199",
             },
         )
         entry = DirectoryEntry.objects.get(space=space, name="Acme Carrier")
         self.assertEqual(saved.status_code, 302)
         self.assertEqual(entry.website, "https://acme.example")
-        self.assertTrue(DirectoryPhone.objects.filter(entry=entry, label="Main desk", number="718-555-0199").exists())
+        self.assertTrue(DirectoryPhone.objects.filter(entry=entry, label="Main desk", number="(718) 555-0199").exists())
 
         phone = self.client.post(
             reverse("save-directory-phone", args=[space.id]),
-            {"entry_id": entry.id, "label": "Claims", "number": "718-555-0100", "extension": "12"},
+            {"entry_id": entry.id, "label": "Claims", "number": "718.555.0100", "extension": "12"},
         )
         self.assertEqual(phone.status_code, 302)
         self.assertTrue(DirectoryPhone.objects.filter(entry=entry, label="Claims").exists())
@@ -94,7 +94,7 @@ class DirectorySpaceTests(TestCase):
         listing = self.client.get(reverse("inventory-detail", args=[space.id]))
         self.assertEqual(listing.status_code, 200)
         self.assertContains(listing, "Acme Carrier")
-        self.assertContains(listing, "718-555-0100")
+        self.assertContains(listing, "(718) 555-0100")
         self.assertContains(listing, "desk@acme.example")
         self.assertNotContains(listing, "Claims")
         self.assertNotContains(listing, "Hours")
@@ -129,6 +129,8 @@ class DirectorySpaceTests(TestCase):
         page = self.client.get(reverse("inventory-detail", args=[space.id]))
         self.assertContains(page, "margin: 10px")
         self.assertContains(page, "dirSearch")
+        self.assertContains(page, "#141c28")
+        self.assertContains(page, ".dir-btn.secondary")
 
         exact = self.client.get(reverse("directory-search", args=[space.id]), {"q": "555-0100"})
         self.assertEqual(exact.status_code, 200)

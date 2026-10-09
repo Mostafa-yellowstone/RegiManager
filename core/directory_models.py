@@ -1,7 +1,25 @@
 """Directory hub: companies, shared accounts, phone lines, and logins."""
 
+import re
+
 from django.conf import settings
 from django.db import models
+
+
+def format_us_phone(value):
+    """Show a phone as (718) 555-0100. A leading 1 is the country code."""
+    raw = (value or "").strip()
+    digits = re.sub(r"\D", "", raw)
+    if len(digits) == 11 and digits.startswith("1"):
+        digits = digits[1:]
+    digits = digits[:10]
+    if not digits:
+        return raw
+    if len(digits) < 4:
+        return f"({digits}"
+    if len(digits) < 7:
+        return f"({digits[:3]}) {digits[3:]}"
+    return f"({digits[:3]}) {digits[3:6]}-{digits[6:]}"
 
 
 class DirectoryEntry(models.Model):
@@ -79,6 +97,9 @@ class DirectoryPhone(models.Model):
         indexes = [
             models.Index(fields=["entry", "number"], name="dir_phone_entry_num"),
         ]
+
+    def formatted_number(self):
+        return format_us_phone(self.number)
 
     def __str__(self):
         return f"{self.label}: {self.number}"
