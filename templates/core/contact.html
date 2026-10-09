@@ -1,100 +1,100 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block title %}Contact Us | RegiManager{% endblock %}
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-2">
+<style>
+.cu-page { background: #f4f7fb; color: #0f172a; }
+.cu-hero { position: relative; overflow: hidden; padding: 4.5rem 1.5rem 4.5rem; background: radial-gradient(900px 320px at 15% -10%, rgba(56,189,248,.35), transparent 60%), radial-gradient(700px 280px at 90% 0%, rgba(37,99,235,.45), transparent 55%), linear-gradient(160deg, #07111f 0%, #0f2744 55%, #12345a 100%); color: #f8fafc; }
+.cu-hero-inner, .cu-wrap { width: min(1120px, 100%); margin: 0 auto; }
+.cu-kicker { display: inline-flex; align-items: center; gap: .45rem; padding: .35rem .7rem; border-radius: 999px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.cu-hero h1 { margin: 1rem 0 .6rem; max-width: 16ch; font-size: clamp(2.4rem, 5vw, 4.2rem); line-height: .98; letter-spacing: -.045em; color: #fff; }
+.cu-hero p { max-width: 38rem; margin: 0; color: #dbe7f5; font-size: 1.08rem; line-height: 1.6; }
+.cu-wrap { margin-top: -2.4rem; padding: 0 1.5rem 4rem; position: relative; z-index: 1; }
+.cu-layout { display: grid; grid-template-columns: .82fr 1.18fr; gap: 1rem; align-items: start; }
+.cu-cards { display: grid; gap: .75rem; }
+.cu-card, .cu-form { background: #fff; border: 1px solid #e2e8f0; border-radius: 22px; box-shadow: 0 18px 40px rgba(15,23,42,.08); }
+.cu-card { display: flex; gap: .85rem; padding: 1rem 1.05rem; text-decoration: none; color: inherit; }
+.cu-card:hover { border-color: #7dd3fc; }
+.cu-ico { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; background: #e0f2fe; color: #0369a1; flex: 0 0 auto; }
+.cu-card b { display: block; font-size: .95rem; }
+.cu-card span { color: #475569; font-size: .92rem; }
+.cu-form { padding: 1.35rem 1.35rem 1.2rem; }
+.cu-form h2 { margin: 0 0 .3rem; font-size: 1.55rem; letter-spacing: -.03em; }
+.cu-form .cu-lead { margin: 0 0 1rem; color: #64748b; }
+.cu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.cu-field { display: grid; gap: .35rem; }
+.cu-field.wide { grid-column: 1 / -1; }
+.cu-field label { font-size: .75rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #64748b; }
+.cu-field input, .cu-field select, .cu-field textarea { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 14px; padding: .85rem .9rem; background: #fff !important; color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; caret-color: #0f172a; font: inherit; font-size: 1rem; }
+.cu-field input::placeholder, .cu-field textarea::placeholder { color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; }
+.cu-field input:focus, .cu-field select:focus, .cu-field textarea:focus { outline: none; border-color: #0284c7; box-shadow: 0 0 0 4px rgba(2,132,199,.15); }
+.cu-hp { position: absolute; left: -9999px; height: 0; overflow: hidden; }
+.cu-submit { margin-top: .35rem; width: 100%; border: 0; border-radius: 14px; padding: .95rem 1rem; background: linear-gradient(135deg, #0369a1, #1d4ed8); color: #fff; font-weight: 800; font-size: 1rem; cursor: pointer; }
+.cu-note { margin: .75rem 0 0; color: #64748b; font-size: .84rem; text-align: center; }
+.cu-banner { margin-bottom: .8rem; padding: .8rem .9rem; border-radius: 14px; background: #ecfdf5; color: #065f46; font-weight: 700; }
+.cu-banner.error { background: #fef2f2; color: #991b1b; }
+@media (max-width: 860px) {
+  .cu-layout, .cu-grid { grid-template-columns: 1fr; }
+  .cu-hero { padding-top: 3rem; }
+}
+</style>
 {% endblock %}
 
 {% block content %}
-<main class="site-shell">
-    <div class="contact-hero-wrapper">
-        {% include "partials/_site_header.html" with active_page='contact' %}
-
-        <section class="site-hero contact-hero">
-            <div class="site-hero-content reveal active">
-                <span class="brand-pill">Get in Touch</span>
-                <h1 style="color: white !important;">Expert Support for Modern PSB.</h1>
-                <p>Our dedicated team is here to help you scale your operations and master your DMV workflows.</p>
-            </div>
-        </section>
+<main class="cu-page">
+  {% include "partials/_site_header.html" with active_page='contact' %}
+  <section class="cu-hero">
+    <div class="cu-hero-inner">
+      <span class="cu-kicker">Contact</span>
+      <h1>Talk to the people who run RegiManager.</h1>
+      <p>Questions about a PSB workspace, a demo, or support. Write us, call the office, or stop by Yonkers.</p>
     </div>
-
-    <div class="contact-content-wrapper">
-        <section class="site-section reveal active">
-            <div class="contact-grid">
-                <div class="contact-info">
-                    <div class="contact-visual-premium reveal active" style="margin-bottom: 3rem;">
-                        <img src="{% static 'core/img/contact_enterprise_premium.png' %}" alt="Contact Support" style="width: 100%; border-radius: 32px; box-shadow: 0 40px 80px rgba(0,0,0,0.1);">
-                    </div>
-                    
-                    <div class="contact-info-card">
-                        <div class="info-item">
-                            <div class="info-icon">📧</div>
-                            <div>
-                                <h4>Email Our Team</h4>
-                                <p>mail@regimanager.com</p>
-                            </div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-icon">📞</div>
-                            <div>
-                                <h4>Give Us a Call</h4>
-                                <p>(914) 292 - 9743</p>
-                            </div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-icon">📍</div>
-                            <div>
-                                <h4>Visit Our Office</h4>
-                                <p>800 yonkers Ave, Yonkers , NY 10704</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="contact-form-card reveal active">
-                    <div class="section-heading" style="text-align: left; margin-bottom: 3rem;">
-                        <h2>Send us a Message</h2>
-                        <p>Tell us about your psb and we'll get back to you within 24 hours.</p>
-                    </div>
-                    
-                    <form class="contact-form">
-                        <div class="form-group">
-                            <label for="name">Your Full Name</label>
-                            <input type="text" id="name" placeholder="John Doe" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="email">Work Email Address</label>
-                            <input type="email" id="email" placeholder="john@psb.com" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="subject">How can we help?</label>
-                            <select id="subject">
-                                <option value="general">General Inquiry</option>
-                                <option value="sales">Sales & Pricing</option>
-                                <option value="support">Technical Support</option>
-                                <option value="demo">Request a Demo</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="message">Message Details</label>
-                            <textarea id="message" rows="5" placeholder="Tell us more about your request..." required></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1.25rem;">Submit Inquiry</button>
-                    </form>
-                </div>
-            </div>
-        </section>
+  </section>
+  <div class="cu-wrap">
+    <div class="cu-layout">
+      <div class="cu-cards">
+        <a class="cu-card" href="mailto:mail@regimanager.com">
+          <span class="cu-ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg></span>
+          <div><b>Email</b><span>mail@regimanager.com</span></div>
+        </a>
+        <a class="cu-card" href="tel:+19142929743">
+          <span class="cu-ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.35 1.9.68 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.33 1.85.55 2.81.68A2 2 0 0 1 22 16.92z"/></svg></span>
+          <div><b>Phone</b><span>(914) 292-9743</span></div>
+        </a>
+        <a class="cu-card" href="https://maps.google.com/?q=800+Yonkers+Ave,+Yonkers,+NY+10704" target="_blank" rel="noopener">
+          <span class="cu-ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+          <div><b>Office</b><span>800 Yonkers Ave, Yonkers, NY 10704</span></div>
+        </a>
+      </div>
+      <form class="cu-form" method="post" action="{% url 'contact' %}">
+        {% csrf_token %}
+        <h2>Send a message</h2>
+        <p class="cu-lead">Tell us about the office. We reply within one business day.</p>
+        {% if messages %}
+          {% for message in messages %}
+          <div class="cu-banner {% if message.tags == 'error' %}error{% endif %}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+        <div class="cu-hp" aria-hidden="true"><label>Website<input name="company_website" tabindex="-1" autocomplete="off"></label></div>
+        <div class="cu-grid">
+          <div class="cu-field"><label for="cu-name">Full name</label><input id="cu-name" name="name" required value="{{ contact_name|default:'' }}" placeholder="Your name"></div>
+          <div class="cu-field"><label for="cu-email">Email</label><input id="cu-email" type="email" name="email" required value="{{ contact_email|default:'' }}" placeholder="you@office.com"></div>
+          <div class="cu-field wide"><label for="cu-subject">Topic</label>
+            <select id="cu-subject" name="subject">
+              <option value="General inquiry" {% if contact_subject == "General inquiry" %}selected{% endif %}>General inquiry</option>
+              <option value="Sales and pricing" {% if contact_subject == "Sales and pricing" %}selected{% endif %}>Sales and pricing</option>
+              <option value="Technical support" {% if contact_subject == "Technical support" %}selected{% endif %}>Technical support</option>
+              <option value="Request a demo" {% if contact_subject == "Request a demo" %}selected{% endif %}>Request a demo</option>
+            </select>
+          </div>
+          <div class="cu-field wide"><label for="cu-message">Message</label><textarea id="cu-message" name="message" rows="6" required placeholder="What do you want to set up?">{{ contact_message|default:'' }}</textarea></div>
+        </div>
+        <button class="cu-submit" type="submit">Send message</button>
+        <p class="cu-note">Or call (914) 292-9743 if you would rather talk.</p>
+      </form>
     </div>
+  </div>
 </main>
-
-<script>
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) entry.target.classList.add('active');
-        });
-    }, { threshold: 0.1 });
-    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-</script>
 {% endblock %}
-

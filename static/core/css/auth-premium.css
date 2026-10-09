@@ -755,3 +755,19 @@ body.auth-body .auth-shell {
     background: #0d1526;
     color: var(--text-main);
 }
+
+/* Typed text must stay light on the dark fields, including over theme overrides. */
+body.auth-body .auth-form input,
+body.auth-body .auth-form textarea,
+body.auth-body .auth-form select {
+    color: #f8fafc !important;
+    -webkit-text-fill-color: #f8fafc !important;
+    caret-color: #f8fafc !important;
+    background-color: #0f172a !important;
+}
+
+body.auth-body .auth-form input::placeholder,
+body.auth-body .auth-form textarea::placeholder {
+    color: #94a3b8 !important;
+    -webkit-text-fill-color: #94a3b8 !important;
+}

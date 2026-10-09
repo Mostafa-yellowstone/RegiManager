@@ -46,11 +46,14 @@ class DirectorySpaceTests(TestCase):
                 "website": "acme.example",
                 "portal_url": "https://portal.acme.example",
                 "email": "desk@acme.example",
+                "phone_label": "Main desk",
+                "phone_number": "718-555-0199",
             },
         )
         entry = DirectoryEntry.objects.get(space=space, name="Acme Carrier")
         self.assertEqual(saved.status_code, 302)
         self.assertEqual(entry.website, "https://acme.example")
+        self.assertTrue(DirectoryPhone.objects.filter(entry=entry, label="Main desk", number="718-555-0199").exists())
 
         phone = self.client.post(
             reverse("save-directory-phone", args=[space.id]),
@@ -80,9 +83,16 @@ class DirectorySpaceTests(TestCase):
         self.assertContains(listing, "Claims")
         self.assertNotContains(listing, "office-secret")
 
+        composer = self.client.get(reverse("inventory-detail", args=[space.id]) + "?new=1")
+        self.assertContains(composer, "Phone lines")
+        self.assertContains(composer, "Login credentials")
+        self.assertContains(composer, "Shared account")
+
         detail = self.client.get(reverse("inventory-detail", args=[space.id]) + f"?entry={entry.id}")
         self.assertContains(detail, "desk@gmail.com")
         self.assertContains(detail, "office-secret")
+        self.assertContains(detail, "Update")
+        self.assertContains(detail, "Delete")
 
     def test_shared_account_kind_and_agent_without_access_is_denied(self):
         space = Space.objects.create(organization=self.org, key="directory", label="Directory")

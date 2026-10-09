@@ -69,6 +69,8 @@ def build_directory_space_context(request, card, is_owner, membership):
     selected = None
     if entry_id.isdigit():
         selected = DirectoryEntry.objects.filter(space=card, id=int(entry_id)).prefetch_related("phones", "credentials").first()
+    editing = request.GET.get("edit") == "1" and selected is not None
+    creating = request.GET.get("new") == "1" and selected is None
     return {
         "card": card,
         "is_owner": is_owner,
@@ -79,6 +81,13 @@ def build_directory_space_context(request, card, is_owner, membership):
         "directory_query": query,
         "directory_kind": kind,
         "directory_kinds": DirectoryEntry.Kind.choices,
+        "directory_form_kinds": (
+            (DirectoryEntry.Kind.COMPANY, "Company"),
+            (DirectoryEntry.Kind.LOGIN, "Login credentials"),
+            (DirectoryEntry.Kind.SHARED_ACCOUNT, "Shared account"),
+        ),
+        "directory_creating": creating,
+        "directory_editing": editing,
     }
 
 
@@ -109,8 +118,63 @@ def save_directory_entry(request, space_id):
     entry.address = (request.POST.get("address") or "").strip()
     entry.notes = (request.POST.get("notes") or "").strip()
     entry.save()
+    if entry.kind == DirectoryEntry.Kind.COMPANY:
+        _save_company_phones(entry, request)
+    elif entry.kind in (DirectoryEntry.Kind.LOGIN, DirectoryEntry.Kind.SHARED_ACCOUNT):
+        _save_account_login(entry, request)
     messages.success(request, f"{entry.name} saved.")
     return redirect(_url(card, entry.id))
+
+
+def _save_company_phones(entry, request):
+    labels = request.POST.getlist("phone_label")
+    numbers = request.POST.getlist("phone_number")
+    extensions = request.POST.getlist("phone_extension")
+    phone_ids = request.POST.getlist("phone_id")
+    for index, number in enumerate(numbers):
+        label = (labels[index] if index < len(labels) else "").strip()
+        number = (number or "").strip()
+        extension = (extensions[index] if index < len(extensions) else "").strip()
+        phone_id = (phone_ids[index] if index < len(phone_ids) else "").strip()
+        if phone_id.isdigit():
+            phone = DirectoryPhone.objects.filter(id=int(phone_id), entry=entry).first()
+            if not phone:
+                continue
+            if label and number:
+                phone.label = label
+                phone.number = number
+                phone.extension = extension
+                phone.save()
+            continue
+        if label and number:
+            DirectoryPhone.objects.create(entry=entry, label=label, number=number, extension=extension)
+
+
+def _save_account_login(entry, request):
+    username = (request.POST.get("username") or "").strip()
+    secret = (request.POST.get("secret") or "").strip()
+    login_url = _clean_url(request.POST.get("login_url"))
+    notes = (request.POST.get("credential_notes") or "").strip()
+    credential = entry.credentials.first()
+    if credential is None:
+        if not (username or secret or login_url or notes):
+            return
+        DirectoryCredential.objects.create(
+            entry=entry,
+            label=entry.name,
+            username=username,
+            secret=secret,
+            login_url=login_url,
+            notes=notes,
+        )
+        return
+    credential.label = entry.name
+    credential.username = username
+    if secret:
+        credential.secret = secret
+    credential.login_url = login_url
+    credential.notes = notes
+    credential.save()
 
 
 @login_required

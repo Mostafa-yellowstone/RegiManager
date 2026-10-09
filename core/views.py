@@ -615,6 +615,32 @@ def home(request):
 
 
 def contact(request):
+    if request.method == "POST":
+        if (request.POST.get("company_website") or "").strip():
+            return redirect("contact")
+        name = (request.POST.get("name") or "").strip()
+        email = (request.POST.get("email") or "").strip()
+        subject = (request.POST.get("subject") or "General inquiry").strip()
+        message = (request.POST.get("message") or "").strip()
+        if not name or not email or not message or "@" not in email:
+            messages.error(request, "Add your name, a real email, and a message.")
+            return render(request, "core/contact.html", {"contact_name": name, "contact_email": email, "contact_subject": subject, "contact_message": message})
+        from django.conf import settings
+        from django.core.mail import send_mail
+
+        try:
+            send_mail(
+                subject=f"RegiManager contact: {subject}",
+                message=f"From: {name} <{email}>\n\n{message}",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=["mail@regimanager.com"],
+                fail_silently=False,
+            )
+        except Exception:
+            messages.error(request, "We could not send that just now. Email mail@regimanager.com or call (914) 292-9743.")
+            return render(request, "core/contact.html", {"contact_name": name, "contact_email": email, "contact_subject": subject, "contact_message": message})
+        messages.success(request, "Message received. We will reply within one business day.")
+        return redirect("contact")
     return render(request, "core/contact.html")
 
 

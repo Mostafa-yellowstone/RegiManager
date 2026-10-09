@@ -2,210 +2,268 @@
 {% block title %}Directory | RegiManager{% endblock %}
 {% block portal_content %}
 <style>
-.dir-page { width: 100%; max-width: none; margin: 0; padding: 0.25rem 0 2.5rem; color: #0f172a; }
-.dir-hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; padding: 1.15rem 1.25rem; border-radius: 18px; background: radial-gradient(420px 120px at 0% 0%, rgba(14,165,233,0.14), transparent 70%), linear-gradient(135deg, #fff, #f8fafc); border: 1px solid #e2e8f0; }
-.dir-kicker { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #0369a1; }
-.dir-hero h1 { margin: 0.15rem 0 0; font-size: 1.65rem; letter-spacing: -0.03em; }
-.dir-counts span { background: #fff; border: 1px solid #bae6fd; border-radius: 999px; padding: 0.38rem 0.75rem; font-size: 0.78rem; font-weight: 800; color: #0c4a6e; }
-.dir-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 18px; overflow: hidden; box-shadow: 0 8px 22px rgba(15,23,42,0.04); }
-.dir-panel + .dir-panel { margin-top: 1rem; }
-.dir-panel__head { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; padding: 0.9rem 1.05rem; border-bottom: 1px solid #eef2f7; background: #f8fafc; }
-.dir-panel__head h2 { margin: 0; font-size: 0.98rem; }
-.dir-split { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; margin-top: 1rem; }
-.dir-split .dir-panel { margin-top: 0; }
-.dir-split + .dir-panel { margin-top: 1rem; }
-.dir-form, .dir-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.7rem; padding: 1rem; align-items: end; }
-.dir-split .dir-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@media (min-width: 1400px) {
-  .dir-form--record { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-}
-.dir-form label, .dir-filters label { display: grid; gap: 0.3rem; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
-.dir-form input, .dir-form select, .dir-form textarea, .dir-filters input, .dir-filters select { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.6rem 0.7rem; font: inherit; color: #0f172a; background: #fff; }
-.dir-span-2 { grid-column: span 2; }
-.dir-span-4 { grid-column: 1 / -1; }
-.dir-table { width: 100%; border-collapse: collapse; }
-.dir-table th { text-align: left; font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: #64748b; padding: 0.72rem 1rem; border-bottom: 1px solid #e2e8f0; }
-.dir-table td { padding: 0.82rem 1rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; font-size: 0.92rem; }
-.dir-table a { color: inherit; font-weight: 800; text-decoration: none; }
-.dir-table a:hover { color: #0369a1; }
-.dir-pill { display: inline-flex; border-radius: 999px; padding: 0.18rem 0.55rem; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; background: #e0f2fe; color: #075985; }
-.dir-row { display: flex; justify-content: space-between; gap: 0.75rem; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; }
-.dir-row:last-child { border-bottom: none; }
-.dir-secret { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.04em; }
-.dir-actions { display: flex; gap: 0.4rem; align-items: center; }
-.dir-btn, .dir-link { border: 0; border-radius: 10px; padding: 0.62rem 0.85rem; font-weight: 800; cursor: pointer; background: #0369a1; color: #fff; text-decoration: none; }
+.dir-page { width: 100%; max-width: none; margin: 0; padding: 0.15rem 0 2.5rem; color: #0f172a; }
+.dir-hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; padding: 1.2rem 1.35rem; border-radius: 22px; background: radial-gradient(520px 140px at 0% 0%, rgba(14,165,233,.16), transparent 70%), linear-gradient(135deg, #fff, #f8fafc); border: 1px solid #e2e8f0; }
+.dir-kicker { font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #0369a1; }
+.dir-hero h1 { margin: .15rem 0 0; font-size: 1.7rem; letter-spacing: -.03em; }
+.dir-hero p { margin: .35rem 0 0; color: #64748b; font-size: .92rem; }
+.dir-hero-actions { display: flex; gap: .55rem; align-items: center; flex-wrap: wrap; }
+.dir-count { background: #fff; border: 1px solid #bae6fd; border-radius: 999px; padding: .4rem .75rem; font-size: .78rem; font-weight: 800; color: #0c4a6e; }
+.dir-btn, .dir-link { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; border: 0; border-radius: 12px; padding: .68rem .95rem; font-weight: 800; cursor: pointer; background: #0369a1; color: #fff; text-decoration: none; }
 .dir-btn.secondary, .dir-link.secondary { background: #e2e8f0; color: #0f172a; }
 .dir-btn.danger { background: #fee2e2; color: #b91c1c; }
-.dir-empty { padding: 1.25rem 1rem; color: #64748b; font-weight: 650; }
-.dir-note { margin: 0; padding: 0 1rem 1rem; color: #64748b; font-size: 0.82rem; }
+.dir-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 22px; box-shadow: 0 10px 28px rgba(15,23,42,.04); }
+.dir-panel + .dir-panel, .dir-board { margin-top: 1rem; }
+.dir-panel__head { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding: 1rem 1.15rem; border-bottom: 1px solid #eef2f7; }
+.dir-panel__head h2 { margin: 0; font-size: 1.05rem; }
+.dir-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; padding: 1rem 1.15rem 1.15rem; align-items: end; }
+.dir-form label, .dir-filters label { display: grid; gap: .32rem; font-size: .72rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: .04em; }
+.dir-form input, .dir-form select, .dir-form textarea, .dir-filters input, .dir-filters select { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 12px; padding: .68rem .75rem; font: inherit; color: #0f172a; background: #fff; -webkit-text-fill-color: #0f172a; caret-color: #0f172a; }
+.dir-span-2 { grid-column: span 2; }
+.dir-span-4 { grid-column: 1 / -1; }
+.dir-phones { grid-column: 1 / -1; display: grid; gap: .6rem; }
+.dir-phone-row { display: grid; grid-template-columns: 1.2fr 1fr .6fr; gap: .6rem; }
+.dir-filters { display: flex; gap: .7rem; align-items: end; flex-wrap: wrap; margin-bottom: .9rem; }
+.dir-filters label { min-width: min(420px, 100%); }
+.dir-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: .85rem; }
+.dir-card { display: grid; gap: .35rem; min-height: 148px; padding: .95rem 1rem; border-radius: 18px; background: #fff; border: 1px solid #e2e8f0; text-decoration: none; color: inherit; box-shadow: 0 8px 18px rgba(15,23,42,.04); }
+.dir-card:hover { border-color: #7dd3fc; transform: translateY(-2px); }
+.dir-card-top { display: flex; justify-content: space-between; gap: .5rem; align-items: flex-start; }
+.dir-ico { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: #e0f2fe; color: #0369a1; flex: 0 0 auto; }
+.dir-card strong { font-size: 1rem; letter-spacing: -.02em; }
+.dir-card small, .dir-muted { color: #64748b; font-size: .84rem; }
+.dir-pill { display: inline-flex; border-radius: 999px; padding: .16rem .5rem; font-size: .66rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; background: #e0f2fe; color: #075985; }
+.dir-sheet { padding: 1.25rem; }
+.dir-sheet-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
+.dir-identity { display: flex; gap: .9rem; align-items: center; }
+.dir-identity .dir-ico { width: 58px; height: 58px; border-radius: 18px; }
+.dir-identity h2 { margin: .15rem 0 0; font-size: 1.7rem; letter-spacing: -.03em; }
+.dir-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.dir-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin-top: 1.15rem; }
+.dir-fact { display: flex; gap: .7rem; align-items: flex-start; padding: .85rem .9rem; border-radius: 16px; background: #f8fafc; border: 1px solid #e2e8f0; }
+.dir-fact b { display: block; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; color: #64748b; }
+.dir-fact a { color: #0369a1; font-weight: 800; }
+.dir-lines { margin-top: 1rem; display: grid; gap: .55rem; }
+.dir-line { display: flex; justify-content: space-between; gap: .75rem; align-items: center; padding: .8rem .95rem; border-radius: 14px; border: 1px solid #e2e8f0; }
+.dir-secret { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.dir-empty { padding: 1.4rem .2rem; color: #64748b; font-weight: 650; }
 @media (max-width: 980px) {
-  .dir-split { grid-template-columns: 1fr; }
-  .dir-form, .dir-filters { grid-template-columns: 1fr 1fr; }
-  .dir-span-2, .dir-span-4 { grid-column: 1 / -1; }
-  .dir-table { display: block; overflow-x: auto; }
+  .dir-form, .dir-facts { grid-template-columns: 1fr 1fr; }
+  .dir-span-2, .dir-span-4, .dir-phones { grid-column: 1 / -1; }
+  .dir-phone-row { grid-template-columns: 1fr; }
 }
 html.portal-theme-dark .dir-page { color: #e2e8f0; }
-html.portal-theme-dark .dir-hero, html.portal-theme-dark .dir-panel, html.portal-theme-dark .dir-form input, html.portal-theme-dark .dir-form select, html.portal-theme-dark .dir-form textarea, html.portal-theme-dark .dir-filters input, html.portal-theme-dark .dir-filters select { background: #0f172a; border-color: #334155; color: #e2e8f0; }
-html.portal-theme-dark .dir-panel__head, html.portal-theme-dark .dir-table th { background: #111827; }
+html.portal-theme-dark .dir-hero, html.portal-theme-dark .dir-panel, html.portal-theme-dark .dir-card, html.portal-theme-dark .dir-fact, html.portal-theme-dark .dir-line, html.portal-theme-dark .dir-form input, html.portal-theme-dark .dir-form select, html.portal-theme-dark .dir-form textarea, html.portal-theme-dark .dir-filters input, html.portal-theme-dark .dir-filters select { background: #0f172a; border-color: #334155; color: #e2e8f0; -webkit-text-fill-color: #e2e8f0; }
+html.portal-theme-dark .dir-card small, html.portal-theme-dark .dir-muted, html.portal-theme-dark .dir-hero p { color: #94a3b8; }
 </style>
 <main class="dashboard-shell dashboard-shell--fluid dir-page">
   <div class="dir-hero">
     <div>
       <div class="dir-kicker">{{ card.organization.name }}</div>
       <h1>Directory</h1>
+      <p>Companies, phone lines, shared accounts, and logins.</p>
     </div>
-    <div class="dir-counts"><span>{{ entry_count }} records</span></div>
+    <div class="dir-hero-actions">
+      <span class="dir-count">{{ entry_count }} record{{ entry_count|pluralize }}</span>
+      {% if can_manage_directory and not directory_creating %}
+      <a class="dir-btn" href="{% url 'inventory-detail' card.id %}?new=1">Add</a>
+      {% endif %}
+    </div>
   </div>
 
-  <section class="dir-panel">
-    <div class="dir-panel__head">
-      <h2>{% if selected_entry %}{{ selected_entry.name }}{% else %}Add a record{% endif %}</h2>
-      {% if selected_entry %}<a class="dir-link secondary" href="{% url 'inventory-detail' card.id %}">All records</a>{% endif %}
-    </div>
-    {% if can_manage_directory %}
-    <form class="dir-form dir-form--record" method="post" action="{% url 'save-directory-entry' card.id %}">
-      {% csrf_token %}
-      {% if selected_entry %}<input type="hidden" name="entry_id" value="{{ selected_entry.id }}">{% endif %}
-      <label>Name
-        <input name="name" required value="{{ selected_entry.name|default:'' }}" placeholder="Acme Insurance or Office Gmail">
-      </label>
-      <label>Type
-        <select name="kind">
-          {% for value, label in directory_kinds %}
-          <option value="{{ value }}" {% if selected_entry.kind == value or not selected_entry and value == 'company' %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Category
-        <input name="category" value="{{ selected_entry.category|default:'' }}" placeholder="Carrier, Gmail, DMV">
-      </label>
-      <label>Email
-        <input type="email" name="email" value="{{ selected_entry.email|default:'' }}">
-      </label>
-      <label>Website
-        <input name="website" value="{{ selected_entry.website|default:'' }}" placeholder="https://">
-      </label>
-      <label>Portal link
-        <input name="portal_url" value="{{ selected_entry.portal_url|default:'' }}" placeholder="https://">
-      </label>
-      <label class="dir-span-2">Address
-        <input name="address" value="{{ selected_entry.address|default:'' }}">
-      </label>
-      <label class="dir-span-4">Notes
-        <textarea name="notes" rows="2">{{ selected_entry.notes|default:'' }}</textarea>
-      </label>
+  {% if selected_entry and not directory_editing %}
+  {% with cred=selected_entry.credentials.first %}
+  <section class="dir-panel dir-sheet">
+    <div class="dir-sheet-head">
+      <div class="dir-identity">
+        <span class="dir-ico" aria-hidden="true">
+          {% if selected_entry.kind == 'company' %}
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><path d="M9 8h.01M9 12h.01M9 16h.01M15 8h.01M15 12h.01M15 16h.01"/></svg>
+          {% elif selected_entry.kind == 'shared_account' %}
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          {% else %}
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          {% endif %}
+        </span>
+        <div>
+          <span class="dir-pill">{{ selected_entry.get_kind_display }}</span>
+          <h2>{{ selected_entry.name }}</h2>
+          {% if selected_entry.category %}<div class="dir-muted">{{ selected_entry.category }}</div>{% endif %}
+        </div>
+      </div>
+      {% if can_manage_directory %}
       <div class="dir-actions">
-        <button class="dir-btn" type="submit">{% if selected_entry %}Save record{% else %}Add record{% endif %}</button>
+        <a class="dir-btn" href="{% url 'inventory-detail' card.id %}?new=1">Add</a>
+        <a class="dir-btn secondary" href="?entry={{ selected_entry.id }}&edit=1">Update</a>
+        <form method="post" action="{% url 'delete-directory-entry' selected_entry.id %}" onsubmit="return confirm('Remove this directory record?');">{% csrf_token %}<button class="dir-btn danger" type="submit">Delete</button></form>
       </div>
-    </form>
-    {% if selected_entry %}
-    <form method="post" action="{% url 'delete-directory-entry' selected_entry.id %}" onsubmit="return confirm('Remove this directory record?');">
-      {% csrf_token %}
-      <div style="padding: 0 1rem 1rem;"><button class="dir-btn danger" type="submit">Remove record</button></div>
-    </form>
-    {% endif %}
-    {% endif %}
-  </section>
-
-  {% if selected_entry %}
-  <div class="dir-split">
-  <section class="dir-panel">
-    <div class="dir-panel__head"><h2>Phone lines</h2></div>
-    {% for phone in selected_entry.phones.all %}
-    <div class="dir-row">
-      <div><strong>{{ phone.label }}</strong><div>{{ phone.number }}{% if phone.extension %} ext {{ phone.extension }}{% endif %}</div></div>
-      {% if can_manage_directory %}
-      <form method="post" action="{% url 'delete-directory-phone' phone.id %}">{% csrf_token %}<button class="dir-btn danger" type="submit">Remove</button></form>
       {% endif %}
     </div>
-    {% empty %}
-    <div class="dir-empty">No phone lines yet.</div>
-    {% endfor %}
-    {% if can_manage_directory %}
-    <form class="dir-form" method="post" action="{% url 'save-directory-phone' card.id %}">
-      {% csrf_token %}
-      <input type="hidden" name="entry_id" value="{{ selected_entry.id }}">
-      <label>Line name<input name="label" required placeholder="Claims desk"></label>
-      <label>Number<input name="number" required placeholder="(718) 555-0100"></label>
-      <label>Extension<input name="extension"></label>
-      <div><button class="dir-btn" type="submit">Add line</button></div>
-    </form>
-    {% endif %}
-  </section>
-
-  <section class="dir-panel">
-    <div class="dir-panel__head"><h2>Logins and shared accounts</h2></div>
-    <p class="dir-note">Passwords stay on this record for people who can open the Directory space.</p>
-    {% for login in selected_entry.credentials.all %}
-    <div class="dir-row">
-      <div>
-        <strong>{{ login.label }}</strong>
-        <div>{{ login.username|default:"No username" }}</div>
-        {% if login.secret %}<div class="dir-secret" data-secret="{{ login.secret }}">•••••••• <button type="button" class="dir-btn secondary" onclick="var row=this.parentElement; row.textContent=row.dataset.secret;">Show</button></div>{% endif %}
-        {% if login.login_url %}<div><a href="{{ login.login_url }}" target="_blank" rel="noopener">Open login</a></div>{% endif %}
-        {% if login.notes %}<div>{{ login.notes }}</div>{% endif %}
-      </div>
-      {% if can_manage_directory %}
-      <form method="post" action="{% url 'delete-directory-credential' login.id %}">{% csrf_token %}<button class="dir-btn danger" type="submit">Remove</button></form>
+    <div class="dir-facts">
+      {% if selected_entry.email %}<div class="dir-fact"><span class="dir-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg></span><div><b>Email</b>{{ selected_entry.email }}</div></div>{% endif %}
+      {% if selected_entry.website %}<div class="dir-fact"><span class="dir-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg></span><div><b>Website</b><a href="{{ selected_entry.website }}" target="_blank" rel="noopener">{{ selected_entry.website }}</a></div></div>{% endif %}
+      {% if selected_entry.portal_url %}<div class="dir-fact"><span class="dir-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></span><div><b>Portal</b><a href="{{ selected_entry.portal_url }}" target="_blank" rel="noopener">{{ selected_entry.portal_url }}</a></div></div>{% endif %}
+      {% if selected_entry.address %}<div class="dir-fact"><span class="dir-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg></span><div><b>Address</b>{{ selected_entry.address }}</div></div>{% endif %}
+      {% if cred %}
+        {% if cred.username %}<div class="dir-fact"><span class="dir-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><div><b>Username</b>{{ cred.username }}</div></div>{% endif %}
+        {% if cred.login_url %}<div class="dir-fact"><span class="dir-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg></span><div><b>Login link</b><a href="{{ cred.login_url }}" target="_blank" rel="noopener">Open</a></div></div>{% endif %}
       {% endif %}
     </div>
-    {% empty %}
-    <div class="dir-empty">No logins yet.</div>
-    {% endfor %}
-    {% if can_manage_directory %}
-    <form class="dir-form" method="post" action="{% url 'save-directory-credential' card.id %}">
-      {% csrf_token %}
-      <input type="hidden" name="entry_id" value="{{ selected_entry.id }}">
-      <label>Login name<input name="label" required placeholder="Gmail or carrier portal"></label>
-      <label>Username<input name="username" placeholder="name@gmail.com"></label>
-      <label>Password<input name="secret" autocomplete="new-password"></label>
-      <label>Login link<input name="login_url" placeholder="https://"></label>
-      <label class="dir-span-2">Note<input name="notes" placeholder="Shared inbox, 2FA on Maria's phone"></label>
-      <div><button class="dir-btn" type="submit">Save login</button></div>
-    </form>
+    {% if selected_entry.notes %}<p class="dir-muted" style="margin:1rem 0 0;">{{ selected_entry.notes }}</p>{% endif %}
+    {% if selected_entry.kind == 'company' %}
+    <div class="dir-lines">
+      <h3 style="margin:.4rem 0 0;">Phone lines</h3>
+      {% for phone in selected_entry.phones.all %}
+      <div class="dir-line"><div><strong>{{ phone.label }}</strong><div class="dir-muted">{{ phone.number }}{% if phone.extension %} · ext {{ phone.extension }}{% endif %}</div></div></div>
+      {% empty %}<div class="dir-empty">No phone lines yet. Use Update to add them.</div>{% endfor %}
+    </div>
     {% endif %}
+    {% if cred and cred.secret %}
+    <div class="dir-lines">
+      <h3 style="margin:.4rem 0 0;">Password</h3>
+      <div class="dir-line"><div class="dir-secret" data-secret="{{ cred.secret }}">•••••••• <button type="button" class="dir-btn secondary" onclick="var row=this.parentElement; row.textContent=row.dataset.secret;">Show</button></div></div>
+      {% if cred.notes %}<div class="dir-muted">{{ cred.notes }}</div>{% endif %}
+    </div>
+    {% endif %}
+    <div style="margin-top:1rem;"><a class="dir-link secondary" href="{% url 'inventory-detail' card.id %}">Back to cards</a></div>
   </section>
-  </div>
+  {% endwith %}
   {% endif %}
 
+  {% if directory_creating or directory_editing %}
   <section class="dir-panel">
-    <div class="dir-panel__head"><h2>All records</h2></div>
-    <form class="dir-filters" method="get">
-      <label class="dir-span-2">Search
-        <input name="q" value="{{ directory_query }}" placeholder="Name, phone, email, portal">
+    <div class="dir-panel__head">
+      <h2>{% if directory_editing %}Update {{ selected_entry.name }}{% else %}Add to the directory{% endif %}</h2>
+      <a class="dir-link secondary" href="{% if selected_entry %}?entry={{ selected_entry.id }}{% else %}{% url 'inventory-detail' card.id %}{% endif %}">Cancel</a>
+    </div>
+    {% if can_manage_directory %}
+    <form class="dir-form" method="post" action="{% url 'save-directory-entry' card.id %}" id="dirForm">
+      {% csrf_token %}
+      {% if selected_entry %}<input type="hidden" name="entry_id" value="{{ selected_entry.id }}">{% endif %}
+      <label>Name<input name="name" required value="{{ selected_entry.name|default:'' }}" placeholder="Acme Insurance or Office Gmail"></label>
+      <label>What is this?
+        <select name="kind" id="dirKind">
+          {% for value, label in directory_form_kinds %}
+          <option value="{{ value }}" {% if selected_entry.kind == value or not selected_entry and value == 'company' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+          {% if selected_entry and selected_entry.kind != 'company' and selected_entry.kind != 'login' and selected_entry.kind != 'shared_account' %}
+          <option value="{{ selected_entry.kind }}" selected>{{ selected_entry.get_kind_display }}</option>
+          {% endif %}
+        </select>
       </label>
+      <div class="dir-span-4" data-dir-kind="company">
+        <div class="dir-form" style="padding:0;">
+          <label>Category<input name="category" value="{{ selected_entry.category|default:'' }}" placeholder="Carrier, DMV, vendor"></label>
+          <label>Email<input type="email" name="email" value="{{ selected_entry.email|default:'' }}"></label>
+          <label>Website<input name="website" value="{{ selected_entry.website|default:'' }}" placeholder="https://"></label>
+          <label>Portal link<input name="portal_url" value="{{ selected_entry.portal_url|default:'' }}" placeholder="https://"></label>
+          <label class="dir-span-2">Address<input name="address" value="{{ selected_entry.address|default:'' }}"></label>
+          <label class="dir-span-2">Notes<textarea name="notes" rows="2">{{ selected_entry.notes|default:'' }}</textarea></label>
+          <div class="dir-phones" id="dirPhones">
+            <div style="display:flex;justify-content:space-between;align-items:center;"><strong>Phone lines</strong><button class="dir-btn secondary" type="button" id="dirAddPhone">Add line</button></div>
+            {% if selected_entry %}
+              {% for phone in selected_entry.phones.all %}
+              <div class="dir-phone-row">
+                <input type="hidden" name="phone_id" value="{{ phone.id }}">
+                <label>Line name<input name="phone_label" value="{{ phone.label }}" placeholder="Claims desk"></label>
+                <label>Number<input name="phone_number" value="{{ phone.number }}" placeholder="(718) 555-0100"></label>
+                <label>Ext<input name="phone_extension" value="{{ phone.extension }}"></label>
+              </div>
+              {% endfor %}
+            {% endif %}
+            <div class="dir-phone-row">
+              <label>Line name<input name="phone_label" placeholder="Claims desk"></label>
+              <label>Number<input name="phone_number" placeholder="(718) 555-0100"></label>
+              <label>Ext<input name="phone_extension"></label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dir-span-4" data-dir-kind="login shared_account">
+        {% with cred=selected_entry.credentials.first %}
+        <div class="dir-form" style="padding:0;">
+          <label>Email<input type="email" name="email" value="{{ selected_entry.email|default:'' }}" placeholder="office@gmail.com"></label>
+          <label>Username<input name="username" value="{{ cred.username|default:'' }}" placeholder="name@gmail.com"></label>
+          <label>Password<input name="secret" autocomplete="new-password" placeholder="{% if cred.secret %}Leave blank to keep the current password{% endif %}"></label>
+          <label>Login link<input name="login_url" value="{{ cred.login_url|default:'' }}" placeholder="https://"></label>
+          <label class="dir-span-2">Login note<input name="credential_notes" value="{{ cred.notes|default:'' }}" placeholder="Shared inbox, 2FA on Maria's phone"></label>
+          <label class="dir-span-2">Notes<textarea name="notes" rows="2">{{ selected_entry.notes|default:'' }}</textarea></label>
+        </div>
+        {% endwith %}
+      </div>
+      <div class="dir-actions"><button class="dir-btn" type="submit">{% if directory_editing %}Update{% else %}Add{% endif %}</button></div>
+    </form>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if not selected_entry %}
+  <section class="dir-board">
+    <form class="dir-filters" method="get">
+      {% if directory_creating %}<input type="hidden" name="new" value="1">{% endif %}
+      <label>Search<input name="q" value="{{ directory_query }}" placeholder="Name, phone, email, portal"></label>
       <label>Type
         <select name="kind">
           <option value="">All</option>
-          {% for value, label in directory_kinds %}
+          {% for value, label in directory_form_kinds %}
           <option value="{{ value }}" {% if directory_kind == value %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
       </label>
-      <div><button class="dir-btn" type="submit">Search</button></div>
+      <button class="dir-btn" type="submit">Search</button>
     </form>
-    <table class="dir-table">
-      <thead><tr><th>Name</th><th>Type</th><th>Contact</th><th>Links</th></tr></thead>
-      <tbody>
-        {% for entry in entries %}
-        <tr>
-          <td><a href="?entry={{ entry.id }}{% if directory_query %}&q={{ directory_query|urlencode }}{% endif %}">{{ entry.name }}</a>{% if entry.category %}<div>{{ entry.category }}</div>{% endif %}</td>
-          <td><span class="dir-pill">{{ entry.get_kind_display }}</span></td>
-          <td>
-            {% if entry.email %}{{ entry.email }}<br>{% endif %}
-            {% for phone in entry.phones.all %}{{ phone.label }} {{ phone.number }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
-          </td>
-          <td>
-            {% if entry.website %}<a href="{{ entry.website }}" target="_blank" rel="noopener">Website</a>{% endif %}
-            {% if entry.portal_url %}<br><a href="{{ entry.portal_url }}" target="_blank" rel="noopener">Portal</a>{% endif %}
-            {% if entry.credentials.all %}<div>{{ entry.credentials.all|length }} login{{ entry.credentials.all|length|pluralize }}</div>{% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="4" class="dir-empty">No directory records yet.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="dir-grid">
+      {% for entry in entries %}
+      {% with cred=entry.credentials.first phone=entry.phones.first %}
+      <a class="dir-card" href="?entry={{ entry.id }}{% if directory_query %}&q={{ directory_query|urlencode }}{% endif %}">
+        <div class="dir-card-top">
+          <span class="dir-ico" aria-hidden="true">
+            {% if entry.kind == 'company' %}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg>
+            {% elif entry.kind == 'shared_account' %}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            {% else %}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>{% endif %}
+          </span>
+          <span class="dir-pill">{{ entry.get_kind_display }}</span>
+        </div>
+        <strong>{{ entry.name }}</strong>
+        {% if entry.category %}<small>{{ entry.category }}</small>{% endif %}
+        {% if entry.phones.all %}
+          {% for phone in entry.phones.all %}{% if forloop.counter <= 2 %}<small>{{ phone.label }} · {{ phone.number }}</small>{% endif %}{% endfor %}
+        {% elif cred.username %}<small>{{ cred.username }}</small>{% elif entry.email %}<small>{{ entry.email }}</small>{% endif %}
+        {% if entry.website %}<small>Website</small>{% elif entry.portal_url %}<small>Portal</small>{% elif cred.login_url %}<small>Login link</small>{% endif %}
+      </a>
+      {% endwith %}
+      {% empty %}
+      <div class="dir-empty">No directory cards yet. Add a company, a login, or a shared account.</div>
+      {% endfor %}
+    </div>
   </section>
+  {% endif %}
 </main>
+<script>
+(function () {
+  var kind = document.getElementById('dirKind');
+  function applyKind() {
+    if (!kind) return;
+    document.querySelectorAll('[data-dir-kind]').forEach(function (panel) {
+      var on = panel.getAttribute('data-dir-kind').split(' ').indexOf(kind.value) !== -1;
+      panel.hidden = !on;
+      panel.querySelectorAll('input, textarea, select').forEach(function (field) { field.disabled = !on; });
+    });
+  }
+  if (kind) { kind.addEventListener('change', applyKind); applyKind(); }
+  var addPhone = document.getElementById('dirAddPhone');
+  if (addPhone) {
+    addPhone.addEventListener('click', function () {
+      var list = document.getElementById('dirPhones');
+      var rows = list.querySelectorAll('.dir-phone-row');
+      var copy = rows[rows.length - 1].cloneNode(true);
+      copy.querySelectorAll('input').forEach(function (input) {
+        if (input.name === 'phone_id') input.remove();
+        else input.value = '';
+      });
+      list.appendChild(copy);
+    });
+  }
+})();
+</script>
 {% endblock %}

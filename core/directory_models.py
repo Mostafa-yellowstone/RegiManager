@@ -7,6 +7,7 @@ from django.db import models
 class DirectoryEntry(models.Model):
     class Kind(models.TextChoices):
         COMPANY = "company", "Company"
+        LOGIN = "login", "Login credentials"
         SHARED_ACCOUNT = "shared_account", "Shared account"
         PERSON = "person", "Person"
         OTHER = "other", "Other"

@@ -87,9 +87,9 @@ html:not(.portal-theme-dark) body.halloween-active .inventory-card:hover {
   box-shadow: 0 8px 20px rgba(28, 25, 23, 0.06);
 }
 
-html:not(.portal-theme-dark) body.halloween-active input,
-html:not(.portal-theme-dark) body.halloween-active select,
-html:not(.portal-theme-dark) body.halloween-active textarea {
+html:not(.portal-theme-dark) body.halloween-active:not(.auth-body) input,
+html:not(.portal-theme-dark) body.halloween-active:not(.auth-body) select,
+html:not(.portal-theme-dark) body.halloween-active:not(.auth-body) textarea {
   background-color: #fffdfb;
   color: #1c1917;
   border-color: #d6cdc0;
