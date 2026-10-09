@@ -1,0 +1,201 @@
+{% extends "base_portal.html" %}
+{% block title %}Directory | RegiManager{% endblock %}
+{% block portal_content %}
+<style>
+.dir-page { width: min(1180px, 100%); margin: 0 auto; padding: 0.25rem 0 2.5rem; color: #0f172a; }
+.dir-hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; padding: 1.15rem 1.25rem; border-radius: 18px; background: radial-gradient(420px 120px at 0% 0%, rgba(14,165,233,0.14), transparent 70%), linear-gradient(135deg, #fff, #f8fafc); border: 1px solid #e2e8f0; }
+.dir-kicker { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #0369a1; }
+.dir-hero h1 { margin: 0.15rem 0 0; font-size: 1.65rem; letter-spacing: -0.03em; }
+.dir-counts span { background: #fff; border: 1px solid #bae6fd; border-radius: 999px; padding: 0.38rem 0.75rem; font-size: 0.78rem; font-weight: 800; color: #0c4a6e; }
+.dir-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 18px; overflow: hidden; box-shadow: 0 8px 22px rgba(15,23,42,0.04); }
+.dir-panel + .dir-panel { margin-top: 1rem; }
+.dir-panel__head { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; padding: 0.9rem 1.05rem; border-bottom: 1px solid #eef2f7; background: #f8fafc; }
+.dir-panel__head h2 { margin: 0; font-size: 0.98rem; }
+.dir-form, .dir-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.7rem; padding: 1rem; align-items: end; }
+.dir-form label, .dir-filters label { display: grid; gap: 0.3rem; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
+.dir-form input, .dir-form select, .dir-form textarea, .dir-filters input, .dir-filters select { width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0.6rem 0.7rem; font: inherit; color: #0f172a; background: #fff; }
+.dir-span-2 { grid-column: span 2; }
+.dir-span-4 { grid-column: 1 / -1; }
+.dir-table { width: 100%; border-collapse: collapse; }
+.dir-table th { text-align: left; font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: #64748b; padding: 0.72rem 1rem; border-bottom: 1px solid #e2e8f0; }
+.dir-table td { padding: 0.82rem 1rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; font-size: 0.92rem; }
+.dir-table a { color: inherit; font-weight: 800; text-decoration: none; }
+.dir-table a:hover { color: #0369a1; }
+.dir-pill { display: inline-flex; border-radius: 999px; padding: 0.18rem 0.55rem; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; background: #e0f2fe; color: #075985; }
+.dir-row { display: flex; justify-content: space-between; gap: 0.75rem; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; }
+.dir-row:last-child { border-bottom: none; }
+.dir-secret { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.04em; }
+.dir-actions { display: flex; gap: 0.4rem; align-items: center; }
+.dir-btn, .dir-link { border: 0; border-radius: 10px; padding: 0.62rem 0.85rem; font-weight: 800; cursor: pointer; background: #0369a1; color: #fff; text-decoration: none; }
+.dir-btn.secondary, .dir-link.secondary { background: #e2e8f0; color: #0f172a; }
+.dir-btn.danger { background: #fee2e2; color: #b91c1c; }
+.dir-empty { padding: 1.25rem 1rem; color: #64748b; font-weight: 650; }
+.dir-note { margin: 0; padding: 0 1rem 1rem; color: #64748b; font-size: 0.82rem; }
+@media (max-width: 980px) {
+  .dir-form, .dir-filters { grid-template-columns: 1fr 1fr; }
+  .dir-span-2, .dir-span-4 { grid-column: 1 / -1; }
+  .dir-table { display: block; overflow-x: auto; }
+}
+html.portal-theme-dark .dir-page { color: #e2e8f0; }
+html.portal-theme-dark .dir-hero, html.portal-theme-dark .dir-panel, html.portal-theme-dark .dir-form input, html.portal-theme-dark .dir-form select, html.portal-theme-dark .dir-form textarea, html.portal-theme-dark .dir-filters input, html.portal-theme-dark .dir-filters select { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+html.portal-theme-dark .dir-panel__head, html.portal-theme-dark .dir-table th { background: #111827; }
+</style>
+<main class="dashboard-shell dir-page">
+  <div class="dir-hero">
+    <div>
+      <div class="dir-kicker">{{ card.organization.name }}</div>
+      <h1>Directory</h1>
+    </div>
+    <div class="dir-counts"><span>{{ entry_count }} records</span></div>
+  </div>
+
+  <section class="dir-panel">
+    <div class="dir-panel__head">
+      <h2>{% if selected_entry %}{{ selected_entry.name }}{% else %}Add a record{% endif %}</h2>
+      {% if selected_entry %}<a class="dir-link secondary" href="{% url 'inventory-detail' card.id %}">All records</a>{% endif %}
+    </div>
+    {% if can_manage_directory %}
+    <form class="dir-form" method="post" action="{% url 'save-directory-entry' card.id %}">
+      {% csrf_token %}
+      {% if selected_entry %}<input type="hidden" name="entry_id" value="{{ selected_entry.id }}">{% endif %}
+      <label>Name
+        <input name="name" required value="{{ selected_entry.name|default:'' }}" placeholder="Acme Insurance or Office Gmail">
+      </label>
+      <label>Type
+        <select name="kind">
+          {% for value, label in directory_kinds %}
+          <option value="{{ value }}" {% if selected_entry.kind == value or not selected_entry and value == 'company' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Category
+        <input name="category" value="{{ selected_entry.category|default:'' }}" placeholder="Carrier, Gmail, DMV">
+      </label>
+      <label>Email
+        <input type="email" name="email" value="{{ selected_entry.email|default:'' }}">
+      </label>
+      <label>Website
+        <input name="website" value="{{ selected_entry.website|default:'' }}" placeholder="https://">
+      </label>
+      <label>Portal link
+        <input name="portal_url" value="{{ selected_entry.portal_url|default:'' }}" placeholder="https://">
+      </label>
+      <label class="dir-span-2">Address
+        <input name="address" value="{{ selected_entry.address|default:'' }}">
+      </label>
+      <label class="dir-span-4">Notes
+        <textarea name="notes" rows="2">{{ selected_entry.notes|default:'' }}</textarea>
+      </label>
+      <div class="dir-actions">
+        <button class="dir-btn" type="submit">{% if selected_entry %}Save record{% else %}Add record{% endif %}</button>
+      </div>
+    </form>
+    {% if selected_entry %}
+    <form method="post" action="{% url 'delete-directory-entry' selected_entry.id %}" onsubmit="return confirm('Remove this directory record?');">
+      {% csrf_token %}
+      <div style="padding: 0 1rem 1rem;"><button class="dir-btn danger" type="submit">Remove record</button></div>
+    </form>
+    {% endif %}
+    {% endif %}
+  </section>
+
+  {% if selected_entry %}
+  <section class="dir-panel">
+    <div class="dir-panel__head"><h2>Phone lines</h2></div>
+    {% for phone in selected_entry.phones.all %}
+    <div class="dir-row">
+      <div><strong>{{ phone.label }}</strong><div>{{ phone.number }}{% if phone.extension %} ext {{ phone.extension }}{% endif %}</div></div>
+      {% if can_manage_directory %}
+      <form method="post" action="{% url 'delete-directory-phone' phone.id %}">{% csrf_token %}<button class="dir-btn danger" type="submit">Remove</button></form>
+      {% endif %}
+    </div>
+    {% empty %}
+    <div class="dir-empty">No phone lines yet.</div>
+    {% endfor %}
+    {% if can_manage_directory %}
+    <form class="dir-form" method="post" action="{% url 'save-directory-phone' card.id %}">
+      {% csrf_token %}
+      <input type="hidden" name="entry_id" value="{{ selected_entry.id }}">
+      <label>Line name<input name="label" required placeholder="Claims desk"></label>
+      <label>Number<input name="number" required placeholder="(718) 555-0100"></label>
+      <label>Extension<input name="extension"></label>
+      <div><button class="dir-btn" type="submit">Add line</button></div>
+    </form>
+    {% endif %}
+  </section>
+
+  <section class="dir-panel">
+    <div class="dir-panel__head"><h2>Logins and shared accounts</h2></div>
+    <p class="dir-note">Passwords stay on this record for people who can open the Directory space.</p>
+    {% for login in selected_entry.credentials.all %}
+    <div class="dir-row">
+      <div>
+        <strong>{{ login.label }}</strong>
+        <div>{{ login.username|default:"No username" }}</div>
+        {% if login.secret %}<div class="dir-secret" data-secret="{{ login.secret }}">•••••••• <button type="button" class="dir-btn secondary" onclick="var row=this.parentElement; row.textContent=row.dataset.secret;">Show</button></div>{% endif %}
+        {% if login.login_url %}<div><a href="{{ login.login_url }}" target="_blank" rel="noopener">Open login</a></div>{% endif %}
+        {% if login.notes %}<div>{{ login.notes }}</div>{% endif %}
+      </div>
+      {% if can_manage_directory %}
+      <form method="post" action="{% url 'delete-directory-credential' login.id %}">{% csrf_token %}<button class="dir-btn danger" type="submit">Remove</button></form>
+      {% endif %}
+    </div>
+    {% empty %}
+    <div class="dir-empty">No logins yet.</div>
+    {% endfor %}
+    {% if can_manage_directory %}
+    <form class="dir-form" method="post" action="{% url 'save-directory-credential' card.id %}">
+      {% csrf_token %}
+      <input type="hidden" name="entry_id" value="{{ selected_entry.id }}">
+      <label>Login name<input name="label" required placeholder="Gmail or carrier portal"></label>
+      <label>Username<input name="username" placeholder="name@gmail.com"></label>
+      <label>Password<input name="secret" autocomplete="new-password"></label>
+      <label>Login link<input name="login_url" placeholder="https://"></label>
+      <label class="dir-span-2">Note<input name="notes" placeholder="Shared inbox, 2FA on Maria's phone"></label>
+      <div><button class="dir-btn" type="submit">Save login</button></div>
+    </form>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section class="dir-panel">
+    <div class="dir-panel__head"><h2>All records</h2></div>
+    <form class="dir-filters" method="get">
+      <label class="dir-span-2">Search
+        <input name="q" value="{{ directory_query }}" placeholder="Name, phone, email, portal">
+      </label>
+      <label>Type
+        <select name="kind">
+          <option value="">All</option>
+          {% for value, label in directory_kinds %}
+          <option value="{{ value }}" {% if directory_kind == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div><button class="dir-btn" type="submit">Search</button></div>
+    </form>
+    <table class="dir-table">
+      <thead><tr><th>Name</th><th>Type</th><th>Contact</th><th>Links</th></tr></thead>
+      <tbody>
+        {% for entry in entries %}
+        <tr>
+          <td><a href="?entry={{ entry.id }}{% if directory_query %}&q={{ directory_query|urlencode }}{% endif %}">{{ entry.name }}</a>{% if entry.category %}<div>{{ entry.category }}</div>{% endif %}</td>
+          <td><span class="dir-pill">{{ entry.get_kind_display }}</span></td>
+          <td>
+            {% if entry.email %}{{ entry.email }}<br>{% endif %}
+            {% for phone in entry.phones.all %}{{ phone.label }} {{ phone.number }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+          </td>
+          <td>
+            {% if entry.website %}<a href="{{ entry.website }}" target="_blank" rel="noopener">Website</a>{% endif %}
+            {% if entry.portal_url %}<br><a href="{{ entry.portal_url }}" target="_blank" rel="noopener">Portal</a>{% endif %}
+            {% if entry.credentials.all %}<div>{{ entry.credentials.all|length }} login{{ entry.credentials.all|length|pluralize }}</div>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="dir-empty">No directory records yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</main>
+{% endblock %}

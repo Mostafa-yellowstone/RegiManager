@@ -6940,6 +6940,11 @@ def inventory_detail(request, inventory_id):
         context = build_tlc_space_context(request, card, is_owner, membership)
         return render(request, "core/tlc_space.html", context)
 
+    if card.key == "directory":
+        from .directory_views import build_directory_space_context
+        context = build_directory_space_context(request, card, is_owner, membership)
+        return render(request, "core/directory_space.html", context)
+
     if card.key == "knowledge_hub":
         from collections import defaultdict
         # Only top-level materials (no parent)
@@ -7131,6 +7136,16 @@ def spaces_home(request):
             "description": "TLC Policy Profitability Engine — premiums, installments, DMV profit, and carrier payables",
         },
     )
+    directory_space, _ = Space.objects.get_or_create(
+        organization=active_org,
+        key="directory",
+        defaults={
+            "label": "Directory",
+            "description": "Companies, shared accounts, phone lines, portals, and logins",
+        },
+    )
+    if is_owner and membership:
+        membership.accessible_spaces.add(directory_space)
         
     if request.user.is_superuser:
         inventory_items = Space.objects.filter(organization=active_org)

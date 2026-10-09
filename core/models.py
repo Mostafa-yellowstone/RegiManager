@@ -3623,3 +3623,9 @@ from .insurance_esign_models import (  # noqa: E402,F401
     InsuranceSavedSignature,
 )
 
+from .directory_models import (  # noqa: E402,F401
+    DirectoryCredential,
+    DirectoryEntry,
+    DirectoryPhone,
+)
+
