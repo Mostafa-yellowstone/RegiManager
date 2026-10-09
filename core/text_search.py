@@ -5,12 +5,13 @@ from __future__ import annotations
 import re
 from difflib import SequenceMatcher
 
-from django.db.models import Q
+from django.db.models import CharField, Q, Value
+from django.db.models.functions import Coalesce, Concat, Replace
 
 _WS_RE = re.compile(r"\s+")
-_COMPACT_RE = re.compile(r"[\s\-]+")
-_LETTER_RE = re.compile(r"[A-Za-z]")
+_ALNUM_RE = re.compile(r"[^A-Za-z0-9]")
 _DIGIT_RE = re.compile(r"\D")
+_STRIP_CHARS = (" ", "-", ".", "&", ",", "'", "/", "\\", "\t")
 
 _NEAR_RATIO = 0.84
 _SCAN_LIMIT = 2000
@@ -21,34 +22,42 @@ def collapse_text(value: str) -> str:
 
 
 def compact_text(value: str) -> str:
-    """Lowercase text with spaces and hyphens removed."""
-    return _COMPACT_RE.sub("", collapse_text(value)).lower()
+    """Lowercase letters and digits only, so spacing and punctuation do not matter."""
+    return _ALNUM_RE.sub("", value or "").lower()
 
 
 def _has_name_letters(value: str, min_len: int = 3) -> bool:
     return len(re.sub(r"[^A-Za-z]", "", value or "")) >= min_len
 
 
-def flexible_pattern(value: str) -> str:
-    """Case-insensitive pattern that ignores extra spaces and hyphens between characters."""
-    compact = re.sub(r"[^A-Za-z0-9]", "", collapse_text(value))
-    if not compact:
-        return r"(?!)"
-    return r"[\s\-]*".join(re.escape(char) for char in compact)
-
-
 def field_contains_q(field: str, query: str) -> Q:
     collapsed = collapse_text(query)
     if not collapsed:
         return Q(pk__in=[])
-    if _has_name_letters(collapsed):
-        return Q(**{f"{field}__iregex": flexible_pattern(collapsed)})
     combined = Q(**{f"{field}__icontains": collapsed})
     digits = _DIGIT_RE.sub("", collapsed)
     spaceless = _WS_RE.sub("", collapsed)
-    if digits and len(digits) >= 9 and digits != spaceless:
+    if digits and len(digits) >= 9 and digits != spaceless and not _has_name_letters(collapsed, 1):
         combined |= Q(**{f"{field}__icontains": digits})
     return combined
+
+
+def compact_sql_expr(fields):
+    """Concatenate fields and drop spaces and punctuation so 'J E' matches 'JE'."""
+    parts = [Coalesce(field, Value(""), output_field=CharField()) for field in fields]
+    expr = parts[0]
+    for part in parts[1:]:
+        expr = Concat(expr, part, output_field=CharField())
+    for char in _STRIP_CHARS:
+        expr = Replace(expr, Value(char), Value(""), output_field=CharField())
+    return expr
+
+
+def matching_compact_queryset(queryset, query: str, fields):
+    needle = compact_text(query)
+    if len(needle) < 3 or not _has_name_letters(query, 2) or not fields:
+        return queryset.none()
+    return queryset.annotate(_search_compact=compact_sql_expr(fields)).filter(_search_compact__icontains=needle)
 
 
 def text_search_q(query: str, fields) -> Q:
@@ -66,6 +75,8 @@ def _score_pair(needle: str, haystack: str) -> float:
         return 0.0
     if needle == haystack:
         return 1.0
+    if len(needle) >= 4 and needle in haystack:
+        return 0.96
     if abs(len(needle) - len(haystack)) > 8:
         return 0.0
     return SequenceMatcher(None, needle, haystack).ratio()
@@ -99,7 +110,11 @@ def apply_text_search(queryset, query: str, fields, *, extra_q: Q | None = None,
     exact = text_search_q(collapsed, fields)
     if extra_q is not None and extra_q.children:
         exact |= extra_q
-    matched = queryset.filter(exact).distinct()
+    needle = compact_text(collapsed)
+    annotated = queryset.annotate(_search_compact=compact_sql_expr(fields))
+    if len(needle) >= 3 and _has_name_letters(collapsed, 2):
+        exact |= Q(_search_compact__icontains=needle)
+    matched = annotated.filter(exact).distinct()
     if matched.exists():
         return matched
     if not nearest:

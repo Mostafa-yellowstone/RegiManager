@@ -138,7 +138,7 @@ def search_directory_entries(card, query, kind):
     base = _entry_base(card, kind)
     if not query:
         return list(base.order_by("name")), "all"
-    from .text_search import collapse_text, text_search_q
+    from .text_search import collapse_text, matching_compact_queryset, text_search_q
 
     query = collapse_text(query)
     digits = _digits(query)
@@ -146,6 +146,8 @@ def search_directory_entries(card, query, kind):
         query,
         ["name", "email", "phones__number", "phones__label", "website", "portal_url", "category"],
     )
+    compact_ids = matching_compact_queryset(base, query, ["name", "email", "category"]).values_list("id", flat=True)
+    clauses |= Q(id__in=compact_ids)
     if len(digits) >= 3:
         clauses |= Q(phones__number__icontains=digits)
         phone_rows = DirectoryPhone.objects.filter(entry__in=base).only("entry_id", "number")

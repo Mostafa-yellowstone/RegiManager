@@ -259,6 +259,22 @@ def search_clients_ranked(organizations, query: str, *, limit: int = 8) -> list:
     if exact_dl_id and exact_dl_id not in candidate_ids:
         candidate_ids.insert(0, exact_dl_id)
 
+    from .text_search import matching_compact_queryset
+
+    compact_ids = []
+    if re.search(r"[A-Za-z]", q):
+        compact_ids = list(
+            matching_compact_queryset(
+                Client.objects.filter(organization__in=organizations),
+                q,
+                ["first_name", "middle_name", "last_name", "business_name"],
+            ).values_list("id", flat=True)[: max(limit * 4, 24)]
+        )
+    compact_id_set = set(compact_ids)
+    for cid in compact_ids:
+        if cid not in candidate_ids:
+            candidate_ids.append(cid)
+
     used_nearest = False
     if not candidate_ids:
         from .text_search import nearest_ids
@@ -291,6 +307,8 @@ def search_clients_ranked(organizations, query: str, *, limit: int = 8) -> list:
         if not client:
             continue
         score = score_client_match(client, q, plates_by_client.get(cid, []))
+        if cid in compact_id_set:
+            score = max(score, 420)
         if score <= 0 and cid != exact_dl_id:
             if not used_nearest:
                 continue

@@ -32,6 +32,34 @@ class SpaceInsensitiveSearchTests(TestCase):
             driver_license="SPACE-DL-1",
             source="walk-in",
         )
+        self.business = Client.objects.create(
+            organization=self.org,
+            first_name="JE",
+            last_name="CAR SERVICES",
+            business_name="JE CAR SERVICES",
+            is_commercial=True,
+            phone_number="7185553333",
+            driver_license="SPACE-DL-2",
+            source="walk-in",
+        )
+        self.split_name = Client.objects.create(
+            organization=self.org,
+            first_name="J.E.",
+            last_name="CAR SERVICES",
+            phone_number="7185554444",
+            driver_license="SPACE-DL-3",
+            source="walk-in",
+        )
+        self.other = Client.objects.create(
+            organization=self.org,
+            first_name="OTHER",
+            last_name="CAR SERVICES",
+            business_name="OTHER CAR SERVICES",
+            is_commercial=True,
+            phone_number="7185555555",
+            driver_license="SPACE-DL-4",
+            source="walk-in",
+        )
         self.http = TestClient()
         self.http.login(username="spacesearch", password="password123")
 
@@ -51,6 +79,19 @@ class SpaceInsensitiveSearchTests(TestCase):
         response = self.http.get(reverse("client-search-ajax"), {"q": "Mary Ann Smith"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["results"][0]["id"], self.client_row.id)
+
+    def test_spaced_initials_find_the_business_name(self):
+        found = search_clients_ranked(Organization.objects.filter(id=self.org.id), "J E CAR SERVICES", limit=10)
+        found_ids = [row.id for row in found]
+        self.assertIn(self.business.id, found_ids)
+        self.assertIn(self.split_name.id, found_ids)
+        self.assertNotIn(self.other.id, found_ids)
+
+    def test_shorter_name_still_finds_the_same_businesses(self):
+        found = search_clients_ranked(Organization.objects.filter(id=self.org.id), "CAR SERVICES", limit=10)
+        found_ids = [row.id for row in found]
+        self.assertIn(self.business.id, found_ids)
+        self.assertIn(self.other.id, found_ids)
 
     def test_close_spelling_returns_the_nearest_name(self):
         found = search_clients_ranked(Organization.objects.filter(id=self.org.id), "Mery Ann Smith")

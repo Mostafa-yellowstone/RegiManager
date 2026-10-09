@@ -4,7 +4,7 @@
   }
 
   function compact(value) {
-    return collapse(value).replace(/[\s\-]+/g, "");
+    return collapse(value).replace(/[^a-z0-9]/g, "");
   }
 
   function editDistance(a, b) {
