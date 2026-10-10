@@ -132,6 +132,14 @@
         size: A4 landscape;
         margin: 0;
     }
+    @page {
+        @top-left { content: ""; }
+        @top-center { content: ""; }
+        @top-right { content: ""; }
+        @bottom-left { content: ""; }
+        @bottom-center { content: ""; }
+        @bottom-right { content: ""; }
+    }
     @media print {
         html, body, body.portal-body {
             display: block !important;
@@ -143,7 +151,11 @@
             overflow: hidden !important;
             background: #fff !important;
         }
+        header,
+        footer,
+        nav,
         .top-nav,
+        .site-footer,
         .portal-footer,
         .batch-toolbar,
         .agency-lic-banner,
@@ -194,7 +206,7 @@
 <section class="batch-toolbar">
     <h1>Batch Number Card</h1>
     <p>
-        The card prints once, landscape, on a single A4 sheet.
+        The card prints once, landscape, on a single A4 sheet, with no page header and no page footer.
         Fill the organization name, the owner name, the phone number, the date, and the terminal number.
         The first box is the last digit of the year, then the month and day.
         The two boxes between the X marks get the period of the year (20 for the 2020s).
@@ -347,7 +359,37 @@
     });
     document.getElementById("batchPrint").addEventListener("click", function () {
         paint();
-        window.print();
+        var card = document.querySelector(".batch-card");
+        var frame = document.getElementById("batchPrintFrame");
+        if (!frame) {
+            frame = document.createElement("iframe");
+            frame.id = "batchPrintFrame";
+            frame.setAttribute("aria-hidden", "true");
+            frame.style.cssText = "position:fixed;width:0;height:0;border:0;clip:rect(0,0,0,0);";
+            document.body.appendChild(frame);
+        }
+        var doc = frame.contentDocument || frame.contentWindow.document;
+        var rules = "";
+        document.querySelectorAll("style").forEach(function (node) {
+            if (node.textContent.indexOf(".batch-sheet") !== -1) rules = node.textContent;
+        });
+        doc.open();
+        doc.write(
+            "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title></title><style>" +
+            rules +
+            "html,body{margin:0;padding:0;background:#fff;width:297mm;height:210mm;overflow:hidden;}" +
+            "header,footer,nav{display:none !important;}" +
+            "</style></head><body><div class=\"batch-sheet\">" + card.outerHTML + "</div></body></html>"
+        );
+        doc.close();
+        var win = frame.contentWindow;
+        var image = doc.querySelector("img");
+        var go = function () {
+            win.focus();
+            win.print();
+        };
+        if (image && !image.complete) image.addEventListener("load", go, { once: true });
+        else go();
     });
     paint();
 })();
