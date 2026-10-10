@@ -59,3 +59,6 @@ class BatchCardPageTests(TestCase):
         self.assertContains(response, "Xpress Plates")
         self.assertContains(response, "Essam Abdelkhalek")
         self.assertContains(response, "size: A4 landscape")
+        self.assertContains(response, 'id="batchPhone"')
+        self.assertContains(response, 'id="linePhoneArea"')
+        self.assertContains(response, 'id="linePhoneRest"')

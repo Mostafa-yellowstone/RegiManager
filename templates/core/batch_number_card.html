@@ -26,7 +26,7 @@
     }
     .batch-fields {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
         gap: 0.85rem;
         align-items: end;
     }
@@ -112,31 +112,76 @@
         width: 29.8%;
         top: 34.85%;
     }
+    .batch-phone-area {
+        left: 18.15%;
+        width: 5.1%;
+        top: 41.15%;
+        justify-content: center;
+        letter-spacing: 0.02em;
+    }
+    .batch-phone-rest {
+        left: 24.6%;
+        width: 14.5%;
+        top: 41.15%;
+        letter-spacing: 0.04em;
+    }
     @media (max-width: 860px) {
         .batch-fields { grid-template-columns: 1fr 1fr; }
     }
+    @page {
+        size: A4 landscape;
+        margin: 0;
+    }
     @media print {
-        @page { size: A4 landscape; margin: 0; }
-        html, body {
-            background: #fff !important;
+        html, body, body.portal-body {
+            display: block !important;
+            width: 297mm !important;
+            height: 210mm !important;
+            min-height: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
+            overflow: hidden !important;
+            background: #fff !important;
         }
-        body * { visibility: hidden !important; }
-        .batch-sheet, .batch-sheet * { visibility: visible !important; }
+        .top-nav,
+        .portal-footer,
+        .batch-toolbar,
+        .agency-lic-banner,
+        #rmBrandLoader,
+        #portalRealtimeToasts,
+        .portal-rt-toasts,
+        .portal-modal {
+            display: none !important;
+        }
+        .portal-main {
+            display: block !important;
+            width: 297mm !important;
+            height: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
         .batch-sheet {
-            position: fixed;
-            left: 10.65mm;
+            position: absolute;
+            left: 0;
             top: 0;
-            width: 275.7mm;
+            width: 297mm;
             height: 210mm;
             margin: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            break-after: avoid;
+            page-break-after: avoid;
         }
-        .batch-card, .batch-card img {
-            width: 100%;
-            height: 100%;
+        .batch-card {
+            width: 275.7mm;
+            height: 210mm;
         }
         .batch-card img {
+            width: 275.7mm;
+            height: 210mm;
             object-fit: fill;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
@@ -149,7 +194,8 @@
 <section class="batch-toolbar">
     <h1>Batch Number Card</h1>
     <p>
-        The card prints the organization name, the owner name, the date, and the terminal number.
+        The card prints once, landscape, on a single A4 sheet.
+        Fill the organization name, the owner name, the phone number, the date, and the terminal number.
         The first box is the last digit of the year, then the month and day.
         The two boxes between the X marks get the period of the year (20 for the 2020s).
         Print is landscape on A4.
@@ -160,7 +206,7 @@
             {% if organizations|length > 1 %}
             <select id="batchOrg">
                 {% for org in organizations %}
-                <option value="{{ org.id }}" data-name="{{ org.name }}" data-owner="{{ org.business_owner_name }}" {% if org.id == organization.id %}selected{% endif %}>{{ org.name }}</option>
+                <option value="{{ org.id }}" data-name="{{ org.name }}" data-owner="{{ org.business_owner_name }}" data-phone="{{ org.phone_number }}" {% if org.id == organization.id %}selected{% endif %}>{{ org.name }}</option>
                 {% endfor %}
             </select>
             {% endif %}
@@ -169,6 +215,10 @@
         <label>
             Owner name
             <input id="batchOwnerInput" type="text" maxlength="80" value="{{ organization.business_owner_name }}" autocomplete="name">
+        </label>
+        <label>
+            Phone number
+            <input id="batchPhone" type="tel" maxlength="20" value="{{ organization.phone_number }}" autocomplete="tel" placeholder="914 961-6666">
         </label>
         <label>
             Terminal number
@@ -200,6 +250,8 @@
         <span class="batch-digit" id="digitTerm2" style="left:73.510%"></span>
         <div class="batch-line batch-partner" id="linePartner"></div>
         <div class="batch-line batch-owner" id="lineOwner"></div>
+        <div class="batch-line batch-phone-area" id="linePhoneArea"></div>
+        <div class="batch-line batch-phone-rest" id="linePhoneRest"></div>
     </div>
 </div>
 {% endblock %}
@@ -210,6 +262,7 @@
     var orgSelect = document.getElementById("batchOrg");
     var orgName = document.getElementById("batchOrgName");
     var ownerInput = document.getElementById("batchOwnerInput");
+    var phoneInput = document.getElementById("batchPhone");
     var terminalInput = document.getElementById("batchTerminal");
     var dateInput = document.getElementById("batchDate");
 
@@ -249,8 +302,22 @@
         setText("digitTerm2", terminal.charAt(2) || "");
         setText("linePartner", organizationName());
         setText("lineOwner", ownerInput.value || "");
+        var phoneParts = splitPhone(phoneInput.value || "");
+        setText("linePhoneArea", phoneParts.area);
+        setText("linePhoneRest", phoneParts.rest);
         fitLine(document.getElementById("linePartner"));
         fitLine(document.getElementById("lineOwner"));
+        fitLine(document.getElementById("linePhoneRest"));
+    }
+
+    function splitPhone(raw) {
+        var digits = String(raw || "").replace(/\D/g, "");
+        if (digits.length >= 10) {
+            var area = digits.slice(0, 3);
+            var rest = digits.slice(3, 10);
+            return { area: area, rest: rest.slice(0, 3) + "-" + rest.slice(3) };
+        }
+        return { area: "", rest: String(raw || "").trim() };
     }
 
     function fitLine(el) {
@@ -270,10 +337,11 @@
             var option = orgSelect.options[orgSelect.selectedIndex];
             if (orgName) orgName.value = option ? (option.getAttribute("data-name") || "") : "";
             ownerInput.value = option ? (option.getAttribute("data-owner") || "") : "";
+            phoneInput.value = option ? (option.getAttribute("data-phone") || "") : "";
             paint();
         });
     }
-    [orgName, ownerInput, terminalInput, dateInput].forEach(function (el) {
+    [orgName, ownerInput, phoneInput, terminalInput, dateInput].forEach(function (el) {
         el.addEventListener("input", paint);
         el.addEventListener("change", paint);
     });
