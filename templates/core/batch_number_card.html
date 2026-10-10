@@ -1,0 +1,287 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}Batch Number Card | RegiManager{% endblock %}
+
+{% block portal_head %}
+<style>
+    .batch-toolbar {
+        max-width: 1080px;
+        margin: 0 auto 1.25rem;
+        padding: 1.1rem 1.2rem;
+        border-radius: 18px;
+        background: var(--portal-surface);
+        border: 1px solid var(--portal-border);
+        box-shadow: var(--portal-shadow-md);
+    }
+    .batch-toolbar h1 {
+        margin: 0 0 0.35rem;
+        font-size: 1.25rem;
+    }
+    .batch-toolbar p {
+        margin: 0 0 1rem;
+        color: var(--portal-text-muted);
+        font-size: 0.9rem;
+        line-height: 1.45;
+    }
+    .batch-fields {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.85rem;
+        align-items: end;
+    }
+    .batch-fields label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: var(--portal-text-secondary);
+    }
+    .batch-fields input,
+    .batch-fields select {
+        font: inherit;
+        font-size: 0.95rem;
+        font-weight: 650;
+        text-transform: none;
+        letter-spacing: 0;
+        color: var(--portal-text);
+        background: var(--portal-surface-muted);
+        border: 1px solid var(--portal-border);
+        border-radius: 10px;
+        padding: 0.55rem 0.7rem;
+        width: 100%;
+    }
+    .batch-actions {
+        display: flex;
+        gap: 0.6rem;
+        margin-top: 0.95rem;
+        flex-wrap: wrap;
+    }
+    .batch-sheet {
+        width: min(100%, 1080px);
+        margin: 0 auto 2rem;
+    }
+    .batch-card {
+        position: relative;
+        container-type: inline-size;
+        background: #fff;
+    }
+    .batch-card img {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+    .batch-digit,
+    .batch-line {
+        position: absolute;
+        color: #16120c;
+        font-family: Arial, Helvetica, sans-serif;
+        font-weight: 900;
+        line-height: 1;
+        pointer-events: none;
+        white-space: nowrap;
+    }
+    .batch-digit {
+        top: 16.62%;
+        transform: translate(-50%, -52%);
+        font-size: 4.15cqw;
+        text-align: center;
+        width: 4.2cqw;
+    }
+    .batch-line {
+        font-size: 1.5cqw;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        height: 3.1%;
+        display: flex;
+        align-items: flex-end;
+    }
+    .batch-partner {
+        left: 16.9%;
+        width: 31.4%;
+        top: 28.35%;
+    }
+    .batch-owner {
+        left: 18.5%;
+        width: 29.8%;
+        top: 34.85%;
+    }
+    @media (max-width: 860px) {
+        .batch-fields { grid-template-columns: 1fr 1fr; }
+    }
+    @media print {
+        @page { size: A4 landscape; margin: 0; }
+        html, body {
+            background: #fff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        body * { visibility: hidden !important; }
+        .batch-sheet, .batch-sheet * { visibility: visible !important; }
+        .batch-sheet {
+            position: fixed;
+            left: 10.65mm;
+            top: 0;
+            width: 275.7mm;
+            height: 210mm;
+            margin: 0;
+        }
+        .batch-card, .batch-card img {
+            width: 100%;
+            height: 100%;
+        }
+        .batch-card img {
+            object-fit: fill;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block portal_content %}
+<section class="batch-toolbar">
+    <h1>Batch Number Card</h1>
+    <p>
+        The card prints the organization name, the owner name, the date, and the terminal number.
+        The first box is the last digit of the year, then the month and day.
+        The two boxes between the X marks get the period of the year (20 for the 2020s).
+        Print is landscape on A4.
+    </p>
+    <div class="batch-fields">
+        <label>
+            Organization
+            {% if organizations|length > 1 %}
+            <select id="batchOrg">
+                {% for org in organizations %}
+                <option value="{{ org.id }}" data-name="{{ org.name }}" data-owner="{{ org.business_owner_name }}" {% if org.id == organization.id %}selected{% endif %}>{{ org.name }}</option>
+                {% endfor %}
+            </select>
+            {% endif %}
+            <input id="batchOrgName" type="text" maxlength="80" value="{{ organization.name }}" autocomplete="organization">
+        </label>
+        <label>
+            Owner name
+            <input id="batchOwnerInput" type="text" maxlength="80" value="{{ organization.business_owner_name }}" autocomplete="name">
+        </label>
+        <label>
+            Terminal number
+            <input id="batchTerminal" type="text" inputmode="numeric" maxlength="3" placeholder="000" autocomplete="off">
+        </label>
+        <label>
+            Date
+            <input id="batchDate" type="date" value="{{ today }}" required>
+        </label>
+    </div>
+    <div class="batch-actions">
+        <button type="button" class="btn btn-primary" id="batchPrint">Print landscape</button>
+        <a class="btn btn-secondary" href="{% url 'dashboard' %}">Back to dashboard</a>
+    </div>
+</section>
+
+<div class="batch-sheet">
+    <div class="batch-card">
+        <img src="{% static 'core/img/batch-card-terminal.jpg' %}" alt="New York batch number card, terminal">
+        <span class="batch-digit" id="digitYear" style="left:23.344%"></span>
+        <span class="batch-digit" id="digitMonth0" style="left:27.867%"></span>
+        <span class="batch-digit" id="digitMonth1" style="left:32.375%"></span>
+        <span class="batch-digit" id="digitDay0" style="left:36.898%"></span>
+        <span class="batch-digit" id="digitDay1" style="left:41.421%"></span>
+        <span class="batch-digit" id="digitPeriod0" style="left:50.459%"></span>
+        <span class="batch-digit" id="digitPeriod1" style="left:54.981%"></span>
+        <span class="batch-digit" id="digitTerm0" style="left:63.997%"></span>
+        <span class="batch-digit" id="digitTerm1" style="left:68.520%"></span>
+        <span class="batch-digit" id="digitTerm2" style="left:73.510%"></span>
+        <div class="batch-line batch-partner" id="linePartner"></div>
+        <div class="batch-line batch-owner" id="lineOwner"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block portal_scripts %}
+<script>
+(function () {
+    var orgSelect = document.getElementById("batchOrg");
+    var orgName = document.getElementById("batchOrgName");
+    var ownerInput = document.getElementById("batchOwnerInput");
+    var terminalInput = document.getElementById("batchTerminal");
+    var dateInput = document.getElementById("batchDate");
+
+    function setText(id, value) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = value || "";
+    }
+
+    function organizationName() {
+        return orgName ? orgName.value : "";
+    }
+
+    function paint() {
+        var raw = dateInput.value || "";
+        var parts = raw.split("-");
+        var year = parts.length === 3 ? parseInt(parts[0], 10) : NaN;
+        var month = parts.length === 3 ? parts[1] : "";
+        var day = parts.length === 3 ? parts[2] : "";
+        if (!year || month.length !== 2 || day.length !== 2) {
+            ["digitYear", "digitMonth0", "digitMonth1", "digitDay0", "digitDay1", "digitPeriod0", "digitPeriod1"].forEach(function (id) {
+                setText(id, "");
+            });
+        } else {
+            var period = String(Math.floor(year / 100)).padStart(2, "0");
+            setText("digitYear", String(year % 10));
+            setText("digitMonth0", month.charAt(0));
+            setText("digitMonth1", month.charAt(1));
+            setText("digitDay0", day.charAt(0));
+            setText("digitDay1", day.charAt(1));
+            setText("digitPeriod0", period.charAt(0));
+            setText("digitPeriod1", period.charAt(1));
+        }
+        var terminal = (terminalInput.value || "").replace(/\D/g, "").slice(0, 3);
+        if (terminalInput.value !== terminal) terminalInput.value = terminal;
+        setText("digitTerm0", terminal.charAt(0) || "");
+        setText("digitTerm1", terminal.charAt(1) || "");
+        setText("digitTerm2", terminal.charAt(2) || "");
+        setText("linePartner", organizationName());
+        setText("lineOwner", ownerInput.value || "");
+        fitLine(document.getElementById("linePartner"));
+        fitLine(document.getElementById("lineOwner"));
+    }
+
+    function fitLine(el) {
+        if (!el) return;
+        el.style.fontSize = "";
+        var size = parseFloat(window.getComputedStyle(el).fontSize);
+        var guard = 0;
+        while (el.scrollWidth > el.clientWidth + 1 && size > 9 && guard < 16) {
+            size *= 0.92;
+            el.style.fontSize = size + "px";
+            guard += 1;
+        }
+    }
+
+    if (orgSelect) {
+        orgSelect.addEventListener("change", function () {
+            var option = orgSelect.options[orgSelect.selectedIndex];
+            if (orgName) orgName.value = option ? (option.getAttribute("data-name") || "") : "";
+            ownerInput.value = option ? (option.getAttribute("data-owner") || "") : "";
+            paint();
+        });
+    }
+    [orgName, ownerInput, terminalInput, dateInput].forEach(function (el) {
+        el.addEventListener("input", paint);
+        el.addEventListener("change", paint);
+    });
+    document.getElementById("batchPrint").addEventListener("click", function () {
+        paint();
+        window.print();
+    });
+    paint();
+})();
+</script>
+{% endblock %}

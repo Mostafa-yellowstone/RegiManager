@@ -72,6 +72,7 @@ from core.insurance_policy_views import (
     toggle_insurance_installment_paid,
     upload_insurance_policy_document,
 )
+from core.batch_card import batch_number_card
 from core.views import (
     dashboard,
     home,
@@ -507,6 +508,7 @@ urlpatterns = [
     path("auth/logout/", logout_view, name="logout"),
     path("auth/member-signup/", member_signup, name="member-signup"),
     path("dashboard/", dashboard, name="dashboard"),
+    path("dashboard/batch-card/", batch_number_card, name="batch-number-card"),
     path("dashboard/agent-portal/", agent_portal_home, name="agent-portal-home"),
     path("dashboard/agent-portal/photo/", agent_portal_upload_photo, name="agent-portal-upload-photo"),
     path("dashboard/agent-portal/tasks/", agent_portal_tasks_board, name="agent-portal-tasks-board"),

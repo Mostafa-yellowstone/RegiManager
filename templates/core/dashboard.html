@@ -579,6 +579,23 @@
         </section>
         {% endif %}
 
+        <section class="dashboard-ny-fee-tools" aria-label="Batch number card">
+            <div class="dashboard-ny-fee-tools__head">
+                <h2 class="dashboard-ny-fee-tools__title">Yellow Batch Card</h2>
+                <span class="dashboard-ny-fee-tools__meta">MV-107 terminal card — prints landscape on A4</span>
+            </div>
+            <div class="dashboard-ny-fee-tools__grid">
+                <a href="{% url 'batch-number-card' %}" class="dashboard-ny-fee-tool-btn dashboard-ny-fee-tool-btn--dmv">
+                    <span class="dashboard-ny-fee-tool-btn__icon" aria-hidden="true">BC</span>
+                    <span class="dashboard-ny-fee-tool-btn__body">
+                        <span class="dashboard-ny-fee-tool-btn__label">Batch Number Card</span>
+                        <span class="dashboard-ny-fee-tool-btn__hint">Fill the organization, owner, date, and terminal number, then print.</span>
+                    </span>
+                    <span class="dashboard-ny-fee-tool-btn__cta">Open</span>
+                </a>
+            </div>
+        </section>
+
         {% if user_can_trigger_automation and automation_enabled %}
         <section class="dashboard-panels" id="automation" style="scroll-margin-top: 100px;">
             <article class="dashboard-panel portal-automation-panel">
