@@ -450,7 +450,7 @@ html.portal-theme-dark .tlc-report-table tr:nth-child(even) td {
       </div>
       {% endif %}
       <table class="tlc-table"><thead><tr><th>#</th><th>Due</th><th>Label</th><th>Gross</th><th>Premium</th><th>Inst. Fee</th><th>Commission</th><th>Paid</th><th>Payment Date</th>{% if can_manage_tlc %}<th></th>{% endif %}</tr></thead>
-      <tbody>{% for i in installments %}<tr><td>{{ i.display_number }}</td><td>{{ i.due_date|date:"M j, Y" }}</td><td>{{ i.notes|default:"—" }}</td><td>${{ i.total_due }}</td><td>${{ i.amount }}</td><td>${{ i.installment_fee }}</td><td><strong>${{ i.commission_amount }}</strong><div style="font-size:0.72rem;color:var(--portal-text-muted);">{{ policy.commission_rate|default:"0" }}% of premium</div></td><td>{% if i.is_paid %}✅{% else %}❌{% endif %}</td><td>{{ i.payment_date|date:"M j, Y"|default:"—" }}</td>{% if can_manage_tlc %}<td style="white-space:nowrap;">{% if not i.is_paid %}<button type="button" class="btn btn-primary btn-sm" onclick='tlcOpenPay({target:"installment",id:{{ i.id }},amount:"{{ i.total_due }}",commission:"{{ i.commission_amount }}",premium:"{{ i.amount }}",rate:"{{ policy.commission_rate|default:"0" }}",label:"{% if i.is_deposit %}Deposit{% else %}Installment #{{ i.display_number }}{% endif %}{% if i.notes %} — {{ i.notes|escapejs }}{% endif %}"})'>Collect Payment</button> {% endif %}<button type="button" class="btn btn-secondary btn-sm" onclick='tlcOpenEdit("instModal","{% url "edit-tlc-installment" i.id %}",{installment_number:"{{ i.installment_number }}",due_date:"{{ i.due_date|date:"Y-m-d" }}",gross_amount:"{{ i.total_due }}",installment_fee:"{{ i.installment_fee }}",late_fee:"{{ i.late_fee }}",nsf_fee:"{{ i.nsf_fee }}",balance:"{{ i.balance }}",commission_amount:"{{ i.commission_amount }}",notes:"{{ i.notes|default:""|escapejs }}",was_reinstated:{% if i.was_reinstated %}true{% else %}false{% endif %}}); tlcRefreshInstCommission();'>Edit</button></td>{% endif %}</tr>{% empty %}<tr><td colspan="{% if can_manage_tlc %}10{% else %}9{% endif %}">No installments — set premium breakdown and click Regenerate Schedule.</td></tr>{% endfor %}</tbody></table>
+      <tbody>{% for i in installments %}<tr><td>{{ i.display_number }}</td><td>{{ i.due_date|date:"M j, Y" }}</td><td>{{ i.notes|default:"—" }}</td><td>${{ i.total_due }}</td><td>${{ i.amount }}</td><td>${{ i.installment_fee }}</td><td><strong>${{ i.commission_amount }}</strong><div style="font-size:0.72rem;color:var(--portal-text-muted);">{{ policy.commission_rate|default:"0" }}% of premium</div></td><td>{% if i.is_paid %}✅{% else %}❌{% endif %}</td><td>{{ i.payment_date|date:"M j, Y"|default:"—" }}</td>{% if can_manage_tlc %}<td style="white-space:nowrap;">{% if not i.is_paid %}<button type="button" class="btn btn-primary btn-sm" onclick='tlcOpenPay({target:"installment",id:{{ i.id }},amount:"{{ i.net_premium_due }}",gross:"{{ i.total_due }}",commission:"{{ i.commission_amount }}",premium:"{{ i.amount }}",rate:"{{ policy.commission_rate|default:"0" }}",label:"{% if i.is_deposit %}Deposit{% else %}Installment #{{ i.display_number }}{% endif %}{% if i.notes %} — {{ i.notes|escapejs }}{% endif %}"})'>Collect Payment</button> {% endif %}<button type="button" class="btn btn-secondary btn-sm" onclick='tlcOpenEdit("instModal","{% url "edit-tlc-installment" i.id %}",{installment_number:"{{ i.installment_number }}",due_date:"{{ i.due_date|date:"Y-m-d" }}",gross_amount:"{{ i.total_due }}",installment_fee:"{{ i.installment_fee }}",late_fee:"{{ i.late_fee }}",nsf_fee:"{{ i.nsf_fee }}",balance:"{{ i.balance }}",commission_amount:"{{ i.commission_amount }}",notes:"{{ i.notes|default:""|escapejs }}",was_reinstated:{% if i.was_reinstated %}true{% else %}false{% endif %}}); tlcRefreshInstCommission();'>Edit</button></td>{% endif %}</tr>{% empty %}<tr><td colspan="{% if can_manage_tlc %}10{% else %}9{% endif %}">No installments — set premium breakdown and click Regenerate Schedule.</td></tr>{% endfor %}</tbody></table>
     </div>
 
     <div id="tlc-panel-reinstatements" class="tlc-tab-panel {% if active_tab == 'reinstatements' %}active{% endif %}">
@@ -775,10 +775,11 @@ html.portal-theme-dark .tlc-report-table tr:nth-child(even) td {
 <div class="grid-2">
   <div><label>Payment Date</label><input name="payment_date" id="payDate" type="date" class="field-input" required></div>
   <div><label>Payment Time</label><input name="payment_time" id="payTime" type="time" class="field-input"></div>
+  <div><label>Gross Premium</label><input id="payGross" type="text" class="field-input" readonly style="background:#f8fafc;" value="—"></div>
+  <div><label>Commission Earned</label><input id="payCommission" type="text" class="field-input" readonly style="background:#ecfdf5;font-weight:800;color:#047857;" value="—"></div>
+  <div><label>Net Premium (to pay)</label><input id="payPremium" type="text" class="field-input" readonly style="background:#f8fafc;font-weight:800;" value="—"></div>
   <div><label>Amount Due</label><input id="payAmountDue" type="number" step="0.01" class="field-input" readonly style="background:#f8fafc;"></div>
   <div><label>Amount Received (split total)</label><input id="payAmountReceived" type="text" class="field-input" readonly style="background:#f8fafc;font-weight:800;" value="$0.00"></div>
-  <div><label>Net Premium</label><input id="payPremium" type="text" class="field-input" readonly style="background:#f8fafc;" value="—"></div>
-  <div><label>Commission Earned</label><input id="payCommission" type="text" class="field-input" readonly style="background:#ecfdf5;font-weight:800;color:#047857;" value="—"></div>
 </div>
 <p id="payCommissionHint" style="font-size:0.8rem;color:var(--portal-text-muted);margin:0.5rem 0 0;"></p>
 <div style="margin-top:1rem;display:flex;justify-content:space-between;align-items:center;gap:0.75rem;">
@@ -939,26 +940,29 @@ function tlcOpenPay(opts) {
   if (opts.target === 'reinstatement') document.getElementById('payReinstatementId').value = opts.id;
   if (opts.target === 'endorsement') document.getElementById('payEndorsementId').value = opts.id;
   if (opts.target === 'dmv') document.getElementById('payDmvId').value = opts.id;
-  tlcPayDue = parseFloat(opts.amount || 0) || 0;
-  document.getElementById('payAmountDue').value = tlcPayDue.toFixed(2);
   document.getElementById('payModalLabel').textContent = opts.label || 'Customer payment';
   document.getElementById('payDate').value = tlcTodayISO();
   document.getElementById('payTime').value = tlcNowTime();
   const premEl = document.getElementById('payPremium');
   const commEl = document.getElementById('payCommission');
+  const grossEl = document.getElementById('payGross');
   const hintEl = document.getElementById('payCommissionHint');
   if (opts.target === 'installment') {
-    const premium = parseFloat(opts.premium || 0) || 0;
+    const gross = parseFloat(opts.gross || opts.amount || 0) || 0;
     const commission = parseFloat(opts.commission || 0) || 0;
-    const rate = parseFloat(opts.rate || 0) || 0;
-    if (premEl) premEl.value = '$' + premium.toFixed(2);
+    tlcPayDue = Math.max(Math.round((gross - commission) * 100) / 100, 0);
+    if (grossEl) grossEl.value = '$' + gross.toFixed(2);
     if (commEl) commEl.value = '$' + commission.toFixed(2);
-    if (hintEl) hintEl.textContent = 'Commission earned on this payment: $' + commission.toFixed(2) + ' (' + rate.toFixed(2) + '% × net premium $' + premium.toFixed(2) + ').';
+    if (premEl) premEl.value = '$' + tlcPayDue.toFixed(2);
+    if (hintEl) hintEl.textContent = 'Net premium to pay = gross premium $' + gross.toFixed(2) + ' − commission earned $' + commission.toFixed(2) + '.';
   } else {
+    tlcPayDue = parseFloat(opts.amount || 0) || 0;
+    if (grossEl) grossEl.value = '—';
     if (premEl) premEl.value = '—';
     if (commEl) commEl.value = '—';
     if (hintEl) hintEl.textContent = '';
   }
+  document.getElementById('payAmountDue').value = tlcPayDue.toFixed(2);
   const rows = document.getElementById('paySplitRows');
   rows.innerHTML = '';
   tlcAddPayRow(tlcPayDue);

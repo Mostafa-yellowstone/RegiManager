@@ -90,6 +90,32 @@ class TLCPaymentReceiptTests(TestCase):
         self.assertTrue(receipt.receipt_number.startswith("XIS-"))
         self.assertTrue(receipt.pdf_file)
         self.assertEqual(receipt.snapshot_json["payment"]["amount_received"], "403.46")
+        self.assertEqual(txn.amount_due, Decimal("403.46"))
+
+    def test_collect_payment_due_is_gross_minus_commission(self):
+        self.installment.commission_amount = Decimal("40.00")
+        self.installment.save(update_fields=["commission_amount"])
+        self.assertEqual(self.installment.total_due, Decimal("403.46"))
+        self.assertEqual(self.installment.net_premium_due, Decimal("363.46"))
+
+        txn, _receipt = record_tlc_payment(
+            self.policy,
+            user=self.owner,
+            payment_date=self.installment.due_date,
+            installment_id=self.installment.id,
+            splits=[
+                {
+                    "payment_method": "cash",
+                    "amount": Decimal("363.46"),
+                    "reference_number": "",
+                    "approval_number": "",
+                    "last_four": "",
+                    "notes": "",
+                    "sort_order": 0,
+                }
+            ],
+        )
+        self.assertEqual(txn.amount_due, Decimal("363.46"))
 
     def test_collect_payment_view_creates_invoice(self):
         response = self.client.post(

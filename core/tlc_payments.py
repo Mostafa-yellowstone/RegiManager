@@ -149,7 +149,7 @@ def resolve_payment_target(
             label = f"{label} — {installment.notes}"
         return (
             txn_type,
-            installment.total_due,
+            installment.net_premium_due,
             label,
             links,
         )

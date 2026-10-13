@@ -253,6 +253,12 @@ class TLCInstallment(models.Model):
         )
 
     @property
+    def net_premium_due(self) -> Decimal:
+        """Net premium that has to be paid: gross premium minus commission earned."""
+        due = (self.total_due - (self.commission_amount or Decimal("0.00"))).quantize(Decimal("0.01"))
+        return due if due > Decimal("0.00") else Decimal("0.00")
+
+    @property
     def is_deposit(self) -> bool:
         """Down payment / deposit rows are unnumbered; bills start at 1 after them."""
         if self.installment_number == 0:
