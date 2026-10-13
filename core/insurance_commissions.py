@@ -1,5 +1,6 @@
 """Shared insurance commission calculations for CRM views."""
 
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
 from .models import InsurancePolicy
@@ -12,11 +13,24 @@ UNEARNED_REFUND_CATEGORIES = frozenset({
 COMMISSION_PAYMENT_CATEGORY = "Commission Payment"
 
 
+def _as_money(value):
+    """Blank commission and fee fields are zero, not a crash."""
+    if value is None:
+        return Decimal("0.00")
+    return Decimal(str(value))
+
+
+def inactive_policy_sort_key(policy):
+    """Order cancelled policies without comparing a blank date to a real one."""
+    when = policy.inactive_date or policy.start_date
+    return (when is None, when or date.min, policy.id)
+
+
 def refund_total(transactions):
     """Sum of refund-category transactions that reduce unearned commission."""
     return sum(
-        t.amount for t in transactions
-        if t.category in UNEARNED_REFUND_CATEGORIES
+        (_as_money(t.amount) for t in transactions if t.category in UNEARNED_REFUND_CATEGORIES),
+        Decimal("0.00"),
     )
 
 
@@ -31,15 +45,23 @@ def received_commission_total(transactions):
 def received_commission_from_policies(policies):
     """Sum commission_amount for policies explicitly marked as received."""
     return sum(
-        p.commission_amount for p in policies
-        if getattr(p, "commission_received", False)
+        (
+            _as_money(p.commission_amount)
+            for p in policies
+            if getattr(p, "commission_received", False)
+        ),
+        Decimal("0.00"),
     )
 
 
 def gross_earned_from_policies(policies):
     return sum(
-        p.commission_amount for p in policies
-        if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "active"
+        (
+            _as_money(p.commission_amount)
+            for p in policies
+            if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "active"
+        ),
+        Decimal("0.00"),
     )
 
 
@@ -130,7 +152,7 @@ def company_commission_summary(company_policies, company_transactions):
         p for p in company_policies
         if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "inactive"
     ]
-    inactive.sort(key=lambda p: (p.inactive_date or p.start_date, p.id))
+    inactive.sort(key=inactive_policy_sort_key)
     refund_amt = refund_total(company_transactions)
     adjusted_map = build_adjusted_unearned_map(inactive, refund_amt)
     unearned = sum(

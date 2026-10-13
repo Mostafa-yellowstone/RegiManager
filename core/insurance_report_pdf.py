@@ -28,7 +28,12 @@ from reportlab.platypus import (
 )
 
 from .daily_payments import PAYMENT_METHOD_META, summarize_daily_payments
-from .insurance_commissions import build_adjusted_unearned_map, policy_unearned_commission, refund_total
+from .insurance_commissions import (
+    build_adjusted_unearned_map,
+    inactive_policy_sort_key,
+    policy_unearned_commission,
+    refund_total,
+)
 from .insurance_policy_schedule import summarize_insurance_schedule
 from .insurance_company_license import company_license_status
 from .insurance_ledger_pdf import agency_branding
@@ -1182,7 +1187,7 @@ def render_unearned_pdf(org, *, start=None, end=None, prepared_by="Staff") -> by
     total_adj = ZERO
     for company in companies:
         company_pols = [p for p in policies if p.insurance_company_id == company.id]
-        company_pols.sort(key=lambda p: (p.inactive_date or p.start_date, p.id))
+        company_pols.sort(key=inactive_policy_sort_key)
         company_refunded = refund_total([t for t in refunds if t.insurance_company_id == company.id])
         adjusted = build_adjusted_unearned_map(company_pols, company_refunded)
         for p in company_pols:

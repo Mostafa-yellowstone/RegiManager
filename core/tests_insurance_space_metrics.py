@@ -6,7 +6,7 @@ from django.test import Client as DjangoClient, TestCase, override_settings
 from django.urls import reverse
 
 from core.insurance_space_metrics import period_stats
-from core.models import Client, InsurancePolicy, Organization, OrganizationMembership, Space
+from core.models import Client, InsuranceCompany, InsurancePolicy, Organization, OrganizationMembership, Space
 from core.role_permissions import apply_role_permission_pack
 
 
@@ -109,3 +109,36 @@ class InsuranceBookPremiumCardsTests(TestCase):
         self.assertContains(response, "$1250.50")
         self.assertContains(response, "$800.00")
         self.assertContains(response, "$400.00")
+
+    def test_blank_commission_still_opens_the_insurance_space(self):
+        org = Organization.objects.create(name="Blank Commission Org", city="NYC")
+        space = Space.objects.create(organization=org, label="Insurance", key="insurance")
+        user = User.objects.create_user(username="blankowner", password="password123")
+        membership = OrganizationMembership.objects.create(
+            user=user,
+            organization=org,
+            role=OrganizationMembership.Role.OWNER,
+            is_active=True,
+        )
+        apply_role_permission_pack(membership)
+        membership.accessible_spaces.add(space)
+        client = Client.objects.create(organization=org, first_name="Blank", last_name="Commission")
+        company = InsuranceCompany.objects.create(organization=org, name="Carrier")
+        policy = InsurancePolicy.objects.create(
+            organization=org,
+            client=client,
+            insurance_company=company,
+            policy_number="BLANK-COMM",
+            premium=Decimal("900.00"),
+            stage="bound",
+            status="active",
+            bound_date=date(2026, 10, 10),
+            start_date=date(2026, 10, 10),
+            end_date=date(2027, 4, 10),
+        )
+        self.assertIsNone(policy.commission_amount)
+
+        http = DjangoClient()
+        http.login(username="blankowner", password="password123")
+        response = http.get(reverse("inventory-detail", args=[space.id]))
+        self.assertEqual(response.status_code, 200)

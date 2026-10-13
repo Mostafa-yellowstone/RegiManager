@@ -10,6 +10,7 @@ from django.db.models import Count, Prefetch, Q, Sum
 from .insurance_commissions import (
     build_adjusted_unearned_map,
     company_commission_summary,
+    inactive_policy_sort_key,
     policy_unearned_commission,
     refund_total,
 )
@@ -179,7 +180,7 @@ def build_adjusted_unearned_for_org(insurance_companies, inactive_policies_qs):
     for company in insurance_companies:
         company_transactions = list(company.transactions.all())
         comp_inactive = inactive_by_company.get(company.id, [])
-        comp_inactive.sort(key=lambda p: (p.inactive_date or p.start_date, p.id))
+        comp_inactive.sort(key=inactive_policy_sort_key)
         company_refunded = refund_total(company_transactions)
         company_adjusted = build_adjusted_unearned_map(comp_inactive, company_refunded)
         adjusted_unearned_map.update(company_adjusted)
