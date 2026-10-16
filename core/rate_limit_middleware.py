@@ -26,7 +26,8 @@ RATE_LIMIT_RULES = (
     ("public_sign", re.compile(r"^/sign/"), None, 30, 60, False),
     ("public_intake", re.compile(r"^/intake/"), None, 30, 60, False),
     ("export", re.compile(r"(\.pdf$|/pdf/?$|/export|/print|report)", re.IGNORECASE), {"GET"}, 40, 60, True),
-    ("upload", re.compile(r"(upload|import|ocr)", re.IGNORECASE), {"POST"}, 30, 60, True),
+    ("import", re.compile(r"(import|ocr)", re.IGNORECASE), {"POST"}, 30, 60, True),
+    ("upload", re.compile(r"(upload|/document)", re.IGNORECASE), {"POST"}, 200, 60, True),
     ("write", re.compile(r"."), {"POST", "PUT", "PATCH", "DELETE"}, 120, 60, True),
     ("global", re.compile(r"."), None, 600, 60, True),
 )

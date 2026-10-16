@@ -276,19 +276,7 @@ function proceedWithUpload(file, docType, dropzoneElement) {
     dropzoneElement.classList.add('uploading');
     if (statusDiv) statusDiv.textContent = 'Uploading... 0%';
 
-    // Use XHR so we can track upload progress and get proper HTTP status codes
-    const xhr = new XMLHttpRequest();
-
-    // --- Progress tracking ---
-    xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable && statusDiv) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            statusDiv.textContent = `Uploading... ${pct}%`;
-        }
-    });
-
-    // --- Upload complete ---
-    xhr.addEventListener('load', () => {
+    const onLoad = (xhr) => {
         dropzoneElement.classList.remove('uploading');
         if (xhr.status === 413) {
             // Nginx / server rejected upload as too large
@@ -319,9 +307,8 @@ function proceedWithUpload(file, docType, dropzoneElement) {
             dropzoneElement.classList.add('shake');
             setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
         }
-    });
+    };
 
-    // --- Network / timeout error ---
     const onError = () => {
         dropzoneElement.classList.remove('uploading');
         dropzoneElement.classList.add('error');
@@ -329,18 +316,59 @@ function proceedWithUpload(file, docType, dropzoneElement) {
         dropzoneElement.classList.add('shake');
         setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
     };
-    xhr.addEventListener('error', onError);
-    xhr.addEventListener('timeout', () => {
-        dropzoneElement.classList.remove('uploading');
-        dropzoneElement.classList.add('error');
-        if (statusDiv) statusDiv.textContent = 'Upload timed out \u2014 try a smaller file';
-        dropzoneElement.classList.add('shake');
-        setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
-    });
 
-    xhr.open('POST', uploadUrl);
+    uploadWithRetry(uploadUrl, formData, {
+        progress: (e) => {
+            if (e.lengthComputable && statusDiv) {
+                const pct = Math.round((e.loaded / e.total) * 100);
+                statusDiv.textContent = `Uploading... ${pct}%`;
+            }
+        },
+        waiting: (seconds) => {
+            if (statusDiv) statusDiv.textContent = `Queued \u2014 continuing in ${seconds}s...`;
+        },
+        load: onLoad,
+        error: onError,
+        timeout: () => {
+            dropzoneElement.classList.remove('uploading');
+            dropzoneElement.classList.add('error');
+            if (statusDiv) statusDiv.textContent = 'Upload timed out \u2014 try a smaller file';
+            dropzoneElement.classList.add('shake');
+            setTimeout(() => dropzoneElement.classList.remove('shake'), 500);
+        },
+    });
+}
+
+const UPLOAD_MAX_RATE_LIMIT_RETRIES = 5;
+
+// The server answers 429 when a user uploads faster than the per-minute limit; wait out Retry-After and resend.
+function uploadWithRetry(url, formData, handlers, attempt = 0) {
+    const xhr = new XMLHttpRequest();
+    if (handlers.progress) xhr.upload.addEventListener('progress', handlers.progress);
+    xhr.addEventListener('load', () => {
+        if (xhr.status === 429 && attempt < UPLOAD_MAX_RATE_LIMIT_RETRIES) {
+            const retryAfter = parseInt(xhr.getResponseHeader('Retry-After'), 10);
+            let remaining = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 120) : 15;
+            if (handlers.waiting) handlers.waiting(remaining);
+            const timer = setInterval(() => {
+                remaining -= 1;
+                if (remaining > 0) {
+                    if (handlers.waiting) handlers.waiting(remaining);
+                    return;
+                }
+                clearInterval(timer);
+                uploadWithRetry(url, formData, handlers, attempt + 1);
+            }, 1000);
+            return;
+        }
+        handlers.load(xhr);
+    });
+    xhr.addEventListener('error', handlers.error);
+    xhr.addEventListener('timeout', handlers.timeout || handlers.error);
+    xhr.open('POST', url);
     xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
-    xhr.timeout = 120000; // 2-minute timeout
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.timeout = 120000;
     xhr.send(formData);
 }
 
@@ -538,19 +566,7 @@ function submitCustomUpload(e) {
     formData.append('document_type', 'other');
     formData.append('custom_name', customName);
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', uploadUrl);
-    xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
-    xhr.timeout = 120000;
-
-    xhr.upload.addEventListener('progress', (ev) => {
-        if (ev.lengthComputable) {
-            const pct = Math.round((ev.loaded / ev.total) * 100);
-            btn.textContent = `Uploading... ${pct}%`;
-        }
-    });
-
-    xhr.addEventListener('load', () => {
+    const onLoad = (xhr) => {
         try {
             const data = JSON.parse(xhr.responseText);
             if (data.status === 'success') {
@@ -583,20 +599,30 @@ function submitCustomUpload(e) {
             btn.disabled = false;
             btn.textContent = 'Upload Document';
         }
-    });
+    };
 
-    xhr.addEventListener('error', () => {
-        alert('Upload failed — check your connection.');
-        btn.disabled = false;
-        btn.textContent = 'Upload Document';
+    uploadWithRetry(uploadUrl, formData, {
+        progress: (ev) => {
+            if (ev.lengthComputable) {
+                const pct = Math.round((ev.loaded / ev.total) * 100);
+                btn.textContent = `Uploading... ${pct}%`;
+            }
+        },
+        waiting: (seconds) => {
+            btn.textContent = `Queued — continuing in ${seconds}s...`;
+        },
+        load: onLoad,
+        error: () => {
+            alert('Upload failed — check your connection.');
+            btn.disabled = false;
+            btn.textContent = 'Upload Document';
+        },
+        timeout: () => {
+            alert('Upload timed out — try a smaller file.');
+            btn.disabled = false;
+            btn.textContent = 'Upload Document';
+        },
     });
-    xhr.addEventListener('timeout', () => {
-        alert('Upload timed out — try a smaller file.');
-        btn.disabled = false;
-        btn.textContent = 'Upload Document';
-    });
-
-    xhr.send(formData);
 }
 
 // Close custom modal on overlay click

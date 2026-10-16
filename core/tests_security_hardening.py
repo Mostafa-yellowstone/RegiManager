@@ -11,6 +11,7 @@ from rest_framework.test import APIClient
 
 from core.models import Client, Organization, OrganizationMembership, ServiceRecord, Vehicle
 from core.policies import redirect_back
+from core.rate_limit_middleware import RateLimitMiddleware, _limited_response
 from core.ratelimit import client_ip
 
 LOCMEM = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "security-tests"}}
@@ -99,6 +100,28 @@ class RateLimitAndLockoutTests(TestCase):
         self.user.is_active = False
         self.user.save()
         self.assertFalse(Token.objects.filter(user=self.user).exists())
+
+    def _upload_request(self, path):
+        request = RequestFactory().post(path, REMOTE_ADDR=PUBLIC_IP)
+        request.user = self.user
+        return request
+
+    def test_bulk_document_uploads_are_not_capped_at_thirty(self):
+        path = "/dashboard/service/1/upload/"
+        allowed = [RateLimitMiddleware._allowed(self._upload_request(path), path) for _ in range(60)]
+        self.assertTrue(all(allowed))
+
+    def test_imports_keep_a_tighter_limit_than_document_uploads(self):
+        path = "/dashboard/spaces/tlc/1/policy/import-bob/"
+        allowed = [RateLimitMiddleware._allowed(self._upload_request(path), path) for _ in range(31)]
+        self.assertTrue(all(allowed[:30]))
+        self.assertFalse(allowed[30])
+
+    def test_rate_limited_upload_tells_the_browser_when_to_retry(self):
+        request = RequestFactory().post("/dashboard/service/1/upload/", HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+        response = _limited_response(request)
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response["Retry-After"], "60")
 
 
 @override_settings(SECURE_SSL_REDIRECT=False, SESSION_COOKIE_SECURE=False, CSRF_COOKIE_SECURE=False, CACHES=LOCMEM)
