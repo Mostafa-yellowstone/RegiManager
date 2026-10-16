@@ -5,9 +5,25 @@ from django.db.models import Q
 from .models import OrganizationMembership
 
 
+def nav_cache_key(user_id, active_org_id):
+    return f"nav_ctx:{user_id}:{active_org_id}"
+
+
+def invalidate_nav_cache(user_id, org_ids=()):
+    """Drop cached nav/permission context so role or access changes show on the next page."""
+    keys = [nav_cache_key(user_id, None)] + [nav_cache_key(user_id, oid) for oid in org_ids]
+    try:
+        cache.delete_many(keys)
+    except Exception:
+        pass
+
+
 def _membership_context(request):
-    cache_key = f"nav_ctx:{request.user.pk}:{request.session.get('active_org_id')}"
-    cached = cache.get(cache_key)
+    cache_key = nav_cache_key(request.user.pk, request.session.get("active_org_id"))
+    try:
+        cached = cache.get(cache_key)
+    except Exception:
+        cached = None
     if cached is not None:
         return cached
 
@@ -79,7 +95,10 @@ def _membership_context(request):
         "user_organizations": user_organizations,
         "active_organization": active_organization,
     }
-    cache.set(cache_key, result, timeout=60)
+    try:
+        cache.set(cache_key, result, timeout=60)
+    except Exception:
+        pass
     return result
 
 

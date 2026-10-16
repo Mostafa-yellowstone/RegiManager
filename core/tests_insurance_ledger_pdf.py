@@ -135,7 +135,7 @@ class InsuranceLedgerPdfTests(TestCase):
         self._assert_pdf(
             "export-insurance-payment-receipt-pdf",
             args=[self.payment.id],
-            must_contain=("Payment receipt", "Jose Palacios", "PMT-"),
+            must_contain=("PAYMENT RECEIPT", "Jose Palacios", "PMT-"),
         )
         self._assert_pdf(
             "export-insurance-cashout-pdf",

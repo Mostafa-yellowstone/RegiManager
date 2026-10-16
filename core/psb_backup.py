@@ -231,7 +231,6 @@ def _register():
         org_fk("core.insurancecompany"),
         via_ins_company("core.insurancecompanydocument"),
         org_fk("core.insurancepolicy"),
-        org_fk("core.insuranceintake"),
         org_fk("core.dailypaymenttransaction"),
         org_fk("core.bankaccount"),
         via_bank("core.banktransaction"),

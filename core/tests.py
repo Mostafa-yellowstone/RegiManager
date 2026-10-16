@@ -190,7 +190,7 @@ class InsuranceSpaceTests(TestCase):
             bound_date=today,
         )
 
-        response = self.client.get(reverse("insurance-agent-detail", args=[self.user.id]) + "?period=today")
+        response = self.client.get(reverse("insurance-agent-detail", args=[self.user.id]) + "?period=today&crm=1")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["bound_count"], 1)
         self.assertEqual(response.context["total_premium"], Decimal("100.00"))
@@ -2375,6 +2375,7 @@ class AgentServiceAuditTests(TestCase):
         response = self.http.get(
             reverse("agent-audit", args=[self.agent_membership.id]),
             {"period": "today"},
+            follow=True,
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["total_records"], 1)
@@ -3364,7 +3365,7 @@ class ReferralFeeProfitTests(TestCase):
         response = agent_client.get(reverse("referral-profile", args=[self.partner.id]))
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'name="update_referral_fee"')
-        self.assertContains(response, "Only PSB owners can edit referral fees.")
+        self.assertContains(response, "Only PSB owners and managers can edit referral fees.")
 
         response = agent_client.post(
             reverse("referral-profile", args=[self.partner.id]),

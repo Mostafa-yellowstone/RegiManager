@@ -21,11 +21,18 @@ from .models import OrganizationMembership, Space
 from .policies import redirect_back
 
 
+MAX_TARGET_AMOUNT = Decimal("999999999999.99")
+MAX_MARKET_PREMIUM = Decimal("9999999999.99")
+
+
 def _parse_money(raw, default="0"):
     try:
-        return Decimal(str(raw or default).replace(",", "").strip() or default)
+        value = Decimal(str(raw or default).replace(",", "").replace("$", "").strip() or default)
     except (InvalidOperation, TypeError, ValueError):
-        return Decimal(default)
+        value = Decimal(default)
+    if not value.is_finite():
+        value = Decimal(default)
+    return min(max(value, Decimal("0")), MAX_TARGET_AMOUNT).quantize(Decimal("0.01"))
 
 
 def _can_edit_targets(membership, is_owner: bool) -> bool:
@@ -41,12 +48,15 @@ def _can_edit_targets(membership, is_owner: bool) -> bool:
 
 def _resolve_insurance_org(request):
     organizations = organizations_for_user(request)
-    org_id = request.POST.get("organization_id") or request.session.get("active_org_id")
-    org = None
-    if org_id and str(org_id).isdigit():
-        org = organizations.filter(id=int(org_id)).first()
-    if org is None:
-        org = organizations.first()
+    posted_id = (request.POST.get("organization_id") or "").strip()
+    if posted_id:
+        org = organizations.filter(id=int(posted_id)).first() if posted_id.isdigit() else None
+        if org is None:
+            deny_access("You do not have access to that PSB.")
+    else:
+        session_id = request.session.get("active_org_id")
+        org = organizations.filter(id=session_id).first() if session_id else None
+        org = org or organizations.first()
     if org is None:
         deny_access("No active PSB.")
     membership = (
@@ -80,9 +90,12 @@ def save_insurance_monthly_target(request):
     if not _can_edit_targets(membership, is_owner):
         deny_access("You do not have permission to edit insurance targets.")
 
-    year = int(request.POST.get("year") or 0)
-    month = int(request.POST.get("month") or 0)
-    if year < 2000 or month < 1 or month > 12:
+    try:
+        year = int(request.POST.get("year") or 0)
+        month = int(request.POST.get("month") or 0)
+    except (TypeError, ValueError):
+        year, month = 0, 0
+    if year < 2000 or year > 2100 or month < 1 or month > 12:
         messages.error(request, "Invalid target month.")
         return redirect(_insurance_space_redirect(org))
 
@@ -97,7 +110,7 @@ def save_insurance_monthly_target(request):
         if not key.startswith("line_premium_"):
             continue
         itype = key[len("line_premium_") :]
-        if not itype:
+        if not itype or len(itype) > InsuranceLineTarget._meta.get_field("insurance_type").max_length:
             continue
         lt, _ = InsuranceLineTarget.objects.get_or_create(
             monthly_target=monthly,
@@ -118,7 +131,7 @@ def save_insurance_monthly_target(request):
         }
         market_raw = request.POST.get(f"line_market_{itype}")
         if market_raw is not None and str(market_raw).strip() != "":
-            lt.market_avg_premium = _parse_money(market_raw)
+            lt.market_avg_premium = min(_parse_money(market_raw), MAX_MARKET_PREMIUM)
         elif market_raw is not None and str(market_raw).strip() == "":
             lt.market_avg_premium = None
         lt.save()
@@ -144,7 +157,7 @@ def save_insurance_line_target(request):
     lt.commission_target = _parse_money(request.POST.get("commission_target"))
     market_raw = request.POST.get("market_avg_premium")
     if market_raw is not None and str(market_raw).strip() != "":
-        lt.market_avg_premium = _parse_money(market_raw)
+        lt.market_avg_premium = min(_parse_money(market_raw), MAX_MARKET_PREMIUM)
     elif request.POST.get("clear_market") in {"1", "true", "on"}:
         lt.market_avg_premium = None
     if "is_active" in request.POST:
@@ -166,7 +179,7 @@ def save_insurance_market_assumption(request):
         messages.error(request, "Insurance type is required.")
         return redirect(_insurance_space_redirect(org))
 
-    avg = _parse_money(request.POST.get("avg_premium"))
+    avg = min(_parse_money(request.POST.get("avg_premium")), MAX_MARKET_PREMIUM)
     obj, _ = InsuranceMarketPremiumAssumption.objects.update_or_create(
         organization=org,
         insurance_type=itype,

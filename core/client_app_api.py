@@ -168,39 +168,36 @@ class ClientLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        from .ratelimit import (
+            LOCKOUT_MESSAGE,
+            clear_login_failures,
+            login_locked,
+            record_login_failure,
+        )
+
+        identity = f"{org.id}:{(phone or email).lower()}"
+        if login_locked("client_pin", identity, request):
+            return Response({"detail": LOCKOUT_MESSAGE}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
         client = find_client_for_login(org, phone=phone, email=email, require_enabled=False)
-        if not client:
+        # One message for every failure, so the response never reveals which phones/emails are clients.
+        if not (
+            client
+            and client.app_access_enabled
+            and client.app_pin_hash
+            and client.check_app_pin(pin)
+        ):
+            record_login_failure("client_pin", identity, request)
             return Response(
                 {
                     "detail": (
-                        "No client found with that phone/email for this agency. "
-                        "Use the exact phone or email on the client profile."
+                        "Sign-in failed. Check the phone or email and PIN, or ask the agency "
+                        "to enable Client App Access and set your PIN."
                     )
                 },
                 status=status.HTTP_401_UNAUTHORIZED,
             )
-        if not client.app_access_enabled:
-            return Response(
-                {
-                    "detail": (
-                        "Mobile app access is not enabled for this client. "
-                        "Ask the agency to enable Client App Access and set a PIN."
-                    )
-                },
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-        if not client.app_pin_hash:
-            return Response(
-                {
-                    "detail": "No PIN is set for this client. Ask the agency to set a PIN."
-                },
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-        if not client.check_app_pin(pin):
-            return Response(
-                {"detail": "Incorrect PIN."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+        clear_login_failures("client_pin", identity, request)
 
         session = issue_session(client, device_label=device_label)
         return Response(

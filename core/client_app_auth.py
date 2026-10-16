@@ -8,7 +8,7 @@ import secrets
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import authentication, exceptions, permissions
-from rest_framework.throttling import AnonRateThrottle
+from .rate_limit_middleware import LoginRateThrottle
 
 from .models import Client, ClientAppSession, Organization
 
@@ -154,5 +154,5 @@ class IsClientAppAuthenticated(permissions.BasePermission):
         return bool(client and session and session.revoked_at is None and client.app_access_enabled)
 
 
-class ClientAppLoginThrottle(AnonRateThrottle):
-    scope = "anon"
+class ClientAppLoginThrottle(LoginRateThrottle):
+    scope = "client_login"

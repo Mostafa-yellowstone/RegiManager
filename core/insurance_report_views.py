@@ -24,16 +24,32 @@ from .insurance_report_pdf import (
     render_targets_pdf,
     render_unearned_pdf,
 )
+from .insurance_permissions import membership_for_org
 from .insurance_targets_metrics import resolve_target_month
-from .models import DailyPaymentTransaction
+from .models import DailyPaymentTransaction, OrganizationMembership
 
 
-def _org(request):
+def _org(request, *, finance=False):
+    """
+    Active PSB for the export. Everyone needs Insurance Space access; commission, remittance,
+    production and book-of-business exports also need finance or reports rights.
+    """
     orgs = organizations_for_user(request)
     active_id = request.session.get("active_org_id")
     org = orgs.filter(id=active_id).first() if active_id else orgs.first()
     if org is None:
         deny_access("Organization required.")
+    if request.user.is_superuser:
+        return org
+    membership = membership_for_org(request.user, org)
+    if membership is None:
+        deny_access("Organization required.")
+    is_owner = membership.role == OrganizationMembership.Role.OWNER
+    finance_ok = is_owner or membership.can_view_banking or membership.can_view_reports
+    if finance and not finance_ok:
+        deny_access("You do not have permission to export insurance finance reports.")
+    if not (finance_ok or membership.can_deal_with_insurance):
+        deny_access("You do not have access to the Insurance Space.")
     return org
 
 
@@ -59,7 +75,7 @@ def _pdf(content: bytes, filename: str) -> HttpResponse:
 @login_required
 @require_GET
 def export_insurance_remittance_pdf(request):
-    org = _org(request)
+    org = _org(request, finance=True)
     start, end = _range(request)
     company_id = _company_id(request)
     pdf = render_remittance_pdf(
@@ -86,7 +102,7 @@ def export_insurance_payment_receipt_pdf(request, payment_id: int):
 @login_required
 @require_GET
 def export_insurance_agent_production_pdf(request):
-    org = _org(request)
+    org = _org(request, finance=True)
     start, end = _range(request)
     pdf = render_agent_production_pdf(org, start=start, end=end, prepared_by=_prepared_by(request))
     return _pdf(pdf, f"producer-production-{org.id}.pdf")
@@ -95,7 +111,7 @@ def export_insurance_agent_production_pdf(request):
 @login_required
 @require_GET
 def export_insurance_unearned_pdf(request):
-    org = _org(request)
+    org = _org(request, finance=True)
     start, end = _range(request)
     pdf = render_unearned_pdf(org, start=start, end=end, prepared_by=_prepared_by(request))
     return _pdf(pdf, f"unearned-commission-{org.id}.pdf")
@@ -113,7 +129,7 @@ def export_insurance_cashout_pdf(request):
 @login_required
 @require_GET
 def export_insurance_book_pdf(request):
-    org = _org(request)
+    org = _org(request, finance=True)
     start, end = _range(request)
     pdf = render_book_of_business_pdf(
         org, prepared_by=_prepared_by(request), start=start, end=end
@@ -149,7 +165,7 @@ def export_insurance_compliance_pdf(request):
 @login_required
 @require_GET
 def export_insurance_targets_pdf(request):
-    org = _org(request)
+    org = _org(request, finance=True)
     year, month = resolve_target_month(request.GET.get("month") or "")
     pdf = render_targets_pdf(org, year=year, month=month, prepared_by=_prepared_by(request))
     return _pdf(pdf, f"targets-{year:04d}-{month:02d}.pdf")
@@ -158,7 +174,7 @@ def export_insurance_targets_pdf(request):
 @login_required
 @require_GET
 def export_insurance_commission_register_pdf(request):
-    org = _org(request)
+    org = _org(request, finance=True)
     start, end = _range(request)
     pdf = render_commission_production_pdf(org, start=start, end=end, prepared_by=_prepared_by(request))
     return _pdf(pdf, f"commission-register-{org.id}.pdf")

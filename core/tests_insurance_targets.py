@@ -196,6 +196,36 @@ class InsuranceTargetsPlannerTests(TestCase):
         )
         self.assertEqual(denied.status_code, 403)
 
+    def test_save_targets_from_the_targets_tab_returns_to_the_insurance_space(self):
+        today = date.today()
+        month_key = f"{today.year}-{today.month:02d}"
+        self.owner_mem.accessible_spaces.add(self.space)
+        self.http.login(username="tgtowner", password="password123")
+        response = self.http.post(
+            reverse("save-insurance-monthly-target"),
+            {
+                "organization_id": self.org.id,
+                "year": today.year,
+                "month": today.month,
+                "premium_target": "10000",
+                "commission_target": "1200",
+                "notes": "",
+                "line_premium_auto_personal": "4000",
+                "line_commission_auto_personal": "400",
+                "line_market_auto_personal": "",
+                "line_active_auto_personal": "1",
+                "next": f"?tab=targets&target_month={month_key}",
+            },
+            HTTP_REFERER=f"http://testserver/dashboard/inventory/{self.space.id}/?tab=targets",
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"],
+            f"{reverse('inventory-detail', args=[self.space.id])}?tab=targets&target_month={month_key}",
+        )
+        page = self.http.get(response["Location"])
+        self.assertEqual(page.status_code, 200)
+
     def test_owner_api_targets_get(self):
         token = Token.objects.create(user=self.owner)
         api = APIClient()

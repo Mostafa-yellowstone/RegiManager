@@ -104,7 +104,8 @@ class ClientAppAPITests(APITestCase):
         self.client_obj.save(update_fields=["app_access_enabled"])
         response = self._login()
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertIn("not enabled", response.data["detail"].lower())
+        wrong_pin = self._login(pin="9999")
+        self.assertEqual(response.data["detail"], wrong_pin.data["detail"])
 
     def test_home_requires_auth(self):
         response = self.client.get(self.home_url)

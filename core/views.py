@@ -521,7 +521,9 @@ def _render_prefilled_dmv_pdf(form_type, org_state, *, service=None, vehicle=Non
     if service:
         vehicle = vehicle or service.vehicle
         if not vehicle and service.vin:
-            vehicle = Vehicle.objects.filter(vin=service.vin).first()
+            vehicle = Vehicle.objects.filter(
+                vin=service.vin, client__organization_id=service.organization_id
+            ).first()
         client = vehicle.client if vehicle else None
         prefill = _build_form_prefill_payload(service, client, vehicle)
         vin_or_id = service.vin or service.id
@@ -722,8 +724,20 @@ def login_view(request):
         return redirect(agent_portal_login_redirect(request))
 
     if request.method == "POST":
+        from .ratelimit import (
+            LOCKOUT_MESSAGE,
+            clear_login_failures,
+            login_locked,
+            record_login_failure,
+        )
+
+        attempted = (request.POST.get("username") or "").strip()
         form = DMVAuthenticationForm(request, data=request.POST)
-        if form.is_valid():
+        if login_locked("web", attempted, request):
+            form = DMVAuthenticationForm(request, initial={"username": attempted})
+            messages.error(request, LOCKOUT_MESSAGE)
+        elif form.is_valid():
+            clear_login_failures("web", attempted, request)
             user = form.get_user()
             login(request, user)
             from .agent_portal_services import start_attendance_on_login
@@ -734,6 +748,8 @@ def login_view(request):
             from .agent_portal_views import agent_portal_login_redirect
 
             return redirect(agent_portal_login_redirect(request))
+        else:
+            record_login_failure("web", attempted, request)
     else:
         form = DMVAuthenticationForm(request)
 
@@ -1200,8 +1216,10 @@ def mark_client_note_done(request, note_id):
 
         messages.success(request, "Note marked as done.")
 
+    from .policies import is_safe_internal_url
+
     next_url = (request.POST.get("next") or "").strip()
-    if next_url:
+    if next_url.startswith("/") and is_safe_internal_url(request, next_url):
         return redirect(next_url)
     return redirect("client-detail", client_id=note.client_id)
 
@@ -2559,11 +2577,7 @@ def service_receipt_pdf(request, service_id):
         ServiceRecord.objects.prefetch_related("payment_entries"),
         pk=service_id,
     )
-    can_access = OrganizationMembership.objects.filter(
-        user=request.user,
-        organization=service_record.organization,
-    ).exists()
-    if not can_access:
+    if not _has_active_org_access(request.user, service_record.organization_id):
         deny_access("You do not have access to this receipt.")
 
     response = HttpResponse(content_type="application/pdf")
@@ -2817,7 +2831,9 @@ def generate_dmv_form(request, form_type, service_id):
 
     vehicle = service.vehicle
     if not vehicle and service.vin:
-        vehicle = Vehicle.objects.filter(vin=service.vin).first()
+        vehicle = Vehicle.objects.filter(
+            vin=service.vin, client__organization_id=service.organization_id
+        ).first()
     return _render_prefilled_dmv_pdf(form_type, org_state, service=service, vehicle=vehicle)
 
 
@@ -2970,16 +2986,14 @@ def mv82_interactive(request, service_id):
     Allows agents to check marks and type before final printing.
     """
     service = get_object_or_404(ServiceRecord, pk=service_id)
-    vehicle = Vehicle.objects.filter(vin=service.vin).first()
-    client = vehicle.client if vehicle else None
-    
-    # Permission Check
-    can_access = OrganizationMembership.objects.filter(
-        user=request.user,
-        organization=service.organization,
-    ).exists()
-    if not can_access:
+    if not _has_active_org_access(request.user, service.organization_id):
         deny_access("Access Denied.")
+    vehicle = service.vehicle
+    if not vehicle and service.vin:
+        vehicle = Vehicle.objects.filter(
+            vin=service.vin, client__organization_id=service.organization_id
+        ).first()
+    client = vehicle.client if vehicle else None
 
     context = {
         "service": service,
@@ -3560,24 +3574,21 @@ def update_agent_permissions(request):
 @login_required
 def get_documents(request, service_id):
     service_record = get_object_or_404(ServiceRecord, id=service_id)
-    
-    # Check permissions
-    is_owner = OrganizationMembership.objects.filter(
-        organization=service_record.organization,
-        user=request.user,
-        role=OrganizationMembership.Role.OWNER
-    ).exists()
-    
+
+    if not _has_active_org_access(request.user, service_record.organization_id):
+        return JsonResponse({"status": "error", "message": "Permission denied"}, status=403)
+    is_owner = _has_active_owner_access(request.user, service_record.organization_id)
     if not is_owner and service_record.handled_by != request.user:
         return JsonResponse({"status": "error", "message": "Permission denied"}, status=403)
-        
+
     from django.db.models import Q
     # Show docs for this specific service, OR any doc linked to this client's vehicles
-    documents = ServiceDocument.objects.filter(
-        Q(service_record=service_record) | 
-        Q(vehicle__client=service_record.vehicle.client) |
-        Q(service_record__vehicle__client=service_record.vehicle.client)
-    ).distinct()
+    doc_filter = Q(service_record=service_record)
+    if service_record.vehicle_id:
+        doc_filter |= Q(vehicle__client=service_record.vehicle.client) | Q(
+            service_record__vehicle__client=service_record.vehicle.client
+        )
+    documents = ServiceDocument.objects.filter(doc_filter).distinct()
     doc_map = dict(ServiceDocument.DOCUMENT_TYPES)
     
     docs_data = [
@@ -4096,6 +4107,9 @@ def referral_profile(request, referral_id):
 
     if not is_owner and not user_can_manage_referrals:
         deny_access("You do not have permission to view referral profiles.")
+    can_edit_referral_fee = is_owner or any(
+        m.role == OrganizationMembership.Role.MANAGER for m in memberships
+    )
 
     organizations = [m.organization for m in memberships]
     referral = get_object_or_404(Referral, id=referral_id, organization__in=organizations)
@@ -4133,7 +4147,7 @@ def referral_profile(request, referral_id):
             return redirect("referral-profile", referral_id=referral.id)
 
         if "update_referral_fee" in request.POST:
-            if not (is_owner or user_can_manage_referrals):
+            if not can_edit_referral_fee:
                 messages.error(request, "You do not have permission to change referral fees.")
                 return redirect("referral-profile", referral_id=referral.id)
 
@@ -4331,7 +4345,7 @@ def referral_profile(request, referral_id):
             "payments": payments,
             "documents": documents,
             "is_owner": is_owner,
-            "can_edit_referral_fee": is_owner or user_can_manage_referrals,
+            "can_edit_referral_fee": can_edit_referral_fee,
         }
     )
 
@@ -5600,7 +5614,7 @@ def edit_vehicle(request, vehicle_id):
 
     from .forms import VehicleForm
     vehicle = get_object_or_404(Vehicle.all_objects, id=vehicle_id)
-    if not OrganizationMembership.objects.filter(user=request.user, organization=vehicle.client.organization).exists():
+    if not _has_active_org_access(request.user, vehicle.client.organization_id):
         deny_access()
     
     if request.method == 'POST':
@@ -5627,11 +5641,11 @@ def edit_vehicle(request, vehicle_id):
                     messages.error(request, error)
     else:
         form = VehicleForm(instance=vehicle, client=vehicle.client)
-    
-        from .vin_validation import VIN_DECODE_VEHICLE_TYPES
-        import json
 
-        return render(request, 'core/add_vehicle.html', {
+    from .vin_validation import VIN_DECODE_VEHICLE_TYPES
+    import json
+
+    return render(request, 'core/add_vehicle.html', {
         'form': form,
         'edit_mode': True,
         'vehicle': vehicle,
@@ -6679,7 +6693,9 @@ def inventory_detail(request, inventory_id):
         # Build automatic analysis
         analysis_points = []
         if best_performer:
-            analysis_points.append(f"🏆 <strong>{best_performer['fullname']}</strong> is the top performer this period, driving a total of <strong>${best_performer['total_premium']:,.2f}</strong> in premium volume.")
+            from django.utils.html import escape
+
+            analysis_points.append(f"🏆 <strong>{escape(best_performer['fullname'])}</strong> is the top performer this period, driving a total of <strong>${best_performer['total_premium']:,.2f}</strong> in premium volume.")
         
         total_quotes = sum(s["quotes_count"] for s in agent_stats)
         total_bound = sum(s["policies_bound"] for s in agent_stats)
@@ -6832,7 +6848,7 @@ def inventory_detail(request, inventory_id):
                 "commission_pace": _dash_json["commission_pace"],
                 "totals": _dash_json["totals"],
             }
-        )
+        ).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
         can_edit_insurance_targets = bool(
             is_owner or user_can_view_banking
         )
@@ -7531,11 +7547,9 @@ def delete_document(request, doc_id):
     elif doc.service_record:
         org = doc.service_record.organization
     
-    if org:
-        organizations = _get_user_organizations(request)
-        if not organizations.filter(id=org.id).exists():
-            return JsonResponse({"status": "error", "message": "Access denied."}, status=403)
-    
+    if org is None or not _get_user_organizations(request).filter(id=org.id).exists():
+        return JsonResponse({"status": "error", "message": "Access denied."}, status=403)
+
     try:
         # Delete the physical file from storage
         if doc.file:
@@ -8577,9 +8591,9 @@ def export_insurance_report_pdf(request):
     active_policies_list = [p for p in policies_list if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "active"]
     inactive_policies_list = [p for p in policies_list if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "inactive"]
     
-    tot_premium = sum(p.premium for p in active_policies_list)
-    tot_commission = sum(p.commission_amount for p in active_policies_list)
-    tot_unearned = sum(p.unearned_commission for p in inactive_policies_list)
+    tot_premium = sum((p.premium or 0) for p in active_policies_list)
+    tot_commission = sum((p.commission_amount or 0) for p in active_policies_list)
+    tot_unearned = sum((p.unearned_commission or 0) for p in inactive_policies_list)
     
     y -= 18
     pdf.setFont("Helvetica", 9)
@@ -8794,7 +8808,7 @@ def insurance_company_detail(request, company_id):
     pending_count = all_policies.filter(status="pending").count()
     rejected_count = all_policies.filter(status="rejected").count()
     all_policies_list = list(all_policies)
-    total_premium = sum(p.premium for p in all_policies_list if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "active")
+    total_premium = sum((p.premium or 0) for p in all_policies_list if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "active")
 
     # Documents
     documents = InsuranceCompanyDocument.objects.filter(insurance_company=company)
@@ -9119,9 +9133,9 @@ def insurance_agent_detail(request, user_id):
     pending_count = pending_policies_period.count()
     rejected_count = rejected_policies_period.count()
 
-    total_premium = sum(p.premium for p in active_policies_period)
-    total_commission = sum(p.commission_amount for p in bound_policies_period)
-    total_broker_fees = sum(p.broker_fee for p in bound_policies_period)
+    total_premium = sum((p.premium or 0) for p in active_policies_period)
+    total_commission = sum((p.commission_amount or 0) for p in bound_policies_period)
+    total_broker_fees = sum((p.broker_fee or 0) for p in bound_policies_period)
     total_profit = total_commission + total_broker_fees
     conversion_rate = (bound_count / (quote_count + bound_count) * 100) if (quote_count + bound_count) > 0 else 0
 

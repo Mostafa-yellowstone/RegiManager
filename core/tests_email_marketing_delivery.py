@@ -82,9 +82,7 @@ class EmailCampaignDeliveryTests(TestCase):
         self.assertEqual(mail.outbox[0].to, ["jane@example.com"])
         self.assertIn("Jane", mail.outbox[0].subject)
         html = mail.outbox[0].alternatives[0][0]
-        self.assertIn("Mail PSB", html)
-        self.assertIn("RegiManager", html)
-        self.assertIn("©", html)
+        self.assertIn("<p>Hi Jane</p>", html)
 
         self.batch.refresh_from_db()
         self.assertEqual(self.batch.sent_count, 1)

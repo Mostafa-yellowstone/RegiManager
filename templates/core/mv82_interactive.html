@@ -42,7 +42,7 @@
 <div class="pdf-workspace">
     <div class="pdf-toolbar">
         <div style="display: flex; align-items: center; gap: 20px;">
-            <a href="{% url 'client-detail' client.id %}" class="btn btn-secondary btn-sm" style="background: transparent; border: 1px solid #555; color: #ccc;">&larr; Exit Viewer</a>
+            <a href="{% if client %}{% url 'client-detail' client.id %}{% else %}{% url 'dashboard' %}{% endif %}" class="btn btn-secondary btn-sm" style="background: transparent; border: 1px solid #555; color: #ccc;">&larr; Exit Viewer</a>
             <div style="display: flex; flex-direction: column;">
                 <span style="font-weight: 800; font-size: 14px; letter-spacing: 0.5px;">OFFICIAL DMV MV-82 WORKSPACE</span>
                 <span style="font-size: 10px; color: #9aa0a6;">Live Data Integration: {{ client.name }} | {{ vehicle.vin }}</span>

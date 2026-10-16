@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.core.exceptions import PermissionDenied
 from django.urls import path
 
 from ..admin_views import crm_import_view, kintone_import_view, psb_backup_download, psb_backup_import
@@ -26,19 +27,29 @@ def patch_admin_site(site=None):
 
     original_get_urls = site.get_urls
 
+    def superuser_view(view):
+        """Cross-PSB tools (imports, full backups) are for platform superusers, not every staff account."""
+
+        def wrapped(request, *args, **kwargs):
+            if not request.user.is_superuser:
+                raise PermissionDenied
+            return view(request, *args, **kwargs)
+
+        return site.admin_view(wrapped)
+
     def custom_get_urls():
         urls = original_get_urls()
         custom_urls = [
-            path("crm-import/", site.admin_view(crm_import_view), name="crm-import"),
-            path("kintone-import/", site.admin_view(kintone_import_view), name="kintone-import"),
+            path("crm-import/", superuser_view(crm_import_view), name="crm-import"),
+            path("kintone-import/", superuser_view(kintone_import_view), name="kintone-import"),
             path(
                 "psb-backup/import/",
-                site.admin_view(psb_backup_import),
+                superuser_view(psb_backup_import),
                 name="psb-backup-import",
             ),
             path(
                 "psb-backup/download/<int:org_id>/",
-                site.admin_view(psb_backup_download),
+                superuser_view(psb_backup_download),
                 name="psb-backup-download",
             ),
         ]

@@ -264,7 +264,7 @@ class RateLimitTests(TestCase):
         def endpoint(request):
             return HttpResponse("ok")
 
-        request = RequestFactory().get("/")
+        request = RequestFactory().get("/", REMOTE_ADDR="93.184.216.34")
         request.user = AnonymousUser()
         return endpoint, request
 

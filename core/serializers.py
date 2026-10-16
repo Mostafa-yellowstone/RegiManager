@@ -1,9 +1,34 @@
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import Client, ServiceRecord, Vehicle
+from .models import Client, Referral, ServiceRecord, Vehicle
+from .policies import user_organization_ids
 
 
-class ClientSerializer(serializers.ModelSerializer):
+class TenantScopedSerializerMixin:
+    """Limit every writable related field to records inside the caller's own PSBs."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        org_ids = user_organization_ids(user) if user is not None else []
+        scopes = {
+            "client": lambda: Client.objects.filter(organization_id__in=org_ids),
+            "vehicle": lambda: Vehicle.objects.filter(client__organization_id__in=org_ids),
+            "referral": lambda: Referral.objects.filter(organization_id__in=org_ids),
+            "handled_by": lambda: get_user_model().objects.filter(
+                organization_memberships__organization_id__in=org_ids,
+                organization_memberships__is_active=True,
+            ).distinct(),
+        }
+        for name, build in scopes.items():
+            field = self.fields.get(name)
+            if field is not None and not field.read_only and hasattr(field, "queryset"):
+                field.queryset = build()
+
+
+class ClientSerializer(TenantScopedSerializerMixin, serializers.ModelSerializer):
     """API serializer — excludes sensitive fields (SSN, files, soft-delete)."""
 
     class Meta:
@@ -39,10 +64,10 @@ class ClientSerializer(serializers.ModelSerializer):
             "business_ein",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "organization", "created_at"]
 
 
-class VehicleSerializer(serializers.ModelSerializer):
+class VehicleSerializer(TenantScopedSerializerMixin, serializers.ModelSerializer):
     class Meta:
         model = Vehicle
         fields = [
@@ -68,7 +93,7 @@ class VehicleSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
 
-class ServiceRecordSerializer(serializers.ModelSerializer):
+class ServiceRecordSerializer(TenantScopedSerializerMixin, serializers.ModelSerializer):
     class Meta:
         model = ServiceRecord
         fields = [
@@ -116,6 +141,8 @@ class ServiceRecordSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = [
+            "organization",
+            "handled_by",
             "receipt_number",
             "case_id",
             "service_fee",

@@ -283,7 +283,9 @@ def crm_import_view(request):
                                 if len(vin) != 17 or any(c in vin for c in "IOQ"):
                                     raise ValueError(f"Invalid VIN format: '{vin}'. Must be exactly 17 alphanumeric characters and contain no I, O, or Q.")
                                     
-                                vehicle = Vehicle.objects.filter(vin=vin).first()
+                                vehicle = Vehicle.objects.filter(
+                                    vin=vin, client__organization_id=client.organization_id
+                                ).first()
                                 is_new_vehicle = False
                                 if not vehicle:
                                     auto_vnum = f"VEH-{get_random_string(6, allowed_chars='0123456789')}"

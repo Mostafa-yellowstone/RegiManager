@@ -95,8 +95,12 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_THROTTLE_RATES": {
         "anon": os.getenv("DRF_ANON_RATE", "60/minute"),
-        "user": os.getenv("DRF_USER_RATE", "600/minute"),
+        "user": os.getenv("DRF_USER_RATE", "300/minute"),
+        "login": os.getenv("DRF_LOGIN_RATE", "10/minute"),
+        "client_login": os.getenv("DRF_CLIENT_LOGIN_RATE", "5/minute"),
     },
+    # nginx is the only proxy in front of gunicorn; DRF must ignore visitor-supplied X-Forwarded-For entries.
+    "NUM_PROXIES": int(os.getenv("TRUSTED_PROXY_COUNT", "1")),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
@@ -143,6 +147,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "core.rate_limit_middleware.RateLimitMiddleware",
     "core.middleware.PortalTimezoneMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -215,6 +220,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": int(os.getenv("PASSWORD_MIN_LENGTH", "10"))},
     },
     {
         "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
@@ -222,6 +228,19 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
+]
+
+# Argon2id first when argon2-cffi is installed; existing PBKDF2 hashes still verify and are upgraded at next login.
+try:
+    import argon2  # noqa: F401
+
+    _ARGON2_HASHERS = ["django.contrib.auth.hashers.Argon2PasswordHasher"]
+except ImportError:
+    _ARGON2_HASHERS = []
+PASSWORD_HASHERS = _ARGON2_HASHERS + [
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.ScryptPasswordHasher",
 ]
 
 
@@ -267,6 +286,19 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
 
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
+SESSION_COOKIE_AGE = int(os.getenv("SESSION_COOKIE_AGE", str(60 * 60 * 12)))
+SESSION_SAVE_EVERY_REQUEST = os.getenv("SESSION_SAVE_EVERY_REQUEST", "False") == "True"
+
+# Client IP for rate limiting / lockouts: number of reverse proxies (nginx) in front of gunicorn.
+TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "1"))
+LOGIN_LOCKOUT_MAX_FAILURES = int(os.getenv("LOGIN_LOCKOUT_MAX_FAILURES", "5"))
+LOGIN_LOCKOUT_WINDOW_SECONDS = int(os.getenv("LOGIN_LOCKOUT_WINDOW_SECONDS", str(15 * 60)))
+if os.getenv("RATE_LIMIT_ENABLED") is not None:
+    RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "True") == "True"
+
+# nginx terminates TLS and must send `proxy_set_header X-Forwarded-Proto $scheme;`.
+if os.getenv("TRUST_X_FORWARDED_PROTO", "True" if not DEBUG else "False") == "True":
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
 SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -282,6 +314,10 @@ if _USE_REDIS_CACHE:
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
             "LOCATION": _REDIS_CACHE_URL,
             "KEY_PREFIX": "regimanager",
+            "OPTIONS": {
+                "socket_connect_timeout": float(os.getenv("REDIS_CONNECT_TIMEOUT", "2")),
+                "socket_timeout": float(os.getenv("REDIS_SOCKET_TIMEOUT", "2")),
+            },
         }
     }
 else:

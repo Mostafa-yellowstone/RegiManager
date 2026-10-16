@@ -73,14 +73,20 @@ def redirect_back(request, fallback):
     Keeps CRM filters (query strings) after add/edit/delete when the user
     submitted from a filtered list page.
     """
-    from django.shortcuts import redirect
+    from django.shortcuts import redirect, resolve_url
 
+    fallback_url = resolve_url(fallback)
     candidates = [
         (request.POST.get("next") or "").strip(),
         (request.GET.get("next") or "").strip(),
         (request.META.get("HTTP_REFERER") or "").strip(),
     ]
     for url in candidates:
+        if url.startswith("?"):
+            # redirect() reverses slash-less strings as URL names, so a bare "?tab=…" must be joined to a path.
+            return redirect(f"{fallback_url.split('?', 1)[0]}{url}")
+        if not (url.startswith("/") or "://" in url):
+            continue
         if is_safe_internal_url(request, url):
             return redirect(url)
-    return redirect(fallback)
+    return redirect(fallback_url)

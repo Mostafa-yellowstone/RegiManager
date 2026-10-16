@@ -8,7 +8,7 @@ from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
-from rest_framework.throttling import AnonRateThrottle
+from .rate_limit_middleware import LoginRateThrottle
 from rest_framework.views import APIView
 
 from .models import OrganizationMembership
@@ -67,8 +67,8 @@ def _user_payload(user: User) -> dict:
     }
 
 
-class CompanionLoginThrottle(AnonRateThrottle):
-    scope = "anon"
+class CompanionLoginThrottle(LoginRateThrottle):
+    scope = "login"
 
 
 class CompanionLoginView(APIView):
@@ -90,6 +90,16 @@ class CompanionLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        from .ratelimit import (
+            LOCKOUT_MESSAGE,
+            clear_login_failures,
+            login_locked,
+            record_login_failure,
+        )
+
+        if login_locked("api", username, request):
+            return Response({"detail": LOCKOUT_MESSAGE}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
         # Allow email as well as username (common mobile habit).
         login_username = username
         if "@" in username:
@@ -103,10 +113,12 @@ class CompanionLoginView(APIView):
 
         user = authenticate(request, username=login_username, password=password)
         if not user or not user.is_active:
+            record_login_failure("api", username, request)
             return Response(
                 {"detail": "Invalid credentials."},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+        clear_login_failures("api", username, request)
 
         memberships = list(
             active_memberships_qs(user).select_related("organization").order_by("organization__name")
