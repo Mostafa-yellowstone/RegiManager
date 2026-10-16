@@ -83,6 +83,7 @@
     <script>
         // Enterprise Security Heartbeat: Checks session status every 15 seconds
         var heartbeatTimer = setInterval(function () {
+            if (document.hidden) return;
             fetch("{% url 'session-heartbeat' %}")
                 .then(function (response) {
                     if (response.redirected) {

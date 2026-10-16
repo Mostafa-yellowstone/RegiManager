@@ -7,6 +7,11 @@
 
     const THEME_KEY = 'portal-theme';
 
+    function retryAfterMs(res) {
+        const seconds = parseInt(res.headers.get('Retry-After'), 10);
+        return (Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds, 120) : 30) * 1000;
+    }
+
     const Portal = {
         init() {
             this.initTheme();
@@ -585,6 +590,9 @@
 
             const checkOnce = (isHydrate) => {
                 if (this._rtBusy) return Promise.resolve();
+                if (!isHydrate && (document.hidden || Date.now() < (this._rtPausedUntil || 0))) {
+                    return Promise.resolve();
+                }
                 this._rtBusy = true;
                 const url = isHydrate || !this._rtLastNotifId
                     ? snapshotUrl
@@ -594,7 +602,13 @@
                     headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
                     cache: 'no-store',
                 })
-                    .then((res) => (res.ok ? res.json() : null))
+                    .then((res) => {
+                        if (res.status === 429) {
+                            this._rtPausedUntil = Date.now() + retryAfterMs(res);
+                            return null;
+                        }
+                        return res.ok ? res.json() : null;
+                    })
                     .then((data) => {
                         if (!data) return;
                         if (typeof data.unread_count === 'number') {
@@ -627,7 +641,7 @@
 
             checkOnce(true).finally(() => {
                 if (this._rtCheckTimer) clearInterval(this._rtCheckTimer);
-                this._rtCheckTimer = setInterval(() => checkOnce(false), 1500);
+                this._rtCheckTimer = setInterval(() => checkOnce(false), 5000);
             });
 
             document.addEventListener('visibilitychange', () => {
@@ -740,14 +754,21 @@
                 root.dataset.nextId = nextId;
             };
 
+            let pausedUntil = 0;
             const pull = (animate) => {
-                if (document.hidden) return Promise.resolve();
+                if (document.hidden || Date.now() < pausedUntil) return Promise.resolve();
                 return fetch(url, {
                     credentials: 'same-origin',
                     headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
                     cache: 'no-store',
                 })
-                    .then((res) => (res.ok ? res.json() : null))
+                    .then((res) => {
+                        if (res.status === 429) {
+                            pausedUntil = Date.now() + retryAfterMs(res);
+                            return null;
+                        }
+                        return res.ok ? res.json() : null;
+                    })
                     .then((data) => render(data, { animate: !!animate }))
                     .catch(() => null);
             };

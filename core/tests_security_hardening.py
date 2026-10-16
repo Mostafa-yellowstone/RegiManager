@@ -1,6 +1,7 @@
 """Rate limiting, login lockout, tenant isolation, and safe-redirect regression tests."""
 
 from datetime import date
+from unittest import mock
 
 from django.contrib.auth.models import User
 from django.core.cache import cache
@@ -44,6 +45,9 @@ class ClientIpTests(TestCase):
 class RateLimitAndLockoutTests(TestCase):
     def setUp(self):
         cache.clear()
+        clock = mock.patch("core.rate_limit_middleware.time.time", return_value=1_800_000_000.0)
+        clock.start()
+        self.addCleanup(clock.stop)
         self.org = Organization.objects.create(name="Lockout PSB", city="NYC")
         self.user = User.objects.create_user(username="lockme", password="Correct-Horse-9")
         OrganizationMembership.objects.create(
@@ -116,6 +120,60 @@ class RateLimitAndLockoutTests(TestCase):
         allowed = [RateLimitMiddleware._allowed(self._upload_request(path), path) for _ in range(31)]
         self.assertTrue(all(allowed[:30]))
         self.assertFalse(allowed[30])
+
+    def test_background_polling_never_locks_the_user_out_of_pages(self):
+        poll = "/api/portal/notifications/"
+        for _ in range(400):
+            request = RequestFactory().get(poll, REMOTE_ADDR=PUBLIC_IP)
+            request.user = self.user
+            RateLimitMiddleware._allowed(request, poll)
+        page = RequestFactory().get("/dashboard/", REMOTE_ADDR=PUBLIC_IP)
+        page.user = self.user
+        self.assertTrue(RateLimitMiddleware._allowed(page, "/dashboard/"))
+
+    def test_background_polling_is_still_capped(self):
+        poll = "/api/portal/notifications/"
+        results = []
+        for _ in range(320):
+            request = RequestFactory().get(poll, REMOTE_ADDR=PUBLIC_IP)
+            request.user = self.user
+            results.append(RateLimitMiddleware._allowed(request, poll))
+        self.assertIn(False, results)
+
+    def test_valid_api_tokens_do_not_share_one_ip_bucket(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        other = User.objects.create_user(username="otherapp", password="Correct-Horse-9")
+        mine, theirs = Token.objects.create(user=self.user), Token.objects.create(user=other)
+        path = "/api/clients/"
+
+        def hit(token):
+            request = RequestFactory().get(path, REMOTE_ADDR=PUBLIC_IP, HTTP_AUTHORIZATION=f"Token {token.key}")
+            request.user = AnonymousUser()
+            return RateLimitMiddleware._allowed(request, path)
+
+        for _ in range(600):
+            hit(mine)
+        self.assertFalse(hit(mine))
+        self.assertTrue(hit(theirs))
+
+    def test_made_up_tokens_fall_back_to_the_ip_bucket(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        path = "/api/clients/"
+        results = []
+        for i in range(610):
+            request = RequestFactory().get(path, REMOTE_ADDR=PUBLIC_IP, HTTP_AUTHORIZATION=f"Token fake{i}")
+            request.user = AnonymousUser()
+            results.append(RateLimitMiddleware._allowed(request, path))
+        self.assertIn(False, results)
+
+    def test_rate_limited_page_reloads_itself(self):
+        request = RequestFactory().get("/dashboard/", HTTP_ACCEPT="text/html,application/xhtml+xml")
+        response = _limited_response(request, 17)
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response["Retry-After"], "17")
+        self.assertIn(b"http-equiv='refresh' content='17'", response.content)
 
     def test_rate_limited_upload_tells_the_browser_when_to_retry(self):
         request = RequestFactory().post("/dashboard/service/1/upload/", HTTP_X_REQUESTED_WITH="XMLHttpRequest")

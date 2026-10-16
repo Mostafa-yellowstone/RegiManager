@@ -1394,7 +1394,17 @@
   }
 
   async function pollLoop() {
+    let lastStartedAt = 0;
     while (true) {
+      const sinceLast = Date.now() - lastStartedAt;
+      if (sinceLast < 1000) {
+        await new Promise(function (r) { setTimeout(r, 1000 - sinceLast); });
+      }
+      if (document.hidden && !open) {
+        await new Promise(function (r) { setTimeout(r, 5000); });
+        continue;
+      }
+      lastStartedAt = Date.now();
       waitController = new AbortController();
       try {
         const params = new URLSearchParams();
@@ -1407,7 +1417,11 @@
           signal: waitController.signal,
         });
         if (!res.ok) {
-          await new Promise(function (r) { setTimeout(r, 1200); });
+          const retryAfter = parseInt(res.headers.get('Retry-After'), 10);
+          const pauseMs = res.status === 429
+            ? (Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 120) : 30) * 1000
+            : 3000;
+          await new Promise(function (r) { setTimeout(r, pauseMs); });
           continue;
         }
         const data = await res.json();
