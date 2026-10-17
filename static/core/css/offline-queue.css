@@ -1,0 +1,68 @@
+.rm-offline-badge {
+    position: fixed;
+    left: 1rem;
+    bottom: 1rem;
+    z-index: 10050;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    max-width: calc(100vw - 2rem);
+    padding: 0.6rem 1rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(15, 23, 42, 0.94);
+    color: #e2e8f0;
+    font: 600 0.85rem/1.3 system-ui, -apple-system, "Segoe UI", sans-serif;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+}
+
+.rm-offline-badge[hidden] { display: none; }
+
+.rm-offline-dot {
+    flex: 0 0 auto;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #f59e0b;
+}
+
+.rm-offline-badge--offline .rm-offline-dot { background: #f87171; }
+.rm-offline-badge--pending .rm-offline-dot { background: #f59e0b; }
+.rm-offline-badge--auth .rm-offline-dot { background: #a78bfa; }
+.rm-offline-badge--problem .rm-offline-dot { background: #f87171; }
+.rm-offline-badge--syncing .rm-offline-dot {
+    background: #38bdf8;
+    animation: rm-offline-pulse 1s ease-in-out infinite;
+}
+
+@keyframes rm-offline-pulse {
+    50% { opacity: 0.3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rm-offline-badge--syncing .rm-offline-dot { animation: none; }
+}
+
+.rm-oq-intro { margin: 0 0 0.75rem; text-align: left; }
+.rm-oq-list { list-style: none; margin: 0; padding: 0; text-align: left; max-height: 50vh; overflow: auto; }
+.rm-oq-item { border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 12px; padding: 0.7rem 0.85rem; margin-bottom: 0.6rem; }
+.rm-oq-failed, .rm-oq-review { border-color: rgba(248, 113, 113, 0.45); }
+.rm-oq-title { font-weight: 700; }
+.rm-oq-meta { font-size: 0.78rem; opacity: 0.7; word-break: break-all; }
+.rm-oq-status { font-size: 0.85rem; margin-top: 0.25rem; }
+.rm-oq-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+.rm-oq-act {
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.3rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    text-decoration: none;
+}
+.rm-oq-danger { border-color: rgba(248, 113, 113, 0.55); color: #f87171; }

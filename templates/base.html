@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="{% static 'core/css/dmv-auth.css' %}?v=footer-2">
     <link rel="stylesheet" href="{% static 'core/css/portal-alerts.css' %}?v=portal-alerts-1">
     <link rel="stylesheet" href="{% static 'core/css/halloween.css' %}?v=hw-3">
+    <link rel="stylesheet" href="{% static 'core/css/offline-queue.css' %}?v=oq-1">
     {% block extra_head %}{% endblock %}
 </head>
 
@@ -295,6 +296,8 @@
         });
     </script>
     <script src="{% static 'core/js/halloween.js' %}?v=hw-3"></script>
+    <script src="{% static 'core/js/offline-queue-db.js' %}?v=oq-1"></script>
+    <script src="{% static 'core/js/offline-queue.js' %}?v=oq-1" data-sw-url="{% url 'service-worker' %}" data-enabled="{{ offline_queue_enabled }}" data-user-id="{% if user.is_authenticated %}{{ user.pk }}{% endif %}"></script>
 </body>
 
 </html>

@@ -20,6 +20,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
 
+from core.offline_sync import service_worker
 from core.password_reset_views import (
     RegiPasswordResetCompleteView,
     RegiPasswordResetConfirmView,
@@ -507,6 +508,7 @@ urlpatterns = [
     path('api/docs/redoc/', AuthenticatedSpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
     path("", home, name="home"),
+    path("sw.js", service_worker, name="service-worker"),
 
     path("contact/", contact, name="contact"),
     path("privacy/", privacy, name="privacy"),

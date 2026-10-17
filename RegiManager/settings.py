@@ -142,6 +142,7 @@ SPECTACULAR_SETTINGS = {
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "core.offline_sync.OfflineSyncMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -153,6 +154,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "core.middleware.FriendlyErrorMiddleware",
     "core.middleware.SingleSessionMiddleware",
+    "core.offline_sync.DatabaseOutageMarkerMiddleware",
 ]
 
 ROOT_URLCONF = "RegiManager.urls"
@@ -172,6 +174,7 @@ TEMPLATES = [
                 "core.context_processors.portal_timezone",
                 "core.context_processors.agency_license_alerts",
                 "core.context_processors.halloween_theme",
+                "core.context_processors.offline_queue",
             ],
         },
     },
@@ -277,6 +280,7 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 LOGIN_URL = "login"
+OFFLINE_QUEUE_ENABLED = os.getenv("OFFLINE_QUEUE_ENABLED", "True").lower() in {"1", "true", "yes"}
 PASSWORD_RESET_TIMEOUT = int(os.getenv("PASSWORD_RESET_TIMEOUT", str(60 * 60)))
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"

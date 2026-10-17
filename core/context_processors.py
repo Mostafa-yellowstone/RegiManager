@@ -181,6 +181,12 @@ def portal_timezone(request):
     }
 
 
+def offline_queue(request):
+    from .offline_sync import offline_queue_enabled
+
+    return {"offline_queue_enabled": offline_queue_enabled()}
+
+
 def halloween_theme(request):
     """Expose master halloween_enabled setting to all template contexts."""
     try:
