@@ -83,7 +83,7 @@ _PAYMENT_ROW = re.compile(
 _SUPPORTED_CARRIERS_MSG = (
     "Supported text-based declaration PDFs: Progressive, Integon/National General, "
     "NYAIP / NY Automobile Insurance Plan (incl. 21st Century AIP), and Maya Assurance. "
-    "Scanned image-only PDFs cannot be read — export/print as a text PDF or use a searchable DEC."
+    "Scanned PDFs are read with OCR; a clear, straight, high-resolution scan works best."
 )
 
 
@@ -384,7 +384,7 @@ def _parse_policy_period(text: str, result: ParsedInsuranceDec) -> None:
         r"(?:\s*Begins\s+and\s+Ends[^\n]*\n[^\n]*?)?"
         r"[\s:]*"
         r"(?:FROM[\s:]*)?"
-        r"(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s*(?:TO|THROUGH|–|-)\s*"
+        r"(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\s*(?:TO|THROUGH|–|-)[\s:]*"
         r"(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})",
         text,
     )
@@ -451,7 +451,9 @@ def _parse_common_fields(text: str, result: ParsedInsuranceDec) -> None:
     _parse_policy_period(text, result)
 
     premium_raw = (
-        _first_match(r"TOTAL\s+FULL\s+TERM\s+PREMIUM\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
+        _first_match(r"New\s+Amended\s+Premium\s*:?\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
+        or _first_match(r"TOTAL\s+FULL\s+TERM\s+PREMIUM\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
+        or _first_match(r"TOTAL\s+ANNUAL[\s\S]{0,120}?POLICY\s+PREMIUM\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
         or _first_match(r"ESTIMATED\s+TOTAL\s+ANNUAL\s+PREMIUM[^\n]*\n?\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
         or _first_match(r"(?:Total\s+(?:Written\s+)?Premium|Written\s+Premium)\s*[:#]?\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
         or _first_match(r"Annual\s+Premium\s*[:#]?\s*\$?\s*([\d,]+\.\d{2})", text, re.I)
@@ -489,7 +491,11 @@ def _parse_common_fields(text: str, result: ParsedInsuranceDec) -> None:
         result.parse_warnings.append("No drivers detected on this DEC — add them after import if needed.")
 
 
-def _extract_pdf_text(upload: BinaryIO) -> str:
+OCR_WARNING = "Read from a scanned image with OCR — double-check the policy number, dates, and premium."
+
+
+def _extract_pdf_text(upload: BinaryIO) -> tuple[str, bool]:
+    """Return (text, used_ocr). Image-only PDFs (scans, Print to PDF of a picture) fall back to OCR."""
     try:
         reader = PdfReader(upload)
     except (PdfReadError, PdfStreamError, TypeError, ValueError) as exc:
@@ -501,12 +507,19 @@ def _extract_pdf_text(upload: BinaryIO) -> str:
         except Exception:
             continue
     text = "\n".join(chunks).strip()
-    if not text:
+    if text:
+        return text.replace("\r\n", "\n"), False
+
+    from .ocr_service import ocr_pdf_text
+
+    upload.seek(0)
+    ok, ocr_text = ocr_pdf_text(upload.read())
+    upload.seek(0)
+    if not ok or not ocr_text.strip():
         raise DecPageParseError(
-            "This PDF has no readable text (likely a scanned image). "
-            + _SUPPORTED_CARRIERS_MSG
+            f"This PDF is a scanned image and OCR could not read it ({ocr_text}). " + _SUPPORTED_CARRIERS_MSG
         )
-    return text.replace("\r\n", "\n")
+    return ocr_text.replace("\r\n", "\n"), True
 
 
 def _detect_carrier(text: str) -> str:
@@ -532,12 +545,76 @@ def _detect_carrier(text: str) -> str:
     return ""
 
 
+_INTEGON_POLICY_TOKEN = re.compile(r"\b(INT\d{8,})\b")
+_INTEGON_VEHICLE_ROW = re.compile(
+    r"(?m)^\s*(?:(\d{1,2})\s+)?((?:19|20)\d{2})\s+([A-Z][A-Z0-9 \-]{1,40}?)\s+([A-HJ-NPR-Z0-9]{17})\b"
+)
+_INTEGON_DRIVER_ROW = re.compile(r"(?m)^\s*(\d{1,2})\s+([A-Z][A-Z'\- ]{2,40}?)\s+DOB\s*:")
+
+
+def _fill_integon_from_table_layout(text: str, result: ParsedInsuranceDec) -> None:
+    """
+    Integon DECs read through OCR come back as tab-separated table cells, so the
+    policy number shares a row with "RENEWAL OF" and the insured shares rows with the producer.
+    """
+    if not result.policy_number:
+        for line in text.splitlines():
+            tokens = _INTEGON_POLICY_TOKEN.findall(line)
+            if tokens:
+                result.policy_number = tokens[-1]
+                if len(tokens) > 1 or "RENEWAL" not in text.upper():
+                    break
+
+    block = re.search(r"(?is)NAMED\s+INSURED\s+AND\s+MAILING\s+ADDRESS[^\n]*\n(.*?)(?:\n\s*Code:|POLICY\s+PERIOD)", text)
+    if block:
+        left_cells = []
+        for line in block.group(1).splitlines():
+            cells = [cell.strip() for cell in line.split("\t") if cell.strip()]
+            if len(cells) >= 2:
+                left_cells.append(cells[0])
+        if left_cells:
+            name_ok = result.named_insured and not re.search(r"MAILING|PRODUCER", result.named_insured, re.I)
+            if not name_ok:
+                result.named_insured = re.sub(r"\s+", " ", left_cells[0]).strip(" ,")
+            address = ", ".join(left_cells[1:3])
+            if address and (not result.insured_address or "PRODUCER" in result.insured_address.upper()):
+                result.insured_address = re.sub(r"\s+", " ", address)[:500]
+
+    if not result.vehicles or all(v.year is None for v in result.vehicles):
+        rows = list(_INTEGON_VEHICLE_ROW.finditer(text))
+        if rows:
+            result.vehicles = [
+                DecVehicle(
+                    auto_number=int(m.group(1)) if m.group(1) else index,
+                    year=int(m.group(2)),
+                    make=re.sub(r"\s+", " ", m.group(3)).strip().title()[:60],
+                    vin=m.group(4).upper(),
+                )
+                for index, m in enumerate(rows, start=1)
+            ]
+            result.parse_warnings = [w for w in result.parse_warnings if not w.startswith("No vehicles detected")]
+
+    if not result.drivers:
+        seen: set[str] = set()
+        for m in _INTEGON_DRIVER_ROW.finditer(text):
+            name = re.sub(r"\s+", " ", m.group(2)).strip().title()
+            if name.casefold() in seen:
+                continue
+            seen.add(name.casefold())
+            result.drivers.append(
+                DecDriver(name=name, effective_date=result.effective_date, expiry_date=result.expiration_date)
+            )
+        if result.drivers:
+            result.parse_warnings = [w for w in result.parse_warnings if not w.startswith("No drivers detected")]
+
+
 def parse_integon_dec_text(text: str) -> ParsedInsuranceDec:
     """Parse Integon / National General style declaration text."""
     result = ParsedInsuranceDec(carrier="Integon", carrier_key="integon")
     _parse_common_fields(text, result)
+    _fill_integon_from_table_layout(text, result)
     if not result.carrier or result.carrier == "Integon":
-        carrier_line = _first_match(r"((?:Integon|National General)[^\n]{0,60})", text, re.I)
+        carrier_line = _first_match(r"((?:Integon|National General)[^\n\t]{0,60})", text, re.I)
         if carrier_line:
             result.carrier = re.sub(r"\s+", " ", carrier_line).strip(" ,")
     if not result.policy_number:
@@ -639,8 +716,15 @@ def parse_progressive_dec_text(text: str) -> ParsedInsuranceDec:
 
 
 def parse_insurance_dec_page(upload: BinaryIO) -> ParsedInsuranceDec:
-    """Router: extract PDF text, detect carrier, run carrier parser."""
-    text = _extract_pdf_text(upload)
+    """Router: extract PDF text (OCR for scans), detect carrier, run carrier parser."""
+    text, used_ocr = _extract_pdf_text(upload)
+    result = _parse_dec_text(text)
+    if used_ocr:
+        result.parse_warnings.insert(0, OCR_WARNING)
+    return result
+
+
+def _parse_dec_text(text: str) -> ParsedInsuranceDec:
     key = _detect_carrier(text)
     if key == "integon":
         return parse_integon_dec_text(text)

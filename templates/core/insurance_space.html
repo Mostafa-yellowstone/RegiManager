@@ -1988,7 +1988,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
     </div>
     <p style="margin: 0 0 1rem; color: #64748b; font-size: 0.9rem; font-weight: 600;">
       Upload a text-based declaration PDF (Progressive, Integon/National General, NYAIP / 21st Century AIP, or Maya Assurance).
-      Creates the policy with insured, vehicles, drivers, premium, and stores the DEC. Scanned image-only PDFs cannot be read.
+      Creates the policy with insured, vehicles, drivers, premium, and stores the DEC. Scanned PDFs are read automatically with OCR — double-check the imported fields.
     </p>
     <form method="post" action="{% url 'import-insurance-dec-page' card.id %}" enctype="multipart/form-data">
       {% csrf_token %}

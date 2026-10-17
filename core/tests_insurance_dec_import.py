@@ -4,6 +4,7 @@ from datetime import date
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
+from unittest import mock
 
 from django.test import SimpleTestCase
 
@@ -108,6 +109,28 @@ DEPOSIT 05/01/2026 $612.50
 INSTALLMENT #1 06/01/2026 $306.25
 """
 
+# Tab-separated table cells, the way OCR.space returns an image-only Integon DEC.
+INTEGON_OCR_SAMPLE = (
+    "INTEGON NATIONAL INSURANCE COMPANY\tPAGE 1 OF 3\tAgent Copy\t\n"
+    "RENEWAL OF\tPOLICY NUMBER\t\n"
+    "DECLARATIONS\t\n"
+    "INT60000000101\tAMENDED\tINT60000000102\t\n"
+    "1. NAMED INSURED AND MAILING ADDRESS\t2. PRODUCER\t\n"
+    "JANE Q SAMPLE\tEXAMPLE INSURANCE AGENCY INC\t\n"
+    "787 YONKERS AVE\t\n"
+    "12 EXAMPLE AVE\tYONKERS, NY 10704-\t\n"
+    "YONKERS, NY 10704\t(914)555-0100\t\n"
+    "Code: 1234567\t\n"
+    "POLICY PERIOD:\tFROM: 03/29/2026\tTO: 03/29/2027\t12:01 AM STANDARD TIME\t\n"
+    "VEH\tYEAR\tMAKE\tIDENTIFICATION NUMBER\tPOINTS\t\n"
+    "2017\tTOYOTA TUNDRA CREW MAX L\t5TFHY5F19HX000000\t1A / 02\t29/42\t94\t\n"
+    "INSTALLMENTS\tCHANGE IN\tTOTAL ANNUAL\t\n"
+    "FEES**\tPREMIUM\t-407.00\tPOLICY PREMIUM\t4,476.00\t\n"
+    "DRIVERS\tIncident\tPosting\t\n"
+    "01 JANE SAMPLE\tDOB: 01/01/1980\tPOINTS: 0\tASSIGNED CAR #: 1\t\n"
+    "*New Amended Premium:$\t4,476.00\t\n"
+)
+
 
 class InsuranceDecParseTests(SimpleTestCase):
     def test_parse_integon_text(self):
@@ -182,8 +205,37 @@ class InsuranceDecParseTests(SimpleTestCase):
         writer.add_blank_page(width=200, height=200)
         writer.write(buf)
         buf.seek(0)
-        with self.assertRaises(DecPageParseError):
-            parse_insurance_dec_page(buf)
+        with mock.patch("core.ocr_service.ocr_pdf_text", return_value=(False, "no text found")):
+            with self.assertRaises(DecPageParseError):
+                parse_insurance_dec_page(buf)
+
+    def test_parse_integon_ocr_table_layout(self):
+        parsed = parse_integon_dec_text(INTEGON_OCR_SAMPLE)
+        self.assertEqual(parsed.carrier, "INTEGON NATIONAL INSURANCE COMPANY")
+        self.assertEqual(parsed.policy_number, "INT60000000102")
+        self.assertEqual(parsed.named_insured, "JANE Q SAMPLE")
+        self.assertEqual(parsed.insured_address, "12 EXAMPLE AVE, YONKERS, NY 10704")
+        self.assertEqual(parsed.effective_date, date(2026, 3, 29))
+        self.assertEqual(parsed.expiration_date, date(2027, 3, 29))
+        self.assertEqual(parsed.premium, Decimal("4476.00"))
+        self.assertEqual(len(parsed.vehicles), 1)
+        self.assertEqual(parsed.vehicles[0].year, 2017)
+        self.assertEqual(parsed.vehicles[0].vin, "5TFHY5F19HX000000")
+        self.assertEqual([d.name for d in parsed.drivers], ["Jane Sample"])
+
+    def test_scanned_pdf_is_read_with_ocr(self):
+        from pypdf import PdfWriter
+
+        buf = BytesIO()
+        writer = PdfWriter()
+        writer.add_blank_page(width=200, height=200)
+        writer.write(buf)
+        buf.seek(0)
+        with mock.patch("core.ocr_service.ocr_pdf_text", return_value=(True, INTEGON_OCR_SAMPLE)) as ocr:
+            parsed = parse_insurance_dec_page(buf)
+        ocr.assert_called_once()
+        self.assertEqual(parsed.policy_number, "INT60000000102")
+        self.assertTrue(parsed.parse_warnings[0].startswith("Read from a scanned image with OCR"))
 
     def test_real_desktop_samples_when_present(self):
         fateh = Path(r"C:/Users/mcc/Desktop/Fateh+Zindani+-+Decleration+new.pdf")
