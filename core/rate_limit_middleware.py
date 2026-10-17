@@ -32,7 +32,7 @@ POLL_PATH = re.compile(
 
 # (name, path regex, methods or None for all, limit, window seconds, keyed by user when signed in)
 RATE_LIMIT_RULES = (
-    ("auth", re.compile(r"^/(auth/(login|member-signup)|admin/login|contact)/"), {"POST"}, 10, 60, False),
+    ("auth", re.compile(r"^/(auth/(login|member-signup|password-reset|reset/[^/]+/[^/]+)|admin/login|contact)/"), {"POST"}, 10, 60, False),
     ("api_auth", re.compile(r"^/api/(auth|client/auth)/login/"), {"POST"}, 20, 60, False),
     ("poll", POLL_PATH, {"GET"}, 300, 60, True),
     ("public_sign", re.compile(r"^/sign/"), None, 30, 60, False),

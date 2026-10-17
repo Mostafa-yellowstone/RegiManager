@@ -579,9 +579,10 @@ body.auth-body .auth-shell {
 .btn-arrow { transition: transform var(--transition); }
 .auth-submit-btn:hover .btn-arrow { transform: translateX(4px); }
 
-/* Spinner */
+/* Spinner: sits before the label and the pair stays centered (hidden items must leave the flex flow). */
 .btn-spinner {
     display: none;
+    flex: 0 0 auto;
     width: 18px;
     height: 18px;
     border: 2.5px solid rgba(255,255,255,0.3);
@@ -590,12 +591,58 @@ body.auth-body .auth-shell {
     animation: spin 0.7s linear infinite;
     position: relative;
     z-index: 1;
+    order: -1;
 }
 
-.auth-submit-btn.loading .btn-text,
-.auth-submit-btn.loading .btn-arrow { opacity: 0; }
+.auth-submit-btn.loading .btn-arrow { display: none; }
 
-.auth-submit-btn.loading .btn-spinner { display: block; }
+.auth-submit-btn.loading .btn-spinner { display: inline-block; }
+
+.auth-submit-btn.loading::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    width: 35%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.85), transparent);
+    animation: auth-btn-progress 1.1s ease-in-out infinite;
+}
+
+@keyframes auth-btn-progress {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(300%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .btn-spinner, .auth-submit-btn.loading::after { animation: none; }
+}
+
+.auth-forgot-row {
+    display: flex;
+    justify-content: flex-end;
+    margin: -0.35rem 0 0.25rem;
+}
+
+.auth-forgot-link {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary-light);
+    text-decoration: none;
+}
+
+.auth-forgot-link:hover { color: var(--accent-cyan); text-decoration: underline; }
+
+.auth-info-text {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin: 0 0 1.25rem;
+}
+
+a.auth-submit-btn { text-decoration: none; }
+
+.auth-field-hint ul { margin: 0.35rem 0 0; padding-left: 1.1rem; }
 
 .auth-submit-btn:disabled {
     opacity: 0.7;

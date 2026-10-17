@@ -20,6 +20,12 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
 
+from core.password_reset_views import (
+    RegiPasswordResetCompleteView,
+    RegiPasswordResetConfirmView,
+    RegiPasswordResetDoneView,
+    RegiPasswordResetView,
+)
 from core.agent_portal_views import (
     agent_attendance_tracker,
     agent_portal_create_task,
@@ -507,6 +513,10 @@ urlpatterns = [
     path("auth/login/", login_view, name="login"),
     path("auth/logout/", logout_view, name="logout"),
     path("auth/member-signup/", member_signup, name="member-signup"),
+    path("auth/password-reset/", RegiPasswordResetView.as_view(), name="password-reset"),
+    path("auth/password-reset/done/", RegiPasswordResetDoneView.as_view(), name="password-reset-done"),
+    path("auth/reset/<uidb64>/<token>/", RegiPasswordResetConfirmView.as_view(), name="password-reset-confirm"),
+    path("auth/reset/done/", RegiPasswordResetCompleteView.as_view(), name="password-reset-complete"),
     path("dashboard/", dashboard, name="dashboard"),
     path("dashboard/batch-card/", batch_number_card, name="batch-number-card"),
     path("dashboard/agent-portal/", agent_portal_home, name="agent-portal-home"),
