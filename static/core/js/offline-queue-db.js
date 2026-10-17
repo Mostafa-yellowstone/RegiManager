@@ -17,7 +17,7 @@
     var RETRY_STATUSES = { 409: 1, 502: 1, 503: 1, 504: 1 };
 
     // Writes that need a live answer (searches, OCR, previews, downloads) or carry credentials are never queued.
-    var SKIP_PREFIX = /^\/(auth|admin|api|sign|static|media|i18n)\//i;
+    var SKIP_PREFIX = /^\/(auth|admin|api|sign|static|media|i18n|assistant)\//i;
     var SKIP_SEGMENT = /(^|\/)([^\/]*(ocr|search|preview|lookup|import|export|backup|restore|heartbeat|logout|login|password|esign|signature)[^\/]*|wait|pdf|print)(\/|$)|\.pdf$/i;
 
     var dbPromise = null;

@@ -1,0 +1,63 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'core/css/assistant.css' %}?v=rma-4">
+<div id="rm-assistant" class="rma" data-endpoint="{% url 'assistant-chat' %}">
+    <div hidden>{% csrf_token %}</div>
+    <button type="button" class="rma-launcher" aria-haspopup="dialog" aria-controls="rma-panel" aria-label="Ask Regi, the DMV and insurance guide" title="Questions about registration, titles, plates, TLC or insurance? Ask in any language.">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><path d="M8 9h8M8 13h5"/></svg>
+        <span class="rma-launcher-text">Ask Regi</span>
+    </button>
+
+    <section class="rma-panel" id="rma-panel" role="dialog" aria-modal="false" aria-labelledby="rma-title" hidden>
+        <header class="rma-header">
+            <div class="rma-avatar" aria-hidden="true">R</div>
+            <div class="rma-heading">
+                <h2 id="rma-title">Regi</h2>
+                <p>Your DMV &amp; insurance guide · any language</p>
+            </div>
+            <button type="button" class="rma-icon-btn rma-lang-btn" title="Change language" aria-label="Change language">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 010 20M12 2a15 15 0 000 20"/></svg>
+                <span class="rma-lang-label"></span>
+            </button>
+            <button type="button" class="rma-icon-btn rma-new-btn" title="New conversation" aria-label="New conversation">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <button type="button" class="rma-icon-btn rma-close-btn" title="Close" aria-label="Close assistant">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+        </header>
+
+        <div class="rma-lang-screen" hidden>
+            <h3>Choose your language</h3>
+            <p>Elige tu idioma · اختر لغتك · 选择语言 · Выберите язык</p>
+            <div class="rma-lang-grid">
+                {% for code, name in assistant_languages.items %}
+                <button type="button" class="rma-lang-option" data-lang="{{ code }}" data-name="{{ name }}"></button>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="rma-chat" hidden>
+            <div class="rma-messages" aria-live="polite"></div>
+            <div class="rma-suggestions"></div>
+            <div class="rma-callbar" hidden>
+                <span class="rma-call-pulse" aria-hidden="true"></span>
+                <span class="rma-call-status">Listening…</span>
+                <button type="button" class="rma-end-call">End call</button>
+            </div>
+            <form class="rma-input" autocomplete="off">
+                <textarea rows="1" maxlength="1500" placeholder="Type your question…" aria-label="Your question"></textarea>
+                <button type="button" class="rma-icon-btn rma-mic-btn" title="Speak your question" aria-label="Speak your question" hidden>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0014 0M12 17v5"/></svg>
+                </button>
+                <button type="button" class="rma-icon-btn rma-call-btn" title="Voice conversation" aria-label="Start voice conversation" hidden>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.8 19.8 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.8 19.8 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0122 16.92z"/></svg>
+                </button>
+                <button type="submit" class="rma-send-btn" aria-label="Send">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                </button>
+            </form>
+            <p class="rma-disclaimer">AI answers can be wrong; confirm on official sites. Not affiliated with any DMV or the TLC. Please don't share personal details.</p>
+        </div>
+    </section>
+</div>
+<script src="{% static 'core/js/assistant.js' %}?v=rma-4" defer></script>

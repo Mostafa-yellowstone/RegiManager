@@ -296,8 +296,9 @@
         });
     </script>
     <script src="{% static 'core/js/halloween.js' %}?v=hw-3"></script>
-    <script src="{% static 'core/js/offline-queue-db.js' %}?v=oq-1"></script>
-    <script src="{% static 'core/js/offline-queue.js' %}?v=oq-1" data-sw-url="{% url 'service-worker' %}" data-enabled="{{ offline_queue_enabled }}" data-user-id="{% if user.is_authenticated %}{{ user.pk }}{% endif %}"></script>
+    {% if assistant_enabled %}{% include "core/partials/assistant_widget.html" %}{% endif %}
+    <script src="{% static 'core/js/offline-queue-db.js' %}?v=oq-2"></script>
+    <script src="{% static 'core/js/offline-queue.js' %}?v=oq-2" data-sw-url="{% url 'service-worker' %}" data-enabled="{{ offline_queue_enabled }}" data-user-id="{% if user.is_authenticated %}{{ user.pk }}{% endif %}"></script>
 </body>
 
 </html>

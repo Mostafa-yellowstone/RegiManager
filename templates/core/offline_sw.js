@@ -1,6 +1,6 @@
-{% load static %}/* RegiManager service worker: offline-queue-v1 */
+{% load static %}/* RegiManager service worker: offline-queue-v2 */
 {% if offline_queue_enabled %}
-importScripts('{% static "core/js/offline-queue-db.js" %}?v=oq-1');
+importScripts('{% static "core/js/offline-queue-db.js" %}?v=oq-2');
 
 var DB = self.RMOfflineDB;
 var SERVER_DOWN = { 502: 1, 503: 1, 504: 1 };

@@ -20,6 +20,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
 
+from core.assistant import assistant_chat
 from core.offline_sync import service_worker
 from core.password_reset_views import (
     RegiPasswordResetCompleteView,
@@ -509,6 +510,7 @@ urlpatterns = [
 
     path("", home, name="home"),
     path("sw.js", service_worker, name="service-worker"),
+    path("assistant/chat/", assistant_chat, name="assistant-chat"),
 
     path("contact/", contact, name="contact"),
     path("privacy/", privacy, name="privacy"),

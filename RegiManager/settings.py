@@ -175,6 +175,7 @@ TEMPLATES = [
                 "core.context_processors.agency_license_alerts",
                 "core.context_processors.halloween_theme",
                 "core.context_processors.offline_queue",
+                "core.assistant.assistant_context",
             ],
         },
     },
@@ -280,6 +281,11 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 LOGIN_URL = "login"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODELS = os.getenv("GEMINI_MODELS", "gemini-2.5-flash,gemini-2.5-flash-lite")
+GEMINI_GROUNDING = os.getenv("GEMINI_GROUNDING", "False").lower() in {"1", "true", "yes"}
+ASSISTANT_DAILY_LIMIT = int(os.getenv("ASSISTANT_DAILY_LIMIT", "1000"))
+ASSISTANT_PER_VISITOR_DAILY_LIMIT = int(os.getenv("ASSISTANT_PER_VISITOR_DAILY_LIMIT", "80"))
 OFFLINE_QUEUE_ENABLED = os.getenv("OFFLINE_QUEUE_ENABLED", "True").lower() in {"1", "true", "yes"}
 PASSWORD_RESET_TIMEOUT = int(os.getenv("PASSWORD_RESET_TIMEOUT", str(60 * 60)))
 LOGIN_REDIRECT_URL = "dashboard"
