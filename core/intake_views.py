@@ -36,9 +36,12 @@ def _check_intake_post_rate(request):
 
     if settings.DEBUG or "test" in sys.argv:
         return True
+    if getattr(request.user, "is_authenticated", False):
+        return True
+    # Generous because an office's customers usually share one Wi-Fi IP; this only stops spam bots.
     return consume_rate_limit(
         f"intake_post:{client_ip(request)}",
-        limit=5,
+        limit=30,
         window_seconds=60,
     )
 
@@ -70,7 +73,7 @@ def public_intake_portal(request, portal_token=None):
 
     if request.method == "POST":
         if not _check_intake_post_rate(request):
-            messages.error(request, "Too many submissions. Please wait a minute and try again.")
+            messages.error(request, "Please wait a minute, then send the form again.")
             form = ClientIntakeForm(request.POST, request.FILES, organization=organization)
         else:
             form = ClientIntakeForm(request.POST, request.FILES, organization=organization)

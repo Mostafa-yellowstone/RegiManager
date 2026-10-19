@@ -72,7 +72,7 @@ def consume_rate_limit(raw_key, *, limit, window_seconds):
 
 
 def _too_many(json_response):
-    message = "Too many requests. Please wait a moment and try again."
+    message = "Please wait a minute, then try again."
     if json_response:
         response = JsonResponse({"error": message, "detail": message}, status=429)
     else:
@@ -166,4 +166,4 @@ def clear_login_failures(scope, identifier, request):
         pass
 
 
-LOCKOUT_MESSAGE = "Too many failed sign-in attempts. Wait 15 minutes and try again."
+LOCKOUT_MESSAGE = "For your account's safety, sign-in is paused for 15 minutes after several wrong passwords."

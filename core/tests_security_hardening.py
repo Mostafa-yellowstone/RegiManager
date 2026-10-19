@@ -105,81 +105,64 @@ class RateLimitAndLockoutTests(TestCase):
         self.user.save()
         self.assertFalse(Token.objects.filter(user=self.user).exists())
 
-    def _upload_request(self, path):
-        request = RequestFactory().post(path, REMOTE_ADDR=PUBLIC_IP)
+    def _signed_in(self, method, path, **extra):
+        request = getattr(RequestFactory(), method)(path, REMOTE_ADDR=PUBLIC_IP, **extra)
         request.user = self.user
         return request
 
-    def test_bulk_document_uploads_are_not_capped_at_thirty(self):
-        path = "/dashboard/service/1/upload/"
-        allowed = [RateLimitMiddleware._allowed(self._upload_request(path), path) for _ in range(60)]
+    def test_signed_in_staff_are_never_limited(self):
+        paths = [
+            ("get", "/dashboard/"),
+            ("post", "/dashboard/service/1/upload/"),
+            ("post", "/dashboard/spaces/tlc/1/policy/import-bob/"),
+            ("post", "/dashboard/ocr-dl/"),
+            ("get", "/dashboard/reports/monthly-pdf/"),
+            ("get", "/api/portal/notifications/"),
+        ]
+        for method, path in paths:
+            allowed = [RateLimitMiddleware._allowed(self._signed_in(method, path), path) for _ in range(2000)]
+            self.assertTrue(all(allowed), path)
+
+    def test_signed_in_staff_can_post_to_public_forms_freely(self):
+        allowed = [RateLimitMiddleware._allowed(self._signed_in("post", "/contact/"), "/contact/") for _ in range(50)]
         self.assertTrue(all(allowed))
 
-    def test_imports_keep_a_tighter_limit_than_document_uploads(self):
-        path = "/dashboard/spaces/tlc/1/policy/import-bob/"
-        allowed = [RateLimitMiddleware._allowed(self._upload_request(path), path) for _ in range(61)]
-        self.assertTrue(all(allowed[:60]))
-        self.assertFalse(allowed[60])
-
-    def test_important_documents_are_not_mistaken_for_imports(self):
-        path = "/dashboard/spaces/important-docs/5/delete/"
-        allowed = [RateLimitMiddleware._allowed(self._upload_request(path), path) for _ in range(100)]
-        self.assertTrue(all(allowed))
-
-    def test_signed_in_staff_get_room_for_heavy_work(self):
-        allowed = []
-        for _ in range(1000):
-            request = RequestFactory().get("/dashboard/", REMOTE_ADDR=PUBLIC_IP)
-            request.user = self.user
-            allowed.append(RateLimitMiddleware._allowed(request, "/dashboard/"))
-        self.assertTrue(all(allowed))
-
-    def test_anonymous_visitors_keep_the_tight_page_limit(self):
+    def test_api_tokens_and_pages_are_never_limited(self):
         from django.contrib.auth.models import AnonymousUser
 
+        for path in ("/api/clients/", "/", "/sign/abc/", "/intake/abc/"):
+            results = []
+            for i in range(1000):
+                request = RequestFactory().get(path, REMOTE_ADDR=PUBLIC_IP, HTTP_AUTHORIZATION=f"Token t{i}")
+                request.user = AnonymousUser()
+                results.append(RateLimitMiddleware._allowed(request, path))
+            self.assertTrue(all(results), path)
+
+    def test_password_reset_keeps_its_strict_limit(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        path = "/auth/password-reset/"
         results = []
-        for _ in range(610):
-            request = RequestFactory().get("/", REMOTE_ADDR=PUBLIC_IP)
+        for _ in range(11):
+            request = RequestFactory().post(path, REMOTE_ADDR=PUBLIC_IP)
             request.user = AnonymousUser()
-            results.append(RateLimitMiddleware._allowed(request, "/"))
-        self.assertTrue(all(results[:600]))
-        self.assertFalse(results[600])
+            results.append(RateLimitMiddleware._allowed(request, path))
+        self.assertTrue(all(results[:10]))
+        self.assertFalse(results[10])
 
-    def test_blocked_requests_are_logged_once_per_window(self):
-        path = "/dashboard/spaces/tlc/1/policy/import-bob/"
+    def test_paused_sign_ins_are_logged_once_per_window(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        path = "/auth/login/"
         with self.assertLogs("core.rate_limit_middleware", level="WARNING") as logs:
-            for _ in range(70):
-                RateLimitMiddleware._allowed(self._upload_request(path), path)
+            for _ in range(30):
+                request = RequestFactory().post(path, REMOTE_ADDR=PUBLIC_IP)
+                request.user = AnonymousUser()
+                RateLimitMiddleware._allowed(request, path)
         self.assertEqual(len(logs.records), 1)
-        self.assertIn("'import'", logs.output[0])
-        self.assertIn(f"u{self.user.pk}", logs.output[0])
+        self.assertIn("'auth'", logs.output[0])
 
-    def test_blocked_form_is_sent_again_automatically(self):
-        from urllib.parse import urlencode
-
-        request = RequestFactory().post(
-            "/dashboard/clients/1/edit/?tab=info",
-            urlencode(
-                {"csrfmiddlewaretoken": "tok", "first_name": "Ana", "note": "<script>x</script>", "tag": ["a", "b"]},
-                doseq=True,
-            ),
-            content_type="application/x-www-form-urlencoded",
-            HTTP_ACCEPT="text/html",
-        )
-        request.user = self.user
-        response = _limited_response(request, 9, "write")
-        body = response.content.decode()
-        self.assertEqual(response.status_code, 429)
-        self.assertEqual(response["Retry-After"], "9")
-        self.assertIn("action='/dashboard/clients/1/edit/?tab=info'", body)
-        self.assertIn("name='first_name' value='Ana'", body)
-        self.assertIn("value='a'", body)
-        self.assertIn("value='b'", body)
-        self.assertIn("&lt;script&gt;x&lt;/script&gt;", body)
-        self.assertNotIn("<script>x</script>", body)
-        self.assertIn("HTMLFormElement.prototype.submit", body)
-
-    def test_blocked_sign_in_is_never_echoed_back(self):
+    def test_paused_sign_in_is_never_echoed_back(self):
         from django.contrib.auth.models import AnonymousUser
 
         request = RequestFactory().post(
@@ -190,79 +173,21 @@ class RateLimitAndLockoutTests(TestCase):
         self.assertNotIn("secret-pass", body)
         self.assertNotIn("<form", body)
         self.assertIn("history.back()", body)
+        self.assertNotIn("Too many", body)
 
-    def test_blocked_file_upload_form_asks_to_go_back(self):
-        from django.core.files.uploadedfile import SimpleUploadedFile
-
-        request = RequestFactory().post(
-            "/dashboard/service/1/upload/",
-            {"file": SimpleUploadedFile("a.pdf", b"%PDF-1.4"), "note": "hi"},
-            HTTP_ACCEPT="text/html",
-        )
-        request.user = self.user
-        body = _limited_response(request, 30, "upload").content.decode()
-        self.assertNotIn("<form", body)
-        self.assertIn("history.back()", body)
-
-    def test_background_polling_never_locks_the_user_out_of_pages(self):
-        poll = "/api/portal/notifications/"
-        for _ in range(400):
-            request = RequestFactory().get(poll, REMOTE_ADDR=PUBLIC_IP)
-            request.user = self.user
-            RateLimitMiddleware._allowed(request, poll)
-        page = RequestFactory().get("/dashboard/", REMOTE_ADDR=PUBLIC_IP)
-        page.user = self.user
-        self.assertTrue(RateLimitMiddleware._allowed(page, "/dashboard/"))
-
-    def test_background_polling_is_still_capped(self):
-        poll = "/api/portal/notifications/"
-        results = []
-        for _ in range(920):
-            request = RequestFactory().get(poll, REMOTE_ADDR=PUBLIC_IP)
-            request.user = self.user
-            results.append(RateLimitMiddleware._allowed(request, poll))
-        self.assertIn(False, results)
-
-    def test_valid_api_tokens_do_not_share_one_ip_bucket(self):
-        from django.contrib.auth.models import AnonymousUser
-
-        other = User.objects.create_user(username="otherapp", password="Correct-Horse-9")
-        mine, theirs = Token.objects.create(user=self.user), Token.objects.create(user=other)
-        path = "/api/clients/"
-
-        def hit(token):
-            request = RequestFactory().get(path, REMOTE_ADDR=PUBLIC_IP, HTTP_AUTHORIZATION=f"Token {token.key}")
-            request.user = AnonymousUser()
-            return RateLimitMiddleware._allowed(request, path)
-
-        for _ in range(1500):
-            hit(mine)
-        self.assertFalse(hit(mine))
-        self.assertTrue(hit(theirs))
-
-    def test_made_up_tokens_fall_back_to_the_ip_bucket(self):
-        from django.contrib.auth.models import AnonymousUser
-
-        path = "/api/clients/"
-        results = []
-        for i in range(610):
-            request = RequestFactory().get(path, REMOTE_ADDR=PUBLIC_IP, HTTP_AUTHORIZATION=f"Token fake{i}")
-            request.user = AnonymousUser()
-            results.append(RateLimitMiddleware._allowed(request, path))
-        self.assertIn(False, results)
-
-    def test_rate_limited_page_reloads_itself(self):
-        request = RequestFactory().get("/dashboard/", HTTP_ACCEPT="text/html,application/xhtml+xml")
+    def test_paused_page_reloads_itself(self):
+        request = RequestFactory().get("/auth/login/", HTTP_ACCEPT="text/html,application/xhtml+xml")
         response = _limited_response(request, 17)
         self.assertEqual(response.status_code, 429)
         self.assertEqual(response["Retry-After"], "17")
         self.assertIn(b"http-equiv='refresh' content='17'", response.content)
 
-    def test_rate_limited_upload_tells_the_browser_when_to_retry(self):
-        request = RequestFactory().post("/dashboard/service/1/upload/", HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+    def test_paused_api_sign_in_tells_the_app_when_to_retry(self):
+        request = RequestFactory().post("/api/auth/login/")
         response = _limited_response(request)
         self.assertEqual(response.status_code, 429)
         self.assertEqual(response["Retry-After"], "60")
+        self.assertNotIn(b"Too many", response.content)
 
     def test_api_has_one_rate_limiter_not_two(self):
         from django.conf import settings

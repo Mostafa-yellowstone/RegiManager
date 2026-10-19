@@ -13,7 +13,7 @@
     var MAX_RETRIES = 2;
     var MAX_WAIT_MS = 90000;
     // Background polls already pause themselves on 429; holding them here would only delay that.
-    var POLL = /\/(notifications(\/wait)?|events|quote-distribution|session-heartbeat|chat\/wait)\/?$/;
+    var POLL = /\/(notifications(\/wait)?|events|quote-distribution|session-heartbeat|chat\/wait)\/?$|^\/assistant\//;
     var pausedUntil = 0;
     var notice = null;
     var noticeTimer = null;

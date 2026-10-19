@@ -4510,7 +4510,6 @@ def send_manual_reminder(request, vehicle_id):
     
     return redirect(safe_redirect_target(request, fallback="upcoming-expirations"))
 
-@rate_limit(key_prefix="ocr", limit=20, window_seconds=60, json_response=True)
 @require_POST
 def ocr_dl_ajax(request):
     if not _check_ocr_auth(request):
@@ -4672,7 +4671,6 @@ def ocr_dl_ajax(request):
     return JsonResponse({"status": "success", "data": data})
 
 
-@rate_limit(key_prefix="ocr", limit=20, window_seconds=60, json_response=True)
 @require_POST
 def ocr_vehicle_title_ajax(request):
     """
