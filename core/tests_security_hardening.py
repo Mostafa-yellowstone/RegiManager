@@ -105,6 +105,31 @@ class RateLimitAndLockoutTests(TestCase):
         self.user.save()
         self.assertFalse(Token.objects.filter(user=self.user).exists())
 
+    def test_opening_the_sign_in_page_is_never_limited(self):
+        http = self._web()
+        statuses = {http.get(reverse("login")).status_code for _ in range(40)}
+        self.assertEqual(statuses, {200})
+
+    def test_one_persons_wrong_passwords_do_not_lock_the_office(self):
+        manager = User.objects.create_user(username="hamza", password="Manager-Pass-77")
+        OrganizationMembership.objects.create(
+            user=manager, organization=self.org, role=OrganizationMembership.Role.MANAGER, is_active=True
+        )
+        http = self._web()
+        for _ in range(6):
+            http.post(reverse("login"), {"username": "lockme", "password": "wrong-pass"})
+        colleague = self._web()
+        colleague.post(reverse("login"), {"username": "hamza", "password": "Manager-Pass-77"})
+        self.assertEqual(colleague.session.get("_auth_user_id"), str(manager.pk))
+
+    @override_settings(LOGIN_LOCKOUT_IP_MAX_FAILURES=8)
+    def test_guessing_across_many_accounts_from_one_ip_is_still_stopped(self):
+        http = self._web()
+        for i in range(8):
+            http.post(reverse("login"), {"username": f"guess{i}", "password": "wrong-pass"})
+        http.post(reverse("login"), {"username": "lockme", "password": "Correct-Horse-9"})
+        self.assertNotIn("_auth_user_id", http.session)
+
     def _signed_in(self, method, path, **extra):
         request = getattr(RequestFactory(), method)(path, REMOTE_ADDR=PUBLIC_IP, **extra)
         request.user = self.user

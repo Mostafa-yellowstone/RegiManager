@@ -109,6 +109,8 @@ def rate_limit(*, key_prefix, limit, window_seconds=60, json_response=False, met
 
 LOCKOUT_MAX_FAILURES = 5
 LOCKOUT_WINDOW_SECONDS = 15 * 60
+# A whole office signs in from one IP, so the IP counter only catches someone guessing across many accounts.
+LOCKOUT_IP_MAX_FAILURES = 50
 
 
 def _lockout_settings():
@@ -116,6 +118,10 @@ def _lockout_settings():
         int(getattr(settings, "LOGIN_LOCKOUT_MAX_FAILURES", LOCKOUT_MAX_FAILURES)),
         int(getattr(settings, "LOGIN_LOCKOUT_WINDOW_SECONDS", LOCKOUT_WINDOW_SECONDS)),
     )
+
+
+def _ip_lockout_max():
+    return int(getattr(settings, "LOGIN_LOCKOUT_IP_MAX_FAILURES", LOCKOUT_IP_MAX_FAILURES))
 
 
 def _lockout_keys(scope, identifier, request):
@@ -130,13 +136,20 @@ def _lockout_keys(scope, identifier, request):
 
 
 def login_locked(scope, identifier, request):
-    """True when this account or this IP has failed too many times recently."""
+    """True when this account, or this IP across many accounts, has failed repeatedly in the window."""
     max_failures, _window = _lockout_settings()
+    keys = _lockout_keys(scope, identifier, request)
+    ident = (identifier or "").strip().lower()
+    account_key = _cache_key("lock", f"{scope}:id:{ident}") if ident else None
     try:
-        values = cache.get_many(_lockout_keys(scope, identifier, request))
+        values = cache.get_many(keys)
     except Exception:
         return False
-    return any(int(v or 0) >= max_failures for v in values.values())
+    for key, value in values.items():
+        threshold = max_failures if key == account_key else _ip_lockout_max()
+        if int(value or 0) >= threshold:
+            return True
+    return False
 
 
 def record_login_failure(scope, identifier, request):

@@ -43,7 +43,6 @@ from .constants import (
 )
 from .ocr_service import check_ocr_auth as _check_ocr_auth, perform_ocr as _perform_ocr
 from .policies import safe_redirect_target, redirect_back
-from .ratelimit import rate_limit
 from .referral_metrics import attach_referral_list_metrics
 from .upload_validation import validate_ocr_upload
 from django.core.exceptions import ValidationError
@@ -716,7 +715,6 @@ def member_signup(request):
     )
 
 
-@rate_limit(key_prefix="login", limit=15, window_seconds=60)
 def login_view(request):
     if request.user.is_authenticated:
         if request.user.is_superuser:
