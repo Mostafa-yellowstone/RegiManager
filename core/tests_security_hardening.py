@@ -81,7 +81,7 @@ class RateLimitAndLockoutTests(TestCase):
         http = self._web()
         statuses = [
             http.post(reverse("login"), {"username": f"nobody{i}", "password": "x"}).status_code
-            for i in range(12)
+            for i in range(25)
         ]
         self.assertIn(429, statuses)
 
@@ -117,9 +117,92 @@ class RateLimitAndLockoutTests(TestCase):
 
     def test_imports_keep_a_tighter_limit_than_document_uploads(self):
         path = "/dashboard/spaces/tlc/1/policy/import-bob/"
-        allowed = [RateLimitMiddleware._allowed(self._upload_request(path), path) for _ in range(31)]
-        self.assertTrue(all(allowed[:30]))
-        self.assertFalse(allowed[30])
+        allowed = [RateLimitMiddleware._allowed(self._upload_request(path), path) for _ in range(61)]
+        self.assertTrue(all(allowed[:60]))
+        self.assertFalse(allowed[60])
+
+    def test_important_documents_are_not_mistaken_for_imports(self):
+        path = "/dashboard/spaces/important-docs/5/delete/"
+        allowed = [RateLimitMiddleware._allowed(self._upload_request(path), path) for _ in range(100)]
+        self.assertTrue(all(allowed))
+
+    def test_signed_in_staff_get_room_for_heavy_work(self):
+        allowed = []
+        for _ in range(1000):
+            request = RequestFactory().get("/dashboard/", REMOTE_ADDR=PUBLIC_IP)
+            request.user = self.user
+            allowed.append(RateLimitMiddleware._allowed(request, "/dashboard/"))
+        self.assertTrue(all(allowed))
+
+    def test_anonymous_visitors_keep_the_tight_page_limit(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        results = []
+        for _ in range(610):
+            request = RequestFactory().get("/", REMOTE_ADDR=PUBLIC_IP)
+            request.user = AnonymousUser()
+            results.append(RateLimitMiddleware._allowed(request, "/"))
+        self.assertTrue(all(results[:600]))
+        self.assertFalse(results[600])
+
+    def test_blocked_requests_are_logged_once_per_window(self):
+        path = "/dashboard/spaces/tlc/1/policy/import-bob/"
+        with self.assertLogs("core.rate_limit_middleware", level="WARNING") as logs:
+            for _ in range(70):
+                RateLimitMiddleware._allowed(self._upload_request(path), path)
+        self.assertEqual(len(logs.records), 1)
+        self.assertIn("'import'", logs.output[0])
+        self.assertIn(f"u{self.user.pk}", logs.output[0])
+
+    def test_blocked_form_is_sent_again_automatically(self):
+        from urllib.parse import urlencode
+
+        request = RequestFactory().post(
+            "/dashboard/clients/1/edit/?tab=info",
+            urlencode(
+                {"csrfmiddlewaretoken": "tok", "first_name": "Ana", "note": "<script>x</script>", "tag": ["a", "b"]},
+                doseq=True,
+            ),
+            content_type="application/x-www-form-urlencoded",
+            HTTP_ACCEPT="text/html",
+        )
+        request.user = self.user
+        response = _limited_response(request, 9, "write")
+        body = response.content.decode()
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response["Retry-After"], "9")
+        self.assertIn("action='/dashboard/clients/1/edit/?tab=info'", body)
+        self.assertIn("name='first_name' value='Ana'", body)
+        self.assertIn("value='a'", body)
+        self.assertIn("value='b'", body)
+        self.assertIn("&lt;script&gt;x&lt;/script&gt;", body)
+        self.assertNotIn("<script>x</script>", body)
+        self.assertIn("HTMLFormElement.prototype.submit", body)
+
+    def test_blocked_sign_in_is_never_echoed_back(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        request = RequestFactory().post(
+            reverse("login"), {"username": "lockme", "password": "secret-pass"}, HTTP_ACCEPT="text/html"
+        )
+        request.user = AnonymousUser()
+        body = _limited_response(request, 30, "auth").content.decode()
+        self.assertNotIn("secret-pass", body)
+        self.assertNotIn("<form", body)
+        self.assertIn("history.back()", body)
+
+    def test_blocked_file_upload_form_asks_to_go_back(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        request = RequestFactory().post(
+            "/dashboard/service/1/upload/",
+            {"file": SimpleUploadedFile("a.pdf", b"%PDF-1.4"), "note": "hi"},
+            HTTP_ACCEPT="text/html",
+        )
+        request.user = self.user
+        body = _limited_response(request, 30, "upload").content.decode()
+        self.assertNotIn("<form", body)
+        self.assertIn("history.back()", body)
 
     def test_background_polling_never_locks_the_user_out_of_pages(self):
         poll = "/api/portal/notifications/"
@@ -134,7 +217,7 @@ class RateLimitAndLockoutTests(TestCase):
     def test_background_polling_is_still_capped(self):
         poll = "/api/portal/notifications/"
         results = []
-        for _ in range(320):
+        for _ in range(920):
             request = RequestFactory().get(poll, REMOTE_ADDR=PUBLIC_IP)
             request.user = self.user
             results.append(RateLimitMiddleware._allowed(request, poll))
@@ -152,7 +235,7 @@ class RateLimitAndLockoutTests(TestCase):
             request.user = AnonymousUser()
             return RateLimitMiddleware._allowed(request, path)
 
-        for _ in range(600):
+        for _ in range(1500):
             hit(mine)
         self.assertFalse(hit(mine))
         self.assertTrue(hit(theirs))
@@ -180,6 +263,16 @@ class RateLimitAndLockoutTests(TestCase):
         response = _limited_response(request)
         self.assertEqual(response.status_code, 429)
         self.assertEqual(response["Retry-After"], "60")
+
+    def test_api_has_one_rate_limiter_not_two(self):
+        from django.conf import settings
+
+        self.assertEqual(settings.REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"], [])
+        self.assertIn("login", settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"])
+
+    def test_every_page_loads_the_busy_retry_helper(self):
+        response = self._web().get(reverse("login"))
+        self.assertContains(response, "core/js/rate-limit-retry.js")
 
 
 @override_settings(SECURE_SSL_REDIRECT=False, SESSION_COOKIE_SECURE=False, CSRF_COOKIE_SECURE=False, CACHES=LOCMEM)

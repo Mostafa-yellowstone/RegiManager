@@ -89,10 +89,10 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
-    "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
-    ],
+    # RateLimitMiddleware already limits every API route per user/token/IP; a second blanket DRF
+    # throttle double-counts background polling and lumps whole offices behind one IP together.
+    # Sign-in views still opt in to the scoped rates below.
+    "DEFAULT_THROTTLE_CLASSES": [],
     "DEFAULT_THROTTLE_RATES": {
         "anon": os.getenv("DRF_ANON_RATE", "60/minute"),
         "user": os.getenv("DRF_USER_RATE", "300/minute"),
@@ -282,7 +282,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 LOGIN_URL = "login"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODELS = os.getenv("GEMINI_MODELS", "gemini-2.5-flash,gemini-2.5-flash-lite")
+GEMINI_MODELS = os.getenv("GEMINI_MODELS", "gemini-3.8-flash,gemini-flash-latest")
 GEMINI_GROUNDING = os.getenv("GEMINI_GROUNDING", "False").lower() in {"1", "true", "yes"}
 ASSISTANT_DAILY_LIMIT = int(os.getenv("ASSISTANT_DAILY_LIMIT", "1000"))
 ASSISTANT_PER_VISITOR_DAILY_LIMIT = int(os.getenv("ASSISTANT_PER_VISITOR_DAILY_LIMIT", "80"))

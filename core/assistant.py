@@ -113,7 +113,7 @@ def assistant_enabled():
 
 
 def _models():
-    raw = getattr(settings, "GEMINI_MODELS", "gemini-2.5-flash,gemini-2.5-flash-lite")
+    raw = getattr(settings, "GEMINI_MODELS", "gemini-3.8-flash,gemini-flash-latest")
     return [m.strip() for m in str(raw).split(",") if m.strip()]
 
 
