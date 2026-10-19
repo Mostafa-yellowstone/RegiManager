@@ -846,7 +846,9 @@ def client_detail(request, client_id):
         .order_by("-transaction_date", "-created_at")
     )
     try:
-        notes_qs = client.notes.select_related("created_by", "assigned_to").all()
+        notes_qs = client.notes.select_related(
+            "created_by", "assigned_to", "updated_by", "completed_by"
+        ).prefetch_related("history__actor")
     except (OperationalError, ProgrammingError):
         notes_qs = ClientNote.objects.none()
 
@@ -862,7 +864,7 @@ def client_detail(request, client_id):
     total_services = record_totals["total_services"] or 0
     last_service_date = records_qs.values_list("transaction_date", flat=True).first()
 
-    notes_paginator = Paginator(notes_qs, 3)
+    notes_paginator = Paginator(notes_qs, 5)
     notes_page = request.GET.get("notes_page")
     notes = notes_paginator.get_page(notes_page)
 
@@ -950,6 +952,7 @@ def client_detail(request, client_id):
         "active_defense_driving": active_defense_driving,
         "show_defense_driving_card": show_defense_driving_card,
         "notes": notes,
+        "notes_today": timezone.localdate(),
         "assignable_agents": assignable_agents,
         "total_spend": total_spend,
         "total_services": total_services,
@@ -1125,6 +1128,52 @@ def test_client_app_login(request, client_id):
     return redirect("client-detail", client_id=client.id)
 
 
+def _note_assignee(client, raw):
+    raw = (raw or "").strip()
+    if not raw.isdigit():
+        return None
+    return User.objects.filter(
+        id=int(raw),
+        organization_memberships__organization=client.organization,
+        organization_memberships__is_active=True,
+    ).exclude(
+        organization_memberships__role=OrganizationMembership.Role.OWNER,
+    ).first()
+
+
+def _note_follow_up(raw):
+    """(date or None, ok)."""
+    from django.utils.dateparse import parse_date
+
+    raw = (raw or "").strip()
+    if not raw:
+        return None, True
+    try:
+        parsed = parse_date(raw)
+    except ValueError:
+        parsed = None
+    return parsed, parsed is not None
+
+
+def _person_label(user):
+    if not user:
+        return "Unassigned"
+    return user.get_full_name() or user.username
+
+
+def _note_date_label(value):
+    return value.strftime("%b %d, %Y").replace(" 0", " ") if value else "No date"
+
+
+def _note_redirect(request, note):
+    from .policies import is_safe_internal_url
+
+    next_url = (request.POST.get("next") or "").strip()
+    if next_url.startswith("/") and is_safe_internal_url(request, next_url):
+        return redirect(f"{next_url.split('#')[0]}#note-{note.id}")
+    return redirect(f"{reverse('client-detail', args=[note.client_id])}#note-{note.id}")
+
+
 @login_required
 @require_POST
 def add_client_note(request, client_id):
@@ -1133,30 +1182,24 @@ def add_client_note(request, client_id):
         deny_access("Access denied.")
 
     content = (request.POST.get("content") or "").strip()
-    follow_up_date = (request.POST.get("follow_up_date") or "").strip()
-    assigned_to_raw = (request.POST.get("assigned_to") or "").strip()
+    follow_up_date, date_ok = _note_follow_up(request.POST.get("follow_up_date"))
 
     if not content:
         messages.error(request, "Please enter a note.")
         return redirect("client-detail", client_id=client.id)
+    if not date_ok:
+        messages.error(request, "Please pick a valid follow-up date.")
+        return redirect("client-detail", client_id=client.id)
 
     try:
-        assigned_to = None
-        if assigned_to_raw.isdigit():
-            assigned_to = User.objects.filter(
-                id=int(assigned_to_raw),
-                organization_memberships__organization=client.organization,
-                organization_memberships__is_active=True,
-            ).exclude(
-                organization_memberships__role=OrganizationMembership.Role.OWNER,
-            ).first()
+        assigned_to = _note_assignee(client, request.POST.get("assigned_to"))
 
         note = ClientNote.objects.create(
             client=client,
             created_by=request.user,
             assigned_to=assigned_to,
             content=content,
-            follow_up_date=follow_up_date or None,
+            follow_up_date=follow_up_date,
         )
 
         if assigned_to:
@@ -1176,7 +1219,7 @@ def add_client_note(request, client_id):
                 note=note,
                 level=Notification.Level.WARNING,
                 title="Client follow-up reminder",
-                message=f"Follow up on {client.name} on {note.follow_up_date}.",
+                message=f"Follow up on {client.name} on {_note_date_label(note.follow_up_date)}.",
             )
     except (OperationalError, ProgrammingError):
         messages.error(request, "Notes table is not available yet. Please run migrations.")
@@ -1188,14 +1231,117 @@ def add_client_note(request, client_id):
 
 @login_required
 @require_POST
+def edit_client_note(request, note_id):
+    from .models import ClientNoteHistory
+
+    note = get_object_or_404(ClientNote.objects.select_related("client", "created_by", "assigned_to"), id=note_id)
+    client = note.client
+    if not _has_active_org_access(request.user, client.organization_id):
+        deny_access("Access denied.")
+
+    content = (request.POST.get("content") or "").strip()
+    follow_up_date, date_ok = _note_follow_up(request.POST.get("follow_up_date"))
+    if not content:
+        messages.error(request, "A note can't be empty.")
+        return _note_redirect(request, note)
+    if not date_ok:
+        messages.error(request, "Please pick a valid follow-up date.")
+        return _note_redirect(request, note)
+    assigned_to = _note_assignee(client, request.POST.get("assigned_to"))
+
+    changes = []
+    if content != note.content:
+        changes.append({"field": "Note", "old": note.content, "new": content})
+    if follow_up_date != note.follow_up_date:
+        changes.append(
+            {
+                "field": "Follow-up date",
+                "old": _note_date_label(note.follow_up_date),
+                "new": _note_date_label(follow_up_date),
+            }
+        )
+    if assigned_to != note.assigned_to:
+        changes.append(
+            {"field": "Assigned to", "old": _person_label(note.assigned_to), "new": _person_label(assigned_to)}
+        )
+    if not changes:
+        messages.info(request, "Nothing changed.")
+        return _note_redirect(request, note)
+
+    previous_assignee = note.assigned_to
+    date_changed = follow_up_date != note.follow_up_date
+    with transaction.atomic():
+        note.content = content
+        note.follow_up_date = follow_up_date
+        note.assigned_to = assigned_to
+        note.updated_at = timezone.now()
+        note.updated_by = request.user
+        note.save(update_fields=["content", "follow_up_date", "assigned_to", "updated_at", "updated_by"])
+        ClientNoteHistory.objects.create(
+            note=note, actor=request.user, action=ClientNoteHistory.Action.EDITED, changes=changes
+        )
+
+        editor = _person_label(request.user)
+        if assigned_to and assigned_to != previous_assignee and assigned_to != request.user:
+            Notification.objects.create(
+                user=assigned_to,
+                client=client,
+                note=note,
+                level=Notification.Level.WARNING,
+                title="Client note assigned to you",
+                message=f"{editor} assigned you a note for {client.name}.",
+            )
+        if date_changed and follow_up_date and not note.is_done:
+            for person in {note.assigned_to, note.created_by} - {None, request.user}:
+                Notification.objects.create(
+                    user=person,
+                    client=client,
+                    note=note,
+                    level=Notification.Level.WARNING,
+                    title="Follow-up date changed",
+                    message=f"{editor} moved the follow-up for {client.name} to {_note_date_label(follow_up_date)}.",
+                )
+
+    messages.success(request, "Note updated. The change is saved in its history.")
+    return _note_redirect(request, note)
+
+
+@login_required
+@require_POST
+def reopen_client_note(request, note_id):
+    from .models import ClientNoteHistory
+
+    note = get_object_or_404(ClientNote.objects.select_related("client"), id=note_id)
+    if not _has_active_org_access(request.user, note.client.organization_id):
+        deny_access("Access denied.")
+    if note.is_done:
+        with transaction.atomic():
+            note.is_done = False
+            note.completed_at = None
+            note.completed_by = None
+            note.save(update_fields=["is_done", "completed_at", "completed_by"])
+            ClientNoteHistory.objects.create(
+                note=note, actor=request.user, action=ClientNoteHistory.Action.REOPENED
+            )
+        messages.success(request, "Note reopened.")
+    return _note_redirect(request, note)
+
+
+@login_required
+@require_POST
 def mark_client_note_done(request, note_id):
+    from .models import ClientNoteHistory
+
     note = get_object_or_404(ClientNote.objects.select_related("client", "created_by", "assigned_to"), id=note_id)
     if not _has_active_org_access(request.user, note.client.organization_id):
         deny_access("Access denied.")
 
     if not note.is_done:
         note.is_done = True
-        note.save(update_fields=["is_done"])
+        note.completed_at = timezone.now()
+        note.completed_by = request.user
+        note.save(update_fields=["is_done", "completed_at", "completed_by"])
+        ClientNoteHistory.objects.create(note=note, actor=request.user, action=ClientNoteHistory.Action.COMPLETED)
         Notification.objects.filter(note=note).update(is_read=True)
         
         if note.created_by and note.created_by != request.user:
@@ -1218,12 +1364,7 @@ def mark_client_note_done(request, note_id):
 
         messages.success(request, "Note marked as done.")
 
-    from .policies import is_safe_internal_url
-
-    next_url = (request.POST.get("next") or "").strip()
-    if next_url.startswith("/") and is_safe_internal_url(request, next_url):
-        return redirect(next_url)
-    return redirect("client-detail", client_id=note.client_id)
+    return _note_redirect(request, note)
 
 
 @login_required

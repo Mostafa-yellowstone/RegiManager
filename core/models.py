@@ -1207,6 +1207,14 @@ class ClientNote(models.Model):
     follow_up_date = models.DateField(blank=True, null=True, db_index=True)
     is_done = models.BooleanField(default=False, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
+    updated_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="updated_client_notes"
+    )
+    completed_at = models.DateTimeField(null=True, blank=True)
+    completed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="completed_client_notes"
+    )
 
     class Meta:
         ordering = ["-created_at"]
@@ -1217,6 +1225,28 @@ class ClientNote(models.Model):
 
     def __str__(self):
         return f"ClientNote({self.client_id})"
+
+
+class ClientNoteHistory(models.Model):
+    """One entry per change to a client note; `changes` holds display-ready before/after values."""
+
+    class Action(models.TextChoices):
+        EDITED = "edited", "Edited"
+        COMPLETED = "completed", "Marked done"
+        REOPENED = "reopened", "Reopened"
+
+    note = models.ForeignKey(ClientNote, on_delete=models.CASCADE, related_name="history")
+    actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    action = models.CharField(max_length=20, choices=Action.choices)
+    changes = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["note", "-created_at"])]
+
+    def __str__(self):
+        return f"ClientNoteHistory({self.note_id}, {self.action})"
 
 
 class Notification(models.Model):

@@ -411,38 +411,124 @@
                             </div>
                         </form>
 
-                        <div style="margin-top: 1.25rem;">
+                        <div class="cpp-notes-list">
                             {% for note in notes %}
-                            <div id="note-{{ note.id }}" class="cpp-note-card">
-                                <div style="display:flex; justify-content: space-between; gap: 1rem; align-items:flex-start; flex-wrap:wrap;">
-                                    <div class="cpp-note-author">
-                                        {% if note.created_by %}{{ note.created_by.get_full_name|default:note.created_by.username }}{% else %}System{% endif %}
-                                        <span class="cpp-note-date">• {{ note.created_at|date:"M d, Y H:i" }}</span>
+                            {% with fu=note.follow_up_date creator=note.created_by %}
+                            <article id="note-{{ note.id }}" class="cpp-note{% if note.is_done %} is-done{% elif fu and fu < notes_today %} is-overdue{% elif fu and fu == notes_today %} is-today{% elif fu %} is-upcoming{% endif %}">
+                                <header class="cpp-note-head">
+                                    <span class="cpp-note-avatar" aria-hidden="true">{% if creator %}{{ creator.get_full_name|default:creator.username|first|upper }}{% else %}S{% endif %}</span>
+                                    <div class="cpp-note-meta">
+                                        <div class="cpp-note-author">{% if creator %}{{ creator.get_full_name|default:creator.username }}{% else %}System{% endif %}</div>
+                                        <div class="cpp-note-when">
+                                            <time datetime="{{ note.created_at|date:'c' }}" title="{{ note.created_at|date:'l, F j, Y · g:i A' }}">{{ note.created_at|date:"M j, Y · g:i A" }}</time>
+                                            {% if note.updated_at %}
+                                            <span class="cpp-note-edited" title="Last edited {{ note.updated_at|date:'M j, Y · g:i A' }}{% if note.updated_by %} by {{ note.updated_by.get_full_name|default:note.updated_by.username }}{% endif %}">Edited {{ note.updated_at|date:"M j · g:i A" }}</span>
+                                            {% endif %}
+                                        </div>
                                     </div>
-                                    {% if note.follow_up_date %}
-                                    <span class="brand-pill cpp-pill-warning">Follow-up: {{ note.follow_up_date }}</span>
-                                    {% endif %}
-                                    {% if note.assigned_to %}
-                                    <span class="brand-pill cpp-pill-info">Assigned: {{ note.assigned_to.get_full_name|default:note.assigned_to.username }}</span>
-                                    {% endif %}
-                                    {% if note.is_done %}
-                                    <span class="brand-pill cpp-pill-success">Done</span>
-                                    {% endif %}
-                                </div>
-                                <div class="cpp-note-content">{{ note.content }}</div>
-                                {% if not note.is_done %}
-                                <div style="margin-top: 0.7rem; display:flex; justify-content:flex-end;">
-                                    <form method="post" action="{% url 'mark-client-note-done' note.id %}">
+                                    <div class="cpp-note-chips">
+                                        {% if note.is_done %}
+                                        <span class="cpp-chip cpp-chip--done">&#10003; Done{% if note.completed_at %} &middot; {{ note.completed_at|date:"M j" }}{% endif %}</span>
+                                        {% elif fu and fu < notes_today %}
+                                        <span class="cpp-chip cpp-chip--overdue">Overdue &middot; {{ fu|date:"M j" }}</span>
+                                        {% elif fu and fu == notes_today %}
+                                        <span class="cpp-chip cpp-chip--today">Due today</span>
+                                        {% elif fu %}
+                                        <span class="cpp-chip cpp-chip--upcoming" title="{{ fu|date:'l, F j, Y' }}">Follow up {{ fu|date:"M j" }} &middot; in {{ fu|timeuntil:notes_today }}</span>
+                                        {% endif %}
+                                        {% if note.assigned_to %}
+                                        <span class="cpp-chip cpp-chip--person">&#128100; {{ note.assigned_to.get_full_name|default:note.assigned_to.username }}</span>
+                                        {% endif %}
+                                    </div>
+                                </header>
+
+                                <div class="cpp-note-body">{{ note.content }}</div>
+
+                                {% if note.is_done and note.completed_by %}
+                                <div class="cpp-note-foot">Completed by {{ note.completed_by.get_full_name|default:note.completed_by.username }} on {{ note.completed_at|date:"M j, Y · g:i A" }}</div>
+                                {% endif %}
+
+                                <div class="cpp-note-actions">
+                                    <details class="cpp-note-panel">
+                                        <summary class="cpp-note-btn">&#9998; Edit</summary>
+                                        <form method="post" action="{% url 'edit-client-note' note.id %}" class="cpp-note-edit">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            <label class="cpp-form-label" for="note-content-{{ note.id }}">Note</label>
+                                            <textarea id="note-content-{{ note.id }}" name="content" required class="cpp-field-input cpp-textarea">{{ note.content }}</textarea>
+                                            <div class="cpp-note-edit-grid">
+                                                <div>
+                                                    <label class="cpp-form-label" for="note-assignee-{{ note.id }}">Assigned to</label>
+                                                    <select id="note-assignee-{{ note.id }}" name="assigned_to" class="cpp-field-input">
+                                                        <option value="">Unassigned</option>
+                                                        {% for agent in assignable_agents %}
+                                                        <option value="{{ agent.id }}"{% if note.assigned_to_id == agent.id %} selected{% endif %}>{{ agent.get_full_name|default:agent.username }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label class="cpp-form-label" for="note-date-{{ note.id }}">Follow-up date</label>
+                                                    <input id="note-date-{{ note.id }}" type="date" name="follow_up_date" value="{{ fu|date:'Y-m-d' }}" class="cpp-field-input">
+                                                </div>
+                                            </div>
+                                            <div class="cpp-note-edit-actions">
+                                                <button type="button" class="cpp-note-btn" onclick="this.closest('details').open=false">Cancel</button>
+                                                <button type="submit" class="cpp-note-btn cpp-note-btn--primary">Save changes</button>
+                                            </div>
+                                        </form>
+                                    </details>
+
+                                    <details class="cpp-note-panel">
+                                        <summary class="cpp-note-btn">&#128339; History <span class="cpp-note-count">{{ note.history.all|length|add:1 }}</span></summary>
+                                        <ol class="cpp-timeline">
+                                            {% for entry in note.history.all %}
+                                            <li class="cpp-tl-item cpp-tl-{{ entry.action }}">
+                                                <div class="cpp-tl-head">
+                                                    <strong>{% if entry.actor %}{{ entry.actor.get_full_name|default:entry.actor.username }}{% else %}Someone{% endif %}</strong>
+                                                    {{ entry.get_action_display|lower }}
+                                                    <time datetime="{{ entry.created_at|date:'c' }}">{{ entry.created_at|date:"M j, Y · g:i A" }}</time>
+                                                </div>
+                                                {% for change in entry.changes %}
+                                                {% if change.field == "Note" %}
+                                                <div class="cpp-tl-change">
+                                                    <span class="cpp-tl-field">Note text</span>
+                                                    <div class="cpp-tl-old">{{ change.old }}</div>
+                                                    <div class="cpp-tl-new">{{ change.new }}</div>
+                                                </div>
+                                                {% else %}
+                                                <div class="cpp-tl-change">
+                                                    <span class="cpp-tl-field">{{ change.field }}</span>
+                                                    <span class="cpp-tl-from">{{ change.old }}</span> <span aria-hidden="true">&rarr;</span> <span class="cpp-tl-to">{{ change.new }}</span>
+                                                </div>
+                                                {% endif %}
+                                                {% endfor %}
+                                            </li>
+                                            {% endfor %}
+                                            <li class="cpp-tl-item cpp-tl-created">
+                                                <div class="cpp-tl-head">
+                                                    <strong>{% if creator %}{{ creator.get_full_name|default:creator.username }}{% else %}System{% endif %}</strong>
+                                                    created the note
+                                                    <time datetime="{{ note.created_at|date:'c' }}">{{ note.created_at|date:"M j, Y · g:i A" }}</time>
+                                                </div>
+                                            </li>
+                                        </ol>
+                                    </details>
+
+                                    <form method="post" action="{% if note.is_done %}{% url 'reopen-client-note' note.id %}{% else %}{% url 'mark-client-note-done' note.id %}{% endif %}" class="cpp-note-toggle">
                                         {% csrf_token %}
                                         <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                        <button type="submit" class="btn btn-secondary btn-sm" style="min-height:auto; padding:0.35rem 0.75rem; border-radius:10px;">Mark Done</button>
+                                        {% if note.is_done %}
+                                        <button type="submit" class="cpp-note-btn">&#8634; Reopen</button>
+                                        {% else %}
+                                        <button type="submit" class="cpp-note-btn cpp-note-btn--success">&#10003; Mark done</button>
+                                        {% endif %}
                                     </form>
                                 </div>
-                                {% endif %}
-                            </div>
+                            </article>
+                            {% endwith %}
                             {% empty %}
                             <div class="cpp-empty-state">
-                                No notes yet.
+                                No notes yet. Add the first one above.
                             </div>
                             {% endfor %}
                         </div>

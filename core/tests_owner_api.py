@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
@@ -68,7 +69,7 @@ class OwnerAPITests(APITestCase):
             status="completed",
             service_fee=Decimal("100.00"),
             processing_fee=Decimal("25.00"),
-            transaction_date=date.today(),
+            transaction_date=timezone.localdate(),
         )
         self.owner_token = Token.objects.create(user=self.owner)
         self.agent_token = Token.objects.create(user=self.agent)
@@ -118,11 +119,11 @@ class OwnerAPITests(APITestCase):
             insurance_company=self.company,
             premium=Decimal("1200.00"),
             commission_rate=Decimal("10.00"),
-            start_date=date.today(),
-            end_date=date.today().replace(month=12, day=31),
+            start_date=timezone.localdate(),
+            end_date=timezone.localdate().replace(month=12, day=31),
             stage="quote",
             status="pending",
-            bound_date=date.today(),
+            bound_date=timezone.localdate(),
             added_by=self.agent,
         )
         policy.stage = "bound"
@@ -171,7 +172,7 @@ class OwnerAPITests(APITestCase):
         DailyPaymentTransaction.objects.create(
             organization=self.org,
             client=self.client_obj,
-            transaction_date=date.today(),
+            transaction_date=timezone.localdate(),
             amount=Decimal("40.00"),
             payment_type="new_business",
             payment_method="cash",
@@ -207,18 +208,18 @@ class OwnerAPITests(APITestCase):
             premium=Decimal("1000.00"),
             commission_rate=Decimal("10.00"),
             broker_fee=Decimal("50.00"),
-            start_date=date.today(),
-            end_date=date.today().replace(month=12, day=31),
+            start_date=timezone.localdate(),
+            end_date=timezone.localdate().replace(month=12, day=31),
             stage="bound",
             status="active",
-            bound_date=date.today(),
+            bound_date=timezone.localdate(),
             added_by=self.agent,
         )
         summary = build_system_profit_summary(
             self.org,
             self.owner_mem,
             ServiceRecord.objects.filter(organization=self.org),
-            date.today(),
+            timezone.localdate(),
         )
         dmv_today = Decimal(summary["dmv_core"]["today"]["gross_profit"])
         spaces_today = sum(
@@ -341,8 +342,8 @@ class OwnerAPITests(APITestCase):
             {
                 "category": "dmv",
                 "method": "cash",
-                "from_date": date.today().isoformat(),
-                "to_date": date.today().isoformat(),
+                "from_date": timezone.localdate().isoformat(),
+                "to_date": timezone.localdate().isoformat(),
             },
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -369,7 +370,7 @@ class OwnerAPITests(APITestCase):
             channel=MotorclubMembership.ChannelChoices.DIRECT,
             tier=50,
             status=MotorclubMembership.StatusChoices.ACTIVE,
-            start_date=date.today(),
+            start_date=timezone.localdate(),
             provider_profit=Decimal("20.00"),
             psb_profit=Decimal("30.00"),
             added_by=self.agent,
@@ -381,7 +382,7 @@ class OwnerAPITests(APITestCase):
             channel=MotorclubMembership.ChannelChoices.B2B,
             tier=75,
             status=MotorclubMembership.StatusChoices.PENDING,
-            start_date=date.today(),
+            start_date=timezone.localdate(),
             provider_profit=Decimal("25.00"),
             psb_profit=Decimal("50.00"),
             added_by=self.agent,
@@ -565,19 +566,19 @@ class OwnerAPITests(APITestCase):
             premium=Decimal("2000.00"),
             commission_rate=Decimal("10.00"),
             broker_fee=Decimal("75.00"),
-            start_date=date.today(),
-            end_date=date.today().replace(month=12, day=31),
+            start_date=timezone.localdate(),
+            end_date=timezone.localdate().replace(month=12, day=31),
             stage="bound",
             status="active",
-            bound_date=date.today(),
+            bound_date=timezone.localdate(),
             added_by=self.agent,
         )
         payload = build_owner_insurance_summary(
             self.org,
             self.owner_mem,
-            start=date.today(),
-            end=date.today(),
-            today=date.today(),
+            start=timezone.localdate(),
+            end=timezone.localdate(),
+            today=timezone.localdate(),
         )
         self.assertTrue(payload["available"])
         self.assertEqual(payload["totals"]["period_premium"], "2000.00")

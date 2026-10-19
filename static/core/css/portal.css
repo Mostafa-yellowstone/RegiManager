@@ -5275,6 +5275,331 @@ html.portal-theme-dark .ins-report-group h4 {
     white-space: pre-wrap;
 }
 
+/* Notes & follow-ups */
+.client-profile-page .cpp-notes-list {
+    margin-top: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.client-profile-page .cpp-note {
+    --note-accent: var(--portal-border-strong);
+    position: relative;
+    padding: 1rem 1.1rem 0.85rem 1.25rem;
+    border: 1px solid var(--portal-border);
+    border-radius: 16px;
+    background: var(--portal-surface);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+    transition: box-shadow var(--portal-transition), transform var(--portal-transition), border-color var(--portal-transition);
+    animation: cpp-note-in 0.35s ease both;
+}
+
+.client-profile-page .cpp-note::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--note-accent);
+}
+
+.client-profile-page .cpp-note:hover {
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 12px 28px rgba(15, 23, 42, 0.08);
+    transform: translateY(-1px);
+}
+
+.client-profile-page .cpp-note:target {
+    border-color: var(--portal-primary);
+    box-shadow: 0 0 0 3px var(--portal-primary-soft);
+}
+
+.client-profile-page .cpp-note.is-overdue { --note-accent: #ef4444; }
+.client-profile-page .cpp-note.is-today { --note-accent: #f59e0b; }
+.client-profile-page .cpp-note.is-upcoming { --note-accent: #3b82f6; }
+.client-profile-page .cpp-note.is-done { --note-accent: #22c55e; }
+.client-profile-page .cpp-note.is-done .cpp-note-body { opacity: 0.72; }
+
+@keyframes cpp-note-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+.client-profile-page .cpp-note-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.client-profile-page .cpp-note-avatar {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 0.95rem;
+    color: #fff;
+    background: linear-gradient(135deg, var(--portal-primary), #7c3aed);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.client-profile-page .cpp-note-meta {
+    flex: 1 1 180px;
+    min-width: 0;
+}
+
+.client-profile-page .cpp-note-when {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.6rem;
+    margin-top: 0.1rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--portal-text-muted);
+}
+
+.client-profile-page .cpp-note-edited {
+    padding: 0 0.45rem;
+    border-radius: 999px;
+    background: var(--portal-surface-muted);
+    border: 1px solid var(--portal-border);
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: help;
+}
+
+.client-profile-page .cpp-note-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    justify-content: flex-end;
+}
+
+.client-profile-page .cpp-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.28rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+.client-profile-page .cpp-chip--overdue { background: rgba(239, 68, 68, 0.1); color: #b91c1c; border-color: rgba(239, 68, 68, 0.25); }
+.client-profile-page .cpp-chip--today { background: rgba(245, 158, 11, 0.12); color: #b45309; border-color: rgba(245, 158, 11, 0.3); }
+.client-profile-page .cpp-chip--upcoming { background: rgba(59, 130, 246, 0.1); color: #1d4ed8; border-color: rgba(59, 130, 246, 0.25); }
+.client-profile-page .cpp-chip--done { background: rgba(34, 197, 94, 0.12); color: #15803d; border-color: rgba(34, 197, 94, 0.28); }
+.client-profile-page .cpp-chip--person { background: var(--portal-surface-muted); color: var(--portal-text-secondary); border-color: var(--portal-border); }
+
+.client-profile-page .cpp-note-body {
+    margin: 0.75rem 0 0;
+    padding-left: calc(38px + 0.75rem);
+    color: var(--portal-text);
+    font-size: 0.94rem;
+    font-weight: 500;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.client-profile-page .cpp-note-foot {
+    margin-top: 0.45rem;
+    padding-left: calc(38px + 0.75rem);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #15803d;
+}
+
+.client-profile-page .cpp-note-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.45rem;
+    margin-top: 0.8rem;
+    padding-top: 0.7rem;
+    padding-left: calc(38px + 0.75rem);
+    border-top: 1px dashed var(--portal-border);
+}
+
+.client-profile-page .cpp-note-toggle { margin: 0 0 0 auto; }
+
+.client-profile-page .cpp-note-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.38rem 0.8rem;
+    border-radius: 10px;
+    border: 1px solid var(--portal-border);
+    background: var(--portal-surface-muted);
+    color: var(--portal-text-secondary);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 800;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    transition: background var(--portal-transition), color var(--portal-transition), border-color var(--portal-transition);
+}
+
+.client-profile-page .cpp-note-btn::-webkit-details-marker { display: none; }
+.client-profile-page .cpp-note-btn:hover { border-color: var(--portal-primary); color: var(--portal-primary); }
+.client-profile-page .cpp-note-btn--primary { background: var(--portal-primary); border-color: var(--portal-primary); color: #fff; }
+.client-profile-page .cpp-note-btn--primary:hover { color: #fff; filter: brightness(1.08); }
+.client-profile-page .cpp-note-btn--success { background: rgba(34, 197, 94, 0.12); border-color: rgba(34, 197, 94, 0.3); color: #15803d; }
+.client-profile-page .cpp-note-btn--success:hover { background: #22c55e; border-color: #22c55e; color: #fff; }
+
+.client-profile-page .cpp-note-count {
+    min-width: 1.25rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: var(--portal-primary-soft);
+    color: var(--portal-primary);
+    font-size: 0.7rem;
+    text-align: center;
+}
+
+.client-profile-page .cpp-note-panel[open] {
+    order: 5;
+    flex-basis: 100%;
+}
+
+.client-profile-page .cpp-note-panel[open] > .cpp-note-btn {
+    background: var(--portal-primary-soft);
+    border-color: var(--portal-primary);
+    color: var(--portal-primary);
+}
+
+.client-profile-page .cpp-note-edit,
+.client-profile-page .cpp-timeline {
+    margin: 0.65rem 0 0.2rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--portal-border);
+    border-radius: 14px;
+    background: var(--portal-surface-muted);
+    animation: cpp-note-in 0.2s ease both;
+}
+
+.client-profile-page .cpp-note-edit-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 200px;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.client-profile-page .cpp-note-edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.85rem;
+}
+
+.client-profile-page .cpp-timeline {
+    list-style: none;
+    position: relative;
+}
+
+.client-profile-page .cpp-tl-item {
+    position: relative;
+    padding: 0 0 0.9rem 1.4rem;
+    font-size: 0.84rem;
+    color: var(--portal-text-secondary);
+}
+
+.client-profile-page .cpp-tl-item:last-child { padding-bottom: 0; }
+
+.client-profile-page .cpp-tl-item::before {
+    content: "";
+    position: absolute;
+    left: 0.28rem;
+    top: 1.1rem;
+    bottom: 0;
+    width: 2px;
+    background: var(--portal-border);
+}
+
+.client-profile-page .cpp-tl-item:last-child::before { display: none; }
+
+.client-profile-page .cpp-tl-item::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.3rem;
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    background: var(--portal-surface);
+    border: 2px solid #3b82f6;
+}
+
+.client-profile-page .cpp-tl-completed::after { border-color: #22c55e; background: #22c55e; }
+.client-profile-page .cpp-tl-reopened::after { border-color: #f59e0b; }
+.client-profile-page .cpp-tl-created::after { border-color: var(--portal-text-muted); }
+
+.client-profile-page .cpp-tl-head strong { color: var(--portal-text); }
+
+.client-profile-page .cpp-tl-head time {
+    margin-left: 0.35rem;
+    font-size: 0.76rem;
+    color: var(--portal-text-muted);
+}
+
+.client-profile-page .cpp-tl-change { margin-top: 0.4rem; }
+
+.client-profile-page .cpp-tl-field {
+    display: inline-block;
+    margin-right: 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--portal-text-muted);
+}
+
+.client-profile-page .cpp-tl-from { text-decoration: line-through; color: var(--portal-text-muted); }
+.client-profile-page .cpp-tl-to { font-weight: 800; color: var(--portal-text); }
+
+.client-profile-page .cpp-tl-old,
+.client-profile-page .cpp-tl-new {
+    margin-top: 0.3rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.client-profile-page .cpp-tl-old { background: rgba(239, 68, 68, 0.08); color: var(--portal-text-muted); text-decoration: line-through; }
+.client-profile-page .cpp-tl-new { background: rgba(34, 197, 94, 0.1); color: var(--portal-text); }
+
+html.portal-theme-dark .client-profile-page .cpp-note { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); }
+html.portal-theme-dark .client-profile-page .cpp-chip--overdue { color: #fca5a5; }
+html.portal-theme-dark .client-profile-page .cpp-chip--today { color: #fcd34d; }
+html.portal-theme-dark .client-profile-page .cpp-chip--upcoming { color: #93c5fd; }
+html.portal-theme-dark .client-profile-page .cpp-chip--done,
+html.portal-theme-dark .client-profile-page .cpp-note-foot,
+html.portal-theme-dark .client-profile-page .cpp-note-btn--success { color: #86efac; }
+html.portal-theme-dark .client-profile-page .cpp-note-btn--success:hover { color: #fff; }
+
+@media (max-width: 640px) {
+    .client-profile-page .cpp-note-body,
+    .client-profile-page .cpp-note-foot,
+    .client-profile-page .cpp-note-actions { padding-left: 0; }
+    .client-profile-page .cpp-note-chips { justify-content: flex-start; }
+    .client-profile-page .cpp-note-edit-grid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .client-profile-page .cpp-note,
+    .client-profile-page .cpp-note-edit,
+    .client-profile-page .cpp-timeline { animation: none; }
+    .client-profile-page .cpp-note:hover { transform: none; }
+}
+
 .client-profile-page .cpp-empty-state {
     padding: 1rem;
     text-align: center;

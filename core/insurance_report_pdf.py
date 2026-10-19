@@ -341,40 +341,30 @@ def render_remittance_pdf(org, *, start=None, end=None, company_id=None, prepare
     )
 
 
-RECEIPT_PRODUCTS = (
-    "Home Owners",
-    "Business",
-    "Taxi",
-    "Auto Commercial",
-    "Auto Personal",
+# (group label, lines, tiles per row) — a short last row is centered.
+RECEIPT_LINES_OF_BUSINESS = (
+    ("Personal Lines", (
+        "Auto Personal",
+        "Motorcycle",
+        "Home",
+        "Dwelling",
+        "Flood",
+        "Umbrella",
+        "Disability",
+    ), 4),
+    ("Commercial Lines", (
+        "Auto Commercial",
+        "Taxi",
+        "Contractors",
+        "Workers Compensation",
+        "Business Owners Policy",
+        "Commercial Property",
+        "General Liability",
+        "Bond",
+    ), 4),
 )
 
-# Featured markets shown as logos on the receipt (order preserved).
-# Newer partners first (after GEICO), then existing markets.
-RECEIPT_CARRIER_LOGOS = (
-    ("geico.png", "GEICO"),
-    ("allstate.png", "Allstate"),
-    ("nycm.png", "NYCM"),
-    ("21st_century.png", "21st Century"),
-    ("progressive.png", "Progressive"),
-    ("plymouth_rock.png", "Plymouth Rock"),
-    ("tapco.png", "Tapco"),
-    ("next.png", "Next"),
-    ("foremost.png", "Foremost"),
-    ("travelers.png", "Travelers"),
-    ("biberk.png", "biBERK"),
-    ("hagerty.png", "Hagerty"),
-    ("national_general.png", "National General"),
-    ("maya.png", "Maya Assurance"),
-    ("lancer.png", "Lancer Insurance"),
-    ("hereford.png", "Hereford"),
-    ("kingstone.png", "Kingstone"),
-    ("american_transit.png", "American Transit"),
-    ("attune.png", "Attune"),
-)
-
-RECEIPT_PRODUCT_TITLE = "Protect What Matters Most"
-RECEIPT_CARRIERS_TITLE = "Carriers We Proudly Work With"
+RECEIPT_PRODUCT_TITLE = "Lines of Business We Write"
 RECEIPT_SLOGAN = "We are the driving force behind the insurance industry"
 
 
@@ -492,15 +482,6 @@ def _receipt_address_lines(brand: dict) -> list[str]:
     raw = (brand.get("address") or "").strip()
     parts = [p.strip() for p in raw.replace("\r", "").split("\n") if p.strip()]
     return parts or [raw]
-
-
-def _carrier_logo_path(filename: str) -> str | None:
-    from django.conf import settings
-
-    path = Path(settings.BASE_DIR) / "static" / "core" / "img" / "carriers" / filename
-    if path.is_file() and path.stat().st_size > 0:
-        return str(path)
-    return None
 
 
 def _receipt_sticker_path() -> str | None:
@@ -694,81 +675,86 @@ def _policy_spotlight(policy_info: dict, content_w: float, styles: dict) -> Tabl
     return number_card
 
 
-def _carrier_logo_row(content_w: float) -> Table | None:
-    """Even logo grid with equal card sizes — all featured carriers."""
-    logos: list[str | None] = []
-    for filename, _label in RECEIPT_CARRIER_LOGOS:
-        path = _carrier_logo_path(filename)
-        if path:
-            logos.append(path)
-    if not logos:
-        return None
-
-    # 4 columns = larger logo tiles that stay readable on a portrait page.
-    cols = 4
+def _lines_of_business_panel(content_w: float) -> Table:
+    """Grouped line-of-business tiles: a label band per group over even rows of tiles."""
     gap = 4
-    card_w = (content_w - (gap * (cols - 1))) / cols
-    card_h = 0.52 * inch
-    img_w = card_w - 4
-    img_h = card_h - 4
+    group_colors = (TEAL, NAVY)
+    group_label = ParagraphStyle(
+        "rcpt_lob_group", fontName="Helvetica-Bold", fontSize=6.4,
+        textColor=WHITE, leading=8, alignment=TA_CENTER,
+    )
+    tile_text = ParagraphStyle(
+        "rcpt_lob_tile", fontName="Helvetica-Bold", fontSize=6.6,
+        textColor=NAVY, leading=8, alignment=TA_CENTER,
+    )
 
-    def _card(path: str | None):
-        if not path:
-            empty = Table([[""]], colWidths=[card_w], rowHeights=[card_h])
-            empty.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
-                ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor("#E2E8F0")),
-            ]))
-            return empty
-        try:
-            img = RLImage(path, width=img_w, height=img_h, kind="proportional")
-            img.hAlign = "CENTER"
-            cell = Table([[img]], colWidths=[card_w], rowHeights=[card_h])
-            cell.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, -1), WHITE),
-                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 1),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 1),
-                ("TOPPADDING", (0, 0), (-1, -1), 1),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
-            ]))
-            return cell
-        except Exception:
-            return _card(None)
-
-    while len(logos) % cols != 0:
-        logos.append(None)
-
-    grid_rows = []
-    for i in range(0, len(logos), cols):
-        chunk = logos[i:i + cols]
-        cards = [_card(p) for p in chunk]
-        row = Table([cards], colWidths=[card_w] * cols)
-        row.setStyle(TableStyle([
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+    rows = []
+    for g_idx, (label, lines, per_row) in enumerate(RECEIPT_LINES_OF_BUSINESS):
+        accent = group_colors[g_idx % len(group_colors)]
+        if g_idx:
+            rows.append([Spacer(1, 5)])
+        band = Table(
+            [[Paragraph(label.upper(), group_label)]],
+            colWidths=[content_w],
+            rowHeights=[0.17 * inch],
+        )
+        band.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), accent),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING", (0, 0), (-1, -1), gap / 2),
-            ("RIGHTPADDING", (0, 0), (-1, -1), gap / 2),
-            ("TOPPADDING", (0, 0), (-1, -1), 1),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
         ]))
-        grid_rows.append([row])
+        rows.append([band])
+        rows.append([Spacer(1, 3)])
 
-    wrap = Table(grid_rows, colWidths=[content_w])
-    wrap.setStyle(TableStyle([
+        tile_w = (content_w - gap * (per_row - 1)) / per_row
+        for i in range(0, len(lines), per_row):
+            tiles = []
+            for name in lines[i:i + per_row]:
+                tile = Table(
+                    [[Paragraph(_safe(name), tile_text)]],
+                    colWidths=[tile_w],
+                    rowHeights=[0.25 * inch],
+                )
+                tile.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, -1), WHITE),
+                    ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+                    ("LINEBEFORE", (0, 0), (0, -1), 2.2, accent),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 3),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]))
+                tiles.append(tile)
+            n = len(tiles)
+            line_row = Table([tiles], colWidths=[tile_w + gap] * (n - 1) + [tile_w])
+            line_row.hAlign = "CENTER"
+            line_row.setStyle(TableStyle([
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]))
+            if i:
+                rows.append([Spacer(1, 3)])
+            rows.append([line_row])
+
+    panel = Table(rows, colWidths=[content_w])
+    panel.setStyle(TableStyle([
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
         ("TOPPADDING", (0, 0), (-1, -1), 0),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
     ]))
-    return wrap
+    return panel
 
 
 def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepared_by="Staff") -> bytes:
-    """Compact one-page branded daily payment receipt with policy badges and carrier logos."""
+    """Compact one-page branded daily payment receipt with policy badges and lines of business."""
     brand = agency_branding(org)
     styles_base = getSampleStyleSheet()
     styles = {
@@ -803,10 +789,6 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
         "section_c": ParagraphStyle(
             "rcpt_sec_c", parent=styles_base["Normal"], fontName="Helvetica-Bold",
             fontSize=7.8, textColor=NAVY, leading=9.5, alignment=TA_CENTER,
-        ),
-        "pill": ParagraphStyle(
-            "rcpt_pill", parent=styles_base["Normal"], fontName="Helvetica-Bold",
-            fontSize=5.8, textColor=WHITE, leading=7.2, alignment=TA_CENTER,
         ),
         "notice": ParagraphStyle(
             "rcpt_note", parent=styles_base["Normal"], fontName="Helvetica",
@@ -915,49 +897,11 @@ def render_payment_receipt_pdf(org, payment: DailyPaymentTransaction, *, prepare
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
     ]))
 
-    # Equal-width navy product cards — no grey subtitle text above them.
-    products = list(RECEIPT_PRODUCTS)
-    n_products = len(products)
-    gap = 4
-    pill_w = (content_w - (gap * (n_products - 1))) / n_products
-    pills = []
-    for product in products:
-        pill = Table(
-            [[Paragraph(product, styles["pill"])]],
-            colWidths=[pill_w],
-            rowHeights=[0.26 * inch],
-        )
-        pill.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), NAVY),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 1),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 1),
-            ("TOPPADDING", (0, 0), (-1, -1), 0),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-        ]))
-        pills.append(pill)
-    product_row = Table([pills], colWidths=[pill_w] * n_products)
-    product_row.setStyle(TableStyle([
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), gap / 2),
-        ("RIGHTPADDING", (0, 0), (-1, -1), gap / 2),
-        ("TOPPADDING", (0, 0), (-1, -1), 0),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-    ]))
-
-    logo_row = _carrier_logo_row(content_w)
     market_rows = [
         [Paragraph(RECEIPT_PRODUCT_TITLE, styles["section_c"])],
-        [Spacer(1, 3)],
-        [product_row],
-        [Spacer(1, 5)],
-        [Paragraph(RECEIPT_CARRIERS_TITLE, styles["section_c"])],
-        [Spacer(1, 3)],
+        [Spacer(1, 4)],
+        [_lines_of_business_panel(content_w - 12)],
     ]
-    if logo_row is not None:
-        market_rows.append([logo_row])
     market = Table(market_rows, colWidths=[content_w])
     market.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8FAFC")),
