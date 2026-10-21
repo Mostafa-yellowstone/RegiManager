@@ -239,6 +239,19 @@ html.portal-theme-dark .prd-card__open { color: #a5b4fc; }
 .prd-fieldset legend { padding: 0 0.35rem; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--portal-text-muted, #64748b); }
 .prd-help { margin: 0.45rem 0 0; font-size: 0.75rem; color: var(--portal-text-muted, #64748b); }
 .prd-req { color: #dc2626; }
+.prd-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--portal-border, #e2e8f0);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.prd-check input { margin: 0.2rem 0 0; width: 16px; height: 16px; accent-color: #093de6; flex-shrink: 0; }
+.prd-check strong { display: block; font-size: 0.85rem; font-weight: 700; }
+.prd-check small { display: block; margin-top: 0.15rem; font-size: 0.75rem; color: var(--portal-text-muted, #64748b); overflow-wrap: anywhere; }
+.prd-check.is-disabled { cursor: not-allowed; opacity: 0.7; }
 
 .prd-form-block {
   margin-bottom: 1rem;

@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_GET
 
 from .access import organizations_for_user
+from .timezone_utils import local_label
 from .insurance_quote_permissions import (
     can_manage_quote_distribution,
     can_view_quote_pipeline,
@@ -33,7 +34,7 @@ def _serialize_notification(n: Notification) -> dict:
         "open_url": reverse("open-notification", args=[n.id]),
         "is_read": n.is_read,
         "created_at": n.created_at.isoformat() if n.created_at else "",
-        "created_label": n.created_at.strftime("%b %d, %H:%M") if n.created_at else "",
+        "created_label": local_label(n.created_at),
     }
 
 

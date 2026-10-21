@@ -4,7 +4,7 @@
 {% block title %}{{ producer.name }} — Producer | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_producers.css' %}?v=prd-4">
+<link rel="stylesheet" href="{% static 'core/css/insurance_producers.css' %}?v=prd-5">
 {% endblock %}
 
 {% block portal_content %}
@@ -48,7 +48,7 @@
     <div class="prd-hero__actions">
       <button type="button" class="prd-btn" onclick="document.getElementById('editProducerModal').classList.add('active')">Edit</button>
       <button type="button" class="prd-btn" onclick="document.getElementById('producerLoginModal').classList.add('active')">Portal login</button>
-      <button type="button" class="prd-btn" onclick="window.print()">Print statement</button>
+      <a class="prd-btn" href="{% url 'producer-statement-pdf' %}?producer={{ producer.id }}" target="_blank" rel="noopener">Statement PDF</a>
       <button type="button" class="prd-btn prd-btn--primary" onclick="document.getElementById('recordPayoutModal').classList.add('active')">Record payment</button>
     </div>
   </section>
@@ -111,6 +111,7 @@
           </select>
         </div>
         <div><label class="field-label" for="settleNote">Note</label><input type="text" id="settleNote" name="note" class="field-input" maxlength="255" placeholder="Optional · the producer can see this"></div>
+        {% include "core/partials/producer_payout_extras.html" with prefix="settle" %}
         <button type="submit" class="prd-btn prd-btn--ok">Record ${{ summary.net_payable|floatformat:2 }} payment</button>
       </form>
     </div>
@@ -244,7 +245,7 @@
             <td>{{ po.paid_on|date:"M j, Y" }}{% if po.batch_reference %}<span class="prd-sub prd-mono">{{ po.batch_reference }}</span>{% endif %}</td>
             <td><span class="prd-mono">{{ po.policy.policy_number }}</span><span class="prd-sub">{{ po.policy.client.name }}</span></td>
             <td>{% if po.kind == 'deduction' %}<span class="prd-pill prd-pill--warn">Deduction</span>{% else %}<span class="prd-pill prd-pill--ok">Payment</span>{% endif %}</td>
-            <td>{{ po.get_method_display }}</td>
+            <td>{{ po.get_method_display }}{% if po.bank_transaction %}<span class="prd-sub">Bank · {{ po.bank_transaction.bank_account.account_name }}</span>{% endif %}</td>
             <td class="num {% if po.amount < 0 %}is-warn{% else %}is-ok{% endif %}">{% if po.amount < 0 %}−${{ po.amount|stringformat:".2f"|slice:"1:" }}{% else %}${{ po.amount }}{% endif %}</td>
             <td>{{ po.note|default:"" }}{% if po.recorded_by %}<span class="prd-sub">by {{ po.recorded_by.get_full_name|default:po.recorded_by.username }}</span>{% endif %}</td>
             <td class="prd-no-print">
@@ -354,6 +355,7 @@
       </div>
       <div><label class="field-label" for="rpNote">Note</label><input type="text" id="rpNote" name="note" maxlength="255" class="field-input" placeholder="Optional · the producer can see this"></div>
       <p class="prd-help" style="margin:0;">Use a negative amount to record money the producer paid back.</p>
+      {% include "core/partials/producer_payout_extras.html" with prefix="rp" %}
       <button type="submit" class="btn-submit">Save payment</button>
     </form>
   </div>

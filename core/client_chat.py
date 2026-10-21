@@ -7,6 +7,7 @@ from django.urls import reverse
 
 from .models import Client, ClientChatMessage, Notification, OrganizationMembership
 from .realtime import mark_client_chat_reload, publish_client_event, publish_user_event
+from .timezone_utils import local_label
 
 
 def serialize_chat_message(msg: ClientChatMessage) -> dict:
@@ -186,7 +187,7 @@ def _notify_org_staff(client: Client, msg: ClientChatMessage, payload: dict) -> 
                 "open_url": reverse("open-notification", args=[notif.id]),
                 "is_read": False,
                 "created_at": notif.created_at.isoformat() if notif.created_at else "",
-                "created_label": notif.created_at.strftime("%b %d, %H:%M") if notif.created_at else "",
+                "created_label": local_label(notif.created_at),
                 "chat": payload,
             },
         )

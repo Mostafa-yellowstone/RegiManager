@@ -2683,7 +2683,9 @@ def _draw_receipt_payment_history(pdf, service_record, margin_x):
     else:
         row_y = header_y - row_h
         pdf.line(margin_x, row_y, margin_x + table_w, row_y)
-        summary_date = service_record.transaction_date or service_record.created_at.date()
+        from .psb_receipt_pdf import receipt_local_date
+
+        summary_date = receipt_local_date(service_record)
         summary_total = service_record.service_fee or Decimal("0")
         summary_paid = total_paid_for_receipt(service_record)
         summary_outstanding = receipt_outstanding_balance(service_record)
@@ -2730,6 +2732,7 @@ def service_receipt_pdf(request, service_id):
         OFFICIAL_FOOTER_LINES,
         dollars_to_words,
         format_receipt_number_display,
+        receipt_date_time_labels,
     )
 
     service_record = get_object_or_404(
@@ -2795,15 +2798,13 @@ def service_receipt_pdf(request, service_id):
         pdf.drawString(x + 4, y_pos - h + 5, str(val))
         return x + w
 
-    dt = service_record.transaction_date or service_record.created_at.date()
-    date_str = dt.strftime("%b %d, %Y")
-    time_str = service_record.created_at.strftime("%I:%M %p")
-    
+    date_str, time_str = receipt_date_time_labels(service_record)
+
     x = margin_x
     draw_box(x, y, 80, 16, "Transaction Date", date_str)
     x += 85
-    draw_box(x, y, 60, 16, "Time", time_str)
-    x += 65
+    draw_box(x, y, 80, 16, "Time", time_str)
+    x += 85
     draw_box(x, y, 80, 16, "Terminal Number", service_record.terminal_number)
     x += 85
     draw_box(x, y, 80, 16, "Receipt number", receipt_display)
@@ -6872,8 +6873,8 @@ def inventory_detail(request, inventory_id):
         if total_agent_profits > 0:
             analysis_points.append(f"💵 Total profits brought in by all agents (commission + broker fees) is <strong>${total_agent_profits:,.2f}</strong>.")
             
-        income_categories = json.dumps(["Insurance Premium Receipt", "Commission Payment", "Interest", "Other Income"])
-        expense_categories = json.dumps(["Rent", "Utilities", "Payroll", "Office Supplies", "Marketing", "Other Expense"])
+        income_categories = json.dumps(["Insurance Premium Receipt", "Commission Payment", "Producer Repayment", "Interest", "Other Income"])
+        expense_categories = json.dumps(["Rent", "Utilities", "Payroll", "Producer Commission", "Office Supplies", "Marketing", "Other Expense"])
 
         # Daily Payment Transactions
         from datetime import datetime as dt_parse
@@ -9034,8 +9035,8 @@ def insurance_company_detail(request, company_id):
     bank_accounts = BankAccount.objects.filter(organization=active_org)
 
     import json
-    income_categories = json.dumps(["Insurance Premium Receipt", "Commission Payment", "Interest", "Other Income"])
-    expense_categories = json.dumps(["Rent", "Utilities", "Payroll", "Office Supplies", "Marketing", "Other Expense"])
+    income_categories = json.dumps(["Insurance Premium Receipt", "Commission Payment", "Producer Repayment", "Interest", "Other Income"])
+    expense_categories = json.dumps(["Rent", "Utilities", "Payroll", "Producer Commission", "Office Supplies", "Marketing", "Other Expense"])
 
     # Insurance agents for agent filter
     insurance_agents = OrganizationMembership.objects.filter(

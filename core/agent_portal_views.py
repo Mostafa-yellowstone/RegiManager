@@ -14,6 +14,7 @@ from django.views.decorators.http import require_POST
 
 from .access import organizations_for_user
 from .text_search import apply_text_search
+from .timezone_utils import local_label
 from .agent_portal_forms import AgentProfilePhotoForm, AgentTaskAssignForm, AgentTaskEditForm
 from .agent_portal_models import AgentTask
 from .agent_portal_services import (
@@ -74,7 +75,7 @@ def _notify_task_assigned(task: AgentTask):
             "action_url": notif.action_url,
             "open_url": reverse("open-notification", args=[notif.id]),
             "created_at": notif.created_at.isoformat() if notif.created_at else "",
-            "created_label": notif.created_at.strftime("%b %d, %H:%M") if notif.created_at else "",
+            "created_label": local_label(notif.created_at),
             "unread_count": unread,
         },
     )

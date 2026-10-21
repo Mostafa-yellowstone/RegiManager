@@ -347,3 +347,193 @@ class ProducerPortalTests(ProducerBase):
         })
         self.prod_user.refresh_from_db()
         self.assertTrue(self.prod_user.check_password("Fresh-Pass-9921"))
+
+
+def _pdf_text(response) -> str:
+    from io import BytesIO
+
+    from pypdf import PdfReader
+
+    return "".join(page.extract_text() or "" for page in PdfReader(BytesIO(response.content)).pages)
+
+
+class ProducerStatementTests(ProducerBase):
+    def setUp(self):
+        super().setUp()
+        self.url = reverse("producer-statement-pdf")
+        self.p1 = self.policy("STMT-1")
+        InsuranceProducerPayout.objects.create(
+            organization=self.org, producer=self.producer, policy=self.p1, kind="payment",
+            amount=Decimal("40.00"), paid_on=self.today, method="zelle", recorded_by=self.owner,
+        )
+
+    def test_staff_statement_pdf(self):
+        self.client.force_login(self.owner)
+        res = self.client.get(self.url, {"producer": self.producer.id})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res["Content-Type"], "application/pdf")
+        self.assertIn("no-store", res["Cache-Control"])
+        text = _pdf_text(res)
+        self.assertIn("Sara Ahmed", text)
+        self.assertIn("STMT-1", text)
+        self.assertIn("40.00", text)
+
+    def test_statement_with_reversed_or_bad_dates(self):
+        self.client.force_login(self.owner)
+        later = (self.today + timedelta(days=30)).isoformat()
+        earlier = (self.today - timedelta(days=30)).isoformat()
+        res = self.client.get(self.url, {"producer": self.producer.id, "start_date": later, "end_date": earlier})
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("STMT-1", _pdf_text(res))
+        res = self.client.get(self.url, {"producer": self.producer.id, "start_date": "2026-13-45"})
+        self.assertEqual(res.status_code, 200)
+
+    def test_non_finance_agent_is_blocked(self):
+        self.client.force_login(self.agent)
+        self.assertEqual(self.client.get(self.url, {"producer": self.producer.id}).status_code, 403)
+
+    def test_missing_or_foreign_producer(self):
+        self.client.force_login(self.owner)
+        self.assertEqual(self.client.get(self.url).status_code, 404)
+        self.assertEqual(self.client.get(self.url, {"producer": "abc"}).status_code, 404)
+        other_org = Organization.objects.create(name="Elsewhere", state="NY")
+        foreign = InsuranceProducer.objects.create(organization=other_org, name="Foreign")
+        self.assertEqual(self.client.get(self.url, {"producer": foreign.id}).status_code, 403)
+
+    def test_reporting_center_lists_producers_for_finance_only(self):
+        space_url = reverse("inventory-detail", args=[self.space.id])
+        self.client.force_login(self.owner)
+        self.assertContains(self.client.get(space_url), "Open statement PDF")
+        self.client.force_login(self.agent)
+        self.assertNotContains(self.client.get(space_url), "Open statement PDF")
+
+    def test_producer_downloads_only_own_statement(self):
+        prod_user = User.objects.create_user(username="sara.stmt", password="longpass123")
+        self.producer.user = prod_user
+        self.producer.save()
+        other = InsuranceProducer.objects.create(organization=self.org, name="Other Producer")
+        self.policy("OTHER-1", producer=other)
+        self.client.force_login(prod_user)
+        portal = self.client.get(reverse("producer-portal"))
+        self.assertContains(portal, reverse("producer-portal-statement"))
+        res = self.client.get(reverse("producer-portal-statement"), {"producer": other.id})
+        self.assertEqual(res.status_code, 200)
+        text = _pdf_text(res)
+        self.assertIn("STMT-1", text)
+        self.assertNotIn("OTHER-1", text)
+        self.assertNotIn("Other Producer", text)
+        # Staff report URL stays closed to producers.
+        self.assertNotEqual(self.client.get(self.url, {"producer": other.id}).status_code, 200)
+
+    def test_paused_producer_cannot_download(self):
+        prod_user = User.objects.create_user(username="sara.paused", password="longpass123")
+        self.producer.user = prod_user
+        self.producer.is_active = False
+        self.producer.save()
+        self.client.force_login(prod_user)
+        res = self.client.get(reverse("producer-portal-statement"))
+        self.assertNotEqual(res.status_code, 200)
+
+
+class ProducerPayoutExtrasTests(ProducerBase):
+    def setUp(self):
+        from core.models import BankAccount
+
+        super().setUp()
+        self.p1 = self.policy("BANK-1")
+        self.account = BankAccount.objects.create(
+            organization=self.org, account_name="Operating", bank_name="Chase", balance=Decimal("1000.00")
+        )
+        self.client.force_login(self.owner)
+        self.record_url = reverse("record-insurance-producer-payout", args=[self.producer.id])
+
+    def _record(self, amount, **extra):
+        data = {"policy": self.p1.id, "amount": amount, "method": "zelle", **extra}
+        with self.captureOnCommitCallbacks(execute=True):
+            return self.client.post(self.record_url, data)
+
+    def test_payment_logs_bank_expense_and_delete_restores_balance(self):
+        self._record("90.00", bank_account=self.account.id)
+        payout = InsuranceProducerPayout.objects.get(policy=self.p1)
+        entry = payout.bank_transaction
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry.transaction_type, "expense_debit_transfer")
+        self.assertEqual(entry.category, "Producer Commission")
+        self.assertEqual(entry.amount, Decimal("90.00"))
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal("910.00"))
+
+        self.client.post(reverse("delete-insurance-producer-payout", args=[payout.id]))
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal("1000.00"))
+        self.assertFalse(type(entry).objects.filter(id=entry.id).exists())
+
+    def test_repayment_logs_bank_income(self):
+        self._record("-25.00", bank_account=self.account.id)
+        entry = InsuranceProducerPayout.objects.get(policy=self.p1).bank_transaction
+        self.assertEqual(entry.transaction_type, "income_credit_transfer")
+        self.assertEqual(entry.category, "Producer Repayment")
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal("1025.00"))
+
+    def test_settlement_uses_one_bank_entry_and_resyncs(self):
+        self.policy("BANK-2")
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                reverse("settle-insurance-producer", args=[self.producer.id]),
+                {"method": "zelle", "bank_account": self.account.id},
+            )
+        payouts = list(InsuranceProducerPayout.objects.filter(producer=self.producer))
+        self.assertEqual(len(payouts), 2)
+        entry_ids = {p.bank_transaction_id for p in payouts}
+        self.assertEqual(len(entry_ids), 1)
+        entry = payouts[0].bank_transaction
+        self.assertEqual(entry.amount, Decimal("180.00"))
+        self.client.post(reverse("delete-insurance-producer-payout", args=[payouts[0].id]))
+        entry.refresh_from_db()
+        self.assertEqual(entry.amount, Decimal("90.00"))
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal("910.00"))
+
+    def test_foreign_bank_account_is_rejected(self):
+        from core.models import BankAccount
+
+        other_org = Organization.objects.create(name="Elsewhere", state="NY")
+        foreign = BankAccount.objects.create(organization=other_org, account_name="Theirs", balance=Decimal("50"))
+        self._record("90.00", bank_account=foreign.id)
+        self.assertFalse(InsuranceProducerPayout.objects.filter(policy=self.p1).exists())
+        foreign.refresh_from_db()
+        self.assertEqual(foreign.balance, Decimal("50.00"))
+
+    def test_no_bank_account_means_no_entry(self):
+        self._record("90.00")
+        self.assertIsNone(InsuranceProducerPayout.objects.get(policy=self.p1).bank_transaction)
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal("1000.00"))
+
+    def test_email_notice_sent_when_requested(self):
+        from django.core import mail
+
+        self.producer.email = "sara@example.com"
+        self.producer.save()
+        self._record("90.00", notify="1")
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertEqual(message.to, ["sara@example.com"])
+        self.assertIn("90.00", message.subject)
+        self.assertIn("BANK-1", message.body)
+
+    def test_no_email_without_opt_in_or_address(self):
+        from django.core import mail
+
+        self._record("90.00", notify="1")
+        self.producer.email = "sara@example.com"
+        self.producer.save()
+        self._record("10.00")
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_detail_page_shows_bank_and_notify_options(self):
+        res = self.client.get(reverse("insurance-producer-detail", args=[self.producer.id]))
+        self.assertContains(res, "Operating")
+        self.assertContains(res, 'name="notify"')
+        self.assertContains(res, "This producer has no email address.")

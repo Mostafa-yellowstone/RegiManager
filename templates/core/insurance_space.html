@@ -5,7 +5,7 @@
 
 {% block portal_head %}
 <link rel="stylesheet" href="{% static 'core/css/insurance_esign.css' %}?v=5">
-<link rel="stylesheet" href="{% static 'core/css/insurance_producers.css' %}?v=prd-4">
+<link rel="stylesheet" href="{% static 'core/css/insurance_producers.css' %}?v=prd-5">
 {% endblock %}
 
 {% block portal_content %}
@@ -1723,6 +1723,29 @@ html.portal-theme-dark .ins-license-crm-alert__row {
               <button type="submit" class="ins-report-btn">Open conversion PDF</button>
             </form>
           </article>
+          {% if user_can_view_banking and producer_summaries %}
+          <article class="ins-report-card">
+            <div class="ins-report-card__head">
+              <span class="ins-report-card__icon ins-report-card__icon--emerald" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
+              </span>
+              <div><h3>Producer statement</h3></div>
+            </div>
+            <p>One producer's policies, earned share, payments, and deductions for the period.</p>
+            <form method="GET" action="{% url 'producer-statement-pdf' %}" target="_blank" class="ins-report-form">
+              <label class="ins-report-field"><span>Producer</span>
+                <select name="producer" class="field-input" required>
+                  {% for s in producer_summaries %}<option value="{{ s.producer.id }}">{{ s.producer.name }}{% if not s.producer.is_active %} (paused){% endif %}</option>{% endfor %}
+                </select>
+              </label>
+              <div class="ins-report-form__dates">
+                <label class="ins-report-field"><span>From</span><input type="date" name="start_date" class="field-input"></label>
+                <label class="ins-report-field"><span>To</span><input type="date" name="end_date" class="field-input"></label>
+              </div>
+              <button type="submit" class="ins-report-btn">Open statement PDF</button>
+            </form>
+          </article>
+          {% endif %}
         </div>
       </section>
 

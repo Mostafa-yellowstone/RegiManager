@@ -24,6 +24,7 @@
     <a href="#policies">Policies</a>
     <a href="#payouts">Payouts</a>
     <a href="#account">Account</a>
+    {% if producer.is_active %}<a href="{% url 'producer-portal-statement' %}" target="_blank" rel="noopener">Statement PDF</a>{% endif %}
     <a href="{% url 'logout' %}" class="pp-bar__out">Sign out</a>
   </nav>
 </header>

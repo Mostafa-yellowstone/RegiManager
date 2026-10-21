@@ -11,18 +11,28 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.db import IntegrityError, transaction
 from django.db.models import Prefetch
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.text import slugify
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from .http import deny_access
 from .insurance_permissions import can_manage_insurance_finance, membership_for_org
+from .insurance_producer_services import (
+    bank_account_for_org,
+    producer_email_problem,
+    queue_payout_email,
+    record_bank_entry,
+    resync_bank_entry,
+)
+from .insurance_producer_statement_pdf import render_producer_statement_pdf
 from .insurance_producers import (
     ZERO,
     build_policy_ledger,
@@ -31,6 +41,7 @@ from .insurance_producers import (
     summarize_producer,
 )
 from .models import (
+    BankAccount,
     InsurancePolicy,
     InsuranceProducer,
     InsuranceProducerPayout,
@@ -88,6 +99,13 @@ def _paid_on(raw):
     if value is None:
         raise ValueError("Enter a valid payment date.")
     return value
+
+
+def _optional_date(raw):
+    try:
+        return parse_date((raw or "").strip())
+    except ValueError:
+        return None
 
 
 def _apply_producer_fields(producer, post) -> None:
@@ -259,6 +277,45 @@ def set_insurance_producer_login(request, producer_id):
 # ── staff: payouts ──────────────────────────────────────────────────────────
 
 
+def _posted_bank_account(request, producer):
+    raw = (request.POST.get("bank_account") or "").strip()
+    if not raw:
+        return None
+    account = bank_account_for_org(producer.organization, raw)
+    if account is None:
+        raise ValueError("Choose one of this agency's bank accounts.")
+    return account
+
+
+def _portal_url(request, producer) -> str:
+    if not (producer.user_id and producer.user.is_active):
+        return ""
+    return request.build_absolute_uri(reverse("producer-portal"))
+
+
+def _payout_side_effects(request, producer, payouts, *, bank_account, paid_on, method, reference="") -> str:
+    """Bank entry and email notice for freshly recorded payouts; returns text for the success message."""
+    notes = []
+    if bank_account is not None:
+        entry = record_bank_entry(payouts, bank_account, producer=producer, paid_on=paid_on, reference=reference)
+        if entry is not None:
+            notes.append(f"logged in {bank_account.account_name}")
+    if (request.POST.get("notify") or "") in {"1", "on"}:
+        problem = producer_email_problem(producer)
+        if problem:
+            notes.append(f"no email sent ({problem.rstrip('.').lower()})")
+        else:
+            queue_payout_email(
+                producer,
+                payouts,
+                paid_on=paid_on,
+                method_label=InsuranceProducerPayout.Method(method).label,
+                portal_url=_portal_url(request, producer),
+            )
+            notes.append(f"emailed {producer.email}")
+    return f" · {', '.join(notes)}" if notes else ""
+
+
 @login_required
 @require_POST
 def record_insurance_producer_payout(request, producer_id):
@@ -281,22 +338,29 @@ def record_insurance_producer_payout(request, producer_id):
     method = request.POST.get("method")
     if method not in InsuranceProducerPayout.Method.values:
         method = InsuranceProducerPayout.Method.CASH
-    InsuranceProducerPayout.objects.create(
-        organization=producer.organization,
-        producer=producer,
-        policy=policy,
-        kind=(
-            InsuranceProducerPayout.Kind.PAYMENT
-            if amount > 0
-            else InsuranceProducerPayout.Kind.DEDUCTION
-        ),
-        amount=amount,
-        paid_on=paid_on,
-        method=method,
-        note=(request.POST.get("note") or "").strip()[:255],
-        recorded_by=request.user,
-    )
-    messages.success(request, f"Recorded ${amount} for policy {policy.policy_number}.")
+    try:
+        bank_account = _posted_bank_account(request, producer)
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect("insurance-producer-detail", producer_id=producer.id)
+    with transaction.atomic():
+        payout = InsuranceProducerPayout.objects.create(
+            organization=producer.organization,
+            producer=producer,
+            policy=policy,
+            kind=(
+                InsuranceProducerPayout.Kind.PAYMENT
+                if amount > 0
+                else InsuranceProducerPayout.Kind.DEDUCTION
+            ),
+            amount=amount,
+            paid_on=paid_on,
+            method=method,
+            note=(request.POST.get("note") or "").strip()[:255],
+            recorded_by=request.user,
+        )
+        extras = _payout_side_effects(request, producer, [payout], bank_account=bank_account, paid_on=paid_on, method=method)
+    messages.success(request, f"Recorded ${amount} for policy {policy.policy_number}{extras}.")
     return redirect("insurance-producer-detail", producer_id=producer.id)
 
 
@@ -313,6 +377,11 @@ def settle_insurance_producer(request, producer_id):
     method = request.POST.get("method")
     if method not in InsuranceProducerPayout.Method.values:
         method = InsuranceProducerPayout.Method.CASH
+    try:
+        bank_account = _posted_bank_account(request, producer)
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect("insurance-producer-detail", producer_id=producer.id)
     batch = f"PAY-{timezone.now():%y%m%d%H%M%S}"
     note = (request.POST.get("note") or "").strip()[:255]
     with transaction.atomic():
@@ -322,7 +391,7 @@ def settle_insurance_producer(request, producer_id):
         if not rows:
             messages.info(request, "Nothing is due for this producer right now.")
             return redirect("insurance-producer-detail", producer_id=producer.id)
-        for policy, kind, amount in rows:
+        created = [
             InsuranceProducerPayout.objects.create(
                 organization=producer.organization,
                 producer=producer,
@@ -335,8 +404,13 @@ def settle_insurance_producer(request, producer_id):
                 note=note or ("Deducted from this payout" if kind == "deduction" else ""),
                 recorded_by=request.user,
             )
+            for policy, kind, amount in rows
+        ]
+        extras = _payout_side_effects(
+            request, producer, created, bank_account=bank_account, paid_on=paid_on, method=method, reference=batch
+        )
     net = money(sum((amt for _, _, amt in rows), ZERO))
-    messages.success(request, f"Paid {producer.name} ${net} (batch {batch}).")
+    messages.success(request, f"Paid {producer.name} ${net} (batch {batch}){extras}.")
     return redirect("insurance-producer-detail", producer_id=producer.id)
 
 
@@ -346,8 +420,11 @@ def delete_insurance_producer_payout(request, payout_id):
     payout = get_object_or_404(InsuranceProducerPayout.objects.select_related("producer"), id=payout_id)
     _finance_org_or_deny(request, payout.organization)
     producer_id = payout.producer_id
-    payout.delete()
-    messages.success(request, "Payout removed.")
+    with transaction.atomic():
+        entry_id = payout.bank_transaction_id
+        payout.delete()
+        resync_bank_entry(entry_id)
+    messages.success(request, "Payout removed." + (" The linked bank entry was updated." if entry_id else ""))
     return redirect("insurance-producer-detail", producer_id=producer_id)
 
 
@@ -364,7 +441,7 @@ def _producer_page_context(producer, *, staff: bool) -> dict:
     summary = summarize_producer(producer, policies=policies)
     payouts = (
         InsuranceProducerPayout.objects.filter(producer=producer)
-        .select_related("policy", "policy__client", "recorded_by")
+        .select_related("policy", "policy__client", "recorded_by", "bank_transaction__bank_account")
         .order_by("-paid_on", "-id")
     )
     deduction_ledgers = [lg for lg in summary.ledgers if lg.owes_back > 0]
@@ -392,9 +469,38 @@ def insurance_producer_detail(request, producer_id):
             "back_url": _insurance_space_url(producer.organization),
             "payout_methods": InsuranceProducerPayout.Method.choices,
             "today": timezone.localdate(),
+            "bank_accounts": BankAccount.objects.filter(organization=producer.organization).order_by("account_name"),
+            "email_problem": producer_email_problem(producer),
         }
     )
     return render(request, "core/insurance_producer_detail.html", context)
+
+
+def _statement_response(producer, request, *, start, end):
+    if start and end and start > end:
+        start, end = end, start
+    prepared_by = request.user.get_full_name() or request.user.username
+    pdf = render_producer_statement_pdf(producer, start=start, end=end, prepared_by=prepared_by)
+    response = HttpResponse(pdf, content_type="application/pdf")
+    slug = slugify(producer.name) or f"producer-{producer.id}"
+    response["Content-Disposition"] = f'inline; filename="statement-{slug}.pdf"'
+    response["Cache-Control"] = "no-store, private"
+    return response
+
+
+@login_required
+@require_GET
+def producer_statement_pdf(request):
+    raw = (request.GET.get("producer") or "").strip()
+    if not raw.isdigit():
+        raise Http404("Choose a producer.")
+    producer = _producer_for_staff(request, int(raw))
+    return _statement_response(
+        producer,
+        request,
+        start=_optional_date(request.GET.get("start_date")),
+        end=_optional_date(request.GET.get("end_date")),
+    )
 
 
 # ── producer portal ─────────────────────────────────────────────────────────
@@ -412,6 +518,22 @@ def producer_portal(request):
     context["password_form"] = PasswordChangeForm(request.user)
     context["today"] = timezone.localdate()
     return render(request, "core/producer_portal.html", context)
+
+
+@login_required
+@require_GET
+def producer_portal_statement(request):
+    producer = InsuranceProducer.objects.select_related("organization").filter(
+        user=request.user, is_active=True
+    ).first()
+    if producer is None:
+        return redirect("dashboard")
+    return _statement_response(
+        producer,
+        request,
+        start=_optional_date(request.GET.get("start_date")),
+        end=_optional_date(request.GET.get("end_date")),
+    )
 
 
 @login_required

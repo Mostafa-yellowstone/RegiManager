@@ -10,6 +10,7 @@ from django.utils import timezone
 from .agent_portal_models import AgentAttendanceSession, AgentTask
 from .agent_portal_services import PORTAL_TZ, current_work_date, portal_now
 from .insurance_quote_permissions import can_receive_quote_distribution
+from .timezone_utils import local_label
 from .insurance_quote_pipeline_models import (
     InsuranceAgentOffDay,
     InsuranceQuoteDistributionConfig,
@@ -371,7 +372,7 @@ def _broadcast_quote_notification(notif, lead: InsuranceQuoteLead, *, reason: st
             "action_url": notif.action_url,
             "open_url": reverse("open-notification", args=[notif.id]),
             "created_at": notif.created_at.isoformat() if notif.created_at else "",
-            "created_label": notif.created_at.strftime("%b %d, %H:%M") if notif.created_at else "",
+            "created_label": local_label(notif.created_at),
             "unread_count": unread,
         },
     )

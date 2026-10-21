@@ -829,6 +829,12 @@ class ServiceRecord(SoftDeleteModel):
     receipt_number = models.CharField(max_length=60, unique=True, blank=True, db_index=True)
     transaction_date = models.DateField(default=timezone.now, help_text="Date printed on the receipt")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    created_timezone = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        help_text="IANA timezone of the device that recorded the transaction (e.g. America/New_York, Africa/Cairo).",
+    )
     updated_at = models.DateTimeField(auto_now=True)
     case_id = models.CharField(max_length=60, unique=True, blank=True, null=True, db_index=True)
     reminders_stopped = models.BooleanField(default=False)
@@ -870,6 +876,17 @@ class ServiceRecord(SoftDeleteModel):
             models.Index(fields=["organization", "transaction_date"], name="core_svcrec_org_txdate_idx"),
         ]
 
+    def _new_receipt_number(self) -> str:
+        """RCPT-<utc seconds>-<org>-<random>; the suffix keeps same-second saves unique."""
+        ts = timezone.now().strftime("%Y%m%d%H%M%S")
+        base = f"RCPT-{ts}-{self.organization_id or 'ORG'}"
+        alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        for _ in range(8):
+            candidate = f"{base}-{get_random_string(4, allowed_chars=alphabet)}"
+            if not ServiceRecord.all_objects.filter(receipt_number=candidate).exists():
+                return candidate
+        return f"{base}-{get_random_string(10, allowed_chars=alphabet)}"
+
     def get_payment_method_display(self):
         p1 = dict(self.PAYMENT_METHODS).get(self.payment_method, self.payment_method)
         if self.payment_method_2:
@@ -909,9 +926,13 @@ class ServiceRecord(SoftDeleteModel):
                 if not self.driver_license_number:
                     self.driver_license_number = client.driver_license or ""
 
+        if self._state.adding and not self.created_timezone:
+            from .timezone_utils import active_timezone_name
+
+            self.created_timezone = active_timezone_name()
+
         if not self.receipt_number:
-            ts = timezone.now().strftime("%Y%m%d%H%M%S")
-            self.receipt_number = f"RCPT-{ts}-{self.organization_id or 'ORG'}"
+            self.receipt_number = self._new_receipt_number()
         if not self.case_id:
             # Generate a unique case ID
             unique_part = get_random_string(6, allowed_chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789')

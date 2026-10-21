@@ -1,0 +1,14 @@
+{% autoescape off %}Hello {{ producer_name }},
+
+{% if is_repayment %}{{ agency_name }} recorded a repayment of ${{ net|floatformat:2 }} from you on {{ paid_on|date:"F j, Y" }}.{% else %}{{ agency_name }} sent you a commission payment of ${{ net|floatformat:2 }} on {{ paid_on|date:"F j, Y" }} by {{ method_label }}.{% endif %}
+
+{% for row in rows %}- {{ row.policy_number }}{% if row.client %} ({{ row.client }}){% endif %}: {% if row.is_deduction %}-{% endif %}${{ row.amount|floatformat:2 }}{% if row.is_deduction %} deduction for a cancelled policy{% endif %}
+{% endfor %}
+{% if is_repayment %}Repaid{% else %}Total paid{% endif %}: ${{ net|floatformat:2 }}
+{% if portal_url %}
+See every policy and payment in your producer portal:
+{{ portal_url }}
+{% endif %}
+{{ brand.phone }} {{ brand.email }}
+{{ brand.copyright_line }}
+{% endautoescape %}

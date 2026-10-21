@@ -50,6 +50,50 @@ def dollars_to_words(amount) -> str:
     return " ".join(parts)
 
 
+def receipt_local_moment(service_record):
+    """``created_at`` in the zone where the transaction was made.
+
+    Records saved before zones were captured fall back to the zone of the
+    device printing the receipt.
+    """
+    from zoneinfo import ZoneInfo
+
+    from django.utils import timezone
+
+    from .timezone_utils import is_valid_timezone
+
+    tz_name = (getattr(service_record, "created_timezone", "") or "").strip()
+    tz = ZoneInfo(tz_name) if is_valid_timezone(tz_name) else timezone.get_current_timezone()
+    created = service_record.created_at or timezone.now()
+    if timezone.is_naive(created):
+        created = timezone.make_aware(created, timezone.get_default_timezone())
+    return created.astimezone(tz)
+
+
+def receipt_local_date(service_record, local_moment=None):
+    """Receipt date: staff-picked dates win; the server-default date follows the local zone."""
+    from django.utils import timezone
+
+    local_moment = local_moment or receipt_local_moment(service_record)
+    tx_date = service_record.transaction_date
+    if not tx_date:
+        return local_moment.date()
+    server_date = local_moment.astimezone(timezone.get_default_timezone()).date()
+    if tx_date == server_date:
+        return local_moment.date()
+    return tx_date
+
+
+def receipt_date_time_labels(service_record) -> tuple[str, str]:
+    """("Oct 21, 2026", "03:15 PM EDT") in the transaction's own timezone."""
+    from .timezone_utils import zone_abbreviation
+
+    local = receipt_local_moment(service_record)
+    date_label = receipt_local_date(service_record, local).strftime("%b %d, %Y")
+    time_label = f"{local.strftime('%I:%M %p')} {zone_abbreviation(local)}".strip()
+    return date_label, time_label
+
+
 def format_receipt_number_display(service_record) -> str:
     """Show receipt # as digits only (consecutive per PSB, e.g. 00001)."""
     if service_record.organization_id:

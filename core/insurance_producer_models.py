@@ -114,6 +114,14 @@ class InsuranceProducerPayout(models.Model):
     paid_on = models.DateField()
     method = models.CharField(max_length=20, choices=Method.choices, default=Method.CASH)
     batch_reference = models.CharField(max_length=40, blank=True, default="")
+    bank_transaction = models.ForeignKey(
+        "BankTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="producer_payouts",
+        help_text="Bank entry recorded for this payout (shared by every row of a settlement).",
+    )
     note = models.CharField(max_length=255, blank=True, default="")
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

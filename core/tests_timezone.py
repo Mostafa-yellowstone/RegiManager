@@ -10,6 +10,7 @@ from core.middleware import PortalTimezoneMiddleware
 from core.models import Organization, OrganizationMembership
 from core.timezone_utils import (
     is_valid_timezone,
+    local_label,
     resolve_portal_timezone_name,
     state_to_timezone_name,
     timezone_label,
@@ -47,6 +48,17 @@ class TimezoneUtilsTests(TestCase):
             resolve_portal_timezone_name(organization=org),
             "America/Los_Angeles",
         )
+
+    def test_local_label_uses_active_timezone(self):
+        from datetime import datetime, timezone as dt_timezone
+        from zoneinfo import ZoneInfo
+
+        moment = datetime(2026, 1, 15, 19, 30, tzinfo=dt_timezone.utc)
+        with timezone.override(ZoneInfo("Africa/Cairo")):
+            self.assertEqual(local_label(moment), "Jan 15, 21:30")
+        with timezone.override(ZoneInfo("America/New_York")):
+            self.assertEqual(local_label(moment), "Jan 15, 14:30")
+        self.assertEqual(local_label(None), "")
 
     def test_timezone_label_returns_abbreviation(self):
         label = timezone_label("America/New_York")
@@ -95,6 +107,28 @@ class PortalTimezoneMiddlewareTests(TestCase):
         request.session = self.client.session
 
         self.assertEqual(self._run_middleware(request), "America/New_York")
+
+    def test_middleware_uses_device_header_without_session(self):
+        request = self.factory.get("/api/", HTTP_X_CLIENT_TIMEZONE="Africa/Cairo")
+        request.user = self.user
+        request.session = self.client.session
+        self.assertEqual(self._run_middleware(request), "Africa/Cairo")
+
+    def test_session_timezone_beats_device_header(self):
+        session = self.client.session
+        session["portal_timezone"] = "America/New_York"
+        session.save()
+        request = self.factory.get("/api/", HTTP_X_CLIENT_TIMEZONE="Africa/Cairo")
+        request.user = self.user
+        request.session = session
+        self.assertEqual(self._run_middleware(request), "America/New_York")
+
+    def test_malformed_device_header_is_ignored(self):
+        for bad in ("../../etc/passwd", "/abs/path", "x" * 200, "Not/A/Zone"):
+            request = self.factory.get("/api/", HTTP_X_CLIENT_TIMEZONE=bad)
+            request.user = self.user
+            request.session = self.client.session
+            self.assertEqual(self._run_middleware(request), "America/New_York")
 
 
 class SetPortalTimezoneViewTests(TestCase):

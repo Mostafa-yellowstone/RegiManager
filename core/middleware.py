@@ -209,8 +209,11 @@ class PortalTimezoneMiddleware:
 
         tz_name = None
         session_tz = request.session.get("portal_timezone")
+        header_tz = (request.headers.get("X-Client-Timezone") or "").strip()[:64]
         if session_tz and is_valid_timezone(session_tz):
             tz_name = session_tz.strip()
+        elif header_tz and is_valid_timezone(header_tz):
+            tz_name = header_tz
         else:
             organization = None
             active_org_id = request.session.get("active_org_id")

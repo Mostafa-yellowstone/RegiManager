@@ -1,0 +1,15 @@
+<div>
+  <label class="field-label" for="{{ prefix }}Bank">Paid from bank account</label>
+  <select id="{{ prefix }}Bank" name="bank_account" class="field-input">
+    <option value="">Don't log in banking</option>
+    {% for account in bank_accounts %}<option value="{{ account.id }}">{{ account.account_name }}{% if account.bank_name %} · {{ account.bank_name }}{% endif %}{% if account.account_number %} ··{{ account.account_number|slice:"-4:" }}{% endif %}</option>{% endfor %}
+  </select>
+  {% if not bank_accounts %}<small class="prd-help">Add a bank account in the Finance tab to log producer payments there.</small>{% endif %}
+</div>
+<label class="prd-check{% if email_problem %} is-disabled{% endif %}">
+  <input type="checkbox" name="notify" value="1"{% if email_problem %} disabled{% else %} checked{% endif %}>
+  <span>
+    <strong>Email {{ producer.name }} a payment notice</strong>
+    <small>{% if email_problem %}{{ email_problem }}{% else %}Sent to {{ producer.email }} after the payment is saved.{% endif %}</small>
+  </span>
+</label>
