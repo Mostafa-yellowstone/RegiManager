@@ -11,6 +11,12 @@
 .cu-kicker { display: inline-flex; align-items: center; gap: .45rem; padding: .35rem .7rem; border-radius: 999px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .cu-hero h1 { margin: 1rem 0 .6rem; max-width: 16ch; font-size: clamp(2.4rem, 5vw, 4.2rem); line-height: .98; letter-spacing: -.045em; color: #fff; }
 .cu-hero p { max-width: 38rem; margin: 0; color: #dbe7f5; font-size: 1.08rem; line-height: 1.6; }
+.cu-hero-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 2rem; align-items: center; }
+.cu-hero-points { list-style: none; margin: 1.4rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: .6rem; }
+.cu-hero-points li { display: inline-flex; align-items: center; gap: .45rem; padding: .45rem .8rem; border-radius: 999px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); font-size: .88rem; font-weight: 700; color: #e0f2fe; }
+.cu-hero-points li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 10px #38bdf8; }
+.cu-hero-art { margin: 0; justify-self: end; width: min(400px, 100%); aspect-ratio: 1; border-radius: 28px; overflow: hidden; border: 1px solid rgba(125,211,252,.25); box-shadow: 0 30px 60px rgba(2,8,23,.45), 0 0 0 8px rgba(255,255,255,.03); }
+.cu-hero-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .cu-wrap { margin-top: -2.4rem; padding: 0 1.5rem 4rem; position: relative; z-index: 1; }
 .cu-layout { display: grid; grid-template-columns: .82fr 1.18fr; gap: 1rem; align-items: start; }
 .cu-cards { display: grid; gap: .75rem; }
@@ -36,8 +42,9 @@
 .cu-banner { margin-bottom: .8rem; padding: .8rem .9rem; border-radius: 14px; background: #ecfdf5; color: #065f46; font-weight: 700; }
 .cu-banner.error { background: #fef2f2; color: #991b1b; }
 @media (max-width: 860px) {
-  .cu-layout, .cu-grid { grid-template-columns: 1fr; }
+  .cu-layout, .cu-grid, .cu-hero-grid { grid-template-columns: 1fr; }
   .cu-hero { padding-top: 3rem; }
+  .cu-hero-art { justify-self: start; width: min(260px, 70%); border-radius: 22px; }
 }
 </style>
 {% endblock %}
@@ -46,10 +53,19 @@
 <main class="cu-page">
   {% include "partials/_site_header.html" with active_page='contact' %}
   <section class="cu-hero">
-    <div class="cu-hero-inner">
-      <span class="cu-kicker">Contact</span>
-      <h1>Talk to the people who run RegiManager.</h1>
-      <p>Questions about a PSB workspace, a demo, or support. Write us, call the office, or stop by Yonkers.</p>
+    <div class="cu-hero-inner cu-hero-grid">
+      <div>
+        <span class="cu-kicker">Contact</span>
+        <h1>Talk to the people who run RegiManager.</h1>
+        <p>Questions about a PSB workspace, a demo, or support. Write us, call the office, or stop by Yonkers.</p>
+        <ul class="cu-hero-points">
+          <li>Reply within one business day</li>
+          <li>Real people in Yonkers, NY</li>
+        </ul>
+      </div>
+      <figure class="cu-hero-art">
+        <img src="{% static 'core/img/contact_hero.webp' %}" alt="Phone, email, and chat channels connected to the RegiManager team" width="880" height="880" fetchpriority="high" decoding="async">
+      </figure>
     </div>
   </section>
   <div class="cu-wrap">

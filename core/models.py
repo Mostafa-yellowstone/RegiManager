@@ -3715,3 +3715,23 @@ from .insurance_producer_models import (  # noqa: E402,F401
     InsuranceProducerPayout,
 )
 
+
+class ContactMessage(models.Model):
+    """Message from the public Contact page; saved before any email is attempted."""
+
+    name = models.CharField(max_length=120)
+    email = models.EmailField(max_length=254)
+    subject = models.CharField(max_length=80)
+    message = models.TextField(max_length=5000)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    email_sent = models.BooleanField(default=False)
+    email_error = models.CharField(max_length=255, blank=True, default="")
+    is_handled = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} <{self.email}> · {self.subject}"
+

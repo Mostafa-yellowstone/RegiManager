@@ -11,7 +11,7 @@ from django.db.models import Count, Sum, Q
 from django.db.models.functions import TruncMonth, TruncDate, ExtractHour
 import calendar
 from django.core.paginator import Paginator
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout
@@ -43,6 +43,7 @@ from .constants import (
 )
 from .ocr_service import check_ocr_auth as _check_ocr_auth, perform_ocr as _perform_ocr
 from .policies import safe_redirect_target, redirect_back
+from .ratelimit import rate_limit
 from .referral_metrics import attach_referral_list_metrics
 from .upload_validation import validate_ocr_upload
 from django.core.exceptions import ValidationError
@@ -616,34 +617,78 @@ def home(request):
     return render(request, "core/home.html")
 
 
+@rate_limit(key_prefix="contact", limit=5, window_seconds=600, methods={"POST"})
 def contact(request):
     if request.method == "POST":
+        from django.core.exceptions import ValidationError
+        from django.core.validators import validate_email
+
+        from .contact_inbox import CONTACT_SUBJECTS, queue_contact_email
+        from .models import ContactMessage
+        from .ratelimit import client_ip
+
         if (request.POST.get("company_website") or "").strip():
             return redirect("contact")
-        name = (request.POST.get("name") or "").strip()
-        email = (request.POST.get("email") or "").strip()
-        subject = (request.POST.get("subject") or "General inquiry").strip()
-        message = (request.POST.get("message") or "").strip()
-        if not name or not email or not message or "@" not in email:
-            messages.error(request, "Add your name, a real email, and a message.")
-            return render(request, "core/contact.html", {"contact_name": name, "contact_email": email, "contact_subject": subject, "contact_message": message})
-        from django.conf import settings
-        from django.core.mail import send_mail
-
+        name = " ".join((request.POST.get("name") or "").split())[:120]
+        email = (request.POST.get("email") or "").strip()[:254]
+        subject = (request.POST.get("subject") or "").strip()
+        if subject not in CONTACT_SUBJECTS:
+            subject = CONTACT_SUBJECTS[0]
+        message = (request.POST.get("message") or "").strip()[:5000]
+        form_state = {"contact_name": name, "contact_email": email, "contact_subject": subject, "contact_message": message}
         try:
-            send_mail(
-                subject=f"RegiManager contact: {subject}",
-                message=f"From: {name} <{email}>\n\n{message}",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=["mail@regimanager.com"],
-                fail_silently=False,
+            validate_email(email)
+            email_ok = True
+        except ValidationError:
+            email_ok = False
+        if not name or not message or not email_ok:
+            messages.error(request, "Add your name, a real email, and a message.")
+            return render(request, "core/contact.html", form_state)
+        ip = client_ip(request)
+        try:
+            import ipaddress
+
+            ipaddress.ip_address(ip)
+        except ValueError:
+            ip = None
+        with transaction.atomic():
+            record = ContactMessage.objects.create(
+                name=name, email=email, subject=subject, message=message, ip_address=ip
             )
-        except Exception:
-            messages.error(request, "We could not send that just now. Email mail@regimanager.com or call (914) 292-9743.")
-            return render(request, "core/contact.html", {"contact_name": name, "contact_email": email, "contact_subject": subject, "contact_message": message})
+            queue_contact_email(record.id)
         messages.success(request, "Message received. We will reply within one business day.")
         return redirect("contact")
     return render(request, "core/contact.html")
+
+
+@login_required
+def contact_messages_inbox(request):
+    """Superuser-only list of Contact page messages, including ones email could not deliver."""
+    from .models import ContactMessage
+
+    if not request.user.is_superuser:
+        raise Http404
+    if request.method == "POST":
+        raw_id = (request.POST.get("message_id") or "").strip()
+        record = get_object_or_404(ContactMessage, id=int(raw_id) if raw_id.isdigit() else 0)
+        record.is_handled = request.POST.get("action") != "reopen"
+        record.save(update_fields=["is_handled"])
+        return redirect(safe_redirect_target(request, fallback="contact-messages"))
+    show = request.GET.get("show") or "open"
+    records = ContactMessage.objects.all()
+    if show == "open":
+        records = records.filter(is_handled=False)
+    page_obj = Paginator(records, 20).get_page(request.GET.get("page"))
+    return render(
+        request,
+        "core/contact_messages.html",
+        {
+            "page_obj": page_obj,
+            "show": show,
+            "open_count": ContactMessage.objects.filter(is_handled=False).count(),
+            "undelivered_count": ContactMessage.objects.filter(email_sent=False).count(),
+        },
+    )
 
 
 def privacy(request):

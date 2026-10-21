@@ -98,6 +98,7 @@ from core.views import (
     dashboard,
     home,
     contact,
+    contact_messages_inbox,
     privacy,
     login_view,
     logout_view,
@@ -528,6 +529,7 @@ urlpatterns = [
     path("assistant/chat/", assistant_chat, name="assistant-chat"),
 
     path("contact/", contact, name="contact"),
+    path("dashboard/contact-messages/", contact_messages_inbox, name="contact-messages"),
     path("privacy/", privacy, name="privacy"),
     path("auth/login/", login_view, name="login"),
     path("auth/logout/", logout_view, name="logout"),
