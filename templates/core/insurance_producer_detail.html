@@ -1,0 +1,382 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}{{ producer.name }} — Producer | RegiManager{% endblock %}
+
+{% block portal_head %}
+<link rel="stylesheet" href="{% static 'core/css/insurance_producers.css' %}?v=prd-4">
+{% endblock %}
+
+{% block portal_content %}
+<main class="portal-space-shell">
+<div class="portal-space-inner portal-space-inner--wide prd-page">
+  <a class="prd-back prd-no-print" href="{{ back_url }}">← Producers</a>
+
+  {% if messages %}
+  <div class="portal-messages">
+    {% for message in messages %}
+    <div class="alert" style="padding:0.85rem 1rem;border-radius:12px;font-weight:700;{% if 'error' in message.tags %}background:#fef2f2;color:#991b1b;border:1px solid #fecaca;{% elif 'warning' in message.tags or 'info' in message.tags %}background:#fffbeb;color:#92400e;border:1px solid #fde68a;{% else %}background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;{% endif %}">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if new_password %}
+  <div class="prd-secret" role="status">
+    New portal password for {{ producer.user.username }}: <code>{{ new_password }}</code>
+    <span style="font-weight:600;">Copy it now — it won't be shown again.</span>
+  </div>
+  {% endif %}
+
+  <section class="prd-hero">
+    <span class="prd-avatar prd-avatar--lg" aria-hidden="true">{{ producer.initials }}</span>
+    <div>
+      <p class="prd-eyebrow">Producer</p>
+      <h1>{{ producer.name }}</h1>
+      <div class="prd-hero__meta">
+        <span class="prd-pill prd-pill--brand">{{ producer.default_rate|floatformat:"-2" }}% of {% if producer.rate_basis == 'premium' %}premium{% else %}our commission{% endif %}</span>
+        <span class="prd-pill">Default: {% if producer.default_payout == 'monthly' %}paid monthly{% else %}paid once{% endif %}</span>
+        {% if not producer.is_active %}<span class="prd-pill prd-pill--warn">Paused</span>{% endif %}
+        {% if producer.user and producer.user.is_active %}<span class="prd-pill prd-pill--ok">Portal login: {{ producer.user.username }}</span>{% else %}<span class="prd-pill prd-pill--muted">No portal login</span>{% endif %}
+      </div>
+      <div class="prd-hero__contact">
+        {% if producer.phone %}<a href="tel:{{ producer.phone }}">{{ producer.phone }}</a>{% endif %}
+        {% if producer.phone and producer.email %} · {% endif %}
+        {% if producer.email %}<a href="mailto:{{ producer.email }}">{{ producer.email }}</a>{% endif %}
+        {% if producer.license_number %} · License {{ producer.license_number }}{% endif %}
+      </div>
+    </div>
+    <div class="prd-hero__actions">
+      <button type="button" class="prd-btn" onclick="document.getElementById('editProducerModal').classList.add('active')">Edit</button>
+      <button type="button" class="prd-btn" onclick="document.getElementById('producerLoginModal').classList.add('active')">Portal login</button>
+      <button type="button" class="prd-btn" onclick="window.print()">Print statement</button>
+      <button type="button" class="prd-btn prd-btn--primary" onclick="document.getElementById('recordPayoutModal').classList.add('active')">Record payment</button>
+    </div>
+  </section>
+
+  <div class="prd-stats">
+    <div class="prd-stat">
+      <span class="prd-stat__label">Total commission</span>
+      <strong class="prd-stat__value">${{ summary.total_commission|floatformat:2 }}</strong>
+      <span class="prd-stat__hint">{{ summary.bound_count }} bound polic{{ summary.bound_count|pluralize:"y,ies" }} · {{ summary.carrier_received_count }} paid to us by the carrier</span>
+    </div>
+    <div class="prd-stat prd-stat--ok">
+      <span class="prd-stat__label">Paid to producer</span>
+      <strong class="prd-stat__value">${{ summary.paid|floatformat:2 }}</strong>
+      <span class="prd-stat__hint">All payouts, after deductions</span>
+    </div>
+    <div class="prd-stat">
+      <span class="prd-stat__label">Due now</span>
+      <strong class="prd-stat__value">${{ summary.due_now|floatformat:2 }}</strong>
+      <span class="prd-stat__hint">Earned to date, not paid</span>
+    </div>
+    <div class="prd-stat prd-stat--warn">
+      <span class="prd-stat__label">Deductions</span>
+      <strong class="prd-stat__value">−${{ summary.deductions|floatformat:2 }}</strong>
+      <span class="prd-stat__hint">Overpaid on inactive policies</span>
+    </div>
+    <div class="prd-stat prd-stat--accent">
+      <span class="prd-stat__label">Net to pay now</span>
+      <strong class="prd-stat__value">${{ summary.net_payable|floatformat:2 }}</strong>
+      <span class="prd-stat__hint">{% if summary.carried_deduction %}−${{ summary.carried_deduction|floatformat:2 }} carries to future commissions{% else %}Upcoming later: ${{ summary.upcoming|floatformat:2 }}{% endif %}</span>
+    </div>
+  </div>
+
+  {% if settle_rows %}
+  <section class="prd-panel prd-no-print">
+    <div class="prd-panel__head">
+      <div>
+        <h2>Pay everything due</h2>
+        <p>Pays each policy's due amount and takes deductions from cancelled policies out of the same payment.</p>
+      </div>
+    </div>
+    <div class="prd-panel__body prd-settle">
+      <div>
+        <ul class="prd-settle__rows">
+          {% for policy, kind, amount in settle_rows %}
+          <li class="{% if kind == 'deduction' %}is-deduction{% endif %}">
+            <span>{% if kind == 'deduction' %}Deduction · {% endif %}<span class="prd-mono">{{ policy.policy_number }}</span> — {{ policy.client.name }}</span>
+            <b>{% if kind == 'deduction' %}−${{ amount|stringformat:".2f"|slice:"1:" }}{% else %}${{ amount }}{% endif %}</b>
+          </li>
+          {% endfor %}
+        </ul>
+        <div class="prd-settle__total"><span>Net payment</span><strong>${{ summary.net_payable|floatformat:2 }}</strong></div>
+      </div>
+      <form method="POST" action="{% url 'settle-insurance-producer' producer.id %}" onsubmit="return confirm('Record this payment to {{ producer.name|escapejs }}?')">
+        {% csrf_token %}
+        <div><label class="field-label" for="settleDate">Paid on</label><input type="date" id="settleDate" name="paid_on" class="field-input" value="{{ today|date:'Y-m-d' }}" required></div>
+        <div>
+          <label class="field-label" for="settleMethod">Method</label>
+          <select id="settleMethod" name="method" class="field-input">
+            {% for value, label in payout_methods %}{% if value != 'offset' %}<option value="{{ value }}">{{ label }}</option>{% endif %}{% endfor %}
+          </select>
+        </div>
+        <div><label class="field-label" for="settleNote">Note</label><input type="text" id="settleNote" name="note" class="field-input" maxlength="255" placeholder="Optional · the producer can see this"></div>
+        <button type="submit" class="prd-btn prd-btn--ok">Record ${{ summary.net_payable|floatformat:2 }} payment</button>
+      </form>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="prd-panel">
+    <div class="prd-panel__head">
+      <div>
+        <h2>Policies</h2>
+        <p>Carrier commission = whether the carrier paid <em>us</em>. Producer status = what the producer has received.</p>
+      </div>
+    </div>
+    <div class="prd-table-wrap">
+      <table class="prd-table prd-table--policies">
+        <thead>
+          <tr>
+            <th class="prd-col-policy">Policy</th>
+            <th>Status</th>
+            <th class="num">Premium</th>
+            <th class="num">Producer rate</th>
+            <th class="num">Producer commission</th>
+            <th>Schedule</th>
+            <th class="num">Paid</th>
+            <th class="num">Due now</th>
+            <th class="num">Remaining</th>
+            <th>Carrier commission</th>
+            <th>Producer</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lg in ledgers %}
+          {% with p=lg.policy %}
+          <tr>
+            <td>
+              <a href="{% url 'insurance-policy-detail' p.id %}" class="prd-mono">{{ p.policy_number|default:"—" }}</a>
+              <span class="prd-sub">{% if p.client %}<a href="{% url 'client-detail' p.client.id %}">{{ p.client.name }}</a>{% endif %}{% if p.insurance_company %} · {{ p.insurance_company.name }}{% endif %}</span>
+              <span class="prd-sub">{{ p.get_business_type_display }}{% if p.start_date %} · {{ p.start_date|date:"M j, Y" }} → {{ p.end_date|date:"M j, Y" }}{% endif %}</span>
+              {% with changes=p.premium_changes.all %}
+              {% if changes %}
+              <details class="prd-endorse">
+                <summary>{{ changes|length }} premium change{{ changes|length|pluralize }}</summary>
+                <ol>
+                  {% for ch in changes %}
+                  <li>{{ ch.created_at|date:"M j, Y" }}: ${{ ch.old_premium }} → ${{ ch.new_premium }}{% if ch.note %} ({{ ch.note }}){% endif %}</li>
+                  {% endfor %}
+                </ol>
+              </details>
+              {% endif %}
+              {% endwith %}
+            </td>
+            <td>
+              {% if p.status == 'active' %}<span class="prd-pill prd-pill--ok">{{ p.get_stage_display }} · Active</span>
+              {% elif p.status == 'inactive' %}<span class="prd-pill prd-pill--warn">Inactive{% if p.inactive_date %} {{ p.inactive_date|date:"M j" }}{% endif %}</span>
+              {% else %}<span class="prd-pill prd-pill--muted">{{ p.get_stage_display }} · {{ p.get_status_display }}</span>{% endif %}
+            </td>
+            <td class="num">${{ p.premium }}</td>
+            <td class="num">{{ p.producer_rate|floatformat:"-2" }}%<span class="prd-sub">of {% if p.producer_rate_basis == 'premium' %}premium{% else %}commission{% endif %}</span></td>
+            <td class="num">
+              ${{ lg.total|floatformat:2 }}
+              {% if lg.cancelled_reduction %}<span class="prd-sub is-warn">−${{ lg.cancelled_reduction|floatformat:2 }} unearned</span>{% endif %}
+            </td>
+            <td>
+              {% if lg.is_monthly %}
+              ${{ lg.per_month|floatformat:2 }}/mo
+              <span class="prd-sub">{{ lg.months_earned }} of {{ lg.term_months }} months earned{% if lg.next_payment_date %} · next {{ lg.next_payment_date|date:"M j" }}{% endif %}</span>
+              {% else %}
+              Once
+              {% endif %}
+            </td>
+            <td class="num">
+              ${{ lg.paid|floatformat:2 }}
+              <div class="prd-progress" title="{{ lg.paid_percent }}% paid"><span style="width: {{ lg.paid_percent }}%"></span></div>
+            </td>
+            <td class="num{% if lg.due_now %} is-ok{% endif %}">${{ lg.due_now|floatformat:2 }}</td>
+            <td class="num">{% if lg.owes_back %}<span class="is-warn">−${{ lg.owes_back|floatformat:2 }}</span>{% else %}${{ lg.remaining|floatformat:2 }}{% endif %}</td>
+            <td>
+              <label class="prd-switch prd-no-print">
+                <input type="checkbox" {% if p.commission_received %}checked{% endif %} onchange="toggleCarrierCommission(this, {{ p.id }})">
+                <span>{% if p.commission_received %}Received{% else %}Not yet{% endif %}</span>
+              </label>
+            </td>
+            <td>
+              <span class="prd-pill {% if lg.status_key == 'paid' %}prd-pill--ok{% elif lg.status_key == 'due' %}prd-pill--brand{% elif lg.status_key == 'owes_back' %}prd-pill--warn{% else %}prd-pill--muted{% endif %}">{{ lg.status_label }}</span>
+            </td>
+          </tr>
+          {% endwith %}
+          {% empty %}
+          <tr><td colspan="11" class="prd-empty-row">No policies yet. Tick “This policy has a producer” on a policy and choose {{ producer.name }}.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {% if deduction_ledgers %}
+  <section class="prd-panel">
+    <div class="prd-panel__head">
+      <div>
+        <h2>Deductions from inactive policies</h2>
+        <p>The producer was paid more than they earned before cancellation. This comes off their next payments.</p>
+      </div>
+    </div>
+    <div class="prd-table-wrap">
+      <table class="prd-table">
+        <thead><tr><th>Policy</th><th>Cancelled</th><th class="num">Earned</th><th class="num">Paid</th><th class="num">To deduct</th></tr></thead>
+        <tbody>
+          {% for lg in deduction_ledgers %}
+          <tr>
+            <td><span class="prd-mono">{{ lg.policy.policy_number }}</span><span class="prd-sub">{{ lg.policy.client.name }}</span></td>
+            <td>{{ lg.policy.inactive_date|date:"M j, Y"|default:"—" }}</td>
+            <td class="num">${{ lg.earned_to_date|floatformat:2 }}</td>
+            <td class="num">${{ lg.paid|floatformat:2 }}</td>
+            <td class="num is-warn">−${{ lg.owes_back|floatformat:2 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="prd-panel">
+    <div class="prd-panel__head"><div><h2>Payout history</h2><p>Every payment and deduction recorded for {{ producer.name }}.</p></div></div>
+    <div class="prd-table-wrap">
+      <table class="prd-table">
+        <thead><tr><th>Date</th><th>Policy</th><th>Type</th><th>Method</th><th class="num">Amount</th><th>Note</th><th class="prd-no-print"></th></tr></thead>
+        <tbody>
+          {% for po in payouts %}
+          <tr>
+            <td>{{ po.paid_on|date:"M j, Y" }}{% if po.batch_reference %}<span class="prd-sub prd-mono">{{ po.batch_reference }}</span>{% endif %}</td>
+            <td><span class="prd-mono">{{ po.policy.policy_number }}</span><span class="prd-sub">{{ po.policy.client.name }}</span></td>
+            <td>{% if po.kind == 'deduction' %}<span class="prd-pill prd-pill--warn">Deduction</span>{% else %}<span class="prd-pill prd-pill--ok">Payment</span>{% endif %}</td>
+            <td>{{ po.get_method_display }}</td>
+            <td class="num {% if po.amount < 0 %}is-warn{% else %}is-ok{% endif %}">{% if po.amount < 0 %}−${{ po.amount|stringformat:".2f"|slice:"1:" }}{% else %}${{ po.amount }}{% endif %}</td>
+            <td>{{ po.note|default:"" }}{% if po.recorded_by %}<span class="prd-sub">by {{ po.recorded_by.get_full_name|default:po.recorded_by.username }}</span>{% endif %}</td>
+            <td class="prd-no-print">
+              <form method="POST" action="{% url 'delete-insurance-producer-payout' po.id %}" onsubmit="return confirm('Remove this payout?')">
+                {% csrf_token %}
+                <button type="submit" class="prd-btn prd-btn--sm prd-btn--ghost prd-btn--danger">Remove</button>
+              </form>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="prd-empty-row">No payouts recorded yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+</main>
+
+<div class="modal-overlay" id="editProducerModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box prd-modal">
+    <div class="prd-modal__head"><h3>Edit producer</h3><button type="button" class="prd-modal__close" aria-label="Close" onclick="document.getElementById('editProducerModal').classList.remove('active')">&times;</button></div>
+    <form method="POST" action="{% url 'edit-insurance-producer' producer.id %}" class="prd-form">
+      {% csrf_token %}
+      <div><label class="field-label" for="epName">Full name</label><input type="text" id="epName" name="name" value="{{ producer.name }}" required class="field-input" maxlength="160"></div>
+      <div class="prd-form-grid">
+        <div><label class="field-label" for="epPhone">Phone</label><input type="tel" id="epPhone" name="phone" value="{{ producer.phone }}" class="field-input"></div>
+        <div><label class="field-label" for="epEmail">Email</label><input type="email" id="epEmail" name="email" value="{{ producer.email }}" class="field-input"></div>
+      </div>
+      <fieldset class="prd-fieldset">
+        <legend>Default commission</legend>
+        <div class="prd-form-grid prd-form-grid--3">
+          <div><label class="field-label" for="epRate">Percentage</label><input type="number" step="0.01" min="0" max="100" id="epRate" name="default_rate" value="{{ producer.default_rate }}" class="field-input" required></div>
+          <div><label class="field-label" for="epBasis">Calculated on</label>
+            <select id="epBasis" name="rate_basis" class="field-input">
+              <option value="commission" {% if producer.rate_basis == 'commission' %}selected{% endif %}>Our commission</option>
+              <option value="premium" {% if producer.rate_basis == 'premium' %}selected{% endif %}>Premium</option>
+            </select>
+          </div>
+          <div><label class="field-label" for="epPayout">Usually paid</label>
+            <select id="epPayout" name="default_payout" class="field-input">
+              <option value="once" {% if producer.default_payout == 'once' %}selected{% endif %}>Once</option>
+              <option value="monthly" {% if producer.default_payout == 'monthly' %}selected{% endif %}>Monthly</option>
+            </select>
+          </div>
+        </div>
+        <p class="prd-help">Changes apply to new policies. Existing policies keep the rate saved on them.</p>
+      </fieldset>
+      <div><label class="field-label" for="epLicense">License #</label><input type="text" id="epLicense" name="license_number" value="{{ producer.license_number }}" class="field-input"></div>
+      <div><label class="field-label" for="epNotes">Notes</label><textarea id="epNotes" name="notes" rows="2" class="field-input">{{ producer.notes }}</textarea></div>
+      <label class="prd-form-toggle">
+        <input type="checkbox" name="is_active" value="1" {% if producer.is_active %}checked{% endif %}>
+        <span class="prd-form-toggle__box" aria-hidden="true"></span>
+        <span><strong>Active</strong><small>Paused producers can't be picked on new policies and can't sign in.</small></span>
+      </label>
+      <button type="submit" class="btn-submit">Save changes</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="producerLoginModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box prd-modal">
+    <div class="prd-modal__head"><h3>Portal login</h3><button type="button" class="prd-modal__close" aria-label="Close" onclick="document.getElementById('producerLoginModal').classList.remove('active')">&times;</button></div>
+    <p class="prd-help" style="margin:0 0 1rem;">The producer signs in on the normal RegiManager sign-in page and only sees their own policies, commissions and payouts.</p>
+    <form method="POST" action="{% url 'set-insurance-producer-login' producer.id %}" class="prd-form" autocomplete="off">
+      {% csrf_token %}
+      <div><label class="field-label" for="plUser">Username</label><input type="text" id="plUser" name="username" value="{{ producer.user.username|default:'' }}" required class="field-input" autocomplete="off"></div>
+      <div><label class="field-label" for="plPass">New password (8+ characters)</label><input type="text" id="plPass" name="password" minlength="8" class="field-input" autocomplete="new-password" placeholder="Leave empty and use “Generate”"></div>
+      <div class="prd-form-grid">
+        <button type="submit" class="prd-btn prd-btn--primary" onclick="document.getElementById('plPass').required = true;">Save login</button>
+        <button type="submit" name="generate" value="1" class="prd-btn" onclick="document.getElementById('plPass').required = false;">Generate password</button>
+      </div>
+    </form>
+    {% if producer.user and producer.user.is_active %}
+    <form method="POST" action="{% url 'set-insurance-producer-login' producer.id %}" style="margin-top:0.75rem;">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="disable">
+      <button type="submit" class="prd-btn prd-btn--ghost prd-btn--danger">Turn off portal login</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="modal-overlay" id="recordPayoutModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box prd-modal">
+    <div class="prd-modal__head"><h3>Record payment</h3><button type="button" class="prd-modal__close" aria-label="Close" onclick="document.getElementById('recordPayoutModal').classList.remove('active')">&times;</button></div>
+    <form method="POST" action="{% url 'record-insurance-producer-payout' producer.id %}" class="prd-form">
+      {% csrf_token %}
+      <div>
+        <label class="field-label" for="rpPolicy">Policy</label>
+        <select id="rpPolicy" name="policy" class="field-input" required onchange="const o=this.selectedOptions[0]; if(o && o.dataset.due) document.getElementById('rpAmount').value=o.dataset.due;">
+          <option value="">Choose policy…</option>
+          {% for lg in ledgers %}
+          <option value="{{ lg.policy.id }}" data-due="{{ lg.due_now }}">{{ lg.policy.policy_number }} — {{ lg.policy.client.name }} · due ${{ lg.due_now|floatformat:2 }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="prd-form-grid">
+        <div><label class="field-label" for="rpAmount">Amount ($)</label><input type="number" step="0.01" id="rpAmount" name="amount" class="field-input" required></div>
+        <div><label class="field-label" for="rpDate">Paid on</label><input type="date" id="rpDate" name="paid_on" class="field-input" value="{{ today|date:'Y-m-d' }}" required></div>
+      </div>
+      <div>
+        <label class="field-label" for="rpMethod">Method</label>
+        <select id="rpMethod" name="method" class="field-input">
+          {% for value, label in payout_methods %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div><label class="field-label" for="rpNote">Note</label><input type="text" id="rpNote" name="note" maxlength="255" class="field-input" placeholder="Optional · the producer can see this"></div>
+      <p class="prd-help" style="margin:0;">Use a negative amount to record money the producer paid back.</p>
+      <button type="submit" class="btn-submit">Save payment</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function toggleCarrierCommission(box, policyId) {
+  const label = box.nextElementSibling;
+  const body = new URLSearchParams({ received: box.checked ? '1' : '0' });
+  fetch('/dashboard/spaces/insurance/policy/' + policyId + '/toggle-commission-received/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': '{{ csrf_token }}', 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  })
+    .then((r) => r.json())
+    .then((data) => {
+      if (!data.ok) throw new Error(data.error || 'Failed');
+      if (label) label.textContent = data.commission_received ? 'Received' : 'Not yet';
+    })
+    .catch(() => {
+      box.checked = !box.checked;
+      alert('Could not update the carrier commission status.');
+    });
+}
+</script>
+{% endblock %}

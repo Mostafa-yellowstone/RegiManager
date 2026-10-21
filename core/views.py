@@ -880,9 +880,24 @@ def client_detail(request, client_id):
     from .insurance_policy_display import enrich_policies_for_display
 
     insurance_policies = list(
-        client.insurance_policies.select_related("insurance_company", "added_by").order_by("-created_at")
+        client.insurance_policies.select_related("insurance_company", "added_by", "producer")
+        .prefetch_related("producer_payouts")
+        .order_by("-created_at")
     )
     enrich_policies_for_display(insurance_policies)
+    client_can_view_commission = can_manage_insurance_finance(request.user, client.organization)
+    if client_can_view_commission:
+        from .insurance_producers import build_policy_ledger
+
+        for policy in insurance_policies:
+            policy.producer_ledger = (
+                build_policy_ledger(
+                    policy,
+                    [p for p in policy.producer_payouts.all() if p.producer_id == policy.producer_id],
+                )
+                if policy.producer_id
+                else None
+            )
 
     from .daily_payments import enrich_daily_transactions, sum_payment_grand_totals
     from .models import DailyPaymentTransaction
@@ -941,6 +956,7 @@ def client_detail(request, client_id):
         "records": records,
         "documents": all_docs,
         "insurance_policies": insurance_policies,
+        "client_can_view_commission": client_can_view_commission,
         "insurance_payments": insurance_payments,
         "insurance_payments_total": insurance_payments_total,
         "show_insurance_section": show_insurance_section,
@@ -6997,6 +7013,13 @@ def inventory_detail(request, inventory_id):
         esign_tab = build_esign_tab_context(
             active_org, request=request, membership=membership, is_owner=is_owner
         )
+        from .models import InsuranceProducer
+
+        producers_tab = {}
+        if user_can_view_banking:
+            from .insurance_producer_views import build_producers_tab_context
+
+            producers_tab = build_producers_tab_context(active_org)
 
         context = {
             "card": card,
@@ -7106,6 +7129,10 @@ def inventory_detail(request, inventory_id):
             "insurance_targets": insurance_targets,
             "can_edit_insurance_targets": can_edit_insurance_targets,
             **esign_tab,
+            "insurance_producers": InsuranceProducer.objects.filter(
+                organization=active_org, is_active=True
+            ).order_by("name"),
+            **producers_tab,
         }
         return render(request, "core/insurance_space.html", context)
 
@@ -7497,8 +7524,10 @@ def add_insurance_policy(request):
     if status == "inactive" and not inactive_date:
         inactive_date = timezone.now().date()
 
+    from .insurance_producers import ProducerInputError, apply_producer_from_post
+
     try:
-        InsurancePolicy.objects.create(
+        policy = InsurancePolicy(
             organization=org,
             client=client,
             policy_number=policy_number,
@@ -7518,7 +7547,13 @@ def add_insurance_policy(request):
             inactive_date=inactive_date or None,
             added_by=request.user,
         )
+        apply_producer_from_post(
+            policy, request.POST, organization=org, can_edit_rates=can_edit_commission
+        )
+        policy.save()
         messages.success(request, "Insurance policy created.")
+    except ProducerInputError as e:
+        messages.error(request, str(e))
     except Exception as e:
         messages.error(request, f"Error saving policy: {e}")
 
@@ -7577,6 +7612,7 @@ def edit_insurance_policy(request, policy_id):
                 InsuranceCompany, id=company_id, organization=policy.organization
             )
 
+        old_premium = policy.premium
         policy.client = client
         policy.policy_number = request.POST.get("policy_number", "").strip()
         policy.premium = Decimal(request.POST.get("premium", "0.00").strip() or "0.00")
@@ -7609,9 +7645,30 @@ def edit_insurance_policy(request, policy_id):
         if not policy.added_by:
             policy.added_by = request.user
 
+        from .insurance_producers import (
+            ProducerInputError,
+            apply_producer_from_post,
+            record_premium_change,
+        )
+
         try:
-            policy.save()
+            apply_producer_from_post(
+                policy,
+                request.POST,
+                organization=policy.organization,
+                can_edit_rates=can_edit_commission,
+            )
+            with transaction.atomic():
+                policy.save()
+                record_premium_change(
+                    policy,
+                    old_premium,
+                    user=request.user,
+                    note="Endorsement" if policy.stage == "endorsement" else "Premium edited",
+                )
             messages.success(request, "Insurance policy updated.")
+        except ProducerInputError as e:
+            messages.error(request, str(e))
         except Exception as e:
             messages.error(request, f"Error updating policy: {e}")
         return _redirect_to_insurance_detail(policy.organization, request=request)
@@ -7640,6 +7697,13 @@ def edit_insurance_policy(request, policy_id):
         "end_date": str(policy.end_date),
         "insurance_period_months": policy.insurance_period_months,
         "inactive_date": str(policy.inactive_date) if policy.inactive_date else "",
+        "producer_id": policy.producer_id or "",
+        "producer_rate": (
+            str(policy.producer_rate)
+            if can_edit_commission and policy.producer_rate is not None
+            else ""
+        ),
+        "producer_payout": policy.producer_payout or "",
     })
 
 

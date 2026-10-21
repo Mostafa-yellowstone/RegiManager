@@ -149,6 +149,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "core.rate_limit_middleware.RateLimitMiddleware",
+    "core.middleware.ProducerPortalMiddleware",
     "core.middleware.PortalTimezoneMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",

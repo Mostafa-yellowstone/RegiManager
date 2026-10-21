@@ -887,7 +887,12 @@
                         {% if insurance_policies %}
                         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.25rem;">
                             {% for policy in insurance_policies %}
+                            <div class="cpp-policy-stack">
                             {% include "core/partials/insurance_policy_card.html" %}
+                            {% if client_can_view_commission %}
+                            {% include "core/partials/policy_commission_status.html" %}
+                            {% endif %}
+                            </div>
                             {% endfor %}
                         </div>
                         {% else %}

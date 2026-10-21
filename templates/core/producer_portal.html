@@ -1,0 +1,156 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{{ producer.name }} · Producer portal · RegiManager</title>
+<link rel="icon" href="{% static 'core/img/logo_regimanager.png' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'core/css/producer_portal.css' %}?v=pp-1">
+</head>
+<body class="pp">
+<header class="pp-bar">
+  <div class="pp-bar__brand">
+    <img src="{% static 'core/img/logo_regimanager.png' %}" alt="" width="30" height="30">
+    <div>
+      <strong>{{ producer.organization.name }}</strong>
+      <span>Producer portal</span>
+    </div>
+  </div>
+  <nav class="pp-bar__nav" aria-label="Account">
+    <a href="#policies">Policies</a>
+    <a href="#payouts">Payouts</a>
+    <a href="#account">Account</a>
+    <a href="{% url 'logout' %}" class="pp-bar__out">Sign out</a>
+  </nav>
+</header>
+
+<main class="pp-main">
+  {% if messages %}
+  <div class="pp-messages" role="status">
+    {% for message in messages %}<p class="pp-msg{% if 'error' in message.tags %} is-error{% endif %}">{{ message }}</p>{% endfor %}
+  </div>
+  {% endif %}
+
+  <section class="pp-hello">
+    <p class="pp-kicker">{{ today|date:"l, F j, Y" }}</p>
+    <h1>Hello, <em>{{ producer.name|default:"there" }}</em>.</h1>
+    <p class="pp-lede">Here is where your commissions stand today: what you've earned, what we've paid you, and what's still on the way.</p>
+  </section>
+
+  <section class="pp-ledger" aria-label="Commission summary">
+    <div class="pp-ledger__main">
+      <span class="pp-label">Coming to you now</span>
+      <strong class="pp-big">${{ summary.net_payable|floatformat:2 }}</strong>
+      {% if summary.carried_deduction %}
+      <p class="pp-note is-clay">${{ summary.carried_deduction|floatformat:2 }} from cancelled policies will come off your next commissions.</p>
+      {% elif summary.deductions %}
+      <p class="pp-note is-clay">Includes −${{ summary.deductions|floatformat:2 }} for cancelled policies.</p>
+      {% else %}
+      <p class="pp-note">Earned to date and not paid yet.</p>
+      {% endif %}
+      <div class="pp-meter" role="img" aria-label="Paid {{ summary.paid|floatformat:2 }} of {{ summary.total_commission|floatformat:2 }}">
+        <span style="width: {{ summary.paid_percent }}%"></span>
+      </div>
+      <p class="pp-meter__caption">${{ summary.paid|floatformat:2 }} paid of ${{ summary.total_commission|floatformat:2 }} total commission</p>
+    </div>
+    <dl class="pp-ledger__list">
+      <div><dt>Total commission</dt><dd>${{ summary.total_commission|floatformat:2 }}</dd></div>
+      <div><dt>Paid to you</dt><dd class="is-sage">${{ summary.paid|floatformat:2 }}</dd></div>
+      <div><dt>Due now</dt><dd>${{ summary.due_now|floatformat:2 }}</dd></div>
+      <div><dt>Deductions</dt><dd class="{% if summary.deductions %}is-clay{% endif %}">{% if summary.deductions %}−${{ summary.deductions|floatformat:2 }}{% else %}$0.00{% endif %}</dd></div>
+      <div><dt>Still to come</dt><dd>${{ summary.upcoming|floatformat:2 }}</dd></div>
+      <div><dt>Policies</dt><dd>{{ summary.active_count }} active · {{ summary.inactive_count }} inactive</dd></div>
+    </dl>
+  </section>
+
+  <section id="policies" class="pp-section">
+    <div class="pp-section__head">
+      <h2>Your policies</h2>
+      <p>Your rate: {{ producer.default_rate|floatformat:"-2" }}% of {% if producer.rate_basis == 'premium' %}the premium{% else %}our commission{% endif %} unless a policy says otherwise.</p>
+    </div>
+    <ol class="pp-policies">
+      {% for lg in ledgers %}
+      {% with p=lg.policy %}
+      <li class="pp-policy is-{{ lg.status_key }}">
+        <div class="pp-policy__id">
+          <span class="pp-policy__num">{{ p.policy_number|default:"—" }}</span>
+          <strong>{{ p.client.name }}</strong>
+          <span class="pp-muted">{% if p.insurance_company %}{{ p.insurance_company.name }} · {% endif %}{{ p.get_insurance_type_display|default:"Policy" }} · {{ p.get_business_type_display }}</span>
+          <span class="pp-muted">{{ p.start_date|date:"M j, Y" }} → {{ p.end_date|date:"M j, Y" }}{% if p.status == 'inactive' %} · cancelled {{ p.inactive_date|date:"M j, Y" }}{% endif %}</span>
+        </div>
+        <div class="pp-policy__money">
+          <div><span>Premium</span><b>${{ p.premium }}</b></div>
+          <div><span>Your rate</span><b>{{ p.producer_rate|floatformat:"-2" }}%</b></div>
+          <div><span>Your commission</span><b>${{ lg.effective_total|floatformat:2 }}</b></div>
+          <div>
+            <span>{% if lg.is_monthly %}Monthly{% else %}Paid{% endif %}</span>
+            <b>{% if lg.is_monthly %}${{ lg.per_month|floatformat:2 }} × {{ lg.term_months }}{% else %}Once{% endif %}</b>
+          </div>
+        </div>
+        <div class="pp-policy__state">
+          <span class="pp-chip is-{{ lg.status_key }}">{% if lg.status_key == 'paid' %}Received in full{% elif lg.status_key == 'due' %}Due to you{% elif lg.status_key == 'owes_back' %}Deduction{% elif lg.status_key == 'not_bound' %}Not bound{% else %}On schedule{% endif %}</span>
+          <div class="pp-bar-mini"><span style="width: {{ lg.paid_percent }}%"></span></div>
+          <p class="pp-muted">
+            ${{ lg.paid|floatformat:2 }} received
+            {% if lg.owes_back %}· <span class="is-clay">−${{ lg.owes_back|floatformat:2 }} to deduct</span>
+            {% elif lg.due_now %}· ${{ lg.due_now|floatformat:2 }} due now
+            {% elif lg.remaining %}· ${{ lg.remaining|floatformat:2 }} remaining{% endif %}
+          </p>
+          {% if lg.is_monthly and lg.next_payment_date %}<p class="pp-muted">Month {{ lg.months_earned }} of {{ lg.term_months }} · next {{ lg.next_payment_date|date:"M j" }}</p>{% endif %}
+          {% with changes=p.premium_changes.all %}{% if changes %}<p class="pp-muted">Premium updated {{ changes.0.created_at|date:"M j, Y" }} (was ${{ changes.0.old_premium }})</p>{% endif %}{% endwith %}
+        </div>
+      </li>
+      {% endwith %}
+      {% empty %}
+      <li class="pp-empty">No policies are linked to you yet. They'll appear here as soon as the agency adds them.</li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <section id="payouts" class="pp-section">
+    <div class="pp-section__head">
+      <h2>Payouts</h2>
+      <p>Every payment we've recorded for you, newest first.</p>
+    </div>
+    {% if payouts %}
+    <ol class="pp-timeline">
+      {% for po in payouts %}
+      <li class="{% if po.amount < 0 %}is-deduction{% endif %}">
+        <time datetime="{{ po.paid_on|date:'Y-m-d' }}">{{ po.paid_on|date:"M j, Y" }}</time>
+        <div>
+          <strong>{% if po.amount < 0 %}−${{ po.amount|stringformat:".2f"|slice:"1:" }}{% else %}${{ po.amount }}{% endif %}</strong>
+          <span class="pp-muted">{% if po.amount < 0 %}Deduction{% else %}{{ po.get_method_display }}{% endif %} · {{ po.policy.policy_number }} · {{ po.policy.client.name }}</span>
+          {% if po.note %}<span class="pp-muted">{{ po.note }}</span>{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="pp-empty">No payouts yet.</p>
+    {% endif %}
+  </section>
+
+  <section id="account" class="pp-section">
+    <details class="pp-account">
+      <summary>Change password</summary>
+      <form method="POST" action="{% url 'producer-portal-password' %}" class="pp-form">
+        {% csrf_token %}
+        <label>Current password<input type="password" name="old_password" autocomplete="current-password" required></label>
+        <label>New password<input type="password" name="new_password1" autocomplete="new-password" required></label>
+        <label>Repeat new password<input type="password" name="new_password2" autocomplete="new-password" required></label>
+        <button type="submit">Update password</button>
+      </form>
+    </details>
+  </section>
+</main>
+
+<footer class="pp-foot">
+  <span>{{ producer.organization.name }}</span>
+  <span>Questions about a payment? Contact the agency directly.</span>
+</footer>
+</body>
+</html>

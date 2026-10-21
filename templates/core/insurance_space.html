@@ -5,6 +5,7 @@
 
 {% block portal_head %}
 <link rel="stylesheet" href="{% static 'core/css/insurance_esign.css' %}?v=5">
+<link rel="stylesheet" href="{% static 'core/css/insurance_producers.css' %}?v=prd-4">
 {% endblock %}
 
 {% block portal_content %}
@@ -118,11 +119,21 @@ html.portal-theme-dark .ins-tab-nav .tab-btn.active {
 .ins-metric-grid--three {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
+.ins-metric-grid--four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 980px) {
+  .ins-metric-grid--four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 @media (max-width: 720px) {
-  .ins-metric-grid--three {
+  .ins-metric-grid--three,
+  .ins-metric-grid--four {
     grid-template-columns: 1fr;
   }
 }
+.ins-metric-card.is-auto-renewal .ins-metric-card-value { color: #67e8f9; }
 .ins-metric-card {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -1142,6 +1153,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
       <button type="button" class="tab-btn" id="tab-quote-pipeline-btn" onclick="switchTab('quote-pipeline')">🎯 Quote Pipeline</button>
       {% if user_can_view_banking %}<button type="button" class="tab-btn" id="tab-companies-btn" onclick="switchTab('companies')">🏢 Companies</button>{% endif %}
       {% if user_can_view_banking %}<button type="button" class="tab-btn" id="tab-banking-btn" onclick="switchTab('banking')">💳 Finance</button>{% endif %}
+      {% if user_can_view_banking %}<button type="button" class="tab-btn" id="tab-producers-btn" onclick="switchTab('producers')">🤝 Producers</button>{% endif %}
       <button type="button" class="tab-btn" id="tab-reporting-btn" onclick="switchTab('reporting')">📊 Reporting Center</button>
       <button type="button" class="tab-btn" id="tab-esign-btn" onclick="switchTab('esign')">✍️ E-Signature</button>
       <button type="button" class="tab-btn" id="tab-targets-btn" onclick="switchTab('targets')">🎯 Targets &amp; Forecast</button>
@@ -1156,7 +1168,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
         <div class="ins-hero-kicker">Premium by business</div>
         <h3 class="ins-hero-title">{{ comp_period_label }}</h3>
         <p class="ins-hero-sub">vs {{ prev_period_label }}</p>
-        <div class="ins-metric-grid ins-metric-grid--three">
+        <div class="ins-metric-grid ins-metric-grid--four">
           <div class="ins-metric-card is-premium">
             <div class="ins-metric-card-label">New Business</div>
             <div class="ins-metric-card-value">${{ comp_current.new_business_premium|floatformat:2 }}</div>
@@ -1166,6 +1178,11 @@ html.portal-theme-dark .ins-license-crm-alert__row {
             <div class="ins-metric-card-label">Renewal</div>
             <div class="ins-metric-card-value">${{ comp_current.renewal_premium|floatformat:2 }}</div>
             <div class="ins-metric-card-prev">Prev: ${{ comp_previous.renewal_premium|floatformat:2 }}</div>
+          </div>
+          <div class="ins-metric-card is-auto-renewal">
+            <div class="ins-metric-card-label">Auto-Renewal</div>
+            <div class="ins-metric-card-value">${{ comp_current.auto_renewal_premium|floatformat:2 }}</div>
+            <div class="ins-metric-card-prev">Prev: ${{ comp_previous.auto_renewal_premium|floatformat:2 }}</div>
           </div>
           <div class="ins-metric-card is-unearned">
             <div class="ins-metric-card-label">Rewrite</div>
@@ -1304,6 +1321,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
                   <option value="">All Business Types</option>
                   <option value="new_business" {% if business_type_filter == "new_business" %}selected{% endif %}>🆕 New Business</option>
                   <option value="renewal" {% if business_type_filter == "renewal" %}selected{% endif %}>🔄 Renewal</option>
+                  <option value="auto_renewal" {% if business_type_filter == "auto_renewal" %}selected{% endif %}>♻️ Auto-Renewal</option>
                   <option value="rewrite" {% if business_type_filter == "rewrite" %}selected{% endif %}>✏️ Rewrite</option>
                 </select>
               </div>
@@ -1743,6 +1761,12 @@ html.portal-theme-dark .ins-license-crm-alert__row {
     </div>
 
     <!-- E-SIGNATURE TAB -->
+    {% if user_can_view_banking %}
+    <div id="tab-producers" class="tab-panel" style="display: none;">
+      {% include "core/partials/insurance_producers_tab.html" %}
+    </div>
+    {% endif %}
+
     <div id="tab-esign" class="tab-panel" style="display: none;">
       {% include "core/partials/insurance_esign_tab.html" %}
     </div>
@@ -2092,8 +2116,51 @@ html.portal-theme-dark .ins-license-crm-alert__row {
           <select name="business_type" id="policyBusinessType" class="field-input" style="font-weight: 700;">
             <option value="new_business" style="background:#e0e7ff; color:#3730a3;">🆕 New Business</option>
             <option value="renewal" style="background:#ecfdf5; color:#065f46;">🔄 Renewal</option>
+            <option value="auto_renewal" style="background:#ecfeff; color:#155e75;">♻️ Auto-Renewal</option>
             <option value="rewrite" style="background:#fff7ed; color:#9a3412;">✏️ Rewrite</option>
           </select>
+        </div>
+      </div>
+      <div class="prd-form-block" id="policyProducerBlock">
+        <label class="prd-form-toggle">
+          <input type="checkbox" name="has_producer" value="1" id="policyHasProducer" onchange="syncPolicyProducer()">
+          <span class="prd-form-toggle__box" aria-hidden="true"></span>
+          <span>
+            <strong>This policy has a producer</strong>
+            <small>Pick who brought this policy in to track their commission.</small>
+          </span>
+        </label>
+        <div class="prd-form-fields" id="policyProducerFields" hidden>
+          {% if insurance_producers %}
+          <div>
+            <label class="field-label" for="policyProducer">Producer</label>
+            <select name="producer" id="policyProducer" class="field-input" onchange="applyProducerDefaults()">
+              <option value="">Select producer…</option>
+              {% for pr in insurance_producers %}
+              <option value="{{ pr.id }}"{% if user_can_view_banking %} data-rate="{{ pr.default_rate }}" data-basis="{{ pr.rate_basis }}" data-payout="{{ pr.default_payout }}"{% endif %}>{{ pr.name }}{% if user_can_view_banking %} · {{ pr.default_rate|floatformat:"-2" }}% {% if pr.rate_basis == 'premium' %}of premium{% else %}of commission{% endif %}{% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% if user_can_view_banking %}
+          <div class="prd-form-grid">
+            <div>
+              <label class="field-label" for="policyProducerRate">Producer %</label>
+              <input type="number" step="0.01" min="0" max="100" name="producer_rate" id="policyProducerRate" class="field-input" placeholder="Default" oninput="previewProducerCommission()">
+              <span class="prd-form-hint" id="policyProducerBasis"></span>
+            </div>
+            <div>
+              <label class="field-label" for="policyProducerPayout">Producer gets paid</label>
+              <select name="producer_payout" id="policyProducerPayout" class="field-input" onchange="previewProducerCommission()">
+                <option value="once">Once (full amount)</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+          </div>
+          <div class="prd-form-preview" id="policyProducerPreview" aria-live="polite"></div>
+          {% endif %}
+          {% else %}
+          <p class="prd-form-empty">No producers yet. {% if user_can_view_banking %}Add one in the <a href="?tab=producers" onclick="document.getElementById('addPolicyModal').classList.remove('active'); switchTab('producers'); return false;">Producers tab</a>.{% else %}Ask a manager to add producers.{% endif %}</p>
+          {% endif %}
         </div>
       </div>
       <div id="policyReferralPartnerWrap" style="display: none; margin-bottom: 1rem;">
@@ -2334,7 +2401,7 @@ html.portal-theme-dark .ins-license-crm-alert__row {
 <!-- REJECT INSURANCE INTAKE MODAL -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const tabs = ['insurance', 'quote-pipeline'{% if user_can_view_banking %}, 'companies', 'banking'{% endif %}, 'reporting', 'esign', 'targets', 'daily-payments', 'agents'];
+const tabs = ['insurance', 'quote-pipeline'{% if user_can_view_banking %}, 'companies', 'banking', 'producers'{% endif %}, 'reporting', 'esign', 'targets', 'daily-payments', 'agents'];
 let premiumChart = null;
 let profitChart = null;
 
@@ -2526,8 +2593,71 @@ function openAddPolicyModal() {
   if (partnerSelect) partnerSelect.value = '';
   syncPolicyReferralPartner();
   toggleInactiveDate();
+  setPolicyProducer('', '', '');
   document.getElementById('addPolicyModal').classList.add('active');
 }
+
+function setPolicyProducer(producerId, rate, payout) {
+  const box = document.getElementById('policyHasProducer');
+  const select = document.getElementById('policyProducer');
+  const rateInput = document.getElementById('policyProducerRate');
+  const payoutSelect = document.getElementById('policyProducerPayout');
+  if (box) box.checked = !!producerId;
+  if (select) select.value = producerId ? String(producerId) : '';
+  if (rateInput) rateInput.value = rate || '';
+  if (payoutSelect) payoutSelect.value = payout || 'once';
+  syncPolicyProducer(true);
+}
+
+function syncPolicyProducer(keepValues) {
+  const box = document.getElementById('policyHasProducer');
+  const fields = document.getElementById('policyProducerFields');
+  const select = document.getElementById('policyProducer');
+  if (!box || !fields) return;
+  fields.hidden = !box.checked;
+  if (select) select.required = box.checked;
+  if (!keepValues && box.checked) applyProducerDefaults();
+  previewProducerCommission();
+}
+
+function applyProducerDefaults() {
+  const select = document.getElementById('policyProducer');
+  const opt = select && select.selectedOptions[0];
+  const rateInput = document.getElementById('policyProducerRate');
+  const payoutSelect = document.getElementById('policyProducerPayout');
+  if (opt && opt.value) {
+    if (rateInput) rateInput.value = opt.dataset.rate || '';
+    if (payoutSelect) payoutSelect.value = opt.dataset.payout || 'once';
+  }
+  previewProducerCommission();
+}
+
+function previewProducerCommission() {
+  const out = document.getElementById('policyProducerPreview');
+  const basisEl = document.getElementById('policyProducerBasis');
+  const select = document.getElementById('policyProducer');
+  const box = document.getElementById('policyHasProducer');
+  if (!out || !select) return;
+  const opt = select.selectedOptions[0];
+  if (!box || !box.checked || !opt || !opt.value) { out.innerHTML = ''; if (basisEl) basisEl.textContent = ''; return; }
+  const basis = opt.dataset.basis || 'commission';
+  if (basisEl) basisEl.textContent = basis === 'premium' ? 'of premium' : 'of our commission';
+  const num = (id) => parseFloat((document.getElementById(id) || {}).value) || 0;
+  const premium = num('policyPremium');
+  const rate = num('policyProducerRate');
+  const base = basis === 'premium' ? premium : premium * num('policyRate') / 100;
+  const total = base * rate / 100;
+  const months = Math.max(parseInt((document.getElementById('policyPeriod') || {}).value, 10) || 1, 1);
+  const monthly = (document.getElementById('policyProducerPayout') || {}).value === 'monthly';
+  const fmt = (v) => '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  out.innerHTML = '<span>Producer commission</span><strong>' + fmt(total) + '</strong>' +
+    (monthly ? '<em>' + fmt(total / months) + ' / month × ' + months + '</em>' : '<em>paid once</em>');
+}
+
+['policyPremium', 'policyRate', 'policyPeriod'].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', previewProducerCommission);
+});
 
 function viewPolicy(id) {
   const body = document.getElementById('viewPolicyCardBody');
@@ -2656,6 +2786,7 @@ function editPolicy(id) {
       syncPolicyReferralPartner();
       toggleInactiveDate();
       if (data.status === 'inactive') document.getElementById('policyInactiveDate').value = data.inactive_date || '';
+      setPolicyProducer(data.producer_id, data.producer_rate, data.producer_payout);
       document.getElementById('policyModalTitle').textContent = '✏️ Edit Insurance Policy';
       document.getElementById('addPolicyModal').classList.add('active');
     })

@@ -140,6 +140,10 @@ def _viewer_owner_membership(request, organization) -> OrganizationMembership | 
 
 def agent_portal_login_redirect(request):
     """Return agent-portal URL name if this user should land there."""
+    from .middleware import is_producer_only_user
+
+    if is_producer_only_user(request.user):
+        return "producer-portal"
     membership = _resolve_portal_membership(request)
     if uses_agent_portal_home(membership):
         return "agent-portal-home"

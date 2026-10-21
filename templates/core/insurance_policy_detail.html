@@ -210,7 +210,13 @@ html.portal-theme-dark .ins-overview-table.ins-table td {
           {% if policy.added_by %}
           <dt>Added By</dt><dd>{{ policy.added_by.get_full_name|default:policy.added_by.username }}</dd>
           {% endif %}
+          {% if policy.producer %}
+          <dt>Producer</dt><dd>{{ policy.producer.name }}{% if can_manage_finance %} · {{ policy.producer_rate|floatformat:"-2" }}% of {% if policy.producer_rate_basis == 'premium' %}premium{% else %}commission{% endif %}{% endif %}</dd>
+          {% endif %}
         </dl>
+        {% if can_manage_finance %}
+        <div style="margin-top:1rem;">{% include "core/partials/policy_commission_status.html" %}</div>
+        {% endif %}
       </div>
     </div>
 

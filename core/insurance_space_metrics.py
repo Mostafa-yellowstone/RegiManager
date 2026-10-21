@@ -167,6 +167,7 @@ def period_stats(policy_qs, start, end):
         "broker_fee": float(bound_stats["broker_fee"] or 0),
         "new_business_premium": by_business.get(InsurancePolicy.BusinessTypeChoices.NEW_BUSINESS, 0),
         "renewal_premium": by_business.get(InsurancePolicy.BusinessTypeChoices.RENEWAL, 0),
+        "auto_renewal_premium": by_business.get(InsurancePolicy.BusinessTypeChoices.AUTO_RENEWAL, 0),
         "rewrite_premium": by_business.get(InsurancePolicy.BusinessTypeChoices.REWRITE, 0),
     }
 

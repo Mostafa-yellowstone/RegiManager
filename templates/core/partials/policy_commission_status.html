@@ -1,0 +1,34 @@
+<div class="pcs" aria-label="Commission status">
+  <div class="pcs-row">
+    <span class="pcs-label">Carrier commission</span>
+    {% if policy.commission_amount is None %}
+    <span class="pcs-chip">Not set</span>
+    {% elif policy.commission_received %}
+    <span class="pcs-chip is-ok">Received · ${{ policy.commission_amount|floatformat:2 }}</span>
+    {% else %}
+    <span class="pcs-chip is-wait">Not received · ${{ policy.commission_amount|floatformat:2 }}</span>
+    {% endif %}
+  </div>
+  {% if policy.producer_id %}
+  {% with lg=policy.producer_ledger %}
+  <div class="pcs-row">
+    <span class="pcs-label">Producer</span>
+    <a class="pcs-link" href="{% url 'insurance-producer-detail' policy.producer_id %}">{{ policy.producer.name }}</a>
+  </div>
+  {% if lg %}
+  <div class="pcs-row">
+    <span class="pcs-label">Producer paid</span>
+    <span class="pcs-chip {% if lg.status_key == 'paid' %}is-ok{% elif lg.status_key == 'owes_back' %}is-bad{% elif lg.status_key == 'due' %}is-due{% endif %}">
+      ${{ lg.paid|floatformat:2 }} of ${{ lg.effective_total|floatformat:2 }}{% if lg.status_key == 'owes_back' %} · −${{ lg.owes_back|floatformat:2 }} to deduct{% elif lg.due_now %} · ${{ lg.due_now|floatformat:2 }} due{% elif lg.status_key == 'paid' %} · paid in full{% endif %}
+    </span>
+  </div>
+  {% if lg.is_monthly %}
+  <div class="pcs-row">
+    <span class="pcs-label">Schedule</span>
+    <span class="pcs-text">${{ lg.per_month|floatformat:2 }}/mo · {{ lg.months_earned }} of {{ lg.term_months }} months{% if lg.remaining %} · ${{ lg.remaining|floatformat:2 }} left{% endif %}</span>
+  </div>
+  {% endif %}
+  {% endif %}
+  {% endwith %}
+  {% endif %}
+</div>

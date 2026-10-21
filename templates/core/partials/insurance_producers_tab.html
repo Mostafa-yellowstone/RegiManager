@@ -1,0 +1,154 @@
+<section class="prd-tab" aria-labelledby="prdTabTitle">
+  <header class="prd-tab__head">
+    <div>
+      <p class="prd-eyebrow">Producer commissions</p>
+      <h2 id="prdTabTitle" class="prd-tab__title">Producers</h2>
+      <p class="prd-tab__sub">Who brought each policy in, what they've earned, what's been paid, and what's held back from cancelled policies.</p>
+    </div>
+    <button type="button" class="prd-btn prd-btn--primary" onclick="document.getElementById('addProducerModal').classList.add('active')">
+      <span aria-hidden="true">＋</span> Add producer
+    </button>
+  </header>
+
+  <div class="prd-stats">
+    <div class="prd-stat">
+      <span class="prd-stat__label">Due to producers</span>
+      <strong class="prd-stat__value">${{ producer_totals.due_now|floatformat:2 }}</strong>
+      <span class="prd-stat__hint">Earned and not paid yet</span>
+    </div>
+    <div class="prd-stat prd-stat--warn">
+      <span class="prd-stat__label">Deductions</span>
+      <strong class="prd-stat__value">−${{ producer_totals.deductions|floatformat:2 }}</strong>
+      <span class="prd-stat__hint">From inactive policies, taken from future commissions</span>
+    </div>
+    <div class="prd-stat prd-stat--accent">
+      <span class="prd-stat__label">Net to pay now</span>
+      <strong class="prd-stat__value">${{ producer_totals.net_payable|floatformat:2 }}</strong>
+      <span class="prd-stat__hint">Due minus deductions</span>
+    </div>
+    <div class="prd-stat">
+      <span class="prd-stat__label">Upcoming</span>
+      <strong class="prd-stat__value">${{ producer_totals.upcoming|floatformat:2 }}</strong>
+      <span class="prd-stat__hint">Future monthly commissions</span>
+    </div>
+    <div class="prd-stat prd-stat--ok">
+      <span class="prd-stat__label">Paid to date</span>
+      <strong class="prd-stat__value">${{ producer_totals.paid|floatformat:2 }}</strong>
+      <span class="prd-stat__hint">All recorded payouts</span>
+    </div>
+  </div>
+
+  {% if producer_summaries %}
+  <div class="prd-grid">
+    {% for s in producer_summaries %}
+    {% with p=s.producer %}
+    <a class="prd-card{% if not p.is_active %} is-paused{% endif %}" href="{% url 'insurance-producer-detail' p.id %}">
+      <div class="prd-card__top">
+        <span class="prd-avatar" aria-hidden="true">{{ p.initials }}</span>
+        <div class="prd-card__who">
+          <strong>{{ p.name }}</strong>
+          <span>{{ p.default_rate|floatformat:"-2" }}% of {% if p.rate_basis == 'premium' %}premium{% else %}commission{% endif %} · {% if p.default_payout == 'monthly' %}monthly{% else %}paid once{% endif %}</span>
+        </div>
+        {% if not p.is_active %}
+        <span class="prd-pill prd-pill--muted">Paused</span>
+        {% elif p.user and p.user.is_active %}
+        <span class="prd-pill prd-pill--ok" title="Producer can sign in to their portal">Portal on</span>
+        {% else %}
+        <span class="prd-pill prd-pill--muted">No login</span>
+        {% endif %}
+      </div>
+
+      <div class="prd-card__counts">
+        <span><b>{{ s.bound_count }}</b> bound</span>
+        <span><b>{{ s.active_count }}</b> active</span>
+        <span{% if s.inactive_count %} class="is-warn"{% endif %}><b>{{ s.inactive_count }}</b> inactive</span>
+      </div>
+
+      <dl class="prd-card__money">
+        <div><dt>Total commission</dt><dd>${{ s.total_commission|floatformat:2 }}</dd></div>
+        <div><dt>Paid</dt><dd class="is-ok">${{ s.paid|floatformat:2 }}</dd></div>
+        <div><dt>Due now</dt><dd>${{ s.due_now|floatformat:2 }}</dd></div>
+        <div><dt>Deductions</dt><dd class="{% if s.deductions %}is-warn{% else %}is-muted{% endif %}">{% if s.deductions %}−${{ s.deductions|floatformat:2 }}{% else %}$0.00{% endif %}</dd></div>
+      </dl>
+
+      <div class="prd-card__net">
+        <span>Net to pay now</span>
+        <strong>${{ s.net_payable|floatformat:2 }}</strong>
+      </div>
+      {% if s.carried_deduction %}
+      <p class="prd-card__carry">−${{ s.carried_deduction|floatformat:2 }} will come off future commissions.</p>
+      {% endif %}
+      <span class="prd-card__open">Open profile <span aria-hidden="true">→</span></span>
+    </a>
+    {% endwith %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="prd-empty">
+    <div class="prd-empty__mark" aria-hidden="true">◎</div>
+    <h3>No producers yet</h3>
+    <p>Add a producer, then tick <b>“This policy has a producer”</b> when you add or edit a policy.</p>
+    <button type="button" class="prd-btn prd-btn--primary" onclick="document.getElementById('addProducerModal').classList.add('active')">Add your first producer</button>
+  </div>
+  {% endif %}
+</section>
+
+<div class="modal-overlay" id="addProducerModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box prd-modal">
+    <div class="prd-modal__head">
+      <h3>Add producer</h3>
+      <button type="button" class="prd-modal__close" aria-label="Close" onclick="document.getElementById('addProducerModal').classList.remove('active')">&times;</button>
+    </div>
+    <form method="POST" action="{% url 'add-insurance-producer' %}" class="prd-form" autocomplete="off">
+      {% csrf_token %}
+      <input type="hidden" name="organization" value="{{ active_org.id }}">
+      <div>
+        <label class="field-label" for="prdName">Full name <span class="prd-req">*</span></label>
+        <input type="text" name="name" id="prdName" required class="field-input" maxlength="160" placeholder="e.g. Sara Ahmed">
+      </div>
+      <div class="prd-form-grid">
+        <div><label class="field-label" for="prdPhone">Phone</label><input type="tel" name="phone" id="prdPhone" class="field-input"></div>
+        <div><label class="field-label" for="prdEmail">Email</label><input type="email" name="email" id="prdEmail" class="field-input"></div>
+      </div>
+      <fieldset class="prd-fieldset">
+        <legend>Default commission</legend>
+        <div class="prd-form-grid prd-form-grid--3">
+          <div><label class="field-label" for="prdRate">Percentage</label><input type="number" step="0.01" min="0" max="100" name="default_rate" id="prdRate" class="field-input" value="0" required></div>
+          <div>
+            <label class="field-label" for="prdBasis">Calculated on</label>
+            <select name="rate_basis" id="prdBasis" class="field-input">
+              <option value="commission">Our commission</option>
+              <option value="premium">Premium</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="prdPayout">Usually paid</label>
+            <select name="default_payout" id="prdPayout" class="field-input">
+              <option value="once">Once</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+        </div>
+        <p class="prd-help">Each policy starts with these values and can be changed on that policy.</p>
+      </fieldset>
+      <div>
+        <label class="field-label" for="prdLicense">License # (optional)</label>
+        <input type="text" name="license_number" id="prdLicense" class="field-input">
+      </div>
+      <label class="prd-form-toggle">
+        <input type="checkbox" name="create_login" value="1" id="prdCreateLogin" onchange="document.getElementById('prdLoginFields').hidden = !this.checked; document.getElementById('prdUsername').required = this.checked; document.getElementById('prdPassword').required = this.checked;">
+        <span class="prd-form-toggle__box" aria-hidden="true"></span>
+        <span><strong>Give this producer a portal login</strong><small>They can only see their own policies and commissions.</small></span>
+      </label>
+      <div class="prd-form-grid" id="prdLoginFields" hidden>
+        <div><label class="field-label" for="prdUsername">Username</label><input type="text" name="username" id="prdUsername" class="field-input" autocomplete="off"></div>
+        <div><label class="field-label" for="prdPassword">Password (8+ characters)</label><input type="text" name="password" id="prdPassword" class="field-input" minlength="8" autocomplete="new-password"></div>
+      </div>
+      <div>
+        <label class="field-label" for="prdNotes">Notes</label>
+        <textarea name="notes" id="prdNotes" rows="2" class="field-input"></textarea>
+      </div>
+      <button type="submit" class="btn-submit">Save producer</button>
+    </form>
+  </div>
+</div>

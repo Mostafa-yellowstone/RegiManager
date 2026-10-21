@@ -36,6 +36,7 @@
                 <span class="chip bt-{{ policy.business_type }}">
                   {% if policy.business_type == 'new_business' %}🆕 New
                   {% elif policy.business_type == 'renewal' %}🔄 Renewal
+                  {% elif policy.business_type == 'auto_renewal' %}♻️ Auto-Renewal
                   {% elif policy.business_type == 'rewrite' %}✏️ Rewrite
                   {% else %}{{ policy.business_type }}{% endif %}
                 </span>

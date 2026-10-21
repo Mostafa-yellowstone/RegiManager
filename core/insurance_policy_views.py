@@ -84,6 +84,10 @@ def insurance_policy_detail(request, policy_id):
         getattr(policy.client, "full_address", "") if policy.client_id else ""
     ) or "—"
 
+    from .insurance_producers import build_policy_ledger
+
+    policy.producer_ledger = build_policy_ledger(policy) if policy.producer_id else None
+
     return render(
         request,
         "core/insurance_policy_detail.html",

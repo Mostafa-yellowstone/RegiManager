@@ -152,6 +152,45 @@ class SingleSessionMiddleware:
         return response
 
 
+PRODUCER_ALLOWED_PREFIXES = ("/producer/", "/auth/logout/", "/static/", "/favicon", "/i18n/")
+
+
+def is_producer_only_user(user) -> bool:
+    """Producer logins have no staff membership; they may only use the producer portal."""
+    from .models import InsuranceProducer, OrganizationMembership
+
+    if not getattr(user, "is_authenticated", False) or user.is_superuser or user.is_staff:
+        return False
+    if not InsuranceProducer.objects.filter(user=user).exists():
+        return False
+    return not OrganizationMembership.objects.filter(user=user, is_active=True).exists()
+
+
+class ProducerPortalMiddleware:
+    """Keep producer logins inside /producer/ (checked once per session)."""
+
+    SESSION_KEY = "_producer_portal_uid"
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = getattr(request, "user", None)
+        if user is not None and user.is_authenticated:
+            cached = request.session.get(self.SESSION_KEY)
+            if cached is None or cached.get("uid") != user.id:
+                cached = {"uid": user.id, "producer": is_producer_only_user(user)}
+                request.session[self.SESSION_KEY] = cached
+            if cached["producer"] and not request.path.startswith(PRODUCER_ALLOWED_PREFIXES):
+                from django.http import JsonResponse
+                from django.shortcuts import redirect
+
+                if request.path.startswith("/api/"):
+                    return JsonResponse({"detail": "Not available for producer accounts."}, status=403)
+                return redirect("producer-portal")
+        return self.get_response(request)
+
+
 class PortalTimezoneMiddleware:
     """Activate the user's local timezone for dates/times shown in the portal."""
 

@@ -5275,6 +5275,45 @@ html.portal-theme-dark .ins-report-group h4 {
     white-space: pre-wrap;
 }
 
+/* Policy commission status (client profile, policy detail) */
+.cpp-policy-stack { display: flex; flex-direction: column; gap: 0.6rem; }
+.pcs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0.8rem 0.95rem;
+    border-radius: 14px;
+    background: var(--portal-surface-muted);
+    border: 1px solid var(--portal-border);
+}
+.pcs-row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.pcs-label { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--portal-text-muted); }
+.pcs-text { font-size: 0.8rem; font-weight: 700; color: var(--portal-text-secondary); }
+.pcs-link { font-size: 0.85rem; font-weight: 800; color: var(--portal-primary); text-decoration: none; }
+.pcs-link:hover { text-decoration: underline; }
+.pcs-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 800;
+    background: var(--portal-surface);
+    color: var(--portal-text-secondary);
+    border: 1px solid var(--portal-border);
+}
+.pcs-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pcs-chip.is-ok { background: #ecfdf5; color: #0f766e; border-color: transparent; }
+.pcs-chip.is-wait { background: #fff7ed; color: #b45309; border-color: transparent; }
+.pcs-chip.is-due { background: #eef2ff; color: #3730a3; border-color: transparent; }
+.pcs-chip.is-bad { background: #fff1f2; color: #be123c; border-color: transparent; }
+html.portal-theme-dark .pcs-link { color: #a5b4fc; }
+html.portal-theme-dark .pcs-chip.is-ok { background: rgba(20, 184, 166, 0.14); color: #5eead4; }
+html.portal-theme-dark .pcs-chip.is-wait { background: rgba(245, 158, 11, 0.14); color: #fbbf24; }
+html.portal-theme-dark .pcs-chip.is-due { background: rgba(99, 102, 241, 0.18); color: #c7d2fe; }
+html.portal-theme-dark .pcs-chip.is-bad { background: rgba(244, 63, 94, 0.14); color: #fda4af; }
+
 /* Notes & follow-ups */
 .client-profile-page .cpp-notes-list {
     margin-top: 1.25rem;

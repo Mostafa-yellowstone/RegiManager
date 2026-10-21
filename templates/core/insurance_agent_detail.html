@@ -714,6 +714,7 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #a5b
                   <option value="">All Types</option>
                   <option value="new_business" {% if business_type_filter == "new_business" %}selected{% endif %}>🆕 New Business</option>
                   <option value="renewal" {% if business_type_filter == "renewal" %}selected{% endif %}>🔄 Renewal</option>
+                  <option value="auto_renewal" {% if business_type_filter == "auto_renewal" %}selected{% endif %}>♻️ Auto-Renewal</option>
                   <option value="rewrite" {% if business_type_filter == "rewrite" %}selected{% endif %}>✏️ Rewrite</option>
                 </select>
               </div>

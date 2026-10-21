@@ -2119,6 +2119,7 @@ class InsurancePolicy(models.Model):
     class BusinessTypeChoices(models.TextChoices):
         NEW_BUSINESS = "new_business", "New Business"
         RENEWAL = "renewal", "Renewal"
+        AUTO_RENEWAL = "auto_renewal", "Auto-Renewal"
         REWRITE = "rewrite", "Rewrite"
 
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="insurance_policies")
@@ -2215,6 +2216,29 @@ class InsurancePolicy(models.Model):
         default=False,
         help_text="When checked, this policy's commission counts toward Received Commission.",
     )
+    producer = models.ForeignKey(
+        "InsuranceProducer",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="policies",
+    )
+    producer_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Producer percentage for this policy (starts from the producer's default).",
+    )
+    producer_rate_basis = models.CharField(max_length=20, blank=True, default="")
+    producer_payout = models.CharField(max_length=20, blank=True, default="")
+    producer_commission_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Total producer commission for the full term at the current premium.",
+    )
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -2260,6 +2284,10 @@ class InsurancePolicy(models.Model):
         else:
             premium = self.premium if self.premium is not None else Decimal("0.00")
             self.commission_amount = Decimal(str(premium)) * (Decimal(str(self.commission_rate)) / Decimal("100.00"))
+
+        from .insurance_producers import producer_total_for_policy
+
+        self.producer_commission_amount = producer_total_for_policy(self)
         
         from .insurance_commissions import calculate_unearned_commission
 
@@ -3658,5 +3686,11 @@ from .directory_models import (  # noqa: E402,F401
     DirectoryEntry,
     DirectoryNote,
     DirectoryPhone,
+)
+
+from .insurance_producer_models import (  # noqa: E402,F401
+    InsurancePolicyPremiumChange,
+    InsuranceProducer,
+    InsuranceProducerPayout,
 )
 

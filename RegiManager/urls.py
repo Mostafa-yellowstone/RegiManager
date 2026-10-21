@@ -80,6 +80,17 @@ from core.insurance_policy_views import (
     toggle_insurance_installment_paid,
     upload_insurance_policy_document,
 )
+from core.insurance_producer_views import (
+    add_insurance_producer,
+    delete_insurance_producer_payout,
+    edit_insurance_producer,
+    insurance_producer_detail,
+    producer_portal,
+    producer_portal_password,
+    record_insurance_producer_payout,
+    set_insurance_producer_login,
+    settle_insurance_producer,
+)
 from core.batch_card import batch_number_card
 from core.views import (
     dashboard,
@@ -764,6 +775,15 @@ urlpatterns = [
         name="toggle-insurance-installment-paid",
     ),
     path("dashboard/spaces/insurance/policy/<int:policy_id>/edit/", edit_insurance_policy, name="edit-insurance-policy"),
+    path("dashboard/spaces/insurance/producers/add/", add_insurance_producer, name="add-insurance-producer"),
+    path("dashboard/spaces/insurance/producers/<int:producer_id>/", insurance_producer_detail, name="insurance-producer-detail"),
+    path("dashboard/spaces/insurance/producers/<int:producer_id>/edit/", edit_insurance_producer, name="edit-insurance-producer"),
+    path("dashboard/spaces/insurance/producers/<int:producer_id>/login/", set_insurance_producer_login, name="set-insurance-producer-login"),
+    path("dashboard/spaces/insurance/producers/<int:producer_id>/payout/", record_insurance_producer_payout, name="record-insurance-producer-payout"),
+    path("dashboard/spaces/insurance/producers/<int:producer_id>/settle/", settle_insurance_producer, name="settle-insurance-producer"),
+    path("dashboard/spaces/insurance/producer-payouts/<int:payout_id>/delete/", delete_insurance_producer_payout, name="delete-insurance-producer-payout"),
+    path("producer/", producer_portal, name="producer-portal"),
+    path("producer/password/", producer_portal_password, name="producer-portal-password"),
     path("dashboard/spaces/insurance/policy/<int:policy_id>/card/", view_insurance_policy_card, name="view-insurance-policy-card"),
     path("dashboard/spaces/insurance/policy/<int:policy_id>/delete/", delete_insurance_policy, name="delete-insurance-policy"),
     path("dashboard/spaces/insurance/daily-payment/add/", add_daily_payment, name="add-daily-payment"),
