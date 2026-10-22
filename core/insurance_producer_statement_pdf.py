@@ -56,11 +56,17 @@ def _schedule_label(lg) -> str:
 
 
 def _status_label(policy) -> str:
-    stage = policy.get_stage_display() if hasattr(policy, "get_stage_display") else policy.stage
-    if policy.status == "inactive":
-        when = policy.inactive_date.strftime("%b %d, %Y") if policy.inactive_date else ""
-        return f"{stage} · Inactive {when}".strip()
-    return f"{stage} · {policy.get_status_display() if hasattr(policy, 'get_status_display') else policy.status}"
+    """Policy status only. The pipeline stage is not shown on the statement."""
+    getter = getattr(policy, "get_status_display", None)
+    label = getter() if callable(getter) else getattr(policy, "status", "")
+    text = str(label or "").strip()
+    return text or "—"
+
+
+def _statement_date(value) -> str:
+    if not value:
+        return "—"
+    return value.strftime("%b %d, %Y")
 
 
 def render_producer_statement_pdf(producer, *, start=None, end=None, prepared_by="Staff") -> bytes:
@@ -93,6 +99,8 @@ def render_producer_statement_pdf(producer, *, start=None, end=None, prepared_by
             _insured(p),
             _carrier(p),
             _status_label(p),
+            _statement_date(p.start_date),
+            _statement_date(p.end_date),
             _money(p.premium),
             _rate_label(p),
             _money(lg.effective_total),
@@ -143,7 +151,7 @@ def render_producer_statement_pdf(producer, *, start=None, end=None, prepared_by
         notice_box(
             f"<b>{_e(producer.name)}</b> · default rate {rate_text}"
             f"{' · license ' + _e(producer.license_number) if producer.license_number else ''}. "
-            f"{summary.active_count} active and {summary.inactive_count} inactive bound policies. "
+            f"{summary.active_count} active and {summary.inactive_count} inactive policies. "
             + (
                 f"{_money(summary.carried_deduction)} from cancelled policies carries forward to future commissions."
                 if summary.carried_deduction
@@ -156,9 +164,16 @@ def render_producer_statement_pdf(producer, *, start=None, end=None, prepared_by
         _p("Policies", styles["section"]),
         Spacer(1, 4),
         data_table(
-            ["Policy #", "Insured", "Carrier", "Status", "Premium", "Rate", "Commission", "Schedule", "Paid", "Due"],
-            policy_rows or [["—"] * 10],
-            [0.95 * inch, 1.25 * inch, 1.0 * inch, 1.2 * inch, 0.8 * inch, 1.05 * inch, 0.85 * inch, 1.05 * inch, 0.8 * inch, 0.85 * inch],
+            [
+                "Policy #", "Insured", "Carrier", "Status", "Effective", "Expiration",
+                "Premium", "Rate", "Commission", "Schedule", "Paid", "Due",
+            ],
+            policy_rows or [["—"] * 12],
+            [
+                0.82 * inch, 1.00 * inch, 0.88 * inch, 0.64 * inch,
+                0.92 * inch, 0.95 * inch, 0.72 * inch, 1.05 * inch,
+                0.75 * inch, 0.84 * inch, 0.70 * inch, 0.73 * inch,
+            ],
             styles,
         ),
         Spacer(1, 12),
