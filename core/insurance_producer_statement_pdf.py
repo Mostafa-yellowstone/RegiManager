@@ -20,7 +20,7 @@ from .insurance_report_pdf import (
     notice_box,
     period_label,
 )
-from .models import InsurancePolicy, InsuranceProducerPayout
+from .models import InsurancePolicy, InsuranceProducerPayout, InsuranceTypeOption
 
 MAX_ROWS = 400
 
@@ -66,7 +66,33 @@ def _status_label(policy) -> str:
 def _statement_date(value) -> str:
     if not value:
         return "—"
-    return value.strftime("%b %d, %Y")
+    return value.strftime("%m/%d/%Y")
+
+
+def _insurance_type_labels(organization) -> dict:
+    labels = dict(InsurancePolicy.INSURANCE_TYPE_CHOICES)
+    labels.update(
+        InsuranceTypeOption.objects.filter(organization=organization).values_list("key", "label")
+    )
+    return labels
+
+
+def _policy_type_label(policy, labels) -> str:
+    key = str(getattr(policy, "insurance_type", "") or "").strip()
+    if not key:
+        return "—"
+    label = labels.get(key) or key.replace("_", " ").upper()
+    return escape(str(label))
+
+
+def _business_label(policy) -> str:
+    getter = getattr(policy, "get_business_type_display", None)
+    label = getter() if callable(getter) else getattr(policy, "business_type", "")
+    text = str(label or "").strip()
+    raw = str(getattr(policy, "business_type", "") or "").strip()
+    if text and text == raw:
+        text = text.replace("_", " ").title()
+    return escape(text) if text else "—"
 
 
 def render_producer_statement_pdf(producer, *, start=None, end=None, prepared_by="Staff") -> bytes:
@@ -91,6 +117,7 @@ def render_producer_statement_pdf(producer, *, start=None, end=None, prepared_by
     payouts = list(payouts.order_by("paid_on", "id")[:MAX_ROWS])
     period_paid = money(sum((p.amount for p in payouts), ZERO))
 
+    type_labels = _insurance_type_labels(producer.organization)
     policy_rows = []
     for lg in summary.ledgers[:MAX_ROWS]:
         p = lg.policy
@@ -98,6 +125,8 @@ def render_producer_statement_pdf(producer, *, start=None, end=None, prepared_by
             _e(p.policy_number),
             _insured(p),
             _carrier(p),
+            _policy_type_label(p, type_labels),
+            _business_label(p),
             _status_label(p),
             _statement_date(p.start_date),
             _statement_date(p.end_date),
@@ -165,14 +194,14 @@ def render_producer_statement_pdf(producer, *, start=None, end=None, prepared_by
         Spacer(1, 4),
         data_table(
             [
-                "Policy #", "Insured", "Carrier", "Status", "Effective", "Expiration",
-                "Premium", "Rate", "Commission", "Schedule", "Paid", "Due",
+                "Policy #", "Insured", "Carrier", "Type", "Business", "Status",
+                "Effective", "Expiration", "Premium", "Rate", "Commission", "Schedule", "Paid", "Due",
             ],
-            policy_rows or [["—"] * 12],
+            policy_rows or [["—"] * 14],
             [
-                0.82 * inch, 1.00 * inch, 0.88 * inch, 0.64 * inch,
-                0.92 * inch, 0.95 * inch, 0.72 * inch, 1.05 * inch,
-                0.75 * inch, 0.84 * inch, 0.70 * inch, 0.73 * inch,
+                0.56 * inch, 0.52 * inch, 0.62 * inch, 1.16 * inch, 0.86 * inch, 0.56 * inch,
+                0.68 * inch, 0.68 * inch, 0.64 * inch, 1.05 * inch, 0.68 * inch, 0.80 * inch,
+                0.59 * inch, 0.60 * inch,
             ],
             styles,
         ),
