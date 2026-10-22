@@ -60,7 +60,8 @@ class ProducerBase(TestCase):
         self.today = timezone.localdate()
 
     def policy(self, number="P-1", *, producer=None, rate="50.00", basis="commission", payout="once",
-               premium="1200.00", start=None, months=12, status="active", stage="bound", inactive=None):
+               premium="1200.00", start=None, months=12, status="active", stage="bound", inactive=None,
+               insurance_type="", business_type="new_business"):
         start = start or self.today
         return InsurancePolicy.objects.create(
             organization=self.org,
@@ -71,6 +72,8 @@ class ProducerBase(TestCase):
             commission_rate=Decimal("15.00"),
             stage=stage,
             status=status,
+            insurance_type=insurance_type,
+            business_type=business_type,
             start_date=start,
             end_date=add_months(start, months),
             insurance_period_months=months,
@@ -378,8 +381,10 @@ class ProducerStatementTests(ProducerBase):
         self.assertIn("STMT-1", text)
         self.assertIn("40.00", text)
         self.assertIn("Active", text)
-        self.assertIn(self.p1.start_date.strftime("%b %d, %Y"), text)
-        self.assertIn(self.p1.end_date.strftime("%b %d, %Y"), text)
+        self.assertIn("New Business", text)
+        self.assertIn(self.p1.start_date.strftime("%m/%d/%Y"), text)
+        self.assertIn(self.p1.end_date.strftime("%m/%d/%Y"), text)
+        self.assertNotIn(self.p1.end_date.strftime("%b %d, %Y"), text)
         self.assertNotIn("Bound", text)
         self.assertNotIn("bound", text)
 
@@ -392,9 +397,11 @@ class ProducerStatementTests(ProducerBase):
         self.assertEqual(res.status_code, 200)
         text = _pdf_text(res)
         self.assertIn("Inactive", text)
-        self.assertIn(inactive.start_date.strftime("%b %d, %Y"), text)
-        self.assertIn(inactive.end_date.strftime("%b %d, %Y"), text)
+        self.assertIn(inactive.start_date.strftime("%m/%d/%Y"), text)
+        self.assertIn(inactive.end_date.strftime("%m/%d/%Y"), text)
+        self.assertNotIn(inactive.start_date.strftime("%b %d, %Y"), text)
         self.assertNotIn(cancelled_on.strftime("%b %d, %Y"), text)
+        self.assertNotIn(cancelled_on.strftime("%m/%d/%Y"), text)
         self.assertNotIn("Bound", text)
         self.assertNotIn("bound", text)
 
@@ -410,6 +417,33 @@ class ProducerStatementTests(ProducerBase):
         self.assertNotIn("Bound", text)
         self.assertNotIn("Quote", text)
         self.assertNotIn("Endorsement", text)
+
+    def test_statement_shows_policy_type_and_business(self):
+        from core.models import InsuranceTypeOption
+
+        InsuranceTypeOption.objects.create(organization=self.org, key="fleet", label="Fleet")
+        auto = self.policy("STMT-AUTO", insurance_type="auto_personal", business_type="new_business")
+        commercial = self.policy("STMT-COM", insurance_type="commercial_auto", business_type="renewal")
+        rewrite = self.policy("STMT-RW", insurance_type="trucking", business_type="rewrite")
+        auto_renewal = self.policy("STMT-AR", insurance_type="home_owners", business_type="auto_renewal")
+        custom = self.policy("STMT-FLEET", insurance_type="fleet", business_type="new_business")
+        self.client.force_login(self.owner)
+        res = self.client.get(self.url, {"producer": self.producer.id})
+        self.assertEqual(res.status_code, 200)
+        text = _pdf_text(res)
+        self.assertIn("AUTO PERSONAL", text)
+        self.assertIn("COMMERCIAL AUTO", text)
+        self.assertIn("TRUCKING", text)
+        self.assertIn("HOME OWNERS", text)
+        self.assertIn("Fleet", text)
+        self.assertIn("New Business", text)
+        self.assertIn("Rewrite", text)
+        self.assertIn("Auto-Renewal", text)
+        self.assertGreaterEqual(text.count("Renewal"), 2)
+        for policy in (auto, commercial, rewrite, auto_renewal, custom):
+            self.assertIn(policy.start_date.strftime("%m/%d/%Y"), text)
+            self.assertIn(policy.end_date.strftime("%m/%d/%Y"), text)
+            self.assertNotIn(policy.end_date.strftime("%b %d, %Y"), text)
 
     def test_statement_with_reversed_or_bad_dates(self):
         self.client.force_login(self.owner)
