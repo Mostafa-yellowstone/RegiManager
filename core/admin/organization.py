@@ -24,8 +24,56 @@ class OrganizationAdminForm(forms.ModelForm):
         return normalize_state_code(value)
 
 
+class MembershipAdminForm(forms.ModelForm):
+    """Accessible spaces only list spaces of PSBs where this user holds a role (plus this membership's PSB)."""
+
+    class Meta:
+        model = OrganizationMembership
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        field = self.fields.get("accessible_spaces")
+        if field is None:
+            return
+        from ..models import Space
+
+        user_id = self._submitted_or_saved("user")
+        org_id = self._submitted_or_saved("organization")
+        org_ids = set()
+        if user_id:
+            org_ids.update(
+                OrganizationMembership.objects.filter(user_id=user_id, is_active=True).values_list(
+                    "organization_id", flat=True
+                )
+            )
+        if org_id:
+            org_ids.add(org_id)
+        field.queryset = (
+            Space.objects.filter(organization_id__in=org_ids)
+            .select_related("organization")
+            .order_by("organization__name", "label")
+        )
+        if not org_ids:
+            field.help_text = "Choose the PSB and user, then save; spaces from that user's PSBs will be listed here."
+
+    def _submitted_or_saved(self, name):
+        if self.is_bound:
+            raw = self.data.get(self.add_prefix(name))
+            if raw:
+                try:
+                    return int(raw)
+                except (TypeError, ValueError):
+                    return None
+        value = getattr(self.instance, f"{name}_id", None)
+        if value is None:
+            value = getattr(self.initial.get(name), "pk", self.initial.get(name))
+        return value
+
+
 class MembershipInline(admin.TabularInline):
     model = OrganizationMembership
+    form = MembershipAdminForm
     extra = 0
     fields = (
         "user",
@@ -184,6 +232,7 @@ class OrganizationAdmin(admin.ModelAdmin):
 
 @admin.register(OrganizationMembership)
 class OrganizationMembershipAdmin(admin.ModelAdmin):
+    form = MembershipAdminForm
     list_display = (
         "organization",
         "user",

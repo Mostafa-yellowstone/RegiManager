@@ -302,6 +302,18 @@ class DailyPaymentFilterTests(TestCase):
         self.assertEqual(len(response.context["daily_transactions"]), 6)
         self.assertTrue(response.context["daily_is_range"])
 
+    def test_card_terminal_is_its_own_method(self):
+        tx = self._pay(date(2026, 6, 12), "45.00", self.acme)
+        DailyPaymentTransaction.objects.filter(id=tx.id).update(payment_method="card_terminal")
+        response = self.http.get(self.url, {"tab": "daily-payments", "daily_date": "2026-06-12"})
+        self.assertContains(response, '<option value="card_terminal"', html=False)
+        cards = {card["key"]: card["total"] for card in response.context["daily_method_cards"]}
+        self.assertEqual(cards["card_terminal"], Decimal("45.00"))
+        self.assertEqual(cards["credit_card"], Decimal("0.00"))
+
+        response = self.http.get(self.url, {"tab": "daily-payments", "daily_method": "card_terminal"})
+        self.assertEqual(self._ids(response), {tx.id})
+
     def test_delete_returns_to_filtered_page(self):
         back = f"{self.url}?tab=daily-payments&daily_from=2026-06-01&daily_to=2026-06-30&daily_page=1"
         response = self.http.get(reverse("delete-daily-payment", args=[self.june_1.id]), {"next": back})

@@ -58,6 +58,7 @@ METHOD_ACCOUNTS = {
     "cash": ("1010", "Cash on hand"),
     "zelle": ("1020", "Electronic deposits — Zelle"),
     "credit_card": ("1030", "Credit card receipts"),
+    "card_terminal": ("1035", "Credit card terminal receipts"),
     "checks": ("1040", "Checks received"),
 }
 

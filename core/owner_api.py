@@ -409,6 +409,8 @@ class OwnerFinanceRecordsView(OwnerAPIBase):
             "card": "credit_card",
             "credit": "credit_card",
             "credit_card": "credit_card",
+            "terminal": "card_terminal",
+            "card_terminal": "card_terminal",
             "cash": "cash",
             "zelle": "zelle",
             "checks": "checks",

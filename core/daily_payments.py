@@ -46,6 +46,12 @@ PAYMENT_METHOD_META = {
         "gradient": "linear-gradient(135deg, #0f172a 0%, #1e3a8a 45%, #3b82f6 100%)",
         "accent": "#dbeafe",
     },
+    "card_terminal": {
+        "label": "Credit Card Terminal",
+        "icon": "🧾",
+        "gradient": "linear-gradient(135deg, #831843 0%, #be185d 45%, #f472b6 100%)",
+        "accent": "#fce7f3",
+    },
     "checks": {
         "label": "Checks",
         "icon": "📝",

@@ -2470,6 +2470,7 @@ class DailyPaymentTransaction(models.Model):
         CASH = "cash", "Cash"
         ZELLE = "zelle", "Zelle"
         CREDIT_CARD = "credit_card", "Client's Credit Card"
+        CARD_TERMINAL = "card_terminal", "Credit Card Terminal"
         CHECKS = "checks", "Checks"
         PAYMENT_HUB = "payment_hub", "Payment Hub"
 
