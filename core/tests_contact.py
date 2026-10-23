@@ -92,12 +92,12 @@ class ContactPageTests(TestCase):
 
 class ContactRecipientTests(TestCase):
     @override_settings(CONTACT_INBOX_EMAIL="", EMAIL_HOST_USER="sender@regimanager.com")
-    def test_defaults_to_sending_mailbox(self):
-        self.assertEqual(contact_recipients(), ["sender@regimanager.com"])
+    def test_public_inbox_even_when_sending_from_another_mailbox(self):
+        self.assertEqual(contact_recipients(), ["mail@regimanager.com"])
 
-    @override_settings(CONTACT_INBOX_EMAIL=" a@regimanager.com , b@regimanager.com ")
-    def test_configured_list(self):
-        self.assertEqual(contact_recipients(), ["a@regimanager.com", "b@regimanager.com"])
+    @override_settings(CONTACT_INBOX_EMAIL=" a@regimanager.com , MAIL@regimanager.com, nonsense ")
+    def test_extra_addresses_are_added_not_replacing(self):
+        self.assertEqual(contact_recipients(), ["mail@regimanager.com", "a@regimanager.com"])
 
     @override_settings(CONTACT_INBOX_EMAIL="", EMAIL_HOST_USER="")
     def test_falls_back_to_public_inbox(self):

@@ -12,13 +12,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'core/css/dmv-auth.css' %}?v=footer-2">
     <link rel="stylesheet" href="{% static 'core/css/portal-alerts.css' %}?v=portal-alerts-1">
-    <link rel="stylesheet" href="{% static 'core/css/halloween.css' %}?v=hw-3">
+    {% block seasonal_theme_head %}{% endblock %}
     <link rel="stylesheet" href="{% static 'core/css/offline-queue.css' %}?v=oq-1">
     <script src="{% static 'core/js/rate-limit-retry.js' %}?v=rl-2"></script>
     {% block extra_head %}{% endblock %}
 </head>
 
-<body data-halloween-master="{% if halloween_enabled %}true{% else %}false{% endif %}" {% block body_attrs %}{% endblock %}>
+<body {% block body_attrs %}{% endblock %}>
     <div style="display:none;">{% csrf_token %}</div>
     {% block content %}{% endblock %}
 
@@ -296,7 +296,7 @@
             }
         });
     </script>
-    <script src="{% static 'core/js/halloween.js' %}?v=hw-3"></script>
+    {% block seasonal_theme_scripts %}{% endblock %}
     {% if assistant_enabled %}{% include "core/partials/assistant_widget.html" %}{% endif %}
     <script src="{% static 'core/js/offline-queue-db.js' %}?v=oq-2"></script>
     <script src="{% static 'core/js/offline-queue.js' %}?v=oq-2" data-sw-url="{% url 'service-worker' %}" data-enabled="{{ offline_queue_enabled }}" data-user-id="{% if user.is_authenticated %}{{ user.pk }}{% endif %}"></script>

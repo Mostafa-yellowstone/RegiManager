@@ -22,13 +22,14 @@ def _single_line(value: str, limit: int) -> str:
 
 
 def contact_recipients() -> list[str]:
-    """CONTACT_INBOX_EMAIL (comma separated), else the mailbox the site sends from."""
+    """Always mail@regimanager.com, plus any extra CONTACT_INBOX_EMAIL addresses (comma separated)."""
     configured = getattr(settings, "CONTACT_INBOX_EMAIL", "") or ""
-    recipients = [part.strip() for part in configured.split(",") if part.strip()]
-    if recipients:
-        return recipients
-    sender = (getattr(settings, "EMAIL_HOST_USER", "") or "").strip()
-    return [sender if "@" in sender else CONTACT_INBOX]
+    recipients = [CONTACT_INBOX]
+    for part in configured.split(","):
+        address = part.strip()
+        if "@" in address and address.lower() not in {r.lower() for r in recipients}:
+            recipients.append(address)
+    return recipients
 
 
 def deliver_contact_message(message_id: int) -> bool:

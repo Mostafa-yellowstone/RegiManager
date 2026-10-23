@@ -188,19 +188,25 @@ def offline_queue(request):
 
 
 def halloween_theme(request):
-    """Expose master halloween_enabled setting to all template contexts."""
+    """Seasonal theme for signed-in portal users of an office that turned it on; never the public site."""
+    user = getattr(request, "user", None)
+    if not getattr(user, "is_authenticated", False):
+        return {"halloween_enabled": False}
     try:
         from .models import Organization
-        org_id = request.session.get("active_org_id") if hasattr(request, "session") else None
+
+        org_id = request.session.get("active_org_id")
         if org_id:
-            org = Organization.objects.filter(id=org_id).first()
-            if org:
-                return {"halloween_enabled": bool(org.is_halloween_theme_enabled)}
-        # Fallback to check if any organization has it enabled
-        enabled = Organization.objects.filter(is_halloween_theme_enabled=True).exists()
+            enabled = Organization.objects.filter(id=org_id, is_halloween_theme_enabled=True).exists()
+        else:
+            from .models import OrganizationMembership
+
+            enabled = OrganizationMembership.objects.filter(
+                user=user, is_active=True, organization__is_halloween_theme_enabled=True
+            ).exists()
         return {"halloween_enabled": enabled}
     except Exception:
-        return {"halloween_enabled": True}
+        return {"halloween_enabled": False}
 
 
 def agency_license_alerts(request):

@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 {% load static i18n %}
 
-{% block body_attrs %}class="portal-body" data-portal-app{% endblock %}
+{% block body_attrs %}class="portal-body" data-portal-app data-halloween-master="{% if halloween_enabled %}true{% else %}false{% endif %}"{% endblock %}
+
+{% block seasonal_theme_head %}{% if halloween_enabled %}<link rel="stylesheet" href="{% static 'core/css/halloween.css' %}?v=hw-4">{% endif %}{% endblock %}
+
+{% block seasonal_theme_scripts %}{% if halloween_enabled %}<script src="{% static 'core/js/halloween.js' %}?v=hw-4"></script>{% endif %}{% endblock %}
 
 {% block extra_head %}
 <script>
