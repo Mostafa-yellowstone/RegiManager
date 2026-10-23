@@ -187,3 +187,122 @@ class DailyPaymentEditTests(TestCase):
         self.assertNotContains(response, 'class="dpt-edit-btn"')
         self.assertNotContains(response, "editDailyPaymentModal")
         self.assertContains(response, "addDailyClientSearch")
+
+
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+)
+class DailyPaymentFilterTests(TestCase):
+    def setUp(self):
+        from core.models import InsuranceCompany
+
+        self.org = Organization.objects.create(name="Filter Org", city="NYC")
+        self.space = Space.objects.create(organization=self.org, label="Insurance Space", key="insurance")
+        self.user = User.objects.create_user(username="filterer", password="password123")
+        OrganizationMembership.objects.create(
+            user=self.user,
+            organization=self.org,
+            is_active=True,
+            role="owner",
+            can_deal_with_insurance=True,
+            can_view_spaces=True,
+            can_view_banking=True,
+        ).accessible_spaces.add(self.space)
+        self.client_obj = Client.objects.create(organization=self.org, first_name="Range", last_name="Client")
+        self.acme = InsuranceCompany.objects.create(organization=self.org, name="Acme Mutual")
+        self.zen = InsuranceCompany.objects.create(organization=self.org, name="Zen Insurance")
+        self.june_1 = self._pay(date(2026, 6, 1), "10.00", self.acme)
+        self.june_12 = self._pay(date(2026, 6, 12), "20.00", self.zen)
+        self.july_5 = self._pay(date(2026, 7, 5), "30.00", self.acme)
+        self.http = TestClient()
+        self.http.login(username="filterer", password="password123")
+        self.url = reverse("inventory-detail", args=[self.space.id])
+
+    def _pay(self, when, amount, company):
+        return DailyPaymentTransaction.objects.create(
+            organization=self.org,
+            client=self.client_obj,
+            insurance_company=company,
+            transaction_date=when,
+            amount=Decimal(amount),
+            payment_type="new_business",
+            payment_method="cash",
+            recorded_by=self.user,
+        )
+
+    def _ids(self, response):
+        return {tx.id for tx in response.context["daily_transactions"]}
+
+    def test_period_returns_every_payment_in_range(self):
+        response = self.http.get(self.url, {"tab": "daily-payments", "daily_from": "2026-06-01", "daily_to": "2026-06-30"})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["daily_is_range"])
+        self.assertEqual(self._ids(response), {self.june_1.id, self.june_12.id})
+        self.assertEqual(response.context["daily_grand_total"], Decimal("30.00"))
+        self.assertContains(response, "Jun 1, 2026 – Jun 30, 2026")
+
+    def test_company_filter_within_period(self):
+        response = self.http.get(self.url, {
+            "tab": "daily-payments", "daily_from": "2026-06-01", "daily_to": "2026-07-31",
+            "daily_company": str(self.acme.id),
+        })
+        self.assertEqual(self._ids(response), {self.june_1.id, self.july_5.id})
+
+    def test_filters_survive_plain_revisit_and_reset_clears_them(self):
+        self.http.get(self.url, {
+            "tab": "daily-payments", "daily_from": "2026-06-01", "daily_to": "2026-07-31",
+            "daily_company": str(self.zen.id),
+        })
+        response = self.http.get(self.url, {"tab": "daily-payments"})
+        self.assertTrue(response.context["daily_is_range"])
+        self.assertEqual(self._ids(response), {self.june_12.id})
+
+        response = self.http.get(self.url, {"tab": "daily-payments", "daily_reset": "1"})
+        self.assertFalse(response.context["daily_is_range"])
+        self.assertEqual(response.context["daily_filters"], {})
+
+    def test_picking_a_day_leaves_period_but_keeps_company(self):
+        self.http.get(self.url, {
+            "tab": "daily-payments", "daily_from": "2026-06-01", "daily_to": "2026-07-31",
+            "daily_company": str(self.acme.id),
+        })
+        response = self.http.get(self.url, {"tab": "daily-payments", "daily_date": "2026-07-05"})
+        self.assertFalse(response.context["daily_is_range"])
+        self.assertEqual(self._ids(response), {self.july_5.id})
+        self.assertEqual(response.context["daily_company_filter"], str(self.acme.id))
+
+    def test_single_day_selection_expires_next_day(self):
+        self.http.get(self.url, {"tab": "daily-payments", "daily_date": "2026-06-12"})
+        session = self.http.session
+        key = f"daily_payment_filters:{self.org.id}"
+        payload = session[key]
+        payload["saved_on"] = "2000-01-01"
+        session[key] = payload
+        session.save()
+        response = self.http.get(self.url, {"tab": "daily-payments"})
+        from django.utils import timezone
+
+        self.assertEqual(response.context["daily_payment_date"], timezone.localdate())
+
+    def test_pagination_keeps_filters(self):
+        for day in range(1, 29):
+            for _ in range(2):
+                self._pay(date(2026, 2, day), "1.00", self.acme)
+        params = {"tab": "daily-payments", "daily_from": "2026-02-01", "daily_to": "2026-02-28", "daily_company": str(self.acme.id)}
+        response = self.http.get(self.url, params)
+        page = response.context["daily_page_obj"]
+        self.assertEqual(page.paginator.count, 56)
+        self.assertEqual(len(response.context["daily_transactions"]), 50)
+        self.assertEqual(response.context["daily_grand_total"], Decimal("56.00"))
+        self.assertIn(f"daily_company={self.acme.id}", response.context["daily_filter_qs"])
+        self.assertContains(response, "daily_page=2")
+
+        response = self.http.get(self.url, {"tab": "daily-payments", "daily_page": "2"})
+        self.assertEqual(len(response.context["daily_transactions"]), 6)
+        self.assertTrue(response.context["daily_is_range"])
+
+    def test_delete_returns_to_filtered_page(self):
+        back = f"{self.url}?tab=daily-payments&daily_from=2026-06-01&daily_to=2026-06-30&daily_page=1"
+        response = self.http.get(reverse("delete-daily-payment", args=[self.june_1.id]), {"next": back})
+        self.assertRedirects(response, back, fetch_redirect_response=False)

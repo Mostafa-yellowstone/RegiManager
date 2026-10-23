@@ -56,6 +56,14 @@
   .dpt-date-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0.9rem; border-radius: 12px; border: 1.5px solid #e2e8f0; margin-bottom: 0.5rem; text-decoration: none; color: #0f172a; font-weight: 700; font-size: 0.88rem; transition: all 0.15s; }
   .dpt-date-item:hover, .dpt-date-item.active { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
   .dpt-table-wrap { background: var(--portal-surface, white); border-radius: 18px; border: 1px solid var(--portal-border, #e2e8f0); overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.04); position: relative; }
+  .dpt-filter-form select, .dpt-filter-form input { background: var(--portal-surface, #fff); color: var(--portal-text, #0f172a); }
+  html.portal-theme-dark .dpt-filter-form select,
+  html.portal-theme-dark .dpt-filter-form input { background: rgba(15, 23, 42, 0.85); color: #e2e8f0; border-color: rgba(148, 163, 184, 0.35) !important; color-scheme: dark; }
+  html.portal-theme-dark .dpt-filter-form select option { background: #0f172a; color: #e2e8f0; }
+  .dpt-pager { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; padding: 0.85rem 1rem; border-top: 1px solid var(--portal-border, #e2e8f0); font-size: 0.82rem; font-weight: 600; color: #64748b; }
+  .dpt-pager__links { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+  .dpt-pager__links a, .dpt-pager__links .is-current { padding: 0.35rem 0.7rem; border-radius: 8px; border: 1px solid #e2e8f0; text-decoration: none; color: #475569; font-weight: 700; background: var(--portal-surface, white); }
+  .dpt-pager__links .is-current { background: #0f172a; color: white; border-color: #0f172a; }
   .dpt-row-cleared td { background: linear-gradient(90deg, rgba(240,253,244,0.95) 0%, rgba(220,252,231,0.75) 100%); }
   .dpt-row-cleared td:first-child { box-shadow: inset 4px 0 0 #22c55e; }
   .dpt-clear-check { width: 16px; height: 16px; accent-color: #16a34a; cursor: pointer; }
@@ -159,17 +167,19 @@
     <div>
       <div style="font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #93c5fd; margin-bottom: 0.35rem;">Daily Payments Transactions</div>
       <h3 style="margin: 0; font-size: 1.35rem; font-weight: 900;">
-        {% if daily_is_today %}Today{% else %}{{ daily_payment_date|date:"l, M j, Y" }}{% endif %}
+        {% if daily_is_range %}{{ daily_range_start|date:"M j, Y" }} – {{ daily_range_end|date:"M j, Y" }}{% elif daily_is_today %}Today{% else %}{{ daily_payment_date|date:"l, M j, Y" }}{% endif %}
       </h3>
       <p style="margin: 0.35rem 0 0; color: #94a3b8; font-size: 0.85rem;">
-        {% if daily_is_today %}Live daily ledger — resets each new day{% else %}Historical day view{% endif %}
+        {% if daily_is_range %}Period view · {{ daily_page_obj.paginator.count }} record{{ daily_page_obj.paginator.count|pluralize }}{% elif daily_is_today %}Live daily ledger — resets each new day{% else %}Historical day view{% endif %}{% if daily_has_filters %} · filtered{% endif %}
       </p>
     </div>
     <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
       <button type="button" onclick="openDailyDateDrawer()" style="padding: 0.55rem 1rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.1); color: white; font-weight: 700; font-size: 0.85rem; cursor: pointer;">📅 Select Day</button>
+      {% if not daily_is_range %}
       <a href="{% url 'export-insurance-cashout-pdf' %}?date={{ daily_payment_date|date:'Y-m-d' }}" target="_blank" style="padding: 0.55rem 1rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.1); color: white; font-weight: 700; font-size: 0.85rem; text-decoration: none;">Deposit slip</a>
+      {% endif %}
       {% if not daily_is_today %}
-      <a href="?tab=daily-payments" style="padding: 0.55rem 1rem; border-radius: 10px; background: #093de6; color: white; font-weight: 700; font-size: 0.85rem; text-decoration: none;">↩ Today</a>
+      <a href="?tab=daily-payments&amp;daily_date={% now 'Y-m-d' %}" style="padding: 0.55rem 1rem; border-radius: 10px; background: #093de6; color: white; font-weight: 700; font-size: 0.85rem; text-decoration: none;">↩ Today</a>
       {% endif %}
       <button type="button" onclick="document.getElementById('addDailyPaymentModal').classList.add('active')" style="padding: 0.55rem 1rem; border-radius: 10px; background: white; color: #0f172a; font-weight: 800; font-size: 0.85rem; border: none; cursor: pointer;">+ Add Payment</button>
     </div>
@@ -193,19 +203,36 @@
   </div>
 </div>
 
-<form method="GET" style="margin-bottom: 1.25rem; background: var(--portal-surface, white); border: 1px solid var(--portal-border, #e2e8f0); border-radius: 16px; padding: 1rem 1.15rem;">
+<form method="GET" class="dpt-filter-form" style="margin-bottom: 1.25rem; background: var(--portal-surface, white); border: 1px solid var(--portal-border, #e2e8f0); border-radius: 16px; padding: 1rem 1.15rem;">
   <input type="hidden" name="tab" value="daily-payments">
-  <input type="hidden" name="daily_date" value="{{ daily_payment_date|date:'Y-m-d' }}">
-  <details {% if daily_method_filter or daily_type_filter or daily_agent_filter or daily_search or daily_min_amount or daily_max_amount %}open{% endif %}>
-    <summary style="cursor: pointer; font-size: 0.85rem; font-weight: 800; color: #093de6; outline: none; user-select: none;">🔍 Advanced Filters</summary>
+  {% if not daily_is_range %}<input type="hidden" name="daily_date" value="{{ daily_payment_date|date:'Y-m-d' }}">{% endif %}
+  <details {% if daily_has_filters or daily_is_range %}open{% endif %}>
+    <summary style="cursor: pointer; font-size: 0.85rem; font-weight: 800; color: #093de6; outline: none; user-select: none;">🔍 Advanced Filters{% if daily_has_filters or daily_is_range %} <span style="background: #dbeafe; color: #1d4ed8; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; margin-left: 0.3rem;">Active</span>{% endif %}</summary>
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.85rem; margin-top: 0.85rem;">
       <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+        <label for="dptFilterFrom" style="font-size: 0.78rem; font-weight: 700; color: #475569;">From</label>
+        <input type="date" id="dptFilterFrom" name="daily_from" value="{% if daily_is_range %}{{ daily_range_start|date:'Y-m-d' }}{% endif %}" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+        <label for="dptFilterTo" style="font-size: 0.78rem; font-weight: 700; color: #475569;">To</label>
+        <input type="date" id="dptFilterTo" name="daily_to" value="{% if daily_is_range %}{{ daily_range_end|date:'Y-m-d' }}{% endif %}" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+        <label for="dptFilterCompany" style="font-size: 0.78rem; font-weight: 700; color: #475569;">Company</label>
+        <select id="dptFilterCompany" name="daily_company" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+          <option value="">All Companies</option>
+          {% for comp in insurance_companies %}
+          <option value="{{ comp.id }}" {% if daily_company_filter == comp.id|stringformat:"s" %}selected{% endif %}>{{ comp.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 0.3rem;">
         <label style="font-size: 0.78rem; font-weight: 700; color: #475569;">Search</label>
-        <input type="text" name="daily_q" value="{{ daily_search }}" placeholder="Client, notes, agent…" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+        <input type="text" name="daily_q" value="{{ daily_search }}" placeholder="Client, policy #, notes, agent…" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
       </div>
       <div style="display: flex; flex-direction: column; gap: 0.3rem;">
         <label style="font-size: 0.78rem; font-weight: 700; color: #475569;">Method</label>
-        <select name="daily_method" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
+        <select name="daily_method" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
           <option value="">All Methods</option>
           {% for value, label in daily_payment_method_choices %}
           <option value="{{ value }}" {% if daily_method_filter == value %}selected{% endif %}>{{ label }}</option>
@@ -214,7 +241,7 @@
       </div>
       <div style="display: flex; flex-direction: column; gap: 0.3rem;">
         <label style="font-size: 0.78rem; font-weight: 700; color: #475569;">Payment Type</label>
-        <select name="daily_type" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
+        <select name="daily_type" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
           <option value="">All Types</option>
           <option value="new_business" {% if daily_type_filter == "new_business" %}selected{% endif %}>New Business</option>
           <option value="renewal" {% if daily_type_filter == "renewal" %}selected{% endif %}>Renewal</option>
@@ -225,7 +252,7 @@
       </div>
       <div style="display: flex; flex-direction: column; gap: 0.3rem;">
         <label style="font-size: 0.78rem; font-weight: 700; color: #475569;">Agent</label>
-        <select name="daily_agent" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
+        <select name="daily_agent" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
           <option value="">All Agents</option>
           {% for member in insurance_agents %}
           <option value="{{ member.user.id }}" {% if daily_agent_filter == member.user.id|stringformat:"s" %}selected{% endif %}>
@@ -243,9 +270,10 @@
         <input type="number" step="0.01" name="daily_max" value="{{ daily_max_amount }}" placeholder="5000.00" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
       </div>
     </div>
-    <div style="display: flex; gap: 0.6rem; margin-top: 0.9rem;">
+    <div style="display: flex; gap: 0.6rem; margin-top: 0.9rem; flex-wrap: wrap; align-items: center;">
       <button type="submit" style="padding: 8px 16px; background: #0f172a; color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">Apply</button>
-      <a href="?tab=daily-payments{% if daily_payment_date %}&daily_date={{ daily_payment_date|date:'Y-m-d' }}{% endif %}" style="padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 8px; text-decoration: none; color: #475569; background: white; font-weight: 700; font-size: 0.85rem;">Clear</a>
+      <a href="?tab=daily-payments&amp;daily_reset=1" style="padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 8px; text-decoration: none; color: #475569; background: white; font-weight: 700; font-size: 0.85rem;">Clear</a>
+      <span style="font-size: 0.75rem; color: #64748b; font-weight: 600;">Pick From/To for a period instead of one day. Filters stay applied until you clear them.</span>
     </div>
   </details>
 </form>
@@ -253,7 +281,7 @@
 <div class="dpt-table-wrap">
   <div class="dpt-ledger-header">
     <h4 class="dpt-ledger-title">Transaction Ledger</h4>
-    <span class="dpt-ledger-count">{{ daily_transactions|length }} record{{ daily_transactions|length|pluralize }}</span>
+    <span class="dpt-ledger-count">{{ daily_page_obj.paginator.count }} record{{ daily_page_obj.paginator.count|pluralize }}{% if daily_page_obj.has_other_pages %} · page {{ daily_page_obj.number }} of {{ daily_page_obj.paginator.num_pages }}{% endif %}</span>
   </div>
   <div style="overflow-x: auto;">
     <table class="spaces-table" style="width: 100%;">
@@ -352,19 +380,31 @@
             {% if user_can_clear_daily_payments %}
             <button type="button" class="dpt-edit-btn" onclick="openEditDailyPayment(this)">Edit</button>
             {% endif %}
-            <a href="{% url 'delete-daily-payment' tx.id %}" onclick="return confirm('Remove this payment record?')" style="color: #dc2626; font-size: 0.75rem; font-weight: 700; text-decoration: none; margin-left: 0.45rem;">Remove</a>
+            <a href="{% url 'delete-daily-payment' tx.id %}?next={{ request.get_full_path|urlencode }}" onclick="return confirm('Remove this payment record?')" style="color: #dc2626; font-size: 0.75rem; font-weight: 700; text-decoration: none; margin-left: 0.45rem;">Remove</a>
           </td>
         </tr>
         {% empty %}
         <tr>
           <td colspan="{% if user_can_clear_daily_payments %}12{% else %}9{% endif %}" style="text-align: center; padding: 3rem; color: #94a3b8; font-weight: 600;">
-            No payments recorded for this day yet.
+            {% if daily_has_filters %}No payments match these filters.{% elif daily_is_range %}No payments recorded in this period.{% else %}No payments recorded for this day yet.{% endif %}
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  {% if daily_page_obj.has_other_pages %}
+  <nav class="dpt-pager" aria-label="Daily payments pages">
+    <span>Showing {{ daily_page_obj.start_index }}–{{ daily_page_obj.end_index }} of {{ daily_page_obj.paginator.count }}</span>
+    <span class="dpt-pager__links">
+      {% if daily_page_obj.has_previous %}<a href="?{{ daily_filter_qs }}&amp;daily_page={{ daily_page_obj.previous_page_number }}">‹ Previous</a>{% endif %}
+      {% for n in daily_page_obj.paginator.page_range %}
+        {% if n == daily_page_obj.number %}<span class="is-current">{{ n }}</span>{% elif n > daily_page_obj.number|add:'-3' and n < daily_page_obj.number|add:'3' %}<a href="?{{ daily_filter_qs }}&amp;daily_page={{ n }}">{{ n }}</a>{% endif %}
+      {% endfor %}
+      {% if daily_page_obj.has_next %}<a href="?{{ daily_filter_qs }}&amp;daily_page={{ daily_page_obj.next_page_number }}">Next ›</a>{% endif %}
+    </span>
+  </nav>
+  {% endif %}
 </div>
 
 <!-- Date Selection Drawer -->
@@ -408,6 +448,7 @@
     </div>
     <form method="POST" action="{% url 'add-daily-payment' %}">
       {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
       <input type="hidden" name="organization" value="{{ active_org.id }}">
       <input type="hidden" name="transaction_date" value="{{ daily_payment_date|date:'Y-m-d' }}">
       <div style="margin-bottom: 1rem;">
@@ -541,6 +582,7 @@
     </div>
     <form method="POST" id="editDailyPaymentForm" action="">
       {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
       <div style="margin-bottom: 1rem;">
         <label class="field-label">Transaction Date</label>
         <input type="date" name="transaction_date" id="editDailyPaymentDate" required class="field-input">

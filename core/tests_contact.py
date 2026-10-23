@@ -1,11 +1,14 @@
+from io import StringIO
 from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.cache import cache
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
+from core.contact_inbox import contact_recipients
 from core.models import ContactMessage
 
 User = get_user_model()
@@ -18,7 +21,10 @@ VALID = {
 }
 
 
-@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    CONTACT_INBOX_EMAIL="mail@regimanager.com",
+)
 class ContactPageTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -82,6 +88,73 @@ class ContactPageTests(TestCase):
         res = self._post()
         self.assertEqual(res.status_code, 429)
         self.assertEqual(ContactMessage.objects.count(), 5)
+
+
+class ContactRecipientTests(TestCase):
+    @override_settings(CONTACT_INBOX_EMAIL="", EMAIL_HOST_USER="sender@regimanager.com")
+    def test_defaults_to_sending_mailbox(self):
+        self.assertEqual(contact_recipients(), ["sender@regimanager.com"])
+
+    @override_settings(CONTACT_INBOX_EMAIL=" a@regimanager.com , b@regimanager.com ")
+    def test_configured_list(self):
+        self.assertEqual(contact_recipients(), ["a@regimanager.com", "b@regimanager.com"])
+
+    @override_settings(CONTACT_INBOX_EMAIL="", EMAIL_HOST_USER="")
+    def test_falls_back_to_public_inbox(self):
+        self.assertEqual(contact_recipients(), ["mail@regimanager.com"])
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    CONTACT_INBOX_EMAIL="mail@regimanager.com",
+)
+class ContactRetryTests(TestCase):
+    def setUp(self):
+        self.url = reverse("contact-messages")
+        self.admin = User.objects.create_superuser("root_retry", "root@example.com", "pass12345")
+        self.client.force_login(self.admin)
+        self.failed = ContactMessage.objects.create(
+            name="Omar", email="omar@example.com", subject="General inquiry",
+            message="Please call me.", email_error="SMTPAuthenticationError: 535",
+        )
+
+    def test_retry_one_message(self):
+        res = self.client.get(self.url)
+        self.assertContains(res, "Retry email")
+        self.assertContains(res, "mail@regimanager.com")
+        self.client.post(self.url, {"message_id": self.failed.id, "action": "retry"})
+        self.failed.refresh_from_db()
+        self.assertTrue(self.failed.email_sent)
+        self.assertEqual(self.failed.email_error, "")
+        self.assertEqual(mail.outbox[0].reply_to, ["omar@example.com"])
+
+    def test_retry_all(self):
+        ContactMessage.objects.create(name="Lina", email="lina@example.com", subject="General inquiry", message="Hi")
+        self.client.post(self.url, {"action": "retry_all"})
+        self.assertEqual(ContactMessage.objects.filter(email_sent=False).count(), 0)
+        self.assertEqual(len(mail.outbox), 2)
+
+    def test_retry_failure_keeps_error(self):
+        with mock.patch("django.core.mail.EmailMessage.send", side_effect=OSError("still down")):
+            self.client.post(self.url, {"message_id": self.failed.id, "action": "retry"})
+        self.failed.refresh_from_db()
+        self.assertFalse(self.failed.email_sent)
+        self.assertIn("still down", self.failed.email_error)
+
+    def test_management_command_sends_pending_and_test(self):
+        out = StringIO()
+        call_command("retry_contact_emails", stdout=out)
+        self.assertIn("Emailed 1 of 1", out.getvalue())
+        self.assertIn("mail@regimanager.com", out.getvalue())
+        call_command("retry_contact_emails", "--test", stdout=out)
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertIn("delivery test", mail.outbox[1].subject)
+
+    def test_non_superuser_cannot_retry(self):
+        staff = User.objects.create_user("plain_retry", password="pass12345")
+        self.client.force_login(staff)
+        self.assertEqual(self.client.post(self.url, {"action": "retry_all"}).status_code, 404)
+        self.assertEqual(len(mail.outbox), 0)
 
 
 class ContactInboxTests(TestCase):

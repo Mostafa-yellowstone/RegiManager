@@ -11,7 +11,8 @@
 .cm-tabs { display: inline-flex; gap: 0.35rem; background: #f1f5f9; padding: 0.3rem; border-radius: 12px; }
 .cm-tabs a { padding: 0.45rem 0.9rem; border-radius: 9px; text-decoration: none; color: #475569; font-weight: 700; font-size: 0.85rem; }
 .cm-tabs a.is-on { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15,23,42,0.12); }
-.cm-alert { margin-bottom: 1rem; padding: 0.8rem 1rem; border-radius: 12px; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; font-weight: 600; font-size: 0.9rem; }
+.cm-alert { margin-bottom: 1rem; padding: 0.8rem 1rem; border-radius: 12px; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; font-weight: 600; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.cm-actions form { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .cm-list { display: grid; gap: 0.75rem; }
 .cm-item { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1rem 1.1rem; }
 .cm-item.is-handled { opacity: 0.65; }
@@ -40,7 +41,7 @@ html.portal-theme-dark .cm-btn { background: #0f172a; color: #e2e8f0; border-col
   <header class="cm-head">
     <div>
       <h1>Contact messages</h1>
-      <p>Everything sent from the public Contact page. Reply goes straight to the sender.</p>
+      <p>Everything sent from the public Contact page. Emailed to <strong>{{ contact_recipients }}</strong>; Reply goes straight to the sender.</p>
     </div>
     <nav class="cm-tabs" aria-label="Filter">
       <a href="?show=open" class="{% if show == 'open' %}is-on{% endif %}">Open ({{ open_count }})</a>
@@ -49,7 +50,13 @@ html.portal-theme-dark .cm-btn { background: #0f172a; color: #e2e8f0; border-col
   </header>
 
   {% if undelivered_count %}
-  <div class="cm-alert">{{ undelivered_count }} message{{ undelivered_count|pluralize }} could not be emailed to the inbox. {{ undelivered_count|pluralize:"It is,They are" }} saved here, so nothing is lost.</div>
+  <div class="cm-alert">
+    <span>{{ undelivered_count }} message{{ undelivered_count|pluralize }} could not be emailed to the inbox. {{ undelivered_count|pluralize:"It is,They are" }} saved here, so nothing is lost.</span>
+    <form method="post">
+      {% csrf_token %}
+      <button class="cm-btn cm-btn--primary" type="submit" name="action" value="retry_all">Retry all</button>
+    </form>
+  </div>
   {% endif %}
 
   <div class="cm-list">
@@ -73,6 +80,7 @@ html.portal-theme-dark .cm-btn { background: #0f172a; color: #e2e8f0; border-col
         <form method="post">
           {% csrf_token %}
           <input type="hidden" name="message_id" value="{{ m.id }}">
+          {% if not m.email_sent %}<button class="cm-btn" type="submit" name="action" value="retry">Retry email</button>{% endif %}
           {% if m.is_handled %}
           <button class="cm-btn" type="submit" name="action" value="reopen">Reopen</button>
           {% else %}

@@ -664,15 +664,33 @@ def contact(request):
 @login_required
 def contact_messages_inbox(request):
     """Superuser-only list of Contact page messages, including ones email could not deliver."""
+    from .contact_inbox import contact_recipients
     from .models import ContactMessage
 
     if not request.user.is_superuser:
         raise Http404
     if request.method == "POST":
+        from .contact_inbox import deliver_contact_message
+
+        action = request.POST.get("action")
+        if action == "retry_all":
+            pending = list(ContactMessage.objects.filter(email_sent=False).values_list("id", flat=True)[:50])
+            sent = sum(1 for message_id in pending if deliver_contact_message(message_id))
+            if sent == len(pending):
+                messages.success(request, f"Emailed {sent} message{'s' if sent != 1 else ''} to {', '.join(contact_recipients())}.")
+            else:
+                messages.error(request, f"Emailed {sent} of {len(pending)}. The rest show the email error below.")
+            return redirect(safe_redirect_target(request, fallback="contact-messages"))
         raw_id = (request.POST.get("message_id") or "").strip()
         record = get_object_or_404(ContactMessage, id=int(raw_id) if raw_id.isdigit() else 0)
-        record.is_handled = request.POST.get("action") != "reopen"
-        record.save(update_fields=["is_handled"])
+        if action == "retry":
+            if deliver_contact_message(record.id):
+                messages.success(request, f"Emailed to {', '.join(contact_recipients())}.")
+            else:
+                messages.error(request, "Still could not email it. See the error on the message.")
+        else:
+            record.is_handled = action != "reopen"
+            record.save(update_fields=["is_handled"])
         return redirect(safe_redirect_target(request, fallback="contact-messages"))
     show = request.GET.get("show") or "open"
     records = ContactMessage.objects.all()
@@ -687,6 +705,7 @@ def contact_messages_inbox(request):
             "show": show,
             "open_count": ContactMessage.objects.filter(is_handled=False).count(),
             "undelivered_count": ContactMessage.objects.filter(email_sent=False).count(),
+            "contact_recipients": ", ".join(contact_recipients()),
         },
     )
 
@@ -6925,59 +6944,46 @@ def inventory_detail(request, inventory_id):
         from datetime import datetime as dt_parse
         from .models import DailyPaymentTransaction
         from .daily_payments import (
-            VALID_PAYMENT_METHODS,
+            DAILY_PAGE_SIZE,
+            daily_filter_query,
+            daily_period,
+            filter_daily_transactions,
+            resolve_daily_filters,
             summarize_daily_payments,
             enrich_daily_transactions,
             compute_payable_total,
             sum_payment_grand_totals,
         )
 
-        daily_date_str = request.GET.get("daily_date", "").strip()
-        try:
-            daily_payment_date = dt_parse.strptime(daily_date_str, "%Y-%m-%d").date() if daily_date_str else timezone.localdate()
-        except ValueError:
-            daily_payment_date = timezone.localdate()
+        daily_filters = resolve_daily_filters(request, active_org.id)
+        daily_range_start, daily_range_end, daily_is_range = daily_period(daily_filters)
+        daily_payment_date = timezone.localdate() if daily_is_range else daily_range_start
 
-        daily_method_filter = request.GET.get("daily_method", "").strip()
-        daily_type_filter = request.GET.get("daily_type", "").strip()
-        daily_agent_filter = request.GET.get("daily_agent", "").strip()
-        daily_search = request.GET.get("daily_q", "").strip()
-        daily_min_amount = request.GET.get("daily_min", "").strip()
-        daily_max_amount = request.GET.get("daily_max", "").strip()
-
-        daily_tx_qs = DailyPaymentTransaction.objects.filter(
-            organization=active_org,
-            transaction_date=daily_payment_date,
-        ).select_related("client", "recorded_by", "updated_by", "insurance_policy", "insurance_company")
-        if daily_method_filter in VALID_PAYMENT_METHODS:
-            daily_tx_qs = daily_tx_qs.filter(payment_method=daily_method_filter)
-        if daily_type_filter:
-            daily_tx_qs = daily_tx_qs.filter(payment_type=daily_type_filter)
-        if daily_agent_filter.isdigit():
-            daily_tx_qs = daily_tx_qs.filter(recorded_by_id=int(daily_agent_filter))
-        if daily_search:
-            from django.db.models import Q
-
-            daily_tx_qs = daily_tx_qs.filter(
-                Q(client__name__icontains=daily_search)
-                | Q(notes__icontains=daily_search)
-                | Q(recorded_by__username__icontains=daily_search)
-                | Q(recorded_by__first_name__icontains=daily_search)
-                | Q(recorded_by__last_name__icontains=daily_search)
-                | Q(insurance_company__name__icontains=daily_search)
-            )
-        if daily_min_amount:
-            try:
-                daily_tx_qs = daily_tx_qs.filter(amount__gte=Decimal(daily_min_amount))
-            except Exception:
-                pass
-        if daily_max_amount:
-            try:
-                daily_tx_qs = daily_tx_qs.filter(amount__lte=Decimal(daily_max_amount))
-            except Exception:
-                pass
-        daily_transactions = enrich_daily_transactions(list(daily_tx_qs))
-        daily_method_cards, daily_grand_total = summarize_daily_payments(daily_transactions)
+        daily_tx_qs = filter_daily_transactions(
+            DailyPaymentTransaction.objects.filter(
+                organization=active_org,
+                transaction_date__gte=daily_range_start,
+                transaction_date__lte=daily_range_end,
+            ),
+            daily_filters,
+        )
+        daily_method_cards, daily_grand_total = summarize_daily_payments(
+            daily_tx_qs.only(
+                "payment_method", "payment_type", "amount", "section_2119", "broker_fee", "credit_card_fee"
+            ).iterator()
+        )
+        daily_page_obj = Paginator(
+            daily_tx_qs.select_related(
+                "client", "recorded_by", "updated_by", "insurance_policy", "insurance_company"
+            ).order_by("-transaction_date", "-id"),
+            DAILY_PAGE_SIZE,
+        ).get_page(request.GET.get("daily_page"))
+        daily_transactions = enrich_daily_transactions(list(daily_page_obj.object_list))
+        daily_filter_qs = daily_filter_query(daily_filters)
+        daily_has_filters = any(
+            daily_filters.get(key)
+            for key in ("daily_company", "daily_method", "daily_type", "daily_agent", "daily_q", "daily_min", "daily_max")
+        )
         daily_payable_total = compute_payable_total(active_org)
         today_local = timezone.localdate()
         mtd_collections = sum_payment_grand_totals(
@@ -6994,7 +7000,7 @@ def inventory_detail(request, inventory_id):
             .values_list("transaction_date", flat=True)
             .distinct()[:90]
         )
-        daily_is_today = daily_payment_date == timezone.localdate()
+        daily_is_today = not daily_is_range and daily_payment_date == timezone.localdate()
 
         from .insurance_quote_pipeline_views import build_quote_pipeline_context
         from .insurance_quote_permissions import membership_for_org as quote_membership_for_org
@@ -7159,12 +7165,20 @@ def inventory_detail(request, inventory_id):
             "daily_payable_total": daily_payable_total,
             "mtd_collections": mtd_collections,
             "daily_available_dates": daily_available_dates,
-            "daily_method_filter": daily_method_filter,
-            "daily_type_filter": daily_type_filter,
-            "daily_agent_filter": daily_agent_filter,
-            "daily_search": daily_search,
-            "daily_min_amount": daily_min_amount,
-            "daily_max_amount": daily_max_amount,
+            "daily_filters": daily_filters,
+            "daily_is_range": daily_is_range,
+            "daily_range_start": daily_range_start,
+            "daily_range_end": daily_range_end,
+            "daily_page_obj": daily_page_obj,
+            "daily_filter_qs": daily_filter_qs,
+            "daily_has_filters": daily_has_filters,
+            "daily_method_filter": daily_filters.get("daily_method", ""),
+            "daily_type_filter": daily_filters.get("daily_type", ""),
+            "daily_agent_filter": daily_filters.get("daily_agent", ""),
+            "daily_company_filter": daily_filters.get("daily_company", ""),
+            "daily_search": daily_filters.get("daily_q", ""),
+            "daily_min_amount": daily_filters.get("daily_min", ""),
+            "daily_max_amount": daily_filters.get("daily_max", ""),
             "daily_payment_method_choices": DailyPaymentTransaction.PaymentMethod.choices,
             "insurance_type_options": _insurance_type_options_for_org(active_org),
             "user_can_manage_insurance_intake": False,

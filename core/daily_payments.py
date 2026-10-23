@@ -1,10 +1,31 @@
 """Helpers for Daily Payment Transactions in Insurance Space."""
 
-from decimal import Decimal
+from datetime import date
+from decimal import Decimal, InvalidOperation
+from urllib.parse import urlencode
+
+from django.db.models import Q
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 
 from .models import DailyPaymentTransaction
 
 ZERO = Decimal("0.00")
+
+DAILY_FILTER_KEYS = (
+    "daily_date",
+    "daily_from",
+    "daily_to",
+    "daily_company",
+    "daily_method",
+    "daily_type",
+    "daily_agent",
+    "daily_q",
+    "daily_min",
+    "daily_max",
+)
+DAILY_PAGE_SIZE = 50
+_SESSION_PREFIX = "daily_payment_filters"
 
 PAYMENT_METHOD_META = {
     "cash": {
@@ -51,6 +72,118 @@ CARD_PAYMENT_METHODS = frozenset({
 
 VALID_PAYMENT_METHODS = {choice.value for choice in DailyPaymentTransaction.PaymentMethod}
 VALID_PAYMENT_TYPES = {choice.value for choice in DailyPaymentTransaction.PaymentType}
+
+
+def _safe_date(raw):
+    try:
+        return parse_date((raw or "").strip())
+    except ValueError:
+        return None
+
+
+def _safe_decimal(raw):
+    try:
+        value = Decimal((raw or "").strip())
+    except (InvalidOperation, ValueError):
+        return None
+    return value if value.is_finite() else None
+
+
+def resolve_daily_filters(request, organization_id) -> dict:
+    """Current Daily Payments filters: the URL wins, anything it leaves out comes from the session.
+
+    A single day is only remembered for the calendar day it was picked, so the tab
+    opens on today again tomorrow; a From/To period and the other filters stay put.
+    """
+    session_key = f"{_SESSION_PREFIX}:{organization_id}"
+    today = timezone.localdate().isoformat()
+    saved = request.session.get(session_key) or {}
+    if "daily_reset" in request.GET:
+        state = {}
+    else:
+        state = {
+            key: str(value)
+            for key, value in (saved.get("filters") or {}).items()
+            if key in DAILY_FILTER_KEYS and value
+        }
+        if saved.get("saved_on") != today:
+            state.pop("daily_date", None)
+        incoming = {
+            key: (request.GET.get(key) or "").strip()[:120]
+            for key in DAILY_FILTER_KEYS
+            if key in request.GET
+        }
+        picks_range = bool(incoming.get("daily_from") or incoming.get("daily_to"))
+        if incoming.get("daily_date") and not picks_range:
+            state.pop("daily_from", None)
+            state.pop("daily_to", None)
+        state.update(incoming)
+        state = {key: value for key, value in state.items() if value}
+        if state.get("daily_from") or state.get("daily_to"):
+            state.pop("daily_date", None)
+    payload = {"filters": state, "saved_on": today}
+    if saved != payload:
+        request.session[session_key] = payload
+    return state
+
+
+def daily_period(state: dict) -> tuple[date, date, bool]:
+    """(start, end, is_range) for the current filters."""
+    today = timezone.localdate()
+    start = _safe_date(state.get("daily_from"))
+    end = _safe_date(state.get("daily_to"))
+    if start or end:
+        if start and not end:
+            end = max(start, today)
+        elif end and not start:
+            start = end.replace(day=1)
+        if start > end:
+            start, end = end, start
+        return start, end, True
+    day = _safe_date(state.get("daily_date")) or today
+    return day, day, False
+
+
+def filter_daily_transactions(queryset, state: dict):
+    """Apply every non-date filter in ``state`` to a DailyPaymentTransaction queryset."""
+    method = state.get("daily_method", "")
+    if method in VALID_PAYMENT_METHODS:
+        queryset = queryset.filter(payment_method=method)
+    payment_type = state.get("daily_type", "")
+    if payment_type in VALID_PAYMENT_TYPES:
+        queryset = queryset.filter(payment_type=payment_type)
+    agent = state.get("daily_agent", "")
+    if agent.isdigit():
+        queryset = queryset.filter(recorded_by_id=int(agent))
+    company = state.get("daily_company", "")
+    if company.isdigit():
+        queryset = queryset.filter(insurance_company_id=int(company))
+    search = state.get("daily_q", "")
+    if search:
+        queryset = queryset.filter(
+            Q(client__name__icontains=search)
+            | Q(notes__icontains=search)
+            | Q(policy_number__icontains=search)
+            | Q(recorded_by__username__icontains=search)
+            | Q(recorded_by__first_name__icontains=search)
+            | Q(recorded_by__last_name__icontains=search)
+            | Q(insurance_company__name__icontains=search)
+        )
+    minimum = _safe_decimal(state.get("daily_min"))
+    if minimum is not None:
+        queryset = queryset.filter(amount__gte=minimum)
+    maximum = _safe_decimal(state.get("daily_max"))
+    if maximum is not None:
+        queryset = queryset.filter(amount__lte=maximum)
+    return queryset
+
+
+def daily_filter_query(state: dict, **extra) -> str:
+    """URL query (without ``?``) for the daily tab with the current filters plus ``extra``."""
+    params = {"tab": "daily-payments"}
+    params.update({key: value for key, value in state.items() if value})
+    params.update({key: value for key, value in extra.items() if value not in (None, "")})
+    return urlencode(params)
 
 
 def payment_fee_breakdown(payment: DailyPaymentTransaction) -> dict:
