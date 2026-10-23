@@ -243,3 +243,85 @@ class EmailMarketingAccessTests(TestCase):
         self.assertContains(board, "Prefers afternoon calls")
         self.assertContains(board, "Ben Ortiz")
         self.assertContains(board, "555-2222")
+
+
+@override_settings(DEBUG=True)
+class EmailMarketingContactNotesTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Notes PSB", city="Albany", state="NY")
+        self.owner = User.objects.create_user(username="nowner", password="pass12345")
+        self.agent = User.objects.create_user(username="nagent", password="pass12345", first_name="Sara", last_name="Ali")
+        self.outsider = User.objects.create_user(username="noutsider", password="pass12345")
+        OrganizationMembership.objects.create(
+            organization=self.org, user=self.owner, role=OrganizationMembership.Role.OWNER, is_active=True
+        )
+        OrganizationMembership.objects.create(
+            organization=self.org, user=self.agent, role=OrganizationMembership.Role.AGENT,
+            is_active=True, can_manage_email_marketing=True,
+        )
+        OrganizationMembership.objects.create(
+            organization=self.org, user=self.outsider, role=OrganizationMembership.Role.AGENT, is_active=True,
+        )
+        self.list = EmailMarketingList.objects.create(organization=self.org, name="Leads", created_by=self.owner)
+        self.contact = EmailMarketingContact.objects.create(
+            organization=self.org, marketing_list=self.list, name="Ada Lopez", notes="Call after 3pm"
+        )
+        self.url = reverse("email-marketing-contact-notes", args=[self.list.id, self.contact.id])
+
+    def test_notes_column_is_visible_and_editable(self):
+        self.client.login(username="nowner", password="pass12345")
+        response = self.client.get(reverse("email-marketing-workspace", args=[self.list.id]) + "?tab=crm")
+        self.assertContains(response, "<th class=\"em-th-notes\">Notes</th>", html=False)
+        self.assertContains(response, "Call after 3pm")
+        self.assertContains(response, self.url)
+
+    def test_agent_saves_note_and_editor_is_recorded(self):
+        self.client.login(username="nagent", password="pass12345")
+        response = self.client.post(self.url, {"notes": "  Wants a renewal quote  "})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["editor"], "Sara Ali")
+        self.contact.refresh_from_db()
+        self.assertEqual(self.contact.notes, "Wants a renewal quote")
+        self.assertEqual(self.contact.notes_updated_by, self.agent)
+        self.assertIsNotNone(self.contact.notes_updated_at)
+
+        self.client.login(username="nowner", password="pass12345")
+        page = self.client.get(reverse("email-marketing-workspace", args=[self.list.id]) + "?tab=crm")
+        self.assertContains(page, "Sara Ali ·")
+
+    def test_unchanged_note_does_not_change_editor(self):
+        self.client.login(username="nagent", password="pass12345")
+        self.client.post(self.url, {"notes": "Call after 3pm"})
+        self.contact.refresh_from_db()
+        self.assertIsNone(self.contact.notes_updated_by)
+
+    def test_search_matches_notes(self):
+        self.client.login(username="nowner", password="pass12345")
+        response = self.client.get(
+            reverse("email-marketing-workspace", args=[self.list.id]), {"tab": "crm", "q": "3pm"}
+        )
+        self.assertContains(response, "Ada Lopez")
+
+    def test_user_without_marketing_access_cannot_edit(self):
+        self.client.login(username="noutsider", password="pass12345")
+        response = self.client.post(self.url, {"notes": "hijack"})
+        self.assertEqual(response.status_code, 403)
+        self.contact.refresh_from_db()
+        self.assertEqual(self.contact.notes, "Call after 3pm")
+
+    def test_other_office_contact_is_not_found(self):
+        other_org = Organization.objects.create(name="Other PSB", city="NYC", state="NY")
+        other_list = EmailMarketingList.objects.create(organization=other_org, name="Theirs")
+        other = EmailMarketingContact.objects.create(organization=other_org, marketing_list=other_list, name="X")
+        self.client.login(username="nowner", password="pass12345")
+        response = self.client.post(
+            reverse("email-marketing-contact-notes", args=[other_list.id, other.id]), {"notes": "nope"}
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_note_too_long_is_rejected(self):
+        self.client.login(username="nowner", password="pass12345")
+        response = self.client.post(self.url, {"notes": "x" * 5001})
+        self.assertEqual(response.status_code, 400)

@@ -4,7 +4,7 @@
 {% block title %}{{ marketing_list.name }} | Email Marketing{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=8">
+<link rel="stylesheet" href="{% static 'core/css/email_marketing.css' %}?v=9">
 {% endblock %}
 
 {% block portal_content %}
@@ -132,6 +132,7 @@
                             <th>Phone</th>
                             <th>Email</th>
                             <th>Website</th>
+                            <th class="em-th-notes">Notes</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -178,6 +179,14 @@
                             <td>{{ contact.phone }}</td>
                             <td>{{ contact.email }}</td>
                             <td>{% if contact.website %}<a href="{{ contact.website }}" target="_blank" rel="noopener">Link</a>{% endif %}</td>
+                            <td class="em-notes-cell">
+                                <textarea class="em-note-input" rows="2" maxlength="5000"
+                                    placeholder="Add a note…"
+                                    aria-label="Notes for {{ contact.name }}"
+                                    data-contact-id="{{ contact.id }}"
+                                    data-url="{% url 'email-marketing-contact-notes' marketing_list.id contact.id %}">{{ contact.notes }}</textarea>
+                                <div class="em-note-meta" aria-live="polite">{% if contact.notes_updated_at %}{{ contact.notes_editor_name|default:"Someone" }} · {{ contact.notes_updated_at|date:"M j, Y g:i A" }}{% endif %}</div>
+                            </td>
                             <td class="em-actions-cell">
                                 <div class="em-row-actions">
                                     {% if can_assign_agent_tasks %}
@@ -210,7 +219,7 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="{% if can_assign_agent_tasks %}10{% else %}9{% endif %}">No contacts yet. Add manually or import a spreadsheet.</td></tr>
+                        <tr><td colspan="{% if can_assign_agent_tasks %}11{% else %}10{% endif %}">No contacts yet. Add manually or import a spreadsheet.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -576,5 +585,5 @@ window.EM_CONFIG = {
     csrfToken: "{{ csrf_token }}"
 };
 </script>
-<script src="{% static 'core/js/email_marketing.js' %}?v=8" defer></script>
+<script src="{% static 'core/js/email_marketing.js' %}?v=9" defer></script>
 {% endblock %}

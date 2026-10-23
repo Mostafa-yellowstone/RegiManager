@@ -346,4 +346,44 @@
         });
     }
     qsa(".em-asset img").forEach(bindAssetClick);
+
+    function saveContactNote(input) {
+        var saved = input.dataset.saved;
+        if (saved === undefined) saved = input.defaultValue;
+        var value = input.value.trim();
+        if (value === saved.trim() || input.dataset.saving === "1") return;
+        var meta = input.parentElement.querySelector(".em-note-meta");
+        var fd = new FormData();
+        fd.append("notes", value);
+        fd.append("csrfmiddlewaretoken", (window.EM_CONFIG || {}).csrfToken || "");
+        input.dataset.saving = "1";
+        input.classList.remove("is-error");
+        if (meta) meta.textContent = "Saving…";
+        fetch(input.dataset.url, { method: "POST", body: fd, credentials: "same-origin" })
+            .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+            .then(function (res) {
+                if (!res.ok || !res.data.ok) throw new Error((res.data && res.data.error) || "Could not save");
+                input.dataset.saved = res.data.notes;
+                input.classList.add("is-saved");
+                window.setTimeout(function () { input.classList.remove("is-saved"); }, 1200);
+                if (meta) meta.textContent = res.data.updated_at ? (res.data.editor || "Someone") + " · " + res.data.updated_at : "";
+                var editBtn = document.querySelector('.em-edit-contact[data-id="' + input.dataset.contactId + '"]');
+                if (editBtn) editBtn.dataset.notes = res.data.notes;
+            })
+            .catch(function (err) {
+                input.classList.add("is-error");
+                if (meta) meta.textContent = (err && err.message ? err.message : "Could not save") + " — click away to retry.";
+            })
+            .finally(function () { input.dataset.saving = "0"; });
+    }
+
+    qsa(".em-note-input").forEach(function (input) {
+        input.addEventListener("blur", function () { saveContactNote(input); });
+        input.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                input.blur();
+            }
+        });
+    });
 })();

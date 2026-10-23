@@ -975,6 +975,41 @@ body.em-modal-open {
 }
 
 /* Calm horizontal CRM row actions */
+.em-th-notes,
+.em-notes-cell {
+    min-width: 220px;
+}
+.em-note-input {
+    width: 100%;
+    min-height: 2.6rem;
+    resize: vertical;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid var(--em-border);
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.84rem;
+    line-height: 1.35;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.em-note-input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+.em-note-input.is-saved { border-color: #10b981; }
+.em-note-input.is-error { border-color: #ef4444; }
+.em-note-meta {
+    margin-top: 0.2rem;
+    font-size: 0.7rem;
+    color: var(--em-text-muted);
+    min-height: 0.9rem;
+}
+html.portal-theme-dark .em-note-input {
+    background: rgba(15, 23, 42, 0.6);
+    color-scheme: dark;
+}
 .em-actions-cell {
     white-space: nowrap;
     vertical-align: middle !important;

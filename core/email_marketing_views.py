@@ -13,6 +13,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.formats import date_format
 from django.views.decorators.http import require_GET, require_POST
 
 from .access import organizations_for_user
@@ -86,7 +87,7 @@ def _filter_contacts(queryset, request):
     has_email = (request.GET.get("has_email") or request.POST.get("has_email") or "").strip()
 
     if q:
-        queryset = apply_text_search(queryset, q, ["name", "email", "phone", "city"])
+        queryset = apply_text_search(queryset, q, ["name", "email", "phone", "city", "notes"])
     if state:
         queryset = queryset.filter(state__iexact=state)
     if city:
@@ -157,7 +158,7 @@ def email_marketing_workspace(request, list_id):
     campaign_id = request.GET.get("campaign")
 
     contacts_qs = _filter_contacts(
-        marketing_list.contacts.select_related("assigned_agent__user"),
+        marketing_list.contacts.select_related("assigned_agent__user", "notes_updated_by"),
         request,
     )
     paginator = Paginator(contacts_qs, 15)
@@ -386,15 +387,52 @@ def email_marketing_save_contact(request, list_id):
 
     if contact_id:
         contact = get_object_or_404(EmailMarketingContact, pk=contact_id, marketing_list=marketing_list)
+        if contact.notes != fields["notes"]:
+            contact.notes_updated_by = request.user
+            contact.notes_updated_at = timezone.now()
         for key, value in fields.items():
             setattr(contact, key, value)
         contact.save()
         messages.success(request, "Contact updated.")
     else:
+        if fields["notes"]:
+            fields["notes_updated_by"] = request.user
+            fields["notes_updated_at"] = timezone.now()
         EmailMarketingContact.objects.create(organization=org, marketing_list=marketing_list, **fields)
         messages.success(request, "Contact added.")
 
     return redirect(f"{reverse('email-marketing-workspace', args=[list_id])}?tab=crm")
+
+
+CONTACT_NOTES_MAX = 5000
+
+
+@login_required
+@require_POST
+def email_marketing_contact_notes(request, list_id, contact_id):
+    """Inline notes edit from the CRM table; any user with access to the list can edit."""
+    org, _ = _resolve_org(request)
+    if not org:
+        return JsonResponse({"ok": False, "error": "No active organization."}, status=400)
+    _require_marketing_access(request, org)
+    marketing_list = get_object_or_404(EmailMarketingList, pk=list_id, organization=org)
+    contact = get_object_or_404(EmailMarketingContact, pk=contact_id, marketing_list=marketing_list)
+    notes = (request.POST.get("notes") or "").strip()
+    if len(notes) > CONTACT_NOTES_MAX:
+        return JsonResponse(
+            {"ok": False, "error": f"Notes are limited to {CONTACT_NOTES_MAX} characters."}, status=400
+        )
+    if notes != contact.notes:
+        contact.notes = notes
+        contact.notes_updated_by = request.user
+        contact.notes_updated_at = timezone.now()
+        contact.save(update_fields=["notes", "notes_updated_by", "notes_updated_at", "updated_at"])
+    updated_at = ""
+    if contact.notes_updated_at:
+        updated_at = date_format(timezone.localtime(contact.notes_updated_at), "M j, Y g:i A")
+    return JsonResponse(
+        {"ok": True, "notes": contact.notes, "editor": contact.notes_editor_name, "updated_at": updated_at}
+    )
 
 
 @login_required

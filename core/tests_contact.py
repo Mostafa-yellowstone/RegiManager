@@ -90,6 +90,70 @@ class ContactPageTests(TestCase):
         self.assertEqual(ContactMessage.objects.count(), 5)
 
 
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    CONTACT_INBOX_EMAIL="mail@regimanager.com, owner@gmail.com",
+    CONTACT_DIRECT_MX_HOST="regimanager-com.mail.protection.outlook.com",
+)
+class ContactDirectDeliveryTests(TestCase):
+    def setUp(self):
+        self.record = ContactMessage.objects.create(
+            name="Dina", email="dina@example.com", subject="General inquiry", message="Hello"
+        )
+
+    def _deliver(self, send_effects):
+        import smtplib
+
+        from core.contact_inbox import deliver_contact_message
+
+        sent_to = []
+
+        def fake_send(message, fail_silently=False):
+            sent_to.append(list(message.to))
+            effect = send_effects.pop(0)
+            if effect is not None:
+                raise effect
+            return 1
+
+        login_error = smtplib.SMTPAuthenticationError(535, b"5.7.3 Authentication unsuccessful")
+        effects = [login_error if e == "login" else e for e in send_effects]
+        send_effects[:] = effects
+        with mock.patch("django.core.mail.EmailMessage.send", autospec=True, side_effect=fake_send), mock.patch(
+            "core.contact_inbox._direct_connection"
+        ) as direct:
+            ok = deliver_contact_message(self.record.id)
+        self.record.refresh_from_db()
+        return ok, sent_to, direct
+
+    def test_login_rejected_falls_back_to_direct_delivery_to_own_domain(self):
+        ok, sent_to, direct = self._deliver(["login", None])
+        self.assertTrue(ok)
+        self.assertTrue(self.record.email_sent)
+        self.assertEqual(self.record.email_error, "")
+        direct.assert_called_once()
+        self.assertEqual(sent_to[1], ["mail@regimanager.com"])
+
+    def test_both_routes_failing_records_both_errors(self):
+        ok, _, _ = self._deliver(["login", OSError("port 25 blocked")])
+        self.assertFalse(ok)
+        self.assertFalse(self.record.email_sent)
+        self.assertIn("535", self.record.email_error)
+        self.assertIn("port 25 blocked", self.record.email_error)
+
+    def test_login_working_never_uses_direct_route(self):
+        ok, sent_to, direct = self._deliver([None])
+        self.assertTrue(ok)
+        direct.assert_not_called()
+        self.assertEqual(sent_to[0], ["mail@regimanager.com", "owner@gmail.com"])
+
+    @override_settings(CONTACT_DIRECT_MX_HOST="")
+    def test_direct_route_can_be_disabled(self):
+        ok, _, direct = self._deliver(["login"])
+        self.assertFalse(ok)
+        direct.assert_not_called()
+        self.assertIn("535", self.record.email_error)
+
+
 class ContactRecipientTests(TestCase):
     @override_settings(CONTACT_INBOX_EMAIL="", EMAIL_HOST_USER="sender@regimanager.com")
     def test_public_inbox_even_when_sending_from_another_mailbox(self):

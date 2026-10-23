@@ -3298,6 +3298,14 @@ class EmailMarketingContact(models.Model):
     email = models.EmailField(blank=True, default="")
     website = models.URLField(max_length=500, blank=True, default="")
     notes = models.TextField(blank=True, default="")
+    notes_updated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="email_marketing_notes_edited",
+    )
+    notes_updated_at = models.DateTimeField(null=True, blank=True)
     assigned_agent = models.ForeignKey(
         "OrganizationMembership",
         on_delete=models.SET_NULL,
@@ -3333,6 +3341,13 @@ class EmailMarketingContact(models.Model):
         if not self.assigned_agent_id or not self.assigned_agent:
             return ""
         user = self.assigned_agent.user
+        return user.get_full_name().strip() or user.username
+
+    @property
+    def notes_editor_name(self):
+        user = self.notes_updated_by
+        if not user:
+            return ""
         return user.get_full_name().strip() or user.username
 
     @property
