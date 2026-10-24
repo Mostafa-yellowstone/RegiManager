@@ -6,7 +6,7 @@
 {% block portal_head %}
 <link rel="stylesheet" href="{% static 'core/css/insurance_esign.css' %}?v=5">
 <link rel="stylesheet" href="{% static 'core/css/insurance_producers.css' %}?v=prd-5">
-<link rel="stylesheet" href="{% static 'core/css/insurance_area.css' %}?v=ina-5">
+<link rel="stylesheet" href="{% static 'core/css/insurance_area.css' %}?v=ina-6">
 {% endblock %}
 
 {% block portal_content %}
@@ -15,13 +15,21 @@
 <div class="ina" data-insurance-tab="{{ insurance_tab }}">
   <aside class="ina-side" id="inaSide" aria-label="{{ insurance_name }} sections">
     <div class="ina-side__head">
-      <a class="ina-side__brand" href="{% url 'insurance-home' %}">
-        <span class="ina-side__mark">{% include "core/insurance_area/_icon.html" with name="policies" %}</span>
-        <span class="ina-side__titles">
-          <span class="ina-side__name">{{ insurance_name }}</span>
-          <span class="ina-side__org">{{ active_org.name }}</span>
+      {% with logo=card.logo|default:active_org.logo %}
+      <a class="ina-side__brand{% if logo %} has-logo{% endif %}" href="{% url 'insurance-home' %}" aria-label="{{ insurance_name }} home">
+        {% if logo %}
+        <span class="ina-side__logo"><img src="{{ logo.url }}" alt="{{ insurance_name }}"></span>
+        {% else %}
+        <span class="ina-side__mark">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 4.5 5.4v6.1c0 4.7 3.2 8.6 7.5 10 4.3-1.4 7.5-5.3 7.5-10V5.4z" fill="currentColor" opacity=".22"/><path d="M12 2.5 4.5 5.4v6.1c0 4.7 3.2 8.6 7.5 10 4.3-1.4 7.5-5.3 7.5-10V5.4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m8.6 12.1 2.3 2.3 4.6-4.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </span>
+        <span class="ina-side__name">{{ insurance_name }}</span>
+        {% endif %}
       </a>
+      {% if is_owner and not logo %}
+      <button type="button" class="ina-side__add-logo" onclick="document.getElementById('brandingModal').classList.add('active')">+ Add your logo</button>
+      {% endif %}
+      {% endwith %}
       <button type="button" class="ina-side__close" data-ina-close aria-label="Close menu">{% include "core/insurance_area/_icon.html" with name="close" %}</button>
     </div>
 

@@ -4355,6 +4355,21 @@ html.portal-theme-dark .portal-btn.portal-btn-secondary:hover {
     color: #f8fafc !important;
 }
 
+html.portal-theme-dark body.portal-body .btn.btn-secondary {
+    background: #1e293b;
+    border-color: #475569;
+    color: #e2e8f0;
+}
+
+html.portal-theme-dark body.portal-body .btn.btn-secondary:hover {
+    background: #334155;
+    color: #f8fafc;
+}
+
+html.portal-theme-dark .brand-pill {
+    color: #93c5fd;
+}
+
 html.portal-theme-dark .portal-advanced-filter-toggle,
 html.portal-theme-dark body.portal-body details.portal-advanced-filters > summary,
 html.portal-theme-dark body.portal-body details summary[style*="color: #093de6"],

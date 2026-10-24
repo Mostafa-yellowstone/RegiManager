@@ -1,4 +1,8 @@
+import shutil
+import tempfile
+
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -110,6 +114,48 @@ class OldInsuranceLinksTests(InsuranceAreaBase):
             HTTP_REFERER="http://testserver" + reverse("insurance-payments"),
         )
         self.assertEqual(res["Location"], "http://testserver" + reverse("insurance-payments"))
+
+
+PNG_1PX = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\rIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe\xa7\x35\x81\x84\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+
+class InsuranceLogoTests(InsuranceAreaBase):
+    def setUp(self):
+        super().setUp()
+        media = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, media, ignore_errors=True)
+        override = override_settings(MEDIA_ROOT=media)
+        override.enable()
+        self.addCleanup(override.disable)
+        self.client.force_login(self.owner)
+
+    def post_branding(self, **extra):
+        data = {"organization": self.org.id, "space_label": "Insurance", **extra}
+        return self.client.post(reverse("update-insurance-space-branding"), data)
+
+    def test_sidebar_offers_to_add_a_logo_until_one_is_uploaded(self):
+        self.assertContains(self.client.get(reverse("insurance-home")), "+ Add your logo")
+        self.post_branding(logo=SimpleUploadedFile("logo.png", PNG_1PX, content_type="image/png"))
+        self.space.refresh_from_db()
+        self.assertTrue(self.space.logo)
+        res = self.client.get(reverse("insurance-home"))
+        self.assertContains(res, f'<span class="ina-side__logo"><img src="{self.space.logo.url}"')
+        self.assertNotContains(res, "+ Add your logo")
+
+    def test_logo_can_be_removed(self):
+        self.post_branding(logo=SimpleUploadedFile("logo.png", PNG_1PX, content_type="image/png"))
+        self.post_branding(clear_logo="on")
+        self.space.refresh_from_db()
+        self.assertFalse(self.space.logo)
+
+    def test_svg_logo_is_rejected(self):
+        svg = SimpleUploadedFile("logo.svg", b"<svg onload='alert(1)'/>", content_type="image/svg+xml")
+        self.post_branding(logo=svg)
+        self.space.refresh_from_db()
+        self.assertFalse(self.space.logo)
 
 
 @override_settings(

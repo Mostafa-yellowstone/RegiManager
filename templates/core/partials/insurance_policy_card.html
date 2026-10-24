@@ -92,7 +92,7 @@
             {% endif %}
         </div>
         {% if policy.added_by %}
-        <span style="background: {{ policy.agent_bg_color }}; color: {{ policy.agent_text_color }}; padding: 4px 10px; border-radius: 8px; font-weight: 700; font-size: 0.75rem; box-shadow: 0 2px 6px rgba(0,0,0,0.12);">
+        <span class="ina-keep" style="background: {{ policy.agent_bg_color }}; color: {{ policy.agent_text_color }}; padding: 4px 10px; border-radius: 8px; font-weight: 700; font-size: 0.75rem; box-shadow: 0 2px 6px rgba(0,0,0,0.12);">
             {{ policy.added_by.get_full_name|default:policy.added_by.username }}
         </span>
         {% endif %}

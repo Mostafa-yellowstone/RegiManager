@@ -7580,9 +7580,21 @@ def update_insurance_space_branding(request):
     ezlynx_url = request.POST.get("insurance_ezlynx_quote_url", "").strip()
     portal_mode = request.POST.get("insurance_intake_portal_mode", "").strip()
 
+    update_fields = ["updated_at"]
     if space_label:
         space.label = space_label
-        space.save(update_fields=["label", "updated_at"])
+        update_fields.append("label")
+    logo = request.FILES.get("logo")
+    if logo:
+        if logo.content_type not in ("image/png", "image/jpeg", "image/webp"):
+            messages.error(request, "Logo must be a PNG, JPG or WebP image.")
+            return _redirect_to_insurance_detail(org, tab="insurance", request=request)
+        space.logo = logo
+        update_fields.append("logo")
+    elif request.POST.get("clear_logo") == "on":
+        space.logo = None
+        update_fields.append("logo")
+    space.save(update_fields=update_fields)
 
     org.insurance_intake_display_name = intake_name
     org.insurance_intake_tagline = intake_tagline

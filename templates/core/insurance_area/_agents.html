@@ -65,7 +65,7 @@
                 {% for stat in agent_stats %}
                 <tr>
                   <td>
-                    <a href="{% url 'insurance-agent-detail' stat.user_id %}" style="background-color: {{ stat.bg_color }}; color: {{ stat.text_color }}; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; white-space: nowrap; text-decoration: none; display: inline-block;">
+                    <a href="{% url 'insurance-agent-detail' stat.user_id %}" class="ina-keep" style="background-color: {{ stat.bg_color }}; color: {{ stat.text_color }}; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; white-space: nowrap; text-decoration: none; display: inline-block;">
                       {{ stat.fullname }}
                     </a>
                     {% if stat.is_best %}

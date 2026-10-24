@@ -5,9 +5,25 @@
       <h3 style="margin: 0; font-weight: 800; color: #0f172a; font-size: 1.2rem;">✏️ Space &amp; Intake Branding</h3>
       <button onclick="document.getElementById('brandingModal').classList.remove('active')" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
     </div>
-    <form method="POST" action="{% url 'update-insurance-space-branding' %}">
+    <form method="POST" action="{% url 'update-insurance-space-branding' %}" enctype="multipart/form-data">
       {% csrf_token %}
       <input type="hidden" name="organization" value="{{ active_org.id }}">
+      <div class="ina-logo-field">
+        <label class="field-label" for="inaLogoInput">Insurance Logo</label>
+        <div class="ina-logo-field__row">
+          <span class="ina-logo-field__preview">
+            {% if card.logo %}<img src="{{ card.logo.url }}" alt="" id="inaLogoPreview">{% else %}<img alt="" id="inaLogoPreview" hidden><span id="inaLogoEmpty">No logo</span>{% endif %}
+          </span>
+          <div class="ina-logo-field__controls">
+            <input type="file" name="logo" id="inaLogoInput" accept="image/png,image/jpeg,image/webp" class="field-input"
+                   onchange="var f=this.files[0],p=document.getElementById('inaLogoPreview'),e=document.getElementById('inaLogoEmpty');if(f){p.src=URL.createObjectURL(f);p.hidden=false;if(e)e.hidden=true;}">
+            {% if card.logo %}
+            <label class="ina-logo-field__clear"><input type="checkbox" name="clear_logo"> Remove current logo</label>
+            {% endif %}
+          </div>
+        </div>
+        <p class="ina-logo-field__hint">Shown at the top of the Insurance menu. A wide PNG with a transparent background looks best.</p>
+      </div>
       <div style="margin-bottom: 1rem;">
         <label class="field-label">Insurance Space Name</label>
         <input type="text" name="space_label" class="field-input" value="{{ card.label }}" placeholder="e.g. Insurance Space" required>
