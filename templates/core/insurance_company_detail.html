@@ -427,7 +427,7 @@ html.portal-theme-dark .company-license-box__title { color: var(--portal-text); 
     <!-- Breadcrumb -->
     <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: var(--muted); font-weight: 600; flex-wrap: wrap;">
       {% if insurance_space_id %}
-        <a href="{% url 'inventory-detail' insurance_space_id %}?tab=companies" style="color: var(--blue); text-decoration: none;">🛡️ Insurance Space</a>
+        <a href="{% url 'insurance-companies' %}" style="color: var(--blue); text-decoration: none;">🛡️ Insurance</a>
       {% else %}
         <a href="{% url 'spaces-home' %}" style="color: var(--blue); text-decoration: none;">🛡️ Insurance Space</a>
       {% endif %}
@@ -449,7 +449,7 @@ html.portal-theme-dark .company-license-box__title { color: var(--portal-text); 
         <button onclick="document.getElementById('depositModal').classList.add('active')" class="btn-primary">💰 Pay/Deposit</button>
         <button onclick="document.getElementById('ledgerModal').classList.add('active')" class="btn-outline">📒 Ledger</button>
         {% if insurance_space_id %}
-          <a href="{% url 'inventory-detail' insurance_space_id %}?tab=companies" class="btn-outline">← Back</a>
+          <a href="{% url 'insurance-companies' %}" class="btn-outline">← Back</a>
         {% else %}
           <a href="{% url 'spaces-home' %}" class="btn-outline">← Back</a>
         {% endif %}

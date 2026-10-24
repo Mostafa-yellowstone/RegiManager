@@ -1,0 +1,131 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}{{ insurance_page_label }} · {{ insurance_name }} | RegiManager{% endblock %}
+
+{% block portal_head %}
+<link rel="stylesheet" href="{% static 'core/css/insurance_esign.css' %}?v=5">
+<link rel="stylesheet" href="{% static 'core/css/insurance_producers.css' %}?v=prd-5">
+<link rel="stylesheet" href="{% static 'core/css/insurance_area.css' %}?v=ina-5">
+{% endblock %}
+
+{% block portal_content %}
+{% include "core/insurance_area/_styles.html" %}
+
+<div class="ina" data-insurance-tab="{{ insurance_tab }}">
+  <aside class="ina-side" id="inaSide" aria-label="{{ insurance_name }} sections">
+    <div class="ina-side__head">
+      <a class="ina-side__brand" href="{% url 'insurance-home' %}">
+        <span class="ina-side__mark">{% include "core/insurance_area/_icon.html" with name="policies" %}</span>
+        <span class="ina-side__titles">
+          <span class="ina-side__name">{{ insurance_name }}</span>
+          <span class="ina-side__org">{{ active_org.name }}</span>
+        </span>
+      </a>
+      <button type="button" class="ina-side__close" data-ina-close aria-label="Close menu">{% include "core/insurance_area/_icon.html" with name="close" %}</button>
+    </div>
+
+    <nav class="ina-side__nav">
+      {% for group in insurance_nav_groups %}
+      <div class="ina-side__group">
+        <div class="ina-side__group-title">{{ group.title }}</div>
+        {% for link in group.links %}
+        <a class="ina-side__link{% if link.active %} is-active{% endif %}" href="{{ link.url }}"{% if link.active %} aria-current="page"{% endif %}>
+          {% include "core/insurance_area/_icon.html" with name=link.icon %}
+          <span>{{ link.label }}</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% endfor %}
+      {% if insurance_knowledge_hub %}
+      <div class="ina-side__group">
+        <div class="ina-side__group-title">Resources</div>
+        <a class="ina-side__link" href="{% url 'inventory-detail' insurance_knowledge_hub.id %}">
+          {% include "core/insurance_area/_icon.html" with name="book" %}
+          <span>{{ insurance_knowledge_hub.label }}</span>
+        </a>
+      </div>
+      {% endif %}
+    </nav>
+
+    {% if insurance_has_psb %}
+    <div class="ina-side__foot">
+      <a class="ina-side__link ina-side__link--muted" href="{% url 'spaces-home' %}">
+        {% include "core/insurance_area/_icon.html" with name="back" %}
+        <span>Back to Spaces</span>
+      </a>
+    </div>
+    {% endif %}
+  </aside>
+  <div class="ina-backdrop" data-ina-close></div>
+
+  <main class="ina-main">
+    <header class="ina-top">
+      <button type="button" class="ina-top__menu" data-ina-open aria-label="Open menu" aria-controls="inaSide">{% include "core/insurance_area/_icon.html" with name="menu" %}</button>
+      <div class="ina-top__titles">
+        <div class="ina-top__crumb">{{ insurance_name }}</div>
+        <div class="ina-top__title-row">
+          <h1 class="ina-top__title">{{ insurance_page_label }}</h1>
+          {% if is_owner %}
+          <button type="button" class="space-edit-btn" title="Edit name &amp; intake portal branding" onclick="document.getElementById('brandingModal').classList.add('active')" aria-label="Edit branding">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>
+          {% endif %}
+        </div>
+      </div>
+      <div class="ina-top__actions">
+        <button type="button" class="ina-search-btn" data-ina-search-open aria-label="Search">
+          {% include "core/insurance_area/_icon.html" with name="search" %}
+          <span class="ina-search-btn__text">Search clients, policies, plates…</span>
+          <kbd class="ina-kbd">Ctrl K</kbd>
+        </button>
+        {% block insurance_actions %}{% endblock %}
+      </div>
+    </header>
+
+    {% if messages %}
+    <div class="portal-messages ina-messages">
+      {% for message in messages %}
+      <div class="alert ina-alert{% if 'error' in message.tags %} is-error{% elif 'warning' in message.tags %} is-warning{% else %} is-success{% endif %}">{{ message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="ina-page">
+      {% block insurance_page %}{% endblock %}
+    </div>
+  </main>
+</div>
+
+<nav class="ina-bottom" aria-label="{{ insurance_name }} quick links">
+  {% for link in insurance_bottom_links %}
+  <a class="ina-bottom__link{% if link.active %} is-active{% endif %}" href="{{ link.url }}">
+    {% include "core/insurance_area/_icon.html" with name=link.icon %}
+    <span>{% if link.tab == 'daily-payments' %}Payments{% elif link.tab == 'quote-pipeline' %}Pipeline{% else %}{{ link.label }}{% endif %}</span>
+  </a>
+  {% endfor %}
+  <button type="button" class="ina-bottom__link" data-ina-open>
+    {% include "core/insurance_area/_icon.html" with name="menu" %}
+    <span>More</span>
+  </button>
+</nav>
+
+<div class="ina-search" id="inaSearch" data-url="{% url 'insurance-search' %}" hidden>
+  <div class="ina-search__backdrop" data-ina-search-close></div>
+  <div class="ina-search__panel" role="dialog" aria-modal="true" aria-label="Search {{ insurance_name }}">
+    <div class="ina-search__field">
+      {% include "core/insurance_area/_icon.html" with name="search" %}
+      <input type="search" id="inaSearchInput" placeholder="Client name, phone, policy #, plate, VIN, payment #…" autocomplete="off" spellcheck="false" aria-controls="inaSearchResults">
+      <kbd class="ina-kbd">Esc</kbd>
+    </div>
+    <div class="ina-search__results" id="inaSearchResults" role="listbox">
+      <p class="ina-search__hint">Type at least 2 characters. Use ↑ ↓ to move and Enter to open.</p>
+    </div>
+  </div>
+</div>
+
+{% include "core/insurance_area/_modals.html" %}
+<script>window.INSURANCE_CURRENT_TAB = '{{ insurance_tab|escapejs }}';</script>
+{% include "core/insurance_area/_scripts.html" %}
+<script src="{% static 'core/js/insurance_area.js' %}?v=ina-1" defer></script>
+{% endblock %}

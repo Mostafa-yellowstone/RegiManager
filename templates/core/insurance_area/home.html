@@ -1,0 +1,39 @@
+{% extends "core/insurance_area/base.html" %}
+
+{% block insurance_actions %}
+<button type="button" class="ina-btn ina-btn--primary" onclick="openAddPolicyModal()">+ Add Policy</button>
+<button type="button" class="ina-btn" onclick="document.getElementById('importInsDecModal').classList.add('active')">Import Dec Page</button>
+{% endblock %}
+
+{% block insurance_page %}
+{% include "core/insurance_area/_today_board.html" %}
+
+<section class="ina-tiles" aria-label="At a glance">
+  <a class="ina-tile" href="{% url 'insurance-policies' %}?status=active">
+    <span class="ina-tile__label">Active policies</span>
+    <span class="ina-tile__value">{{ active_policies_count }}</span>
+    <span class="ina-tile__hint">Open the policy list</span>
+  </a>
+  <a class="ina-tile" href="{% url 'insurance-policies' %}?status=inactive">
+    <span class="ina-tile__label">Inactive policies</span>
+    <span class="ina-tile__value">{{ inactive_policies_count }}</span>
+    <span class="ina-tile__hint">Win-back opportunities</span>
+  </a>
+  <a class="ina-tile" href="{% url 'insurance-pipeline' %}">
+    <span class="ina-tile__label">Quotes this period</span>
+    <span class="ina-tile__value">{{ comp_current.quotes }}</span>
+    <span class="ina-tile__hint">{{ comp_current.bound }} bound · {{ comp_current.conversion }}% conversion</span>
+  </a>
+  {% if license_attention %}
+  <a class="ina-tile is-warning" href="{% if user_can_view_banking %}{% url 'insurance-companies' %}{% else %}{% url 'insurance-policies' %}{% endif %}">
+    <span class="ina-tile__label">License alerts</span>
+    <span class="ina-tile__value">{{ license_attention|length }}</span>
+    <span class="ina-tile__hint">{% if license_attention_has_expired %}Some licenses expired{% else %}Renewals due soon{% endif %}</span>
+  </a>
+  {% endif %}
+</section>
+
+<div id="tab-insurance" class="tab-panel">
+{% include "core/insurance_area/_home_summary.html" %}
+</div>
+{% endblock %}

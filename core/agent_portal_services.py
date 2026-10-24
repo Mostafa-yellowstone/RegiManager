@@ -403,6 +403,8 @@ def uses_agent_portal_home(membership: OrganizationMembership | None) -> bool:
         OrganizationMembership.Role.ACCOUNTANT,
     }:
         return True
+    if membership.can_use_insurance and not membership.organization.has_psb_portal:
+        return True
     return bool(membership.can_deal_with_insurance)
 
 

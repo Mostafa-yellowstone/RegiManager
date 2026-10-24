@@ -1,0 +1,206 @@
+from django.contrib.auth.models import User
+from django.test import TestCase, override_settings
+from django.urls import reverse
+
+from core.insurance_area_views import insurance_url_for_tab
+from core.models import Organization, OrganizationMembership, Space
+from core.products import product_for_path
+
+PAGES = (
+    "insurance-home",
+    "insurance-pipeline",
+    "insurance-policies",
+    "insurance-payments",
+    "insurance-reports",
+    "insurance-targets",
+    "insurance-agents",
+    "insurance-esign",
+)
+FINANCE_PAGES = ("insurance-finance", "insurance-companies", "insurance-producers")
+
+
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+)
+class InsuranceAreaBase(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Area Org", city="NYC")
+        self.space = Space.objects.create(organization=self.org, key="insurance", label="Insurance")
+        self.owner = User.objects.create_user(username="area-owner", password="x")
+        self.agent = User.objects.create_user(username="area-agent", password="x")
+        self.owner_mem = OrganizationMembership.objects.create(
+            user=self.owner, organization=self.org, role=OrganizationMembership.Role.OWNER, is_active=True
+        )
+        self.agent_mem = OrganizationMembership.objects.create(
+            user=self.agent,
+            organization=self.org,
+            role=OrganizationMembership.Role.AGENT,
+            is_active=True,
+            can_use_insurance=True,
+        )
+
+
+class InsuranceAreaPagesTests(InsuranceAreaBase):
+    def test_owner_opens_every_page_with_sidebar(self):
+        self.client.force_login(self.owner)
+        for name in PAGES + FINANCE_PAGES:
+            res = self.client.get(reverse(name))
+            self.assertEqual(res.status_code, 200, name)
+            self.assertContains(res, 'class="ina-side"', msg_prefix=name)
+            self.assertContains(res, f'href="{reverse(name)}"', msg_prefix=name)
+
+    def test_menu_uses_the_office_insurance_name(self):
+        self.org.insurance_intake_display_name = "Area Insurance Brokers"
+        self.org.save()
+        self.client.force_login(self.owner)
+        res = self.client.get(reverse("insurance-home"))
+        self.assertContains(res, "Area Insurance Brokers")
+
+    def test_agent_without_finance_cannot_open_finance_pages(self):
+        self.client.force_login(self.agent)
+        for name in PAGES:
+            self.assertEqual(self.client.get(reverse(name)).status_code, 200, name)
+        res = self.client.get(reverse("insurance-home"))
+        for name in FINANCE_PAGES:
+            self.assertEqual(self.client.get(reverse(name)).status_code, 403, name)
+            self.assertNotContains(res, f'href="{reverse(name)}"')
+
+    def test_agent_without_insurance_access_is_sent_to_the_dashboard(self):
+        self.agent_mem.can_use_insurance = False
+        self.agent_mem.save()
+        self.client.force_login(self.agent)
+        res = self.client.get(reverse("insurance-policies"))
+        self.assertRedirects(res, reverse("dashboard"), fetch_redirect_response=False)
+        res = self.client.post(reverse("add-daily-payment"), {"organization": self.org.id})
+        self.assertEqual(res.status_code, 403)
+
+    def test_office_without_insurance_hides_it_even_for_owner(self):
+        self.org.has_insurance = False
+        self.org.save()
+        self.client.force_login(self.owner)
+        res = self.client.get(reverse("insurance-home"))
+        self.assertRedirects(res, reverse("dashboard"), fetch_redirect_response=False)
+
+
+class OldInsuranceLinksTests(InsuranceAreaBase):
+    def test_old_space_links_open_the_matching_page(self):
+        self.client.force_login(self.owner)
+        url = reverse("inventory-detail", args=[self.space.id])
+        cases = {
+            "": reverse("insurance-home"),
+            "?tab=insurance&q=smith": reverse("insurance-policies") + "?q=smith",
+            "?tab=daily-payments&daily_date=2026-06-01": reverse("insurance-payments") + "?daily_date=2026-06-01",
+            "?tab=banking": reverse("insurance-finance"),
+            "?tab=quote-pipeline": reverse("insurance-pipeline"),
+        }
+        for query, expected in cases.items():
+            res = self.client.get(url + query)
+            self.assertRedirects(res, expected, fetch_redirect_response=False, msg_prefix=query)
+
+    def test_tab_mapping(self):
+        self.assertEqual(insurance_url_for_tab("targets", ["target_month=2026-10"]), "/insurance/targets/?target_month=2026-10")
+        self.assertEqual(insurance_url_for_tab("unknown"), "/insurance/")
+
+    def test_saving_returns_to_the_page_you_were_on(self):
+        self.client.force_login(self.owner)
+        res = self.client.post(
+            reverse("update-insurance-space-branding"),
+            {"organization": self.org.id, "space_label": "Insurance"},
+            HTTP_REFERER="http://testserver" + reverse("insurance-payments"),
+        )
+        self.assertEqual(res["Location"], "http://testserver" + reverse("insurance-payments"))
+
+
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+)
+class InsuranceOnlyOfficeTests(InsuranceAreaBase):
+    def setUp(self):
+        super().setUp()
+        self.org.has_psb_portal = False
+        self.org.save()
+
+    def test_psb_pages_send_insurance_only_users_to_insurance(self):
+        self.client.force_login(self.agent)
+        res = self.client.get(reverse("dashboard"))
+        self.assertRedirects(res, reverse("insurance-home"), fetch_redirect_response=False)
+        res = self.client.get(reverse("spaces-home"))
+        self.assertRedirects(res, reverse("insurance-home"), fetch_redirect_response=False)
+
+    def test_menu_shows_insurance_and_hides_psb_sections(self):
+        self.client.force_login(self.owner)
+        res = self.client.get(reverse("insurance-home"))
+        self.assertContains(res, f'href="{reverse("insurance-home")}"')
+        self.assertNotContains(res, f'href="{reverse("spaces-home")}"')
+
+    def test_member_without_any_product_is_refused_without_redirect_loop(self):
+        self.agent_mem.can_use_insurance = False
+        self.agent_mem.save()
+        self.client.force_login(self.agent)
+        self.assertEqual(self.client.get(reverse("dashboard")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("insurance-home")).status_code, 403)
+
+    def test_client_profile_hides_dmv_sections(self):
+        from core.models import Client
+
+        client_obj = Client.objects.create(organization=self.org, first_name="Ina", last_name="Only")
+        self.client.force_login(self.owner)
+        res = self.client.get(reverse("client-detail", args=[client_obj.id]))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, "Insurance Policies")
+        self.assertNotContains(res, "Transaction History")
+        self.assertNotContains(res, "Lifetime Spend")
+        self.assertNotContains(res, reverse("add-vehicle", args=[client_obj.id]))
+
+    def test_shared_tools_stay_open(self):
+        self.client.force_login(self.agent)
+        self.assertEqual(self.client.get(reverse("agent-portal-home")).status_code, 200)
+
+
+class InsuranceSearchTests(InsuranceAreaBase):
+    def setUp(self):
+        super().setUp()
+        from decimal import Decimal
+
+        from core.models import Client, InsuranceCompany, InsurancePolicy, Vehicle
+
+        self.client_obj = Client.objects.create(
+            organization=self.org, first_name="Maria", last_name="Lopez", phone_number="7185551234"
+        )
+        company = InsuranceCompany.objects.create(organization=self.org, name="Searchable Mutual")
+        InsurancePolicy.objects.create(
+            organization=self.org, client=self.client_obj, insurance_company=company,
+            policy_number="NYA-77821", premium=Decimal("900.00"), stage="bound", status="active",
+            start_date="2026-06-01", end_date="2026-12-01",
+        )
+        Vehicle.objects.create(client=self.client_obj, vin="1HGCM82633A004352", plate_number="KZT1234")
+        other = Organization.objects.create(name="Other Org", city="NYC")
+        Client.objects.create(organization=other, first_name="Maria", last_name="Hidden")
+
+    def _labels(self, q, user=None):
+        self.client.force_login(user or self.owner)
+        data = self.client.get(reverse("insurance-search"), {"q": q}).json()
+        return {g["title"]: [i["label"] for i in g["items"]] for g in data["groups"]}
+
+    def test_finds_clients_by_name_and_phone_within_the_office(self):
+        self.assertEqual(self._labels("maria")["Clients"], ["Maria Lopez"])
+        self.assertEqual(self._labels("555-1234")["Clients"], ["Maria Lopez"])
+
+    def test_finds_policies_vehicles_and_companies(self):
+        self.assertIn("NYA-77821", self._labels("77821")["Policies"])
+        self.assertTrue(self._labels("kzt1234")["Vehicles"][0].startswith("KZT1234"))
+        self.assertEqual(self._labels("searchable")["Companies"], ["Searchable Mutual"])
+
+    def test_companies_hidden_without_finance_access(self):
+        self.assertNotIn("Companies", self._labels("searchable", user=self.agent))
+
+
+class ProductForPathTests(TestCase):
+    def test_paths(self):
+        self.assertEqual(product_for_path("/insurance/policies/"), "insurance")
+        self.assertEqual(product_for_path("/dashboard/spaces/insurance/policy/add/"), "insurance")
+        self.assertEqual(product_for_path("/dashboard/agent-portal/"), "shared")
+        self.assertEqual(product_for_path("/dashboard/spaces/"), "psb")
+        self.assertIsNone(product_for_path("/api/clients/"))

@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .access import organizations_for_user
@@ -45,10 +46,7 @@ def _can_access_insurance(request, org) -> bool:
 
 
 def _redirect_insurance_space(org, request=None):
-    space = _insurance_space_for_org(org)
-    if space:
-        return redirect("inventory-detail", inventory_id=space.id)
-    return redirect("spaces-home")
+    return redirect("insurance-policies")
 
 
 @login_required
@@ -88,6 +86,17 @@ def insurance_policy_detail(request, policy_id):
 
     policy.producer_ledger = build_policy_ledger(policy) if policy.producer_id else None
 
+    from .insurance_renewal_models import InsuranceRenewal
+    from .insurance_renewals import renewal_history
+
+    renewal_card = (
+        InsuranceRenewal.objects.filter(policy=policy).select_related("assigned_to", "new_policy").first()
+    )
+    renewal_chain = renewal_history(policy)
+    renewal_days_left = (
+        (renewal_card.expiration_date - timezone.localdate()).days if renewal_card else None
+    )
+
     return render(
         request,
         "core/insurance_policy_detail.html",
@@ -110,6 +119,10 @@ def insurance_policy_detail(request, policy_id):
                 membership=membership,
                 is_owner=is_owner,
             ),
+            "renewal_card": renewal_card,
+            "renewal_chain": renewal_chain if len(renewal_chain) > 1 else [],
+            "renewal_days_left": renewal_days_left,
+            "renewal_days_overdue": -renewal_days_left if renewal_days_left and renewal_days_left < 0 else 0,
         },
     )
 
@@ -124,15 +137,15 @@ def import_insurance_dec_page(request, space_id):
         deny_access("Access denied.")
     if not _can_access_insurance(request, space.organization):
         messages.error(request, "You do not have permission to import insurance policies.")
-        return redirect("inventory-detail", inventory_id=space.id)
+        return redirect("insurance-policies")
 
     upload = request.FILES.get("dec_page")
     if not upload:
         messages.error(request, "Please choose a declaration page PDF.")
-        return redirect("inventory-detail", inventory_id=space.id)
+        return redirect("insurance-policies")
     if not upload.name.lower().endswith(".pdf"):
         messages.error(request, "Declaration page must be a PDF file.")
-        return redirect("inventory-detail", inventory_id=space.id)
+        return redirect("insurance-policies")
 
     from .insurance_dec_import import (
         DecPageParseError,
@@ -145,7 +158,7 @@ def import_insurance_dec_page(request, space_id):
         parsed = parse_insurance_dec_page(upload)
     except DecPageParseError as exc:
         messages.error(request, str(exc))
-        return redirect("inventory-detail", inventory_id=space.id)
+        return redirect("insurance-policies")
 
     if InsurancePolicy.objects.filter(
         organization=space.organization,
@@ -156,7 +169,7 @@ def import_insurance_dec_page(request, space_id):
             f"Policy {parsed.policy_number} already exists. Open it and use "
             f'"Update from Dec Page" on the policy detail.',
         )
-        return redirect("inventory-detail", inventory_id=space.id)
+        return redirect("insurance-policies")
 
     upload.seek(0)
     try:
@@ -168,10 +181,10 @@ def import_insurance_dec_page(request, space_id):
         )
     except DuplicateClientError as exc:
         messages.error(request, exc.message)
-        return redirect("inventory-detail", inventory_id=space.id)
+        return redirect("insurance-policies")
     except DecPageParseError as exc:
         messages.error(request, str(exc))
-        return redirect("inventory-detail", inventory_id=space.id)
+        return redirect("insurance-policies")
 
     if parsed.parse_warnings:
         messages.warning(request, "; ".join(parsed.parse_warnings))

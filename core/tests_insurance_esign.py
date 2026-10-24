@@ -35,6 +35,7 @@ class InsuranceESignTests(TestCase):
         self.space = Space.objects.create(organization=self.org, key="insurance", label="Insurance")
         self.owner = User.objects.create_user(username="esign_owner", password="pass")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.owner,
             organization=self.org,
             role=OrganizationMembership.Role.OWNER,
@@ -399,6 +400,7 @@ class InsuranceESignTests(TestCase):
     def test_space_user_can_upload_and_download_signed_pdf(self):
         viewer = User.objects.create_user(username="esign_viewer", password="pass")
         membership = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=viewer,
             organization=self.org,
             role=OrganizationMembership.Role.AGENT,

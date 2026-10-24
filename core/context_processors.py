@@ -66,6 +66,7 @@ def _membership_context(request):
             Role.ACCOUNTANT,
         }
         or m.can_deal_with_insurance
+        or (m.can_use_insurance and not m.organization.has_psb_portal)
         for m in active_memberships
     )
     photo_membership = next(
@@ -83,7 +84,28 @@ def _membership_context(request):
         else ""
     )
 
+    from .products import (
+        active_organization_for,
+        can_use_insurance,
+        can_use_psb_portal,
+        insurance_brand_name,
+    )
+
+    product_org = active_organization or (user_organizations[0] if user_organizations else None)
+    if product_org is None and request.user.is_superuser:
+        product_org = active_organization_for(request)
+    product_membership = next(
+        (m for m in memberships if product_org and m.organization_id == product_org.id), None
+    )
+    nav_has_insurance = can_use_insurance(request.user, product_org, product_membership)
+    nav_has_psb = request.user.is_superuser or can_use_psb_portal(
+        request.user, product_org, product_membership
+    )
+
     result = {
+        "nav_has_insurance": nav_has_insurance,
+        "nav_has_psb": nav_has_psb,
+        "nav_insurance_name": insurance_brand_name(product_org),
         "automation_enabled": enabled,
         "user_nav_role": user_nav_role,
         "can_view_partners": can_view_partners,

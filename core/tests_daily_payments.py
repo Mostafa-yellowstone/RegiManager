@@ -29,6 +29,7 @@ class DailyPaymentEditTests(TestCase):
         self.banker = User.objects.create_user(username="banker", password="password123")
         self.agent = User.objects.create_user(username="agent", password="password123")
         self.banker_membership = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.banker,
             organization=self.org,
             is_active=True,
@@ -39,6 +40,7 @@ class DailyPaymentEditTests(TestCase):
         )
         self.banker_membership.accessible_spaces.add(self.space)
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.agent,
             organization=self.org,
             is_active=True,
@@ -168,8 +170,8 @@ class DailyPaymentEditTests(TestCase):
     def test_daily_payments_tab_shows_edit_controls_for_banking_users_only(self):
         self.http.login(username="banker", password="password123")
         response = self.http.get(
-            reverse("inventory-detail", args=[self.space.id]),
-            {"tab": "daily-payments", "daily_date": self.tx_date.isoformat()},
+            reverse("insurance-payments"),
+            {"daily_date": self.tx_date.isoformat()},
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Edited By")
@@ -179,8 +181,8 @@ class DailyPaymentEditTests(TestCase):
 
         self.http.login(username="agent", password="password123")
         response = self.http.get(
-            reverse("inventory-detail", args=[self.space.id]),
-            {"tab": "daily-payments", "daily_date": self.tx_date.isoformat()},
+            reverse("insurance-payments"),
+            {"daily_date": self.tx_date.isoformat()},
         )
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "<th>Edited By</th>")
@@ -201,6 +203,7 @@ class DailyPaymentFilterTests(TestCase):
         self.space = Space.objects.create(organization=self.org, label="Insurance Space", key="insurance")
         self.user = User.objects.create_user(username="filterer", password="password123")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.user,
             organization=self.org,
             is_active=True,
@@ -217,7 +220,7 @@ class DailyPaymentFilterTests(TestCase):
         self.july_5 = self._pay(date(2026, 7, 5), "30.00", self.acme)
         self.http = TestClient()
         self.http.login(username="filterer", password="password123")
-        self.url = reverse("inventory-detail", args=[self.space.id])
+        self.url = reverse("insurance-payments")
 
     def _pay(self, when, amount, company):
         return DailyPaymentTransaction.objects.create(

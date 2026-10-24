@@ -101,6 +101,16 @@ class Organization(models.Model):
         help_text="Enable the public insurance intake portal and insurance agent intake queue.",
     )
     is_active = models.BooleanField(default=True, help_text="Enable or disable this PSB account.")
+    has_psb_portal = models.BooleanField(
+        default=True,
+        verbose_name="PSB portal",
+        help_text="DMV / PSB portal: dashboard, clients' DMV services, receipts, vehicles, Spaces. Turn off for insurance-only agencies.",
+    )
+    has_insurance = models.BooleanField(
+        default=True,
+        verbose_name="Insurance",
+        help_text="Insurance area (policies, quotes, daily payments, finance, producers, e-signature, reports).",
+    )
     is_halloween_theme_enabled = models.BooleanField(
         default=True,
         verbose_name="Enable Halloween Theme & Animations",
@@ -202,6 +212,16 @@ class OrganizationMembership(models.Model):
     can_view_spaces = models.BooleanField(
         default=False,
         help_text="Can this member (including PSB owners) view the main Spaces page?",
+    )
+    can_use_psb_portal = models.BooleanField(
+        default=True,
+        verbose_name="PSB portal access",
+        help_text="Can open the DMV / PSB portal (only if the PSB has the PSB portal turned on).",
+    )
+    can_use_insurance = models.BooleanField(
+        default=False,
+        verbose_name="Insurance access",
+        help_text="Can open the Insurance area (only if the PSB has Insurance turned on). Owners always can.",
     )
     can_deal_with_insurance = models.BooleanField(default=False, help_text="Can this agent deal with insurance and appear in the insurance workspace?")
     can_deal_with_motorclub = models.BooleanField(
@@ -3730,6 +3750,21 @@ from .insurance_producer_models import (  # noqa: E402,F401
     InsuranceProducer,
     InsuranceProducerPayout,
 )
+
+from .insurance_renewal_models import (  # noqa: E402,F401
+    InsuranceRenewal,
+    InsuranceRenewalEvent,
+    InsuranceRenewalSettings,
+)
+
+from .insurance_household_models import (  # noqa: E402,F401
+    InsuranceCoverageGapStatus,
+    InsuranceHousehold,
+    InsuranceHouseholdDismissal,
+    InsuranceHouseholdMember,
+)
+
+from .insurance_radar_models import InsuranceRadarItem  # noqa: E402,F401
 
 
 class ContactMessage(models.Model):

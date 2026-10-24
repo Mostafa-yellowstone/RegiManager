@@ -1,0 +1,36 @@
+<article class="dashboard-panel ci-panel" id="timeline" style="margin: 0;" data-ci-timeline>
+    <div class="cpp-panel-header">
+        <h3 class="cpp-panel-title">Timeline</h3>
+        <span class="brand-pill">{{ timeline|length }} event{{ timeline|length|pluralize }}</span>
+    </div>
+    <div class="ci-body">
+        {% if timeline_kinds %}
+        <div class="ci-chips" role="group" aria-label="Filter timeline">
+            <button type="button" class="ci-chip is-active" data-ci-filter="">All</button>
+            {% for key, label, count in timeline_kinds %}
+            <button type="button" class="ci-chip" data-ci-filter="{{ key }}">{{ label }} <span>{{ count }}</span></button>
+            {% endfor %}
+        </div>
+        {% endif %}
+        <ol class="ci-timeline">
+            {% for item in timeline %}
+            <li class="ci-tl ci-tl--{{ item.kind }}" data-ci-kind="{{ item.kind }}"{% if forloop.counter > 12 %} data-ci-more hidden{% endif %}>
+                <span class="ci-tl-dot" aria-hidden="true"></span>
+                <div class="ci-tl-main">
+                    <div class="ci-tl-title">{% if item.url %}<a href="{{ item.url }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}</div>
+                    {% if item.detail %}<div class="ci-tl-detail">{{ item.detail }}</div>{% endif %}
+                </div>
+                <div class="ci-tl-when">
+                    {% if item.has_time %}{{ item.at|date:"M j, Y · g:i A" }}{% else %}{{ item.at|date:"M j, Y" }}{% endif %}
+                    {% if item.who %}<small>{{ item.who }}</small>{% endif %}
+                </div>
+            </li>
+            {% empty %}
+            <li class="ci-empty">Nothing has happened with this client yet.</li>
+            {% endfor %}
+        </ol>
+        {% if timeline|length > 12 %}
+        <button type="button" class="btn btn-secondary btn-sm ci-more" data-ci-more-btn>Show all {{ timeline|length }}</button>
+        {% endif %}
+    </div>
+</article>

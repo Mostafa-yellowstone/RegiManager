@@ -103,10 +103,7 @@ def _redirect_pipeline(request, org: Organization):
     nxt = _safe_quote_next(request)
     if nxt:
         return redirect(nxt)
-    space = _insurance_space(org)
-    if space:
-        return redirect(f"/dashboard/inventory/{space.id}/?tab=quote-pipeline")
-    return redirect_back(request, "dashboard")
+    return redirect("insurance-pipeline")
 
 
 def _redirect_off_days(request, org: Organization):

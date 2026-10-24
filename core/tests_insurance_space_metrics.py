@@ -67,6 +67,7 @@ class InsuranceBookPremiumCardsTests(TestCase):
         space = Space.objects.create(organization=org, label="Insurance", key="insurance")
         user = User.objects.create_user(username="herowner", password="password123")
         membership = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=user,
             organization=org,
             role=OrganizationMembership.Role.OWNER,
@@ -97,8 +98,8 @@ class InsuranceBookPremiumCardsTests(TestCase):
         http = DjangoClient()
         http.login(username="herowner", password="password123")
         response = http.get(
-            reverse("inventory-detail", args=[space.id])
-            + "?tab=insurance&comp_mode=custom&comp_from=2026-10-01&comp_to=2026-10-31"
+            reverse("insurance-home")
+            + "?comp_mode=custom&comp_from=2026-10-01&comp_to=2026-10-31"
         )
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Insurance book snapshot")
@@ -115,6 +116,7 @@ class InsuranceBookPremiumCardsTests(TestCase):
         space = Space.objects.create(organization=org, label="Insurance", key="insurance")
         user = User.objects.create_user(username="blankowner", password="password123")
         membership = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=user,
             organization=org,
             role=OrganizationMembership.Role.OWNER,
@@ -140,5 +142,5 @@ class InsuranceBookPremiumCardsTests(TestCase):
 
         http = DjangoClient()
         http.login(username="blankowner", password="password123")
-        response = http.get(reverse("inventory-detail", args=[space.id]))
+        response = http.get(reverse("insurance-policies"))
         self.assertEqual(response.status_code, 200)

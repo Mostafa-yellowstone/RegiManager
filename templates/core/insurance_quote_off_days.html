@@ -13,7 +13,7 @@
     <header class="iqp-offdays-hero">
       <div class="iqp-offdays-hero__copy">
         {% if insurance_space %}
-        <a class="iqp-records__back" href="/dashboard/inventory/{{ insurance_space.id }}/?tab=quote-pipeline">← Back to pipeline</a>
+        <a class="iqp-records__back" href="{% url 'insurance-pipeline' %}">← Back to pipeline</a>
         {% endif %}
         <div class="iqp-offdays-hero__title-row">
           <span class="iqp-offdays-hero__icon" aria-hidden="true">

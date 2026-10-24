@@ -1,18 +1,29 @@
+{% if show_agent_portal_nav or nav_has_psb %}
 <a href="{% if show_agent_portal_nav %}{% url 'agent-portal-home' %}{% else %}{% url 'dashboard' %}{% endif %}" class="nav-link {% if request.resolver_match.url_name == 'agent-portal-home' or request.resolver_match.url_name == 'agent-portal-tasks-board' or request.resolver_match.url_name == 'agent-portal-owner-review' %}active{% elif not show_agent_portal_nav and request.resolver_match.url_name == 'dashboard' %}active{% endif %}" role="menuitem">
     <span class="nav-label nav-label--full">{% if show_agent_portal_nav %}My Portal{% else %}Dashboard{% endif %}</span>
     <span class="nav-label nav-label--short" aria-hidden="true">{% if show_agent_portal_nav %}Portal{% else %}Home{% endif %}</span>
 </a>
+{% endif %}
 {% if show_agent_portal_nav %}
 <a href="{% url 'agent-portal-tasks-board' %}" class="nav-link {% if request.resolver_match.url_name == 'agent-portal-tasks-board' %}active{% endif %}" role="menuitem">
     <span class="nav-label nav-label--full">My Tasks</span>
     <span class="nav-label nav-label--short" aria-hidden="true">Tasks</span>
 </a>
+{% if nav_has_psb %}
 <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" role="menuitem">
     <span class="nav-label nav-label--full">Ops Dashboard</span>
     <span class="nav-label nav-label--short" aria-hidden="true">Ops</span>
 </a>
 {% endif %}
+{% endif %}
+{% if nav_has_insurance %}
+<a href="{% url 'insurance-home' %}" class="nav-link {% if request.path|slice:':11' == '/insurance/' %}active{% endif %}" role="menuitem">
+    <span class="nav-label nav-label--full">{{ nav_insurance_name|truncatechars:28 }}</span>
+    <span class="nav-label nav-label--short" aria-hidden="true">Insurance</span>
+</a>
+{% endif %}
 <a href="{% url 'all-clients' %}" class="nav-link {% if 'client' in request.path %}active{% endif %}" role="menuitem">Clients</a>
+{% if nav_has_psb %}
 {% if automation_enabled %}
 <a href="{% url 'upcoming-expirations' %}" class="nav-link {% if 'automation' in request.path or 'expirations' in request.path %}active{% endif %}" role="menuitem">
     <span class="nav-label nav-label--full">Automation Hub</span>
@@ -29,7 +40,8 @@
 <a href="{% url 'all-referrals' %}" class="nav-link {% if 'referral' in request.path %}active{% endif %}" role="menuitem">Partners</a>
 {% endif %}
 {% if can_view_spaces %}
-<a href="{% url 'spaces-home' %}" class="nav-link {% if 'spaces' in request.path or 'inventory' in request.path or 'insurance' in request.path %}active{% endif %}" role="menuitem">Spaces</a>
+<a href="{% url 'spaces-home' %}" class="nav-link {% if 'spaces' in request.path or 'inventory' in request.path %}active{% endif %}" role="menuitem">Spaces</a>
+{% endif %}
 {% endif %}
 {% if can_manage_email_marketing %}
 <a href="{% url 'email-marketing-home' %}" class="nav-link {% if 'email-marketing' in request.path %}active{% endif %}" role="menuitem">

@@ -1,0 +1,198 @@
+{% extends "core/insurance_area/base.html" %}
+
+{% block insurance_actions %}
+{% if rn_is_manager %}
+<button type="button" class="ina-btn" onclick="document.getElementById('rnSettingsModal').classList.add('active')">Settings</button>
+{% endif %}
+{% endblock %}
+
+{% block insurance_page %}
+<nav class="rn-tabs" aria-label="Renewal views">
+  <a class="rn-tab{% if rn_view == 'open' %} is-active{% endif %}" href="?view=open">Open</a>
+  <a class="rn-tab{% if rn_view == 'closed' %} is-active{% endif %}" href="?view=closed">Closed</a>
+  <a class="rn-tab{% if rn_view == 'retention' %} is-active{% endif %}" href="?view=retention">Retention</a>
+</nav>
+
+<form class="rn-filters" method="get">
+  <input type="hidden" name="view" value="{{ rn_view }}">
+  {% if rn_view == 'open' %}<input type="hidden" name="when" value="{{ rn_when }}">{% endif %}
+  {% if rn_view != 'retention' %}
+  <input type="search" name="q" value="{{ rn_q }}" class="field-input rn-filters__q" placeholder="Client name or policy #" aria-label="Search renewals">
+  <select name="stage" class="field-input" aria-label="Stage" onchange="this.form.submit()">
+    <option value="">All stages</option>
+    {% if rn_view == 'closed' %}
+    <option value="renewed"{% if rn_stage == 'renewed' %} selected{% endif %}>Renewed</option>
+    <option value="rewritten"{% if rn_stage == 'rewritten' %} selected{% endif %}>Rewritten</option>
+    <option value="lost"{% if rn_stage == 'lost' %} selected{% endif %}>Lost</option>
+    {% else %}
+    {% for value, label in rn_open_stages %}<option value="{{ value }}"{% if rn_stage == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    {% endif %}
+  </select>
+  {% endif %}
+  {% if rn_is_manager %}
+  <select name="agent" class="field-input" aria-label="Agent" onchange="this.form.submit()">
+    <option value="">All agents</option>
+    <option value="me"{% if rn_agent == 'me' %} selected{% endif %}>Assigned to me</option>
+    <option value="none"{% if rn_agent == 'none' %} selected{% endif %}>Unassigned</option>
+    {% for m in rn_agents %}<option value="{{ m.user_id }}"{% if rn_agent == m.user_id|stringformat:'d' %} selected{% endif %}>{{ m.user.get_full_name|default:m.user.username }}</option>{% endfor %}
+  </select>
+  {% else %}
+  <select name="scope" class="field-input" aria-label="Whose renewals" onchange="this.form.submit()">
+    <option value="mine"{% if rn_mine %} selected{% endif %}>My renewals</option>
+    <option value="all"{% if not rn_mine %} selected{% endif %}>Whole office</option>
+  </select>
+  {% endif %}
+  {% if rn_view != 'retention' %}<button type="submit" class="ina-btn">Search</button>{% endif %}
+</form>
+
+{% if rn_view == 'retention' %}
+{% with t=rn_retention.total %}
+<section class="ina-tiles" aria-label="Retention summary">
+  <div class="ina-tile">
+    <span class="ina-tile__label">Retention rate</span>
+    <span class="ina-tile__value">{% if t.rate is not None %}{{ t.rate }}%{% else %}—{% endif %}</span>
+    <span class="ina-tile__hint">Renewals due in the last 12 months</span>
+  </div>
+  <div class="ina-tile">
+    <span class="ina-tile__label">Kept</span>
+    <span class="ina-tile__value">{{ t.won }}</span>
+    <span class="ina-tile__hint">${{ t.kept_premium|floatformat:2 }} premium</span>
+  </div>
+  <div class="ina-tile">
+    <span class="ina-tile__label">Lost</span>
+    <span class="ina-tile__value">{{ t.lost }}</span>
+    <span class="ina-tile__hint">${{ t.lost_premium|floatformat:2 }} premium</span>
+  </div>
+  <div class="ina-tile">
+    <span class="ina-tile__label">Still open</span>
+    <span class="ina-tile__value">{{ t.open }}</span>
+    <span class="ina-tile__hint">Not decided yet</span>
+  </div>
+</section>
+{% endwith %}
+
+<div class="rn-report-grid">
+  {% include "core/insurance_area/_retention_table.html" with title="By agent" rows=rn_retention.by_agent %}
+  {% include "core/insurance_area/_retention_table.html" with title="By company" rows=rn_retention.by_company %}
+  {% include "core/insurance_area/_retention_table.html" with title="By month" rows=rn_retention.by_month %}
+  <article class="td-panel">
+    <header class="td-panel__head"><div class="td-panel__titles"><h3>Why renewals were lost</h3></div></header>
+    {% if rn_retention.lost_reasons %}
+    <ul class="rn-reasons">
+      {% for label, count in rn_retention.lost_reasons %}
+      <li><span>{{ label }}</span><strong>{{ count }}</strong></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="td-empty">No lost renewals in this period.</p>
+    {% endif %}
+  </article>
+</div>
+
+{% else %}
+{% if rn_view == 'open' %}
+<div class="td-chips rn-when">
+  {% for chip in rn_chips %}
+  <a class="td-chip{% if chip.red %} is-red{% endif %}{% if rn_when == chip.key %} is-active{% endif %}" href="{{ chip.url }}"><strong>{{ chip.count }}</strong> {{ chip.label }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if rn_rows %}
+<div class="rn-list">
+  {% for row in rn_rows %}
+  {% with card=row.card policy=row.card.policy %}
+  <article class="rn-card{% if row.snoozed %} is-snoozed{% endif %}">
+    <a class="rn-card__main" href="{% url 'insurance-renewal-detail' card.id %}">
+      <span class="rn-card__name">{{ policy.client.first_name }} {{ policy.client.last_name }}</span>
+      <span class="rn-card__meta">
+        {{ policy.policy_number|default:"No policy #" }}{% if policy.insurance_company %} · {{ policy.insurance_company.name }}{% endif %}{% if policy.insurance_type %} · {{ policy.get_insurance_type_display }}{% endif %}
+      </span>
+    </a>
+    <div class="rn-card__money">
+      <span class="rn-card__premium">${{ policy.premium|floatformat:2 }}</span>
+      {% if card.new_policy %}
+      <span class="rn-card__delta">→ ${{ card.new_policy.premium|floatformat:2 }}</span>
+      {% endif %}
+    </div>
+    <div class="rn-card__when">
+      <span>{{ card.expiration_date|date:"M j, Y" }}</span>
+      {% if card.is_open %}
+      <span class="td-pill{% if row.days_left <= 7 %} is-red{% elif row.days_left <= 15 %} is-amber{% endif %}">
+        {% if row.days_left < 0 %}Expired{% elif row.days_left == 0 %}Today{% else %}{{ row.days_left }}d left{% endif %}
+      </span>
+      {% endif %}
+    </div>
+    <div class="rn-card__tags">
+      <span class="rn-stage is-{{ card.stage }}">{{ card.get_stage_display }}</span>
+      {% if card.stage == 'lost' and card.lost_reason %}<span class="td-pill is-muted">{{ card.get_lost_reason_display }}</span>{% endif %}
+      {% if row.reminder_due %}<span class="td-pill is-blue">Reminder due</span>{% endif %}
+      {% if row.snoozed %}<span class="td-pill is-muted">Snoozed to {{ card.snoozed_until|date:"M j" }}</span>{% endif %}
+    </div>
+    <div class="rn-card__who">
+      <span>{% if card.assigned_to %}{{ card.assigned_to.get_full_name|default:card.assigned_to.username }}{% else %}Unassigned{% endif %}</span>
+      <span class="rn-card__contact">{% if card.last_contacted_at %}Contacted {{ card.last_contacted_at|timesince }} ago{% else %}Not contacted{% endif %}</span>
+    </div>
+    <div class="td-actions">
+      {% if row.phone and card.is_open %}
+      <a class="td-act" href="tel:{{ row.phone }}" title="Call" aria-label="Call {{ policy.client.first_name }}">{% include "core/insurance_area/_icon.html" with name="phone" %}</a>
+      {% endif %}
+      <a class="td-act" href="{% url 'insurance-renewal-detail' card.id %}" title="Open" aria-label="Open renewal for {{ policy.client.first_name }}">{% include "core/insurance_area/_icon.html" with name="open" %}</a>
+    </div>
+  </article>
+  {% endwith %}
+  {% endfor %}
+</div>
+{% else %}
+<div class="rn-empty">
+  {% if rn_view == 'closed' %}No closed renewals yet.{% else %}No open renewals match. Cards appear {{ rn_settings.window_days }} days before a bound, active policy expires.{% endif %}
+</div>
+{% endif %}
+{% endif %}
+
+{% if rn_is_manager %}
+<div class="modal-overlay" id="rnSettingsModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="modal-box rn-settings">
+    <div class="rn-modal-head">
+      <h3>Renewal settings</h3>
+      <button type="button" class="rn-close" onclick="document.getElementById('rnSettingsModal').classList.remove('active')" aria-label="Close">&times;</button>
+    </div>
+    <form method="post" action="{% url 'insurance-renewal-settings' %}">
+      {% csrf_token %}
+      <input type="hidden" name="view" value="{{ rn_view }}">
+      <div class="rn-form-row">
+        <label class="field-label" for="rnWindow">Show a renewal card this many days before expiration</label>
+        <input id="rnWindow" type="number" min="7" max="180" name="window_days" class="field-input" value="{{ rn_settings.window_days }}" required>
+      </div>
+      <div class="rn-form-row">
+        <label class="field-label" for="rnReminders">Client reminder days</label>
+        <input id="rnReminders" type="text" name="reminder_days" class="field-input" value="{{ rn_settings.reminder_days }}" placeholder="45,30,15,7">
+        <p class="rn-help">Days before expiration when a reminder becomes due. The agent reviews and sends it.</p>
+      </div>
+      <div class="rn-form-row">
+        <label class="field-label" for="rnTarget">Daily collection goal ($)</label>
+        <input id="rnTarget" type="number" min="0" step="0.01" name="daily_collection_target" class="field-input" value="{{ rn_settings.daily_collection_target }}">
+        <p class="rn-help">Shown on Home. Leave 0 to compare with the last 7 days.</p>
+      </div>
+      <div class="rn-form-row">
+        <label class="field-label" for="rnSubject">Reminder email subject</label>
+        <input id="rnSubject" type="text" name="email_subject" class="field-input" maxlength="180" value="{{ rn_settings.email_subject }}">
+      </div>
+      <div class="rn-form-row">
+        <label class="field-label" for="rnBody">Reminder email</label>
+        <textarea id="rnBody" name="email_body" class="field-input" rows="7">{{ rn_settings.email_body }}</textarea>
+      </div>
+      <div class="rn-form-row">
+        <label class="field-label" for="rnText">Text message</label>
+        <textarea id="rnText" name="text_body" class="field-input" rows="3">{{ rn_settings.text_body }}</textarea>
+        <p class="rn-help">You can use {first_name}, {client_name}, {policy_number}, {company}, {expiration_date}, {premium}, {agent_name}, {agency_name}, {agency_phone}, {agency_email}.</p>
+      </div>
+      <div class="rn-modal-foot">
+        <button type="button" class="ina-btn" onclick="document.getElementById('rnSettingsModal').classList.remove('active')">Cancel</button>
+        <button type="submit" class="ina-btn ina-btn--primary">Save settings</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

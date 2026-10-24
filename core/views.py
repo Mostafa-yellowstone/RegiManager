@@ -976,8 +976,10 @@ def client_detail(request, client_id):
     insurance_payments = insurance_payments_paginator.get_page(request.GET.get("ins_pay_page"))
     enrich_daily_transactions(list(insurance_payments.object_list))
 
+    client_has_psb = client.organization.has_psb_portal
     show_insurance_section = (
-        bool(insurance_policies)
+        not client_has_psb
+        or bool(insurance_policies)
         or insurance_payments_paginator.count > 0
         or (client.source or "").lower() == "insurance"
     )
@@ -1014,8 +1016,36 @@ def client_detail(request, client_id):
 
     chat_unread = unread_for_staff(client)
 
+    from .products import can_use_insurance
+
+    insights = {}
+    if can_use_insurance(request.user, client.organization):
+        from .insurance_client_insights import (
+            client_timeline,
+            coverage_gaps,
+            household_suggestions,
+            household_summary,
+            timeline_kinds,
+        )
+        from .insurance_household_models import InsuranceHouseholdMember
+        from .insurance_radar import client_radar_items
+
+        timeline = client_timeline(client, include_dmv=client_has_psb)
+        insights = {
+            "show_client_insights": True,
+            "radar_items": client_radar_items(client),
+            "household": household_summary(client),
+            "household_suggestions": household_suggestions(client),
+            "household_relationships": InsuranceHouseholdMember.Relationship.choices,
+            "coverage_gaps": coverage_gaps(client),
+            "timeline": timeline,
+            "timeline_kinds": timeline_kinds(timeline),
+        }
+
     return render(request, "core/client_profile.html", {
+        **insights,
         "client": client,
+        "client_has_psb": client_has_psb,
         "vehicles": vehicles,
         "records": records,
         "documents": all_docs,
@@ -6557,27 +6587,624 @@ def inventory_list(request):
 
 
 def _redirect_to_insurance_detail(org, tab=None, query_params=None, request=None):
-    from django.urls import reverse
-
-    from .models import Space
+    from .insurance_area_views import insurance_url_for_tab
     from .policies import redirect_back
 
-    insurance_card = Space.objects.filter(organization=org, key="insurance").first()
-    if insurance_card:
-        url = reverse("inventory-detail", kwargs={"inventory_id": insurance_card.id})
-        params = []
-        if tab:
-            params.append(f"tab={tab}")
-        if query_params:
-            params.extend(query_params)
-        if params:
-            url += "?" + "&".join(params)
-        if request is not None:
-            return redirect_back(request, url)
-        return redirect(url)
+    url = insurance_url_for_tab(tab, query_params)
     if request is not None:
-        return redirect_back(request, reverse("spaces-home"))
-    return redirect("spaces-home")
+        return redirect_back(request, url)
+    return redirect(url)
+
+
+def build_insurance_context(request, card, membership, is_owner, user_can_view_banking, sections=None):
+    """Insurance context for the given page sections (all when None).
+
+    Returns an HttpResponse for the live CRM table partial.
+    """
+    from .models import Client
+
+    def want(*names):
+        return sections is None or any(name in sections for name in names)
+
+    from .models import InsuranceCompany, InsurancePolicy, BankAccount, BankTransaction
+    active_org = card.organization
+    
+    clients = Client.objects.filter(organization=active_org).order_by("first_name", "last_name")[:500]
+    insurance_companies = prefetch_insurance_companies(active_org)
+    bank_accounts = BankAccount.objects.filter(organization=active_org)
+    all_bank_transactions = BankTransaction.objects.filter(bank_account__organization=active_org).select_related("bank_account", "insurance_company")
+    
+    # Get query parameters for filtering
+    search_query = request.GET.get("q", "").strip()
+    stage_filter = request.GET.get("stage", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+    type_filter = request.GET.get("insurance_type", "").strip()
+    source_filter = request.GET.get("source", "").strip()
+    business_type_filter = request.GET.get("business_type", "").strip()
+    date_from = request.GET.get("date_from", "").strip()
+    date_to = request.GET.get("date_to", "").strip()
+    company_filter = request.GET.get("insurance_company", "").strip()
+    agent_filter = request.GET.get("agent", "").strip()
+    min_premium = request.GET.get("min_premium", "").strip()
+    max_premium = request.GET.get("max_premium", "").strip()
+
+    comp_mode = request.GET.get("comp_mode", "monthly").strip()
+    comp_month_offset = 0
+    try:
+        comp_month_offset = int(request.GET.get("comp_month_offset", "0"))
+    except Exception:
+        pass
+    comp_custom_from = request.GET.get("comp_from", "").strip()
+    comp_custom_to = request.GET.get("comp_to", "").strip()
+    comp_start, comp_end = resolve_insurance_period_bounds(
+        comp_mode, comp_month_offset, comp_custom_from, comp_custom_to
+    )
+    prev_start, prev_end = previous_insurance_period_bounds(
+        comp_mode, comp_month_offset, comp_custom_from, comp_custom_to
+    )
+
+    # Base query for all policies
+    all_policies = InsurancePolicy.objects.filter(organization=active_org).select_related("client", "insurance_company", "added_by")
+
+    # Filter policies for the CRM table (selected period uses quote date)
+    policies = filter_policies_by_quote_period(all_policies, comp_start, comp_end)
+    if search_query:
+        policies = filter_policies_by_search(policies, search_query)
+    if stage_filter:
+        policies = policies.filter(stage=stage_filter)
+    if status_filter:
+        policies = policies.filter(status=status_filter)
+    if type_filter:
+        policies = policies.filter(insurance_type=type_filter)
+    if source_filter:
+        policies = policies.filter(source=source_filter)
+    if business_type_filter:
+        policies = policies.filter(business_type=business_type_filter)
+    if date_from:
+        policies = policies.filter(bound_date__gte=date_from)
+    if date_to:
+        policies = policies.filter(bound_date__lte=date_to)
+    if company_filter:
+        policies = policies.filter(insurance_company_id=company_filter)
+    if agent_filter:
+        policies = policies.filter(added_by_id=agent_filter)
+    if min_premium:
+        try:
+            policies = policies.filter(premium__gte=Decimal(min_premium))
+        except Exception:
+            pass
+    if max_premium:
+        try:
+            policies = policies.filter(premium__lte=Decimal(max_premium))
+        except Exception:
+            pass
+
+    if request.GET.get("partial") == "crm_policies":
+        crm_page_num = request.GET.get("page", 1)
+        crm_policies_page = Paginator(
+            policies.order_by(*quote_period_ordering()), 12
+        ).get_page(crm_page_num)
+        decorate_policies(crm_policies_page, {})
+        for policy in crm_policies_page:
+            policy.can_edit = can_edit_insurance_policy(
+                request.user, policy, membership=membership
+            )
+        query = request.GET.copy()
+        query.pop("page", None)
+        query.pop("partial", None)
+        query["tab"] = "insurance"
+        return render(
+            request,
+            "core/partials/insurance_crm_policies_table.html",
+            {
+                "policies": crm_policies_page,
+                "crm_policies_page": crm_policies_page,
+                "user_can_view_banking": user_can_view_banking,
+                "can_delete_insurance_policies": bool(
+                    request.user.is_superuser
+                    or (membership and is_owner_or_manager_role(membership.role))
+                ),
+                "insurance_policies_query_string": query.urlencode(),
+            },
+        )
+
+    # ── Banking period hero + advanced filters ────────────────────────────
+    bank_period_raw = request.GET.get("bank_period", "month").strip()
+    bank_search = request.GET.get("bq", "").strip()
+    bank_account_filter = request.GET.get("bank_account", "").strip()
+    bank_type_filter = request.GET.get("bank_type", "").strip()
+    bank_category_filter = request.GET.get("bank_category", "").strip()
+    bank_company_filter = request.GET.get("bank_company", "").strip()
+    bank_date_from = request.GET.get("bank_date_from", "").strip()
+    bank_date_to = request.GET.get("bank_date_to", "").strip()
+    bank_min_amount = request.GET.get("bank_min_amount", "").strip()
+    bank_max_amount = request.GET.get("bank_max_amount", "").strip()
+
+    bank_period_start, bank_period_end, bank_period = resolve_bank_period_bounds(
+        bank_period_raw, bank_date_from, bank_date_to, today=timezone.localdate()
+    )
+    # Keep date inputs in sync with selected period pills (except custom/all).
+    if bank_period not in ("custom", "all"):
+        bank_date_from = bank_period_start.isoformat() if bank_period_start else ""
+        bank_date_to = bank_period_end.isoformat() if bank_period_end else ""
+    elif bank_period == "all":
+        bank_date_from = ""
+        bank_date_to = ""
+
+    if want("finance"):
+        bank_cashflow = bank_cashflow_metrics(
+            all_bank_transactions, bank_period_start, bank_period_end
+        )
+        total_bank_balance = bank_accounts.aggregate(total=Sum("balance"))["total"] or Decimal("0.00")
+    else:
+        bank_cashflow = {}
+        total_bank_balance = Decimal("0.00")
+
+    bank_transactions = all_bank_transactions
+    if bank_search:
+        bank_transactions = apply_text_search(
+            bank_transactions,
+            bank_search,
+            ["category", "description", "bank_account__account_name"],
+        )
+    if bank_account_filter:
+        bank_transactions = bank_transactions.filter(bank_account_id=bank_account_filter)
+    if bank_type_filter:
+        bank_transactions = bank_transactions.filter(transaction_type=bank_type_filter)
+    if bank_category_filter:
+        bank_transactions = bank_transactions.filter(category__icontains=bank_category_filter)
+    if bank_company_filter:
+        bank_transactions = bank_transactions.filter(insurance_company_id=bank_company_filter)
+    if bank_date_from:
+        bank_transactions = bank_transactions.filter(date__gte=bank_date_from)
+    if bank_date_to:
+        bank_transactions = bank_transactions.filter(date__lte=bank_date_to)
+    if bank_min_amount:
+        try:
+            bank_transactions = bank_transactions.filter(amount__gte=Decimal(bank_min_amount))
+        except Exception:
+            pass
+    if bank_max_amount:
+        try:
+            bank_transactions = bank_transactions.filter(amount__lte=Decimal(bank_max_amount))
+        except Exception:
+            pass
+
+    # Global metrics calculations (unfiltered total stats)
+    active_policies = all_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="active")
+    inactive_policies = all_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="inactive")
+
+    active_totals = active_policies.aggregate(
+        total_premium=Sum("premium"),
+        total_commission=Sum("commission_amount"),
+    )
+    total_premium = active_totals["total_premium"] or Decimal("0")
+    total_commission = active_totals["total_commission"] or Decimal("0")
+
+    # ── CRM Comparison Stats ──────────────────────────────────────────────
+    comp_current = period_stats(all_policies, comp_start, comp_end)
+    comp_previous = period_stats(all_policies, prev_start, prev_end)
+    comp_period_label = f"{comp_start.strftime('%b %d')} – {comp_end.strftime('%b %d, %Y')}"
+    prev_period_label = f"{prev_start.strftime('%b %d')} – {prev_end.strftime('%b %d, %Y')}"
+
+    from .insurance_commissions import policy_unearned_commission
+
+    if want("policies", "companies", "finance"):
+        inactive_for_unearned = InsurancePolicy.objects.filter(
+            organization=active_org,
+            stage__in=InsurancePolicy.BOUND_STAGES,
+            status="inactive",
+        ).only(
+            "id",
+            "stage",
+            "status",
+            "commission_amount",
+            "inactive_date",
+            "start_date",
+            "end_date",
+            "insurance_period_months",
+            "insurance_company_id",
+        )
+        adjusted_unearned_map = build_adjusted_unearned_for_org(
+            insurance_companies, inactive_for_unearned
+        )
+    else:
+        inactive_for_unearned = []
+        adjusted_unearned_map = {}
+    company_summaries = (
+        build_company_summaries(insurance_companies, all_policies) if want("companies") else []
+    )
+    from .insurance_company_license import (
+        companies_needing_license_attention,
+        sync_org_company_license_alerts,
+    )
+
+    try:
+        sync_org_company_license_alerts(active_org)
+    except Exception:
+        pass
+    license_attention = companies_needing_license_attention(active_org)
+    license_attention_has_expired = any(
+        row["status"]["state"] == "expired" for row in license_attention
+    )
+    total_unearned_commission = sum(
+        adjusted_unearned_map.get(p.id, policy_unearned_commission(p))
+        for p in inactive_for_unearned
+    )
+
+    if want("policies"):
+        crm_page_num = request.GET.get("page", 1)
+        crm_policies_page = Paginator(policies.order_by(*quote_period_ordering()), 12).get_page(crm_page_num)
+        decorate_policies(crm_policies_page, adjusted_unearned_map)
+        for policy in crm_policies_page:
+            policy.can_edit = can_edit_insurance_policy(
+                request.user, policy, membership=membership
+            )
+    else:
+        crm_policies_page = None
+    can_delete_insurance_policies = bool(
+        request.user.is_superuser
+        or (membership and is_owner_or_manager_role(membership.role))
+    )
+
+    insurance_policies_query = request.GET.copy()
+    insurance_policies_query.pop("page", None)
+    insurance_policies_query["tab"] = "insurance"
+    insurance_policies_query_string = insurance_policies_query.urlencode()
+
+    month_prev_query = insurance_policies_query.copy()
+    month_prev_query["comp_month_offset"] = str(comp_month_offset - 1)
+    insurance_month_prev_query_string = month_prev_query.urlencode()
+    month_next_query = insurance_policies_query.copy()
+    month_next_query["comp_month_offset"] = str(comp_month_offset + 1)
+    insurance_month_next_query_string = month_next_query.urlencode()
+
+    if want("finance"):
+        bank_transactions_page = Paginator(
+            bank_transactions.order_by("-date", "-created_at"), 20
+        ).get_page(request.GET.get("bank_page", 1))
+    else:
+        bank_transactions_page = None
+
+    bank_transactions_query = request.GET.copy()
+    bank_transactions_query.pop("bank_page", None)
+    bank_transactions_query["tab"] = "banking"
+    bank_transactions_query_string = bank_transactions_query.urlencode()
+
+    insurance_memberships = OrganizationMembership.objects.filter(
+        organization=active_org,
+        can_deal_with_insurance=True,
+        is_active=True,
+        user__is_active=True,
+    ).select_related("user")
+    if want("agents"):
+        agent_stats, best_performer = build_agent_stats(
+            all_policies, insurance_memberships, comp_start, comp_end
+        )
+    else:
+        agent_stats, best_performer = [], None
+
+    chart_agent_names = [s["fullname"] for s in agent_stats]
+    chart_agent_premiums = [float(s["total_premium"]) for s in agent_stats]
+    chart_agent_profits = [float(s["total_profit"]) for s in agent_stats]
+    
+    agent_chart_data = {
+        "names": chart_agent_names,
+        "premiums": chart_agent_premiums,
+        "profits": chart_agent_profits,
+    }
+    
+    import json
+    agent_chart_data_json = json.dumps(agent_chart_data)
+    
+    # Build automatic analysis
+    analysis_points = []
+    if best_performer:
+        from django.utils.html import escape
+
+        analysis_points.append(f"🏆 <strong>{escape(best_performer['fullname'])}</strong> is the top performer this period, driving a total of <strong>${best_performer['total_premium']:,.2f}</strong> in premium volume.")
+    
+    total_quotes = sum(s["quotes_count"] for s in agent_stats)
+    total_bound = sum(s["policies_bound"] for s in agent_stats)
+    
+    if total_quotes > 0 or total_bound > 0:
+        total_leads = total_quotes + total_bound
+        conversion_rate = (total_bound / total_leads * 100) if total_leads > 0 else 0
+        analysis_points.append(f"📈 Overall quote-to-bind conversion rate is <strong>{conversion_rate:.1f}%</strong> across all active insurance agents.")
+    else:
+        analysis_points.append("ℹ️ Quote-to-bind conversion rate cannot be calculated (no quotes/policies logged yet).")
+        
+    avg_premium = (sum(s["total_premium"] for s in agent_stats) / total_bound) if total_bound > 0 else Decimal("0.00")
+    if avg_premium > 0:
+        analysis_points.append(f"💼 Average premium per bound policy is <strong>${avg_premium:,.2f}</strong>.")
+        
+    total_agent_profits = sum(s["total_profit"] for s in agent_stats)
+    if total_agent_profits > 0:
+        analysis_points.append(f"💵 Total profits brought in by all agents (commission + broker fees) is <strong>${total_agent_profits:,.2f}</strong>.")
+        
+    income_categories = json.dumps(["Insurance Premium Receipt", "Commission Payment", "Producer Repayment", "Interest", "Other Income"])
+    expense_categories = json.dumps(["Rent", "Utilities", "Payroll", "Producer Commission", "Office Supplies", "Marketing", "Other Expense"])
+
+    # Daily Payment Transactions
+    from datetime import datetime as dt_parse
+    from .models import DailyPaymentTransaction
+    from .daily_payments import (
+        DAILY_PAGE_SIZE,
+        daily_filter_query,
+        daily_period,
+        filter_daily_transactions,
+        resolve_daily_filters,
+        summarize_daily_payments,
+        enrich_daily_transactions,
+        compute_payable_total,
+        sum_payment_grand_totals,
+    )
+
+    if want("payments"):
+        daily_filters = resolve_daily_filters(request, active_org.id)
+        daily_range_start, daily_range_end, daily_is_range = daily_period(daily_filters)
+        daily_payment_date = timezone.localdate() if daily_is_range else daily_range_start
+
+        daily_tx_qs = filter_daily_transactions(
+            DailyPaymentTransaction.objects.filter(
+                organization=active_org,
+                transaction_date__gte=daily_range_start,
+                transaction_date__lte=daily_range_end,
+            ),
+            daily_filters,
+        )
+        daily_method_cards, daily_grand_total = summarize_daily_payments(
+            daily_tx_qs.only(
+                "payment_method", "payment_type", "amount", "section_2119", "broker_fee", "credit_card_fee"
+            ).iterator()
+        )
+        daily_page_obj = Paginator(
+            daily_tx_qs.select_related(
+                "client", "recorded_by", "updated_by", "insurance_policy", "insurance_company"
+            ).order_by("-transaction_date", "-id"),
+            DAILY_PAGE_SIZE,
+        ).get_page(request.GET.get("daily_page"))
+        daily_transactions = enrich_daily_transactions(list(daily_page_obj.object_list))
+        daily_filter_qs = daily_filter_query(daily_filters)
+        daily_has_filters = any(
+            daily_filters.get(key)
+            for key in ("daily_company", "daily_method", "daily_type", "daily_agent", "daily_q", "daily_min", "daily_max")
+        )
+
+        daily_available_dates = list(
+            DailyPaymentTransaction.objects.filter(organization=active_org)
+            .order_by("-transaction_date")
+            .values_list("transaction_date", flat=True)
+            .distinct()[:90]
+        )
+        daily_is_today = not daily_is_range and daily_payment_date == timezone.localdate()
+    else:
+        daily_filters = {}
+        daily_range_start = daily_range_end = None
+        daily_is_range = False
+        daily_payment_date = timezone.localdate()
+        daily_method_cards, daily_grand_total = [], Decimal("0.00")
+        daily_page_obj = None
+        daily_transactions = []
+        daily_filter_qs = ""
+        daily_has_filters = False
+        daily_available_dates = []
+        daily_is_today = False
+    if want("payments", "reports"):
+        daily_payable_total = compute_payable_total(active_org)
+        today_local = timezone.localdate()
+        mtd_collections = sum_payment_grand_totals(
+            DailyPaymentTransaction.objects.filter(
+                organization=active_org,
+                transaction_date__gte=today_local.replace(day=1),
+                transaction_date__lte=today_local,
+            )
+        )
+    else:
+        daily_payable_total = mtd_collections = Decimal("0.00")
+
+    from .insurance_quote_pipeline_views import build_quote_pipeline_context
+    from .insurance_quote_permissions import membership_for_org as quote_membership_for_org
+
+    if want("pipeline"):
+        quote_membership = membership or quote_membership_for_org(request.user, active_org)
+        quote_pipeline = build_quote_pipeline_context(
+            request, active_org, quote_membership
+        )
+    else:
+        quote_pipeline = {}
+
+    from .insurance_targets_metrics import (
+        build_insurance_targets_dashboard,
+        resolve_target_month,
+    )
+
+    if want("targets"):
+        target_year, target_month = resolve_target_month(
+            request.GET.get("target_month", ""),
+            today=timezone.localdate(),
+        )
+        insurance_targets = build_insurance_targets_dashboard(
+            active_org,
+            all_policies,
+            year=target_year,
+            month=target_month,
+            today=timezone.localdate(),
+            type_options=_insurance_type_options_for_org(active_org),
+        )
+        from .insurance_targets_metrics import serialize_targets_dashboard
+        import json as _json
+
+        _dash_json = serialize_targets_dashboard(insurance_targets)
+        insurance_targets["trends_json"] = _json.dumps(_dash_json["trends"])
+        insurance_targets["charts_json"] = _json.dumps(
+            {
+                "trends": _dash_json["trends"],
+                "lines": [
+                    {
+                        "label": c["label"],
+                        "premium_actual": c["premium_actual"],
+                        "premium_target": c["premium_target"],
+                        "commission_actual": c["commission_actual"],
+                        "binds": c["binds"],
+                        "quotes": c["quotes"],
+                        "conversion": c["conversion"],
+                        "progress_pct": c["progress_pct"],
+                    }
+                    for c in _dash_json["line_cards"]
+                    if c.get("is_active")
+                    or float(c.get("premium_actual") or 0)
+                    or float(c.get("premium_target") or 0)
+                    or c.get("binds")
+                    or c.get("quotes")
+                ],
+                "premium_pace": _dash_json["premium_pace"],
+                "commission_pace": _dash_json["commission_pace"],
+                "totals": _dash_json["totals"],
+            }
+        ).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    else:
+        insurance_targets = {}
+    can_edit_insurance_targets = bool(
+        is_owner or user_can_view_banking
+    )
+    from .insurance_esign_views import build_esign_tab_context
+    if want("esign"):
+        esign_tab = build_esign_tab_context(
+            active_org, request=request, membership=membership, is_owner=is_owner
+        )
+    else:
+        esign_tab = {}
+    from .models import InsuranceProducer
+
+    producers_tab = {}
+    if user_can_view_banking and want("producers", "reports"):
+        from .insurance_producer_views import build_producers_tab_context
+
+        producers_tab = build_producers_tab_context(active_org)
+
+    context = {
+        "card": card,
+        "is_owner": is_owner,
+        "active_org": active_org,
+        "clients": clients,
+        "referral_partners": Referral.objects.filter(organization=active_org).order_by("name", "category"),
+        "insurance_companies": insurance_companies,
+        "company_summaries": company_summaries,
+        "license_attention": license_attention,
+        "license_attention_has_expired": license_attention_has_expired,
+        "policies": crm_policies_page,
+        "crm_policies_page": crm_policies_page,
+        "bank_accounts": bank_accounts,
+        "bank_transactions": bank_transactions_page,
+        "bank_transactions_page": bank_transactions_page,
+        "bank_period": bank_period,
+        "bank_period_start": bank_period_start,
+        "bank_period_end": bank_period_end,
+        "bank_cashflow": bank_cashflow,
+        "total_bank_balance": total_bank_balance,
+        "total_premium": total_premium,
+        "total_commission": total_commission,
+        "total_unearned_commission": total_unearned_commission,
+        "active_policies_count": active_policies.count(),
+        "inactive_policies_count": inactive_policies.count(),
+        "income_categories": income_categories,
+        "expense_categories": expense_categories,
+        
+        # Auditing details
+        "insurance_agents": insurance_memberships,
+        "agent_stats": agent_stats,
+        "best_performer": best_performer,
+        "agent_chart_data_json": agent_chart_data_json,
+        "analysis_points": analysis_points,
+        "total_quotes_count": total_quotes,
+        "total_policies_bound": total_bound,
+        "total_agent_profits": total_agent_profits,
+        
+        # CRM comparison
+        "comp_mode": comp_mode,
+        "comp_month_offset": comp_month_offset,
+        "comp_custom_from": comp_custom_from,
+        "comp_custom_to": comp_custom_to,
+        "comp_current": comp_current,
+        "comp_previous": comp_previous,
+        "comp_period_label": comp_period_label,
+        "prev_period_label": prev_period_label,
+
+        # Banking filters persistence
+        "bank_search": bank_search,
+        "bank_account_filter": bank_account_filter,
+        "bank_type_filter": bank_type_filter,
+        "bank_category_filter": bank_category_filter,
+        "bank_company_filter": bank_company_filter,
+        "bank_date_from": bank_date_from,
+        "bank_date_to": bank_date_to,
+        "bank_min_amount": bank_min_amount,
+        "bank_max_amount": bank_max_amount,
+
+        # Query filters to persist in form fields
+        "search_query": search_query,
+        "stage_filter": stage_filter,
+        "status_filter": status_filter,
+        "type_filter": type_filter,
+        "source_filter": source_filter,
+        "business_type_filter": business_type_filter,
+        "date_from": date_from,
+        "date_to": date_to,
+        "company_filter": company_filter,
+        "agent_filter": agent_filter,
+        "min_premium": min_premium,
+        "max_premium": max_premium,
+        "insurance_policies_query_string": insurance_policies_query_string,
+        "insurance_month_prev_query_string": insurance_month_prev_query_string,
+        "insurance_month_next_query_string": insurance_month_next_query_string,
+        "bank_transactions_query_string": bank_transactions_query_string,
+        "insurance_source_choices": INSURANCE_SOURCE_CHOICES,
+        "user_can_view_banking": user_can_view_banking,
+        "user_can_clear_daily_payments": user_can_view_banking,
+        "can_delete_insurance_policies": can_delete_insurance_policies,
+        "ledger_default_from": timezone.localdate().replace(day=1).isoformat(),
+        "ledger_default_to": timezone.localdate().isoformat(),
+
+        # Daily payments tab
+        "daily_payment_date": daily_payment_date,
+        "daily_is_today": daily_is_today,
+        "daily_transactions": daily_transactions,
+        "daily_method_cards": daily_method_cards,
+        "daily_grand_total": daily_grand_total,
+        "daily_payable_total": daily_payable_total,
+        "mtd_collections": mtd_collections,
+        "daily_available_dates": daily_available_dates,
+        "daily_filters": daily_filters,
+        "daily_is_range": daily_is_range,
+        "daily_range_start": daily_range_start,
+        "daily_range_end": daily_range_end,
+        "daily_page_obj": daily_page_obj,
+        "daily_filter_qs": daily_filter_qs,
+        "daily_has_filters": daily_has_filters,
+        "daily_method_filter": daily_filters.get("daily_method", ""),
+        "daily_type_filter": daily_filters.get("daily_type", ""),
+        "daily_agent_filter": daily_filters.get("daily_agent", ""),
+        "daily_company_filter": daily_filters.get("daily_company", ""),
+        "daily_search": daily_filters.get("daily_q", ""),
+        "daily_min_amount": daily_filters.get("daily_min", ""),
+        "daily_max_amount": daily_filters.get("daily_max", ""),
+        "daily_payment_method_choices": DailyPaymentTransaction.PaymentMethod.choices,
+        "insurance_type_options": _insurance_type_options_for_org(active_org),
+        "user_can_manage_insurance_intake": False,
+        "pending_insurance_intakes": [],
+        "pending_insurance_intake_count": 0,
+        "insurance_intake_portal_url": "",
+        **quote_pipeline,
+        "insurance_targets": insurance_targets,
+        "can_edit_insurance_targets": can_edit_insurance_targets,
+        **esign_tab,
+        "insurance_producers": InsuranceProducer.objects.filter(
+            organization=active_org, is_active=True
+        ).order_by("name"),
+        **producers_tab,
+    }
+    return context
 
 
 @login_required
@@ -6586,6 +7213,12 @@ def inventory_detail(request, inventory_id):
     organizations = _get_user_organizations(request)
 
     card = get_object_or_404(Space, id=inventory_id, organization__in=organizations)
+
+    if card.key == "insurance":
+        from .insurance_area_views import insurance_url_for_tab
+
+        request.session["active_org_id"] = card.organization_id
+        return redirect(insurance_url_for_tab(request.GET.get("tab"), request.GET))
 
     # Resolve membership and ownership
     if request.user.is_superuser:
@@ -6638,564 +7271,6 @@ def inventory_detail(request, inventory_id):
         return redirect("inventory-detail", inventory_id=card.id)
 
     # Special handling for the "Insurance" Space card
-    if card.key == "insurance":
-        from .models import InsuranceCompany, InsurancePolicy, BankAccount, BankTransaction
-        active_org = card.organization
-        
-        clients = Client.objects.filter(organization=active_org).order_by("first_name", "last_name")[:500]
-        insurance_companies = prefetch_insurance_companies(active_org)
-        bank_accounts = BankAccount.objects.filter(organization=active_org)
-        all_bank_transactions = BankTransaction.objects.filter(bank_account__organization=active_org).select_related("bank_account", "insurance_company")
-        
-        # Get query parameters for filtering
-        search_query = request.GET.get("q", "").strip()
-        stage_filter = request.GET.get("stage", "").strip()
-        status_filter = request.GET.get("status", "").strip()
-        type_filter = request.GET.get("insurance_type", "").strip()
-        source_filter = request.GET.get("source", "").strip()
-        business_type_filter = request.GET.get("business_type", "").strip()
-        date_from = request.GET.get("date_from", "").strip()
-        date_to = request.GET.get("date_to", "").strip()
-        company_filter = request.GET.get("insurance_company", "").strip()
-        agent_filter = request.GET.get("agent", "").strip()
-        min_premium = request.GET.get("min_premium", "").strip()
-        max_premium = request.GET.get("max_premium", "").strip()
-
-        comp_mode = request.GET.get("comp_mode", "monthly").strip()
-        comp_month_offset = 0
-        try:
-            comp_month_offset = int(request.GET.get("comp_month_offset", "0"))
-        except Exception:
-            pass
-        comp_custom_from = request.GET.get("comp_from", "").strip()
-        comp_custom_to = request.GET.get("comp_to", "").strip()
-        comp_start, comp_end = resolve_insurance_period_bounds(
-            comp_mode, comp_month_offset, comp_custom_from, comp_custom_to
-        )
-        prev_start, prev_end = previous_insurance_period_bounds(
-            comp_mode, comp_month_offset, comp_custom_from, comp_custom_to
-        )
-
-        # Base query for all policies
-        all_policies = InsurancePolicy.objects.filter(organization=active_org).select_related("client", "insurance_company", "added_by")
-
-        # Filter policies for the CRM table (selected period uses quote date)
-        policies = filter_policies_by_quote_period(all_policies, comp_start, comp_end)
-        if search_query:
-            policies = filter_policies_by_search(policies, search_query)
-        if stage_filter:
-            policies = policies.filter(stage=stage_filter)
-        if status_filter:
-            policies = policies.filter(status=status_filter)
-        if type_filter:
-            policies = policies.filter(insurance_type=type_filter)
-        if source_filter:
-            policies = policies.filter(source=source_filter)
-        if business_type_filter:
-            policies = policies.filter(business_type=business_type_filter)
-        if date_from:
-            policies = policies.filter(bound_date__gte=date_from)
-        if date_to:
-            policies = policies.filter(bound_date__lte=date_to)
-        if company_filter:
-            policies = policies.filter(insurance_company_id=company_filter)
-        if agent_filter:
-            policies = policies.filter(added_by_id=agent_filter)
-        if min_premium:
-            try:
-                policies = policies.filter(premium__gte=Decimal(min_premium))
-            except Exception:
-                pass
-        if max_premium:
-            try:
-                policies = policies.filter(premium__lte=Decimal(max_premium))
-            except Exception:
-                pass
-
-        if request.GET.get("partial") == "crm_policies":
-            crm_page_num = request.GET.get("page", 1)
-            crm_policies_page = Paginator(
-                policies.order_by(*quote_period_ordering()), 12
-            ).get_page(crm_page_num)
-            decorate_policies(crm_policies_page, {})
-            for policy in crm_policies_page:
-                policy.can_edit = can_edit_insurance_policy(
-                    request.user, policy, membership=membership
-                )
-            query = request.GET.copy()
-            query.pop("page", None)
-            query.pop("partial", None)
-            query["tab"] = "insurance"
-            return render(
-                request,
-                "core/partials/insurance_crm_policies_table.html",
-                {
-                    "policies": crm_policies_page,
-                    "crm_policies_page": crm_policies_page,
-                    "user_can_view_banking": user_can_view_banking,
-                    "can_delete_insurance_policies": bool(
-                        request.user.is_superuser
-                        or (membership and is_owner_or_manager_role(membership.role))
-                    ),
-                    "insurance_policies_query_string": query.urlencode(),
-                },
-            )
-
-        # ── Banking period hero + advanced filters ────────────────────────────
-        bank_period_raw = request.GET.get("bank_period", "month").strip()
-        bank_search = request.GET.get("bq", "").strip()
-        bank_account_filter = request.GET.get("bank_account", "").strip()
-        bank_type_filter = request.GET.get("bank_type", "").strip()
-        bank_category_filter = request.GET.get("bank_category", "").strip()
-        bank_company_filter = request.GET.get("bank_company", "").strip()
-        bank_date_from = request.GET.get("bank_date_from", "").strip()
-        bank_date_to = request.GET.get("bank_date_to", "").strip()
-        bank_min_amount = request.GET.get("bank_min_amount", "").strip()
-        bank_max_amount = request.GET.get("bank_max_amount", "").strip()
-
-        bank_period_start, bank_period_end, bank_period = resolve_bank_period_bounds(
-            bank_period_raw, bank_date_from, bank_date_to, today=timezone.localdate()
-        )
-        # Keep date inputs in sync with selected period pills (except custom/all).
-        if bank_period not in ("custom", "all"):
-            bank_date_from = bank_period_start.isoformat() if bank_period_start else ""
-            bank_date_to = bank_period_end.isoformat() if bank_period_end else ""
-        elif bank_period == "all":
-            bank_date_from = ""
-            bank_date_to = ""
-
-        bank_cashflow = bank_cashflow_metrics(
-            all_bank_transactions, bank_period_start, bank_period_end
-        )
-        total_bank_balance = bank_accounts.aggregate(total=Sum("balance"))["total"] or Decimal("0.00")
-
-        bank_transactions = all_bank_transactions
-        if bank_search:
-            bank_transactions = apply_text_search(
-                bank_transactions,
-                bank_search,
-                ["category", "description", "bank_account__account_name"],
-            )
-        if bank_account_filter:
-            bank_transactions = bank_transactions.filter(bank_account_id=bank_account_filter)
-        if bank_type_filter:
-            bank_transactions = bank_transactions.filter(transaction_type=bank_type_filter)
-        if bank_category_filter:
-            bank_transactions = bank_transactions.filter(category__icontains=bank_category_filter)
-        if bank_company_filter:
-            bank_transactions = bank_transactions.filter(insurance_company_id=bank_company_filter)
-        if bank_date_from:
-            bank_transactions = bank_transactions.filter(date__gte=bank_date_from)
-        if bank_date_to:
-            bank_transactions = bank_transactions.filter(date__lte=bank_date_to)
-        if bank_min_amount:
-            try:
-                bank_transactions = bank_transactions.filter(amount__gte=Decimal(bank_min_amount))
-            except Exception:
-                pass
-        if bank_max_amount:
-            try:
-                bank_transactions = bank_transactions.filter(amount__lte=Decimal(bank_max_amount))
-            except Exception:
-                pass
-
-        # Global metrics calculations (unfiltered total stats)
-        active_policies = all_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="active")
-        inactive_policies = all_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="inactive")
-
-        active_totals = active_policies.aggregate(
-            total_premium=Sum("premium"),
-            total_commission=Sum("commission_amount"),
-        )
-        total_premium = active_totals["total_premium"] or Decimal("0")
-        total_commission = active_totals["total_commission"] or Decimal("0")
-
-        # ── CRM Comparison Stats ──────────────────────────────────────────────
-        comp_current = period_stats(all_policies, comp_start, comp_end)
-        comp_previous = period_stats(all_policies, prev_start, prev_end)
-        comp_period_label = f"{comp_start.strftime('%b %d')} – {comp_end.strftime('%b %d, %Y')}"
-        prev_period_label = f"{prev_start.strftime('%b %d')} – {prev_end.strftime('%b %d, %Y')}"
-
-        inactive_for_unearned = InsurancePolicy.objects.filter(
-            organization=active_org,
-            stage__in=InsurancePolicy.BOUND_STAGES,
-            status="inactive",
-        ).only(
-            "id",
-            "stage",
-            "status",
-            "commission_amount",
-            "inactive_date",
-            "start_date",
-            "end_date",
-            "insurance_period_months",
-            "insurance_company_id",
-        )
-        from .insurance_commissions import policy_unearned_commission
-
-        adjusted_unearned_map = build_adjusted_unearned_for_org(
-            insurance_companies, inactive_for_unearned
-        )
-        company_summaries = build_company_summaries(insurance_companies, all_policies)
-        from .insurance_company_license import (
-            companies_needing_license_attention,
-            sync_org_company_license_alerts,
-        )
-
-        try:
-            sync_org_company_license_alerts(active_org)
-        except Exception:
-            pass
-        license_attention = companies_needing_license_attention(active_org)
-        license_attention_has_expired = any(
-            row["status"]["state"] == "expired" for row in license_attention
-        )
-        total_unearned_commission = sum(
-            adjusted_unearned_map.get(p.id, policy_unearned_commission(p))
-            for p in inactive_for_unearned
-        )
-
-        crm_page_num = request.GET.get("page", 1)
-        crm_policies_page = Paginator(policies.order_by(*quote_period_ordering()), 12).get_page(crm_page_num)
-        decorate_policies(crm_policies_page, adjusted_unearned_map)
-        for policy in crm_policies_page:
-            policy.can_edit = can_edit_insurance_policy(
-                request.user, policy, membership=membership
-            )
-        can_delete_insurance_policies = bool(
-            request.user.is_superuser
-            or (membership and is_owner_or_manager_role(membership.role))
-        )
-
-        insurance_policies_query = request.GET.copy()
-        insurance_policies_query.pop("page", None)
-        insurance_policies_query["tab"] = "insurance"
-        insurance_policies_query_string = insurance_policies_query.urlencode()
-
-        month_prev_query = insurance_policies_query.copy()
-        month_prev_query["comp_month_offset"] = str(comp_month_offset - 1)
-        insurance_month_prev_query_string = month_prev_query.urlencode()
-        month_next_query = insurance_policies_query.copy()
-        month_next_query["comp_month_offset"] = str(comp_month_offset + 1)
-        insurance_month_next_query_string = month_next_query.urlencode()
-
-        bank_page_num = request.GET.get("bank_page", 1)
-        bank_transactions_page = Paginator(
-            bank_transactions.order_by("-date", "-created_at"), 20
-        ).get_page(bank_page_num)
-
-        bank_transactions_query = request.GET.copy()
-        bank_transactions_query.pop("bank_page", None)
-        bank_transactions_query["tab"] = "banking"
-        bank_transactions_query_string = bank_transactions_query.urlencode()
-
-        insurance_memberships = OrganizationMembership.objects.filter(
-            organization=active_org,
-            can_deal_with_insurance=True,
-            is_active=True,
-            user__is_active=True,
-        ).select_related("user")
-        agent_stats, best_performer = build_agent_stats(
-            all_policies, insurance_memberships, comp_start, comp_end
-        )
-
-        chart_agent_names = [s["fullname"] for s in agent_stats]
-        chart_agent_premiums = [float(s["total_premium"]) for s in agent_stats]
-        chart_agent_profits = [float(s["total_profit"]) for s in agent_stats]
-        
-        agent_chart_data = {
-            "names": chart_agent_names,
-            "premiums": chart_agent_premiums,
-            "profits": chart_agent_profits,
-        }
-        
-        import json
-        agent_chart_data_json = json.dumps(agent_chart_data)
-        
-        # Build automatic analysis
-        analysis_points = []
-        if best_performer:
-            from django.utils.html import escape
-
-            analysis_points.append(f"🏆 <strong>{escape(best_performer['fullname'])}</strong> is the top performer this period, driving a total of <strong>${best_performer['total_premium']:,.2f}</strong> in premium volume.")
-        
-        total_quotes = sum(s["quotes_count"] for s in agent_stats)
-        total_bound = sum(s["policies_bound"] for s in agent_stats)
-        
-        if total_quotes > 0 or total_bound > 0:
-            total_leads = total_quotes + total_bound
-            conversion_rate = (total_bound / total_leads * 100) if total_leads > 0 else 0
-            analysis_points.append(f"📈 Overall quote-to-bind conversion rate is <strong>{conversion_rate:.1f}%</strong> across all active insurance agents.")
-        else:
-            analysis_points.append("ℹ️ Quote-to-bind conversion rate cannot be calculated (no quotes/policies logged yet).")
-            
-        avg_premium = (sum(s["total_premium"] for s in agent_stats) / total_bound) if total_bound > 0 else Decimal("0.00")
-        if avg_premium > 0:
-            analysis_points.append(f"💼 Average premium per bound policy is <strong>${avg_premium:,.2f}</strong>.")
-            
-        total_agent_profits = sum(s["total_profit"] for s in agent_stats)
-        if total_agent_profits > 0:
-            analysis_points.append(f"💵 Total profits brought in by all agents (commission + broker fees) is <strong>${total_agent_profits:,.2f}</strong>.")
-            
-        income_categories = json.dumps(["Insurance Premium Receipt", "Commission Payment", "Producer Repayment", "Interest", "Other Income"])
-        expense_categories = json.dumps(["Rent", "Utilities", "Payroll", "Producer Commission", "Office Supplies", "Marketing", "Other Expense"])
-
-        # Daily Payment Transactions
-        from datetime import datetime as dt_parse
-        from .models import DailyPaymentTransaction
-        from .daily_payments import (
-            DAILY_PAGE_SIZE,
-            daily_filter_query,
-            daily_period,
-            filter_daily_transactions,
-            resolve_daily_filters,
-            summarize_daily_payments,
-            enrich_daily_transactions,
-            compute_payable_total,
-            sum_payment_grand_totals,
-        )
-
-        daily_filters = resolve_daily_filters(request, active_org.id)
-        daily_range_start, daily_range_end, daily_is_range = daily_period(daily_filters)
-        daily_payment_date = timezone.localdate() if daily_is_range else daily_range_start
-
-        daily_tx_qs = filter_daily_transactions(
-            DailyPaymentTransaction.objects.filter(
-                organization=active_org,
-                transaction_date__gte=daily_range_start,
-                transaction_date__lte=daily_range_end,
-            ),
-            daily_filters,
-        )
-        daily_method_cards, daily_grand_total = summarize_daily_payments(
-            daily_tx_qs.only(
-                "payment_method", "payment_type", "amount", "section_2119", "broker_fee", "credit_card_fee"
-            ).iterator()
-        )
-        daily_page_obj = Paginator(
-            daily_tx_qs.select_related(
-                "client", "recorded_by", "updated_by", "insurance_policy", "insurance_company"
-            ).order_by("-transaction_date", "-id"),
-            DAILY_PAGE_SIZE,
-        ).get_page(request.GET.get("daily_page"))
-        daily_transactions = enrich_daily_transactions(list(daily_page_obj.object_list))
-        daily_filter_qs = daily_filter_query(daily_filters)
-        daily_has_filters = any(
-            daily_filters.get(key)
-            for key in ("daily_company", "daily_method", "daily_type", "daily_agent", "daily_q", "daily_min", "daily_max")
-        )
-        daily_payable_total = compute_payable_total(active_org)
-        today_local = timezone.localdate()
-        mtd_collections = sum_payment_grand_totals(
-            DailyPaymentTransaction.objects.filter(
-                organization=active_org,
-                transaction_date__gte=today_local.replace(day=1),
-                transaction_date__lte=today_local,
-            )
-        )
-
-        daily_available_dates = list(
-            DailyPaymentTransaction.objects.filter(organization=active_org)
-            .order_by("-transaction_date")
-            .values_list("transaction_date", flat=True)
-            .distinct()[:90]
-        )
-        daily_is_today = not daily_is_range and daily_payment_date == timezone.localdate()
-
-        from .insurance_quote_pipeline_views import build_quote_pipeline_context
-        from .insurance_quote_permissions import membership_for_org as quote_membership_for_org
-
-        quote_membership = membership or quote_membership_for_org(request.user, active_org)
-        quote_pipeline = build_quote_pipeline_context(
-            request, active_org, quote_membership
-        )
-
-        from .insurance_targets_metrics import (
-            build_insurance_targets_dashboard,
-            resolve_target_month,
-        )
-
-        target_year, target_month = resolve_target_month(
-            request.GET.get("target_month", ""),
-            today=timezone.localdate(),
-        )
-        insurance_targets = build_insurance_targets_dashboard(
-            active_org,
-            all_policies,
-            year=target_year,
-            month=target_month,
-            today=timezone.localdate(),
-            type_options=_insurance_type_options_for_org(active_org),
-        )
-        from .insurance_targets_metrics import serialize_targets_dashboard
-        import json as _json
-
-        _dash_json = serialize_targets_dashboard(insurance_targets)
-        insurance_targets["trends_json"] = _json.dumps(_dash_json["trends"])
-        insurance_targets["charts_json"] = _json.dumps(
-            {
-                "trends": _dash_json["trends"],
-                "lines": [
-                    {
-                        "label": c["label"],
-                        "premium_actual": c["premium_actual"],
-                        "premium_target": c["premium_target"],
-                        "commission_actual": c["commission_actual"],
-                        "binds": c["binds"],
-                        "quotes": c["quotes"],
-                        "conversion": c["conversion"],
-                        "progress_pct": c["progress_pct"],
-                    }
-                    for c in _dash_json["line_cards"]
-                    if c.get("is_active")
-                    or float(c.get("premium_actual") or 0)
-                    or float(c.get("premium_target") or 0)
-                    or c.get("binds")
-                    or c.get("quotes")
-                ],
-                "premium_pace": _dash_json["premium_pace"],
-                "commission_pace": _dash_json["commission_pace"],
-                "totals": _dash_json["totals"],
-            }
-        ).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
-        can_edit_insurance_targets = bool(
-            is_owner or user_can_view_banking
-        )
-        from .insurance_esign_views import build_esign_tab_context
-        esign_tab = build_esign_tab_context(
-            active_org, request=request, membership=membership, is_owner=is_owner
-        )
-        from .models import InsuranceProducer
-
-        producers_tab = {}
-        if user_can_view_banking:
-            from .insurance_producer_views import build_producers_tab_context
-
-            producers_tab = build_producers_tab_context(active_org)
-
-        context = {
-            "card": card,
-            "is_owner": is_owner,
-            "active_org": active_org,
-            "clients": clients,
-            "referral_partners": Referral.objects.filter(organization=active_org).order_by("name", "category"),
-            "insurance_companies": insurance_companies,
-            "company_summaries": company_summaries,
-            "license_attention": license_attention,
-            "license_attention_has_expired": license_attention_has_expired,
-            "policies": crm_policies_page,
-            "crm_policies_page": crm_policies_page,
-            "bank_accounts": bank_accounts,
-            "bank_transactions": bank_transactions_page,
-            "bank_transactions_page": bank_transactions_page,
-            "bank_period": bank_period,
-            "bank_period_start": bank_period_start,
-            "bank_period_end": bank_period_end,
-            "bank_cashflow": bank_cashflow,
-            "total_bank_balance": total_bank_balance,
-            "total_premium": total_premium,
-            "total_commission": total_commission,
-            "total_unearned_commission": total_unearned_commission,
-            "active_policies_count": active_policies.count(),
-            "inactive_policies_count": inactive_policies.count(),
-            "income_categories": income_categories,
-            "expense_categories": expense_categories,
-            
-            # Auditing details
-            "insurance_agents": insurance_memberships,
-            "agent_stats": agent_stats,
-            "best_performer": best_performer,
-            "agent_chart_data_json": agent_chart_data_json,
-            "analysis_points": analysis_points,
-            "total_quotes_count": total_quotes,
-            "total_policies_bound": total_bound,
-            "total_agent_profits": total_agent_profits,
-            
-            # CRM comparison
-            "comp_mode": comp_mode,
-            "comp_month_offset": comp_month_offset,
-            "comp_custom_from": comp_custom_from,
-            "comp_custom_to": comp_custom_to,
-            "comp_current": comp_current,
-            "comp_previous": comp_previous,
-            "comp_period_label": comp_period_label,
-            "prev_period_label": prev_period_label,
-
-            # Banking filters persistence
-            "bank_search": bank_search,
-            "bank_account_filter": bank_account_filter,
-            "bank_type_filter": bank_type_filter,
-            "bank_category_filter": bank_category_filter,
-            "bank_company_filter": bank_company_filter,
-            "bank_date_from": bank_date_from,
-            "bank_date_to": bank_date_to,
-            "bank_min_amount": bank_min_amount,
-            "bank_max_amount": bank_max_amount,
-
-            # Query filters to persist in form fields
-            "search_query": search_query,
-            "stage_filter": stage_filter,
-            "status_filter": status_filter,
-            "type_filter": type_filter,
-            "source_filter": source_filter,
-            "business_type_filter": business_type_filter,
-            "date_from": date_from,
-            "date_to": date_to,
-            "company_filter": company_filter,
-            "agent_filter": agent_filter,
-            "min_premium": min_premium,
-            "max_premium": max_premium,
-            "insurance_policies_query_string": insurance_policies_query_string,
-            "insurance_month_prev_query_string": insurance_month_prev_query_string,
-            "insurance_month_next_query_string": insurance_month_next_query_string,
-            "bank_transactions_query_string": bank_transactions_query_string,
-            "insurance_source_choices": INSURANCE_SOURCE_CHOICES,
-            "user_can_view_banking": user_can_view_banking,
-            "user_can_clear_daily_payments": user_can_view_banking,
-            "can_delete_insurance_policies": can_delete_insurance_policies,
-            "ledger_default_from": timezone.localdate().replace(day=1).isoformat(),
-            "ledger_default_to": timezone.localdate().isoformat(),
-
-            # Daily payments tab
-            "daily_payment_date": daily_payment_date,
-            "daily_is_today": daily_is_today,
-            "daily_transactions": daily_transactions,
-            "daily_method_cards": daily_method_cards,
-            "daily_grand_total": daily_grand_total,
-            "daily_payable_total": daily_payable_total,
-            "mtd_collections": mtd_collections,
-            "daily_available_dates": daily_available_dates,
-            "daily_filters": daily_filters,
-            "daily_is_range": daily_is_range,
-            "daily_range_start": daily_range_start,
-            "daily_range_end": daily_range_end,
-            "daily_page_obj": daily_page_obj,
-            "daily_filter_qs": daily_filter_qs,
-            "daily_has_filters": daily_has_filters,
-            "daily_method_filter": daily_filters.get("daily_method", ""),
-            "daily_type_filter": daily_filters.get("daily_type", ""),
-            "daily_agent_filter": daily_filters.get("daily_agent", ""),
-            "daily_company_filter": daily_filters.get("daily_company", ""),
-            "daily_search": daily_filters.get("daily_q", ""),
-            "daily_min_amount": daily_filters.get("daily_min", ""),
-            "daily_max_amount": daily_filters.get("daily_max", ""),
-            "daily_payment_method_choices": DailyPaymentTransaction.PaymentMethod.choices,
-            "insurance_type_options": _insurance_type_options_for_org(active_org),
-            "user_can_manage_insurance_intake": False,
-            "pending_insurance_intakes": [],
-            "pending_insurance_intake_count": 0,
-            "insurance_intake_portal_url": "",
-            **quote_pipeline,
-            "insurance_targets": insurance_targets,
-            "can_edit_insurance_targets": can_edit_insurance_targets,
-            **esign_tab,
-            "insurance_producers": InsuranceProducer.objects.filter(
-                organization=active_org, is_active=True
-            ).order_by("name"),
-            **producers_tab,
-        }
-        return render(request, "core/insurance_space.html", context)
-
     if card.key == "custom_inventory":
         from .inventory_views import build_inventory_space_context
         context = build_inventory_space_context(request, card, is_owner, membership)

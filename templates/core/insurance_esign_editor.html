@@ -15,7 +15,7 @@
       {% if is_public %}
       <p>Insurance Space e-signature</p>
       {% elif insurance_space %}
-      <a class="esign-back" href="/dashboard/inventory/{{ insurance_space.id }}/?tab=esign">← Back to E-Signature</a>
+      <a class="esign-back" href="{% url 'insurance-esign' %}">← Back to E-Signature</a>
       {% endif %}
       <h1>{{ envelope.title }}</h1>
       <p id="esignStatus" class="esign-note"></p>

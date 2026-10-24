@@ -1,0 +1,180 @@
+{% extends "core/insurance_area/base.html" %}
+
+{% block insurance_page %}
+<p class="rd-intro">Insurance opportunities found in your DMV work: new registrations, vehicles insured elsewhere, registration renewals, surrendered plates and DMV-only clients.</p>
+
+<nav class="rn-tabs" aria-label="Radar views">
+  {% for value, label, count in rd_tabs %}
+  <a class="rn-tab{% if rd_status == value %} is-active{% endif %}" href="?status={{ value }}">{{ label }} <span class="rd-tab-count">{{ count }}</span></a>
+  {% endfor %}
+</nav>
+
+<form class="rn-filters" method="get">
+  <input type="hidden" name="status" value="{{ rd_status }}">
+  {% if rd_signal %}<input type="hidden" name="signal" value="{{ rd_signal }}">{% endif %}
+  <input type="search" name="q" value="{{ rd_q }}" class="field-input rn-filters__q" placeholder="Client name, phone or plate" aria-label="Search radar">
+  {% if rd_is_manager %}
+  <select name="agent" class="field-input" aria-label="Agent" onchange="this.form.submit()">
+    <option value="">All agents</option>
+    <option value="none"{% if rd_agent == 'none' %} selected{% endif %}>Unassigned</option>
+    <option value="me"{% if rd_agent == 'me' %} selected{% endif %}>Assigned to me</option>
+    {% for m in rd_agents %}<option value="{{ m.user_id }}"{% if rd_agent == m.user_id|stringformat:'d' %} selected{% endif %}>{{ m.user.get_full_name|default:m.user.username }}</option>{% endfor %}
+  </select>
+  {% endif %}
+  <button type="submit" class="ina-btn">Search</button>
+</form>
+
+<div class="td-chips rd-chips">
+  {% for chip in rd_chips %}
+  <a class="td-chip rd-chip--{{ chip.key|default:'all' }}{% if rd_signal == chip.key %} is-active{% endif %}" href="{{ chip.url }}"><strong>{{ chip.count }}</strong> {{ chip.label }}</a>
+  {% endfor %}
+</div>
+
+{% if rd_is_manager and rd_status == 'open' and rd_rows %}
+<form id="rdBulk" class="rd-bulk" method="post" action="{% url 'insurance-radar-bulk-assign' %}">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  <label class="rd-bulk__all"><input type="checkbox" data-rd-select-all> Select all</label>
+  <span class="rd-bulk__count" data-rd-count>0 selected</span>
+  <select name="assigned_to" class="field-input" aria-label="Assign selected to">
+    <option value="">Unassign</option>
+    {% for m in rd_agents %}<option value="{{ m.user_id }}">{{ m.user.get_full_name|default:m.user.username }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="ina-btn ina-btn--primary" data-rd-bulk-submit disabled>Assign selected</button>
+</form>
+{% endif %}
+
+{% if rd_rows %}
+<div class="rd-list">
+  {% for row in rd_rows %}
+  {% with item=row.item c=row.item.client %}
+  <article class="rd-card rd-card--{{ item.signal }}">
+    {% if rd_is_manager and item.is_open %}
+    <input type="checkbox" class="rd-card__pick" name="items" value="{{ item.id }}" form="rdBulk" aria-label="Select {{ c.name }}">
+    {% endif %}
+    <div class="rd-card__main">
+      <div class="rd-card__top">
+        <span class="rd-signal rd-signal--{{ item.signal }}">{{ item.get_signal_display }}</span>
+        <a class="rd-card__name" href="{% url 'client-detail' c.id %}">{{ c.name }}</a>
+        {% if row.now_insured %}<span class="td-pill is-green" title="This vehicle or client now has an active policy with us">Now insured with us</span>{% endif %}
+        {% if item.won %}<span class="td-pill is-green">Won</span>{% endif %}
+      </div>
+      <p class="rd-card__reason">{{ item.reason }}</p>
+      <div class="rd-card__meta">
+        {% if item.signal_date %}<span>{{ item.signal_date|date:"M j, Y" }}</span>{% endif %}
+        <span>Referred by {% if item.referred_by %}{{ item.referred_by.get_full_name|default:item.referred_by.username }}{% else %}—{% endif %}</span>
+        {% if item.policy %}<a href="{% url 'insurance-policy-detail' item.policy_id %}">Policy #{{ item.policy.policy_number }}</a>{% endif %}
+        {% if not item.is_open %}<span>{{ item.get_status_display }} {{ item.closed_at|date:"M j" }}{% if item.closed_by %} by {{ item.closed_by.get_full_name|default:item.closed_by.username }}{% endif %}</span>{% endif %}
+      </div>
+      {% if item.note %}<p class="rd-card__note">{{ item.note }}</p>{% endif %}
+    </div>
+
+    <div class="rd-card__who">
+      {% if rd_is_manager and item.is_open %}
+      <form method="post" action="{% url 'insurance-radar-action' item.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="assign">
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <select name="assigned_to" class="field-input rd-assign" aria-label="Assign {{ c.name }}" onchange="this.form.submit()">
+          <option value="">Unassigned</option>
+          {% for m in rd_agents %}<option value="{{ m.user_id }}"{% if item.assigned_to_id == m.user_id %} selected{% endif %}>{{ m.user.get_full_name|default:m.user.username }}</option>{% endfor %}
+        </select>
+      </form>
+      {% else %}
+      <span class="rd-card__agent">{% if item.assigned_to %}{{ item.assigned_to.get_full_name|default:item.assigned_to.username }}{% else %}Unassigned{% endif %}</span>
+      {% endif %}
+    </div>
+
+    <div class="rd-card__actions">
+      {% if row.phone and item.is_open %}
+      <a class="td-act" href="tel:{{ row.phone }}" title="Call" aria-label="Call {{ c.name }}">{% include "core/insurance_area/_icon.html" with name="phone" %}</a>
+      {% endif %}
+      {% if item.is_open %}
+      <details class="rd-pop">
+        <summary class="ina-btn ina-btn--primary rd-pop__btn">Done</summary>
+        <form method="post" action="{% url 'insurance-radar-action' item.id %}" class="rd-pop__panel">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="done">
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <label class="rd-check"><input type="checkbox" name="won" value="1"{% if row.now_insured %} checked{% endif %}> Won: the client bought a policy</label>
+          <textarea name="note" class="field-input" rows="2" placeholder="Note (optional)">{{ item.note }}</textarea>
+          <button type="submit" class="ina-btn ina-btn--primary">Save</button>
+        </form>
+      </details>
+      <form method="post" action="{% url 'insurance-radar-action' item.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="dismiss">
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button type="submit" class="ina-btn rd-dismiss">Dismiss</button>
+      </form>
+      {% else %}
+      <form method="post" action="{% url 'insurance-radar-action' item.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="reopen">
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button type="submit" class="ina-btn">Reopen</button>
+      </form>
+      {% endif %}
+    </div>
+  </article>
+  {% endwith %}
+  {% endfor %}
+</div>
+{% if rd_truncated %}<p class="rd-more">Showing the first 200. Use the filters to narrow the list.</p>{% endif %}
+{% else %}
+<div class="rn-empty">
+  {% if rd_status == 'open' %}{% if rd_is_manager %}Nothing on the radar right now. New items appear as the DMV side registers vehicles.{% else %}No radar items are assigned to you.{% endif %}{% else %}Nothing here yet.{% endif %}
+</div>
+{% endif %}
+
+<article class="td-panel rd-score">
+  <header class="td-panel__head">
+    <span class="td-panel__icon is-green">{% include "core/insurance_area/_icon.html" with name="targets" %}</span>
+    <div class="td-panel__titles">
+      <h3>Cross-sell scoreboard</h3>
+      <p>DMV agents whose work led to insurance opportunities · last {{ rd_scoreboard_days }} days</p>
+    </div>
+  </header>
+  {% if rd_scoreboard %}
+  <table class="rd-score__table">
+    <thead><tr><th>Agent</th><th>Referred</th><th>Open</th><th>Won</th><th>Dismissed</th><th>Win rate</th></tr></thead>
+    <tbody>
+      {% for r in rd_scoreboard %}
+      <tr>
+        <td>{% if forloop.first and r.won %}<span aria-hidden="true">🏆 </span>{% endif %}{{ r.user.get_full_name|default:r.user.username }}</td>
+        <td>{{ r.referred }}</td>
+        <td>{{ r.open }}</td>
+        <td><strong>{{ r.won }}</strong></td>
+        <td>{{ r.dismissed }}</td>
+        <td>{% if r.rate is not None %}{{ r.rate }}%{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="td-empty">No referrals in this period yet.</p>
+  {% endif %}
+</article>
+
+<script>
+(function () {
+  var all = document.querySelector("[data-rd-select-all]");
+  var picks = Array.prototype.slice.call(document.querySelectorAll(".rd-card__pick"));
+  var count = document.querySelector("[data-rd-count]");
+  var submit = document.querySelector("[data-rd-bulk-submit]");
+  if (!all || !picks.length) return;
+  function update() {
+    var n = picks.filter(function (p) { return p.checked; }).length;
+    count.textContent = n + " selected";
+    submit.disabled = n === 0;
+    all.checked = n === picks.length;
+    all.indeterminate = n > 0 && n < picks.length;
+  }
+  all.addEventListener("change", function () {
+    picks.forEach(function (p) { p.checked = all.checked; });
+    update();
+  });
+  picks.forEach(function (p) { p.addEventListener("change", update); });
+})();
+</script>
+{% endblock %}

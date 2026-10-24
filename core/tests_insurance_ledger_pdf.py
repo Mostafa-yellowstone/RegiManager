@@ -42,6 +42,7 @@ class InsuranceLedgerPdfTests(TestCase):
         )
         self.owner = User.objects.create_user(username="gl_owner", password="pass")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.owner,
             organization=self.org,
             role=OrganizationMembership.Role.OWNER,

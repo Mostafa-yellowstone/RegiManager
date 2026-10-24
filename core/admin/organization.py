@@ -78,6 +78,8 @@ class MembershipInline(admin.TabularInline):
     fields = (
         "user",
         "role",
+        "can_use_psb_portal",
+        "can_use_insurance",
         "can_view_reports",
         "can_view_net_profit",
         "can_manage_referrals",
@@ -120,10 +122,12 @@ class OrganizationAdmin(admin.ModelAdmin):
         "is_public_insurance_intake_enabled",
         "is_automation_enabled",
         "is_halloween_theme_enabled",
+        "has_psb_portal",
+        "has_insurance",
         "backup_download_link",
     )
     list_editable = ("is_halloween_theme_enabled",)
-    list_filter = ("state", "city", "is_public_intake_enabled", "is_public_insurance_intake_enabled", "is_automation_enabled", "is_halloween_theme_enabled")
+    list_filter = ("has_psb_portal", "has_insurance", "state", "city", "is_public_intake_enabled", "is_public_insurance_intake_enabled", "is_automation_enabled", "is_halloween_theme_enabled")
     search_fields = ("name", "address_line", "city", "state", "phone_number", "email", "psbc_license")
     readonly_fields = ("intake_link_display", "insurance_intake_link_display", "backup_download_link")
     inlines = [MembershipInline]
@@ -148,6 +152,13 @@ class OrganizationAdmin(admin.ModelAdmin):
                 "This controls which DMV forms appear on vehicle profiles. "
                 "Set Business owner name to the full legal name shown on receipts; users with the Owner role are not used. "
                 "PSB license dates drive dashboard renewal alerts for owners."
+            ),
+        }),
+        ("Products", {
+            "fields": ("has_psb_portal", "has_insurance"),
+            "description": (
+                "Turn on what this office uses. PSB portal + Insurance = both; Insurance only = an insurance agency "
+                "(no DMV pages, sign-in opens Insurance). Then give each agent PSB portal / Insurance access below."
             ),
         }),
         ("Access & Limits", {"fields": ("invite_code", "portal_token", "client_app_portal_no", "max_agents", "is_active")}),
@@ -261,6 +272,13 @@ class OrganizationMembershipAdmin(admin.ModelAdmin):
     filter_horizontal = ("accessible_spaces",)
     fieldsets = (
         (None, {"fields": ("organization", "user", "role", "is_active")}),
+        (
+            "Products",
+            {
+                "description": "Which areas this member can open. Only works for products the PSB has turned on; owners get all of them.",
+                "fields": ("can_use_psb_portal", "can_use_insurance"),
+            },
+        ),
         (
             "Permissions",
             {

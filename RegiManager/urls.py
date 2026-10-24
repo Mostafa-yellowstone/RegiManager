@@ -94,6 +94,10 @@ from core.insurance_producer_views import (
     settle_insurance_producer,
 )
 from core.batch_card import batch_number_card
+from core import insurance_area_views
+from core import insurance_renewal_views
+from core import insurance_client_views
+from core import insurance_radar_views
 from core.views import (
     dashboard,
     home,
@@ -590,6 +594,12 @@ urlpatterns = [
     path("dashboard/clients/", all_clients, name="all-clients"),
     path("dashboard/clients/add/", add_client, name="add-client"),
     path("dashboard/clients/<int:client_id>/", client_detail, name="client-detail"),
+    path("dashboard/clients/<int:client_id>/household/link/", insurance_client_views.household_link, name="client-household-link"),
+    path("dashboard/clients/<int:client_id>/household/unlink/", insurance_client_views.household_unlink, name="client-household-unlink"),
+    path("dashboard/clients/<int:client_id>/household/dismiss/", insurance_client_views.household_dismiss, name="client-household-dismiss"),
+    path("dashboard/clients/<int:client_id>/household/search/", insurance_client_views.household_search, name="client-household-search"),
+    path("dashboard/clients/<int:client_id>/gaps/quote/", insurance_client_views.gap_quote, name="client-gap-quote"),
+    path("dashboard/clients/<int:client_id>/gaps/dismiss/", insurance_client_views.gap_dismiss, name="client-gap-dismiss"),
     path(
         "dashboard/clients/<int:client_id>/merge/",
         merge_client_profiles,
@@ -745,6 +755,30 @@ urlpatterns = [
     path("dashboard/inventory/", inventory_list, name="inventory-list"),
     path("dashboard/inventory/<int:inventory_id>/", inventory_detail, name="inventory-detail"),
     
+    # Insurance area
+    path("insurance/", insurance_area_views.insurance_home, name="insurance-home"),
+    path("insurance/pipeline/", insurance_area_views.insurance_pipeline, name="insurance-pipeline"),
+    path("insurance/policies/", insurance_area_views.insurance_policies, name="insurance-policies"),
+    path("insurance/payments/", insurance_area_views.insurance_payments, name="insurance-payments"),
+    path("insurance/finance/", insurance_area_views.insurance_finance, name="insurance-finance"),
+    path("insurance/companies/", insurance_area_views.insurance_companies, name="insurance-companies"),
+    path("insurance/producers/", insurance_area_views.insurance_producers, name="insurance-producers"),
+    path("insurance/reports/", insurance_area_views.insurance_reports, name="insurance-reports"),
+    path("insurance/targets/", insurance_area_views.insurance_targets, name="insurance-targets"),
+    path("insurance/agents/", insurance_area_views.insurance_agents, name="insurance-agents"),
+    path("insurance/esign/", insurance_area_views.insurance_esign, name="insurance-esign"),
+    path("insurance/search/", insurance_area_views.insurance_search, name="insurance-search"),
+    path("insurance/renewals/", insurance_renewal_views.renewals_page, name="insurance-renewals"),
+    path("insurance/renewals/settings/", insurance_renewal_views.renewal_settings_save, name="insurance-renewal-settings"),
+    path("insurance/renewals/<int:renewal_id>/", insurance_renewal_views.renewal_detail, name="insurance-renewal-detail"),
+    path("insurance/renewals/<int:renewal_id>/action/", insurance_renewal_views.renewal_action, name="insurance-renewal-action"),
+    path("insurance/renewals/<int:renewal_id>/renew/", insurance_renewal_views.renewal_renew, name="insurance-renewal-renew"),
+    path("insurance/renewals/<int:renewal_id>/link/", insurance_renewal_views.renewal_link, name="insurance-renewal-link"),
+    path("insurance/renewals/<int:renewal_id>/email/", insurance_renewal_views.renewal_email, name="insurance-renewal-email"),
+    path("insurance/radar/", insurance_radar_views.radar_page, name="insurance-radar"),
+    path("insurance/radar/assign/", insurance_radar_views.radar_bulk_assign, name="insurance-radar-bulk-assign"),
+    path("insurance/radar/<int:item_id>/action/", insurance_radar_views.radar_action, name="insurance-radar-action"),
+
     # Spaces Hub and Insurance CRM / Banking Routes
     path("dashboard/spaces/", spaces_home, name="spaces-home"),
     path("dashboard/spaces/<int:space_id>/branding/", update_space_branding, name="update-space-branding"),

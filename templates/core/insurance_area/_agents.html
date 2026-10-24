@@ -1,0 +1,109 @@
+    <div id="tab-agents" class="tab-panel" style="display: none;">
+      <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 2rem;">
+        
+        <!-- Analysis Insights Block -->
+        {% if analysis_points %}
+        <div class="ins-performance-insights">
+          <h4>📊 Automated Performance Insights</h4>
+          <ul>
+            {% for point in analysis_points %}
+              <li>{{ point|safe }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        <!-- Agent Metrics Summary Row -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem;">
+          <div class="spaces-metric">
+            <div class="spaces-metric-label">Best Performer</div>
+            <div class="spaces-metric-value" style="font-size: 1.2rem;">
+              {% if best_performer %}
+                🏆 {{ best_performer.fullname }}
+              {% else %}
+                N/A
+              {% endif %}
+            </div>
+          </div>
+          <div class="spaces-metric">
+            <div class="spaces-metric-label">Total Quotes Got</div>
+            <div class="spaces-metric-value" style="color: #1d4ed8;">
+              {{ total_quotes_count|default:0 }}
+            </div>
+          </div>
+          <div class="spaces-metric">
+            <div class="spaces-metric-label">Policies Bound</div>
+            <div class="spaces-metric-value" style="color: #16a34a;">
+              {{ total_policies_bound|default:0 }}
+            </div>
+          </div>
+          <div class="spaces-metric">
+            <div class="spaces-metric-label">Total Profit Brought</div>
+            <div class="spaces-metric-value" style="color: var(--portal-primary);">
+              ${{ total_agent_profits|floatformat:2 }}
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1.2fr; gap: 1.5rem; flex-wrap: wrap;">
+          <!-- Agent Breakdown Table -->
+          <div class="ins-surface-card" style="overflow-x: auto;">
+            <h3 class="ins-section-title ins-section-title--sm">Agent Audit Directory</h3>
+            <table class="spaces-table">
+              <thead>
+                <tr>
+                  <th>Agent</th>
+                  <th style="text-align: center;">Quotes</th>
+                  <th style="text-align: center;">Bound</th>
+                  <th>Premium</th>
+                  {% if user_can_view_banking %}<th>Commission</th>{% endif %}
+                  <th>Broker Fees</th>
+                  <th>Total Profit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for stat in agent_stats %}
+                <tr>
+                  <td>
+                    <a href="{% url 'insurance-agent-detail' stat.user_id %}" style="background-color: {{ stat.bg_color }}; color: {{ stat.text_color }}; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; white-space: nowrap; text-decoration: none; display: inline-block;">
+                      {{ stat.fullname }}
+                    </a>
+                    {% if stat.is_best %}
+                      <span class="agent-rank-badge" title="Best Performer — #1 in premium volume">👑</span>
+                    {% elif stat.is_second %}
+                      <span class="agent-rank-badge" title="2nd in Performance — premium volume">⭐</span>
+                    {% endif %}
+                  </td>
+                  <td style="text-align: center; font-weight: 700; color: #1d4ed8;">{{ stat.quotes_count }}</td>
+                  <td style="text-align: center; font-weight: 700; color: #16a34a;">{{ stat.policies_bound }}</td>
+                  <td style="font-weight: 700;">${{ stat.total_premium|floatformat:2 }}</td>
+                  {% if user_can_view_banking %}<td style="color: #16a34a; font-weight: 700;">${{ stat.total_commission|floatformat:2 }}</td>{% endif %}
+                  <td style="color: #475569; font-weight: 700;">${{ stat.total_broker_fee|floatformat:2 }}</td>
+                  <td style="color: #093de6; font-weight: 800; font-size: 0.95rem;">${{ stat.total_profit|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" style="text-align: center; padding: 3rem; color: #64748b; font-weight: 600;">No insurance agents configured. Go to PSB Members in Admin to enable "Can deal with insurance".</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Charts Column -->
+          <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div style="background: white; border-radius: 16px; padding: 1.5rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+              <h4 style="margin: 0; color: #0f172a; font-weight: 800; font-size: 1rem; margin-bottom: 1rem; text-align: center;">Premium Comparison</h4>
+              <div style="height: 220px; position: relative;">
+                <canvas id="agentPremiumChart"></canvas>
+              </div>
+            </div>
+            <div style="background: white; border-radius: 16px; padding: 1.5rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+              <h4 style="margin: 0; color: #0f172a; font-weight: 800; font-size: 1rem; margin-bottom: 1rem; text-align: center;">Profit Contribution</h4>
+              <div style="height: 220px; position: relative;">
+                <canvas id="agentProfitChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>

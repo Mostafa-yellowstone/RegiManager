@@ -1,0 +1,184 @@
+<section class="td" aria-label="Today">
+  <div class="td-head">
+    <div>
+      <h2 class="td-title">Today</h2>
+      <p class="td-sub">{% now "l, F j" %}{% if not today.mine %} · whole office{% else %} · your clients{% endif %}</p>
+    </div>
+    {% if today_is_manager %}
+    <div class="td-scope" role="group" aria-label="Whose work to show">
+      <a class="td-scope__btn{% if not today.mine %} is-active{% endif %}" href="{% url 'insurance-home' %}">Everyone</a>
+      <a class="td-scope__btn{% if today.mine %} is-active{% endif %}" href="{% url 'insurance-home' %}?scope=mine">Mine</a>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="td-grid">
+    <article class="td-panel td-panel--wide">
+      <header class="td-panel__head">
+        <span class="td-panel__icon is-blue">{% include "core/insurance_area/_icon.html" with name="renewals" %}</span>
+        <div class="td-panel__titles">
+          <h3>Expiring policies</h3>
+          <p>{{ today.open_total }} open renewal{{ today.open_total|pluralize }}</p>
+        </div>
+        <a class="td-link" href="{% url 'insurance-renewals' %}">All renewals</a>
+      </header>
+      <div class="td-chips">
+        {% if today.overdue %}
+        <a class="td-chip is-red" href="{% url 'insurance-renewals' %}?when=overdue"><strong>{{ today.overdue }}</strong> expired</a>
+        {% endif %}
+        {% for b in today.buckets %}
+        <a class="td-chip{% if b.days == 7 and b.count %} is-amber{% endif %}" href="{% url 'insurance-renewals' %}?when={{ b.days }}"><strong>{{ b.count }}</strong> in {{ b.days }} days</a>
+        {% endfor %}
+      </div>
+      {% if today.expiring %}
+      <ul class="td-list">
+        {% for row in today.expiring %}
+        {% with card=row.card %}
+        <li class="td-row">
+          <a class="td-row__main" href="{% url 'insurance-renewal-detail' card.id %}">
+            <span class="td-row__name">{{ card.policy.client.first_name }} {{ card.policy.client.last_name }}</span>
+            <span class="td-row__meta">{{ card.policy.policy_number|default:"No policy #" }}{% if card.policy.insurance_company %} · {{ card.policy.insurance_company.name }}{% endif %} · ${{ card.policy.premium|floatformat:2 }}</span>
+          </a>
+          <span class="td-pill{% if row.days_left < 0 %} is-red{% elif row.days_left <= 7 %} is-red{% elif row.days_left <= 15 %} is-amber{% endif %}">
+            {% if row.days_left < 0 %}Expired {{ row.days_over }}d ago{% elif row.days_left == 0 %}Expires today{% else %}{{ row.days_left }}d left{% endif %}
+          </span>
+          {% if row.reminder_due %}<span class="td-pill is-blue" title="The {{ row.reminder_due }}-day reminder has not been sent">Reminder due</span>{% endif %}
+          <span class="td-pill is-muted">{{ card.get_stage_display }}</span>
+          <span class="td-actions">
+            {% if row.phone %}
+            <a class="td-act" href="tel:{{ row.phone }}" title="Call" aria-label="Call {{ card.policy.client.first_name }}">{% include "core/insurance_area/_icon.html" with name="phone" %}</a>
+            {% endif %}
+            <a class="td-act" href="{% url 'insurance-renewal-detail' card.id %}#rn-email" title="Email or text" aria-label="Contact {{ card.policy.client.first_name }}">{% include "core/insurance_area/_icon.html" with name="message" %}</a>
+          </span>
+        </li>
+        {% endwith %}
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="td-empty">Nothing to renew right now.</p>
+      {% endif %}
+    </article>
+
+    {% if today_radar %}
+    <article class="td-panel">
+      <header class="td-panel__head">
+        <span class="td-panel__icon is-amber">{% include "core/insurance_area/_icon.html" with name="radar" %}</span>
+        <div class="td-panel__titles">
+          <h3>DMV radar</h3>
+          <p>{{ today_radar.open_total }} open{% if today_is_manager and not today.mine %} · {{ today_radar.unassigned }} unassigned{% endif %}</p>
+        </div>
+        <a class="td-link" href="{% url 'insurance-radar' %}{% if today_is_manager and not today.mine and today_radar.unassigned %}?agent=none{% endif %}">Open radar</a>
+      </header>
+      {% if today_radar.signals %}
+      <div class="td-radar-signals">
+        {% for key, label, count in today_radar.signals %}
+        <a class="rd-signal rd-signal--{{ key }}" href="{% url 'insurance-radar' %}?signal={{ key }}">{{ count }} · {{ label }}</a>
+        {% endfor %}
+      </div>
+      <ul class="td-list">
+        {% for item in today_radar.items %}
+        <li class="td-row">
+          <a class="td-row__main" href="{% url 'client-detail' item.client_id %}">
+            <span class="td-row__name">{{ item.client.name }}</span>
+            <span class="td-row__meta">{{ item.reason|truncatechars:90 }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="td-empty">Nothing on the radar right now.</p>
+      {% endif %}
+    </article>
+    {% endif %}
+
+    <article class="td-panel">
+      <header class="td-panel__head">
+        <span class="td-panel__icon is-green">{% include "core/insurance_area/_icon.html" with name="payments" %}</span>
+        <div class="td-panel__titles">
+          <h3>Collections today</h3>
+          <p>{{ today.collection_target_label }}: ${{ today.collection_target|floatformat:2 }}</p>
+        </div>
+        <a class="td-link" href="{% url 'insurance-payments' %}">Payments</a>
+      </header>
+      <div class="td-money">${{ today.collected_today|floatformat:2 }}</div>
+      {% if today.collection_percent is not None %}
+      <div class="td-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ today.collection_percent }}">
+        <span style="width: {% if today.collection_percent > 100 %}100{% else %}{{ today.collection_percent }}{% endif %}%"></span>
+      </div>
+      <p class="td-note">{{ today.collection_percent }}% of {{ today.collection_target_label|lower }}</p>
+      {% else %}
+      <p class="td-note">No goal yet. Owners can set one in Renewals → Settings.</p>
+      {% endif %}
+    </article>
+
+    <article class="td-panel">
+      <header class="td-panel__head">
+        <span class="td-panel__icon is-amber">{% include "core/insurance_area/_icon.html" with name="clock" %}</span>
+        <div class="td-panel__titles">
+          <h3>Payments due or missed</h3>
+          <p>{{ today.missed_count }} missed · {{ today.due_count }} due this week</p>
+        </div>
+      </header>
+      {% if today.payments %}
+      <ul class="td-list">
+        {% for item in today.payments %}
+        {% with inst=item.row %}
+        <li class="td-row">
+          <a class="td-row__main" href="{% url 'insurance-policy-detail' inst.policy_id %}">
+            <span class="td-row__name">{{ inst.policy.client.first_name }} {{ inst.policy.client.last_name }}</span>
+            <span class="td-row__meta">{{ inst.policy.policy_number|default:"No policy #" }} · ${{ inst.total_due|floatformat:2 }} · {{ inst.due_date|date:"M j" }}</span>
+          </a>
+          <span class="td-pill{% if item.missed %} is-red{% elif item.days <= 2 %} is-amber{% endif %}">
+            {% if item.missed %}Missed{% elif item.days == 0 %}Due today{% else %}In {{ item.days }}d{% endif %}
+          </span>
+          {% if item.phone %}
+          <span class="td-actions">
+            <a class="td-act" href="tel:{{ item.phone }}" title="Call" aria-label="Call {{ inst.policy.client.first_name }}">{% include "core/insurance_area/_icon.html" with name="phone" %}</a>
+          </span>
+          {% endif %}
+        </li>
+        {% endwith %}
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="td-empty">No installments due this week.</p>
+      {% endif %}
+    </article>
+
+    <article class="td-panel">
+      <header class="td-panel__head">
+        <span class="td-panel__icon is-pink">{% include "core/insurance_area/_icon.html" with name="gift" %}</span>
+        <div class="td-panel__titles">
+          <h3>Birthdays &amp; anniversaries</h3>
+          <p>Next 7 days · {{ today.celebration_total }}</p>
+        </div>
+      </header>
+      {% if today.celebrations %}
+      <ul class="td-list">
+        {% for item in today.celebrations %}
+        {% with c=item.client %}
+        <li class="td-row">
+          <a class="td-row__main" href="{% url 'client-detail' c.id %}">
+            <span class="td-row__name">{{ c.first_name }} {{ c.last_name }}</span>
+            <span class="td-row__meta">{% if item.kind == "birthday" %}Birthday{% if item.years > 0 %} · turns {{ item.years }}{% endif %}{% else %}{{ item.years }} year{{ item.years|pluralize }} as a client{% endif %} · {{ item.date|date:"D M j" }}</span>
+          </a>
+          <span class="td-pill{% if item.days == 0 %} is-pink{% endif %}">{% if item.days == 0 %}Today{% elif item.days == 1 %}Tomorrow{% else %}In {{ item.days }}d{% endif %}</span>
+          <span class="td-actions">
+            {% if item.phone %}
+            <a class="td-act" href="tel:{{ item.phone }}" title="Call" aria-label="Call {{ c.first_name }}">{% include "core/insurance_area/_icon.html" with name="phone" %}</a>
+            <a class="td-act" href="sms:{{ item.phone }}?&body={% if item.kind == 'birthday' %}{% filter urlencode %}Happy birthday, {{ c.first_name|title }}! Wishing you a great year from all of us at {{ insurance_name }}.{% endfilter %}{% else %}{% filter urlencode %}Hi {{ c.first_name|title }}, thank you for {{ item.years }} year{{ item.years|pluralize }} with {{ insurance_name }}! We appreciate you.{% endfilter %}{% endif %}" title="Text" aria-label="Text {{ c.first_name }}">{% include "core/insurance_area/_icon.html" with name="message" %}</a>
+            {% endif %}
+            {% if c.email %}
+            <a class="td-act" href="mailto:{{ c.email }}" title="Email" aria-label="Email {{ c.first_name }}">{% include "core/insurance_area/_icon.html" with name="mail" %}</a>
+            {% endif %}
+          </span>
+        </li>
+        {% endwith %}
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="td-empty">No birthdays or client anniversaries this week.</p>
+      {% endif %}
+    </article>
+  </div>
+</section>

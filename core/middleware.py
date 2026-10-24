@@ -191,6 +191,41 @@ class ProducerPortalMiddleware:
         return self.get_response(request)
 
 
+class ProductAccessMiddleware:
+    """Keep members inside the products their office and role allow (PSB portal / Insurance)."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated or user.is_superuser:
+            return self.get_response(request)
+        from .products import INSURANCE, PSB, product_for_path, products_for
+
+        product = product_for_path(request.path)
+        if product not in (INSURANCE, PSB):
+            return self.get_response(request)
+        allowed = products_for(request)
+        if allowed["organization"] is None or allowed[product]:
+            return self.get_response(request)
+
+        from django.http import HttpResponseForbidden
+        from django.shortcuts import redirect
+
+        if request.method not in ("GET", "HEAD"):
+            return HttpResponseForbidden("Your office or role does not include this area.")
+        if product == PSB and allowed[INSURANCE]:
+            return redirect("insurance-home")
+        if product == INSURANCE and allowed[PSB]:
+            return redirect("dashboard")
+        from .agent_portal_services import can_access_agent_portal
+
+        if can_access_agent_portal(allowed["membership"]):
+            return redirect("agent-portal-home")
+        return HttpResponseForbidden("Your office or role does not include this area.")
+
+
 class PortalTimezoneMiddleware:
     """Activate the user's local timezone for dates/times shown in the portal."""
 

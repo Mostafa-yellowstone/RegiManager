@@ -34,12 +34,14 @@ class ProducerBase(TestCase):
         self.space = Space.objects.create(organization=self.org, key="insurance", label="Insurance")
         self.owner = User.objects.create_user(username="prd_owner", password="pass12345")
         owner_mem = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             organization=self.org, user=self.owner, role=OrganizationMembership.Role.OWNER,
             is_active=True, can_view_spaces=True,
         )
         owner_mem.accessible_spaces.add(self.space)
         self.agent = User.objects.create_user(username="prd_agent", password="pass12345")
         self.agent_mem = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             organization=self.org,
             user=self.agent,
             role=OrganizationMembership.Role.INSURANCE_AGENT,
@@ -236,7 +238,7 @@ class ProducerStaffPageTests(ProducerBase):
     def test_tab_and_profile_render_for_finance(self):
         self.policy("T-1")
         self.client.force_login(self.owner)
-        res = self.client.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=producers")
+        res = self.client.get(reverse("insurance-producers"))
         self.assertContains(res, "tab-producers")
         self.assertContains(res, "Sara Ahmed")
         self.assertContains(res, "Auto-Renewal")
@@ -248,8 +250,9 @@ class ProducerStaffPageTests(ProducerBase):
         self.client.force_login(self.agent)
         res = self.client.get(reverse("insurance-producer-detail", args=[self.producer.id]))
         self.assertEqual(res.status_code, 403)
-        res = self.client.get(reverse("inventory-detail", args=[self.space.id]))
-        self.assertNotContains(res, "tab-producers")
+        self.assertEqual(self.client.get(reverse("insurance-producers")).status_code, 403)
+        res = self.client.get(reverse("insurance-policies"))
+        self.assertNotContains(res, f'href="{reverse("insurance-producers")}"')
 
     def test_add_producer_with_login_and_settle(self):
         self.client.force_login(self.owner)
@@ -269,7 +272,7 @@ class ProducerStaffPageTests(ProducerBase):
 
     def test_non_finance_page_does_not_expose_producer_rates(self):
         self.client.force_login(self.agent)
-        res = self.client.get(reverse("inventory-detail", args=[self.space.id]))
+        res = self.client.get(reverse("insurance-policies"))
         self.assertContains(res, "Sara Ahmed")
         self.assertNotContains(res, "data-rate=")
 
@@ -468,7 +471,7 @@ class ProducerStatementTests(ProducerBase):
         self.assertEqual(self.client.get(self.url, {"producer": foreign.id}).status_code, 403)
 
     def test_reporting_center_lists_producers_for_finance_only(self):
-        space_url = reverse("inventory-detail", args=[self.space.id])
+        space_url = reverse("insurance-reports")
         self.client.force_login(self.owner)
         self.assertContains(self.client.get(space_url), "Open statement PDF")
         self.client.force_login(self.agent)

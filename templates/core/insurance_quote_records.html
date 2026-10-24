@@ -13,7 +13,7 @@
     <header class="iqp-records__header">
       <div>
         {% if insurance_space %}
-        <a class="iqp-records__back" href="/dashboard/inventory/{{ insurance_space.id }}/?tab=quote-pipeline">← Back to pipeline</a>
+        <a class="iqp-records__back" href="{% url 'insurance-pipeline' %}">← Back to pipeline</a>
         {% endif %}
         <h1>Quote records</h1>
         <p>Search, filter, assign, and manage every quote lead in one place.</p>
@@ -23,7 +23,7 @@
         <button type="button" class="iqp-btn iqp-btn--primary" data-iqp-open-create>+ New quote lead</button>
         {% endif %}
         {% if insurance_space %}
-        <a class="iqp-btn iqp-btn--ghost" href="/dashboard/inventory/{{ insurance_space.id }}/?tab=quote-pipeline">Pipeline board</a>
+        <a class="iqp-btn iqp-btn--ghost" href="{% url 'insurance-pipeline' %}">Pipeline board</a>
         {% endif %}
       </div>
     </header>

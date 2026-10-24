@@ -75,12 +75,9 @@ def _resolve_insurance_org(request):
 
 
 def _insurance_space_redirect(org):
-    space = Space.objects.filter(organization=org, key="insurance").first()
-    if space:
-        from django.urls import reverse
+    from django.urls import reverse
 
-        return f"{reverse('inventory-detail', args=[space.id])}?tab=targets"
-    return "dashboard"
+    return reverse("insurance-targets")
 
 
 @login_required

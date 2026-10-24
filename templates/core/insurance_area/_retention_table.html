@@ -1,0 +1,28 @@
+<article class="td-panel">
+  <header class="td-panel__head"><div class="td-panel__titles"><h3>{{ title }}</h3></div></header>
+  {% if rows %}
+  <div class="rn-table-wrap">
+    <table class="rn-table">
+      <thead>
+        <tr><th></th><th>Due</th><th>Kept</th><th>Lost</th><th>Open</th><th>Rate</th><th>Premium kept</th><th>Premium lost</th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <th scope="row">{{ row.label }}</th>
+          <td>{{ row.due }}</td>
+          <td>{{ row.won }}</td>
+          <td>{{ row.lost }}</td>
+          <td>{{ row.open }}</td>
+          <td>{% if row.rate is not None %}<span class="rn-rate{% if row.rate >= 85 %} is-good{% elif row.rate < 70 %} is-bad{% endif %}">{{ row.rate }}%</span>{% else %}—{% endif %}</td>
+          <td>${{ row.kept_premium|floatformat:2 }}</td>
+          <td>${{ row.lost_premium|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="td-empty">No renewals in this period.</p>
+  {% endif %}
+</article>

@@ -109,13 +109,10 @@ def _redirect_esign_tab(org, request=None):
 
     from .policies import redirect_back
 
-    space = Space.objects.filter(organization=org, key="insurance").first()
-    if space:
-        url = reverse("inventory-detail", kwargs={"inventory_id": space.id}) + "?tab=esign"
-        if request is not None:
-            return redirect_back(request, url)
-        return redirect(url)
-    return redirect("spaces-home")
+    url = reverse("insurance-esign")
+    if request is not None:
+        return redirect_back(request, url)
+    return redirect(url)
 
 
 def _org(request):
@@ -128,18 +125,10 @@ def _org(request):
 
 
 def _can_view_esign(request, org) -> bool:
-    """Any member who can open Insurance Space can use e-signature."""
-    if request.user.is_superuser:
-        return True
-    membership = membership_for_org(request.user, org)
-    if is_org_owner(request.user, org, membership):
-        return True
-    if not membership or not membership.is_active or not membership.can_view_spaces:
-        return False
-    space = Space.objects.filter(organization=org, key="insurance").first()
-    if space is None:
-        return False
-    return membership.accessible_spaces.filter(id=space.id).exists()
+    """Any member with Insurance access can use e-signature."""
+    from .products import can_use_insurance
+
+    return can_use_insurance(request.user, org)
 
 
 def _can_manage_esign(request, org) -> bool:
@@ -667,11 +656,10 @@ def apply_esign_document(request, envelope_id):
         )
     except Exception as exc:
         return JsonResponse({"ok": False, "error": str(exc)[:180] or "Could not stamp this PDF."}, status=400)
-    space = Space.objects.filter(organization=envelope.organization, key="insurance").first()
     return JsonResponse({
         "ok": True,
         "download": reverse("insurance-esign-signed", args=[envelope.id]) + "?download=1",
-        "redirect": (reverse("inventory-detail", kwargs={"inventory_id": space.id}) + "?tab=esign") if space else "/",
+        "redirect": reverse("insurance-esign"),
     })
 
 

@@ -65,10 +65,9 @@ def _finance_org_or_deny(request, organization):
 
 
 def _insurance_space_url(org, tab="producers"):
-    space = Space.objects.filter(organization=org, key="insurance").first()
-    if not space:
-        return reverse("spaces-home")
-    return f"{reverse('inventory-detail', kwargs={'inventory_id': space.id})}?tab={tab}"
+    from .insurance_area_views import insurance_url_for_tab
+
+    return insurance_url_for_tab(tab)
 
 
 def _producer_for_staff(request, producer_id):

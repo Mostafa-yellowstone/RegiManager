@@ -4,6 +4,10 @@
 {% block title %}{{ client.full_display_name }} | Client Profile{% endblock %}
 
 {% block portal_content %}
+{% if show_client_insights %}
+<link rel="stylesheet" href="{% static 'core/css/client_insights.css' %}?v=ci-2">
+<script src="{% static 'core/js/client_insights.js' %}?v=ci-1" defer></script>
+{% endif %}
 <style>
     .alert-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
     .alert-danger, .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
@@ -348,6 +352,7 @@
                     </div>
                 </div>
             </div>
+            {% if client_has_psb %}
             <div class="hero-stats" style="margin-top: 1.5rem;">
                 <div class="metric-card">
                     <span>Lifetime Spend</span>
@@ -362,6 +367,18 @@
                     <strong>{{ last_service_date|date:"M d, Y" }}</strong>
                 </div>
             </div>
+            {% else %}
+            <div class="hero-stats" style="margin-top: 1.5rem;">
+                <div class="metric-card">
+                    <span>Policies</span>
+                    <strong>{{ insurance_policies|length }}</strong>
+                </div>
+                <div class="metric-card">
+                    <span>Payments Collected</span>
+                    <strong style="color: #10b981;">${{ insurance_payments_total|floatformat:2 }}</strong>
+                </div>
+            </div>
+            {% endif %}
         </header>
 
         {% if messages %}
@@ -546,6 +563,11 @@
                     </div>
                 </article>
 
+                {% if show_client_insights %}
+                {% include "core/partials/client_timeline.html" %}
+                {% endif %}
+
+                {% if client_has_psb %}
                 <!-- Transaction History -->
                 <article class="dashboard-panel" style="margin: 0;">
                     <div class="cpp-panel-header">
@@ -629,6 +651,7 @@
                     </div>
                     {% endif %}
                 </article>
+                {% endif %}
 
                 {% if show_insurance_payments %}
                 <!-- Insurance Payment History -->
@@ -711,6 +734,7 @@
             </section>
 
             <aside style="display: flex; flex-direction: column; gap: 1.5rem;">
+                {% if client_has_psb %}
                 <!-- Vehicle Fleet Card -->
                 <section class="dashboard-panel" style="margin: 0;">
                     <h3 class="cpp-panel-header cpp-panel-header--title">
@@ -808,6 +832,7 @@
                         </ul>
                     </div>
                 </section>
+                {% endif %}
 
                 {% if show_motorclub_card %}
                 <section class="dashboard-panel cpp-motorclub-card" style="margin: 0; min-height: 160px;">
@@ -875,6 +900,10 @@
                         {% endif %}
                     </div>
                 </section>
+                {% endif %}
+
+                {% if show_client_insights %}
+                {% include "core/partials/client_household_gaps.html" %}
                 {% endif %}
 
                 {% if show_insurance_section %}

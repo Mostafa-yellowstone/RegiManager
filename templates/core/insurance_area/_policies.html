@@ -1,0 +1,169 @@
+      <!-- Search & Filters -->
+      <div class="ins-crm-toolbar">
+        <form method="GET" id="insCrmSearchForm" class="ins-crm-toolbar__form">
+          <input type="hidden" name="tab" value="insurance">
+          <input type="hidden" name="comp_mode" value="{{ comp_mode }}">
+          <input type="hidden" name="comp_month_offset" value="{{ comp_month_offset }}">
+          {% if comp_mode == 'custom' %}
+          <input type="hidden" name="comp_from" value="{{ comp_custom_from }}">
+          <input type="hidden" name="comp_to" value="{{ comp_custom_to }}">
+          {% endif %}
+          <div class="ins-crm-toolbar__row">
+            <div class="ins-crm-toolbar__search">
+              <label class="ins-crm-toolbar__label" for="insCrmSearch">Search Policies</label>
+              <div class="ins-crm-search-field" id="insCrmSearchField">
+                <input type="text" name="q" id="insCrmSearch" value="{{ search_query }}" placeholder="Search by full name or policy #..." autocomplete="off" class="ins-crm-toolbar__input">
+                <span class="ins-crm-search-spin" aria-hidden="true"></span>
+              </div>
+            </div>
+            <div class="ins-crm-toolbar__actions">
+              <button type="submit" class="ins-crm-toolbar__btn ins-crm-toolbar__btn--search">Search</button>
+              <a href="{{ request.path }}" class="ins-crm-toolbar__btn ins-crm-toolbar__btn--clear">Clear</a>
+            </div>
+          </div>
+          <details class="ins-crm-advanced" {% if stage_filter or status_filter or type_filter or source_filter or business_type_filter or company_filter or agent_filter or date_from or date_to or min_premium or max_premium %}open{% endif %}>
+            <summary class="ins-crm-advanced__summary">🔍 Advanced Filters</summary>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 0.8rem;">
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Stage</label>
+                <select name="stage" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
+                  <option value="">All Stages</option>
+                  <option value="quote" {% if stage_filter == "quote" %}selected{% endif %}>Quote</option>
+                  <option value="bound" {% if stage_filter == "bound" %}selected{% endif %}>Bound</option>
+                  <option value="endorsement" {% if stage_filter == "endorsement" %}selected{% endif %}>Endorsement</option>
+                </select>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Status</label>
+                <select name="status" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
+                  <option value="">All Statuses</option>
+                  <option value="active" {% if status_filter == "active" %}selected{% endif %}>Active</option>
+                  <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>Inactive</option>
+                  <option value="pending" {% if status_filter == "pending" %}selected{% endif %}>Pending</option>
+                  <option value="rejected" {% if status_filter == "rejected" %}selected{% endif %}>Rejected</option>
+                </select>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Insurance Type</label>
+                <select name="insurance_type" id="insuranceTypeFilter" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;" onchange="handleInsuranceTypeSelect(this, 'quickAddInsuranceTypeModal', 'insuranceTypeFilter')">
+                  <option value="">All Types</option>
+                  {% for opt in insurance_type_options %}
+                  <option value="{{ opt.key }}" {% if type_filter == opt.key %}selected{% endif %}>{{ opt.label }}</option>
+                  {% endfor %}
+                  <option value="__add_new__" class="portal-add-new-option">➕ Add New Insurance Type</option>
+                </select>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Source</label>
+                <select name="source" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
+                  {% include "core/partials/insurance_source_options.html" %}
+                </select>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Business Type</label>
+                <select name="business_type" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
+                  <option value="">All Business Types</option>
+                  <option value="new_business" {% if business_type_filter == "new_business" %}selected{% endif %}>🆕 New Business</option>
+                  <option value="renewal" {% if business_type_filter == "renewal" %}selected{% endif %}>🔄 Renewal</option>
+                  <option value="auto_renewal" {% if business_type_filter == "auto_renewal" %}selected{% endif %}>♻️ Auto-Renewal</option>
+                  <option value="rewrite" {% if business_type_filter == "rewrite" %}selected{% endif %}>✏️ Rewrite</option>
+                </select>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Company</label>
+                <select name="insurance_company" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
+                  <option value="">All Companies</option>
+                  {% for comp in insurance_companies %}
+                    <option value="{{ comp.id }}" {% if company_filter == comp.id|stringformat:"s" %}selected{% endif %}>{{ comp.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Agent</label>
+                <select name="agent" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white;">
+                  <option value="">All Agents</option>
+                  {% for member in insurance_agents %}
+                    <option value="{{ member.user.id }}" {% if agent_filter == member.user.id|stringformat:"s" %}selected{% endif %}>{{ member.user.get_full_name|default:member.user.username }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Quote From</label>
+                <input type="date" name="date_from" value="{{ date_from }}" style="padding: 7px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Quote To</label>
+                <input type="date" name="date_to" value="{{ date_to }}" style="padding: 7px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Min Premium ($)</label>
+                <input type="number" step="0.01" name="min_premium" value="{{ min_premium }}" placeholder="0.00" style="padding: 7px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569;">Max Premium ($)</label>
+                <input type="number" step="0.01" name="max_premium" value="{{ max_premium }}" placeholder="5000.00" style="padding: 7px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+              </div>
+            </div>
+          </details>
+        </form>
+      </div>
+
+      {% if license_attention %}
+      <div class="ins-license-crm-alert{% if license_attention_has_expired %} has-expired{% endif %}" role="alert" aria-live="polite">
+        <div class="ins-license-crm-alert__glow" aria-hidden="true"></div>
+        <div class="ins-license-crm-alert__head">
+          <div>
+            <div class="ins-license-crm-alert__kicker">
+              <span class="ins-license-crm-alert__pulse-dot" aria-hidden="true"></span>
+              License renewal action
+            </div>
+            <h3 class="ins-license-crm-alert__title">
+              {% if license_attention|length == 1 %}
+                1 insurance company needs renewal attention
+              {% else %}
+                {{ license_attention|length }} insurance companies need renewal attention
+              {% endif %}
+            </h3>
+            <p class="ins-license-crm-alert__sub">
+              Review license expiration dates and renew before coverage appointments lapse. Click a company to update license details.
+            </p>
+          </div>
+          <div class="ins-license-crm-alert__count" title="Companies needing action">{{ license_attention|length }}</div>
+        </div>
+        <div class="ins-license-crm-alert__list">
+          {% for row in license_attention %}
+          <div class="ins-license-crm-alert__row{% if row.status.state == 'expired' %} is-expired{% endif %}">
+            <div>
+              <a class="ins-license-crm-alert__company" href="{% url 'insurance-company-detail' row.company.id %}">{{ row.company.name }}</a>
+              <div class="ins-license-crm-alert__meta">
+                {{ row.status.label }}
+                {% if row.status.expiration_date %} · Expires {{ row.status.expiration_date|date:"M j, Y" }}{% endif %}
+                {% if row.company.license_number %} · Lic # {{ row.company.license_number }}{% endif %}
+                {% if row.company.broker_arrangement == 'br' %} · BR{% elif row.company.broker_arrangement == 'bc' %} · BC{% endif %}
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;">
+              <span class="ins-license-crm-alert__tag{% if row.status.state == 'expired' %} expired{% endif %}">
+                {% if row.status.state == 'expired' %}Expired{% else %}Due soon{% endif %}
+              </span>
+              <a class="ins-license-crm-alert__cta" href="{% url 'insurance-company-detail' row.company.id %}">Open profile →</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+          <h3 class="ins-section-title" style="margin-bottom: 0.2rem;">Client Insurance Policies</h3>
+          <p style="margin: 0; color: #64748b; font-size: 0.85rem; font-weight: 600;">Showing quote dates in {{ comp_period_label }}</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap;">
+          <button type="button" onclick="openAddPolicyModal()" style="padding: 8px 18px; background: #093de6; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Add Policy</button>
+          <button type="button" onclick="document.getElementById('importInsDecModal').classList.add('active')" style="padding: 8px 18px; background: #0f766e; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">Import Dec Page</button>
+        </div>
+      </div>
+      <div id="insCrmResults" class="ins-crm-results" aria-live="polite">
+        {% include "core/partials/insurance_crm_policies_table.html" %}
+      </div>

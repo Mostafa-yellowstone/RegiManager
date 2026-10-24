@@ -1,0 +1,7 @@
+{% extends "core/insurance_area/base.html" %}
+
+{% block insurance_page %}
+<div id="tab-daily-payments" class="tab-panel">
+  {% include "core/partials/daily_payments_tab.html" with user_can_clear_daily_payments=user_can_clear_daily_payments %}
+</div>
+{% endblock %}

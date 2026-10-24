@@ -1,0 +1,10 @@
+    <div id="tab-quote-pipeline" class="tab-panel" style="display: none;">
+      {% if can_view_quote_pipeline %}
+      {% include "core/partials/insurance_quote_pipeline_tab.html" %}
+      {% else %}
+      <div class="spaces-metric" style="text-align:center;padding:2.5rem 1.5rem;">
+        <h4 style="margin:0 0 0.5rem;">Quote Pipeline</h4>
+        <p style="margin:0;color:var(--portal-text-muted);">Insurance access is required to view this board.</p>
+      </div>
+      {% endif %}
+    </div>

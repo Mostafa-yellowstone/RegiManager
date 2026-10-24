@@ -102,6 +102,17 @@ html.portal-theme-dark .ins-overview-table.ins-table td {
   color: var(--portal-text);
   border-bottom-color: rgba(241, 245, 249, 0.28);
 }
+.ins-renewal__status { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.1rem; font-size: 0.88rem; font-weight: 600; color: var(--portal-text-secondary); }
+.ins-renewal__status a { color: var(--portal-primary); }
+.ins-renewal__stage { padding: 0.2rem 0.65rem; border-radius: 999px; font-size: 0.75rem; font-weight: 800; background: var(--portal-info-bg); color: var(--portal-info); }
+.ins-renewal__stage--renewed, .ins-renewal__stage--rewritten { background: var(--portal-success-bg); color: var(--portal-success); }
+.ins-renewal__stage--lost { background: var(--portal-danger-bg); color: var(--portal-danger); }
+.ins-renewal__chain { list-style: none; margin: 0.9rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.ins-renewal__chain li { display: flex; flex-direction: column; padding: 0.5rem 0.75rem; border: 1px solid var(--portal-border); border-radius: 12px; background: var(--portal-surface-muted); font-size: 0.85rem; }
+.ins-renewal__chain li.is-current { border-color: var(--portal-primary); }
+.ins-renewal__chain a { color: var(--portal-primary); font-weight: 700; }
+.ins-renewal__chain small { color: var(--portal-text-muted); font-size: 0.75rem; }
+html.portal-theme-dark .ins-renewal__status a, html.portal-theme-dark .ins-renewal__chain a { color: #93c5fd; }
 @media (max-width: 900px) {
   .grid-2 { grid-template-columns: 1fr; }
 }
@@ -116,7 +127,7 @@ html.portal-theme-dark .ins-overview-table.ins-table td {
   <div class="portal-space-inner portal-space-inner--wide">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem;">
       {% if insurance_space %}
-      <a href="{% url 'inventory-detail' insurance_space.id %}" class="btn btn-secondary btn-sm">← Back to Insurance</a>
+      <a href="{% url 'insurance-policies' %}" class="btn btn-secondary btn-sm">← Back to Policies</a>
       {% else %}
       <a href="{% url 'spaces-home' %}" class="btn btn-secondary btn-sm">← Spaces</a>
       {% endif %}
@@ -165,6 +176,43 @@ html.portal-theme-dark .ins-overview-table.ins-table td {
         </div>
       </div>
     </header>
+
+    {% if renewal_card or renewal_chain %}
+    <section class="ins-panel ins-renewal">
+      <div class="ins-panel__head">
+        <h2>Renewal</h2>
+        {% if renewal_card %}
+        <a href="{% url 'insurance-renewal-detail' renewal_card.id %}" class="btn btn-secondary btn-sm">Open renewal card</a>
+        {% endif %}
+      </div>
+      <div class="ins-panel__body">
+        {% if renewal_card %}
+        <div class="ins-renewal__status">
+          <span class="ins-renewal__stage ins-renewal__stage--{{ renewal_card.stage }}">{{ renewal_card.get_stage_display }}</span>
+          {% if renewal_card.is_open %}
+            <span>{% if renewal_days_left < 0 %}Expired {{ renewal_days_overdue }} day{{ renewal_days_overdue|pluralize }} ago{% elif renewal_days_left == 0 %}Expires today{% else %}Expires in {{ renewal_days_left }} day{{ renewal_days_left|pluralize }}{% endif %}</span>
+          {% elif renewal_card.stage == "lost" %}
+            <span>{{ renewal_card.get_lost_reason_display|default:"Lost" }}{% if renewal_card.lost_note %} · {{ renewal_card.lost_note }}{% endif %}</span>
+          {% elif renewal_card.new_policy %}
+            <span>New term: <a href="{% url 'insurance-policy-detail' renewal_card.new_policy.id %}">#{{ renewal_card.new_policy.policy_number }}</a></span>
+          {% endif %}
+          <span>Agent: {% if renewal_card.assigned_to %}{{ renewal_card.assigned_to.get_full_name|default:renewal_card.assigned_to.username }}{% else %}Unassigned{% endif %}</span>
+          {% if renewal_card.contact_count %}<span>{{ renewal_card.contact_count }} contact{{ renewal_card.contact_count|pluralize }}</span>{% endif %}
+        </div>
+        {% endif %}
+        {% if renewal_chain %}
+        <ol class="ins-renewal__chain">
+          {% for term in renewal_chain %}
+          <li{% if term.id == policy.id %} class="is-current"{% endif %}>
+            {% if term.id == policy.id %}<strong>#{{ term.policy_number }}</strong>{% else %}<a href="{% url 'insurance-policy-detail' term.id %}">#{{ term.policy_number }}</a>{% endif %}
+            <small>{{ term.start_date|date:"M j, Y" }} → {{ term.end_date|date:"M j, Y" }} · ${{ term.premium }}</small>
+          </li>
+          {% endfor %}
+        </ol>
+        {% endif %}
+      </div>
+    </section>
+    {% endif %}
 
     <div class="grid-2 ins-overview-grid">
       <div class="ins-overview-card">

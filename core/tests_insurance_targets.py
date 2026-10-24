@@ -28,6 +28,7 @@ class InsuranceTargetsPlannerTests(TestCase):
         self.agent = User.objects.create_user(username="tgtagent", password="password123")
         self.org = Organization.objects.create(name="Targets Org", city="NYC")
         self.owner_mem = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.owner,
             organization=self.org,
             role=OrganizationMembership.Role.OWNER,
@@ -37,6 +38,7 @@ class InsuranceTargetsPlannerTests(TestCase):
             can_view_banking=True,
         )
         self.agent_mem = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.agent,
             organization=self.org,
             role=OrganizationMembership.Role.AGENT,
@@ -221,7 +223,7 @@ class InsuranceTargetsPlannerTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(
             response["Location"],
-            f"{reverse('inventory-detail', args=[self.space.id])}?tab=targets&target_month={month_key}",
+            f"{reverse('insurance-targets')}?tab=targets&target_month={month_key}",
         )
         page = self.http.get(response["Location"])
         self.assertEqual(page.status_code, 200)

@@ -28,7 +28,7 @@ def task_board_action_url(*, task_id: int | None = None) -> str:
 
 
 def quote_pipeline_action_url(*, space_id: int, lead_id: int | None = None) -> str:
-    url = f"/dashboard/inventory/{int(space_id)}/?tab=quote-pipeline"
+    url = reverse("insurance-pipeline")
     if lead_id:
-        url += f"&lead={int(lead_id)}"
+        url += f"?lead={int(lead_id)}"
     return url

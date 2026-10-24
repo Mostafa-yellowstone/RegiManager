@@ -431,7 +431,7 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #a5b
     <!-- Breadcrumb -->
     <div class="iap-breadcrumb">
       {% if insurance_space_id %}
-        <a href="{% url 'inventory-detail' insurance_space_id %}">🛡️ Insurance Space</a>
+        <a href="{% url 'insurance-agents' %}">🛡️ Insurance</a>
       {% else %}
         <a href="{% url 'spaces-home' %}">🛡️ Insurance Space</a>
       {% endif %}
@@ -457,7 +457,7 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #a5b
           </div>
         </div>
         {% if insurance_space_id %}
-          <a href="{% url 'inventory-detail' insurance_space_id %}" class="btn-outline iap-back">← Back to Insurance</a>
+          <a href="{% url 'insurance-agents' %}" class="btn-outline iap-back">← Back to Insurance</a>
         {% else %}
           <a href="{% url 'spaces-home' %}" class="btn-outline iap-back">← Back</a>
         {% endif %}

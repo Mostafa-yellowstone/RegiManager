@@ -215,6 +215,7 @@ class InsurancePolicyEditPermissionTests(TestCase):
         self.other_user = User.objects.create_user(username="polother", password="password123")
 
         self.owner = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.owner_user,
             organization=self.org,
             role=OrganizationMembership.Role.OWNER,
@@ -222,6 +223,7 @@ class InsurancePolicyEditPermissionTests(TestCase):
         )
         apply_role_permission_pack(self.owner)
         self.manager = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.manager_user,
             organization=self.org,
             role=OrganizationMembership.Role.MANAGER,
@@ -229,6 +231,7 @@ class InsurancePolicyEditPermissionTests(TestCase):
         )
         apply_role_permission_pack(self.manager)
         self.agent = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.agent_user,
             organization=self.org,
             role=OrganizationMembership.Role.INSURANCE_AGENT,
@@ -236,6 +239,7 @@ class InsurancePolicyEditPermissionTests(TestCase):
         )
         apply_role_permission_pack(self.agent)
         self.other = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.other_user,
             organization=self.org,
             role=OrganizationMembership.Role.INSURANCE_AGENT,
@@ -332,23 +336,23 @@ class InsurancePolicyEditPermissionTests(TestCase):
 
     def test_crm_hides_edit_for_other_agent(self):
         self._login("polother")
-        response = self.http.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance")
+        response = self.http.get(reverse("insurance-policies") + "?tab=insurance")
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, f"editPolicy({self.policy.id})")
         self.assertNotContains(response, f"/policy/{self.policy.id}/delete/")
         self.http.logout()
         self._login("polagent")
-        response = self.http.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance")
+        response = self.http.get(reverse("insurance-policies") + "?tab=insurance")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, f"editPolicy({self.policy.id})")
         self.assertNotContains(response, f"/policy/{self.policy.id}/delete/")
         self.http.logout()
         self._login("polowner")
-        response = self.http.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance")
+        response = self.http.get(reverse("insurance-policies") + "?tab=insurance")
         self.assertContains(response, f"/policy/{self.policy.id}/delete/")
         self.http.logout()
         self._login("polmgr")
-        response = self.http.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance")
+        response = self.http.get(reverse("insurance-policies") + "?tab=insurance")
         self.assertContains(response, f"/policy/{self.policy.id}/delete/")
 
     def test_finance_toggle_lets_agent_edit_any_policy(self):
@@ -364,7 +368,7 @@ class InsurancePolicyEditPermissionTests(TestCase):
         self.assertEqual(post.status_code, 302)
         self.policy.refresh_from_db()
         self.assertEqual(self.policy.premium, Decimal("720.00"))
-        crm = self.http.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance")
+        crm = self.http.get(reverse("insurance-policies") + "?tab=insurance")
         self.assertContains(crm, f"editPolicy({self.policy.id})")
 
     def test_agent_cannot_delete_policy_from_crm_url(self):
@@ -400,7 +404,7 @@ class InsurancePolicyEditPermissionTests(TestCase):
 
     def test_crm_search_matches_full_name_case_and_policy_number(self):
         self._login("polowner")
-        url = reverse("inventory-detail", args=[self.space.id])
+        url = reverse("insurance-policies")
         for query in ("Pat Policy", "pat policy", "PAT POLICY", "POL-OWN", "pol-own"):
             response = self.http.get(url, {"tab": "insurance", "q": query})
             self.assertEqual(response.status_code, 200, query)
@@ -408,7 +412,7 @@ class InsurancePolicyEditPermissionTests(TestCase):
 
     def test_crm_live_search_partial_returns_matching_rows(self):
         self._login("polowner")
-        url = reverse("inventory-detail", args=[self.space.id])
+        url = reverse("insurance-policies")
         response = self.http.get(
             url,
             {"tab": "insurance", "q": "pat policy", "partial": "crm_policies"},
@@ -425,6 +429,7 @@ class AddVehicleViewTests(TestCase):
         self.user = User.objects.create_user(username="owner", password="password123")
         self.org = Organization.objects.create(name="Test Org", city="NYC")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.user,
             organization=self.org,
             is_active=True,
@@ -841,6 +846,7 @@ class AgentAuditingTests(TestCase):
         # User 1: Deal with insurance
         self.user1 = User.objects.create_user(username="agent1", password="password123")
         self.m1 = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.user1, organization=self.org, is_active=True, role="agent",
             can_deal_with_insurance=True, can_view_spaces=True
         )
@@ -849,6 +855,7 @@ class AgentAuditingTests(TestCase):
         # User 2: Deal with insurance
         self.user2 = User.objects.create_user(username="agent2", password="password123")
         self.m2 = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.user2, organization=self.org, is_active=True, role="agent",
             can_deal_with_insurance=True, can_view_spaces=True
         )
@@ -857,6 +864,7 @@ class AgentAuditingTests(TestCase):
         # User 3: Do NOT deal with insurance
         self.user3 = User.objects.create_user(username="agent3", password="password123")
         self.m3 = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.user3, organization=self.org, is_active=True, role="agent",
             can_deal_with_insurance=False, can_view_spaces=True
         )
@@ -896,8 +904,7 @@ class AgentAuditingTests(TestCase):
             start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6, bound_date=self.quote_date
         )
         
-        # Access the inventory-detail view for the insurance space
-        response = self.client.get(reverse("inventory-detail", args=[self.space.id]))
+        response = self.client.get(reverse("insurance-agents"))
         self.assertEqual(response.status_code, 200)
         
         # Verify only agents who can deal with insurance are in the list
@@ -955,17 +962,17 @@ class AgentAuditingTests(TestCase):
         )
         
         # Filter by stage = "bound"
-        response = self.client.get(reverse("inventory-detail", args=[self.space.id]) + "?stage=bound")
+        response = self.client.get(reverse("insurance-policies") + "?stage=bound")
         self.assertEqual(len(response.context["policies"]), 1)
         self.assertEqual(response.context["policies"][0].policy_number, "POL-FILTER-A")
         
         # Filter by agent
-        response = self.client.get(reverse("inventory-detail", args=[self.space.id]) + f"?agent={self.user2.id}")
+        response = self.client.get(reverse("insurance-policies") + f"?agent={self.user2.id}")
         self.assertEqual(len(response.context["policies"]), 1)
         self.assertEqual(response.context["policies"][0].policy_number, "POL-FILTER-B")
 
         # Filter by min_premium & max_premium
-        response = self.client.get(reverse("inventory-detail", args=[self.space.id]) + "?min_premium=2000")
+        response = self.client.get(reverse("insurance-policies") + "?min_premium=2000")
         self.assertEqual(len(response.context["policies"]), 1)
         self.assertEqual(response.context["policies"][0].policy_number, "POL-FILTER-B")
 
@@ -1013,7 +1020,7 @@ class AgentAuditingTests(TestCase):
             "?tab=insurance&stage=bound&business_type=renewal&source=referral"
             "&min_premium=2500&agent=" + str(self.user1.id) + "&page=2"
         )
-        response = self.client.get(reverse("inventory-detail", args=[self.space.id]) + query)
+        response = self.client.get(reverse("insurance-policies") + query)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["stage_filter"], "bound")
         self.assertEqual(response.context["business_type_filter"], "renewal")
@@ -1084,7 +1091,7 @@ class AgentAuditingTests(TestCase):
             bound_date=prior_month_day,
         )
 
-        response = self.client.get(reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance")
+        response = self.client.get(reverse("insurance-policies") + "?tab=insurance")
         policy_numbers = [p.policy_number for p in response.context["policies"]]
         self.assertIn("POL-MONTH-CURRENT-EARLY", policy_numbers)
         self.assertIn("POL-MONTH-CURRENT-LATE", policy_numbers)
@@ -1092,7 +1099,7 @@ class AgentAuditingTests(TestCase):
         self.assertEqual(policy_numbers[0], "POL-MONTH-CURRENT-LATE")
 
         response = self.client.get(
-            reverse("inventory-detail", args=[self.space.id]) + "?tab=insurance&comp_month_offset=-1"
+            reverse("insurance-policies") + "?tab=insurance&comp_month_offset=-1"
         )
         policy_numbers = [p.policy_number for p in response.context["policies"]]
         self.assertEqual(policy_numbers, ["POL-MONTH-PRIOR"])
@@ -1116,7 +1123,7 @@ class AgentAuditingTests(TestCase):
         self.assertEqual(policy.unearned_commission, Decimal("100.00"))
 
         # Access view and check initial unearned values
-        response = self.client.get(reverse("inventory-detail", args=[self.space.id]))
+        response = self.client.get(reverse("insurance-policies"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["total_unearned_commission"], Decimal("100.00"))
         
@@ -1140,7 +1147,7 @@ class AgentAuditingTests(TestCase):
         )
 
         # Access view and check if unearned commission has decreased by $40
-        response = self.client.get(reverse("inventory-detail", args=[self.space.id]))
+        response = self.client.get(reverse("insurance-policies"))
         self.assertEqual(response.context["total_unearned_commission"], Decimal("60.00"))
         context_policy = next(p for p in response.context["policies"] if p.id == policy.id)
         self.assertEqual(context_policy.unearned_commission, Decimal("60.00"))
@@ -1155,12 +1162,14 @@ class AgentAuditingTests(TestCase):
         )
 
         # Access view and check if unearned commission is now $0.00 (since 40 + 80 = 120 > 100)
-        response = self.client.get(reverse("inventory-detail", args=[self.space.id]))
+        response = self.client.get(reverse("insurance-policies"))
         self.assertEqual(response.context["total_unearned_commission"], Decimal("0.00"))
         context_policy = next(p for p in response.context["policies"] if p.id == policy.id)
         self.assertEqual(context_policy.unearned_commission, Decimal("0.00"))
 
         # Verify company summaries unearned commission
+        OrganizationMembership.objects.filter(user=self.user1, organization=self.org).update(can_view_banking=True)
+        response = self.client.get(reverse("insurance-companies"))
         company_summary = next(c for c in response.context["company_summaries"] if c["id"] == self.company.id)
         self.assertEqual(company_summary["unearned_commission"], Decimal("0.00"))
 
@@ -1174,6 +1183,7 @@ class CompanyProfileCommissionTests(TestCase):
         self.org = Organization.objects.create(name="Test Org", city="NYC")
         self.owner = User.objects.create_user(username="owner", password="password123")
         self.owner_membership = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.owner,
             organization=self.org,
             is_active=True,
@@ -1625,12 +1635,15 @@ class SiteNewsAlertTests(TestCase):
         self.other_agent = User.objects.create_user(username="otheragent", password="password123")
 
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.owner, organization=self.org_a, is_active=True, role="owner"
         )
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.agent, organization=self.org_a, is_active=True, role="agent"
         )
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.other_agent, organization=self.org_b, is_active=True, role="agent"
         )
         self.client = TestClient()
@@ -1748,9 +1761,11 @@ class KnowledgeHubTests(TestCase):
         self.agent = User.objects.create_user(username="agent", password="password123")
         
         self.owner_membership = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.owner, organization=self.org, is_active=True, role="owner"
         )
         self.agent_membership = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.agent, organization=self.org, is_active=True, role="agent"
         )
         
@@ -2121,12 +2136,14 @@ class PortalIntakeListTests(TestCase):
             is_public_intake_enabled=True,
         )
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.owner,
             organization=self.org,
             is_active=True,
             role="owner",
         )
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.agent,
             organization=self.org,
             is_active=True,
@@ -2335,12 +2352,14 @@ class AgentServiceAuditTests(TestCase):
         self.agent = User.objects.create_user(username="auditagent", password="password123")
         self.org = Organization.objects.create(name="Audit Org", city="NYC")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.owner,
             organization=self.org,
             is_active=True,
             role="owner",
         )
         self.agent_membership = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.agent,
             organization=self.org,
             is_active=True,
@@ -2387,6 +2406,7 @@ class DocumentsSpaceTests(TestCase):
         self.org = Organization.objects.create(name="Docs Org", city="NYC")
         self.owner = User.objects.create_user(username="docsowner", password="password123")
         self.owner_membership = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.owner,
             organization=self.org,
             is_active=True,
@@ -2492,6 +2512,7 @@ class MotorclubTests(TestCase):
         self.org = Organization.objects.create(name="Motor Org", city="NYC")
         self.owner = User.objects.create_user(username="mcowner", password="password123")
         self.owner_membership = OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.owner,
             organization=self.org,
             is_active=True,
@@ -2681,6 +2702,7 @@ class UnearnedCommissionCalculationTests(TestCase):
         self.org = Organization.objects.create(name="Test Org", city="NYC")
         self.user = User.objects.create_user(username="agent", password="password123")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.user, organization=self.org, is_active=True, role="owner",
         )
         self.company = InsuranceCompany.objects.create(organization=self.org, name="Progressive")
@@ -2795,6 +2817,7 @@ class TransactionDateMetricsTests(TestCase):
         self.user = User.objects.create_user(username="metricsuser", password="password123")
         self.org = Organization.objects.create(name="Metrics Org", city="NYC")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.user,
             organization=self.org,
             is_active=True,
@@ -2841,6 +2864,7 @@ class FinanceBiTransactionDateTests(TestCase):
         self.user = User.objects.create_user(username="financeuser", password="password123")
         self.org = Organization.objects.create(name="Finance Org", city="NYC")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.user,
             organization=self.org,
             is_active=True,
@@ -3062,6 +3086,7 @@ class ClientSearchAjaxTests(TestCase):
         self.user = User.objects.create_user(username="searchuser", password="password123")
         self.org = Organization.objects.create(name="Search Org", city="NYC")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.user, organization=self.org, is_active=True, role="owner"
         )
         self.client_obj = Client.objects.create(
@@ -3121,6 +3146,7 @@ class ClientProfileReferralTests(TestCase):
         self.user = User.objects.create_user(username="profileuser", password="password123")
         self.org = Organization.objects.create(name="Profile Org", city="NYC")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.user, organization=self.org, is_active=True, role="owner"
         )
         self.partner = Referral.objects.create(
@@ -3259,6 +3285,7 @@ class ReferralFeeProfitTests(TestCase):
         self.org = Organization.objects.create(name="Fee Org", city="NYC")
         self.owner = User.objects.create_user(username="feeowner", password="password123")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.owner, organization=self.org, is_active=True, role="owner"
         )
         self.partner = Referral.objects.create(
@@ -3353,6 +3380,7 @@ class ReferralFeeProfitTests(TestCase):
     def test_agent_with_referral_access_cannot_update_referral_fee(self):
         agent = User.objects.create_user(username="feeagent", password="password123")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=agent,
             organization=self.org,
             is_active=True,
@@ -3412,6 +3440,7 @@ class ServiceReceiptPaymentHistoryTests(TestCase):
         self.user = User.objects.create_user(username="payuser", password="password123")
         self.org = Organization.objects.create(name="Pay Org", city="NYC")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.user, organization=self.org, is_active=True, role="owner"
         )
         self.client_obj = Client.objects.create(
@@ -3822,6 +3851,7 @@ class DmvDocumentsStateTests(TestCase):
     def test_vehicle_detail_uses_psb_state_for_dmv_hub(self):
         org = Organization.objects.create(name="CT Motor PSB", city="Hartford", state="CT")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.user,
             organization=org,
             is_active=True,
@@ -3917,6 +3947,7 @@ class DmvDocumentsStateTests(TestCase):
     def test_generate_dmv_form_vehicle_returns_matching_form_filename(self):
         org = Organization.objects.create(name="NY DMV PSB", city="Albany", state="NY")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.user,
             organization=org,
             is_active=True,
@@ -3954,6 +3985,7 @@ class DmvDocumentsStateTests(TestCase):
 
         org = Organization.objects.create(name="MV82 Field PSB", city="Albany", state="NY")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.user,
             organization=org,
             is_active=True,
@@ -4013,6 +4045,7 @@ class DmvDocumentsStateTests(TestCase):
 
         org = Organization.objects.create(name="NY Redirect PSB", city="Albany", state="NY")
         OrganizationMembership.objects.create(
+            can_use_insurance=True,
             user=self.user,
             organization=org,
             is_active=True,

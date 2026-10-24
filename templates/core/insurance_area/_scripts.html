@@ -1,0 +1,651 @@
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let premiumChart = null;
+let profitChart = null;
+
+function renderAgentCharts() {
+  const chartCanvasPrem = document.getElementById('agentPremiumChart');
+  const chartCanvasProf = document.getElementById('agentProfitChart');
+  if (!chartCanvasPrem || !chartCanvasProf) return;
+
+  const chartData = JSON.parse('{{ agent_chart_data_json|escapejs }}');
+  const names = chartData.names;
+  const premiums = chartData.premiums;
+  const profits = chartData.profits;
+
+  if (names.length === 0) return;
+
+  // Premium Comparison Bar Chart
+  const ctxPrem = chartCanvasPrem.getContext('2d');
+  if (premiumChart) premiumChart.destroy();
+  premiumChart = new Chart(ctxPrem, {
+    type: 'bar',
+    data: {
+      labels: names,
+      datasets: [{
+        label: 'Total Premium ($)',
+        data: premiums,
+        backgroundColor: 'rgba(9, 61, 230, 0.75)',
+        borderColor: 'rgb(9, 61, 230)',
+        borderWidth: 1,
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: '#f1f5f9' }
+        },
+        x: {
+          grid: { display: false }
+        }
+      },
+      plugins: {
+        legend: { display: false }
+      }
+    }
+  });
+
+  // Profit Contribution Doughnut Chart
+  const ctxProfit = chartCanvasProf.getContext('2d');
+  if (profitChart) profitChart.destroy();
+  
+  const colors = names.map(name => {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const h = Math.abs(hash * 37) % 360;
+    return `hsl(${h}, 70%, 60%)`;
+  });
+
+  profitChart = new Chart(ctxProfit, {
+    type: 'doughnut',
+    data: {
+      labels: names,
+      datasets: [{
+        data: profits,
+        backgroundColor: colors,
+        borderWidth: 2,
+        borderColor: '#ffffff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { boxWidth: 12, font: { size: 10 } }
+        }
+      }
+    }
+  });
+}
+
+const INSURANCE_PAGE_URLS = {
+  'insurance': '{% url "insurance-policies" %}',
+  'quote-pipeline': '{% url "insurance-pipeline" %}',
+  'companies': '{% url "insurance-companies" %}',
+  'banking': '{% url "insurance-finance" %}',
+  'producers': '{% url "insurance-producers" %}',
+  'reporting': '{% url "insurance-reports" %}',
+  'esign': '{% url "insurance-esign" %}',
+  'targets': '{% url "insurance-targets" %}',
+  'daily-payments': '{% url "insurance-payments" %}',
+  'agents': '{% url "insurance-agents" %}'
+};
+
+function switchTab(name) {
+  if (name === window.INSURANCE_CURRENT_TAB) return;
+  const url = INSURANCE_PAGE_URLS[name];
+  if (url) window.location.href = url;
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const current = window.INSURANCE_CURRENT_TAB;
+  if (current === 'agents') {
+    setTimeout(renderAgentCharts, 50);
+  }
+  if (current === 'targets') {
+    setTimeout(function () {
+      if (typeof window.renderInsuranceTargetCharts === 'function') {
+        window.renderInsuranceTargetCharts(true);
+      } else {
+        window.dispatchEvent(new Event('resize'));
+      }
+    }, 60);
+  }
+
+  const scrollKey = 'insurance_scroll_pos:' + window.location.pathname;
+  const scrollPos = sessionStorage.getItem(scrollKey);
+  if (scrollPos) {
+    setTimeout(() => {
+      window.scrollTo({ top: parseInt(scrollPos, 10), behavior: 'instant' });
+      sessionStorage.removeItem(scrollKey);
+    }, 100);
+  }
+});
+
+window.addEventListener('beforeunload', () => {
+  sessionStorage.setItem('insurance_scroll_pos:' + window.location.pathname, window.scrollY);
+});
+
+function toggleInactiveDate() {
+  const s = document.getElementById('policyStatus').value;
+  const row = document.getElementById('inactiveDateRow');
+  const inp = document.getElementById('policyInactiveDate');
+  if (s === 'inactive') {
+    row.style.display = 'block';
+    inp.required = true;
+    if (!inp.value) {
+      inp.value = new Date().toISOString().split('T')[0];
+    }
+  } else {
+    row.style.display = 'none';
+    inp.required = false;
+    inp.value = '';
+  }
+}
+
+function syncPolicyReferralPartner() {
+  const source = document.getElementById('policySource');
+  const wrap = document.getElementById('policyReferralPartnerWrap');
+  const select = document.getElementById('policyReferralPartner');
+  const label = document.getElementById('policyReferralPartnerLabel');
+  if (!source || !wrap) return;
+  const val = (source.value || '').toLowerCase();
+  const show = val === 'dealer' || val === 'referral';
+  wrap.style.display = show ? 'block' : 'none';
+  if (label) {
+    label.textContent = val === 'dealer'
+      ? 'Dealer / Partner (Referral Space)'
+      : 'Referral Partner (Referral Space)';
+  }
+  if (!show && select) select.value = '';
+}
+
+function openAddPolicyModal() {
+  document.getElementById('policyModalTitle').textContent = '🛡️ Add Insurance Policy';
+  document.getElementById('policyForm').action = "{% url 'add-insurance-policy' %}";
+  document.getElementById('policyForm').reset();
+  document.getElementById('policyBrokerFee').value = '0.00';
+  document.getElementById('policyStage').value = 'quote';
+  document.getElementById('policyStatus').value = 'active';
+  document.getElementById('policyInsuranceType').value = '';
+  document.getElementById('policySource').value = 'walk_in';
+  document.getElementById('policyBusinessType').value = 'new_business';
+  document.getElementById('policyBoundDate').value = new Date().toISOString().split('T')[0];
+  const partnerSelect = document.getElementById('policyReferralPartner');
+  if (partnerSelect) partnerSelect.value = '';
+  syncPolicyReferralPartner();
+  toggleInactiveDate();
+  setPolicyProducer('', '', '');
+  document.getElementById('addPolicyModal').classList.add('active');
+}
+
+function setPolicyProducer(producerId, rate, payout) {
+  const box = document.getElementById('policyHasProducer');
+  const select = document.getElementById('policyProducer');
+  const rateInput = document.getElementById('policyProducerRate');
+  const payoutSelect = document.getElementById('policyProducerPayout');
+  if (box) box.checked = !!producerId;
+  if (select) select.value = producerId ? String(producerId) : '';
+  if (rateInput) rateInput.value = rate || '';
+  if (payoutSelect) payoutSelect.value = payout || 'once';
+  syncPolicyProducer(true);
+}
+
+function syncPolicyProducer(keepValues) {
+  const box = document.getElementById('policyHasProducer');
+  const fields = document.getElementById('policyProducerFields');
+  const select = document.getElementById('policyProducer');
+  if (!box || !fields) return;
+  fields.hidden = !box.checked;
+  if (select) select.required = box.checked;
+  if (!keepValues && box.checked) applyProducerDefaults();
+  previewProducerCommission();
+}
+
+function applyProducerDefaults() {
+  const select = document.getElementById('policyProducer');
+  const opt = select && select.selectedOptions[0];
+  const rateInput = document.getElementById('policyProducerRate');
+  const payoutSelect = document.getElementById('policyProducerPayout');
+  if (opt && opt.value) {
+    if (rateInput) rateInput.value = opt.dataset.rate || '';
+    if (payoutSelect) payoutSelect.value = opt.dataset.payout || 'once';
+  }
+  previewProducerCommission();
+}
+
+function previewProducerCommission() {
+  const out = document.getElementById('policyProducerPreview');
+  const basisEl = document.getElementById('policyProducerBasis');
+  const select = document.getElementById('policyProducer');
+  const box = document.getElementById('policyHasProducer');
+  if (!out || !select) return;
+  const opt = select.selectedOptions[0];
+  if (!box || !box.checked || !opt || !opt.value) { out.innerHTML = ''; if (basisEl) basisEl.textContent = ''; return; }
+  const basis = opt.dataset.basis || 'commission';
+  if (basisEl) basisEl.textContent = basis === 'premium' ? 'of premium' : 'of our commission';
+  const num = (id) => parseFloat((document.getElementById(id) || {}).value) || 0;
+  const premium = num('policyPremium');
+  const rate = num('policyProducerRate');
+  const base = basis === 'premium' ? premium : premium * num('policyRate') / 100;
+  const total = base * rate / 100;
+  const months = Math.max(parseInt((document.getElementById('policyPeriod') || {}).value, 10) || 1, 1);
+  const monthly = (document.getElementById('policyProducerPayout') || {}).value === 'monthly';
+  const fmt = (v) => '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  out.innerHTML = '<span>Producer commission</span><strong>' + fmt(total) + '</strong>' +
+    (monthly ? '<em>' + fmt(total / months) + ' / month × ' + months + '</em>' : '<em>paid once</em>');
+}
+
+['policyPremium', 'policyRate', 'policyPeriod'].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', previewProducerCommission);
+});
+
+function viewPolicy(id) {
+  const body = document.getElementById('viewPolicyCardBody');
+  body.innerHTML = '<div style="text-align:center;padding:2rem;color:#64748b;font-weight:600;">Loading policy...</div>';
+  document.getElementById('viewPolicyModal').classList.add('active');
+  fetch('/dashboard/spaces/insurance/policy/'+id+'/card/')
+    .then(r => {
+      if (!r.ok) throw new Error('Failed to load policy');
+      return r.text();
+    })
+    .then(html => { body.innerHTML = html; })
+    .catch(() => {
+      body.innerHTML = '<div style="text-align:center;padding:2rem;color:#dc2626;font-weight:600;">Could not load policy card.</div>';
+    });
+}
+
+function initInsuranceCrmLiveSearch() {
+  const form = document.getElementById('insCrmSearchForm');
+  const input = document.getElementById('insCrmSearch');
+  const field = document.getElementById('insCrmSearchField');
+  const results = document.getElementById('insCrmResults');
+  if (!form || !input || !results) return;
+
+  let timer = null;
+  let request = null;
+
+  function setSearching(on) {
+    field.classList.toggle('is-searching', on);
+    results.classList.toggle('is-searching', on);
+    results.setAttribute('aria-busy', on ? 'true' : 'false');
+  }
+
+  function liveSearch(params, { updateHistory = true } = {}) {
+    params.set('tab', 'insurance');
+    params.set('partial', 'crm_policies');
+    if (request) request.abort();
+    const thisRequest = new AbortController();
+    request = thisRequest;
+    setSearching(true);
+    const path = window.location.pathname + '?' + params.toString();
+    fetch(path, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      signal: thisRequest.signal,
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error('Search failed');
+        return r.text();
+      })
+      .then((html) => {
+        if (thisRequest !== request) return;
+        results.innerHTML = html;
+        if (updateHistory) {
+          const hist = new URLSearchParams(params);
+          hist.delete('partial');
+          const qs = hist.toString();
+          history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
+        }
+      })
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+      })
+      .finally(() => {
+        if (thisRequest === request) setSearching(false);
+      });
+  }
+
+  function searchFromForm({ resetPage = true } = {}) {
+    const params = new URLSearchParams(new FormData(form));
+    if (resetPage) params.delete('page');
+    liveSearch(params);
+  }
+
+  input.addEventListener('input', () => {
+    setSearching(true);
+    clearTimeout(timer);
+    timer = setTimeout(() => searchFromForm(), 280);
+  });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    clearTimeout(timer);
+    searchFromForm();
+  });
+
+  results.addEventListener('click', (e) => {
+    const link = e.target.closest('a.ins-pager-btn');
+    if (!link) return;
+    e.preventDefault();
+    const next = new URL(link.href, window.location.origin);
+    liveSearch(next.searchParams);
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initInsuranceCrmLiveSearch);
+} else {
+  initInsuranceCrmLiveSearch();
+}
+
+function editPolicy(id) {
+  fetch('/dashboard/spaces/insurance/policy/'+id+'/edit/')
+    .then(r => {
+      if (!r.ok) throw new Error('Failed to load policy');
+      return r.json();
+    })
+    .then(data => {
+      document.getElementById('policyForm').action = '/dashboard/spaces/insurance/policy/'+data.id+'/edit/';
+      document.getElementById('policyClientName').value = data.client_name;
+      document.getElementById('policyCompany').value = data.insurance_company_id;
+      document.getElementById('policyNumber').value = data.policy_number;
+      document.getElementById('policyPremium').value = data.premium;
+      document.getElementById('policyBrokerFee').value = data.broker_fee || '0.00';
+      const policyRate = document.getElementById('policyRate');
+      if (policyRate) policyRate.value = data.commission_rate;
+      document.getElementById('policyStart').value = data.start_date;
+      document.getElementById('policyEnd').value = data.end_date;
+      document.getElementById('policyPeriod').value = data.insurance_period_months;
+      document.getElementById('policyStage').value = data.stage;
+      document.getElementById('policyStatus').value = data.status;
+      document.getElementById('policyInsuranceType').value = data.insurance_type || '';
+      document.getElementById('policySource').value = data.source || 'walk_in';
+      document.getElementById('policyBusinessType').value = data.business_type || 'new_business';
+      document.getElementById('policyBoundDate').value = data.bound_date || '';
+      const partnerSelect = document.getElementById('policyReferralPartner');
+      if (partnerSelect) partnerSelect.value = data.referral_id || '';
+      syncPolicyReferralPartner();
+      toggleInactiveDate();
+      if (data.status === 'inactive') document.getElementById('policyInactiveDate').value = data.inactive_date || '';
+      setPolicyProducer(data.producer_id, data.producer_rate, data.producer_payout);
+      document.getElementById('policyModalTitle').textContent = '✏️ Edit Insurance Policy';
+      document.getElementById('addPolicyModal').classList.add('active');
+    })
+    .catch(() => {
+      alert('Could not load this policy for editing. Please refresh and try again.');
+    });
+}
+
+function openCompanyDepositModal(companyId, companyName, unearnedCommission) {
+  document.getElementById('depositCompanyId').value = companyId;
+  document.getElementById('companyDepositTitle').textContent = '💰 Pay/Deposit: ' + companyName;
+  document.getElementById('depositAmount').value = unearnedCommission;
+  document.getElementById('depositDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('depositDescription').value = 'Refund of unearned commission for ' + companyName;
+  document.getElementById('companyDepositModal').classList.add('active');
+}
+
+function openCompanyLedgerModal(companyId, companyName) {
+  const titleEl = document.getElementById('companyLedgerTitle');
+  const bodyEl = document.getElementById('companyLedgerBody');
+  titleEl.textContent = companyName + ' - Transaction Ledger';
+  bodyEl.innerHTML = '<div style="padding: 2rem; text-align: center; color: #64748b; font-weight: 600;">Loading ledger...</div>';
+  document.getElementById('companyLedgerModal').classList.add('active');
+  fetch('/dashboard/spaces/insurance/company/' + companyId + '/ledger/')
+    .then(function (response) {
+      if (!response.ok) throw new Error('Ledger unavailable');
+      return response.text();
+    })
+    .then(function (html) {
+      bodyEl.innerHTML = html;
+    })
+    .catch(function () {
+      bodyEl.innerHTML = '<div style="padding: 2rem; text-align: center; color: #b91c1c; font-weight: 600;">Could not load ledger. Please refresh and try again.</div>';
+    });
+}
+
+function openEditAccountModal(accountId, accountName, bankName, accountNumber, balance) {
+  document.getElementById('editAccountForm').action = '/dashboard/spaces/banking/account/' + accountId + '/edit/';
+  document.getElementById('editAccountName').value = accountName;
+  document.getElementById('editBankName').value = bankName;
+  document.getElementById('editAccountNumber').value = accountNumber;
+  document.getElementById('editAccountBalance').value = balance;
+  document.getElementById('editAccountModal').classList.add('active');
+}
+
+const incomeCats = {{ income_categories|safe }};
+const expenseCats = {{ expense_categories|safe }};
+const bankTxTypeLabels = {
+  income: 'Income',
+  expense: 'Expense',
+  income_credit_transfer: 'Income + Credit Transfer',
+  expense_debit_transfer: 'Expenses + Debit Transfer',
+  credit_transfer: 'Credit Transfer',
+  debit_transfer: 'Debit Transfer',
+};
+function isCreditBankType(type) {
+  return type === 'income'
+    || type === 'credit_transfer'
+    || type === 'income_credit_transfer';
+}
+function categoryPoolForType(type) {
+  if (type === 'expense_debit_transfer' || type === 'debit_transfer' || type === 'expense') {
+    return expenseCats;
+  }
+  return incomeCats;
+}
+function updateCategories() {
+  const type = document.getElementById('txType').value;
+  const sel = document.getElementById('txCategory');
+  sel.innerHTML = '';
+  categoryPoolForType(type).forEach(c => {
+    const o = document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o);
+  });
+}
+updateCategories();
+
+function fillCategorySelect(selectEl, type, preferred) {
+  if (!selectEl) return;
+  selectEl.innerHTML = '';
+  categoryPoolForType(type).forEach(c => {
+    const o = document.createElement('option');
+    o.value = c;
+    o.textContent = c;
+    if (preferred && preferred === c) o.selected = true;
+    selectEl.appendChild(o);
+  });
+  if (preferred && ![...selectEl.options].some(o => o.value === preferred)) {
+    const o = document.createElement('option');
+    o.value = preferred;
+    o.textContent = preferred;
+    o.selected = true;
+    selectEl.appendChild(o);
+  }
+}
+
+function updateEditCategories() {
+  const type = document.getElementById('editTxType').value;
+  fillCategorySelect(document.getElementById('editTxCategory'), type);
+}
+
+function openViewTransactionModal(btn) {
+  const txType = btn.dataset.type || '';
+  document.getElementById('viewTxDate').textContent = btn.dataset.date || '—';
+  document.getElementById('viewTxAccount').textContent = btn.dataset.account || '—';
+  document.getElementById('viewTxType').textContent = bankTxTypeLabels[txType] || txType || '—';
+  document.getElementById('viewTxAmount').textContent = (isCreditBankType(txType) ? '+' : '−') + '$' + (btn.dataset.amount || '0');
+  document.getElementById('viewTxCategory').textContent = btn.dataset.category || '—';
+  document.getElementById('viewTxCompany').textContent = btn.dataset.company || '—';
+  document.getElementById('viewTxDescription').textContent = btn.dataset.description || '—';
+  const fileBox = document.getElementById('viewTxFile');
+  if (btn.dataset.file) {
+    fileBox.innerHTML = '<a href="' + btn.dataset.file + '" target="_blank" rel="noopener">' + (btn.dataset.filename || 'Open document') + '</a>';
+  } else {
+    fileBox.textContent = 'No file attached.';
+  }
+  document.getElementById('viewTransactionModal').classList.add('active');
+}
+
+function openEditTransactionModal(btn) {
+  const form = document.getElementById('editTransactionForm');
+  form.action = '/dashboard/spaces/banking/transaction/' + btn.dataset.id + '/edit/';
+  document.getElementById('editTxAccount').value = btn.dataset.accountId || '';
+  document.getElementById('editTxType').value = btn.dataset.type || 'income';
+  document.getElementById('editTxAmount').value = btn.dataset.amount || '';
+  document.getElementById('editTxDate').value = btn.dataset.date || '';
+  document.getElementById('editTxDescription').value = btn.dataset.description || '';
+  document.getElementById('editTxCompany').value = btn.dataset.companyId || '';
+  fillCategorySelect(document.getElementById('editTxCategory'), btn.dataset.type || 'income', btn.dataset.category || '');
+  const current = document.getElementById('editTxCurrentFile');
+  if (btn.dataset.file) {
+    current.innerHTML = 'Current: <a href="' + btn.dataset.file + '" target="_blank" rel="noopener">' + (btn.dataset.filename || 'file') + '</a>';
+  } else {
+    current.textContent = 'No file attached yet.';
+  }
+  document.getElementById('editTxClearFile').checked = false;
+  document.getElementById('editTransactionModal').classList.add('active');
+}
+</script>
+
+<script>
+function handleCompanySelect(sel) {
+  if (sel.value === '__add_new__') {
+    sel.value = '';
+    const modal = document.getElementById('quickAddCompanyModal');
+    modal.dataset.targetSelectId = sel.id || 'policyCompany';
+    modal.style.display = 'flex';
+    setTimeout(() => document.getElementById('quickCompanyName').focus(), 50);
+  }
+}
+
+function handleInsuranceTypeSelect(sel, modalId, restoreSelectId) {
+  if (sel.value !== '__add_new__') return;
+  const restoreSel = document.getElementById(restoreSelectId);
+  if (restoreSel && restoreSel.options.length) {
+    restoreSel.value = restoreSel.options[0].value || '';
+  } else {
+    sel.value = '';
+  }
+  const modal = document.getElementById(modalId);
+  modal.dataset.targetSelectId = restoreSelectId;
+  modal.classList.add('is-open');
+  setTimeout(() => document.getElementById('quickInsuranceTypeName').focus(), 50);
+}
+
+function closeQuickAddInsuranceType() {
+  const modal = document.getElementById('quickAddInsuranceTypeModal');
+  modal.classList.remove('is-open');
+  document.getElementById('quickInsuranceTypeName').value = '';
+  document.getElementById('quickInsuranceTypeError').style.display = 'none';
+  const saveBtn = document.getElementById('quickInsuranceTypeSaveBtn');
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Type'; }
+}
+
+function submitQuickAddInsuranceType() {
+  const label = document.getElementById('quickInsuranceTypeName').value.trim();
+  const errEl = document.getElementById('quickInsuranceTypeError');
+  errEl.style.display = 'none';
+  if (!label) { errEl.textContent = 'Insurance type name cannot be empty.'; errEl.style.display = 'block'; return; }
+  const modal = document.getElementById('quickAddInsuranceTypeModal');
+  const targetId = modal.dataset.targetSelectId || 'policyInsuranceType';
+  const orgId = document.querySelector('input[name="organization"]').value;
+  const fd = new FormData();
+  fd.append('organization', orgId);
+  fd.append('label', label);
+  fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+  const saveBtn = document.getElementById('quickInsuranceTypeSaveBtn');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+  fetch('{% url "add-insurance-type" %}', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) {
+        errEl.textContent = data.error || 'Failed to add insurance type.';
+        errEl.style.display = 'block';
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Type'; }
+        return;
+      }
+      ['policyInsuranceType', 'insuranceTypeFilter'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        let existing = Array.from(sel.options).find(o => o.value === data.key);
+        if (!existing) {
+          const opt = document.createElement('option');
+          opt.value = data.key;
+          opt.textContent = data.label;
+          const addNew = Array.from(sel.options).find(o => o.value === '__add_new__');
+          sel.insertBefore(opt, addNew || null);
+        }
+        if (id === targetId) sel.value = data.key;
+      });
+      closeQuickAddInsuranceType();
+    })
+    .catch(() => {
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.style.display = 'block';
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Type'; }
+    });
+}
+
+function closeQuickAddCompany() {
+  document.getElementById('quickAddCompanyModal').style.display = 'none';
+  document.getElementById('quickCompanyName').value = '';
+  document.getElementById('quickCompanyError').style.display = 'none';
+  const saveBtn = document.querySelector('#quickAddCompanyModal button:last-of-type');
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Company'; }
+}
+
+function submitQuickAddCompany() {
+  const name = document.getElementById('quickCompanyName').value.trim();
+  const errEl = document.getElementById('quickCompanyError');
+  errEl.style.display = 'none';
+  if (!name) { errEl.textContent = 'Company name cannot be empty.'; errEl.style.display = 'block'; return; }
+  const orgId = document.querySelector('input[name="organization"]').value;
+  const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '{{ csrf_token }}';
+  const fd = new FormData();
+  fd.append('organization', orgId);
+  fd.append('name', name);
+  fd.append('csrfmiddlewaretoken', csrfToken);
+  const saveBtn = document.querySelector('#quickAddCompanyModal button:last-of-type');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+  fetch('{% url "add-insurance-company" %}', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) {
+        errEl.textContent = data.error || 'Failed to add company.';
+        errEl.style.display = 'block';
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Company'; }
+        return;
+      }
+      const targetId = document.getElementById('quickAddCompanyModal').dataset.targetSelectId || 'policyCompany';
+      const companySelectIds = ['policyCompany', 'dailyPaymentCompany', 'editDailyPaymentCompany'];
+      companySelectIds.forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        let existing = Array.from(sel.options).find(o => o.value == data.id);
+        if (!existing) {
+          const newOpt = document.createElement('option');
+          newOpt.value = data.id;
+          newOpt.textContent = data.name;
+          const addNewOpt = Array.from(sel.options).find(o => o.value === '__add_new__');
+          sel.insertBefore(newOpt, addNewOpt || null);
+        }
+        if (id === targetId) sel.value = data.id;
+      });
+      closeQuickAddCompany();
+    })
+    .catch(() => {
+      errEl.textContent = 'Network error. Please try again.';
+      errEl.style.display = 'block';
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Company'; }
+    });
+}
+</script>

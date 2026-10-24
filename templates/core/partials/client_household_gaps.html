@@ -1,0 +1,143 @@
+{% if radar_items %}
+<section class="dashboard-panel ci-panel" id="radar" style="margin: 0;">
+    <h3 class="cpp-panel-header cpp-panel-header--title">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12 18.4 5.6"/><circle cx="12" cy="12" r="1"/></svg>
+        DMV radar
+        <span class="ci-count">{{ radar_items|length }}</span>
+    </h3>
+    <div class="ci-body">
+        {% for item in radar_items %}
+        <div class="ci-gap ci-gap--{% if item.signal == 'plates_surrendered' %}warn{% else %}good{% endif %}">
+            <div class="ci-gap-text">
+                <div class="ci-gap-title">{{ item.get_signal_display }}</div>
+                <div class="ci-gap-reason">{{ item.reason }}</div>
+                <div class="ci-gap-reason">Assigned to {% if item.assigned_to %}{{ item.assigned_to.get_full_name|default:item.assigned_to.username }}{% else %}nobody yet{% endif %}</div>
+            </div>
+        </div>
+        {% endfor %}
+        <a class="ci-radar-link" href="{% url 'insurance-radar' %}?q={{ client.phone_number|default:client.last_name|urlencode }}">Open in DMV radar</a>
+    </div>
+</section>
+{% endif %}
+
+<section class="dashboard-panel ci-panel" id="coverage-gaps" style="margin: 0;">
+    <h3 class="cpp-panel-header cpp-panel-header--title">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+        Coverage gaps
+        {% if coverage_gaps %}<span class="ci-count">{{ coverage_gaps|length }}</span>{% endif %}
+    </h3>
+    <div class="ci-body">
+        {% for gap in coverage_gaps %}
+        <div class="ci-gap ci-gap--{{ gap.tone }}">
+            <div class="ci-gap-text">
+                <div class="ci-gap-title">{{ gap.title }}</div>
+                <div class="ci-gap-reason">{{ gap.reason }}</div>
+                {% if gap.status == "quoted" %}
+                <div class="ci-gap-status">
+                    Quote requested{% if gap.lead and gap.lead.assigned_to %} · {{ gap.lead.assigned_to.user.get_full_name|default:gap.lead.assigned_to.user.username }}{% endif %}{% if gap.lead %} · {{ gap.lead.get_stage_display }}{% endif %}
+                    <a href="{% url 'insurance-pipeline' %}">Open pipeline</a>
+                </div>
+                {% endif %}
+            </div>
+            {% if gap.status != "quoted" %}
+            <div class="ci-gap-actions">
+                <form method="post" action="{% url 'client-gap-quote' client.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="gap_key" value="{{ gap.key }}">
+                    <button type="submit" class="btn btn-primary btn-sm ci-btn">Request quote</button>
+                </form>
+                <form method="post" action="{% url 'client-gap-dismiss' client.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="gap_key" value="{{ gap.key }}">
+                    <button type="submit" class="ci-link-btn" title="Hide this gap for this client">Dismiss</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+        {% empty %}
+        <p class="ci-empty">No coverage gaps found. This client looks fully covered.</p>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="dashboard-panel ci-panel" id="household" style="margin: 0;">
+    <h3 class="cpp-panel-header cpp-panel-header--title">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>
+        Household
+    </h3>
+    <div class="ci-body">
+        {% if household %}
+        <div class="ci-hh-name">{{ household.household.name }}</div>
+        <div class="ci-hh-stats">
+            <div><span>{{ household.members|length }}</span>Members</div>
+            <div><span>{{ household.policy_count }}</span>Active policies</div>
+            <div><span>${{ household.total_premium|floatformat:"0g" }}</span>Premium</div>
+            <div><span>{% if household.next_expiration %}{{ household.next_expiration|date:"M j" }}{% else %}—{% endif %}</span>Next expiry</div>
+        </div>
+        {% if household.lines %}
+        <div class="ci-hh-lines">{% for line in household.lines %}<span>{{ line }}</span>{% endfor %}</div>
+        {% endif %}
+        <ul class="ci-hh-members">
+            {% for row in household.members %}
+            <li{% if row.is_current %} class="is-current"{% endif %}>
+                <span class="ci-avatar" aria-hidden="true">{{ row.client.name|first|upper }}</span>
+                <div class="ci-hh-member">
+                    {% if row.is_current %}<strong>{{ row.client.name }}</strong>{% else %}<a href="{% url 'client-detail' row.client.id %}">{{ row.client.name }}</a>{% endif %}
+                    <small>{{ row.relationship_label }} · {{ row.policy_count }} polic{{ row.policy_count|pluralize:"y,ies" }}{% if row.premium %} · ${{ row.premium|floatformat:"0g" }}{% endif %}</small>
+                </div>
+                <form method="post" action="{% url 'client-household-unlink' client.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="member_id" value="{% if not row.is_current %}{{ row.client.id }}{% endif %}">
+                    <button type="submit" class="ci-link-btn" title="Remove from household">Remove</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="ci-muted">Group family members and roommates to see their policies together and spot household-wide gaps.</p>
+        {% endif %}
+
+        {% if household_suggestions %}
+        <div class="ci-sub">Possible household members</div>
+        <ul class="ci-suggestions">
+            {% for s in household_suggestions %}
+            <li>
+                <div class="ci-hh-member">
+                    <a href="{% url 'client-detail' s.client.id %}">{{ s.client.name }}</a>
+                    <small>{{ s.reasons|join:" · " }}{% if s.household_id %} · already in a household{% endif %}</small>
+                </div>
+                <form method="post" action="{% url 'client-household-link' client.id %}" class="ci-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="other_id" value="{{ s.client.id }}">
+                    <select name="relationship" class="cpp-field-input ci-select" aria-label="Relationship">
+                        {% for value, label in household_relationships %}{% if value != "primary" %}<option value="{{ value }}">{{ label }}</option>{% endif %}{% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary btn-sm ci-btn">Link</button>
+                </form>
+                <form method="post" action="{% url 'client-household-dismiss' client.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="other_id" value="{{ s.client.id }}">
+                    <button type="submit" class="ci-link-btn" title="Not related">Not related</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <details class="ci-add">
+            <summary>Add someone to the household</summary>
+            <form method="post" action="{% url 'client-household-link' client.id %}" class="ci-add-form" data-ci-search="{% url 'client-household-search' client.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="other_id" value="">
+                <input type="search" class="cpp-field-input" placeholder="Search by name or phone" autocomplete="off" data-ci-search-input>
+                <ul class="ci-search-results" data-ci-search-results hidden></ul>
+                <div class="ci-inline">
+                    <select name="relationship" class="cpp-field-input ci-select" aria-label="Relationship">
+                        {% for value, label in household_relationships %}{% if value != "primary" %}<option value="{{ value }}">{{ label }}</option>{% endif %}{% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary btn-sm ci-btn" disabled data-ci-search-submit>Add</button>
+                </div>
+            </form>
+        </details>
+    </div>
+</section>
