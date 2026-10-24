@@ -122,6 +122,49 @@ PNG_1PX = (
 )
 
 
+class PoliciesQuoteDateFilterTests(InsuranceAreaBase):
+    def setUp(self):
+        super().setUp()
+        from datetime import timedelta
+        from decimal import Decimal
+
+        from django.utils import timezone
+
+        from core.models import Client, InsurancePolicy
+
+        self.today = timezone.localdate()
+        self.old_day = self.today.replace(day=1) - timedelta(days=40)
+        customer = Client.objects.create(organization=self.org, first_name="Old", last_name="Quote")
+        for number, bound in (("OLD-1", self.old_day), ("NEW-1", self.today)):
+            InsurancePolicy.objects.create(
+                organization=self.org, client=customer, policy_number=number, premium=Decimal("100"),
+                start_date=bound, end_date=bound + timedelta(days=180), bound_date=bound, stage="bound",
+            )
+        self.client.force_login(self.owner)
+
+    def test_default_view_keeps_the_current_month(self):
+        res = self.client.get(reverse("insurance-policies"))
+        self.assertContains(res, '<td class="ipc-mono">NEW-1</td>')
+        self.assertNotContains(res, '<td class="ipc-mono">OLD-1</td>')
+
+    def test_quote_from_reaches_back_past_the_current_month(self):
+        res = self.client.get(reverse("insurance-policies"), {"date_from": self.old_day.isoformat()})
+        self.assertContains(res, '<td class="ipc-mono">OLD-1</td>')
+        self.assertContains(res, '<td class="ipc-mono">NEW-1</td>')
+        self.assertContains(res, f"Showing quote dates from {self.old_day:%b %d, %Y} onward")
+
+    def test_quote_range_and_live_table(self):
+        params = {"date_from": self.old_day.isoformat(), "date_to": self.old_day.isoformat(), "partial": "crm_policies"}
+        res = self.client.get(reverse("insurance-policies"), params)
+        self.assertContains(res, '<td class="ipc-mono">OLD-1</td>')
+        self.assertNotContains(res, '<td class="ipc-mono">NEW-1</td>')
+
+    def test_invalid_date_is_ignored(self):
+        res = self.client.get(reverse("insurance-policies"), {"date_from": "2026-02-30"})
+        self.assertEqual(res.status_code, 200)
+        self.assertNotContains(res, '<td class="ipc-mono">OLD-1</td>')
+
+
 class InsuranceLogoTests(InsuranceAreaBase):
     def setUp(self):
         super().setUp()

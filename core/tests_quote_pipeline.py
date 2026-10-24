@@ -223,6 +223,38 @@ class QuotePipelineDistributionTests(TestCase):
                 InsuranceQuoteLead.objects.filter(client_name="Pat Lee").exists()
             )
 
+    def test_any_insurance_agent_adds_quotes_that_auto_distribute(self):
+        clerk_user = User.objects.create_user(username="qclerk", password="password123")
+        clerk = OrganizationMembership.objects.create(
+            user=clerk_user,
+            organization=self.org,
+            role=OrganizationMembership.Role.AGENT,
+            is_active=True,
+            can_use_insurance=True,
+            can_deal_with_insurance=False,
+        )
+        self.assertTrue(can_create_quote_leads(clerk_user, self.org, membership=clerk))
+        self.assertFalse(can_manage_quote_distribution(clerk_user, self.org, membership=clerk))
+        self.client.login(username="qclerk", password="password123")
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+        with patch("core.insurance_quote_pipeline_views.auto_distribute_lead") as mocked:
+            mocked.side_effect = lambda lead, **kw: lead
+            resp = self.client.post(
+                reverse("create-quote-lead"),
+                {
+                    "client_name": "Agent Added",
+                    "phone": "5550001234",
+                    "insurance_type": "personal_auto",
+                    "assigned_to": self.agent2.id,
+                },
+            )
+        self.assertEqual(resp.status_code, 302)
+        lead = InsuranceQuoteLead.objects.get(client_name="Agent Added")
+        mocked.assert_called_once()
+        self.assertNotEqual(lead.assigned_to_id, self.agent2.id)
+
     def test_old_intake_urls_gone(self):
         from django.urls import NoReverseMatch
 

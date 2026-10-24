@@ -87,6 +87,7 @@ from .insurance_space_metrics import (
     build_company_summaries,
     filter_policies_by_search,
     decorate_policies,
+    filter_policies_by_quote_dates,
     filter_policies_by_quote_period,
     period_stats,
     prefetch_insurance_companies,
@@ -6646,8 +6647,31 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
     # Base query for all policies
     all_policies = InsurancePolicy.objects.filter(organization=active_org).select_related("client", "insurance_company", "added_by")
 
-    # Filter policies for the CRM table (selected period uses quote date)
-    policies = filter_policies_by_quote_period(all_policies, comp_start, comp_end)
+    from django.utils.dateparse import parse_date
+
+    def _quote_date(raw):
+        try:
+            return parse_date(raw) if raw else None
+        except ValueError:
+            return None
+
+    quote_from = _quote_date(date_from)
+    quote_to = _quote_date(date_to)
+    date_from = quote_from.isoformat() if quote_from else ""
+    date_to = quote_to.isoformat() if quote_to else ""
+
+    # Quote From / To replaces the selected period so earlier months show up too.
+    if quote_from or quote_to:
+        policies = filter_policies_by_quote_dates(all_policies, quote_from, quote_to)
+        if quote_from and quote_to:
+            crm_period_label = f"from {quote_from:%b %d, %Y} to {quote_to:%b %d, %Y}"
+        elif quote_from:
+            crm_period_label = f"from {quote_from:%b %d, %Y} onward"
+        else:
+            crm_period_label = f"up to {quote_to:%b %d, %Y}"
+    else:
+        policies = filter_policies_by_quote_period(all_policies, comp_start, comp_end)
+        crm_period_label = f"in {comp_start:%b %d} – {comp_end:%b %d, %Y}"
     if search_query:
         policies = filter_policies_by_search(policies, search_query)
     if stage_filter:
@@ -6660,10 +6684,6 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
         policies = policies.filter(source=source_filter)
     if business_type_filter:
         policies = policies.filter(business_type=business_type_filter)
-    if date_from:
-        policies = policies.filter(bound_date__gte=date_from)
-    if date_to:
-        policies = policies.filter(bound_date__lte=date_to)
     if company_filter:
         policies = policies.filter(insurance_company_id=company_filter)
     if agent_filter:
@@ -7129,6 +7149,7 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
         "comp_current": comp_current,
         "comp_previous": comp_previous,
         "comp_period_label": comp_period_label,
+        "crm_period_label": crm_period_label,
         "prev_period_label": prev_period_label,
 
         # Banking filters persistence

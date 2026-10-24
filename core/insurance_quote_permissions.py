@@ -32,7 +32,7 @@ def is_owner_or_manager(membership: OrganizationMembership | None, *, user=None)
 
 
 def can_create_quote_leads(user, organization, *, membership=None) -> bool:
-    """Anyone who deals with insurance, plus Owner/Manager for ops."""
+    """Every insurance agent, plus Owner/Manager; new quotes go through auto-distribution."""
     if getattr(user, "is_superuser", False):
         return True
     membership = membership or membership_for_org(user, organization)
@@ -40,7 +40,7 @@ def can_create_quote_leads(user, organization, *, membership=None) -> bool:
         return False
     if is_owner_or_manager(membership):
         return True
-    return bool(membership.can_deal_with_insurance)
+    return bool(membership.can_deal_with_insurance or membership.can_use_insurance)
 
 
 def can_manage_quote_distribution(user, organization, *, membership=None) -> bool:
@@ -74,7 +74,7 @@ def can_view_quote_pipeline(user, organization, *, membership=None) -> bool:
         return False
     if is_owner_or_manager(membership):
         return True
-    return bool(membership.can_deal_with_insurance)
+    return bool(membership.can_deal_with_insurance or membership.can_use_insurance)
 
 
 def can_update_assigned_lead(user, lead, *, membership=None) -> bool:

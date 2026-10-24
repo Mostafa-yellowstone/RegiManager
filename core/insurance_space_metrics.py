@@ -100,6 +100,19 @@ def filter_policies_by_quote_period(policy_qs, start, end):
     )
 
 
+def filter_policies_by_quote_dates(policy_qs, start=None, end=None):
+    """Like ``filter_policies_by_quote_period`` but either bound may be open."""
+    bound = Q(bound_date__isnull=False)
+    unbound = Q(bound_date__isnull=True)
+    if start:
+        bound &= Q(bound_date__gte=start)
+        unbound &= Q(created_at__date__gte=start)
+    if end:
+        bound &= Q(bound_date__lte=end)
+        unbound &= Q(created_at__date__lte=end)
+    return policy_qs.filter(bound | unbound)
+
+
 def filter_policies_by_search(policy_qs, query: str):
     """Space-insensitive policy search, then the closest client or insured name."""
     from .text_search import apply_text_search
