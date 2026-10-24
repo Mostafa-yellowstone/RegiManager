@@ -6684,9 +6684,9 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
         policies = policies.filter(source=source_filter)
     if business_type_filter:
         policies = policies.filter(business_type=business_type_filter)
-    if company_filter:
+    if company_filter.isdigit():
         policies = policies.filter(insurance_company_id=company_filter)
-    if agent_filter:
+    if agent_filter.isdigit():
         policies = policies.filter(added_by_id=agent_filter)
     if min_premium:
         try:
@@ -9147,7 +9147,7 @@ def insurance_company_detail(request, company_id):
         policies = policies.filter(source=source_filter)
     if business_type_filter:
         policies = policies.filter(business_type=business_type_filter)
-    if agent_filter:
+    if agent_filter.isdigit():
         policies = policies.filter(added_by_id=agent_filter)
     if date_from:
         policies = policies.filter(start_date__gte=date_from)

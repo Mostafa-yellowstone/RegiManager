@@ -197,6 +197,12 @@ class WorkflowTests(RadarBase):
         self.item.refresh_from_db()
         self.assertEqual((self.item.status, self.item.won), ("open", False))
 
+    def test_open_radar_link_for_unassigned_items_loads(self):
+        self.client.force_login(self.owner)
+        resp = self.client.get(reverse("insurance-radar"), {"agent": "none"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, f'href="{reverse("client-detail", args=[self.customer.id])}">Mia Stone')
+
     def test_today_board_and_client_profile_show_radar(self):
         summary = radar_summary(self.org, self.owner, manager=True)
         self.assertEqual((summary["open_total"], summary["unassigned"]), (1, 1))
