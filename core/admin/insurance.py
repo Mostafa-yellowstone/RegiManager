@@ -1,9 +1,12 @@
 """Insurance CRM admin — organized like TLC for backend control of Insurance Space data."""
 
 from django.contrib import admin
+from django.contrib.auth.models import User
+from django.db.models import Q
 from django.utils.html import format_html
 
 from ..insurance_esign_models import InsuranceESignEnvelope, InsuranceSavedSignature
+from ..insurance_policy_agent import sync_policy_agent
 from ..insurance_quote_pipeline_models import (
     InsuranceAgentOffDay,
     InsuranceQuoteDistributionConfig,
@@ -183,6 +186,7 @@ class InsurancePolicyAdmin(admin.ModelAdmin):
         "insurance_type",
         "premium",
         "commission_amount",
+        "agent",
         "organization",
         "bound_date",
         "created_at",
@@ -196,6 +200,7 @@ class InsurancePolicyAdmin(admin.ModelAdmin):
         "commission_received",
         "organization",
         "insurance_company",
+        ("added_by", admin.RelatedOnlyFieldListFilter),
     )
     search_fields = (
         "policy_number",
@@ -207,9 +212,12 @@ class InsurancePolicyAdmin(admin.ModelAdmin):
         "client__last_name",
         "client__email",
         "insurance_company__name",
+        "added_by__username",
+        "added_by__first_name",
+        "added_by__last_name",
     )
     autocomplete_fields = ("organization", "client", "insurance_company")
-    raw_id_fields = ("added_by",)
+    list_select_related = ("client", "insurance_company", "organization", "added_by")
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
     inlines = [
@@ -226,6 +234,7 @@ class InsurancePolicyAdmin(admin.ModelAdmin):
                     "organization",
                     "client",
                     "policy_number",
+                    "added_by",
                     "insurance_company",
                     "stage",
                     "status",
@@ -267,9 +276,48 @@ class InsurancePolicyAdmin(admin.ModelAdmin):
                 )
             },
         ),
-        ("Attribution", {"fields": ("added_by", "created_at", "updated_at")}),
+        ("Attribution", {"fields": ("created_at", "updated_at")}),
     )
     readonly_fields = ("commission_amount", "created_at", "updated_at")
+
+    @admin.display(description="Agent", ordering="added_by__first_name")
+    def agent(self, obj):
+        user = obj.added_by
+        if user is None:
+            return "—"
+        return user.get_full_name() or user.username
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        field = form.base_fields.get("added_by")
+        if field is not None:
+            field.label = "Agent"
+            field.help_text = (
+                "Who works this policy. Changing it moves the policy's open renewals, "
+                "radar items and quote to the new agent."
+            )
+            if obj is not None:
+                in_office = Q(
+                    organization_memberships__organization_id=obj.organization_id,
+                    organization_memberships__is_active=True,
+                )
+                if obj.added_by_id:
+                    in_office |= Q(id=obj.added_by_id)
+                field.queryset = (
+                    User.objects.filter(in_office).distinct().order_by("first_name", "last_name", "username")
+                )
+            field.label_from_instance = lambda u: u.get_full_name() or u.username
+        return form
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if change and "added_by" in form.changed_data:
+            moved = sync_policy_agent(obj, actor=request.user)
+            self.message_user(
+                request,
+                f"Agent changed. Moved {moved['renewals']} renewal(s), {moved['radar']} radar item(s) "
+                f"and {moved['quotes']} quote(s) to the new agent.",
+            )
 
 
 @admin.register(InsurancePolicyDocument)

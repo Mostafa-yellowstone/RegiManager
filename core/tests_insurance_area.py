@@ -286,10 +286,68 @@ class InsuranceSearchTests(InsuranceAreaBase):
         self.assertNotIn("Companies", self._labels("searchable", user=self.agent))
 
 
+class PolicyAgentChangeTests(InsuranceAreaBase):
+    def setUp(self):
+        super().setUp()
+        from datetime import timedelta
+        from decimal import Decimal
+
+        from django.utils import timezone
+
+        from core.insurance_quote_pipeline_models import InsuranceQuoteLead
+        from core.insurance_renewal_models import InsuranceRenewal
+        from core.models import Client, InsurancePolicy
+
+        today = timezone.localdate()
+        self.new_agent = User.objects.create_user(username="area-agent-2", password="x", first_name="Nadia")
+        self.new_mem = OrganizationMembership.objects.create(
+            user=self.new_agent, organization=self.org, role=OrganizationMembership.Role.AGENT,
+            is_active=True, can_use_insurance=True,
+        )
+        customer = Client.objects.create(organization=self.org, first_name="Move", last_name="Me")
+        self.policy = InsurancePolicy.objects.create(
+            organization=self.org, client=customer, policy_number="AG-1", premium=Decimal("500"),
+            start_date=today, end_date=today + timedelta(days=30), stage="bound", added_by=self.agent,
+        )
+        self.renewal = InsuranceRenewal.objects.create(
+            organization=self.org, policy=self.policy, expiration_date=self.policy.end_date, assigned_to=self.agent
+        )
+        self.lead = InsuranceQuoteLead.objects.create(
+            organization=self.org, created_by=self.owner, client_name="Move Me", phone="5550001111",
+            assigned_to=self.agent_mem, stage="quoting", crm_policy=self.policy,
+        )
+
+    def test_changing_the_agent_moves_open_work(self):
+        from core.insurance_policy_agent import sync_policy_agent
+
+        self.policy.added_by = self.new_agent
+        self.policy.save()
+        moved = sync_policy_agent(self.policy, actor=self.owner)
+        self.renewal.refresh_from_db()
+        self.lead.refresh_from_db()
+        self.policy.refresh_from_db()
+        self.assertEqual(moved["renewals"], 1)
+        self.assertEqual(moved["quotes"], 1)
+        self.assertEqual(self.renewal.assigned_to, self.new_agent)
+        self.assertEqual(self.lead.assigned_to, self.new_mem)
+        self.assertEqual(self.lead.agent_task.assigned_to, self.new_mem)
+        self.assertEqual(self.policy.added_by, self.new_agent)
+
+    def test_admin_change_form_offers_an_agent_dropdown(self):
+        self.owner.is_staff = self.owner.is_superuser = True
+        self.owner.save()
+        self.client.force_login(self.owner)
+        res = self.client.get(reverse("admin:core_insurancepolicy_change", args=[self.policy.id]))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, '<select name="added_by"')
+        self.assertContains(res, ">Nadia<")
+
+
 class ProductForPathTests(TestCase):
     def test_paths(self):
         self.assertEqual(product_for_path("/insurance/policies/"), "insurance")
         self.assertEqual(product_for_path("/dashboard/spaces/insurance/policy/add/"), "insurance")
+        self.assertEqual(product_for_path("/dashboard/insurance-quotes/5/stage/"), "insurance")
         self.assertEqual(product_for_path("/dashboard/agent-portal/"), "shared")
         self.assertEqual(product_for_path("/dashboard/spaces/"), "psb")
         self.assertIsNone(product_for_path("/api/clients/"))

@@ -68,6 +68,7 @@ class QuotePipelineDistributionTests(TestCase):
             organization=self.org,
             role=OrganizationMembership.Role.MANAGER,
             is_active=True,
+            can_use_insurance=True,
         )
         apply_role_permission_pack(self.manager)
 
@@ -76,6 +77,7 @@ class QuotePipelineDistributionTests(TestCase):
             organization=self.org,
             role=OrganizationMembership.Role.INSURANCE_AGENT,
             is_active=True,
+            can_use_insurance=True,
         )
         apply_role_permission_pack(self.agent)
 
@@ -84,6 +86,7 @@ class QuotePipelineDistributionTests(TestCase):
             organization=self.org,
             role=OrganizationMembership.Role.INSURANCE_AGENT,
             is_active=True,
+            can_use_insurance=True,
         )
         apply_role_permission_pack(self.agent2)
 
@@ -254,6 +257,38 @@ class QuotePipelineDistributionTests(TestCase):
         lead = InsuranceQuoteLead.objects.get(client_name="Agent Added")
         mocked.assert_called_once()
         self.assertNotEqual(lead.assigned_to_id, self.agent2.id)
+
+    def test_insurance_only_agent_moves_assigned_quote_through_stages(self):
+        user = User.objects.create_user(username="qinsonly", password="password123")
+        member = OrganizationMembership.objects.create(
+            user=user,
+            organization=self.org,
+            role=OrganizationMembership.Role.INSURANCE_AGENT,
+            is_active=True,
+            can_use_insurance=True,
+            can_deal_with_insurance=True,
+            can_use_psb_portal=False,
+        )
+        lead = InsuranceQuoteLead.objects.create(
+            organization=self.org,
+            created_by=self.owner_user,
+            client_name="Stage Me",
+            phone="5550009999",
+            insurance_type="personal_auto",
+            assigned_to=member,
+            stage=InsuranceQuoteLead.Stage.ASSIGNED,
+        )
+        self.client.login(username="qinsonly", password="password123")
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+        for stage in ("quoting", "quoted", "won", "lost"):
+            resp = self.client.post(
+                reverse("update-quote-lead-stage", args=[lead.id]), {"stage": stage}
+            )
+            self.assertEqual(resp.status_code, 302)
+            lead.refresh_from_db()
+            self.assertEqual(lead.stage, stage)
 
     def test_old_intake_urls_gone(self):
         from django.urls import NoReverseMatch

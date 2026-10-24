@@ -73,7 +73,12 @@ def active_organization_for(request):
     return organizations.first()
 
 
-INSURANCE_PATH_PREFIXES = ("/insurance/", "/dashboard/spaces/insurance/", "/dashboard/spaces/banking/")
+INSURANCE_PATH_PREFIXES = (
+    "/insurance/",
+    "/dashboard/spaces/insurance/",
+    "/dashboard/spaces/banking/",
+    "/dashboard/insurance-quotes/",
+)
 
 # Portal tools every office gets, whichever products it has.
 SHARED_PATH_PREFIXES = (
