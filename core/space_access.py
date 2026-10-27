@@ -25,6 +25,12 @@ def require_spaces_page_access(membership):
 
 
 def require_space_access(membership, space):
+    from .products import INSURANCE_COMPANION_SPACE_KEYS, can_use_insurance
+
+    if space.key in INSURANCE_COMPANION_SPACE_KEYS and can_use_insurance(
+        membership.user, space.organization, membership
+    ):
+        return
     require_spaces_page_access(membership)
     if not membership.accessible_spaces.filter(id=space.id).exists():
         deny_access("You do not have permission to access this space.")

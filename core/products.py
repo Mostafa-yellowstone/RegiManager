@@ -54,6 +54,24 @@ def insurance_space_for(organization) -> Space:
     return space
 
 
+def insurance_companion_spaces(organization) -> list[Space]:
+    """Motor Club, TLC, and Defense Driving, created so the insurance menu can open them."""
+    specs = (
+        ("motorclub", "Motor Club", "Roadside assistance memberships — insurance upsell and partnerships"),
+        ("tlc", "TLC", "TLC premiums, installments, and carrier payables"),
+        ("defense_driving", "Defense Driving Course", "Defense driving enrollments, packages, and certificates"),
+    )
+    spaces = []
+    for key, label, description in specs:
+        space, _created = Space.objects.get_or_create(
+            organization=organization,
+            key=key,
+            defaults={"label": label, "description": description},
+        )
+        spaces.append(space)
+    return spaces
+
+
 def insurance_brand_name(organization) -> str:
     if organization is None:
         return "Insurance"
@@ -100,6 +118,14 @@ SHARED_PATH_PREFIXES = (
 
 SHARED_SPACE_KEYS = {"knowledge_hub"}
 
+# Programs that live as their own spaces and also open from the insurance portal.
+INSURANCE_COMPANION_SPACE_KEYS = frozenset({"motorclub", "tlc", "defense_driving"})
+INSURANCE_COMPANION_PREFIXES = (
+    "/dashboard/spaces/motorclub/",
+    "/dashboard/spaces/defense-driving/",
+    "/dashboard/spaces/tlc/",
+)
+
 INSURANCE = "insurance"
 PSB = "psb"
 SHARED = "shared"
@@ -111,7 +137,7 @@ def product_for_path(path: str) -> str | None:
         return INSURANCE
     if not path.startswith("/dashboard/"):
         return None
-    if path.startswith(SHARED_PATH_PREFIXES):
+    if path.startswith(SHARED_PATH_PREFIXES) or path.startswith(INSURANCE_COMPANION_PREFIXES):
         return SHARED
     if path.startswith("/dashboard/inventory/"):
         parts = path.split("/")
@@ -119,7 +145,7 @@ def product_for_path(path: str) -> str | None:
             key = Space.objects.filter(id=int(parts[3])).values_list("key", flat=True).first()
             if key == "insurance":
                 return INSURANCE
-            if key in SHARED_SPACE_KEYS:
+            if key in SHARED_SPACE_KEYS or key in INSURANCE_COMPANION_SPACE_KEYS:
                 return SHARED
     return PSB
 

@@ -18,6 +18,7 @@ from .products import (
     can_use_insurance,
     can_use_psb_portal,
     insurance_brand_name,
+    insurance_companion_spaces,
     insurance_space_for,
 )
 
@@ -179,6 +180,7 @@ def _render_page(request, tab, template, *, finance_only=False, extra=None, labe
             "insurance_bottom_links": [links_by_tab[t] for t in BOTTOM_BAR if t in links_by_tab],
             "insurance_page_label": label or links_by_tab.get(tab, {}).get("label", ""),
             "insurance_knowledge_hub": _knowledge_hub_for(organization, membership, is_owner),
+            "insurance_companion_spaces": insurance_companion_spaces(organization),
             "insurance_has_psb": can_use_psb_portal(request.user, organization, membership),
         }
     )

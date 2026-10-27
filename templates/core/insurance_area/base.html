@@ -45,6 +45,23 @@
         {% endfor %}
       </div>
       {% endfor %}
+      {% if insurance_companion_spaces %}
+      <div class="ina-side__group">
+        <div class="ina-side__group-title">Programs</div>
+        {% for space in insurance_companion_spaces %}
+        <a class="ina-side__link" href="{% url 'inventory-detail' space.id %}">
+          {% if space.key == "motorclub" %}
+          {% include "core/insurance_area/_icon.html" with name="car" %}
+          {% elif space.key == "tlc" %}
+          {% include "core/insurance_area/_icon.html" with name="tlc" %}
+          {% else %}
+          {% include "core/insurance_area/_icon.html" with name="course" %}
+          {% endif %}
+          <span>{{ space.label }}</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
       {% if insurance_knowledge_hub %}
       <div class="ina-side__group">
         <div class="ina-side__group-title">Resources</div>

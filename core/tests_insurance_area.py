@@ -61,6 +61,20 @@ class InsuranceAreaPagesTests(InsuranceAreaBase):
         res = self.client.get(reverse("insurance-home"))
         self.assertContains(res, "Area Insurance Brokers")
 
+    def test_insurance_menu_opens_motor_club_tlc_and_defense_driving(self):
+        self.org.has_psb_portal = False
+        self.org.save()
+        self.client.force_login(self.agent)
+        home = self.client.get(reverse("insurance-home"))
+        self.assertEqual(home.status_code, 200)
+        self.assertContains(home, "Motor Club")
+        self.assertContains(home, ">TLC<")
+        self.assertContains(home, "Defense Driving Course")
+        for key in ("motorclub", "tlc", "defense_driving"):
+            space = Space.objects.get(organization=self.org, key=key)
+            opened = self.client.get(reverse("inventory-detail", args=[space.id]))
+            self.assertEqual(opened.status_code, 200, key)
+
     def test_agent_without_finance_cannot_open_finance_pages(self):
         self.client.force_login(self.agent)
         for name in PAGES:
@@ -350,4 +364,7 @@ class ProductForPathTests(TestCase):
         self.assertEqual(product_for_path("/dashboard/insurance-quotes/5/stage/"), "insurance")
         self.assertEqual(product_for_path("/dashboard/agent-portal/"), "shared")
         self.assertEqual(product_for_path("/dashboard/spaces/"), "psb")
+        self.assertEqual(product_for_path("/dashboard/spaces/motorclub/1/member/add/"), "shared")
+        self.assertEqual(product_for_path("/dashboard/spaces/tlc/1/policy/add/"), "shared")
+        self.assertEqual(product_for_path("/dashboard/spaces/defense-driving/1/package/save/"), "shared")
         self.assertIsNone(product_for_path("/api/clients/"))
