@@ -1,80 +1,161 @@
 {% extends "core/insurance_area/base.html" %}
 
 {% block insurance_page %}
-<section class="ins-panel">
-  <div class="ins-panel__head">
-    <h2>{{ lead.client_name }}</h2>
-    <a href="{% url 'insurance-pipeline' %}">Back to pipeline</a>
-  </div>
-  <div class="ins-panel__body">
-    <p style="margin-top:0;">{{ lead.phone }}{% if lead.email %} · {{ lead.email }}{% endif %}{% if lead.insurance_type %} · {{ lead.insurance_type }}{% endif %}</p>
-    <p>Print the rating packet, open each carrier's quote site, then record the premium here. Binding a quote copies the premium and limits onto the policy, files the compensation disclosure, and issues a temporary ID card.</p>
-    <p><a class="btn btn-secondary btn-sm" href="{% url 'insurance-rating-packet' lead.id %}" target="_blank" rel="noopener">Rating packet</a></p>
-    {% if portal_companies %}
-    <p style="margin-bottom:0.35rem;">Carrier quote sites</p>
-    <ul style="margin-top:0;">
-      {% for company in portal_companies %}
-      <li><a href="{{ company.quote_portal_url }}" target="_blank" rel="noopener">{{ company.name }}</a></li>
-      {% endfor %}
-    </ul>
-    {% endif %}
+<style>
+  .cmp { display: grid; gap: 1rem; }
+  .cmp-head, .cmp-block {
+    background: var(--portal-surface);
+    border: 1px solid var(--portal-border);
+    border-radius: 16px;
+    box-shadow: var(--portal-shadow-sm);
+  }
+  .cmp-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; padding: 1.1rem 1.2rem; flex-wrap: wrap; }
+  .cmp-kicker { margin: 0; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--portal-text-muted); }
+  .cmp-head h2, .cmp-block h3 { margin: 0.15rem 0 0; }
+  .cmp-meta { margin: 0.35rem 0 0; color: var(--portal-text-secondary); font-weight: 650; }
+  .cmp-meta a { color: var(--portal-primary); }
+  .cmp-back { align-self: center; color: var(--portal-primary); font-weight: 800; text-decoration: none; }
+  .cmp-block { padding: 1.05rem 1.15rem 1.15rem; }
+  .cmp-block > p { margin: 0.3rem 0 0.85rem; color: var(--portal-text-muted); }
+  .cmp-shop { display: grid; grid-template-columns: minmax(180px, 240px) 1fr; gap: 0.7rem; }
+  .cmp-packet, .cmp-site {
+    display: flex; flex-direction: column; justify-content: space-between; gap: 0.35rem;
+    min-height: 92px; padding: 0.85rem 0.95rem; border-radius: 14px; text-decoration: none;
+  }
+  .cmp-packet { background: linear-gradient(145deg, #0f172a, #1e3a8a); color: #fff; }
+  .cmp-packet strong, .cmp-site strong { font-size: 0.98rem; }
+  .cmp-packet small, .cmp-site small { font-size: 0.78rem; font-weight: 650; }
+  .cmp-packet small { color: #bfdbfe; }
+  .cmp-sites { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.7rem; }
+  .cmp-site { background: var(--portal-surface-muted); border: 1px solid var(--portal-border); color: var(--portal-text); }
+  .cmp-site small { color: var(--portal-primary); }
+  .cmp-site:hover, .cmp-packet:hover { transform: translateY(-1px); }
+  .cmp-site--missing { border-style: dashed; }
+  .cmp-site--missing small { color: var(--portal-text-muted); }
+  .cmp-quotes { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0.75rem; }
+  .cmp-quote {
+    display: grid; gap: 0.35rem; padding: 0.9rem; border-radius: 14px;
+    border: 1px solid var(--portal-border); background: var(--portal-surface-muted);
+  }
+  .cmp-quote.is-best { border-color: var(--portal-primary); }
+  .cmp-quote__top { display: flex; justify-content: space-between; gap: 0.5rem; align-items: center; }
+  .cmp-pill { padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; background: var(--portal-info-bg); color: var(--portal-info); }
+  .cmp-pill.is-declined { background: var(--portal-danger-bg); color: var(--portal-danger); }
+  .cmp-pill.is-accepted { background: var(--portal-success-bg); color: var(--portal-success); }
+  .cmp-premium { margin: 0; font-size: 1.45rem; font-weight: 800; letter-spacing: -0.03em; }
+  .cmp-quote p { margin: 0; color: var(--portal-text-secondary); font-size: 0.85rem; }
+  .cmp-quote form, .cmp-quote .btn { width: 100%; margin-top: 0.35rem; }
+  .cmp-empty { margin: 0; padding: 0.9rem; border-radius: 12px; background: var(--portal-surface-muted); color: var(--portal-text-muted); }
+  .cmp-form { display: grid; gap: 0.75rem; }
+  .cmp-row { display: grid; gap: 0.55rem; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .cmp-field { display: grid; gap: 0.28rem; }
+  .cmp-field span { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--portal-text-muted); }
+  .cmp-choice { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+  .cmp-choice label { display: flex; align-items: center; gap: 0.4rem; padding: 0.55rem 0.75rem; border-radius: 999px; border: 1px solid var(--portal-border); background: var(--portal-surface-muted); font-weight: 700; }
+  @media (max-width: 720px) { .cmp-shop { grid-template-columns: 1fr; } }
+</style>
 
-    {% if quote_options %}
-    <table class="ins-table">
-      <thead>
-        <tr><th>Carrier</th><th>Term premium</th><th>Down</th><th>BI / PD</th><th>Decision</th><th></th></tr>
-      </thead>
-      <tbody>
-        {% for option in quote_options %}
-        <tr>
-          <td>{{ option.carrier_label }}</td>
-          <td>${{ option.term_premium }}</td>
-          <td>{% if option.down_payment %}${{ option.down_payment }}{% else %}—{% endif %}</td>
-          <td>{{ option.bi_limit|default:"—" }} / {{ option.pd_limit|default:"—" }}</td>
-          <td>{{ option.get_decision_display }}</td>
-          <td>
-            {% if option.decision != "accepted" %}
-            <form method="post" action="{% url 'insurance-quote-option-bind' option.id %}">{% csrf_token %}<button class="btn btn-primary btn-sm" type="submit">Bind this quote</button></form>
-            {% elif lead.crm_policy_id %}
-            <a href="{% url 'insurance-policy-detail' lead.crm_policy_id %}">Open policy</a>
-            {% endif %}
-          </td>
-        </tr>
+<section class="cmp">
+  <header class="cmp-head">
+    <div>
+      <p class="cmp-kicker">Compare carriers</p>
+      <h2>{{ lead.client_name }}</h2>
+      <p class="cmp-meta">
+        <a href="tel:{{ lead.phone }}">{{ lead.phone }}</a>
+        {% if lead.email %} · <a href="mailto:{{ lead.email }}">{{ lead.email }}</a>{% endif %}
+        {% if lead.insurance_type %} · {{ lead.insurance_type }}{% endif %}
+        {% if lead.vehicle_year or lead.vehicle_make %} · {{ lead.vehicle_year }} {{ lead.vehicle_make }} {{ lead.vehicle_model }}{% endif %}
+      </p>
+    </div>
+    <a class="cmp-back" href="{% url 'insurance-pipeline' %}">Back to pipeline</a>
+  </header>
+
+  <section class="cmp-block">
+    <h3>1. Shop this applicant</h3>
+    <p>Open a carrier site with the rating packet beside you, then record the premium below.</p>
+    <div class="cmp-shop">
+      <a class="cmp-packet" href="{% url 'insurance-rating-packet' lead.id %}" target="_blank" rel="noopener">
+        <strong>Rating packet</strong>
+        <small>Drivers, vehicles, and address</small>
+      </a>
+      <div class="cmp-sites">
+        {% for company in quote_companies %}
+          {% if company.quote_portal_url %}
+          <a class="cmp-site" href="{{ company.quote_portal_url }}" target="_blank" rel="noopener">
+            <strong>{{ company.name }}</strong>
+            <small>Open quote site</small>
+          </a>
+          {% else %}
+          <a class="cmp-site cmp-site--missing" href="{% url 'insurance-company-detail' company.id %}">
+            <strong>{{ company.name }}</strong>
+            <small>Add a quote site</small>
+          </a>
+          {% endif %}
+        {% empty %}
+        <p class="cmp-empty">No carriers on file yet. Add one under Companies, then put its quote site on the license screen.</p>
         {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p>No carrier quotes yet.</p>
-    {% endif %}
+      </div>
+    </div>
+  </section>
 
-    <h3 class="ins-overview-title--tight" style="margin-top:1.5rem;">Add a carrier quote</h3>
-    <form method="post" action="{% url 'insurance-quote-option-add' lead.id %}" style="display:grid;gap:0.55rem;max-width:46rem;">
+  <section class="cmp-block">
+    <h3>2. Saved quotes</h3>
+    {% if quote_options %}
+    <div class="cmp-quotes">
+      {% for option in quote_options %}
+      <article class="cmp-quote{% if option.id == cheapest_id and option.decision != 'declined' %} is-best{% endif %}">
+        <div class="cmp-quote__top">
+          <strong>{{ option.carrier_label }}</strong>
+          <span class="cmp-pill{% if option.decision == 'declined' %} is-declined{% elif option.decision == 'accepted' %} is-accepted{% endif %}">{{ option.get_decision_display }}</span>
+        </div>
+        <p class="cmp-premium">${{ option.term_premium }}</p>
+        <p>{% if option.down_payment %}Down ${{ option.down_payment }} · {% endif %}{{ option.term_months }} months</p>
+        <p>BI {{ option.bi_limit|default:"—" }} · PD {{ option.pd_limit|default:"—" }}</p>
+        {% if option.note %}<p>{{ option.note }}</p>{% endif %}
+        {% if option.decision != "accepted" %}
+        <form method="post" action="{% url 'insurance-quote-option-bind' option.id %}">{% csrf_token %}<button class="btn btn-primary btn-sm" type="submit">Bind this quote</button></form>
+        {% elif lead.crm_policy_id %}
+        <a class="btn btn-secondary btn-sm" href="{% url 'insurance-policy-detail' lead.crm_policy_id %}">Open policy</a>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="cmp-empty">No quotes saved yet. After you shop a carrier, record the premium in the form below.</p>
+    {% endif %}
+  </section>
+
+  <section class="cmp-block">
+    <h3>3. Record a quote</h3>
+    <form class="cmp-form" method="post" action="{% url 'insurance-quote-option-add' lead.id %}">
       {% csrf_token %}
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-        <select class="field-input" name="company">
-          <option value="">Carrier on file</option>
-          {% for company in quote_companies %}<option value="{{ company.id }}">{{ company.name }}</option>{% endfor %}
-        </select>
-        <input class="field-input" name="carrier_name" placeholder="Or type a carrier name">
-        <input class="field-input" name="term_premium" placeholder="Term premium" required inputmode="decimal">
-        <input class="field-input" name="down_payment" placeholder="Down payment" inputmode="decimal">
-        <input class="field-input" name="term_months" value="6" style="max-width:6rem;">
+      <div class="cmp-row">
+        <label class="cmp-field"><span>Carrier on file</span>
+          <select class="field-input" name="company">
+            <option value="">Choose</option>
+            {% for company in quote_companies %}<option value="{{ company.id }}">{{ company.name }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="cmp-field"><span>Or type a name</span><input class="field-input" name="carrier_name" placeholder="Carrier name"></label>
+        <label class="cmp-field"><span>Term premium</span><input class="field-input" name="term_premium" inputmode="decimal" required></label>
+        <label class="cmp-field"><span>Down payment</span><input class="field-input" name="down_payment" inputmode="decimal"></label>
+        <label class="cmp-field"><span>Months</span><input class="field-input" name="term_months" value="6"></label>
       </div>
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-        <input class="field-input" name="bi_limit" placeholder="BI 25/50">
-        <input class="field-input" name="pd_limit" placeholder="PD 10000">
-        <input class="field-input" name="pip_limit" placeholder="PIP 50000">
-        <input class="field-input" name="um_limit" placeholder="UM 25/50">
-        <input class="field-input" name="comp_deductible" placeholder="Comp ded." inputmode="decimal">
-        <input class="field-input" name="coll_deductible" placeholder="Coll ded." inputmode="decimal">
+      <div class="cmp-row">
+        <label class="cmp-field"><span>BI</span><input class="field-input" name="bi_limit" placeholder="25/50"></label>
+        <label class="cmp-field"><span>PD</span><input class="field-input" name="pd_limit" placeholder="10000"></label>
+        <label class="cmp-field"><span>PIP</span><input class="field-input" name="pip_limit" placeholder="50000"></label>
+        <label class="cmp-field"><span>UM</span><input class="field-input" name="um_limit" placeholder="25/50"></label>
+        <label class="cmp-field"><span>Comp deductible</span><input class="field-input" name="comp_deductible" inputmode="decimal"></label>
+        <label class="cmp-field"><span>Coll deductible</span><input class="field-input" name="coll_deductible" inputmode="decimal"></label>
       </div>
-      <input class="field-input" name="note" placeholder="What the client said about this quote">
-      <div>
+      <label class="cmp-field"><span>What the client said</span><input class="field-input" name="note"></label>
+      <div class="cmp-choice">
         <label><input type="radio" name="decision" value="pending" checked> Still open</label>
         <label><input type="radio" name="decision" value="declined"> Client declined</label>
       </div>
-      <button class="btn btn-primary" type="submit">Save quote</button>
+      <div><button class="btn btn-primary" type="submit">Save quote</button></div>
     </form>
-  </div>
+  </section>
 </section>
 {% endblock %}

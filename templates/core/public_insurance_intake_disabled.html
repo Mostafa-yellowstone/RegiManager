@@ -1,7 +1,25 @@
 {% extends "base.html" %}
 {% block title %}Quotes unavailable | {{ brand_name }}{% endblock %}
+{% block extra_head %}
+<style>
+  .qi-done {
+    width: min(640px, calc(100% - 1.5rem));
+    margin: 3rem auto;
+    background: #fff;
+    border-radius: 24px;
+    padding: 2rem 1.5rem;
+    box-shadow: 0 24px 60px rgba(6, 18, 41, 0.28);
+    font-family: Inter, "Segoe UI", sans-serif;
+    color: #0f172a;
+  }
+  .qi-done p.kicker { margin: 0; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #164b87; }
+  .qi-done h1 { margin: 0.35rem 0 0.6rem; letter-spacing: -0.03em; }
+  .qi-done p { margin: 0; color: #334155; line-height: 1.5; }
+</style>
+{% endblock %}
 {% block content %}
-<main style="max-width:640px;margin:0 auto;padding:3rem 1rem;">
+<main class="qi-done">
+  <p class="kicker">{{ brand_name }}</p>
   <h1>Online quotes are turned off</h1>
   <p>{{ brand_name }} is not accepting quote requests on this page right now. Call the office and an agent will take the application.</p>
 </main>

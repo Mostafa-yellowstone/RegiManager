@@ -1315,6 +1315,24 @@ a.iqp-pager:hover {
   line-height: 1.35;
 }
 
+.iqp-compare {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin: 0.2rem 0 0.15rem;
+  padding: 0.62rem 0.75rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0f766e, #0d9488);
+  color: #fff;
+  text-decoration: none;
+  box-shadow: 0 8px 16px rgba(13, 148, 136, 0.22);
+}
+.iqp-compare:hover { color: #fff; transform: translateY(-1px); }
+.iqp-compare span { display: grid; gap: 0.05rem; font-size: 0.8rem; font-weight: 800; }
+.iqp-compare small { font-size: 0.68rem; font-weight: 650; opacity: 0.88; }
+.iqp-compare svg { flex-shrink: 0; }
+
 .iqp-card__actions-row {
   display: flex;
   align-items: center;

@@ -139,7 +139,10 @@
               {% endif %}
             </div>
 
-            <p class="iqp-card__detail"><a href="{% url 'insurance-quote-worksheet' lead.id %}">Compare carriers</a></p>
+            <a class="iqp-compare" href="{% url 'insurance-quote-worksheet' lead.id %}">
+              <span>Compare carriers<small>Shop sites and save premiums</small></span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14"/><path d="M13 5l7 7-7 7"/></svg>
+            </a>
             <div class="iqp-flags">
               <span class="iqp-flag {% if lead.has_prior %}is-on{% endif %}">{% if lead.has_prior %}Prior{% else %}No prior{% endif %}</span>
               <span class="iqp-flag {% if lead.is_experienced %}is-on{% endif %}">{% if lead.is_experienced %}Exp{% else %}New driver{% endif %}</span>

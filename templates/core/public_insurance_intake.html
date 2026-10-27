@@ -2,94 +2,409 @@
 
 {% block title %}Get a quote | {{ brand_name }}{% endblock %}
 
-{% block content %}
+{% block extra_head %}
 <style>
-  .field-input { width:100%; box-sizing:border-box; border:1px solid #cbd5e1; border-radius:8px; padding:.65rem .75rem; font:inherit; }
+  .qi {
+    width: min(880px, calc(100% - 1.5rem));
+    margin: 1.75rem auto 3rem;
+    font-family: Inter, "Segoe UI", sans-serif;
+    color: #0f172a;
+  }
+  .qi-card {
+    background: #fff;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(6, 18, 41, 0.28);
+  }
+  .qi-hero {
+    padding: 1.75rem 1.5rem 1.45rem;
+    background: linear-gradient(145deg, #0a2342 0%, #164b87 70%, #1f7ae0 140%);
+    color: #fff;
+  }
+  .qi-brand {
+    margin: 0 0 0.45rem;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #bfdbfe;
+  }
+  .qi-hero h1 {
+    margin: 0;
+    color: #ffffff;
+    font-size: clamp(1.85rem, 4vw, 2.4rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+  }
+  .qi-hero p { margin: 0.55rem 0 0; max-width: 38rem; color: #dbeafe; font-size: 1rem; line-height: 1.45; }
+  .qi-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 1.1rem;
+  }
+  .qi-steps span {
+    padding: 0.28rem 0.65rem;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.22);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .qi-body { padding: 1.25rem 1.25rem 1.5rem; display: grid; gap: 0.9rem; }
+  .qi-alert {
+    margin: 0;
+    padding: 0.75rem 0.9rem;
+    border-radius: 12px;
+    background: #fef2f2;
+    color: #991b1b;
+    font-weight: 700;
+    list-style: none;
+  }
+  .qi-section {
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 1rem;
+    background: #fff;
+  }
+  .qi-section__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+  }
+  .qi-section > h2 { margin: 0 0 0.85rem; }
+  .qi-section h2 {
+    margin: 0;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+  .qi-icon {
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 999px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #164b87;
+    display: inline-grid;
+    place-items: center;
+    cursor: pointer;
+    padding: 0;
+  }
+  .qi-icon:hover { background: #eaf3ff; border-color: #1f7ae0; }
+  .qi-extra { display: none; margin-top: 0.85rem; }
+  .qi-extra.is-open { display: block; }
+  .qi-cardlet {
+    padding: 0.9rem;
+    border: 1px solid #dbe3ee;
+    border-radius: 14px;
+    background: #f8fafc;
+  }
+  .qi-cardlet__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .qi-cardlet__head strong { font-size: 0.95rem; }
+  .qi-remove {
+    border: 0;
+    background: transparent;
+    color: #b42318;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .qi-upload {
+    display: grid;
+    gap: 0.2rem;
+    margin-top: 0.75rem;
+    padding: 0.8rem 0.85rem;
+    border: 1px dashed #93c5fd;
+    border-radius: 12px;
+    background: #f8fbff;
+  }
+  .qi-upload span { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #164b87; }
+  .qi-upload small { color: #64748b; font-size: 0.8rem; font-weight: 600; }
+  .qi-icon[hidden] { display: none; }
+  .qi-section h2 em {
+    display: inline-grid;
+    place-items: center;
+    width: 1.55rem;
+    height: 1.55rem;
+    border-radius: 999px;
+    background: #eaf3ff;
+    color: #164b87;
+    font-style: normal;
+    font-size: 0.78rem;
+  }
+  .qi-grid { display: grid; gap: 0.7rem; }
+  .qi-grid--2 { grid-template-columns: 1fr 1fr; }
+  .qi-grid--address { grid-template-columns: 0.7fr 1.4fr 0.45fr 0.7fr; }
+  .qi-grid--car { grid-template-columns: 0.55fr 1fr 1fr 1.3fr; }
+  .qi-span-2 { grid-column: 1 / -1; }
+  .qi label.qi-field { display: grid; gap: 0.28rem; min-width: 0; }
+  .qi-field span, .qi-section > p {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+  .qi-section > p { margin: 0.85rem 0 0.45rem; }
+  .qi input, .qi select, .qi textarea {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 0.72rem 0.8rem;
+    font: inherit;
+    color: #0f172a;
+    background: #f8fafc;
+  }
+  .qi input:focus, .qi select:focus, .qi textarea:focus {
+    outline: 2px solid #1f7ae0;
+    outline-offset: 1px;
+    background: #fff;
+  }
+  .qi input[type="file"] {
+    padding: 0.35rem 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #334155;
+  }
+  .qi-checks { display: grid; gap: 0.5rem; }
+  .qi-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+    font-weight: 650;
+    color: #0f172a;
+  }
+  .qi-check input { width: 1.05rem; height: 1.05rem; margin-top: 0.15rem; accent-color: #164b87; }
+  .qi-check:has(input:checked) { border-color: #1f7ae0; background: #eaf3ff; }
+  .qi-submit {
+    width: 100%;
+    border: 0;
+    border-radius: 14px;
+    padding: 0.95rem 1.2rem;
+    background: linear-gradient(135deg, #0a2342, #1f7ae0);
+    color: #fff;
+    font: inherit;
+    font-size: 1.02rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .qi-submit:hover { filter: brightness(1.08); }
+  .qi-note { margin: 0; text-align: center; color: #64748b; font-size: 0.82rem; }
+  @media (max-width: 720px) {
+    .qi-grid--2, .qi-grid--address, .qi-grid--car { grid-template-columns: 1fr 1fr; }
+    .qi-hero, .qi-body { padding-left: 1rem; padding-right: 1rem; }
+  }
 </style>
-<main style="max-width:760px;margin:0 auto;padding:2rem 1rem 4rem;">
-  <p style="letter-spacing:.08em;text-transform:uppercase;font-size:.75rem;color:#64748b;">{{ brand_name }}</p>
-  <h1 style="margin:0 0 .4rem;">Request a quote</h1>
-  <p style="color:#475569;">{{ tagline|default:"Tell us about the drivers and vehicles. An agent will shop carriers and call you with the options." }}</p>
-  {% if messages %}
-  <ul>{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul>
-  {% endif %}
-  <form method="post" style="display:grid;gap:1rem;">
-    {% csrf_token %}
-    <fieldset style="border:1px solid #e2e8f0;border-radius:12px;padding:1rem;">
-      <legend>You</legend>
-      <div style="display:grid;gap:.6rem;">
-        <input class="field-input" name="client_name" placeholder="Full name" required>
-        <input class="field-input" name="phone" placeholder="Phone" required>
-        <input class="field-input" type="email" name="email" placeholder="Email">
-        <input class="field-input" type="date" name="date_of_birth">
-        <input class="field-input" name="dl_number" placeholder="Driver license number">
-        <input class="field-input" name="street_address" placeholder="Street address">
-        <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-          <input class="field-input" name="apartment" placeholder="Apt" style="max-width:6rem;">
-          <input class="field-input" name="city" placeholder="City">
-          <input class="field-input" name="state" value="NY" maxlength="2" style="max-width:4rem;">
-          <input class="field-input" name="zip_code" placeholder="ZIP" style="max-width:7rem;">
+{% endblock %}
+
+{% block content %}
+<main class="qi">
+  <div class="qi-card">
+    <header class="qi-hero">
+      <p class="qi-brand">{{ brand_name }}</p>
+      <h1>Get a free quote</h1>
+      <p>{{ tagline|default:"Tell us about the drivers and vehicles. An agent will shop carriers and call you with the options." }}</p>
+      <div class="qi-steps">
+        <span>1. You</span>
+        <span>2. Coverage</span>
+        <span>3. Vehicles</span>
+      </div>
+    </header>
+    <form class="qi-body" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% if messages %}
+      <ul class="qi-alert">{% for message in messages %}<li>{{ message }}</li>{% endfor %}</ul>
+      {% endif %}
+
+      <section class="qi-section">
+        <h2><em>1</em> About you</h2>
+        <div class="qi-grid qi-grid--2">
+          <label class="qi-field qi-span-2"><span>Full name</span><input name="client_name" autocomplete="name" required></label>
+          <label class="qi-field"><span>Phone</span><input name="phone" type="tel" autocomplete="tel" required></label>
+          <label class="qi-field"><span>Email</span><input name="email" type="email" autocomplete="email"></label>
+          <label class="qi-field qi-span-2"><span>Street address</span><input name="street_address" autocomplete="street-address"></label>
         </div>
-      </div>
-    </fieldset>
-    <fieldset style="border:1px solid #e2e8f0;border-radius:12px;padding:1rem;">
-      <legend>What you need</legend>
-      <div style="display:grid;gap:.6rem;">
-        <select class="field-input" name="insurance_type">
-          <option value="">Line of business</option>
-          {% for value, label in insurance_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
-        </select>
-        <select class="field-input" name="coverage_type">
-          <option value="">Coverage</option>
-          <option value="liability">Liability only</option>
-          <option value="full">Full coverage</option>
-        </select>
-        <input class="field-input" name="requested_limits" placeholder="Limits you want, for example BI 25/50, comp $500">
-        <label><input type="checkbox" name="has_prior"> I have insurance now</label>
-        <label><input type="checkbox" name="is_experienced"> I have been licensed more than 3 years</label>
-        <label><input type="checkbox" name="has_accident"> A driver has an accident or violation in the last 3 years</label>
-      </div>
-    </fieldset>
-    <fieldset style="border:1px solid #e2e8f0;border-radius:12px;padding:1rem;">
-      <legend>Vehicles</legend>
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-        <input class="field-input" name="vehicle_year" placeholder="Year" style="max-width:6rem;">
-        <input class="field-input" name="vehicle_make" placeholder="Make">
-        <input class="field-input" name="vehicle_model" placeholder="Model">
-        <input class="field-input" name="vin" placeholder="VIN">
-      </div>
-      <p style="color:#64748b;font-size:.85rem;">Second vehicle, if you have one</p>
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-        <input class="field-input" name="vehicle_2_year" placeholder="Year" style="max-width:6rem;">
-        <input class="field-input" name="vehicle_2_make" placeholder="Make">
-        <input class="field-input" name="vehicle_2_model" placeholder="Model">
-        <input class="field-input" name="vehicle_2_vin" placeholder="VIN">
-      </div>
-    </fieldset>
-    <fieldset style="border:1px solid #e2e8f0;border-radius:12px;padding:1rem;">
-      <legend>Other drivers</legend>
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-        <input class="field-input" name="driver_2_name" placeholder="Full name">
-        <input class="field-input" type="date" name="driver_2_dob">
-        <input class="field-input" name="driver_2_dl" placeholder="License number">
-      </div>
-    </fieldset>
-    <fieldset style="border:1px solid #e2e8f0;border-radius:12px;padding:1rem;">
-      <legend>How you found us</legend>
-      <select class="field-input" name="heard_about">
-        <option value="">Select</option>
-        <option value="google_search">Google search</option>
-        <option value="walk_in">Walk-in</option>
-        <option value="meta_platform">Meta</option>
-        <option value="google_campaigns">Google ads</option>
-        <option value="existing_client">I am already a client</option>
-        <option value="dealer">Dealer</option>
-        <option value="referral">Referral</option>
-        <option value="other">Other</option>
-      </select>
-      <textarea class="field-input" name="notes" rows="3" placeholder="Anything else we should know" style="margin-top:.6rem;"></textarea>
-    </fieldset>
-    <button type="submit" style="background:#0f172a;color:white;border:0;border-radius:10px;padding:.85rem 1.2rem;font-weight:700;">Send my quote request</button>
-  </form>
+        <div class="qi-grid qi-grid--address" style="margin-top:0.7rem;">
+          <label class="qi-field"><span>Apt</span><input name="apartment"></label>
+          <label class="qi-field"><span>City</span><input name="city" autocomplete="address-level2"></label>
+          <label class="qi-field"><span>State</span><input name="state" value="NY" maxlength="2" autocomplete="address-level1"></label>
+          <label class="qi-field"><span>ZIP</span><input name="zip_code" inputmode="numeric" autocomplete="postal-code"></label>
+        </div>
+      </section>
+
+      <section class="qi-section">
+        <h2><em>2</em> Coverage you want</h2>
+        <div class="qi-grid qi-grid--2">
+          <label class="qi-field"><span>Line of business</span>
+            <select name="insurance_type">
+              <option value="">Choose a line</option>
+              {% for value, label in insurance_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+            </select>
+          </label>
+          <label class="qi-field"><span>Coverage</span>
+            <select name="coverage_type">
+              <option value="">Choose coverage</option>
+              <option value="liability">Liability only</option>
+              <option value="full">Full coverage</option>
+            </select>
+          </label>
+          <label class="qi-field qi-span-2"><span>Limits you want</span><input name="requested_limits" placeholder="Example: BI 25/50, comprehensive $500"></label>
+        </div>
+        <div class="qi-checks" style="margin-top:0.7rem;">
+          <label class="qi-check"><input type="checkbox" name="has_prior"><span>I have insurance now</span></label>
+          <label class="qi-check"><input type="checkbox" name="is_experienced"><span>I have been licensed more than 3 years</span></label>
+          <label class="qi-check"><input type="checkbox" name="has_accident"><span>A driver has an accident or violation in the last 3 years</span></label>
+        </div>
+      </section>
+
+      <section class="qi-section">
+        <div class="qi-section__head">
+          <h2><em>3</em> Vehicle</h2>
+          <button type="button" class="qi-icon" data-qi-add="vehicles" aria-label="Add another vehicle">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div id="vehicles">
+          <div class="qi-grid qi-grid--car">
+            <label class="qi-field"><span>Year</span><input name="vehicle_year" inputmode="numeric" maxlength="4"></label>
+            <label class="qi-field"><span>Make</span><input name="vehicle_make"></label>
+            <label class="qi-field"><span>Model</span><input name="vehicle_model"></label>
+            <label class="qi-field"><span>VIN</span><input name="vin"></label>
+          </div>
+          <label class="qi-upload"><span>Registration or title</span><small>Optional photo or PDF of the registration or the title.</small><input type="file" name="vehicle_document" accept="image/*,.pdf"></label>
+          <div class="qi-extra" id="vehicle-2">
+            <div class="qi-cardlet">
+              <div class="qi-cardlet__head"><strong>Second vehicle</strong><button type="button" class="qi-remove" data-qi-remove="vehicle-2">Remove</button></div>
+              <div class="qi-grid qi-grid--car">
+                <label class="qi-field"><span>Year</span><input name="vehicle_2_year" inputmode="numeric" maxlength="4"></label>
+                <label class="qi-field"><span>Make</span><input name="vehicle_2_make"></label>
+                <label class="qi-field"><span>Model</span><input name="vehicle_2_model"></label>
+                <label class="qi-field"><span>VIN</span><input name="vehicle_2_vin"></label>
+              </div>
+              <label class="qi-upload"><span>Registration or title</span><small>Optional photo or PDF.</small><input type="file" name="vehicle_2_document" accept="image/*,.pdf"></label>
+            </div>
+          </div>
+          <div class="qi-extra" id="vehicle-3">
+            <div class="qi-cardlet">
+              <div class="qi-cardlet__head"><strong>Third vehicle</strong><button type="button" class="qi-remove" data-qi-remove="vehicle-3">Remove</button></div>
+              <div class="qi-grid qi-grid--car">
+                <label class="qi-field"><span>Year</span><input name="vehicle_3_year" inputmode="numeric" maxlength="4"></label>
+                <label class="qi-field"><span>Make</span><input name="vehicle_3_make"></label>
+                <label class="qi-field"><span>Model</span><input name="vehicle_3_model"></label>
+                <label class="qi-field"><span>VIN</span><input name="vehicle_3_vin"></label>
+              </div>
+              <label class="qi-upload"><span>Registration or title</span><small>Optional photo or PDF.</small><input type="file" name="vehicle_3_document" accept="image/*,.pdf"></label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="qi-section">
+        <div class="qi-section__head">
+          <h2><em>4</em> Driver</h2>
+          <button type="button" class="qi-icon" data-qi-add="drivers" aria-label="Add another driver">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div id="drivers">
+          <div class="qi-grid qi-grid--2">
+            <label class="qi-field"><span>Date of birth</span><input name="date_of_birth" type="date"></label>
+            <label class="qi-field"><span>Driver license number</span><input name="dl_number" autocomplete="off"></label>
+          </div>
+          <label class="qi-upload"><span>Driver license</span><small>Optional photo or PDF of the license.</small><input type="file" name="driver_license" accept="image/*,.pdf"></label>
+          <div class="qi-extra" id="driver-2">
+            <div class="qi-cardlet">
+              <div class="qi-cardlet__head"><strong>Second driver</strong><button type="button" class="qi-remove" data-qi-remove="driver-2">Remove</button></div>
+              <div class="qi-grid qi-grid--2">
+                <label class="qi-field qi-span-2"><span>Full name</span><input name="driver_2_name"></label>
+                <label class="qi-field"><span>Date of birth</span><input name="driver_2_dob" type="date"></label>
+                <label class="qi-field"><span>License number</span><input name="driver_2_dl"></label>
+              </div>
+              <label class="qi-upload"><span>Driver license</span><small>Optional photo or PDF.</small><input type="file" name="driver_2_license" accept="image/*,.pdf"></label>
+            </div>
+          </div>
+          <div class="qi-extra" id="driver-3">
+            <div class="qi-cardlet">
+              <div class="qi-cardlet__head"><strong>Third driver</strong><button type="button" class="qi-remove" data-qi-remove="driver-3">Remove</button></div>
+              <div class="qi-grid qi-grid--2">
+                <label class="qi-field qi-span-2"><span>Full name</span><input name="driver_3_name"></label>
+                <label class="qi-field"><span>Date of birth</span><input name="driver_3_dob" type="date"></label>
+                <label class="qi-field"><span>License number</span><input name="driver_3_dl"></label>
+              </div>
+              <label class="qi-upload"><span>Driver license</span><small>Optional photo or PDF.</small><input type="file" name="driver_3_license" accept="image/*,.pdf"></label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="qi-section">
+        <h2><em>5</em> Anything else</h2>
+        <div class="qi-grid">
+          <label class="qi-field"><span>How you found us</span>
+            <select name="heard_about">
+              <option value="">Select</option>
+              <option value="google_search">Google search</option>
+              <option value="walk_in">Walk-in</option>
+              <option value="meta_platform">Meta</option>
+              <option value="google_campaigns">Google ads</option>
+              <option value="existing_client">I am already a client</option>
+              <option value="dealer">Dealer</option>
+              <option value="referral">Referral</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label class="qi-field"><span>Notes</span><textarea name="notes" rows="3" placeholder="Anything else we should know"></textarea></label>
+        </div>
+      </section>
+
+      <button class="qi-submit" type="submit">Send my quote request</button>
+      <p class="qi-note">An agent at {{ brand_name }} will shop carriers and contact you. This page does not show a price yet.</p>
+    </form>
+  </div>
 </main>
+<script>
+  function qiRefresh(section) {
+    var add = document.querySelector('[data-qi-add="' + section.id + '"]');
+    if (!add) return;
+    add.hidden = !section.querySelector(".qi-extra:not(.is-open)");
+  }
+  document.addEventListener("click", function (event) {
+    var add = event.target.closest("[data-qi-add]");
+    if (add) {
+      event.preventDefault();
+      var section = document.getElementById(add.getAttribute("data-qi-add"));
+      var next = section && section.querySelector(".qi-extra:not(.is-open)");
+      if (!next) return;
+      next.classList.add("is-open");
+      qiRefresh(section);
+      return;
+    }
+    var remove = event.target.closest("[data-qi-remove]");
+    if (!remove) return;
+    event.preventDefault();
+    var panel = document.getElementById(remove.getAttribute("data-qi-remove"));
+    if (!panel) return;
+    panel.classList.remove("is-open");
+    panel.querySelectorAll("input").forEach(function (input) { input.value = ""; });
+    qiRefresh(panel.parentElement);
+  });
+</script>
 {% endblock %}

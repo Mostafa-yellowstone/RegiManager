@@ -38,6 +38,7 @@ from .insurance_quote_distribution import auto_distribute_lead
 from .insurance_quote_permissions import can_update_assigned_lead, membership_for_org
 from .insurance_quote_pipeline_models import (
     InsuranceQuoteLead,
+    InsuranceQuoteLeadDocument,
     InsuranceQuoteLeadDriver,
     InsuranceQuoteLeadVehicle,
 )
@@ -55,6 +56,42 @@ def _policy_or_deny(request, policy_id) -> InsurancePolicy:
     if not _can_access_insurance(request, policy.organization):
         deny_access("You do not have access to this insurance policy.")
     return policy
+
+
+_INTAKE_UPLOADS = (
+    ("driver_license", "Driver license"),
+    ("driver_2_license", "Driver license — second driver"),
+    ("driver_3_license", "Driver license — third driver"),
+    ("driver_4_license", "Driver license — fourth driver"),
+    ("vehicle_document", "Registration or title"),
+    ("vehicle_2_document", "Registration or title — second vehicle"),
+    ("vehicle_3_document", "Registration or title — third vehicle"),
+    ("vehicle_4_document", "Registration or title — fourth vehicle"),
+)
+
+
+def _intake_file_ok(uploaded) -> bool:
+    name = (getattr(uploaded, "name", "") or "").lower()
+    content = (getattr(uploaded, "content_type", "") or "").lower()
+    allowed = content.startswith("image/") or content == "application/pdf" or name.endswith(
+        (".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif", ".pdf")
+    )
+    size = getattr(uploaded, "size", 0) or 0
+    return bool(allowed and size and size <= 12 * 1024 * 1024)
+
+
+def _save_intake_uploads(request, lead) -> None:
+    for field, label in _INTAKE_UPLOADS:
+        uploaded = request.FILES.get(field)
+        if not uploaded or not _intake_file_ok(uploaded):
+            continue
+        filename = (getattr(uploaded, "name", "") or "upload").replace("\\", "/").rsplit("/", 1)[-1]
+        InsuranceQuoteLeadDocument.objects.create(
+            lead=lead,
+            file=uploaded,
+            original_name=f"{label} — {filename}"[:255],
+            uploaded_by=None,
+        )
 
 
 def _parse_date(raw):
@@ -147,6 +184,7 @@ def public_insurance_intake(request, portal_token):
             vin=vin[:32],
             sort_order=index,
         )
+    _save_intake_uploads(request, lead)
     try:
         auto_distribute_lead(lead)
     except Exception:
@@ -180,13 +218,13 @@ def quote_worksheet(request, lead_id):
         )
         if not can_update_assigned_lead(request.user, lead, membership=membership):
             deny_access("You cannot update this lead.")
+        options = list(lead.options.select_related("company"))
+        cheapest_id = min(options, key=lambda option: option.term_premium).id if options else None
         return {
             "lead": lead,
-            "quote_options": list(lead.options.all()),
+            "quote_options": options,
+            "cheapest_id": cheapest_id,
             "quote_companies": InsuranceCompany.objects.filter(organization=organization).order_by("name"),
-            "portal_companies": InsuranceCompany.objects.filter(organization=organization)
-            .exclude(quote_portal_url="")
-            .order_by("name"),
         }
 
     return insurance_area_views._render_page(
