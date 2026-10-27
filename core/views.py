@@ -3960,31 +3960,71 @@ def all_service_types(request):
 
 @login_required
 def all_agents_directory(request):
+    from .agent_audit import audit_query, audit_totals, filter_agent_services, resolve_audit_window
+    from .role_permissions import role_label, normalize_role
+
     organizations = _get_user_organizations(request).filter(memberships__role=OrganizationMembership.Role.OWNER)
     owner_org_ids = list(organizations.values_list("id", flat=True))
     if not owner_org_ids:
         deny_access("Owner access required.")
 
-    agents = OrganizationMembership.objects.filter(
-        organization_id__in=owner_org_ids
-    ).exclude(user=request.user).select_related("user", "organization")
-    
+    window = resolve_audit_window(request.GET)
+    agents = (
+        OrganizationMembership.objects.filter(organization_id__in=owner_org_ids, is_active=True)
+        .exclude(user=request.user)
+        .select_related("user", "organization")
+        .order_by("user__first_name", "user__last_name", "user__username")
+    )
+    query = (request.GET.get("q") or "").strip()
+    if query:
+        agents = apply_text_search(
+            agents,
+            query,
+            ["user__username", "user__first_name", "user__last_name", "user__email"],
+        )
+
     agent_data = []
     for agent in agents:
         records = ServiceRecord.objects.filter(
-            organization=agent.organization, handled_by=agent.user
+            organization=agent.organization,
+            handled_by=agent.user,
+            deleted_at__isnull=True,
         )
-        totals = records.aggregate(
-            total_records=Count("id"),
-            total_revenue=Sum("service_fee")
-        )
+        totals = audit_totals(filter_agent_services(records, window))
+        user = agent.user
+        name = user.get_full_name() or user.username
+        parts = [part[:1] for part in name.split() if part][:2]
         agent_data.append({
             "membership": agent,
-            "total_records": totals["total_records"] or 0,
-            "total_revenue": totals["total_revenue"] or Decimal("0")
+            "name": name,
+            "initials": "".join(parts).upper() or "?",
+            "role_label": role_label(normalize_role(agent.role)),
+            "total_records": totals["total"],
+            "total_revenue": totals["fees"],
+            "failed": totals["failed"],
+            "audit_href": f"{reverse('agent-profile', args=[agent.id])}?tab=audit&{audit_query(window)}",
         })
 
-    return render(request, "core/all_agents.html", {"agent_data": agent_data})
+    return render(
+        request,
+        "core/all_agents.html",
+        {
+            "agent_data": agent_data,
+            "audit_window": window,
+            "audit_periods": (
+                ("today", "Today"),
+                ("week", "Week"),
+                ("month", "Month"),
+                ("quarter", "Quarter"),
+                ("year", "Year"),
+                ("all", "All time"),
+                ("custom", "Custom"),
+            ),
+            "directory_query": query,
+            "prev_href": f"?{audit_query(window, offset=window['offset'] - 1)}" if window["can_step"] else "",
+            "next_href": f"?{audit_query(window, offset=window['offset'] + 1)}" if window["can_step"] else "",
+        },
+    )
 
 
 @login_required
@@ -4035,51 +4075,54 @@ def agent_profile(request, membership_id):
         work_date=activity_date,
     )
 
-    # Service audit metrics (DMV / receipts)
-    today = timezone.localdate()
-    period = request.GET.get("period", "today").strip()
-    start_date_str = request.GET.get("start_date", "").strip()
-    end_date_str = request.GET.get("end_date", "").strip()
-    
-    if start_date_str and end_date_str:
-        start_date = timezone.datetime.strptime(start_date_str, "%Y-%m-%d").date()
-        end_date = timezone.datetime.strptime(end_date_str, "%Y-%m-%d").date()
-        period = "custom"
-    elif period == "month":
-        start_date = today.replace(day=1)
-        end_date = today
-    elif period == "year":
-        start_date = today.replace(month=1, day=1)
-        end_date = today
-    elif period == "all":
-        start_date = None
-        end_date = None
-    elif period == "day":
-        start_date = activity_date
-        end_date = activity_date
-    else:
-        period = "today"
-        start_date = today
-        end_date = today
-
-    records_qs = ServiceRecord.objects.filter(
-        organization=membership.organization,
-        handled_by=membership.user,
-        deleted_at__isnull=True,
-    ).exclude(status="refund")
-
-    if start_date and end_date:
-        records_qs = records_qs.filter(
-            transaction_date__gte=start_date,
-            transaction_date__lte=end_date,
+    from .agent_audit import (
+        AUDIT_PERIODS,
+        audit_query,
+        audit_totals,
+        audit_workbook,
+        filter_agent_services,
+        resolve_audit_window,
+        service_breakdown,
     )
 
-    total_records = records_qs.count()
-    failed_records = records_qs.filter(status="failed").count()
-    error_rate = round((failed_records / total_records * 100), 2) if total_records > 0 else 0
-    total_profit = round(
-        records_qs.aggregate(prof=Sum("processing_fee"))["prof"] or Decimal("0"), 2
+    audit_params = request.GET.copy()
+    if audit_params.get("period") == "day" and not audit_params.get("offset"):
+        audit_params["period"] = "custom"
+        audit_params["start_date"] = activity_date.isoformat()
+        audit_params["end_date"] = activity_date.isoformat()
+    window = resolve_audit_window(audit_params)
+    records_qs = filter_agent_services(
+        ServiceRecord.objects.filter(
+            organization=membership.organization,
+            handled_by=membership.user,
+            deleted_at__isnull=True,
+        ),
+        window,
     )
+    if request.GET.get("export") == "xlsx":
+        agent_name = membership.user.get_full_name() or membership.user.username
+        payload = audit_workbook(
+            records_qs.order_by("-transaction_date", "-created_at")[:5000],
+            agent_name=agent_name,
+            window=window,
+        )
+        slug = (membership.user.username or "agent").replace(" ", "-")
+        response = HttpResponse(
+            payload,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = (
+            f'attachment; filename="{slug}-service-audit.xlsx"'
+        )
+        return response
+
+    totals = audit_totals(records_qs)
+    total_records = totals["total"]
+    error_rate = totals["error_rate"]
+    total_profit = totals["profit"]
+    start_date = window["start"]
+    end_date = window["end"]
+    period = window["period"]
     
     badges = []
     if error_rate > 10:
@@ -4098,30 +4141,12 @@ def agent_profile(request, membership_id):
     elif total_records == 0:
         instructions = "No service activity in this period."
 
-    daily_volume = (
-        records_qs.values("transaction_date")
-        .annotate(count=Count("id"))
-        .order_by("transaction_date")
-    )
-    chart_dates = [
-        row["transaction_date"].strftime("%b %d")
-        for row in daily_volume
-        if row["transaction_date"]
-    ]
-    chart_counts = [row["count"] for row in daily_volume]
-
-    type_distribution = records_qs.values("service_type").annotate(count=Count("id"))
-    service_map = dict(ServiceRecord.SERVICE_TYPES)
-    for ct in CustomServiceType.objects.filter(organization=membership.organization):
-        service_map[ct.key] = ct.label
-    pie_labels = [
-        service_map.get(d["service_type"], d["service_type"]) for d in type_distribution
-    ]
-    pie_counts = [d["count"] for d in type_distribution]
-
+    breakdown = service_breakdown(records_qs, membership.organization)
     page_obj = Paginator(
-        records_qs.order_by("-transaction_date", "-created_at"), 10
+        records_qs.order_by("-transaction_date", "-created_at"), 25
     ).get_page(request.GET.get("page"))
+    kept = audit_query(window, tab=tab, activity_date=activity_date.isoformat())
+    audit_filters = audit_query(window)
 
     workboard = agent_workboard_payload(membership)
     can_assign = (not is_self and owner_can_review_agent(viewer, membership)) or (
@@ -4161,17 +4186,23 @@ def agent_profile(request, membership_id):
             "activity_date": activity_date,
             "day_audit": day_audit,
             "period": period,
-            "start_date": start_date.strftime("%Y-%m-%d") if start_date else "",
-            "end_date": end_date.strftime("%Y-%m-%d") if end_date else "",
+            "start_date": start_date.isoformat() if start_date else "",
+            "end_date": end_date.isoformat() if end_date else "",
+            "audit_window": window,
+            "audit_periods": AUDIT_PERIODS,
+            "audit_totals": totals,
+            "service_breakdown": breakdown,
+            "status_choices": ServiceRecord.STATUS_CHOICES,
+            "audit_kept": kept,
+            "audit_filters": audit_filters,
+            "prev_href": f"?{audit_query(window, tab=tab, activity_date=activity_date.isoformat(), offset=window['offset'] - 1)}" if window["can_step"] else "",
+            "next_href": f"?{audit_query(window, tab=tab, activity_date=activity_date.isoformat(), offset=window['offset'] + 1)}" if window["can_step"] else "",
+            "export_href": f"?{audit_query(window, tab='audit', activity_date=activity_date.isoformat(), export='xlsx')}",
         "total_records": total_records,
-        "error_rate": round(error_rate, 1),
+        "error_rate": error_rate,
         "total_profit": total_profit,
         "badges": badges,
         "instructions": instructions,
-        "chart_dates": json.dumps(chart_dates),
-        "chart_counts": json.dumps(chart_counts),
-        "pie_labels": json.dumps(pie_labels),
-        "pie_counts": json.dumps(pie_counts),
         "page_obj": page_obj,
         },
     )

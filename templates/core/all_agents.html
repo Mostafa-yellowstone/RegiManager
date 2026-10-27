@@ -4,59 +4,116 @@
 {% block title %}Team Directory | RegiManager{% endblock %}
 
 {% block portal_content %}
-<main class="dashboard-shell team-directory-page">
-    <section class="dashboard-layout">
-        <header class="dashboard-hero service-list-hero team-directory-hero">
-            <div>
-                <a href="{% url 'dashboard' %}" class="btn btn-secondary back-btn team-directory-back">&larr; Back to Dashboard</a>
-                <h1>Team Directory</h1>
-                <p class="subtitle">Overview of all agents across your PSBs and their lifetime performance.</p>
-                <div style="margin-top:0.85rem;">
-                    <a href="{% url 'agent-attendance-tracker' %}" class="btn btn-primary btn-sm">Open Attendance Tracker</a>
-                </div>
-            </div>
-        </header>
+<style>
+  .adir { max-width: 1180px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
+  .adir-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1.1rem; }
+  .adir-kicker { margin: 0 0 .35rem; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #0f766e; }
+  .adir h1 { margin: 0; font-size: clamp(1.7rem, 3vw, 2.2rem); letter-spacing: -.03em; color: #0f172a; }
+  .adir-lead { margin: .35rem 0 0; max-width: 38rem; color: #64748b; font-weight: 600; }
+  .adir-back { color: #475569; font-weight: 750; text-decoration: none; }
+  .adir-bar, .adir-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 18px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+  }
+  .adir-bar { padding: 1rem 1.1rem; margin-bottom: 1rem; display: grid; gap: .85rem; }
+  .adir-periods { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .adir-periods a, .adir-step {
+    display: inline-flex; align-items: center; padding: .45rem .75rem; border-radius: 999px;
+    border: 1px solid #e2e8f0; background: #f8fafc; color: #334155; font-weight: 750;
+    font-size: .82rem; text-decoration: none;
+  }
+  .adir-periods a.is-on { background: #0f172a; color: #fff; border-color: #0f172a; }
+  .adir-nav { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+  .adir-label { font-weight: 800; color: #0f172a; }
+  .adir-search { display: flex; gap: .5rem; flex-wrap: wrap; align-items: end; }
+  .adir-search input[type="search"], .adir-search input[type="date"] {
+    padding: .55rem .7rem; border: 1px solid #cbd5e1; border-radius: 10px; min-width: 180px; font-weight: 650;
+  }
+  .adir-search button, .adir-apply {
+    padding: .55rem .9rem; border: none; border-radius: 10px; background: #0f766e; color: #fff; font-weight: 800; cursor: pointer;
+  }
+  .adir-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: .9rem; }
+  .adir-card { display: block; padding: 1.05rem 1.1rem 1rem; text-decoration: none; color: inherit; position: relative; overflow: hidden; }
+  .adir-card:hover { border-color: #99f6e4; transform: translateY(-1px); }
+  .adir-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #0f766e; }
+  .adir-who { display: flex; gap: .75rem; align-items: center; }
+  .adir-avatar {
+    width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center;
+    background: #ccfbf1; color: #115e59; font-weight: 850;
+  }
+  .adir-who h2 { margin: 0; font-size: 1.05rem; letter-spacing: -.02em; }
+  .adir-who p { margin: .15rem 0 0; color: #64748b; font-size: .82rem; font-weight: 650; }
+  .adir-role {
+    display: inline-flex; margin-top: .75rem; padding: .2rem .55rem; border-radius: 999px;
+    background: #eef2ff; color: #4338ca; font-size: .72rem; font-weight: 800;
+  }
+  .adir-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .45rem; margin-top: .9rem; }
+  .adir-stat { padding: .55rem .4rem; border-radius: 12px; background: #f8fafc; }
+  .adir-stat span { display: block; font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #64748b; }
+  .adir-stat strong { font-size: 1rem; color: #0f172a; }
+  .adir-open { display: block; margin-top: .8rem; font-size: .82rem; font-weight: 800; color: #0f766e; }
+  .adir-empty { padding: 2.5rem 1rem; text-align: center; color: #64748b; background: #fff; border: 1px dashed #cbd5e1; border-radius: 18px; }
+</style>
 
-        <section class="service-cards-grid team-directory-grid">
-            {% for data in agent_data %}
-                <a href="{% url 'agent-profile' data.membership.id %}" class="service-stat-card-link team-agent-card-link">
-                    <article class="service-stat-card team-agent-card">
-                        <div class="team-agent-card-accent"></div>
-                        <div class="team-agent-header">
-                            <div class="team-agent-avatar">
-                                {{ data.membership.user.get_full_name|default:data.membership.user.username|make_list|first|upper }}
-                            </div>
-                            <div>
-                                <h3 class="team-agent-name">{{ data.membership.user.get_full_name|default:data.membership.user.username }}</h3>
-                                <p class="team-agent-email">{{ data.membership.user.email }}</p>
-                            </div>
-                        </div>
+<main class="adir">
+  <header class="adir-head">
+    <div>
+      <p class="adir-kicker">Agent auditing</p>
+      <h1>Team directory</h1>
+      <p class="adir-lead">Choose a stretch of time, then open an agent to see every service they handled in that window.</p>
+    </div>
+    <a class="adir-back" href="{% url 'dashboard' %}">Back to dashboard</a>
+  </header>
 
-                        <div class="team-agent-meta">
-                            <p><strong>PSB:</strong> {{ data.membership.organization.name }}</p>
-                            <p><strong>Role:</strong> {{ data.membership.get_role_display }}</p>
-                        </div>
+  <section class="adir-bar">
+    <nav class="adir-periods" aria-label="Time range">
+      {% for key, label in audit_periods %}
+      <a href="?period={{ key }}{% if directory_query %}&q={{ directory_query|urlencode }}{% endif %}{% if key == 'custom' and audit_window.start_date %}&start_date={{ audit_window.start_date }}&end_date={{ audit_window.end_date }}{% endif %}" class="{% if audit_window.period == key %}is-on{% endif %}">{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <div class="adir-nav">
+      {% if prev_href %}<a class="adir-step" href="{{ prev_href }}{% if directory_query %}&q={{ directory_query|urlencode }}{% endif %}">← Previous</a>{% else %}<span></span>{% endif %}
+      <strong class="adir-label">{{ audit_window.label }}</strong>
+      {% if next_href %}<a class="adir-step" href="{{ next_href }}{% if directory_query %}&q={{ directory_query|urlencode }}{% endif %}">Next →</a>{% else %}<span></span>{% endif %}
+    </div>
+    <form class="adir-search" method="get">
+      <input type="hidden" name="period" value="{{ audit_window.period }}">
+      <input type="hidden" name="offset" value="{{ audit_window.offset }}">
+      {% if audit_window.period == 'custom' %}
+      <label>From <input type="date" name="start_date" value="{{ audit_window.start_date }}"></label>
+      <label>To <input type="date" name="end_date" value="{{ audit_window.end_date }}"></label>
+      {% endif %}
+      <label>Find an agent
+        <input type="search" name="q" value="{{ directory_query }}" placeholder="Name or email">
+      </label>
+      <button type="submit">Apply</button>
+    </form>
+  </section>
 
-                        <div class="team-agent-stats">
-                            <div class="team-agent-stat">
-                                <p class="team-agent-stat-label">Lifetime Records</p>
-                                <strong class="team-agent-stat-value">{{ data.total_records }}</strong>
-                            </div>
-                            <div class="team-agent-stat">
-                                <p class="team-agent-stat-label">Lifetime Revenue</p>
-                                <strong class="team-agent-stat-value">${{ data.total_revenue|floatformat:2 }}</strong>
-                            </div>
-                        </div>
-                    </article>
-                </a>
-            {% empty %}
-                <div class="team-directory-empty">
-                    <h3>No Agents Found</h3>
-                    <p>You do not currently have any agents registered under your PSBs.</p>
-                </div>
-            {% endfor %}
-        </section>
-
-    </section>
+  <section class="adir-grid">
+    {% for data in agent_data %}
+    <a class="adir-card" href="{{ data.audit_href }}">
+      <div class="adir-who">
+        <div class="adir-avatar">{{ data.initials }}</div>
+        <div>
+          <h2>{{ data.name }}</h2>
+          <p>{{ data.membership.organization.name }}</p>
+        </div>
+      </div>
+      <span class="adir-role">{{ data.role_label }}</span>
+      <div class="adir-stats">
+        <div class="adir-stat"><span>Services</span><strong>{{ data.total_records }}</strong></div>
+        <div class="adir-stat"><span>Collected</span><strong>${{ data.total_revenue|floatformat:0 }}</strong></div>
+        <div class="adir-stat"><span>Failed</span><strong>{{ data.failed }}</strong></div>
+      </div>
+      <span class="adir-open">Open audit →</span>
+    </a>
+    {% empty %}
+    <div class="adir-empty">
+      <h2>No teammates in this view</h2>
+      <p>Try another name, or a wider time range.</p>
+    </div>
+    {% endfor %}
+  </section>
 </main>
 {% endblock %}

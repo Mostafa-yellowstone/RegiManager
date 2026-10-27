@@ -44,6 +44,41 @@
 .uap-task { list-style:none; margin:0; padding:0; display:grid; gap:.55rem; }
 .uap-task li { padding:.75rem .85rem; border-radius:12px; background:#f8fafc; border:1px solid #e2e8f0; }
 .uap-task li.is-done strong { text-decoration: line-through; opacity:.75; }
+.audit-crm { padding: 0; overflow: hidden; }
+.audit-crm__top { padding: 1.15rem 1.25rem 0; }
+.audit-crm__top h2 { margin: 0; font-size: 1.2rem; letter-spacing: -.02em; }
+.audit-periods { display: flex; flex-wrap: wrap; gap: .4rem; margin: .9rem 0 .75rem; }
+.audit-periods a {
+  padding: .42rem .72rem; border-radius: 999px; border: 1px solid #e2e8f0; background: #f8fafc;
+  color: #334155; text-decoration: none; font-size: .8rem; font-weight: 800;
+}
+.audit-periods a.is-on { background: #0f172a; color: #fff; border-color: #0f172a; }
+.audit-nav { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin-bottom: .85rem; }
+.audit-nav strong { font-size: 1.02rem; }
+.audit-nav a { color: #0f766e; font-weight: 800; text-decoration: none; }
+.audit-tools { display: flex; gap: .55rem; flex-wrap: wrap; align-items: end; margin-bottom: 1rem; }
+.audit-tools input, .audit-tools select {
+  padding: .5rem .65rem; border: 1px solid #cbd5e1; border-radius: 10px; font-weight: 650; background: #fff;
+}
+.audit-tools button, .audit-export {
+  padding: .52rem .85rem; border-radius: 10px; font-weight: 800; text-decoration: none; border: none; cursor: pointer;
+}
+.audit-tools button { background: #0f766e; color: #fff; }
+.audit-export { display: inline-flex; align-items: center; background: #fff; color: #0f172a; border: 1px solid #cbd5e1; }
+.audit-types { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 1rem; }
+.audit-types span { padding: .3rem .6rem; border-radius: 999px; background: #f0fdfa; color: #115e59; font-size: .78rem; font-weight: 750; }
+.audit-table { width: 100%; border-collapse: collapse; }
+.audit-table th { text-align: left; font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; color: #64748b; padding: .7rem .85rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+.audit-table td { padding: .75rem .85rem; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+.audit-table tr:hover td { background: #fafafa; }
+.audit-pill { display: inline-flex; padding: .15rem .5rem; border-radius: 999px; font-size: .75rem; font-weight: 800; background: #e2e8f0; color: #334155; }
+.audit-pill.is-completed { background: #dcfce7; color: #166534; }
+.audit-pill.is-failed { background: #fee2e2; color: #991b1b; }
+.audit-pill.is-pending { background: #fef3c7; color: #92400e; }
+.audit-pill.is-refund { background: #ede9fe; color: #5b21b6; }
+.audit-pages { display: flex; gap: .4rem; flex-wrap: wrap; padding: .9rem 1.15rem 1.15rem; }
+.audit-pages a, .audit-pages span { padding: .35rem .65rem; border-radius: 8px; border: 1px solid #e2e8f0; text-decoration: none; font-weight: 750; color: #334155; }
+.audit-pages .is-current { background: #0f172a; color: #fff; border-color: #0f172a; }
 </style>
 {% endblock %}
 
@@ -73,7 +108,7 @@
     <a class="uap-tab {% if tab == 'overview' %}is-active{% endif %}" href="?tab=overview&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ period }}">Overview</a>
     <a class="uap-tab {% if tab == 'workboard' %}is-active{% endif %}" href="?tab=workboard&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ period }}">Workboard</a>
     <a class="uap-tab {% if tab == 'day' %}is-active{% endif %}" href="?tab=day&activity_date={{ activity_date|date:'Y-m-d' }}">Day trail</a>
-    <a class="uap-tab {% if tab == 'audit' %}is-active{% endif %}" href="?tab=audit&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ period }}">Service audit</a>
+    <a class="uap-tab {% if tab == 'audit' %}is-active{% endif %}" href="?tab=audit&activity_date={{ activity_date|date:'Y-m-d' }}&{{ audit_filters }}">Service audit</a>
     {% if show_insurance %}
     <a class="uap-tab {% if tab == 'insurance' %}is-active{% endif %}" href="?tab=insurance&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ period }}">Insurance CRM</a>
     {% endif %}
@@ -175,55 +210,102 @@
   {% endif %}
 
   {% if tab == 'overview' or tab == 'audit' %}
-  <section class="uap-panel" id="audit">
-    <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:center;margin-bottom:.85rem;">
-      <h2 style="margin:0;">Service audit</h2>
-      <form method="get" style="display:flex;gap:.45rem;flex-wrap:wrap;align-items:end;">
+  <section class="uap-panel audit-crm" id="audit">
+    <div class="audit-crm__top">
+      <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:center;">
+        <h2>Service audit</h2>
+        <a class="audit-export" href="{{ export_href }}">Export Excel</a>
+      </div>
+      <nav class="audit-periods" aria-label="Audit time range">
+        {% for key, label in audit_periods %}
+        <a href="?tab={{ tab }}&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ key }}{% if audit_window.q %}&q={{ audit_window.q|urlencode }}{% endif %}{% if audit_window.status %}&status={{ audit_window.status }}{% endif %}{% if key == 'custom' and audit_window.start_date %}&start_date={{ audit_window.start_date }}&end_date={{ audit_window.end_date }}{% endif %}" class="{% if audit_window.period == key %}is-on{% endif %}">{{ label }}</a>
+        {% endfor %}
+      </nav>
+      <div class="audit-nav">
+        {% if prev_href %}<a href="{{ prev_href }}">← Previous</a>{% else %}<span></span>{% endif %}
+        <strong>{{ audit_window.label }}</strong>
+        {% if next_href %}<a href="{{ next_href }}">Next →</a>{% else %}<span></span>{% endif %}
+      </div>
+      <form class="audit-tools" method="get">
         <input type="hidden" name="tab" value="{{ tab }}">
         <input type="hidden" name="activity_date" value="{{ activity_date|date:'Y-m-d' }}">
-        <label style="font-size:.72rem;font-weight:800;text-transform:uppercase;color:#64748b;">Period
-          <select name="period" onchange="this.form.submit()" class="form-control" style="margin-top:.25rem;">
-            <option value="today" {% if period == 'today' %}selected{% endif %}>Today</option>
-            <option value="day" {% if period == 'day' %}selected{% endif %}>Selected day</option>
-            <option value="month" {% if period == 'month' %}selected{% endif %}>This month</option>
-            <option value="year" {% if period == 'year' %}selected{% endif %}>This year</option>
-            <option value="all" {% if period == 'all' %}selected{% endif %}>All time</option>
+        <input type="hidden" name="period" value="{{ audit_window.period }}">
+        <input type="hidden" name="offset" value="{{ audit_window.offset }}">
+        {% if audit_window.period == 'custom' %}
+        <label>From <input type="date" name="start_date" value="{{ audit_window.start_date }}"></label>
+        <label>To <input type="date" name="end_date" value="{{ audit_window.end_date }}"></label>
+        {% endif %}
+        <label>Search
+          <input type="search" name="q" value="{{ audit_window.q }}" placeholder="Receipt, client, plate, VIN">
+        </label>
+        <label>Status
+          <select name="status">
+            <option value="">All statuses</option>
+            {% for key, label in status_choices %}
+            <option value="{{ key }}" {% if audit_window.status == key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
           </select>
         </label>
+        <button type="submit">Apply</button>
       </form>
-    </div>
-    {% if instructions %}<p style="color:#9f1239;font-weight:650;">{{ instructions }}</p>{% endif %}
-    <div class="uap-grid">
-      <div class="uap-metric"><span>Records</span><strong>{{ total_records }}</strong></div>
-      <div class="uap-metric"><span>Error rate</span><strong>{{ error_rate }}%</strong></div>
-      <div class="uap-metric"><span>Processing profit</span><strong>${{ total_profit }}</strong></div>
+      {% if instructions %}<p style="color:#9f1239;font-weight:650;margin:0 0 .85rem;">{{ instructions }}</p>{% endif %}
+      <div class="uap-grid">
+        <div class="uap-metric"><span>Services</span><strong>{{ audit_totals.total }}</strong></div>
+        <div class="uap-metric"><span>Completed</span><strong>{{ audit_totals.completed }}</strong></div>
+        <div class="uap-metric"><span>Failed</span><strong>{{ audit_totals.failed }}</strong></div>
+        <div class="uap-metric"><span>Refunds</span><strong>{{ audit_totals.refunds }}</strong></div>
+        <div class="uap-metric"><span>Collected</span><strong>${{ audit_totals.fees|floatformat:2 }}</strong></div>
+        <div class="uap-metric"><span>Processing</span><strong>${{ total_profit|floatformat:2 }}</strong></div>
+      </div>
+      {% if service_breakdown %}
+      <div class="audit-types">
+        {% for row in service_breakdown %}
+        <span>{{ row.label }} · {{ row.count }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
     <div style="overflow:auto;">
-      <table class="em-table" style="width:100%;border-collapse:collapse;">
+      <table class="audit-table">
         <thead>
           <tr>
-            <th style="text-align:left;padding:.55rem;border-bottom:1px solid #e2e8f0;">Date</th>
-            <th style="text-align:left;padding:.55rem;border-bottom:1px solid #e2e8f0;">Receipt</th>
-            <th style="text-align:left;padding:.55rem;border-bottom:1px solid #e2e8f0;">Service</th>
-            <th style="text-align:left;padding:.55rem;border-bottom:1px solid #e2e8f0;">Status</th>
-            <th style="text-align:right;padding:.55rem;border-bottom:1px solid #e2e8f0;">Fee</th>
+            <th>Date</th>
+            <th>Receipt</th>
+            <th>Client</th>
+            <th>Service</th>
+            <th>Status</th>
+            <th>Plate</th>
+            <th style="text-align:right;">Fee</th>
           </tr>
         </thead>
         <tbody>
           {% for record in page_obj %}
           <tr>
-            <td style="padding:.55rem;border-bottom:1px solid #f1f5f9;">{{ record.transaction_date|date:"M j, Y" }}</td>
-            <td style="padding:.55rem;border-bottom:1px solid #f1f5f9;">{{ record.receipt_number }}</td>
-            <td style="padding:.55rem;border-bottom:1px solid #f1f5f9;">{{ record.get_service_type_display|default:record.service_type }}</td>
-            <td style="padding:.55rem;border-bottom:1px solid #f1f5f9;">{{ record.status }}</td>
-            <td style="padding:.55rem;border-bottom:1px solid #f1f5f9;text-align:right;">${{ record.service_fee }}</td>
+            <td>{{ record.transaction_date|date:"M j, Y" }}</td>
+            <td><strong>{{ record.receipt_number }}</strong></td>
+            <td>{{ record.client_name|default:"—" }}{% if record.phone_no %}<div style="color:#64748b;font-size:.78rem;">{{ record.phone_no }}</div>{% endif %}</td>
+            <td>{{ record.get_service_type_display|default:record.service_type }}</td>
+            <td><span class="audit-pill is-{{ record.status }}">{{ record.get_status_display }}</span></td>
+            <td>{{ record.plate_number|default:"—" }}</td>
+            <td style="text-align:right;">${{ record.service_fee|floatformat:2 }}</td>
           </tr>
           {% empty %}
-          <tr><td colspan="5" style="padding:1rem;color:#64748b;">No records in this period.</td></tr>
+          <tr><td colspan="7" style="padding:1.25rem;color:#64748b;">No services in {{ audit_window.label }}.</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+    {% if page_obj.paginator.num_pages > 1 %}
+    <nav class="audit-pages" aria-label="Audit pages">
+      {% if page_obj.has_previous %}
+      <a href="?{{ audit_kept }}&page={{ page_obj.previous_page_number }}">Previous</a>
+      {% endif %}
+      <span class="is-current">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+      <a href="?{{ audit_kept }}&page={{ page_obj.next_page_number }}">Next</a>
+      {% endif %}
+    </nav>
+    {% endif %}
   </section>
   {% endif %}
 
