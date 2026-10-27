@@ -7619,10 +7619,18 @@ def update_insurance_space_branding(request):
     org.insurance_intake_display_name = intake_name
     org.insurance_intake_tagline = intake_tagline
     org.is_public_insurance_intake_enabled = public_portal
+    review_link = (request.POST.get("insurance_review_link") or "").strip()[:500]
+    if review_link and not review_link.startswith(("http://", "https://")):
+        messages.error(request, "The review link needs to start with https://")
+        return _redirect_to_insurance_detail(org, tab="insurance", request=request)
+    org.insurance_show_review_button = request.POST.get("insurance_show_review_button") == "on"
+    org.insurance_review_link = review_link
     org.save(update_fields=[
         "insurance_intake_display_name",
         "insurance_intake_tagline",
         "is_public_insurance_intake_enabled",
+        "insurance_show_review_button",
+        "insurance_review_link",
     ])
     messages.success(request, "Insurance space branding updated.")
     return _redirect_to_insurance_detail(org, tab="insurance", request=request)

@@ -2098,6 +2098,14 @@ class InsuranceCompany(models.Model):
         default="",
         help_text="Carrier quoting site the agent opens after the rating packet is ready.",
     )
+    quote_for_auto = models.BooleanField(
+        default=False,
+        help_text="Show this carrier when the team compares an auto quote.",
+    )
+    quote_for_commercial = models.BooleanField(
+        default=False,
+        help_text="Show this carrier when the team compares a commercial quote.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

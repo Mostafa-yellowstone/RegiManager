@@ -15,7 +15,21 @@
   .qi-done p.kicker { margin: 0; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #164b87; }
   .qi-done h1 { margin: 0.35rem 0 0.6rem; letter-spacing: -0.03em; }
   .qi-done p { margin: 0; color: #334155; line-height: 1.5; }
-  .qi-done a { display: inline-block; margin-top: 1rem; color: #164b87; font-weight: 800; }
+  .qi-review {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-top: 1.35rem;
+    padding: 0.95rem 1rem;
+    border-radius: 16px;
+    text-decoration: none;
+    color: #fff;
+    background: linear-gradient(135deg, #0f766e, #059669);
+    box-shadow: 0 10px 24px rgba(5, 150, 105, 0.28);
+  }
+  .qi-review strong { display: block; font-size: 1.05rem; letter-spacing: -0.02em; }
+  .qi-review small { display: block; margin-top: 0.12rem; color: #d1fae5; font-weight: 600; }
+  .qi-stars { color: #fbbf24; font-size: 1.15rem; letter-spacing: 0.08em; }
 </style>
 {% endblock %}
 {% block content %}
@@ -24,7 +38,10 @@
   <h1>We have your request</h1>
   <p>{{ brand_name }} will shop carriers for {{ lead.client_name }} and contact you at {{ lead.phone }}.</p>
   {% if organization.insurance_show_review_button and organization.insurance_review_link %}
-  <a href="{{ organization.insurance_review_link }}">Leave a review</a>
+  <a class="qi-review" href="{{ organization.insurance_review_link }}" target="_blank" rel="noopener">
+    <span class="qi-stars" aria-hidden="true">★★★★★</span>
+    <span><strong>Leave us a review</strong><small>A minute of your time helps {{ brand_name }}</small></span>
+  </a>
   {% endif %}
 </main>
 {% endblock %}

@@ -39,6 +39,14 @@
         <input type="text" name="insurance_intake_tagline" class="field-input" value="{{ active_org.insurance_intake_tagline }}" placeholder="Request an insurance quote — secure online intake...">
         <p style="margin: 0.35rem 0 0; font-size: 0.78rem; color: #64748b;">Subtitle under the portal name on the public form.</p>
       </div>
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label" style="display:flex;gap:0.5rem;align-items:center;">
+          <input type="checkbox" name="insurance_show_review_button" {% if active_org.insurance_show_review_button %}checked{% endif %}>
+          Show “Leave us a review” after a quote request
+        </label>
+        <input type="url" name="insurance_review_link" class="field-input" style="margin-top:0.55rem;" value="{{ active_org.insurance_review_link|default:'' }}" placeholder="https://g.page/r/your-google-review-link">
+        <p style="margin: 0.35rem 0 0; font-size: 0.78rem; color: #64748b;">Shown as a review button on the thank-you page. Paste the Google or Facebook review link.</p>
+      </div>
       <div style="margin-bottom: 1.5rem;">
         <label class="field-label" style="display:flex;gap:0.5rem;align-items:center;">
           <input type="checkbox" name="is_public_insurance_intake_enabled" {% if active_org.is_public_insurance_intake_enabled %}checked{% endif %}>

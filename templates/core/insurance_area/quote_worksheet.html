@@ -51,7 +51,7 @@
   .cmp-field { display: grid; gap: 0.28rem; }
   .cmp-field span { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--portal-text-muted); }
   .cmp-choice { display: flex; flex-wrap: wrap; gap: 0.45rem; }
-  .cmp-choice label { display: flex; align-items: center; gap: 0.4rem; padding: 0.55rem 0.75rem; border-radius: 999px; border: 1px solid var(--portal-border); background: var(--portal-surface-muted); font-weight: 700; }
+  .cmp-choice label, .cmp-choice a { display: flex; align-items: center; gap: 0.4rem; padding: 0.55rem 0.75rem; border-radius: 999px; border: 1px solid var(--portal-border); background: var(--portal-surface-muted); font-weight: 700; color: var(--portal-text); text-decoration: none; }
   @media (max-width: 720px) { .cmp-shop { grid-template-columns: 1fr; } }
 </style>
 
@@ -70,9 +70,45 @@
     <a class="cmp-back" href="{% url 'insurance-pipeline' %}">Back to pipeline</a>
   </header>
 
+  {% if can_pick_carriers %}
+  <section class="cmp-block">
+    <h3>Carriers the team sees</h3>
+    <p>Check the carriers for {{ picker_line_label|lower }} quotes. Everyone on the team sees only those when they compare that kind of quote.</p>
+    <div class="cmp-choice" style="margin-bottom:0.8rem;">
+      <a href="?line=auto"{% if picker_line == "auto" %} style="border-color:var(--portal-primary);"{% endif %}>Auto</a>
+      <a href="?line=commercial"{% if picker_line == "commercial" %} style="border-color:var(--portal-primary);"{% endif %}>Commercial</a>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="desk_action" value="quote_carriers">
+      <input type="hidden" name="quote_line" value="{{ picker_line }}">
+      <div class="cmp-sites">
+        {% for company in all_quote_companies %}
+        <label class="cmp-site" style="cursor:pointer;">
+          <span><input type="checkbox" name="company_ids" value="{{ company.id }}" {% if picker_line == "auto" and company.quote_for_auto %}checked{% elif picker_line == "commercial" and company.quote_for_commercial %}checked{% endif %}></span>
+          <strong>{{ company.name }}</strong>
+          <small>{% if company.quote_portal_url %}Quote site on file{% else %}No quote site yet{% endif %}</small>
+        </label>
+        {% empty %}
+        <p class="cmp-empty">No carriers on file yet. Add one under Companies first.</p>
+        {% endfor %}
+      </div>
+      {% if all_quote_companies %}
+      <div style="margin-top:0.85rem;"><button class="btn btn-primary btn-sm" type="submit">Save {{ picker_line_label }} carriers</button></div>
+      {% endif %}
+    </form>
+  </section>
+  {% endif %}
+
   <section class="cmp-block">
     <h3>1. Shop this applicant</h3>
-    <p>Open a carrier site with the rating packet beside you, then record the premium below.</p>
+    <p>
+      {% if quote_line_label %}
+      {{ quote_line_label }} carriers selected for the team. Open a site, then record the premium below.
+      {% else %}
+      This quote is not auto or commercial, so the auto and commercial carrier lists stay hidden.
+      {% endif %}
+    </p>
     <div class="cmp-shop">
       <a class="cmp-packet" href="{% url 'insurance-rating-packet' lead.id %}" target="_blank" rel="noopener">
         <strong>Rating packet</strong>
@@ -92,7 +128,7 @@
           </a>
           {% endif %}
         {% empty %}
-        <p class="cmp-empty">No carriers on file yet. Add one under Companies, then put its quote site on the license screen.</p>
+        <p class="cmp-empty">{% if quote_line_label %}No {{ quote_line_label|lower }} carriers are turned on yet.{% if can_pick_carriers %} Check them above and save.{% else %} An owner or manager chooses which carriers show here.{% endif %}{% else %}Choose an auto or commercial line on the quote to see carriers.{% endif %}</p>
         {% endfor %}
       </div>
     </div>

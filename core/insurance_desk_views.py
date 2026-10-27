@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
@@ -35,7 +36,7 @@ from .insurance_desk_models import (
 from .insurance_permissions import can_manage_insurance_finance
 from .insurance_policy_views import _can_access_insurance, _user_orgs
 from .insurance_quote_distribution import auto_distribute_lead
-from .insurance_quote_permissions import can_update_assigned_lead, membership_for_org
+from .insurance_quote_permissions import can_update_assigned_lead, is_owner_or_manager, membership_for_org
 from .insurance_quote_pipeline_models import (
     InsuranceQuoteLead,
     InsuranceQuoteLeadDocument,
@@ -92,6 +93,29 @@ def _save_intake_uploads(request, lead) -> None:
             original_name=f"{label} — {filename}"[:255],
             uploaded_by=None,
         )
+
+
+AUTO_QUOTE_LINES = frozenset({"auto_personal", "motor_cycle", "dealer_plates"})
+COMMERCIAL_QUOTE_LINES = frozenset({
+    "commercial_auto",
+    "trucking",
+    "contractors",
+    "landscaping",
+    "business_owners_policy",
+    "general_liability",
+    "workers_compensation",
+    "disability",
+})
+QUOTE_LINE_LABELS = {"auto": "Auto", "commercial": "Commercial"}
+
+
+def quote_line_for_type(insurance_type: str) -> str:
+    value = (insurance_type or "").strip().lower()
+    if value in AUTO_QUOTE_LINES:
+        return "auto"
+    if value in COMMERCIAL_QUOTE_LINES:
+        return "commercial"
+    return ""
 
 
 def _parse_date(raw):
@@ -218,13 +242,40 @@ def quote_worksheet(request, lead_id):
         )
         if not can_update_assigned_lead(request.user, lead, membership=membership):
             deny_access("You cannot update this lead.")
+        companies = list(InsuranceCompany.objects.filter(organization=organization).order_by("name"))
+        can_pick = is_owner_or_manager(membership, user=request.user)
+        if request.method == "POST" and request.POST.get("desk_action") == "quote_carriers":
+            if not can_pick:
+                deny_access("Only an owner or manager can choose the carriers the team sees.")
+            line = (request.POST.get("quote_line") or "").strip()
+            if line not in QUOTE_LINE_LABELS:
+                messages.error(request, "Choose Auto or Commercial.")
+                return redirect("insurance-quote-worksheet", lead_id=lead.id)
+            chosen = {int(value) for value in request.POST.getlist("company_ids") if value.isdigit()}
+            field = "quote_for_auto" if line == "auto" else "quote_for_commercial"
+            for company in companies:
+                setattr(company, field, company.id in chosen)
+                company.save(update_fields=[field])
+            messages.success(request, f"{QUOTE_LINE_LABELS[line]} carriers saved for the team.")
+            return redirect(f"{reverse('insurance-quote-worksheet', args=[lead.id])}?line={line}")
+        lead_line = quote_line_for_type(lead.insurance_type)
+        requested = (request.GET.get("line") or "").strip()
+        picker_line = requested if requested in QUOTE_LINE_LABELS else (lead_line or "auto")
+        field = "quote_for_auto" if lead_line == "auto" else "quote_for_commercial"
+        shown = [company for company in companies if lead_line and getattr(company, field)]
         options = list(lead.options.select_related("company"))
         cheapest_id = min(options, key=lambda option: option.term_premium).id if options else None
         return {
             "lead": lead,
             "quote_options": options,
             "cheapest_id": cheapest_id,
-            "quote_companies": InsuranceCompany.objects.filter(organization=organization).order_by("name"),
+            "quote_companies": shown,
+            "all_quote_companies": companies,
+            "quote_line": lead_line,
+            "quote_line_label": QUOTE_LINE_LABELS.get(lead_line, ""),
+            "picker_line": picker_line,
+            "picker_line_label": QUOTE_LINE_LABELS[picker_line],
+            "can_pick_carriers": can_pick,
         }
 
     return insurance_area_views._render_page(
