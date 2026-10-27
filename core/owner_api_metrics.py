@@ -49,6 +49,7 @@ def ensure_default_spaces(organization: Organization) -> None:
         ("insurance", "Insurance", "Insurance CRM and Financial space"),
         ("knowledge_hub", "Knowledge Hub", "Training documents and educational material"),
         ("custom_inventory", "Custom Inventory", "Product inventory and sales"),
+        ("ezpass", "E-ZPass", "E-ZPass tags on hand, sales, and stock"),
         ("motorclub", "Motor Club", "Motor club memberships and partners"),
         ("documents", "Documents", "Document management space"),
         ("tlc", "TLC", "TLC Policy Profitability Engine"),
@@ -343,7 +344,9 @@ def build_space_period_profit(
             lambda start, end: _motorclub_period_stats(space, start, end),
         )
 
-    if space.key == "custom_inventory":
+    from .inventory_spaces import is_inventory_space
+
+    if is_inventory_space(space):
         stats = inventory_dashboard_stats(space)
         return _with_custom(
             {

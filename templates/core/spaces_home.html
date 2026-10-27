@@ -200,6 +200,19 @@
         <h1 class="portal-space-title">Location Spaces</h1>
         <p class="portal-space-subtitle">Access and manage your localized workspaces. Each space can have its own logo, phone, email, and address.</p>
       </div>
+      {% if is_owner %}
+      <form method="post" action="{% url 'inventory-list' %}" style="display:flex; gap:0.6rem; align-items:flex-end; flex-wrap:wrap; background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:0.85rem 1rem;">
+        {% csrf_token %}
+        <input type="hidden" name="organization" value="{{ active_org.id }}">
+        <input type="hidden" name="space_kind" value="inventory">
+        <input type="hidden" name="redirect_to" value="{% url 'spaces-home' %}">
+        <label style="display:grid; gap:0.25rem;">
+          <span style="font-size:0.72rem; font-weight:800; letter-spacing:0.04em; text-transform:uppercase; color:#64748b;">New inventory</span>
+          <input type="text" name="label" required placeholder="Name, for example Tags" style="min-width:220px; padding:0.55rem 0.75rem; border:1px solid #cbd5e1; border-radius:10px; font-weight:650;">
+        </label>
+        <button type="submit" style="padding:0.6rem 0.95rem; border:none; border-radius:10px; background:#0f766e; color:#fff; font-weight:800; cursor:pointer;">Add inventory</button>
+      </form>
+      {% endif %}
     </div>
 
     <div class="spaces-grid">
@@ -221,7 +234,7 @@
               <div class="space-logo-fallback">
                 {% if item.key == 'insurance' %}
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                {% elif item.key == 'custom_inventory' %}
+                {% elif item.kind == 'inventory' or item.key == 'custom_inventory' or item.key == 'ezpass' %}
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                 {% elif item.key == 'motorclub' %}
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>

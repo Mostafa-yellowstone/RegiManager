@@ -627,10 +627,12 @@ class OwnerSpaceDetailView(OwnerAPIBase):
                 status="active",
                 limit=50,
             )
-        if space.key == "custom_inventory":
+        from .inventory_spaces import is_inventory_space
+
+        if is_inventory_space(space):
             payload["inventory_summary"] = build_inventory_owner_summary(space)
             payload["inventory_items"] = list_inventory_products_for_org(
-                organization, stock_status=None, limit=50
+                organization, stock_status=None, limit=50, space=space
             )
         if space.key == "documents":
             payload["documents_summary"] = build_documents_owner_summary(space)

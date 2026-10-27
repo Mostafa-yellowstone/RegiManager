@@ -1565,6 +1565,12 @@ class ClientIntake(models.Model):
 class Space(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="spaces")
     key = models.CharField(max_length=60)
+    kind = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        help_text="inventory uses the shared stock, sales, and invoice desk. Blank keeps the space's own page.",
+    )
     label = models.CharField(max_length=120)
     description = models.TextField(blank=True, default="")
     logo = models.ImageField(

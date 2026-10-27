@@ -128,12 +128,15 @@ def list_inventory_products_for_org(
     *,
     stock_status: str | None = None,
     limit: int = 50,
+    space=None,
 ):
     qs = (
         InventoryProduct.objects.filter(organization=organization, is_active=True)
         .select_related("category")
         .order_by("name")
     )
+    if space is not None:
+        qs = qs.filter(space=space)
     if stock_status == "out_of_stock":
         qs = qs.filter(quantity__lte=0)
     elif stock_status == "low_stock":

@@ -6,7 +6,7 @@ from ..models import DocumentFolder, KnowledgeHubMaterial, Space, SpaceDocumentR
 
 @admin.register(Space)
 class SpaceAdmin(admin.ModelAdmin):
-    list_display = ("label", "key", "organization", "created_at")
+    list_display = ("label", "key", "kind", "organization", "created_at")
     list_filter = ("organization",)
     search_fields = ("label", "key", "organization__name")
 

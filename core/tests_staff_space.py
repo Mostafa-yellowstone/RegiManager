@@ -9,6 +9,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from core.models import (
+    InventoryProduct,
     Organization,
     OrganizationMembership,
     Space,
@@ -165,3 +166,59 @@ class StaffSpaceTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
         self.assertEqual(StaffEmployee.objects.count(), 0)
+
+
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+)
+class EzpassInventorySpaceTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Tag Org", city="NYC")
+        self.owner = User.objects.create_user(username="ezowner", password="password123")
+        self.membership = OrganizationMembership.objects.create(
+            user=self.owner,
+            organization=self.org,
+            is_active=True,
+            role="owner",
+            can_view_spaces=True,
+        )
+        self.client = TestClient()
+        self.client.login(username="ezowner", password="password123")
+
+    def test_spaces_home_adds_ezpass_and_another_inventory(self):
+        home = self.client.get(reverse("spaces-home"))
+        self.assertEqual(home.status_code, 200)
+        self.assertContains(home, "E-ZPass")
+        self.assertContains(home, "Add inventory")
+        ezpass = Space.objects.get(organization=self.org, key="ezpass")
+        self.assertEqual(ezpass.kind, "inventory")
+        self.assertTrue(self.membership.accessible_spaces.filter(id=ezpass.id).exists())
+
+        opened = self.client.get(reverse("inventory-detail", args=[ezpass.id]))
+        self.assertEqual(opened.status_code, 200)
+        self.assertContains(opened, "E-ZPass")
+        self.assertContains(opened, "Products")
+        self.assertContains(opened, "Total Inventory Value")
+
+        created = self.client.post(
+            reverse("inventory-list"),
+            {"organization": self.org.id, "space_kind": "inventory", "label": "Gift Cards"},
+        )
+        self.assertEqual(created.status_code, 302)
+        gift = Space.objects.get(organization=self.org, key="gift_cards")
+        self.assertEqual(gift.kind, "inventory")
+
+        InventoryProduct.objects.create(
+            organization=self.org,
+            space=ezpass,
+            name="Interior Tag",
+            quantity=4,
+            unit_price=Decimal("25.00"),
+        )
+        gift_page = self.client.get(reverse("inventory-detail", args=[gift.id]) + "?tab=products")
+        self.assertEqual(gift_page.status_code, 200)
+        self.assertContains(gift_page, "Gift Cards")
+        self.assertNotContains(gift_page, "Interior Tag")
+        ez_page = self.client.get(reverse("inventory-detail", args=[ezpass.id]) + "?tab=products")
+        self.assertContains(ez_page, "Interior Tag")

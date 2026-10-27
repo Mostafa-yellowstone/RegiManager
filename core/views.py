@@ -6560,24 +6560,53 @@ def inventory_list(request):
         description = request.POST.get("description", "").strip()
 
         key = slugify(key_raw or label).replace("-", "_")
+        from .inventory_spaces import INVENTORY_KIND, grant_space_to_owners
+
+        space_kind = (request.POST.get("space_kind") or "").strip()
+        kind = INVENTORY_KIND if space_kind == INVENTORY_KIND else ""
 
         if not label:
             messages.error(request, "Space label is required.")
             return redirect("spaces-home")
+        if not key:
+            messages.error(request, "Give the space a name that can be saved.")
+            return redirect("spaces-home")
 
-        # Unique together check
+        reserved_keys = {
+            "insurance",
+            "knowledge_hub",
+            "motorclub",
+            "defense_driving",
+            "staff",
+            "licenses",
+            "documents",
+            "tlc",
+            "directory",
+        }
+        if key in reserved_keys:
+            messages.error(request, f"'{label}' is already a built-in space.")
+            return redirect("spaces-home")
+
         if Space.objects.filter(organization=org, key=key).exists():
             messages.error(request, f"A space with code '{key}' already exists in this PSB.")
             return redirect("spaces-home")
 
+        if kind == INVENTORY_KIND and not description:
+            description = "Product inventory, sales invoices, and stock tracking"
+
         try:
-            Space.objects.create(
+            space = Space.objects.create(
                 organization=org,
                 key=key,
                 label=label,
-                description=description
+                description=description,
+                kind=kind,
             )
-            messages.success(request, f"Space '{label}' created successfully.")
+            if kind == INVENTORY_KIND:
+                grant_space_to_owners(org, space)
+                messages.success(request, f"Inventory '{label}' is ready.")
+            else:
+                messages.success(request, f"Space '{label}' created successfully.")
         except Exception as e:
             messages.error(request, f"Error creating space: {e}")
         
@@ -7291,8 +7320,9 @@ def inventory_detail(request, inventory_id):
         
         return redirect("inventory-detail", inventory_id=card.id)
 
-    # Special handling for the "Insurance" Space card
-    if card.key == "custom_inventory":
+    from .inventory_spaces import is_inventory_space
+
+    if is_inventory_space(card):
         from .inventory_views import build_inventory_space_context
         context = build_inventory_space_context(request, card, is_owner, membership)
         return render(request, "core/inventory_space.html", context)
@@ -7463,15 +7493,22 @@ def spaces_home(request):
             "description": "Training documents, roadmaps, and educational material", 
         }
     )
-    # Auto-ensure "Custom Inventory" card exists for this active org
-    Space.objects.get_or_create(
-        organization=active_org,
+    from .inventory_spaces import ensure_inventory_space, grant_space_to_owners
+
+    ensure_inventory_space(
+        active_org,
         key="custom_inventory",
-        defaults={
-            "label": "Custom Inventory",
-            "description": "Product inventory, sales invoices, and stock tracking",
-        },
+        label="Custom Inventory",
+        description="Product inventory, sales invoices, and stock tracking",
     )
+    ezpass_space = ensure_inventory_space(
+        active_org,
+        key="ezpass",
+        label="E-ZPass",
+        description="E-ZPass tags on hand, sales, and stock",
+    )
+    if is_owner and membership:
+        grant_space_to_owners(active_org, ezpass_space)
     Space.objects.get_or_create(
         organization=active_org,
         key="motorclub",

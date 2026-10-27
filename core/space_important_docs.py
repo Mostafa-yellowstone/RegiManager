@@ -26,13 +26,19 @@ SPACE_DOC_PERMISSION_FLAGS = {
 
 
 def space_supports_important_docs(space: Space) -> bool:
-    return space.key in SPACE_DOC_PERMISSION_FLAGS
+    from .inventory_spaces import is_inventory_space
+
+    return space.key in SPACE_DOC_PERMISSION_FLAGS or is_inventory_space(space)
 
 
 def user_can_manage_space_docs(is_owner, membership, space: Space) -> bool:
+    from .inventory_spaces import is_inventory_space
+
     if is_owner:
         return True
     if not membership:
+        return False
+    if is_inventory_space(space):
         return False
     flag = SPACE_DOC_PERMISSION_FLAGS.get(space.key)
     if not flag or flag == "__owner__":

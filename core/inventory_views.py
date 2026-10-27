@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Q
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 
 from .http import deny_access
 from django.shortcuts import get_object_or_404, redirect, render
@@ -48,12 +48,23 @@ from .models import (
     OrganizationMembership,
     Space,
 )
+from .inventory_spaces import is_inventory_space
 from .views import _get_user_organizations
+
+
+def _owned_inventory_record(request, model, record_id):
+    organizations = _get_user_organizations(request)
+    record = get_object_or_404(model, id=record_id, organization__in=organizations)
+    if not is_inventory_space(record.space):
+        raise Http404
+    return record
 
 
 def _resolve_space_access(request, space_id):
     organizations = _get_user_organizations(request)
-    space = get_object_or_404(Space, id=space_id, organization__in=organizations, key="custom_inventory")
+    space = get_object_or_404(Space, id=space_id, organization__in=organizations)
+    if not is_inventory_space(space):
+        raise Http404
 
     if request.user.is_superuser:
         return space, True, None
@@ -174,13 +185,7 @@ def add_inventory_category(request, space_id):
 
 @login_required
 def delete_inventory_category(request, category_id):
-    organizations = _get_user_organizations(request)
-    category = get_object_or_404(
-        InventoryCategory,
-        id=category_id,
-        organization__in=organizations,
-        space__key="custom_inventory",
-    )
+    category = _owned_inventory_record(request, InventoryCategory, category_id)
     space = category.space
     name = category.name
     category.delete()
@@ -235,13 +240,7 @@ def add_inventory_product(request, space_id):
 
 @login_required
 def edit_inventory_product(request, product_id):
-    organizations = _get_user_organizations(request)
-    product = get_object_or_404(
-        InventoryProduct,
-        id=product_id,
-        organization__in=organizations,
-        space__key="custom_inventory",
-    )
+    product = _owned_inventory_record(request, InventoryProduct, product_id)
     space = product.space
 
     if request.method == "GET":
@@ -295,13 +294,7 @@ def edit_inventory_product(request, product_id):
 
 @login_required
 def delete_inventory_product(request, product_id):
-    organizations = _get_user_organizations(request)
-    product = get_object_or_404(
-        InventoryProduct,
-        id=product_id,
-        organization__in=organizations,
-        space__key="custom_inventory",
-    )
+    product = _owned_inventory_record(request, InventoryProduct, product_id)
     space = product.space
     name = product.name
     product.delete()
@@ -312,13 +305,7 @@ def delete_inventory_product(request, product_id):
 @login_required
 @require_POST
 def adjust_inventory_stock(request, product_id):
-    organizations = _get_user_organizations(request)
-    product = get_object_or_404(
-        InventoryProduct,
-        id=product_id,
-        organization__in=organizations,
-        space__key="custom_inventory",
-    )
+    product = _owned_inventory_record(request, InventoryProduct, product_id)
     space = product.space
 
     adjustment = int(request.POST.get("adjustment", "0") or 0)
@@ -374,13 +361,7 @@ def add_inventory_buyer(request, space_id):
 
 @login_required
 def delete_inventory_buyer(request, buyer_id):
-    organizations = _get_user_organizations(request)
-    buyer = get_object_or_404(
-        InventoryBuyer,
-        id=buyer_id,
-        organization__in=organizations,
-        space__key="custom_inventory",
-    )
+    buyer = _owned_inventory_record(request, InventoryBuyer, buyer_id)
     space = buyer.space
     name = buyer.name
     buyer.delete()
@@ -508,13 +489,7 @@ def add_inventory_invoice(request, space_id):
 
 @login_required
 def delete_inventory_invoice(request, invoice_id):
-    organizations = _get_user_organizations(request)
-    invoice = get_object_or_404(
-        InventoryInvoice,
-        id=invoice_id,
-        organization__in=organizations,
-        space__key="custom_inventory",
-    )
+    invoice = _owned_inventory_record(request, InventoryInvoice, invoice_id)
     space = invoice.space
     number = invoice.invoice_number
     invoice.delete()
@@ -534,8 +509,9 @@ def inventory_invoice_pdf(request, invoice_id):
         InventoryInvoice.objects.select_related("space").prefetch_related("lines"),
         id=invoice_id,
         organization__in=organizations,
-        space__key="custom_inventory",
     )
+    if not is_inventory_space(invoice.space):
+        raise Http404
 
     response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = f'inline; filename="invoice-{invoice.invoice_number}.pdf"'
@@ -663,13 +639,7 @@ def add_inventory_supplier(request, space_id):
 
 @login_required
 def delete_inventory_supplier(request, supplier_id):
-    organizations = _get_user_organizations(request)
-    supplier = get_object_or_404(
-        InventorySupplier,
-        id=supplier_id,
-        organization__in=organizations,
-        space__key="custom_inventory",
-    )
+    supplier = _owned_inventory_record(request, InventorySupplier, supplier_id)
     space = supplier.space
     name = supplier.name
     supplier.is_active = False
