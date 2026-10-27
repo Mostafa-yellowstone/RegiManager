@@ -1,0 +1,80 @@
+{% extends "core/insurance_area/base.html" %}
+
+{% block insurance_page %}
+<section class="ins-panel">
+  <div class="ins-panel__head">
+    <h2>{{ lead.client_name }}</h2>
+    <a href="{% url 'insurance-pipeline' %}">Back to pipeline</a>
+  </div>
+  <div class="ins-panel__body">
+    <p style="margin-top:0;">{{ lead.phone }}{% if lead.email %} · {{ lead.email }}{% endif %}{% if lead.insurance_type %} · {{ lead.insurance_type }}{% endif %}</p>
+    <p>Print the rating packet, open each carrier's quote site, then record the premium here. Binding a quote copies the premium and limits onto the policy, files the compensation disclosure, and issues a temporary ID card.</p>
+    <p><a class="btn btn-secondary btn-sm" href="{% url 'insurance-rating-packet' lead.id %}" target="_blank" rel="noopener">Rating packet</a></p>
+    {% if portal_companies %}
+    <p style="margin-bottom:0.35rem;">Carrier quote sites</p>
+    <ul style="margin-top:0;">
+      {% for company in portal_companies %}
+      <li><a href="{{ company.quote_portal_url }}" target="_blank" rel="noopener">{{ company.name }}</a></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if quote_options %}
+    <table class="ins-table">
+      <thead>
+        <tr><th>Carrier</th><th>Term premium</th><th>Down</th><th>BI / PD</th><th>Decision</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for option in quote_options %}
+        <tr>
+          <td>{{ option.carrier_label }}</td>
+          <td>${{ option.term_premium }}</td>
+          <td>{% if option.down_payment %}${{ option.down_payment }}{% else %}—{% endif %}</td>
+          <td>{{ option.bi_limit|default:"—" }} / {{ option.pd_limit|default:"—" }}</td>
+          <td>{{ option.get_decision_display }}</td>
+          <td>
+            {% if option.decision != "accepted" %}
+            <form method="post" action="{% url 'insurance-quote-option-bind' option.id %}">{% csrf_token %}<button class="btn btn-primary btn-sm" type="submit">Bind this quote</button></form>
+            {% elif lead.crm_policy_id %}
+            <a href="{% url 'insurance-policy-detail' lead.crm_policy_id %}">Open policy</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p>No carrier quotes yet.</p>
+    {% endif %}
+
+    <h3 class="ins-overview-title--tight" style="margin-top:1.5rem;">Add a carrier quote</h3>
+    <form method="post" action="{% url 'insurance-quote-option-add' lead.id %}" style="display:grid;gap:0.55rem;max-width:46rem;">
+      {% csrf_token %}
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <select class="field-input" name="company">
+          <option value="">Carrier on file</option>
+          {% for company in quote_companies %}<option value="{{ company.id }}">{{ company.name }}</option>{% endfor %}
+        </select>
+        <input class="field-input" name="carrier_name" placeholder="Or type a carrier name">
+        <input class="field-input" name="term_premium" placeholder="Term premium" required inputmode="decimal">
+        <input class="field-input" name="down_payment" placeholder="Down payment" inputmode="decimal">
+        <input class="field-input" name="term_months" value="6" style="max-width:6rem;">
+      </div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <input class="field-input" name="bi_limit" placeholder="BI 25/50">
+        <input class="field-input" name="pd_limit" placeholder="PD 10000">
+        <input class="field-input" name="pip_limit" placeholder="PIP 50000">
+        <input class="field-input" name="um_limit" placeholder="UM 25/50">
+        <input class="field-input" name="comp_deductible" placeholder="Comp ded." inputmode="decimal">
+        <input class="field-input" name="coll_deductible" placeholder="Coll ded." inputmode="decimal">
+      </div>
+      <input class="field-input" name="note" placeholder="What the client said about this quote">
+      <div>
+        <label><input type="radio" name="decision" value="pending" checked> Still open</label>
+        <label><input type="radio" name="decision" value="declined"> Client declined</label>
+      </div>
+      <button class="btn btn-primary" type="submit">Save quote</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

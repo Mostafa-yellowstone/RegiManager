@@ -97,6 +97,11 @@ def insurance_policy_detail(request, policy_id):
         (renewal_card.expiration_date - timezone.localdate()).days if renewal_card else None
     )
 
+    from .insurance_desk import coverage_form_rows
+    from .insurance_desk_models import InsurancePolicyTransaction
+    from .insurance_standard_forms import FORMS
+    from .models import Vehicle
+
     return render(
         request,
         "core/insurance_policy_detail.html",
@@ -123,6 +128,18 @@ def insurance_policy_detail(request, policy_id):
             "renewal_chain": renewal_chain if len(renewal_chain) > 1 else [],
             "renewal_days_left": renewal_days_left,
             "renewal_days_overdue": -renewal_days_left if renewal_days_left and renewal_days_left < 0 else 0,
+            "coverage_rows": coverage_form_rows(policy),
+            "vehicle_coverages": list(policy.coverages.filter(vehicle__isnull=False).select_related("vehicle")),
+            "policy_transactions": list(policy.transactions.all()[:30]),
+            "transaction_kinds": InsurancePolicyTransaction.Kind.choices,
+            "cancel_reasons": InsurancePolicyTransaction.CancelReason.choices,
+            "requested_by_choices": InsurancePolicyTransaction.RequestedBy.choices,
+            "policy_claims": list(policy.claims.prefetch_related("photos")[:20]),
+            "policy_certificates": list(policy.certificates.select_related("holder")[:20]),
+            "standard_forms": FORMS,
+            "issued_forms": list(policy.issued_forms.all()[:20]),
+            "dmv_vehicles": list(Vehicle.objects.filter(client=policy.client).order_by("-id")[:30]) if policy.client_id else [],
+            "photo_inspection_choices": InsurancePolicy.PhotoInspection.choices,
         },
     )
 

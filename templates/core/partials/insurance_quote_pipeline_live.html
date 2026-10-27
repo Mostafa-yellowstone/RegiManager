@@ -139,6 +139,7 @@
               {% endif %}
             </div>
 
+            <p class="iqp-card__detail"><a href="{% url 'insurance-quote-worksheet' lead.id %}">Compare carriers</a></p>
             <div class="iqp-flags">
               <span class="iqp-flag {% if lead.has_prior %}is-on{% endif %}">{% if lead.has_prior %}Prior{% else %}No prior{% endif %}</span>
               <span class="iqp-flag {% if lead.is_experienced %}is-on{% endif %}">{% if lead.is_experienced %}Exp{% else %}New driver{% endif %}</span>

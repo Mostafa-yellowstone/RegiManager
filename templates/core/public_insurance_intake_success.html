@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Quote request received | {{ brand_name }}{% endblock %}
+{% block content %}
+<main style="max-width:640px;margin:0 auto;padding:3rem 1rem;">
+  <h1>We have your request</h1>
+  <p>{{ brand_name }} will shop carriers for {{ lead.client_name }} and contact you at {{ lead.phone }}.</p>
+  {% if organization.insurance_show_review_button and organization.insurance_review_link %}
+  <p><a href="{{ organization.insurance_review_link }}">Leave a review</a></p>
+  {% endif %}
+</main>
+{% endblock %}

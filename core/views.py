@@ -7598,8 +7598,7 @@ def update_insurance_space_branding(request):
     space_label = request.POST.get("space_label", "").strip()
     intake_name = request.POST.get("insurance_intake_display_name", "").strip()
     intake_tagline = request.POST.get("insurance_intake_tagline", "").strip()
-    ezlynx_url = request.POST.get("insurance_ezlynx_quote_url", "").strip()
-    portal_mode = request.POST.get("insurance_intake_portal_mode", "").strip()
+    public_portal = request.POST.get("is_public_insurance_intake_enabled") == "on"
 
     update_fields = ["updated_at"]
     if space_label:
@@ -7619,13 +7618,11 @@ def update_insurance_space_branding(request):
 
     org.insurance_intake_display_name = intake_name
     org.insurance_intake_tagline = intake_tagline
-    org.insurance_ezlynx_quote_url = ezlynx_url
-    org.insurance_intake_portal_mode = portal_mode
+    org.is_public_insurance_intake_enabled = public_portal
     org.save(update_fields=[
         "insurance_intake_display_name",
         "insurance_intake_tagline",
-        "insurance_ezlynx_quote_url",
-        "insurance_intake_portal_mode",
+        "is_public_insurance_intake_enabled",
     ])
     messages.success(request, "Insurance space branding updated.")
     return _redirect_to_insurance_detail(org, tab="insurance", request=request)
@@ -7719,6 +7716,11 @@ def add_insurance_policy(request):
             policy, request.POST, organization=org, can_edit_rates=can_edit_commission
         )
         policy.save()
+        if policy.stage == "bound":
+            from .insurance_desk import issue_compensation_disclosure, issue_temporary_id_card
+
+            issue_temporary_id_card(policy, request.user)
+            issue_compensation_disclosure(policy, request.user)
         messages.success(request, "Insurance policy created.")
     except ProducerInputError as e:
         messages.error(request, str(e))
@@ -8269,11 +8271,18 @@ def edit_insurance_company_license(request, company_id):
         messages.error(request, "License expiration cannot be before the effective date.")
         return redirect_back(request, reverse("insurance-company-detail", kwargs={"company_id": company.id}))
 
+    portal = (request.POST.get("quote_portal_url") or "").strip()[:500]
+    if portal and not portal.startswith(("http://", "https://")):
+        messages.error(request, "Quote portal address must start with http:// or https://.")
+        return redirect_back(request, reverse("insurance-company-detail", kwargs={"company_id": company.id}))
+
     company.license_number = (request.POST.get("license_number") or "").strip()[:80]
     company.license_effective_date = effective
     company.license_expiration_date = expiration
     company.license_alert_days = clamp_alert_days(request.POST.get("license_alert_days"), default=5)
     company.broker_arrangement = arrangement
+    company.naic = (request.POST.get("naic") or "").strip()[:10]
+    company.quote_portal_url = portal
     company.save(
         update_fields=[
             "license_number",
@@ -8281,6 +8290,8 @@ def edit_insurance_company_license(request, company_id):
             "license_expiration_date",
             "license_alert_days",
             "broker_arrangement",
+            "naic",
+            "quote_portal_url",
         ]
     )
     try:

@@ -6,13 +6,14 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 
 import { Colors, Radius } from '@/constants/theme';
 import { DocumentViewerModal } from '@/components/DocumentViewer';
-import { fetchPolicy } from '@/lib/api';
+import { apiFetch, fetchPolicy } from '@/lib/api';
 
 function money(v?: string | null) {
   if (!v) return '—';
@@ -33,6 +34,10 @@ export default function PolicyDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [viewer, setViewer] = useState<ViewerTarget>(null);
+  const [lossDate, setLossDate] = useState('');
+  const [lossNote, setLossNote] = useState('');
+  const [holderName, setHolderName] = useState('');
+  const [busy, setBusy] = useState('');
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -53,6 +58,42 @@ export default function PolicyDetailScreen() {
       load();
     }, [load]),
   );
+
+  async function reportClaim() {
+    if (!id) return;
+    setBusy('claim');
+    setError('');
+    try {
+      await apiFetch(`/api/client/policies/${id}/claims/`, {
+        method: 'POST',
+        body: JSON.stringify({ loss_date: lossDate, description: lossNote }),
+      });
+      setLossNote('');
+      await load();
+    } catch (err: any) {
+      setError(err?.message || 'Could not report the claim');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function requestCertificate() {
+    if (!id || !holderName.trim()) return;
+    setBusy('certificate');
+    setError('');
+    try {
+      await apiFetch(`/api/client/policies/${id}/certificates/`, {
+        method: 'POST',
+        body: JSON.stringify({ holder_name: holderName.trim() }),
+      });
+      setHolderName('');
+      await load();
+    } catch (err: any) {
+      setError(err?.message || 'Could not request the certificate');
+    } finally {
+      setBusy('');
+    }
+  }
 
   function openDoc(doc: any, variant: 'id_card' | 'document' = 'document') {
     setViewer({
@@ -129,6 +170,65 @@ export default function PolicyDetailScreen() {
                 </Text>
               </View>
             </View>
+          </View>
+
+          {(data.coverages || []).length ? (
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>COVERAGES</Text>
+              {(data.coverages || []).map((row: any) => (
+                <Text key={`${row.code}-${row.vehicle_id || 'policy'}`} style={styles.coverageLine}>
+                  {row.label}: {row.limit || '—'}
+                  {row.deductible ? ` · deductible $${row.deductible}` : ''}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+
+          {(data.claims || []).length ? (
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>CLAIMS</Text>
+              {(data.claims || []).map((claim: any) => (
+                <Text key={claim.id} style={styles.coverageLine}>
+                  {claim.loss_date} · {claim.status_display}
+                  {claim.carrier_claim_number ? ` · ${claim.carrier_claim_number}` : ''}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>REPORT A CLAIM</Text>
+            <TextInput
+              value={lossDate}
+              onChangeText={setLossDate}
+              placeholder="Loss date YYYY-MM-DD"
+              placeholderTextColor={Colors.muted}
+              style={styles.field}
+            />
+            <TextInput
+              value={lossNote}
+              onChangeText={setLossNote}
+              placeholder="What happened"
+              placeholderTextColor={Colors.muted}
+              style={styles.field}
+            />
+            <Pressable style={styles.actionBtn} onPress={reportClaim} disabled={busy === 'claim'}>
+              <Text style={styles.actionBtnText}>{busy === 'claim' ? 'SENDING' : 'SEND TO MY AGENCY'}</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>REQUEST A CERTIFICATE</Text>
+            <TextInput
+              value={holderName}
+              onChangeText={setHolderName}
+              placeholder="Who needs the certificate"
+              placeholderTextColor={Colors.muted}
+              style={styles.field}
+            />
+            <Pressable style={styles.actionBtn} onPress={requestCertificate} disabled={busy === 'certificate'}>
+              <Text style={styles.actionBtnText}>{busy === 'certificate' ? 'SENDING' : 'REQUEST CERTIFICATE'}</Text>
+            </Pressable>
           </View>
 
           <View style={styles.summaryCard}>
@@ -294,6 +394,10 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   summaryLabel: { color: '#94A3B8', fontWeight: '800', fontSize: 11, letterSpacing: 0.8 },
+  coverageLine: { color: Colors.white, marginTop: 8, fontWeight: '600' },
+  field: { backgroundColor: Colors.white, borderRadius: 10, padding: 10, marginTop: 10, color: Colors.text },
+  actionBtn: { marginTop: 10, backgroundColor: Colors.white, borderRadius: 10, padding: 12, alignItems: 'center' },
+  actionBtnText: { color: Colors.navy, fontWeight: '800', letterSpacing: 0.4 },
   summaryStats: { flexDirection: 'row', marginTop: 14, gap: 10 },
   summaryStat: { flex: 1 },
   summaryStatValue: { color: Colors.white, fontSize: 18, fontWeight: '800' },

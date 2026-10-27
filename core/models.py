@@ -142,18 +142,6 @@ class Organization(models.Model):
         default="",
         help_text="Subtitle shown under the name on the public insurance intake portal.",
     )
-    insurance_ezlynx_quote_url = models.URLField(
-        max_length=500,
-        blank=True,
-        default="",
-        help_text="EZLynx / AgentInsure consumer quoting URL to embed on the public insurance portal.",
-    )
-    insurance_intake_portal_mode = models.CharField(
-        max_length=20,
-        blank=True,
-        default="",
-        help_text="Leave blank to auto-select: EZLynx dual capture when a quote URL is set, otherwise the native form.",
-    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -2098,6 +2086,18 @@ class InsuranceCompany(models.Model):
         default="",
         help_text="BR = take broker fees; BC = do not take broker fees.",
     )
+    naic = models.CharField(
+        max_length=10,
+        blank=True,
+        default="",
+        help_text="NAIC company code printed on the insurance identification card.",
+    )
+    quote_portal_url = models.URLField(
+        max_length=500,
+        blank=True,
+        default="",
+        help_text="Carrier quoting site the agent opens after the rating packet is ready.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -2280,7 +2280,34 @@ class InsurancePolicy(models.Model):
         blank=True,
         help_text="Total producer commission for the full term at the current premium.",
     )
-    
+    commission_paid = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Amount the carrier actually paid on the matched commission statement.",
+    )
+
+    class PhotoInspection(models.TextChoices):
+        NOT_REQUIRED = "not_required", "Not required"
+        REQUIRED = "required", "Required"
+        SCHEDULED = "scheduled", "Scheduled"
+        COMPLETED = "completed", "Completed"
+        WAIVED = "waived", "Waived"
+
+    photo_inspection_status = models.CharField(
+        max_length=20,
+        choices=PhotoInspection.choices,
+        blank=True,
+        default="",
+    )
+    photo_inspection_on = models.DateField(null=True, blank=True)
+    compensation_disclosed_at = models.DateTimeField(null=True, blank=True)
+    coverages_need_review = models.BooleanField(
+        default=False,
+        help_text="Set when a declaration is imported, until someone checks the limits against the PDF.",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -2450,6 +2477,15 @@ class InsurancePolicyVehicle(models.Model):
     plate_number = models.CharField(max_length=50, blank=True, default="")
     effective_date = models.DateField(null=True, blank=True)
     expiration_date = models.DateField(null=True, blank=True)
+    lienholder_name = models.CharField(max_length=200, blank=True, default="")
+    lienholder_address = models.CharField(max_length=300, blank=True, default="")
+    dmv_vehicle = models.ForeignKey(
+        "Vehicle",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="insurance_policy_vehicles",
+    )
 
     class Meta:
         ordering = ["auto_number"]
@@ -2468,6 +2504,14 @@ class InsurancePolicyDriver(models.Model):
         related_name="policy_drivers",
     )
     name = models.CharField(max_length=200)
+    date_of_birth = models.DateField(null=True, blank=True)
+    license_number = models.CharField(max_length=40, blank=True, default="")
+    license_state = models.CharField(max_length=2, blank=True, default="")
+    relationship = models.CharField(max_length=40, blank=True, default="")
+    is_excluded = models.BooleanField(default=False)
+    sr22_required = models.BooleanField(default=False)
+    sr22_state = models.CharField(max_length=2, blank=True, default="")
+    sr22_filed_on = models.DateField(null=True, blank=True)
     effective_date = models.DateField(null=True, blank=True)
     expiry_date = models.DateField(null=True, blank=True)
 
@@ -3765,6 +3809,20 @@ from .insurance_household_models import (  # noqa: E402,F401
 )
 
 from .insurance_radar_models import InsuranceRadarItem  # noqa: E402,F401
+
+from .insurance_desk_models import (  # noqa: E402,F401
+    InsuranceCertificate,
+    InsuranceCertificateHolder,
+    InsuranceClaim,
+    InsuranceClaimPhoto,
+    InsuranceCommissionStatement,
+    InsuranceCommissionStatementLine,
+    InsuranceCoverage,
+    InsuranceDriverIncident,
+    InsuranceIssuedForm,
+    InsurancePolicyTransaction,
+    InsuranceQuoteOption,
+)
 
 
 class ContactMessage(models.Model):

@@ -18,6 +18,9 @@
       </button>
       {% endif %}
       <a class="iqp-btn iqp-btn--ghost" href="{% url 'quote-records' %}">Quote records</a>
+      {% if active_org.is_public_insurance_intake_enabled %}
+      <a class="iqp-btn iqp-btn--ghost" href="{% url 'public-insurance-intake' active_org.portal_token %}" target="_blank" rel="noopener">Public quote portal</a>
+      {% endif %}
       {% if quote_distribution.auto_paused %}
       <span class="iqp-banner-pill is-paused">Auto paused{% if quote_distribution.is_sunday %} · Sunday{% endif %}</span>
       {% else %}

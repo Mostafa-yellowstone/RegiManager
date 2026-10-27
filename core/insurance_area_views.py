@@ -312,10 +312,13 @@ def insurance_home(request):
     def extra(organization, membership):
         manager = is_renewal_manager(request.user, membership)
         mine = request.GET.get("scope") == "mine" if manager else True
+        from .insurance_desk import desk_today
+
         return {
             "today": today_board(organization, request.user, mine=mine),
             "today_is_manager": manager,
             "today_radar": radar_summary(organization, request.user, manager=manager and not mine),
+            "desk": desk_today(organization, request.user, mine=mine if manager else True),
         }
 
     return _render_page(request, "home", "core/insurance_area/home.html", extra=extra)
@@ -338,7 +341,16 @@ def insurance_payments(request):
 
 @login_required
 def insurance_finance(request):
-    return _render_page(request, "banking", "core/insurance_area/finance.html", finance_only=True)
+    from .insurance_desk import recent_statements
+    from .models import InsuranceCompany
+
+    def extra(organization, membership):
+        return {
+            "commission_statements": recent_statements(organization),
+            "statement_companies": InsuranceCompany.objects.filter(organization=organization).order_by("name"),
+        }
+
+    return _render_page(request, "banking", "core/insurance_area/finance.html", finance_only=True, extra=extra)
 
 
 @login_required

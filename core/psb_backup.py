@@ -56,8 +56,6 @@ ORG_RESTORE_FIELDS = (
     "is_public_insurance_intake_enabled",
     "insurance_intake_display_name",
     "insurance_intake_tagline",
-    "insurance_ezlynx_quote_url",
-    "insurance_intake_portal_mode",
     "insurance_show_review_button",
     "insurance_review_link",
     "show_review_button",

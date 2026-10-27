@@ -142,10 +142,15 @@ def policy_list_item(policy: InsurancePolicy) -> dict:
 
 
 def policy_detail_payload(policy: InsurancePolicy) -> dict:
+    from .insurance_desk import client_claims, client_coverages
+
     data = policy_list_item(policy)
     data["schedule"] = schedule_payload(policy)
     data["vin"] = getattr(policy, "vin", "") or ""
     data["plate_number"] = getattr(policy, "plate_number", "") or ""
+    data["coverages"] = client_coverages(policy)
+    data["claims"] = client_claims(policy)
+    data["photo_inspection_status"] = policy.photo_inspection_status or ""
     return data
 
 

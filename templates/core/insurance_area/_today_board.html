@@ -136,6 +136,12 @@
             <a class="td-act" href="tel:{{ item.phone }}" title="Call" aria-label="Call {{ inst.policy.client.first_name }}">{% include "core/insurance_area/_icon.html" with name="phone" %}</a>
           </span>
           {% endif %}
+          {% if item.missed %}
+          <form method="post" action="{% url 'insurance-policy-cancel-nonpay' inst.policy_id %}" onsubmit="return confirm('Cancel this policy for non-pay?');">
+            {% csrf_token %}
+            <button class="td-link" type="submit">Cancel for non-pay</button>
+          </form>
+          {% endif %}
         </li>
         {% endwith %}
         {% endfor %}
@@ -180,5 +186,96 @@
       <p class="td-empty">No birthdays or client anniversaries this week.</p>
       {% endif %}
     </article>
+
+    {% if desk %}
+    <article class="td-panel">
+      <header class="td-panel__head">
+        <div class="td-panel__titles">
+          <h3>Declaration limits to check</h3>
+          <p>{{ desk.coverage_review_count }} waiting</p>
+        </div>
+      </header>
+      {% if desk.coverage_reviews %}
+      <ul class="td-list">
+        {% for policy in desk.coverage_reviews %}
+        <li class="td-row">
+          <a class="td-row__main" href="{% url 'insurance-policy-detail' policy.id %}#policy-desk">
+            <span class="td-row__name">{{ policy.client.first_name }} {{ policy.client.last_name }}</span>
+            <span class="td-row__meta">{{ policy.policy_number }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="td-empty">No imported declarations waiting for a limit check.</p>
+      {% endif %}
+    </article>
+    <article class="td-panel">
+      <header class="td-panel__head">
+        <div class="td-panel__titles">
+          <h3>Open claims</h3>
+          <p>{{ desk.claim_count }} open</p>
+        </div>
+      </header>
+      {% if desk.claims %}
+      <ul class="td-list">
+        {% for claim in desk.claims %}
+        <li class="td-row">
+          <a class="td-row__main" href="{% url 'insurance-policy-detail' claim.policy_id %}#policy-desk">
+            <span class="td-row__name">{{ claim.policy.client.first_name }} {{ claim.policy.client.last_name }}</span>
+            <span class="td-row__meta">{{ claim.loss_date|date:"M j" }} · {{ claim.get_status_display }}{% if claim.carrier_claim_number %} · {{ claim.carrier_claim_number }}{% endif %}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="td-empty">No open claims.</p>
+      {% endif %}
+    </article>
+    <article class="td-panel">
+      <header class="td-panel__head">
+        <div class="td-panel__titles">
+          <h3>Certificate requests</h3>
+          <p>{{ desk.certificate_count }} waiting</p>
+        </div>
+      </header>
+      {% if desk.certificates %}
+      <ul class="td-list">
+        {% for cert in desk.certificates %}
+        <li class="td-row">
+          <a class="td-row__main" href="{% url 'insurance-policy-detail' cert.policy_id %}#policy-desk">
+            <span class="td-row__name">{{ cert.holder.name }}</span>
+            <span class="td-row__meta">{{ cert.policy.client.first_name }} {{ cert.policy.client.last_name }} · {{ cert.policy.policy_number }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="td-empty">No certificates waiting to be issued.</p>
+      {% endif %}
+    </article>
+    <article class="td-panel">
+      <header class="td-panel__head">
+        <div class="td-panel__titles">
+          <h3>SR-22 filings</h3>
+          <p>{{ desk.sr22_count }} not filed</p>
+        </div>
+      </header>
+      {% if desk.sr22 %}
+      <ul class="td-list">
+        {% for driver in desk.sr22 %}
+        <li class="td-row">
+          <a class="td-row__main" href="{% url 'insurance-policy-detail' driver.policy_id %}#policy-desk">
+            <span class="td-row__name">{{ driver.name }}</span>
+            <span class="td-row__meta">{{ driver.policy.policy_number }}{% if driver.sr22_state %} · {{ driver.sr22_state }}{% endif %}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="td-empty">No SR-22 filings waiting.</p>
+      {% endif %}
+    </article>
+    {% endif %}
   </div>
 </section>

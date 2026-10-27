@@ -480,6 +480,14 @@ html.portal-theme-dark .company-license-box__title { color: var(--portal-text); 
           <div class="val">{{ company.license_number|default:"—" }}</div>
         </div>
         <div class="company-license-item">
+          <div class="lbl">NAIC</div>
+          <div class="val">{{ company.naic|default:"—" }}</div>
+        </div>
+        <div class="company-license-item">
+          <div class="lbl">Quote portal</div>
+          <div class="val">{% if company.quote_portal_url %}<a href="{{ company.quote_portal_url }}" target="_blank" rel="noopener">Open</a>{% else %}—{% endif %}</div>
+        </div>
+        <div class="company-license-item">
           <div class="lbl">Effective</div>
           <div class="val">{{ company.license_effective_date|date:"M j, Y"|default:"—" }}</div>
         </div>
@@ -753,6 +761,14 @@ html.portal-theme-dark .company-license-box__title { color: var(--portal-text); 
         <div style="grid-column:1/-1;">
           <label class="field-label">License Number</label>
           <input type="text" name="license_number" class="field-input" value="{{ company.license_number }}" placeholder="e.g. BR-123456">
+        </div>
+        <div>
+          <label class="field-label">NAIC</label>
+          <input type="text" name="naic" class="field-input" value="{{ company.naic }}" maxlength="10" placeholder="e.g. 24260">
+        </div>
+        <div>
+          <label class="field-label">Quote portal</label>
+          <input type="url" name="quote_portal_url" class="field-input" value="{{ company.quote_portal_url }}" placeholder="https://">
         </div>
         <div>
           <label class="field-label">License Effective Date</label>

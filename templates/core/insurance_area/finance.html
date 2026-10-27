@@ -1,5 +1,31 @@
 {% extends "core/insurance_area/base.html" %}
 
 {% block insurance_page %}
+<section class="ins-panel" style="margin-bottom:1rem;">
+  <div class="ins-panel__head"><h2>Carrier commission statements</h2></div>
+  <div class="ins-panel__body">
+    <p style="margin-top:0;">Upload a CSV with two columns (policy number, amount the carrier paid) or a text-based statement PDF. Matched rows mark the policy received and store the paid amount for producer pay. Short pays stay on the statement. A scanned PDF has no text to read — export that one as CSV.</p>
+    <form method="post" action="{% url 'insurance-commission-import' %}" enctype="multipart/form-data" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end;">
+      {% csrf_token %}
+      <input type="hidden" name="organization" value="{{ active_org.id }}">
+      <label>Carrier
+        <select class="field-input" name="company">
+          <option value="">Any</option>
+          {% for company in statement_companies %}<option value="{{ company.id }}">{{ company.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Statement date <input class="field-input" type="date" name="statement_date"></label>
+      <label>Statement <input type="file" name="statement" accept=".csv,text/csv,.pdf,application/pdf" required></label>
+      <button class="btn btn-primary btn-sm" type="submit">Match statement</button>
+    </form>
+    {% if commission_statements %}
+    <ul>
+      {% for statement in commission_statements %}
+      <li>{{ statement.created_at|date:"M j, Y" }} · {{ statement.source_name|default:"Statement" }} · {{ statement.lines.all|length }} rows</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+</section>
 {% include "core/partials/insurance_banking_tab.html" %}
 {% endblock %}

@@ -98,6 +98,7 @@ from core import insurance_area_views
 from core import insurance_renewal_views
 from core import insurance_client_views
 from core import insurance_radar_views
+from core import insurance_desk_views
 from core.views import (
     dashboard,
     home,
@@ -368,6 +369,8 @@ from core.client_app_api import (
     ClientPaymentsView,
     ClientPoliciesView,
     ClientPolicyDetailView,
+    ClientPolicyClaimView,
+    ClientPolicyCertificateView,
     ClientPolicyScheduleView,
     ClientReceiptsView,
     ClientServicesView,
@@ -469,6 +472,8 @@ urlpatterns = [
     path('api/client/home/', ClientHomeView.as_view(), name='api-client-home'),
     path('api/client/policies/', ClientPoliciesView.as_view(), name='api-client-policies'),
     path('api/client/policies/<int:policy_id>/', ClientPolicyDetailView.as_view(), name='api-client-policy-detail'),
+    path('api/client/policies/<int:policy_id>/claims/', ClientPolicyClaimView.as_view(), name='api-client-policy-claim'),
+    path('api/client/policies/<int:policy_id>/certificates/', ClientPolicyCertificateView.as_view(), name='api-client-policy-certificate'),
     path('api/client/policies/<int:policy_id>/schedule/', ClientPolicyScheduleView.as_view(), name='api-client-policy-schedule'),
     path('api/client/id-cards/', ClientIdCardsView.as_view(), name='api-client-id-cards'),
     path('api/client/documents/', ClientDocumentsView.as_view(), name='api-client-documents'),
@@ -679,6 +684,11 @@ urlpatterns = [
     path("api/set-portal-timezone/", set_portal_timezone, name="set-portal-timezone"),
     
     # Public Intake Routes
+    path(
+        "insurance-intake/<str:portal_token>/",
+        insurance_desk_views.public_insurance_intake,
+        name="public-insurance-intake",
+    ),
     path("intake/", public_intake_portal, name="public-intake-start"),
     path("intake/success/", public_intake_success, name="public-intake-success"),
     path("intake/<str:portal_token>/", public_intake_portal, name="public-intake-direct"),
@@ -758,9 +768,14 @@ urlpatterns = [
     # Insurance area
     path("insurance/", insurance_area_views.insurance_home, name="insurance-home"),
     path("insurance/pipeline/", insurance_area_views.insurance_pipeline, name="insurance-pipeline"),
+    path("insurance/pipeline/<int:lead_id>/quotes/", insurance_desk_views.quote_worksheet, name="insurance-quote-worksheet"),
+    path("insurance/pipeline/<int:lead_id>/rating-packet.pdf", insurance_desk_views.rating_packet, name="insurance-rating-packet"),
+    path("insurance/pipeline/<int:lead_id>/quotes/add/", insurance_desk_views.add_quote_option, name="insurance-quote-option-add"),
+    path("insurance/pipeline/quotes/<int:option_id>/bind/", insurance_desk_views.bind_quote_option_view, name="insurance-quote-option-bind"),
     path("insurance/policies/", insurance_area_views.insurance_policies, name="insurance-policies"),
     path("insurance/payments/", insurance_area_views.insurance_payments, name="insurance-payments"),
     path("insurance/finance/", insurance_area_views.insurance_finance, name="insurance-finance"),
+    path("insurance/finance/commission-statement/", insurance_desk_views.import_commission_statement, name="insurance-commission-import"),
     path("insurance/companies/", insurance_area_views.insurance_companies, name="insurance-companies"),
     path("insurance/producers/", insurance_area_views.insurance_producers, name="insurance-producers"),
     path("insurance/reports/", insurance_area_views.insurance_reports, name="insurance-reports"),
@@ -802,6 +817,16 @@ urlpatterns = [
         "dashboard/spaces/insurance/policy/<int:policy_id>/",
         insurance_policy_detail,
         name="insurance-policy-detail",
+    ),
+    path(
+        "dashboard/spaces/insurance/policy/<int:policy_id>/desk/",
+        insurance_desk_views.save_policy_desk,
+        name="insurance-policy-desk",
+    ),
+    path(
+        "dashboard/spaces/insurance/policy/<int:policy_id>/cancel-nonpay/",
+        insurance_desk_views.cancel_policy_nonpay,
+        name="insurance-policy-cancel-nonpay",
     ),
     path(
         "dashboard/spaces/insurance/policy/<int:policy_id>/documents/upload/",

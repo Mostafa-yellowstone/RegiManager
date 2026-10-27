@@ -108,6 +108,13 @@ class DecDriver:
 
 
 @dataclass
+class DecCoverage:
+    code: str
+    limit_text: str = ""
+    deductible: Decimal | None = None
+
+
+@dataclass
 class DecPayment:
     label: str
     due_date: date
@@ -129,6 +136,7 @@ class ParsedInsuranceDec:
     vehicles: list[DecVehicle] = field(default_factory=list)
     drivers: list[DecDriver] = field(default_factory=list)
     payments: list[DecPayment] = field(default_factory=list)
+    coverages: list[DecCoverage] = field(default_factory=list)
     parse_warnings: list[str] = field(default_factory=list)
 
 
@@ -724,29 +732,76 @@ def parse_insurance_dec_page(upload: BinaryIO) -> ParsedInsuranceDec:
     return result
 
 
+_LIMIT = r"([\d,]+\s*/\s*\$?\s*[\d,]+|[\d,]{3,})"
+_COVERAGE_PATTERNS = (
+    ("bi", rf"bodily\s+injury(?:\s+liability)?[^$\d]{{0,40}}\$?\s*{_LIMIT}"),
+    ("pd", rf"property\s+damage(?:\s+liability)?[^$\d]{{0,40}}\$?\s*{_LIMIT}"),
+    ("pip", rf"(?:personal\s+injury\s+protection|\bPIP\b)[^$\d]{{0,40}}\$?\s*{_LIMIT}"),
+    ("obel", rf"\bOBEL\b[^$\d]{{0,40}}\$?\s*{_LIMIT}"),
+    ("um", rf"uninsured\s+motorist[^$\d]{{0,40}}\$?\s*{_LIMIT}"),
+    ("sum", rf"(?:supplementary\s+uninsured|\bSUM\b)[^$\d]{{0,40}}\$?\s*{_LIMIT}"),
+    ("med", rf"medical\s+payments[^$\d]{{0,40}}\$?\s*{_LIMIT}"),
+    ("comp", rf"comprehensive(?:\s+deductible)?[^$\d]{{0,40}}\$?\s*{_LIMIT}"),
+    ("coll", rf"collision(?:\s+deductible)?[^$\d]{{0,40}}\$?\s*{_LIMIT}"),
+)
+
+
+_SHORT = (
+    ("bi", r"\bB\.?I\.?\b[^0-9]{0,16}(\d{2,3}\s*/\s*\d{2,3}(?:\s*/\s*\d{2,4})?)"),
+    ("pd", r"\bP\.?D\.?\b[^0-9$]{0,16}\$?\s*([\d,]{3,})"),
+    ("pip", r"\bPIP\b[^0-9$]{0,16}\$?\s*([\d,]{3,})"),
+    ("um", r"\bU\.?M\.?\b[^0-9]{0,16}(\d{2,3}\s*/\s*\d{2,3})"),
+    ("comp", r"\bcomp(?:rehensive)?\b[^0-9$]{0,20}\$?\s*([\d,]{2,5})\b"),
+    ("coll", r"\bcoll(?:ision)?\b[^0-9$]{0,20}\$?\s*([\d,]{2,5})\b"),
+)
+
+
+def extract_coverages(text: str) -> list[DecCoverage]:
+    """Pull NY limits and deductibles when a declaration prints them as labeled amounts."""
+    found: list[DecCoverage] = []
+    seen = set()
+    deductible_codes = {"comp", "coll"}
+    patterns = list(_COVERAGE_PATTERNS) + list(_SHORT)
+    for code, pattern in patterns:
+        match = re.search(pattern, text, re.I)
+        if not match or code in seen:
+            continue
+        raw = re.sub(r"[\s$]", "", match.group(1))
+        if code in deductible_codes and "/" in raw:
+            continue
+        seen.add(code)
+        if code in deductible_codes:
+            found.append(DecCoverage(code=code, limit_text="ACV", deductible=_parse_money(raw)))
+        else:
+            found.append(DecCoverage(code=code, limit_text=raw))
+    return found
+
+
 def _parse_dec_text(text: str) -> ParsedInsuranceDec:
     key = _detect_carrier(text)
+    result = None
     if key == "integon":
-        return parse_integon_dec_text(text)
-    if key == "nyaip":
-        return parse_nyaip_dec_text(text)
-    if key == "maya":
-        return parse_maya_dec_text(text)
-    if key == "progressive":
-        return parse_progressive_dec_text(text)
-
-    # Last-chance generic parse when policy number + period are obvious.
-    generic = ParsedInsuranceDec(carrier="Unknown Carrier", carrier_key="generic")
-    _parse_common_fields(text, generic)
-    if generic.policy_number and generic.effective_date and generic.expiration_date:
-        generic.parse_warnings.append(
-            "Carrier was not recognized — fields were imported with generic heuristics. Verify details."
-        )
-        return generic
-
-    raise DecPageParseError(
-        "Unsupported or unreadable declaration page. " + _SUPPORTED_CARRIERS_MSG
-    )
+        result = parse_integon_dec_text(text)
+    elif key == "nyaip":
+        result = parse_nyaip_dec_text(text)
+    elif key == "maya":
+        result = parse_maya_dec_text(text)
+    elif key == "progressive":
+        result = parse_progressive_dec_text(text)
+    else:
+        generic = ParsedInsuranceDec(carrier="Unknown Carrier", carrier_key="generic")
+        _parse_common_fields(text, generic)
+        if generic.policy_number and generic.effective_date and generic.expiration_date:
+            generic.parse_warnings.append(
+                "Carrier was not recognized — fields were imported with generic heuristics. Verify details."
+            )
+            result = generic
+        else:
+            raise DecPageParseError(
+                "Unsupported or unreadable declaration page. " + _SUPPORTED_CARRIERS_MSG
+            )
+    result.coverages = extract_coverages(text)
+    return result
 
 
 def _resolve_or_create_company(organization, carrier_name: str) -> InsuranceCompany:
@@ -884,6 +939,14 @@ def apply_parsed_dec_to_insurance_policy(
     if replace_schedule:
         _replace_installments(policy, parsed)
 
+    if parsed.coverages:
+        from .insurance_desk import apply_parsed_coverages
+
+        apply_parsed_coverages(policy, parsed.coverages)
+
+    policy.coverages_need_review = True
+    policy.save(update_fields=["coverages_need_review", "updated_at"])
+
     if dec_file is not None:
         try:
             dec_file.seek(0)
@@ -949,4 +1012,8 @@ def create_policy_from_parsed_dec(
         dec_file=dec_file,
         replace_schedule=True,
     )
+    from .insurance_desk import issue_compensation_disclosure, issue_temporary_id_card
+
+    issue_temporary_id_card(policy, user)
+    issue_compensation_disclosure(policy, user)
     return policy

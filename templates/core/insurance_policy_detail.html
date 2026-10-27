@@ -273,7 +273,7 @@ html.portal-theme-dark .ins-renewal__status a, html.portal-theme-dark .ins-renew
         <h3 class="ins-overview-title--tight">Vehicles on Dec Page</h3>
         {% if policy_vehicles %}
         <table class="ins-table ins-overview-table">
-          <thead><tr><th>#</th><th>Year</th><th>Make</th><th>VIN</th><th>Plate</th></tr></thead>
+          <thead><tr><th>#</th><th>Year</th><th>Make</th><th>VIN</th><th>Plate</th><th>Lienholder</th></tr></thead>
           <tbody>
             {% for v in policy_vehicles %}
             <tr>
@@ -282,6 +282,7 @@ html.portal-theme-dark .ins-renewal__status a, html.portal-theme-dark .ins-renew
               <td>{{ v.make|default:"—" }}</td>
               <td style="font-family:monospace;font-size:0.8rem;">{{ v.vin|default:"—" }}</td>
               <td>{{ v.plate_number|default:"—" }}</td>
+              <td>{{ v.lienholder_name|default:"—" }}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -294,13 +295,14 @@ html.portal-theme-dark .ins-renewal__status a, html.portal-theme-dark .ins-renew
         <h3 class="ins-overview-title--tight">Drivers on Dec Page</h3>
         {% if policy_drivers %}
         <table class="ins-table ins-overview-table">
-          <thead><tr><th>Name</th><th>Effective</th><th>Expires</th></tr></thead>
+          <thead><tr><th>Name</th><th>License</th><th>Excluded</th><th>SR-22</th></tr></thead>
           <tbody>
             {% for d in policy_drivers %}
             <tr>
               <td>{{ d.name }}</td>
-              <td>{{ d.effective_date|date:"M j, Y"|default:"—" }}</td>
-              <td>{{ d.expiry_date|date:"M j, Y"|default:"—" }}</td>
+              <td>{{ d.license_state }} {{ d.license_number|default:"—" }}</td>
+              <td>{% if d.is_excluded %}Excluded{% else %}—{% endif %}</td>
+              <td>{% if d.sr22_required %}{% if d.sr22_filed_on %}Filed {{ d.sr22_filed_on|date:"M j" }}{% else %}Needed{% endif %}{% else %}—{% endif %}</td>
             </tr>
             {% endfor %}
           </tbody>
@@ -310,6 +312,8 @@ html.portal-theme-dark .ins-renewal__status a, html.portal-theme-dark .ins-renew
         {% endif %}
       </div>
     </div>
+
+    {% include "core/insurance_area/_policy_desk.html" %}
 
     <section class="ins-panel">
       <div class="ins-panel__head">

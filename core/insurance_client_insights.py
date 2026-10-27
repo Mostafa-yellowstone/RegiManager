@@ -15,6 +15,7 @@ from django.utils import timezone
 from .insurance_producer_models import InsurancePolicyPremiumChange
 from .models import (
     Client,
+    ClientChatMessage,
     ClientNote,
     DailyPaymentTransaction,
     InsuranceCoverageGapStatus,
@@ -726,6 +727,23 @@ def client_timeline(client, *, include_dmv: bool, limit: int = TIMELINE_LIMIT) -
             )
             if env.signed_at:
                 items.append(TimelineItem(env.signed_at, "document", f"E-sign completed: {env.title}", env.signer_name))
+
+    for chat in (
+        ClientChatMessage.objects.filter(client=client, sender_role=ClientChatMessage.SenderRole.STAFF)
+        .select_related("staff_user")
+        .order_by("-created_at")[:limit]
+    ):
+        text = (chat.body or "").strip()
+        items.append(
+            TimelineItem(
+                chat.created_at,
+                "note",
+                "Message to client",
+                text[:280] + ("…" if len(text) > 280 else ""),
+                "",
+                _who(chat.staff_user),
+            )
+        )
 
     for note in ClientNote.objects.filter(client=client).select_related("created_by").order_by("-created_at")[:limit]:
         text = (note.content or "").strip()

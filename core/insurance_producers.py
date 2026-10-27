@@ -30,6 +30,9 @@ def producer_base_amount(policy, basis: str | None = None) -> Decimal:
     basis = basis or policy.producer_rate_basis or "commission"
     if basis == "premium":
         return _d(policy.premium)
+    paid = getattr(policy, "commission_paid", None)
+    if paid is not None:
+        return _d(paid)
     if policy.commission_amount is not None:
         return _d(policy.commission_amount)
     if policy.commission_rate is None:

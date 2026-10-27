@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime
 from decimal import Decimal
 
 from django.db.models import Q
 from django.http import FileResponse, Http404
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -302,6 +304,16 @@ class ClientPolicyDetailView(ClientAppAPIView):
             _client_insurance_documents(request.client).filter(policy=policy)
         )
         payload["documents"] = [insurance_document_payload(d, request=request) for d in all_docs]
+        from .insurance_desk import issue_temporary_id_card
+
+        issue_temporary_id_card(policy)
+        id_cards = list(
+            _client_insurance_documents(
+                request.client,
+                document_types=[InsurancePolicyDocument.DocumentType.ID_CARDS],
+            ).filter(policy=policy)
+        )
+        payload["id_cards"] = [insurance_document_payload(d, request=request) for d in id_cards]
         return Response(payload)
 
 
@@ -568,4 +580,65 @@ class ClientChatWaitView(ClientAppAPIView):
                 "newest_id": after_id,
                 "unread_count": unread_for_client(request.client),
             }
+        )
+
+
+class ClientPolicyClaimView(ClientAppAPIView):
+    def post(self, request, policy_id: int):
+        policy = _client_policies(request.client).filter(id=policy_id).first()
+        if not policy:
+            raise Http404("Policy not found.")
+        loss_raw = str(request.data.get("loss_date") or "").strip()
+        try:
+            loss_date = datetime.strptime(loss_raw[:10], "%Y-%m-%d").date() if loss_raw else timezone.localdate()
+        except ValueError:
+            return Response({"detail": "Use a YYYY-MM-DD loss date."}, status=status.HTTP_400_BAD_REQUEST)
+        from .insurance_desk import open_claim
+
+        vehicle = None
+        vehicle_id = request.data.get("vehicle_id")
+        if str(vehicle_id or "").isdigit():
+            vehicle = policy.policy_vehicles.filter(id=int(vehicle_id)).first()
+        claim = open_claim(
+            policy,
+            loss_date=loss_date,
+            description=(request.data.get("description") or "").strip(),
+            other_party=request.data.get("other_party") or "",
+            police_report=request.data.get("police_report") or "",
+            vehicle=vehicle,
+            by_client=True,
+        )
+        return Response(
+            {
+                "id": claim.id,
+                "status": claim.status,
+                "loss_date": claim.loss_date.isoformat(),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ClientPolicyCertificateView(ClientAppAPIView):
+    def post(self, request, policy_id: int):
+        policy = _client_policies(request.client).filter(id=policy_id).first()
+        if not policy:
+            raise Http404("Policy not found.")
+        holder_name = (request.data.get("holder_name") or "").strip()
+        if not holder_name:
+            return Response({"detail": "Holder name is required."}, status=status.HTTP_400_BAD_REQUEST)
+        from .insurance_desk import holder_for
+        from .insurance_desk_models import InsuranceCertificate
+
+        holder = holder_for(policy.organization, holder_name, request.data.get("holder_address") or "")
+        certificate = InsuranceCertificate.objects.create(
+            policy=policy,
+            holder=holder,
+            additional_insured=bool(request.data.get("additional_insured")),
+            waiver_of_subrogation=bool(request.data.get("waiver_of_subrogation")),
+            description=(request.data.get("description") or "")[:500],
+            requested_by_client=True,
+        )
+        return Response(
+            {"id": certificate.id, "status": certificate.status, "holder": holder.name},
+            status=status.HTTP_201_CREATED,
         )
