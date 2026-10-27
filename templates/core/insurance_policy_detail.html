@@ -5,19 +5,49 @@
 
 {% block portal_content %}
 <style>
-.ins-detail { width: 100%; max-width: none; }
-.ins-detail__hero {
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-  border-radius: 20px; padding: 1.5rem 1.75rem; color: #fff; margin-bottom: 1.25rem;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+.ins-detail { width: 100%; max-width: none; color: var(--portal-text); }
+.pd-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+.pd-toolbar__actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.pd-head {
+  background: var(--portal-surface);
+  border: 1px solid var(--portal-border);
+  border-radius: 18px;
+  padding: 1.2rem 1.3rem 0.2rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--portal-shadow-sm);
 }
-.ins-detail__chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-top: 1.15rem; }
-.ins-detail__chip {
-  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18);
-  border-radius: 14px; padding: 0.75rem 0.9rem;
-}
-.ins-detail__chip span { display: block; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #93c5fd; margin-bottom: 0.25rem; }
-.ins-detail__chip strong { font-size: 1.05rem; }
+.pd-kicker { margin: 0; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--portal-primary, #1d4ed8); }
+.pd-head h1 { margin: 0.2rem 0 0; color: var(--portal-text); font-size: clamp(1.55rem, 2.4vw, 2.05rem); letter-spacing: -0.03em; line-height: 1.15; }
+.pd-sub { margin: 0.35rem 0 0; color: var(--portal-text-secondary, #475569); font-weight: 600; }
+.pd-pills { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.75rem; }
+.pd-pill { display: inline-flex; align-items: center; padding: 0.18rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 800; background: var(--portal-surface-muted); color: var(--portal-text); border: 1px solid var(--portal-border); }
+.pd-pill--active { background: var(--portal-success-bg, #ecfdf3); color: var(--portal-success, #067647); border-color: transparent; }
+.pd-pill--pending, .pd-pill--stage { background: var(--portal-info-bg, #eff6ff); color: var(--portal-info, #1d4ed8); border-color: transparent; }
+.pd-pill--inactive, .pd-pill--rejected { background: var(--portal-danger-bg, #fef3f2); color: var(--portal-danger, #b42318); border-color: transparent; }
+.pd-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 1rem -1.3rem 0; border-top: 1px solid var(--portal-border); }
+.pd-stat { padding: 0.85rem 1.15rem 0.95rem; }
+.pd-stat + .pd-stat { border-left: 1px solid var(--portal-border); }
+.pd-stat span { display: block; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--portal-text-muted); }
+.pd-stat strong { display: block; margin-top: 0.22rem; font-size: 1.02rem; font-weight: 700; color: var(--portal-text); }
+.pd-stat small { display: block; margin-top: 0.12rem; color: var(--portal-text-muted); font-weight: 700; font-size: 0.8rem; }
+.pd-layout { display: grid; grid-template-columns: 1.35fr 0.85fr; gap: 1rem; margin-bottom: 1rem; align-items: start; }
+.pd-sheet { display: grid; }
+.pd-row { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 0.75rem; align-items: baseline; padding: 0.62rem 0; border-bottom: 1px solid var(--portal-border); }
+.pd-row:last-child { border-bottom: 0; }
+.pd-row span { font-size: 0.78rem; font-weight: 700; color: var(--portal-text-muted); }
+.pd-row strong { font-size: 0.95rem; font-weight: 700; color: var(--portal-text); line-height: 1.35; }
+.pd-block { padding-bottom: 1.2rem; margin-bottom: 1.2rem; border-bottom: 1px solid var(--portal-border); }
+.pd-block:last-child { padding-bottom: 0; margin-bottom: 0; border-bottom: 0; }
+.pd-block h3 { margin: 0 0 0.7rem; font-size: 1rem; font-weight: 800; }
+.pd-note { margin: 0 0 0.75rem; color: var(--portal-text-muted); font-size: 0.86rem; font-weight: 600; line-height: 1.45; }
+.pd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.65rem; align-items: end; }
+.pd-stack { display: grid; gap: 0.65rem; max-width: 46rem; }
+.pd-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.pd-grid label, .pd-stack > label, .pd-checkline { display: grid; gap: 0.28rem; min-width: 0; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--portal-text-muted); }
+.pd-checkline { grid-auto-flow: column; justify-content: start; align-items: center; gap: 0.45rem; text-transform: none; letter-spacing: 0; font-size: 0.88rem; font-weight: 700; color: var(--portal-text); }
+.pd-person { padding: 0.85rem; margin-bottom: 0.7rem; border: 1px solid var(--portal-border); border-radius: 12px; background: var(--portal-surface-muted); }
+.pd-person strong { display: block; margin-bottom: 0.55rem; }
+.pd-form-list { min-height: 14rem; padding: 0.35rem 0.5rem; line-height: 1.45; }
 .ins-panel {
   background: var(--portal-surface); border: 1px solid var(--portal-border); border-radius: 16px;
   box-shadow: var(--portal-shadow-sm); margin-bottom: 1.15rem; overflow: hidden;
@@ -102,7 +132,10 @@ html.portal-theme-dark .ins-doc--dec { background: rgba(37,99,235,0.15); border-
 .ins-renewal__chain small { color: var(--portal-text-muted); font-size: 0.75rem; }
 html.portal-theme-dark .ins-renewal__status a, html.portal-theme-dark .ins-renewal__chain a { color: #93c5fd; }
 @media (max-width: 900px) {
-  .grid-2 { grid-template-columns: 1fr; }
+  .grid-2, .pd-layout { grid-template-columns: 1fr; }
+  .pd-stats { grid-template-columns: 1fr 1fr; }
+  .pd-stat:nth-child(odd) { border-left: 0; }
+  .pd-stat:nth-child(n + 3) { border-top: 1px solid var(--portal-border); }
   .ins-fact--wide { grid-column: span 1; }
 }
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.35); backdrop-filter: blur(6px); z-index: 2000; align-items: center; justify-content: center; }
@@ -114,13 +147,13 @@ html.portal-theme-dark .ins-renewal__status a, html.portal-theme-dark .ins-renew
 
 <main class="portal-space-shell ins-detail">
   <div class="portal-space-inner portal-space-inner--wide">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem;">
+    <div class="pd-toolbar">
       {% if insurance_space %}
       <a href="{% url 'insurance-policies' %}" class="btn btn-secondary btn-sm">← Back to Policies</a>
       {% else %}
       <a href="{% url 'spaces-home' %}" class="btn btn-secondary btn-sm">← Spaces</a>
       {% endif %}
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+      <div class="pd-toolbar__actions">
         {% if can_edit_policy %}
         <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('importDecModal').classList.add('active')">Update from Dec Page</button>
         {% endif %}
@@ -128,40 +161,33 @@ html.portal-theme-dark .ins-renewal__status a, html.portal-theme-dark .ins-renew
       </div>
     </div>
 
-    <header class="ins-detail__hero">
-      <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:flex-start;">
-        <div>
-          <div style="font-size:0.72rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:#93c5fd;margin-bottom:0.35rem;">Insurance policy</div>
-          <h1 style="margin:0;font-size:clamp(1.45rem,3vw,2rem);letter-spacing:-0.02em;">{{ policy.policy_number }}</h1>
-          <p style="margin:0.4rem 0 0;color:#cbd5e1;font-weight:600;">
-            {{ overview_named_insured }}{% if policy.insurance_company %} · {{ policy.insurance_company.name }}{% endif %}
-            · {{ policy.get_status_display }} · {{ policy.get_stage_display }}
-          </p>
-        </div>
+    <header class="pd-head">
+      <p class="pd-kicker">{% if policy.insurance_type %}{{ policy.get_insurance_type_display }}{% else %}Insurance policy{% endif %}</p>
+      <h1>{{ policy.policy_number }}</h1>
+      <p class="pd-sub">{{ overview_named_insured }}{% if policy.insurance_company %} · {{ policy.insurance_company.name }}{% endif %}</p>
+      <div class="pd-pills">
+        <span class="pd-pill pd-pill--{{ policy.status }}">{{ policy.get_status_display }}</span>
+        <span class="pd-pill pd-pill--stage">{{ policy.get_stage_display }}</span>
+        <span class="pd-pill">{{ policy.get_business_type_display }}</span>
       </div>
-      <div class="ins-detail__chips">
-        <div class="ins-detail__chip">
-          <span>Renewal</span>
-          <strong>{% if policy.renewal_date %}{{ policy.renewal_date|date:"M j, Y" }}{% else %}{{ policy.end_date|date:"M j, Y" }}{% endif %}</strong>
-        </div>
-        <div class="ins-detail__chip">
-          <span>Next payment due</span>
-          <strong>
-            {% if schedule.next_due_date %}
-              {{ schedule.next_due_date|date:"M j, Y" }}
-              {% if schedule.next_due_amount %}<div style="font-size:0.82rem;font-weight:700;opacity:0.9;margin-top:0.15rem;">${{ schedule.next_due_amount }}</div>{% endif %}
-            {% else %}
-              —
-            {% endif %}
-          </strong>
-        </div>
-        <div class="ins-detail__chip">
+      <div class="pd-stats">
+        <div class="pd-stat">
           <span>Premium</span>
           <strong>${{ policy.premium }}</strong>
         </div>
-        <div class="ins-detail__chip">
+        <div class="pd-stat">
           <span>Term</span>
-          <strong style="font-size:0.95rem;">{{ policy.start_date|date:"M j, Y" }} → {{ policy.end_date|date:"M j, Y" }}</strong>
+          <strong>{{ policy.start_date|date:"M j, Y" }}</strong>
+          <small>through {{ policy.end_date|date:"M j, Y" }}</small>
+        </div>
+        <div class="pd-stat">
+          <span>Renewal</span>
+          <strong>{% if policy.renewal_date %}{{ policy.renewal_date|date:"M j, Y" }}{% else %}{{ policy.end_date|date:"M j, Y"|default:"—" }}{% endif %}</strong>
+        </div>
+        <div class="pd-stat">
+          <span>Next payment</span>
+          <strong>{% if schedule.next_due_date %}{{ schedule.next_due_date|date:"M j, Y" }}{% else %}—{% endif %}</strong>
+          {% if schedule.next_due_amount %}<small>${{ schedule.next_due_amount }}</small>{% endif %}
         </div>
       </div>
     </header>
@@ -203,56 +229,48 @@ html.portal-theme-dark .ins-renewal__status a, html.portal-theme-dark .ins-renew
     </section>
     {% endif %}
 
-    <div class="grid-2 ins-overview-grid">
-      <div class="ins-overview-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;gap:0.75rem;flex-wrap:wrap;">
-          <h3 class="ins-overview-title--tight" style="margin:0;">Policy Overview</h3>
-          {% if can_edit_policy %}
-          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('importDecModal').classList.add('active')">Update from Dec Page</button>
+    <div class="pd-layout">
+      <section class="ins-panel" style="margin-bottom:0;">
+        <div class="ins-panel__head"><h2>Policy record</h2></div>
+        <div class="ins-panel__body">
+          <div class="pd-sheet">
+            <div class="pd-row"><span>Named insured</span><strong>{{ overview_named_insured }}</strong></div>
+            <div class="pd-row"><span>Address</span><strong>{{ overview_address }}</strong></div>
+            <div class="pd-row"><span>Company</span><strong>{% if policy.insurance_company %}{{ policy.insurance_company.name }}{% else %}—{% endif %}</strong></div>
+            <div class="pd-row"><span>Line</span><strong>{% if policy.insurance_type %}{{ policy.get_insurance_type_display }}{% else %}—{% endif %}</strong></div>
+            <div class="pd-row"><span>Source</span><strong>{{ policy.get_source_display }}</strong></div>
+            <div class="pd-row"><span>Bound</span><strong>{{ policy.bound_date|date:"M j, Y"|default:"—" }}</strong></div>
+            <div class="pd-row"><span>VIN / plate</span><strong>{{ policy.vin|default:"—" }}{% if policy.plate_number %} · {{ policy.plate_number }}{% endif %}</strong></div>
+            <div class="pd-row"><span>Driver</span><strong>{{ policy.driver_name|default:"—" }}</strong></div>
+            {% if policy.added_by %}
+            <div class="pd-row"><span>Added by</span><strong>{{ policy.added_by.get_full_name|default:policy.added_by.username }}</strong></div>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+      <section class="ins-panel" style="margin-bottom:0;">
+        <div class="ins-panel__head"><h2>Premium</h2></div>
+        <div class="ins-panel__body">
+          <div class="pd-sheet">
+            <div class="pd-row"><span>Premium</span><strong>${{ policy.premium }}</strong></div>
+            <div class="pd-row"><span>Broker fee</span><strong>{% if policy.broker_fee is not None %}${{ policy.broker_fee }}{% else %}—{% endif %}</strong></div>
+            <div class="pd-row"><span>Commission</span><strong>{% if policy.commission_amount is not None %}${{ policy.commission_amount }}{% else %}—{% endif %}{% if policy.commission_rate is not None %} · {{ policy.commission_rate }}%{% endif %}</strong></div>
+            <div class="pd-row"><span>Payments</span><strong>{{ schedule.paid }} of {{ schedule.total }} paid</strong></div>
+            {% if policy.producer %}
+            <div class="pd-row"><span>Producer</span><strong>{{ policy.producer.name }}{% if can_manage_finance %} · {{ policy.producer_rate|floatformat:"-2" }}% of {% if policy.producer_rate_basis == 'premium' %}premium{% else %}commission{% endif %}{% endif %}</strong></div>
+            {% endif %}
+          </div>
+          {% if can_manage_finance %}
+          <div style="margin-top:0.85rem;">{% include "core/partials/policy_commission_status.html" %}</div>
           {% endif %}
         </div>
-        <div class="ins-facts">
-          <div class="ins-fact"><span>Type</span><strong>{% if policy.insurance_type %}{{ policy.get_insurance_type_display }}{% else %}—{% endif %}</strong></div>
-          <div class="ins-fact"><span>Business type</span><strong>{{ policy.get_business_type_display }}</strong></div>
-          <div class="ins-fact ins-fact--wide"><span>Named insured</span><strong>{{ overview_named_insured }}</strong></div>
-          <div class="ins-fact ins-fact--wide"><span>Insured address</span><strong>{{ overview_address }}</strong></div>
-          <div class="ins-fact"><span>Company</span><strong>{% if policy.insurance_company %}{{ policy.insurance_company.name }}{% else %}—{% endif %}</strong></div>
-          <div class="ins-fact"><span>Source</span><strong>{{ policy.get_source_display }}</strong></div>
-          <div class="ins-fact"><span>Bound</span><strong>{{ policy.bound_date|date:"M j, Y"|default:"—" }}</strong></div>
-          <div class="ins-fact"><span>VIN / plate</span><strong>{{ policy.vin|default:"—" }} / {{ policy.plate_number|default:"—" }}</strong></div>
-          <div class="ins-fact"><span>Driver</span><strong>{{ policy.driver_name|default:"—" }}</strong></div>
-          <div class="ins-fact"><span>Effective</span><strong>{{ policy.start_date|date:"M j, Y"|default:"—" }}</strong></div>
-          <div class="ins-fact"><span>Expiration</span><strong>{{ policy.end_date|date:"M j, Y"|default:"—" }}</strong></div>
-          <div class="ins-fact"><span>Renewal</span><strong>{% if policy.renewal_date %}{{ policy.renewal_date|date:"M j, Y" }}{% else %}{{ policy.end_date|date:"M j, Y"|default:"—" }}{% endif %}</strong></div>
-        </div>
-      </div>
-      <div class="ins-overview-card">
-        <h3>Policy Snapshot</h3>
-        <div class="ins-facts">
-          <div class="ins-fact"><span>Status</span><strong>{{ policy.get_status_display }}</strong></div>
-          <div class="ins-fact"><span>Stage</span><strong>{{ policy.get_stage_display }}</strong></div>
-          <div class="ins-fact"><span>Premium</span><strong>${{ policy.premium }}</strong></div>
-          <div class="ins-fact"><span>Broker fee</span><strong>{% if policy.broker_fee is not None %}${{ policy.broker_fee }}{% else %}—{% endif %}</strong></div>
-          <div class="ins-fact"><span>Commission rate</span><strong>{% if policy.commission_rate is not None %}{{ policy.commission_rate }}%{% else %}—{% endif %}</strong></div>
-          <div class="ins-fact"><span>Commission</span><strong>{% if policy.commission_amount is not None %}${{ policy.commission_amount }}{% else %}—{% endif %}</strong></div>
-          <div class="ins-fact"><span>Next due</span><strong>{% if schedule.next_due_date %}{{ schedule.next_due_date|date:"M j, Y" }}{% if schedule.next_due_amount %} · ${{ schedule.next_due_amount }}{% endif %}{% else %}—{% endif %}</strong></div>
-          <div class="ins-fact"><span>Payments</span><strong>{{ schedule.paid }}/{{ schedule.total }} paid · {{ schedule.open }} open</strong></div>
-          {% if policy.added_by %}
-          <div class="ins-fact"><span>Added by</span><strong>{{ policy.added_by.get_full_name|default:policy.added_by.username }}</strong></div>
-          {% endif %}
-          {% if policy.producer %}
-          <div class="ins-fact ins-fact--wide"><span>Producer</span><strong>{{ policy.producer.name }}{% if can_manage_finance %} · {{ policy.producer_rate|floatformat:"-2" }}% of {% if policy.producer_rate_basis == 'premium' %}premium{% else %}commission{% endif %}{% endif %}</strong></div>
-          {% endif %}
-        </div>
-        {% if can_manage_finance %}
-        <div style="margin-top:1rem;">{% include "core/partials/policy_commission_status.html" %}</div>
-        {% endif %}
-      </div>
+      </section>
     </div>
 
     <div class="ins-overview-subgrid">
-      <div class="ins-overview-card">
-        <h3 class="ins-overview-title--tight">Vehicles on Dec Page</h3>
+      <section class="ins-panel" style="margin-bottom:0;">
+        <div class="ins-panel__head"><h2>Vehicles</h2></div>
+        <div class="ins-panel__body" style="padding:0;">
         {% if policy_vehicles %}
         <table class="ins-table ins-overview-table">
           <thead><tr><th>#</th><th>Year</th><th>Make</th><th>VIN</th><th>Plate</th><th>Lienholder</th></tr></thead>
@@ -270,11 +288,13 @@ html.portal-theme-dark .ins-renewal__status a, html.portal-theme-dark .ins-renew
           </tbody>
         </table>
         {% else %}
-        <p style="margin:0;color:var(--portal-text-muted);font-weight:600;font-size:0.88rem;">No vehicles on file yet. Import a DEC page to populate insured vehicles.</p>
+        <p class="pd-note" style="padding:1rem 1.15rem;">No vehicles on file yet. Import a declaration page to add them.</p>
         {% endif %}
-      </div>
-      <div class="ins-overview-card">
-        <h3 class="ins-overview-title--tight">Drivers on Dec Page</h3>
+        </div>
+      </section>
+      <section class="ins-panel" style="margin-bottom:0;">
+        <div class="ins-panel__head"><h2>Drivers</h2></div>
+        <div class="ins-panel__body" style="padding:0;">
         {% if policy_drivers %}
         <table class="ins-table ins-overview-table">
           <thead><tr><th>Name</th><th>License</th><th>Excluded</th><th>SR-22</th></tr></thead>
@@ -290,9 +310,10 @@ html.portal-theme-dark .ins-renewal__status a, html.portal-theme-dark .ins-renew
           </tbody>
         </table>
         {% else %}
-        <p style="margin:0;color:var(--portal-text-muted);font-weight:600;font-size:0.88rem;">No drivers on file yet. Import a DEC page to populate drivers.</p>
+        <p class="pd-note" style="padding:1rem 1.15rem;">No drivers on file yet. Import a declaration page to add them.</p>
         {% endif %}
-      </div>
+        </div>
+      </section>
     </div>
 
     {% include "core/insurance_area/_policy_desk.html" %}
@@ -349,7 +370,7 @@ html.portal-theme-dark .ins-renewal__status a, html.portal-theme-dark .ins-renew
                 <td>{{ row.due_date|date:"M j, Y" }}</td>
                 <td>{{ row.notes|default:"—" }}</td>
                 <td>${{ row.total_due }}</td>
-                <td>{% if row.is_paid %}Paid{% else %}Open{% endif %}</td>
+                <td><span class="pd-pill {% if row.is_paid %}pd-pill--active{% else %}pd-pill--pending{% endif %}">{% if row.is_paid %}Paid{% else %}Open{% endif %}</span></td>
                 <td>
                   <form method="post" action="{% url 'toggle-insurance-installment-paid' row.id %}" style="margin:0;">
                     {% csrf_token %}

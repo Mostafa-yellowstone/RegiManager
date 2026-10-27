@@ -1,12 +1,12 @@
 <section class="ins-panel" id="policy-desk">
   <div class="ins-panel__head">
-    <h2>Coverages, changes, and service</h2>
+    <h2>Service</h2>
   </div>
-  <div class="ins-panel__body" style="display:grid;gap:1.5rem;">
-    <div>
-      <h3 class="ins-overview-title--tight">Coverages</h3>
+  <div class="ins-panel__body">
+    <div class="pd-block">
+      <h3>Coverages</h3>
       {% if policy.coverages_need_review %}
-      <p style="margin:0 0 0.75rem;padding:0.65rem 0.8rem;background:#fff7ed;border:1px solid #fdba74;border-radius:8px;">These limits came from a declaration and still need a person to check them against the PDF.</p>
+      <p class="pd-note" style="padding:0.65rem 0.8rem;background:#fff7ed;border:1px solid #fdba74;border-radius:10px;">These limits came from a declaration and still need a person to check them against the PDF.</p>
       {% if can_edit_policy %}
       <form method="post" action="{% url 'insurance-policy-desk' policy.id %}" style="margin-bottom:0.75rem;">
         {% csrf_token %}
@@ -15,7 +15,7 @@
       </form>
       {% endif %}
       {% endif %}
-      <p style="margin:0 0 0.75rem;color:var(--portal-text-muted);font-size:0.85rem;">Declaration imports fill these when the PDF prints the limits. You can correct them here. A dec import replaces this list.</p>
+      <p class="pd-note">Declaration imports fill these when the PDF prints the limits. A later import replaces this list.</p>
       {% if can_edit_policy %}
       <form method="post" action="{% url 'insurance-policy-desk' policy.id %}">
         {% csrf_token %}
@@ -56,7 +56,7 @@
     </div>
 
     {% if can_edit_policy and policy_vehicles %}
-    <form method="post" action="{% url 'insurance-policy-desk' policy.id %}" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:end;">
+    <form class="pd-block pd-grid" method="post" action="{% url 'insurance-policy-desk' policy.id %}">
       {% csrf_token %}
       <input type="hidden" name="desk_action" value="vehicle_coverage">
       <label>Vehicle
@@ -71,8 +71,8 @@
     </form>
     {% endif %}
 
-    <div>
-      <h3 class="ins-overview-title--tight">Transactions</h3>
+    <div class="pd-block">
+      <h3>Transactions</h3>
       {% if policy_transactions %}
       <table class="ins-table">
         <thead><tr><th>When</th><th>Type</th><th>Premium</th><th>Note</th></tr></thead>
@@ -88,35 +88,39 @@
         </tbody>
       </table>
       {% else %}
-      <p style="margin:0;color:var(--portal-text-muted);">No endorsements, cancellations, or reinstatements yet.</p>
+      <p class="pd-note">No endorsements, cancellations, or reinstatements yet.</p>
       {% endif %}
       {% if can_edit_policy %}
-      <form method="post" action="{% url 'insurance-policy-desk' policy.id %}" style="display:grid;gap:0.5rem;margin-top:0.75rem;max-width:42rem;">
+      <form class="pd-stack" method="post" action="{% url 'insurance-policy-desk' policy.id %}" style="margin-top:0.85rem;">
         {% csrf_token %}
         <input type="hidden" name="desk_action" value="transaction">
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-          <select class="field-input" name="kind">{% for value, label in transaction_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
-          <input class="field-input" type="date" name="effective_date" required>
-          <input class="field-input" name="new_premium" placeholder="New premium" inputmode="decimal">
-          <select class="field-input" name="reason"><option value="">Reason</option>{% for value, label in cancel_reasons %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
-          <select class="field-input" name="requested_by"><option value="">Requested by</option>{% for value, label in requested_by_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
-          <input class="field-input" type="date" name="notice_date">
+        <div class="pd-grid">
+          <label>Type
+            <select class="field-input" name="kind">{% for value, label in transaction_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+          </label>
+          <label>Effective date <input class="field-input" type="date" name="effective_date" required></label>
+          <label>New premium <input class="field-input" name="new_premium" placeholder="0.00" inputmode="decimal"></label>
+          <label>Reason
+            <select class="field-input" name="reason"><option value="">None</option>{% for value, label in cancel_reasons %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+          </label>
+          <label>Requested by
+            <select class="field-input" name="requested_by"><option value="">Not set</option>{% for value, label in requested_by_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+          </label>
+          <label>Notice date <input class="field-input" type="date" name="notice_date"></label>
         </div>
-        <input class="field-input" name="note" placeholder="What changed">
-        <button class="btn btn-secondary btn-sm" type="submit">Record transaction</button>
+        <label>What changed <input class="field-input" name="note"></label>
+        <div><button class="btn btn-secondary btn-sm" type="submit">Record transaction</button></div>
       </form>
       {% endif %}
     </div>
 
-    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-      {% if can_edit_policy %}
+    {% if can_edit_policy %}
+    <div class="pd-block pd-actions">
       <form method="post" action="{% url 'insurance-policy-desk' policy.id %}">{% csrf_token %}<input type="hidden" name="desk_action" value="id_card"><button class="btn btn-secondary btn-sm" type="submit">Issue temporary ID card</button></form>
       <form method="post" action="{% url 'insurance-policy-desk' policy.id %}">{% csrf_token %}<input type="hidden" name="desk_action" value="disclosure"><button class="btn btn-secondary btn-sm" type="submit">File compensation disclosure</button></form>
-      {% endif %}
     </div>
 
-    {% if can_edit_policy %}
-    <form method="post" action="{% url 'insurance-policy-desk' policy.id %}" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:end;">
+    <form class="pd-block pd-grid" method="post" action="{% url 'insurance-policy-desk' policy.id %}">
       {% csrf_token %}
       <input type="hidden" name="desk_action" value="photo">
       <label>Photo inspection
@@ -131,176 +135,211 @@
       <button class="btn btn-secondary btn-sm" type="submit">Save inspection</button>
     </form>
     {% elif policy.photo_inspection_status %}
-    <p>Photo inspection: {{ policy.get_photo_inspection_status_display }}{% if policy.photo_inspection_on %} · {{ policy.photo_inspection_on|date:"M j, Y" }}{% endif %}</p>
+    <p class="pd-block">Photo inspection: {{ policy.get_photo_inspection_status_display }}{% if policy.photo_inspection_on %} · {{ policy.photo_inspection_on|date:"M j, Y" }}{% endif %}</p>
     {% endif %}
 
     {% if not can_edit_policy %}
-    <div>
-      <h3 class="ins-overview-title--tight">Claims</h3>
+    <div class="pd-block">
+      <h3>Claims</h3>
       {% for claim in policy_claims %}
       <p>{{ claim.loss_date|date:"M j, Y" }} · {{ claim.get_status_display }} · {{ claim.carrier_claim_number|default:"No carrier number yet" }}</p>
-      {% empty %}<p style="color:var(--portal-text-muted);">No claims on this policy.</p>{% endfor %}
-      <h3 class="ins-overview-title--tight">Certificates</h3>
+      {% empty %}<p class="pd-note">No claims on this policy.</p>{% endfor %}
+      <h3 style="margin-top:1rem;">Certificates</h3>
       {% for cert in policy_certificates %}
       <p>{{ cert.holder.name }} · {{ cert.get_status_display }}</p>
-      {% empty %}<p style="color:var(--portal-text-muted);">No certificates yet.</p>{% endfor %}
+      {% empty %}<p class="pd-note">No certificates yet.</p>{% endfor %}
     </div>
     {% endif %}
 
     {% if can_edit_policy %}
-    <div>
-      <h3 class="ins-overview-title--tight">Drivers, exclusions, SR-22</h3>
+    <div class="pd-block">
+      <h3>Drivers, exclusions, SR-22</h3>
       {% for d in policy_drivers %}
-      <form method="post" action="{% url 'insurance-policy-desk' policy.id %}" style="display:grid;gap:0.4rem;margin-bottom:0.8rem;padding-bottom:0.8rem;border-bottom:1px solid var(--portal-border, #e2e8f0);">
+      <form class="pd-person" method="post" action="{% url 'insurance-policy-desk' policy.id %}">
         {% csrf_token %}
         <input type="hidden" name="desk_action" value="driver">
         <input type="hidden" name="driver" value="{{ d.id }}">
         <strong>{{ d.name }}</strong>
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-          <input class="field-input" type="date" name="date_of_birth" value="{{ d.date_of_birth|date:'Y-m-d' }}">
-          <input class="field-input" name="license_state" value="{{ d.license_state }}" placeholder="ST" maxlength="2" style="max-width:4rem;">
-          <input class="field-input" name="license_number" value="{{ d.license_number }}" placeholder="License number">
-          <input class="field-input" name="relationship" value="{{ d.relationship }}" placeholder="Relationship">
-          <label><input type="checkbox" name="is_excluded" {% if d.is_excluded %}checked{% endif %}> Excluded</label>
-          <label><input type="checkbox" name="sr22_required" {% if d.sr22_required %}checked{% endif %}> SR-22</label>
-          <input class="field-input" name="sr22_state" value="{{ d.sr22_state }}" placeholder="SR state" maxlength="2" style="max-width:5rem;">
-          <input class="field-input" type="date" name="sr22_filed_on" value="{{ d.sr22_filed_on|date:'Y-m-d' }}">
-          <button class="btn btn-secondary btn-sm" type="submit">Save driver</button>
+        <div class="pd-grid">
+          <label>Date of birth <input class="field-input" type="date" name="date_of_birth" value="{{ d.date_of_birth|date:'Y-m-d' }}"></label>
+          <label>State <input class="field-input" name="license_state" value="{{ d.license_state }}" maxlength="2"></label>
+          <label>License number <input class="field-input" name="license_number" value="{{ d.license_number }}"></label>
+          <label>Relationship <input class="field-input" name="relationship" value="{{ d.relationship }}"></label>
+          <label>SR state <input class="field-input" name="sr22_state" value="{{ d.sr22_state }}" maxlength="2"></label>
+          <label>SR-22 filed <input class="field-input" type="date" name="sr22_filed_on" value="{{ d.sr22_filed_on|date:'Y-m-d' }}"></label>
+          <label class="pd-checkline"><input type="checkbox" name="is_excluded" {% if d.is_excluded %}checked{% endif %}> Excluded</label>
+          <label class="pd-checkline"><input type="checkbox" name="sr22_required" {% if d.sr22_required %}checked{% endif %}> SR-22</label>
         </div>
+        <div style="margin-top:0.65rem;"><button class="btn btn-secondary btn-sm" type="submit">Save driver</button></div>
       </form>
       {% if d.incidents.all %}
       <ul>{% for incident in d.incidents.all %}<li>{{ incident.get_kind_display }}{% if incident.occurred_on %} · {{ incident.occurred_on|date:"M j, Y" }}{% endif %} · {{ incident.description }}</li>{% endfor %}</ul>
       {% endif %}
+      {% empty %}
+      <p class="pd-note">No drivers on this policy yet.</p>
       {% endfor %}
       {% if policy_drivers %}
-      <form method="post" action="{% url 'insurance-policy-desk' policy.id %}" style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+      <form class="pd-grid" method="post" action="{% url 'insurance-policy-desk' policy.id %}">
         {% csrf_token %}
         <input type="hidden" name="desk_action" value="incident">
-        <select class="field-input" name="driver">{% for d in policy_drivers %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}</select>
-        <select class="field-input" name="kind"><option value="accident">Accident</option><option value="violation">Violation</option></select>
-        <input class="field-input" type="date" name="occurred_on">
-        <input class="field-input" name="description" placeholder="What happened">
+        <label>Driver
+          <select class="field-input" name="driver">{% for d in policy_drivers %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}</select>
+        </label>
+        <label>Kind
+          <select class="field-input" name="kind"><option value="accident">Accident</option><option value="violation">Violation</option></select>
+        </label>
+        <label>Date <input class="field-input" type="date" name="occurred_on"></label>
+        <label>What happened <input class="field-input" name="description"></label>
         <button class="btn btn-secondary btn-sm" type="submit">Add incident</button>
       </form>
       {% endif %}
     </div>
 
-    <div>
-      <h3 class="ins-overview-title--tight">Lienholder</h3>
+    <div class="pd-block">
+      <h3>Lienholder</h3>
       {% for v in policy_vehicles %}
-      <form method="post" action="{% url 'insurance-policy-desk' policy.id %}" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.6rem;">
+      <form class="pd-grid" method="post" action="{% url 'insurance-policy-desk' policy.id %}" style="margin-bottom:0.7rem;">
         {% csrf_token %}
         <input type="hidden" name="desk_action" value="lienholder">
         <input type="hidden" name="vehicle" value="{{ v.id }}">
-        <span style="align-self:center;">#{{ v.auto_number }}</span>
-        <select class="field-input" name="dmv_vehicle">
-          <option value="">DMV vehicle</option>
-          {% for car in dmv_vehicles %}
-          <option value="{{ car.id }}" {% if v.dmv_vehicle_id == car.id %}selected{% endif %}>{{ car.year }} {{ car.make }} {{ car.plate_number }}</option>
-          {% endfor %}
-        </select>
-        <input class="field-input" name="lienholder_name" value="{{ v.lienholder_name }}" placeholder="Lienholder">
-        <input class="field-input" name="lienholder_address" value="{{ v.lienholder_address }}" placeholder="Address">
+        <label>Vehicle <input class="field-input" value="#{{ v.auto_number }} {{ v.year }} {{ v.make }}" disabled></label>
+        <label>DMV vehicle
+          <select class="field-input" name="dmv_vehicle">
+            <option value="">None</option>
+            {% for car in dmv_vehicles %}
+            <option value="{{ car.id }}" {% if v.dmv_vehicle_id == car.id %}selected{% endif %}>{{ car.year }} {{ car.make }} {{ car.plate_number }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Lienholder <input class="field-input" name="lienholder_name" value="{{ v.lienholder_name }}"></label>
+        <label>Address <input class="field-input" name="lienholder_address" value="{{ v.lienholder_address }}"></label>
         <button class="btn btn-secondary btn-sm" type="submit">Save</button>
       </form>
+      {% empty %}
+      <p class="pd-note">No vehicles to attach a lienholder to.</p>
       {% endfor %}
     </div>
 
-    <div>
-      <h3 class="ins-overview-title--tight">Claims</h3>
+    <div class="pd-block">
+      <h3>Claims</h3>
       {% for claim in policy_claims %}
-      <form method="post" action="{% url 'insurance-policy-desk' policy.id %}" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+      <form class="pd-grid" method="post" action="{% url 'insurance-policy-desk' policy.id %}" style="margin-bottom:0.7rem;">
         {% csrf_token %}
         <input type="hidden" name="desk_action" value="claim_status">
         <input type="hidden" name="claim" value="{{ claim.id }}">
-        <span>{{ claim.loss_date|date:"M j, Y" }} · {{ claim.description|truncatechars:80 }}</span>
-        <input class="field-input" name="carrier_claim_number" value="{{ claim.carrier_claim_number }}" placeholder="Carrier claim #">
-        <select class="field-input" name="status">
-          <option value="reported" {% if claim.status == "reported" %}selected{% endif %}>Reported</option>
-          <option value="with_carrier" {% if claim.status == "with_carrier" %}selected{% endif %}>With carrier</option>
-          <option value="closed" {% if claim.status == "closed" %}selected{% endif %}>Closed</option>
-        </select>
+        <label>Loss <input class="field-input" value="{{ claim.loss_date|date:'M j, Y' }} · {{ claim.description|truncatechars:80 }}" disabled></label>
+        <label>Carrier claim # <input class="field-input" name="carrier_claim_number" value="{{ claim.carrier_claim_number }}"></label>
+        <label>Status
+          <select class="field-input" name="status">
+            <option value="reported" {% if claim.status == "reported" %}selected{% endif %}>Reported</option>
+            <option value="with_carrier" {% if claim.status == "with_carrier" %}selected{% endif %}>With carrier</option>
+            <option value="closed" {% if claim.status == "closed" %}selected{% endif %}>Closed</option>
+          </select>
+        </label>
         <button class="btn btn-secondary btn-sm" type="submit">Update</button>
       </form>
       {% empty %}
-      <p style="margin:0 0 0.5rem;color:var(--portal-text-muted);">No claims on this policy.</p>
+      <p class="pd-note">No claims on this policy.</p>
       {% endfor %}
-      <form method="post" action="{% url 'insurance-policy-desk' policy.id %}" enctype="multipart/form-data" style="display:grid;gap:0.4rem;max-width:42rem;">
+      <form class="pd-stack" method="post" action="{% url 'insurance-policy-desk' policy.id %}" enctype="multipart/form-data">
         {% csrf_token %}
         <input type="hidden" name="desk_action" value="claim">
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-          <input class="field-input" type="date" name="loss_date" required>
-          <input class="field-input" name="other_party" placeholder="Other party">
-          <input class="field-input" name="police_report" placeholder="Police report #">
-          <input class="field-input" name="carrier_claim_number" placeholder="Carrier claim #">
+        <div class="pd-grid">
+          <label>Loss date <input class="field-input" type="date" name="loss_date" required></label>
+          <label>Other party <input class="field-input" name="other_party"></label>
+          <label>Police report <input class="field-input" name="police_report"></label>
+          <label>Carrier claim # <input class="field-input" name="carrier_claim_number"></label>
         </div>
-        <textarea class="field-input" name="description" rows="2" placeholder="What happened"></textarea>
-        <input type="file" name="photos" multiple accept="image/*,application/pdf">
-        <button class="btn btn-secondary btn-sm" type="submit">Open claim</button>
+        <label>What happened <textarea class="field-input" name="description" rows="2"></textarea></label>
+        <label>Photos <input type="file" name="photos" multiple accept="image/*,application/pdf"></label>
+        <div><button class="btn btn-secondary btn-sm" type="submit">Open claim</button></div>
       </form>
     </div>
 
-    <div>
-      <h3 class="ins-overview-title--tight">Standard forms</h3>
-      <p style="margin:0 0 0.75rem;color:var(--portal-text-muted);font-size:0.85rem;">Certificates, applications, and loss notices filled from this policy. These are the agency's forms.</p>
+    <div class="pd-block">
+      <h3>Forms</h3>
+      <p class="pd-note">Number first, then the name. 25, 125, 126, 127, and the rest of the standard set, filled from this policy.</p>
       {% for issued in issued_forms %}
-      <p style="margin:0 0 0.35rem;">{{ issued.title }}{% if issued.holder_name %} · {{ issued.holder_name }}{% endif %} · <a href="{{ issued.file.url }}" target="_blank" rel="noopener">PDF</a></p>
+      <p style="margin:0 0 0.35rem;"><strong>{{ issued.title }}</strong>{% if issued.holder_name %} · {{ issued.holder_name }}{% endif %} · <a href="{{ issued.file.url }}" target="_blank" rel="noopener">PDF</a></p>
       {% empty %}
-      <p style="margin:0 0 0.5rem;color:var(--portal-text-muted);">No standard forms issued yet.</p>
+      <p class="pd-note">No forms issued yet.</p>
       {% endfor %}
-      <form method="post" action="{% url 'insurance-policy-desk' policy.id %}" style="display:grid;gap:0.4rem;max-width:42rem;">
+      <form class="pd-stack" method="post" action="{% url 'insurance-policy-desk' policy.id %}">
         {% csrf_token %}
         <input type="hidden" name="desk_action" value="form">
-        <select class="field-input" name="form_key" required>
-          <option value="">Choose a form</option>
-          {% for key, title, blurb in standard_forms %}
-          <option value="{{ key }}">{{ title }}</option>
-          {% endfor %}
-        </select>
-        <input class="field-input" name="holder_name" placeholder="Holder or mortgagee, if this form needs one">
-        <input class="field-input" name="holder_address" placeholder="Holder address">
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-          <input class="field-input" type="date" name="loss_date">
-          <input class="field-input" type="date" name="effective_date">
-          <input class="field-input" name="other_party" placeholder="Other party">
-          <input class="field-input" name="police_report" placeholder="Police report">
+        <label>Find a form
+          <input class="field-input" id="pd-form-filter" placeholder="125, certificate, auto, workers comp" autocomplete="off">
+        </label>
+        <label>Form
+          <select class="field-input pd-form-list" name="form_key" size="9" required>
+            {% for group in standard_form_groups %}
+            <optgroup label="{{ group.name }}">
+              {% for form in group.forms %}
+              <option value="{{ form.key }}">{{ form.number }}  {{ form.name }}</option>
+              {% endfor %}
+            </optgroup>
+            {% endfor %}
+          </select>
+        </label>
+        <div class="pd-grid">
+          <label>Holder or mortgagee <input class="field-input" name="holder_name"></label>
+          <label>Holder address <input class="field-input" name="holder_address"></label>
+          <label>Loss date <input class="field-input" type="date" name="loss_date"></label>
+          <label>Effective date <input class="field-input" type="date" name="effective_date"></label>
+          <label>Other party <input class="field-input" name="other_party"></label>
+          <label>Police report <input class="field-input" name="police_report"></label>
         </div>
-        <textarea class="field-input" name="description" rows="2" placeholder="Operations, loss, or remarks"></textarea>
-        <label><input type="checkbox" name="additional_insured"> Additional insured</label>
-        <label><input type="checkbox" name="waiver_of_subrogation"> Waiver of subrogation</label>
-        <button class="btn btn-secondary btn-sm" type="submit">Create form</button>
+        <label>Operations, loss, or remarks <textarea class="field-input" name="description" rows="2"></textarea></label>
+        <label class="pd-checkline"><input type="checkbox" name="additional_insured"> Additional insured</label>
+        <label class="pd-checkline"><input type="checkbox" name="waiver_of_subrogation"> Waiver of subrogation</label>
+        <div><button class="btn btn-secondary btn-sm" type="submit">Create form</button></div>
       </form>
     </div>
 
-    <div>
-      <h3 class="ins-overview-title--tight">Message the client</h3>
-      <p style="margin:0 0 0.5rem;color:var(--portal-text-muted);font-size:0.85rem;">Shows in the client app and goes by email when the client has an address.</p>
-      <form method="post" action="{% url 'insurance-policy-desk' policy.id %}" style="display:grid;gap:0.4rem;max-width:42rem;">
+    <div class="pd-block">
+      <h3>Message the client</h3>
+      <p class="pd-note">Shows in the client app and goes by email when the client has an address.</p>
+      <form class="pd-stack" method="post" action="{% url 'insurance-policy-desk' policy.id %}">
         {% csrf_token %}
         <input type="hidden" name="desk_action" value="message">
-        <textarea class="field-input" name="body" rows="3" placeholder="Your temporary ID card is ready. The carrier card replaces it when it arrives." required></textarea>
-        <button class="btn btn-secondary btn-sm" type="submit">Send to client</button>
+        <label>Message <textarea class="field-input" name="body" rows="3" required></textarea></label>
+        <div><button class="btn btn-secondary btn-sm" type="submit">Send to client</button></div>
       </form>
     </div>
 
-    <div>
-      <h3 class="ins-overview-title--tight">Certificates</h3>
+    <div class="pd-block">
+      <h3>Certificates</h3>
       {% for cert in policy_certificates %}
       <p style="margin:0 0 0.35rem;">{{ cert.holder.name }} · {{ cert.get_status_display }}{% if cert.additional_insured %} · additional insured{% endif %}{% if cert.waiver_of_subrogation %} · waiver{% endif %}{% if cert.file %} · <a href="{{ cert.file.url }}" target="_blank" rel="noopener">PDF</a>{% endif %}</p>
       {% empty %}
-      <p style="margin:0 0 0.5rem;color:var(--portal-text-muted);">No certificates yet.</p>
+      <p class="pd-note">No certificates yet.</p>
       {% endfor %}
-      <form method="post" action="{% url 'insurance-policy-desk' policy.id %}" style="display:grid;gap:0.4rem;max-width:42rem;">
+      <form class="pd-stack" method="post" action="{% url 'insurance-policy-desk' policy.id %}">
         {% csrf_token %}
         <input type="hidden" name="desk_action" value="certificate">
-        <input class="field-input" name="holder_name" placeholder="Holder name" required>
-        <input class="field-input" name="holder_address" placeholder="Holder address">
-        <input class="field-input" name="description" placeholder="Description of operations">
-        <label><input type="checkbox" name="additional_insured"> Additional insured</label>
-        <label><input type="checkbox" name="waiver_of_subrogation"> Waiver of subrogation</label>
-        <button class="btn btn-secondary btn-sm" type="submit">Issue certificate</button>
+        <div class="pd-grid">
+          <label>Holder name <input class="field-input" name="holder_name" required></label>
+          <label>Holder address <input class="field-input" name="holder_address"></label>
+        </div>
+        <label>Description of operations <input class="field-input" name="description"></label>
+        <label class="pd-checkline"><input type="checkbox" name="additional_insured"> Additional insured</label>
+        <label class="pd-checkline"><input type="checkbox" name="waiver_of_subrogation"> Waiver of subrogation</label>
+        <div><button class="btn btn-secondary btn-sm" type="submit">Issue certificate</button></div>
       </form>
     </div>
     {% endif %}
   </div>
 </section>
+<script>
+  (function () {
+    var input = document.getElementById("pd-form-filter");
+    var list = document.querySelector(".pd-form-list");
+    if (!input || !list) return;
+    input.addEventListener("input", function () {
+      var query = input.value.trim().toLowerCase();
+      list.querySelectorAll("option").forEach(function (option) {
+        option.hidden = query && option.textContent.toLowerCase().indexOf(query) === -1;
+      });
+    });
+  })();
+</script>

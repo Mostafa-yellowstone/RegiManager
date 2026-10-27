@@ -99,7 +99,7 @@ def insurance_policy_detail(request, policy_id):
 
     from .insurance_desk import coverage_form_rows
     from .insurance_desk_models import InsurancePolicyTransaction
-    from .insurance_standard_forms import FORMS
+    from .insurance_standard_forms import FORM_GROUPS
     from .models import Vehicle
 
     return render(
@@ -136,7 +136,7 @@ def insurance_policy_detail(request, policy_id):
             "requested_by_choices": InsurancePolicyTransaction.RequestedBy.choices,
             "policy_claims": list(policy.claims.prefetch_related("photos")[:20]),
             "policy_certificates": list(policy.certificates.select_related("holder")[:20]),
-            "standard_forms": FORMS,
+            "standard_form_groups": FORM_GROUPS,
             "issued_forms": list(policy.issued_forms.all()[:20]),
             "dmv_vehicles": list(Vehicle.objects.filter(client=policy.client).order_by("-id")[:30]) if policy.client_id else [],
             "photo_inspection_choices": InsurancePolicy.PhotoInspection.choices,

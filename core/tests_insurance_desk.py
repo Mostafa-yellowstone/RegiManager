@@ -259,13 +259,14 @@ class InsuranceDeskTests(TestCase):
 
         issued = issue_standard_form(
             self.policy,
-            "liability_certificate",
+            "25",
             self.owner,
             {"holder_name": "City GC", "holder_address": "1 Main St"},
         )
         self.assertTrue(InsuranceIssuedForm.objects.filter(id=issued.id, file__isnull=False).exists())
         self.assertTrue(issued.file.name.endswith(".pdf"))
-        self.assertTrue(self.policy.documents.filter(title__startswith="Certificate of Liability Insurance").exists())
+        self.assertEqual(issued.title, "25 Certificate of Liability Insurance")
+        self.assertTrue(self.policy.documents.filter(title__startswith="25 Certificate of Liability Insurance").exists())
 
         self.customer.email = "mina@example.com"
         self.customer.save(update_fields=["email"])
