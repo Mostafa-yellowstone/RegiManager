@@ -282,6 +282,7 @@ from core.documents_views import (
     add_document_record,
     delete_document_record,
 )
+from core.document_search_views import dashboard_documents_crm
 from core.tlc_views import (
     tlc_policy_detail,
     add_tlc_policy,
@@ -597,6 +598,7 @@ urlpatterns = [
     path("dashboard/services/add-custom/", add_custom_service, name="add-custom-service"),
     path("dashboard/service/<str:service_type>/", service_list, name="service-list"),
     path("dashboard/audit-logs/", audit_log_list, name="all-audit-logs"),
+    path("dashboard/documents/search/", dashboard_documents_crm, name="dashboard-documents-search"),
     path("dashboard/service/<int:service_id>/upload/", upload_document_ajax, name="upload-document-ajax"),
     path("dashboard/service/<int:service_id>/docs/", get_documents, name="get-documents"),
     path("dashboard/referrals/", all_referrals, name="all-referrals"),
