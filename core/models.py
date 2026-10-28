@@ -2054,6 +2054,127 @@ class InventoryPurchaseLine(models.Model):
         return f"{self.description} x{self.quantity}"
 
 
+def ezpass_batch_doc_upload_to(instance, filename):
+    return f"ezpass_manifests/{instance.organization_id}/{filename}"
+
+
+class EZPassBatch(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="ezpass_batches")
+    space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="ezpass_batches")
+    batch_number = models.CharField(max_length=50)
+    supplier_name = models.CharField(max_length=150, default="NYS Thruway Authority / E-ZPass NY")
+    received_date = models.DateField(default=timezone.localdate)
+    quantity = models.PositiveIntegerField(default=0)
+    unit_cost = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("25.00"))
+    total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    tag_prefix = models.CharField(max_length=20, blank=True, default="")
+    tag_range_start = models.CharField(max_length=40, blank=True, default="")
+    tag_range_end = models.CharField(max_length=40, blank=True, default="")
+    document = models.FileField(upload_to=ezpass_batch_doc_upload_to, blank=True, null=True, help_text="Manifest, packing slip, or delivery receipt")
+    document_name = models.CharField(max_length=200, blank=True, default="")
+    notes = models.TextField(blank=True, default="")
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ezpass_batches_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-received_date", "-created_at"]
+
+    def __str__(self):
+        return f"Batch {self.batch_number} ({self.quantity} tags)"
+
+
+class EZPassTag(models.Model):
+    class TagType(models.TextChoices):
+        INTERIOR = "interior", "Interior Windshield"
+        EXTERIOR = "exterior", "Exterior License Plate Mount"
+        COMMERCIAL = "commercial", "Commercial / Fleet"
+        MOTORCYCLE = "motorcycle", "Motorcycle"
+
+    class Status(models.TextChoices):
+        IN_STOCK = "in_stock", "In Stock"
+        SOLD = "sold", "Assigned / Sold"
+        DEFECTIVE = "defective", "Defective / Returned"
+        LOST = "lost", "Lost / Damaged"
+
+    class PaymentMethod(models.TextChoices):
+        CASH = "cash", "Cash"
+        CARD = "card", "Credit / Debit Card"
+        ZELLE = "zelle", "Zelle"
+        CHECK = "check", "Check"
+        OTHER = "other", "Other"
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="ezpass_tags")
+    space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="ezpass_tags")
+    batch = models.ForeignKey(
+        EZPassBatch,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tags",
+    )
+    tag_number = models.CharField(max_length=50, db_index=True)
+    tag_type = models.CharField(max_length=20, choices=TagType.choices, default=TagType.INTERIOR)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.IN_STOCK, db_index=True)
+
+    # Financial details
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("25.00"), help_text="Cost paid to authority")
+    retail_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("35.00"), help_text="Total price charged to customer")
+    toll_deposit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("25.00"), help_text="Pre-funded toll balance on tag")
+    convenience_fee = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("10.00"), help_text="Office retail fee")
+
+    # Assignment & Customer Details
+    customer_name = models.CharField(max_length=150, blank=True, default="")
+    customer_phone = models.CharField(max_length=40, blank=True, default="")
+    customer_email = models.EmailField(blank=True, default="")
+    customer_address = models.TextField(blank=True, default="")
+    plate_number = models.CharField(max_length=20, blank=True, default="")
+    plate_state = models.CharField(max_length=10, blank=True, default="NY")
+    vehicle_year = models.CharField(max_length=10, blank=True, default="")
+    vehicle_make = models.CharField(max_length=50, blank=True, default="")
+    vehicle_model = models.CharField(max_length=50, blank=True, default="")
+    vehicle_vin = models.CharField(max_length=30, blank=True, default="")
+
+    assigned_at = models.DateTimeField(null=True, blank=True)
+    assigned_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_ezpass_tags",
+    )
+    invoice = models.ForeignKey(
+        InventoryInvoice,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ezpass_tags",
+    )
+    payment_method = models.CharField(max_length=20, choices=PaymentMethod.choices, default=PaymentMethod.CASH)
+    notes = models.TextField(blank=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-assigned_at", "-created_at"]
+        unique_together = ("space", "tag_number")
+
+    @property
+    def profit(self):
+        return self.retail_price - self.cost_price
+
+    @property
+    def is_in_stock(self):
+        return self.status == self.Status.IN_STOCK
+
+
 class UserSession(models.Model):
     """
     Tracks the single allowed active session per user.

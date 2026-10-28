@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>E-ZPass Service Receipt | {{ tag.invoice.invoice_number|default:tag.tag_number }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* ── Reset ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+      background: #e8ecef;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+      min-height: 100vh;
+    }
+
+    /* ── Action bar (hidden on print) ──────────────────────── */
+    .action-bar {
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: .75rem;
+    }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: .6rem 1.2rem; border-radius: 8px; font-weight: 700;
+      font-size: .88rem; text-decoration: none; cursor: pointer;
+      border: 1px solid transparent; transition: all .15s;
+    }
+    .btn-back  { background:#fff; color:#374151; border-color:#d1d5db; }
+    .btn-back:hover { background:#f9fafb; }
+    .btn-print { background:#1a3a6b; color:#fff; }
+    .btn-print:hover { background:#122952; }
+    .btn-pdf   { background:#fff; color:#1a3a6b; border-color:#1a3a6b; }
+    .btn-pdf:hover { background:#f0f4fa; }
+
+    /* ── Paper card ────────────────────────────────────────── */
+    .receipt {
+      width: 100%;
+      max-width: 760px;
+      background: #fff;
+      box-shadow: 0 8px 32px rgba(0,0,0,.13);
+      overflow: hidden;
+    }
+
+    /* ══ HEADER ════════════════════════════════════════════════ */
+    .hdr {
+      background: #fff;
+      padding: 1.6rem 2rem 0;
+      position: relative;
+      border-bottom: 3px solid #c8a84b;
+    }
+    .hdr-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    /* E-ZPass X logo */
+    .ez-logo {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      flex-shrink: 0;
+    }
+    .ez-logo svg { width: 72px; height: 52px; }
+    /* Title block */
+    .hdr-title-block {}
+    .hdr-title {
+      font-size: 2rem;
+      font-weight: 900;
+      color: #1a3a6b;
+      line-height: 1.1;
+      letter-spacing: -.5px;
+    }
+    .hdr-subtitle {
+      font-size: .82rem;
+      color: #888;
+      margin-top: .35rem;
+    }
+    /* Swoosh decoration */
+    .hdr-swoosh {
+      flex-shrink: 0;
+      align-self: flex-start;
+    }
+    .hdr-swoosh svg { width: 180px; height: 90px; }
+
+    /* Gold rule below header */
+    .hdr-rule { height: 3px; background: #c8a84b; margin-top: 1rem; }
+
+    /* ══ MIDDLE SECTION ═══════════════════════════════════════ */
+    .mid {
+      display: flex;
+      border-bottom: 1px solid #dde2ea;
+    }
+
+    /* Left info column */
+    .mid-left {
+      flex: 0 0 230px;
+      padding: 1.5rem 1.4rem 1.5rem 2rem;
+      border-right: 1px solid #dde2ea;
+    }
+    .info-row {
+      display: flex;
+      align-items: flex-start;
+      gap: .75rem;
+      padding-bottom: 1rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid #d0d5df;
+    }
+    .info-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .info-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: #1a3a6b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .info-icon svg { width: 20px; height: 20px; fill: #fff; }
+    .info-text-block { flex: 1; min-width: 0; }
+    .info-label {
+      font-size: .78rem;
+      font-weight: 700;
+      color: #1a3a6b;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .info-value {
+      font-size: .88rem;
+      color: #333;
+      margin-top: .2rem;
+      word-break: break-word;
+    }
+
+    /* Right service + amount columns */
+    .mid-right {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .svc-header {
+      display: flex;
+      border-bottom: 1px solid #dde2ea;
+    }
+    .svc-col-desc {
+      flex: 1;
+      padding: .85rem 1.25rem;
+      font-size: .78rem;
+      font-weight: 700;
+      color: #1a3a6b;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      border-right: 1px solid #dde2ea;
+    }
+    .svc-col-amt {
+      width: 110px;
+      padding: .85rem 1.25rem .85rem .5rem;
+      font-size: .78rem;
+      font-weight: 700;
+      color: #1a3a6b;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      text-align: right;
+    }
+
+    /* Service rows */
+    .svc-body {
+      flex: 1;
+      display: flex;
+    }
+    .svc-desc-col {
+      flex: 1;
+      padding: .9rem 1.25rem;
+      border-right: 1px solid #dde2ea;
+    }
+    .svc-item {
+      font-size: .88rem;
+      color: #333;
+      padding: .3rem 0;
+      line-height: 1.45;
+    }
+    .svc-item strong { color: #1a3a6b; }
+    .svc-tag-detail {
+      font-size: .78rem;
+      color: #666;
+      margin-top: .15rem;
+    }
+    .svc-amt-col {
+      width: 110px;
+      padding: .9rem 1.25rem .9rem .5rem;
+      text-align: right;
+    }
+    .svc-amount {
+      font-size: .92rem;
+      color: #333;
+      font-weight: 600;
+    }
+
+    /* Total row */
+    .svc-total-row {
+      display: flex;
+      align-items: center;
+      border-top: 1px solid #dde2ea;
+      padding: .75rem 1.25rem .75rem 0;
+    }
+    .svc-total-label {
+      flex: 1;
+      text-align: right;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1a3a6b;
+      padding-right: .5rem;
+    }
+    .svc-total-sep {
+      width: 3px;
+      height: 24px;
+      background: #c8a84b;
+      margin: 0 .75rem 0 0;
+      border-radius: 2px;
+    }
+    .svc-total-val {
+      width: 100px;
+      text-align: right;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1a3a6b;
+      padding-right: .5rem;
+    }
+
+    /* ══ OUR SERVICES RIBBON ══════════════════════════════════ */
+    .ribbon {
+      background: #1a3a6b;
+      padding: .65rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+    .ribbon-arrows {
+      display: flex;
+      gap: 2px;
+    }
+    .ribbon-arrow {
+      width: 0;
+      height: 0;
+      border-top: 9px solid transparent;
+      border-bottom: 9px solid transparent;
+      border-left: 9px solid #c8a84b;
+    }
+    .ribbon-title {
+      font-size: .85rem;
+      font-weight: 800;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+    }
+
+    /* ══ SERVICES + CONTACT ZONE ══════════════════════════════ */
+    .svcs-zone {
+      display: flex;
+      border-bottom: 1px solid #dde2ea;
+    }
+
+    /* Left: 4 service items */
+    .svcs-left {
+      flex: 0 0 50%;
+      padding: 1.4rem 1.5rem 1.4rem 2rem;
+      border-right: 2px dashed #c0c8d8;
+    }
+    .svc-entry {
+      display: flex;
+      align-items: flex-start;
+      gap: .85rem;
+      padding-bottom: 1.1rem;
+      margin-bottom: 1.1rem;
+      border-bottom: 1px solid #e5e9f0;
+    }
+    .svc-entry:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .svc-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid #1a3a6b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .svc-icon svg { width: 24px; height: 24px; fill: #1a3a6b; }
+    .svc-entry-text .svc-name {
+      font-size: .88rem;
+      font-weight: 700;
+      color: #1a3a6b;
+      line-height: 1.3;
+    }
+    .svc-entry-text .svc-desc {
+      font-size: .8rem;
+      color: #555;
+      margin-top: .15rem;
+      line-height: 1.35;
+    }
+
+    /* Right: contact */
+    .svcs-right {
+      flex: 1;
+      padding: 1.6rem 2rem 1.4rem 1.75rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .contact-tagline {
+      font-size: 1.4rem;
+      font-weight: 900;
+      color: #1a3a6b;
+      line-height: 1.2;
+      margin-bottom: .5rem;
+    }
+    .contact-gold-line {
+      width: 60px;
+      height: 3px;
+      background: #c8a84b;
+      margin-bottom: .75rem;
+    }
+    .contact-sub {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #1a8fc7;
+      margin-bottom: 1.2rem;
+      line-height: 1.3;
+    }
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      margin-bottom: .7rem;
+    }
+    .contact-item:last-child { margin-bottom: 0; }
+    .contact-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #1a3a6b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .contact-circle svg { width: 18px; height: 18px; fill: #fff; }
+    .contact-text {
+      font-size: .92rem;
+      font-weight: 600;
+      color: #1a3a6b;
+    }
+
+    /* ══ FOOTER ════════════════════════════════════════════════ */
+    .ftr {
+      background: #f0f3f7;
+      padding: .85rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .ftr-arrows-left, .ftr-arrows-right {
+      display: flex;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+    .ftr-arrow {
+      width: 0; height: 0;
+      border-top: 12px solid transparent;
+      border-bottom: 12px solid transparent;
+      border-left: 12px solid #3aaecc;
+    }
+    .ftr-arrow.rev {
+      border-left: none;
+      border-right: 12px solid #3aaecc;
+    }
+    .ftr-sep { width: 2px; height: 22px; background: #3aaecc; flex-shrink: 0; }
+    .ftr-text {
+      flex: 1;
+      text-align: center;
+      font-size: .88rem;
+      font-weight: 600;
+      color: #333;
+      letter-spacing: .01em;
+    }
+
+    /* ══ PRINT ══════════════════════════════════════════════════ */
+    @media print {
+      body { background:#fff; padding:0; }
+      .action-bar { display:none !important; }
+      .receipt { box-shadow:none; max-width:100%; }
+      @page { size: letter portrait; margin: 12mm 10mm; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Action bar (screen only) -->
+  <div class="action-bar">
+    <a href="{% url 'inventory-detail' space.id %}" class="btn btn-back">&#8592; Back to E-ZPass Operations</a>
+    <div style="display:flex;gap:.5rem;">
+      <a href="{% url 'ezpass-receipt-pdf' tag.id %}" class="btn btn-pdf" target="_blank">&#128229; Download PDF</a>
+      <button type="button" onclick="window.print()" class="btn btn-print">&#128438; Print Receipt</button>
+    </div>
+  </div>
+
+  <div class="receipt">
+
+    <!-- ═══ HEADER ═══════════════════════════════════════════ -->
+    <div class="hdr">
+      <div class="hdr-top">
+
+        <!-- E-ZPass X Logo -->
+        <div class="ez-logo">
+          <svg viewBox="0 0 80 58" xmlns="http://www.w3.org/2000/svg">
+            <!-- Teal left-pointing chevron -->
+            <polygon points="34,0 0,29 34,58 46,58 12,29 46,0" fill="#3aaecc"/>
+            <!-- Navy right-pointing X arm -->
+            <polygon points="46,0 80,29 46,58 58,58 80,42 80,16 58,0" fill="#1a3a6b"/>
+            <!-- Inner navy cut -->
+            <polygon points="46,10 62,29 46,48 54,48 70,29 54,10" fill="#1a3a6b" opacity=".0"/>
+          </svg>
+        </div>
+
+        <!-- Title -->
+        <div class="hdr-title-block" style="flex:1; padding: .3rem 0 0 .5rem;">
+          <div class="hdr-title">E-ZPass Service Receipt</div>
+          <div class="hdr-subtitle">Not an official E-ZPass document</div>
+        </div>
+
+        <!-- Swoosh decoration -->
+        <div class="hdr-swoosh">
+          <svg viewBox="0 0 180 90" xmlns="http://www.w3.org/2000/svg">
+            <path d="M180,0 C140,20 80,10 20,60 C60,40 130,30 180,50 Z" fill="#c8cbd4" opacity=".35"/>
+            <path d="M180,15 C130,35 70,25 10,70 C55,50 135,40 180,62 Z" fill="#a0a8b8" opacity=".25"/>
+            <path d="M180,32 C125,50 65,42 5,80 C50,62 138,52 180,72 Z" fill="#808898" opacity=".18"/>
+          </svg>
+        </div>
+
+      </div>
+      <div class="hdr-rule"></div>
+    </div><!-- /hdr -->
+
+    <!-- ═══ MIDDLE ════════════════════════════════════════════ -->
+    <div class="mid">
+
+      <!-- Left info column -->
+      <div class="mid-left">
+
+        <!-- Customer Name -->
+        <div class="info-row">
+          <div class="info-icon">
+            <!-- Person icon -->
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 12c2.67 0 8 1.34 8 4v2H4v-2c0-2.66 5.33-4 8-4zm0-2a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>
+            </svg>
+          </div>
+          <div class="info-text-block">
+            <div class="info-label">Customer Name</div>
+            <div class="info-value">{{ tag.customer_name|default:"—" }}</div>
+          </div>
+        </div>
+
+        <!-- Invoice # -->
+        <div class="info-row">
+          <div class="info-icon">
+            <!-- Document icon -->
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM8 13h8v1H8v-1zm0 3h8v1H8v-1zm0-6h5v1H8v-1z"/>
+            </svg>
+          </div>
+          <div class="info-text-block">
+            <div class="info-label">Invoice #</div>
+            <div class="info-value">{{ tag.invoice.invoice_number|default:"EZP-"|add:tag.id }}</div>
+          </div>
+        </div>
+
+        <!-- Date -->
+        <div class="info-row">
+          <div class="info-icon">
+            <!-- Calendar icon -->
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V9h14v11zM7 11h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2z"/>
+            </svg>
+          </div>
+          <div class="info-text-block">
+            <div class="info-label">Date</div>
+            <div class="info-value">{{ tag.assigned_at|date:"M j, Y"|default:"Today" }}</div>
+          </div>
+        </div>
+
+      </div><!-- /mid-left -->
+
+      <!-- Right service + amount -->
+      <div class="mid-right">
+
+        <!-- Column headers -->
+        <div class="svc-header">
+          <div class="svc-col-desc">Service Description</div>
+          <div class="svc-col-amt">Amount</div>
+        </div>
+
+        <!-- Service body -->
+        <div class="svc-body">
+          <div class="svc-desc-col">
+            <div class="svc-item">
+              <strong>E-ZPass On-The-Go Transponder</strong>
+              <div class="svc-tag-detail">Tag #{{ tag.tag_number }}{% if tag.get_tag_type_display %} &middot; {{ tag.get_tag_type_display }}{% endif %}</div>
+              {% if tag.plate_number %}
+              <div class="svc-tag-detail">Plate: {{ tag.plate_state }} {{ tag.plate_number }}{% if tag.vehicle_make %} &middot; {{ tag.vehicle_year }} {{ tag.vehicle_make }} {{ tag.vehicle_model }}{% endif %}</div>
+              {% endif %}
+            </div>
+            {% if tag.convenience_fee %}
+            <div class="svc-item" style="margin-top:.5rem;">
+              Authorized Retailer Processing &amp; Convenience Fee
+            </div>
+            {% endif %}
+          </div>
+          <div class="svc-amt-col">
+            <div class="svc-amount">${{ tag.toll_deposit|floatformat:2 }}</div>
+            {% if tag.convenience_fee %}
+            <div class="svc-amount" style="margin-top:.5rem;">${{ tag.convenience_fee|floatformat:2 }}</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Total row -->
+        <div class="svc-total-row">
+          <div class="svc-total-label">Total</div>
+          <div class="svc-total-sep"></div>
+          <div class="svc-total-val">${{ tag.retail_price|floatformat:2 }}</div>
+        </div>
+
+      </div><!-- /mid-right -->
+
+    </div><!-- /mid -->
+
+    <!-- ═══ OUR SERVICES RIBBON ═══════════════════════════════ -->
+    <div class="ribbon">
+      <div class="ribbon-arrows">
+        <div class="ribbon-arrow"></div>
+        <div class="ribbon-arrow"></div>
+      </div>
+      <div class="ribbon-title">Our Services</div>
+    </div>
+
+    <!-- ═══ SERVICES + CONTACT ════════════════════════════════ -->
+    <div class="svcs-zone">
+
+      <!-- Left: 4 service entries -->
+      <div class="svcs-left">
+
+        <div class="svc-entry">
+          <div class="svc-icon">
+            <!-- Plate / DMV icon -->
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h12v2H6v-2zm0 4h8v2H6v-2z"/>
+            </svg>
+          </div>
+          <div class="svc-entry-text">
+            <div class="svc-name">Plates, registrations, DMV services</div>
+          </div>
+        </div>
+
+        <div class="svc-entry">
+          <div class="svc-icon">
+            <!-- Shield icon -->
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+            </svg>
+          </div>
+          <div class="svc-entry-text">
+            <div class="svc-name">Xpress insurance, auto, taxi,<br>and business coverages</div>
+          </div>
+        </div>
+
+        <div class="svc-entry">
+          <div class="svc-icon">
+            <!-- Car / roadside icon -->
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1h12v1a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-8l-2.08-5.99zM6.5 16a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm11 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zM5 11l1.5-4.5h11L19 11H5z"/>
+            </svg>
+          </div>
+          <div class="svc-entry-text">
+            <div class="svc-name">Roadside assistance services</div>
+          </div>
+        </div>
+
+        <div class="svc-entry">
+          <div class="svc-icon">
+            <!-- Steering wheel icon -->
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 2c3.08 0 5.77 1.56 7.41 3.94l-3.04 1.56A4.5 4.5 0 0 0 12 7.5a4.5 4.5 0 0 0-4.37 3L4.59 7.94A9.96 9.96 0 0 1 12 4zm-1 8.5H7.06C7.28 10.07 9.44 8.5 12 8.5c2.56 0 4.72 1.57 4.94 4H13v-1h-2v1zm-8.94-.5C2.39 11.69 2 12.81 2 14c0 1.1.23 2.14.63 3.09L6.1 15.5A5.5 5.5 0 0 1 6 14c0-.52.07-1.02.2-1.5H2.06zm17.88 0c.13.48.2.98.2 1.5 0 .52-.07 1.02-.2 1.5l3.47 1.59c.4-.95.63-1.99.63-3.09 0-1.19-.39-2.31-1.06-3l-3.04.5zM12 18.5a5.47 5.47 0 0 1-3.69-1.43l-3.08 1.41C6.69 20.34 9.18 22 12 22s5.31-1.66 6.77-4.02l-3.08-1.41A5.47 5.47 0 0 1 12 18.5z"/>
+            </svg>
+          </div>
+          <div class="svc-entry-text">
+            <div class="svc-name">Defensive Driving Course</div>
+            <div class="svc-desc">Save 10% on your insurance premium</div>
+          </div>
+        </div>
+
+      </div><!-- /svcs-left -->
+
+      <!-- Right: contact info -->
+      <div class="svcs-right">
+        <div class="contact-tagline">Protect your vehicle.<br>Protect your business.</div>
+        <div class="contact-gold-line"></div>
+        <div class="contact-sub">Get more from<br>one trusted team.</div>
+
+        <div class="contact-item">
+          <div class="contact-circle">
+            <!-- Phone icon -->
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.02-.24c1.12.37 2.33.57 3.57.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.62 21 3 13.38 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.24 1.02L6.62 10.79z"/>
+            </svg>
+          </div>
+          <div class="contact-text">(914) 961-6666</div>
+        </div>
+
+        <div class="contact-item">
+          <div class="contact-circle">
+            <!-- Location pin icon -->
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/>
+            </svg>
+          </div>
+          <div class="contact-text">Visit us: 800 Yonkers Ave,<br>Yonkers, NY 10704</div>
+        </div>
+
+      </div><!-- /svcs-right -->
+
+    </div><!-- /svcs-zone -->
+
+    <!-- ═══ FOOTER ════════════════════════════════════════════ -->
+    <div class="ftr">
+      <div class="ftr-arrows-left">
+        <div class="ftr-arrow"></div>
+        <div class="ftr-arrow"></div>
+      </div>
+      <div class="ftr-sep"></div>
+      <div class="ftr-text">Call today for service, coverage, and savings.</div>
+      <div class="ftr-sep"></div>
+      <div class="ftr-arrows-right">
+        <div class="ftr-arrow rev"></div>
+        <div class="ftr-arrow rev"></div>
+      </div>
+    </div>
+
+  </div><!-- /receipt -->
+
+</body>
+</html>

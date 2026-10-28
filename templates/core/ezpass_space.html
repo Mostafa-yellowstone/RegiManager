@@ -1,0 +1,1629 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}{{ card.label }} | E-ZPass Operations{% endblock %}
+
+{% block portal_content %}
+
+<style>
+/* Modern E-ZPass Operations Hub Styles */
+:root {
+  --ez-purple-900: #1e1b4b;
+  --ez-purple-800: #312e81;
+  --ez-purple-700: #4338ca;
+  --ez-purple-600: #5b21b6;
+  --ez-purple-500: #6366f1;
+  --ez-purple-400: #818cf8;
+  --ez-purple-100: #ede9fe;
+  --ez-purple-50: #f5f3ff;
+  --ez-emerald-600: #059669;
+  --ez-emerald-500: #10b981;
+  --ez-emerald-50: #ecfdf5;
+  --ez-amber-500: #f59e0b;
+  --ez-amber-50: #fffbeb;
+  --ez-rose-600: #e11d48;
+  --ez-rose-50: #fff1f2;
+}
+
+.ez-hero {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 45%, #5b21b6 100%);
+  border-radius: 20px;
+  padding: 1.75rem 2rem;
+  color: white;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 10px 25px -5px rgba(49, 46, 129, 0.35);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.ez-hero::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.25) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Low Stock Command Center */
+.ez-low-stock-banner {
+  background: linear-gradient(135deg, #fff1f2 0%, #fff7ed 50%, #fef2f2 100%);
+  border: 2px solid #fca5a5;
+  border-radius: 18px;
+  padding: 1.35rem 1.6rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 8px 20px rgba(225, 29, 72, 0.08);
+  position: relative;
+  overflow: hidden;
+  animation: pulse-border 2.5s infinite;
+}
+@keyframes pulse-border {
+  0%, 100% { border-color: #f87171; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.2); }
+  50% { border-color: #ef4444; box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.12); }
+}
+
+.ez-banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  position: relative;
+  z-index: 2;
+}
+.ez-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+}
+.ez-beacon-wrap {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: #fee2e2;
+  border: 1.5px solid #fca5a5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+  position: relative;
+}
+.ez-beacon-ping {
+  position: absolute;
+  inset: -4px;
+  border-radius: 16px;
+  border: 2px solid #ef4444;
+  animation: beacon-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  opacity: 0.7;
+}
+@keyframes beacon-ping {
+  75%, 100% { transform: scale(1.3); opacity: 0; }
+}
+
+.ez-banner-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #991b1b;
+  letter-spacing: -0.01em;
+}
+.ez-banner-sub {
+  margin: 0 0 0.5rem;
+  font-size: 0.86rem;
+  color: #7f1d1d;
+  font-weight: 500;
+}
+.ez-stock-chips {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.ez-stock-chip {
+  background: white;
+  border: 1px solid #fecaca;
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #991b1b;
+}
+.ez-stock-chip.critical {
+  background: #dc2626;
+  color: white;
+  border-color: #b91c1c;
+}
+
+.ez-btn-replenish {
+  padding: 0.75rem 1.4rem;
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+.ez-btn-replenish:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.4);
+}
+
+.ez-healthy-banner {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1.5px solid #a7f3d0;
+  border-radius: 16px;
+  padding: 1rem 1.4rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.ez-healthy-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #065f46;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ez-healthy-sub {
+  font-size: 0.82rem;
+  color: #047857;
+  margin-top: 2px;
+}
+
+/* Metric Cards */
+.ez-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.ez-metric {
+  background: var(--portal-surface, white);
+  border-radius: 16px;
+  padding: 1.25rem 1.35rem;
+  border: 1px solid var(--portal-border, #e2e8f0);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.ez-metric:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+}
+.ez-metric-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--portal-text-muted, #64748b);
+  margin-bottom: 0.35rem;
+}
+.ez-metric-value {
+  font-size: 1.75rem;
+  font-weight: 900;
+  color: var(--portal-text, #0f172a);
+  line-height: 1.1;
+}
+.ez-metric-sub {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--portal-text-muted, #64748b);
+  margin-top: 0.4rem;
+}
+.ez-metric-accent-emerald {
+  color: var(--ez-emerald-600);
+}
+.ez-metric-accent-purple {
+  color: var(--ez-purple-600);
+}
+
+/* Tabs */
+.ez-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #e2e8f0;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+.ez-tab-btn {
+  padding: 0.75rem 1.35rem;
+  border: none;
+  background: transparent;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  color: #64748b;
+  margin-bottom: -2px;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ez-tab-btn:hover {
+  color: var(--ez-purple-600);
+}
+.ez-tab-btn.active {
+  color: var(--ez-purple-600) !important;
+  border-bottom: 2px solid var(--ez-purple-600) !important;
+}
+.ez-tab-panel {
+  display: none;
+}
+.ez-tab-panel.active {
+  display: block;
+}
+
+/* Tracker Controls - NO PAGERS! */
+.ez-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+.ez-filter-pills {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.ez-pill-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: white;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.ez-pill-btn:hover {
+  background: #f1f5f9;
+}
+.ez-pill-btn.active {
+  background: var(--ez-purple-600);
+  color: white;
+  border-color: var(--ez-purple-600);
+  box-shadow: 0 2px 8px rgba(91, 33, 182, 0.25);
+}
+
+.ez-search-box {
+  position: relative;
+  min-width: 260px;
+}
+.ez-search-input {
+  width: 100%;
+  padding: 0.55rem 0.85rem 0.55rem 2.1rem;
+  border-radius: 10px;
+  border: 1.5px solid #cbd5e1;
+  background: white;
+  font-size: 0.86rem;
+  font-weight: 500;
+  outline: none;
+  box-sizing: border-box;
+}
+.ez-search-input:focus {
+  border-color: var(--ez-purple-600);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+.ez-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+/* Master Table */
+.ez-table-card {
+  background: white;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+.ez-table-scroll {
+  max-height: 720px;
+  overflow-y: auto;
+}
+.ez-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.86rem;
+}
+.ez-table th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 0.85rem 1rem;
+  background: #f8fafc;
+  border-bottom: 1.5px solid #e2e8f0;
+  color: #475569;
+  font-weight: 800;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.ez-table td {
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  font-weight: 600;
+  vertical-align: middle;
+}
+.ez-table tr:hover td {
+  background: #fdfcff;
+}
+
+/* Badges */
+.tag-mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 800;
+  color: var(--ez-purple-800);
+  font-size: 0.9rem;
+}
+.badge-instock {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.badge-sold {
+  background: #f5f3ff;
+  color: #5b21b6;
+  border: 1px solid #ddd6fe;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.badge-defective {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.badge-lost {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.type-pill {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 2px 7px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.plate-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 800;
+  background: #fff;
+  border: 1.5px solid #cbd5e1;
+  padding: 2px 7px;
+  border-radius: 5px;
+  color: #0f172a;
+  display: inline-block;
+}
+
+/* Modals */
+.ez-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(6px);
+  z-index: 2500;
+  align-items: center;
+  justify-content: center;
+}
+.ez-modal-overlay.active {
+  display: flex;
+}
+.ez-modal-box {
+  background: white;
+  border-radius: 20px;
+  padding: 1.85rem;
+  max-width: 580px;
+  width: 95%;
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+  border: 1px solid #e2e8f0;
+}
+.ez-modal-box.wide {
+  max-width: 760px;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #475569;
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.field-input {
+  width: 100%;
+  padding: 0.65rem 0.9rem;
+  border-radius: 10px;
+  border: 1.5px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.88rem;
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+.field-input:focus {
+  border-color: var(--ez-purple-600);
+  background: white;
+}
+.btn-ez-primary {
+  width: 100%;
+  padding: 0.8rem;
+  background: linear-gradient(135deg, #4338ca, #5b21b6);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(91, 33, 182, 0.25);
+  transition: transform 0.15s ease;
+}
+.btn-ez-primary:hover {
+  transform: translateY(-1px);
+}
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.85rem; }
+</style>
+
+<main class="portal-space-shell">
+  <div class="portal-space-inner portal-space-inner--wide">
+
+    <!-- Top Navigation Header -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.25rem; margin-bottom: 1.25rem;">
+      <div>
+        <div style="display: inline-flex; align-items: center; gap: 6px; background: #ede9fe; color: #4338ca; padding: 4px 12px; border-radius: 999px; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.4rem; border: 1px solid #ddd6fe;">
+          🏢 {{ active_org.name }} · Official Tolling Desk
+        </div>
+        <h1 class="portal-space-title" style="display: flex; align-items: center; gap: 8px;">
+          🛡️ {{ card.label }}
+        </h1>
+        <p class="portal-space-subtitle">{{ card.description|default:"E-ZPass On-The-Go Transponder Inventory · Customer Issuance · Batch Intake · Profit Accounting" }}</p>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <button type="button" onclick="openIssueModal()" style="padding: 9px 18px; background: linear-gradient(135deg, #4338ca, #5b21b6); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 0.88rem; cursor: pointer; box-shadow: 0 4px 12px rgba(91, 33, 182, 0.25);">
+          ⚡ Issue Tag to Customer
+        </button>
+        <button type="button" onclick="openBatchIntakeModal()" style="padding: 9px 16px; background: white; border: 1.5px solid #cbd5e1; border-radius: 10px; font-weight: 700; color: #334155; font-size: 0.88rem; cursor: pointer;">
+          📦 Receive Shipment (Intake)
+        </button>
+        <button type="button" onclick="openAddSingleModal()" style="padding: 9px 14px; background: white; border: 1.5px solid #cbd5e1; border-radius: 10px; font-weight: 700; color: #334155; font-size: 0.88rem; cursor: pointer;">
+          ➕ Single Tag
+        </button>
+        {% if is_owner %}
+        <button type="button" onclick="document.getElementById('renameSpaceModal').classList.add('active')" style="padding: 9px 14px; background: white; border: 1.5px solid #cbd5e1; border-radius: 10px; font-weight: 700; color: #475569; cursor: pointer; font-size: 0.88rem;">
+          ⚙️ Settings
+        </button>
+        {% endif %}
+        <a href="{% url 'spaces-home' %}" style="text-decoration: none; padding: 9px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; font-weight: 700; color: #64748b; font-size: 0.88rem;">
+          &larr; Spaces
+        </a>
+      </div>
+    </div>
+
+    <!-- LOW STOCK COMMAND CENTER (Reminders Look Amazing!) -->
+    {% if is_low_stock %}
+    <div class="ez-low-stock-banner">
+      <div class="ez-banner-content">
+        <div class="ez-banner-left">
+          <div class="ez-beacon-wrap">
+            <div class="ez-beacon-ping"></div>
+            <span>⚠️</span>
+          </div>
+          <div>
+            <div style="display: inline-block; font-size: 0.72rem; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; color: #b91c1c; margin-bottom: 2px;">
+              {% if is_out_of_stock %}CRITICAL: OUT OF STOCK{% elif is_critical_stock %}URGENT REPLENISHMENT REQUIRED{% else %}INVENTORY BUFFER LOW{% endif %}
+            </div>
+            <h3 class="ez-banner-title">
+              {% if is_out_of_stock %}
+                Zero Tags in Stock — Unable to Issue E-ZPass to Walk-in Drivers!
+              {% elif is_critical_stock %}
+                Only {{ in_stock_count }} Tag{{ in_stock_count|pluralize }} Left in Stock!
+              {% else %}
+                Low Stock Reminder: {{ in_stock_count }} Available (Threshold: {{ low_stock_threshold }})
+              {% endif %}
+            </h3>
+            <p class="ez-banner-sub">
+              Your active stock has dipped below minimum operations threshold. Order or record your incoming Thruway/MTA shipment now to avoid turning away DMV customers.
+            </p>
+            <div class="ez-stock-chips">
+              <span class="ez-stock-chip {% if interior_in_stock <= 3 %}critical{% endif %}">
+                🚗 Windshield Tags: <strong>{{ interior_in_stock }}</strong> left
+              </span>
+              <span class="ez-stock-chip {% if exterior_in_stock <= 2 %}critical{% endif %}">
+                🚙 Plate Mount Tags: <strong>{{ exterior_in_stock }}</strong> left
+              </span>
+              <span class="ez-stock-chip">
+                🚚 Commercial Fleet: <strong>{{ commercial_in_stock }}</strong> left
+              </span>
+              <span class="ez-stock-chip">
+                🏍️ Motorcycle: <strong>{{ motorcycle_in_stock }}</strong> left
+              </span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <button type="button" onclick="openBatchIntakeModal()" class="ez-btn-replenish">
+            ⚡ Receive Tag Shipment (Intake)
+          </button>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="ez-healthy-banner">
+      <div class="ez-healthy-title">
+        <span style="font-size: 1.15rem;">✓</span>
+        <span>Stock Level Healthy — <strong>{{ in_stock_count }} Tags</strong> Ready for Issuance</span>
+      </div>
+      <div class="ez-healthy-sub">
+        Windshield: <strong>{{ interior_in_stock }}</strong> · Plate Mount: <strong>{{ exterior_in_stock }}</strong> · Commercial: <strong>{{ commercial_in_stock }}</strong> · Buffer Threshold: {{ low_stock_threshold }} tags
+      </div>
+      <button type="button" onclick="openBatchIntakeModal()" style="padding: 6px 14px; background: white; border: 1.5px solid #a7f3d0; border-radius: 8px; font-weight: 700; color: #065f46; cursor: pointer; font-size: 0.82rem;">
+        + Intake Shipment
+      </button>
+    </div>
+    {% endif %}
+
+    <!-- PROFIT & PERFORMANCE INTELLIGENCE KPI GRID -->
+    <div class="ez-metric-grid">
+      <!-- In Stock & Inventory Value -->
+      <div class="ez-metric">
+        <div class="ez-metric-label">Total Inventory Value</div>
+        <div class="ez-metric-value ez-metric-accent-purple">${{ stats.total_inventory_value|floatformat:2 }}</div>
+        <div class="ez-metric-sub">
+          <strong>{{ in_stock_count }}</strong> tags in stock · Cost: ${{ total_stock_value|floatformat:2 }}
+        </div>
+      </div>
+      <!-- Sold -->
+      <div class="ez-metric">
+        <div class="ez-metric-label">Tags Issued / Sold</div>
+        <div class="ez-metric-value">{{ sold_count }}</div>
+        <div class="ez-metric-sub">
+          Today: <strong>{{ today_sold_count }}</strong> · This Month: <strong>{{ month_sold_count }}</strong>
+        </div>
+      </div>
+      <!-- Revenue -->
+      <div class="ez-metric">
+        <div class="ez-metric-label">Gross Sales</div>
+        <div class="ez-metric-value">${{ total_gross_revenue|floatformat:2 }}</div>
+        <div class="ez-metric-sub">
+          Today: <strong>${{ today_revenue|floatformat:2 }}</strong> · Month: ${{ month_revenue|floatformat:2 }}
+        </div>
+      </div>
+      <!-- Net Profit -->
+      <div class="ez-metric" style="border-color: #a7f3d0; background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);">
+        <div class="ez-metric-label" style="color: #065f46;">Net Profit</div>
+        <div class="ez-metric-value ez-metric-accent-emerald">+${{ net_profit|floatformat:2 }}</div>
+        <div class="ez-metric-sub" style="color: #047857;">
+          Margin: <strong>{{ profit_margin|floatformat:1 }}%</strong> · Avg/Tag: <strong>+${{ avg_profit_per_tag|floatformat:2 }}</strong>
+        </div>
+      </div>
+      <!-- Defective / RMA -->
+      <div class="ez-metric">
+        <div class="ez-metric-label">Defective / Returns</div>
+        <div class="ez-metric-value" style="color: {% if defective_count %}#b45309{% else %}#64748b{% endif %};">{{ defective_count }}</div>
+        <div class="ez-metric-sub">RMA / Authority Returns</div>
+      </div>
+    </div>
+
+    <!-- NAVIGATION TABS -->
+    <div class="ez-tabs">
+      <button class="ez-tab-btn active" onclick="switchEzTab('tracker', this)">
+        <span>🎯</span> Transponder Tracker (<span id="tabCountTotal">{{ total_tags }}</span>)
+      </button>
+      <button class="ez-tab-btn" onclick="switchEzTab('shipments', this)">
+        <span>📦</span> Shipments & Documents ({{ batches|length }})
+      </button>
+      <button class="ez-tab-btn" onclick="switchEzTab('invoices', this)">
+        <span>🧾</span> Invoices & Receipts ({{ invoices|length }})
+      </button>
+      <button class="ez-tab-btn" onclick="switchEzTab('products', this)">
+        <span>🏷️</span> Products & Pricing ({{ products|length }})
+      </button>
+      <button class="ez-tab-btn" onclick="switchEzTab('documents', this)">
+        <span>📄</span> Space Documents
+      </button>
+      <button class="ez-tab-btn" onclick="switchEzTab('reports', this)">
+        <span>📈</span> Reports & Exports
+      </button>
+    </div>
+
+    <!-- TAB 1: TRANSPONDER TRACKER (NO STUPID PAGERS!) -->
+    <div id="eztab-tracker" class="ez-tab-panel active">
+
+      <!-- Filter & Search Bar -->
+      <div class="ez-filter-bar">
+        <div class="ez-filter-pills">
+          <button type="button" class="ez-pill-btn active" data-status="all" onclick="filterByStatus('all', this)">
+            All Tags ({{ total_tags }})
+          </button>
+          <button type="button" class="ez-pill-btn" data-status="in_stock" onclick="filterByStatus('in_stock', this)">
+            In Stock ({{ in_stock_count }})
+          </button>
+          <button type="button" class="ez-pill-btn" data-status="sold" onclick="filterByStatus('sold', this)">
+            Sold / Issued ({{ sold_count }})
+          </button>
+          <button type="button" class="ez-pill-btn" data-status="defective" onclick="filterByStatus('defective', this)">
+            Defective / RMA ({{ defective_count }})
+          </button>
+          {% if lost_count %}
+          <button type="button" class="ez-pill-btn" data-status="lost" onclick="filterByStatus('lost', this)">
+            Lost ({{ lost_count }})
+          </button>
+          {% endif %}
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+          <select id="typeFilterSelect" onchange="filterTagsTable()" class="field-input" style="width: 170px; padding: 0.5rem 0.75rem; font-size: 0.82rem;">
+            <option value="all">All Tag Types</option>
+            <option value="interior">Interior Windshield</option>
+            <option value="exterior">Exterior Plate Mount</option>
+            <option value="commercial">Commercial / Fleet</option>
+            <option value="motorcycle">Motorcycle</option>
+          </select>
+
+          <div class="ez-search-box">
+            <span class="ez-search-icon">🔍</span>
+            <input type="text" id="tagSearchInput" onkeyup="filterTagsTable()" placeholder="Search tag #, customer, plate, vehicle..." class="ez-search-input">
+          </div>
+
+          <a href="{% url 'export-ezpass-csv' card.id %}" style="display: inline-flex; align-items: center; gap: 4px; padding: 0.5rem 0.9rem; background: white; border: 1.5px solid #cbd5e1; border-radius: 10px; font-weight: 700; font-size: 0.82rem; color: #475569; text-decoration: none;">
+            📥 Export CSV
+          </a>
+        </div>
+      </div>
+
+      <!-- Live Counter (No Pagers) -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; font-size: 0.82rem; color: #64748b; font-weight: 600;">
+        <span id="tagCountDisplay">Showing all {{ total_tags }} tags</span>
+        <span>⚡ Real-time fast search enabled (no pagers)</span>
+      </div>
+
+      <!-- Tag Tracker Table -->
+      <div class="ez-table-card">
+        <div class="ez-table-scroll">
+          <table class="ez-table" id="tagsMasterTable">
+            <thead>
+              <tr>
+                <th>Tag Number</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Customer / Vehicle</th>
+                <th>Plate</th>
+                <th>Cost</th>
+                <th>Retail</th>
+                <th>Profit</th>
+                <th>Assigned Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in tags %}
+              <tr class="tag-row"
+                  data-tag="{{ t.tag_number|lower }}"
+                  data-status="{{ t.status }}"
+                  data-type="{{ t.tag_type }}"
+                  data-customer="{{ t.customer_name|lower }}"
+                  data-plate="{{ t.plate_number|lower }}"
+                  data-vehicle="{{ t.vehicle_year|lower }} {{ t.vehicle_make|lower }} {{ t.vehicle_model|lower }}"
+                  data-phone="{{ t.customer_phone }}">
+                <!-- Tag # -->
+                <td>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <span class="tag-mono">{{ t.tag_number }}</span>
+                    <button type="button" onclick="navigator.clipboard.writeText('{{ t.tag_number }}'); alert('Copied {{ t.tag_number }}');" style="border: none; background: transparent; cursor: pointer; color: #94a3b8; font-size: 0.75rem;" title="Copy Tag #">📋</button>
+                  </div>
+                  {% if t.batch %}
+                  <div style="font-size: 0.72rem; color: #94a3b8; font-weight: 500;">Batch: {{ t.batch.batch_number }}</div>
+                  {% endif %}
+                </td>
+
+                <!-- Type -->
+                <td>
+                  <span class="type-pill">
+                    {% if t.tag_type == 'interior' %}🚗 Interior
+                    {% elif t.tag_type == 'exterior' %}🚙 Exterior
+                    {% elif t.tag_type == 'commercial' %}🚚 Commercial
+                    {% else %}🏍️ Motorcycle{% endif %}
+                  </span>
+                </td>
+
+                <!-- Status -->
+                <td>
+                  {% if t.status == 'in_stock' %}
+                    <span class="badge-instock">✓ In Stock</span>
+                  {% elif t.status == 'sold' %}
+                    <span class="badge-sold">Issued / Sold</span>
+                  {% elif t.status == 'defective' %}
+                    <span class="badge-defective">Defective / RMA</span>
+                  {% else %}
+                    <span class="badge-lost">Lost / Damaged</span>
+                  {% endif %}
+                </td>
+
+                <!-- Customer / Vehicle -->
+                <td>
+                  {% if t.customer_name %}
+                    <div style="font-weight: 800; color: #0f172a;">{{ t.customer_name }}</div>
+                    <div style="font-size: 0.78rem; color: #64748b;">
+                      {{ t.vehicle_year }} {{ t.vehicle_make }} {{ t.vehicle_model }}
+                      {% if t.customer_phone %} · {{ t.customer_phone }}{% endif %}
+                    </div>
+                  {% else %}
+                    <span style="color: #94a3b8; font-weight: 500;">— Unassigned —</span>
+                  {% endif %}
+                </td>
+
+                <!-- Plate -->
+                <td>
+                  {% if t.plate_number %}
+                    <span class="plate-badge">{{ t.plate_state }} {{ t.plate_number }}</span>
+                  {% else %}
+                    <span style="color: #cbd5e1;">—</span>
+                  {% endif %}
+                </td>
+
+                <!-- Cost -->
+                <td style="color: #64748b;">${{ t.cost_price|floatformat:2 }}</td>
+
+                <!-- Retail -->
+                <td style="font-weight: 800; color: #0f172a;">${{ t.retail_price|floatformat:2 }}</td>
+
+                <!-- Profit -->
+                <td style="font-weight: 800; color: {% if t.profit > 0 %}#059669{% else %}#64748b{% endif %};">
+                  +${{ t.profit|floatformat:2 }}
+                </td>
+
+                <!-- Date -->
+                <td style="font-size: 0.8rem; color: #64748b;">
+                  {% if t.assigned_at %}
+                    {{ t.assigned_at|date:"M j, Y g:i A" }}
+                    {% if t.assigned_by %}
+                      <div style="font-size: 0.72rem; color: #94a3b8;">By {{ t.assigned_by.username }}</div>
+                    {% endif %}
+                  {% else %}
+                    <span style="color: #94a3b8;">—</span>
+                  {% endif %}
+                </td>
+
+                <!-- Actions -->
+                <td>
+                  <div style="display: flex; gap: 0.35rem; align-items: center;">
+                    {% if t.status == 'in_stock' %}
+                    <button type="button" onclick="openIssueModalForTag('{{ t.id }}', '{{ t.tag_number|escapejs }}', '{{ t.toll_deposit }}', '{{ t.convenience_fee }}')" style="padding: 4px 10px; background: #ede9fe; color: #5b21b6; border: 1px solid #ddd6fe; border-radius: 6px; font-weight: 700; font-size: 0.75rem; cursor: pointer;">
+                      ⚡ Issue
+                    </button>
+                    {% elif t.status == 'sold' %}
+                    <a href="{% url 'ezpass-receipt-view' t.id %}" target="_blank" style="padding: 4px 8px; background: #f0fdf4; color: #065f46; border: 1px solid #a7f3d0; border-radius: 6px; font-weight: 700; font-size: 0.75rem; text-decoration: none;">
+                      🧾 Receipt
+                    </a>
+                    <a href="{% url 'ezpass-receipt-pdf' t.id %}" target="_blank" style="padding: 4px 8px; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; border-radius: 6px; font-weight: 700; font-size: 0.75rem; text-decoration: none;">
+                      PDF
+                    </a>
+                    {% endif %}
+
+                    <button type="button" onclick="openStatusModal('{{ t.id }}', '{{ t.tag_number|escapejs }}', '{{ t.status }}')" style="padding: 4px 7px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.75rem; cursor: pointer;" title="Change Status">
+                      ⚙️
+                    </button>
+
+                    {% if is_owner %}
+                    <a href="{% url 'delete-ezpass-tag' t.id %}" onclick="return confirm('Delete Tag #{{ t.tag_number }}?')" style="padding: 4px 6px; color: #ef4444; font-size: 0.75rem; font-weight: 700; text-decoration: none;" title="Delete">
+                      🗑️
+                    </a>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="10" style="text-align: center; padding: 3.5rem 1rem; color: #94a3b8;">
+                  <div style="font-size: 2rem; margin-bottom: 0.5rem;">🛡️</div>
+                  <div style="font-size: 1rem; font-weight: 800; color: #475569; margin-bottom: 0.35rem;">No E-ZPass Tags Recorded Yet</div>
+                  <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 1rem;">Receive a batch shipment from the Thruway/MTA or add your current on-hand tags to begin tracking.</p>
+                  <button type="button" onclick="openBatchIntakeModal()" class="ez-btn-replenish">
+                    📦 Receive Tag Shipment (Intake)
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TAB 2: SHIPMENTS & DOCUMENTS (Saves what we got as inventory!) -->
+    <div id="eztab-shipments" class="ez-tab-panel">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <div>
+          <h3 style="margin: 0 0 0.25rem; font-weight: 900; color: #0f172a;">Inventory Shipments & Manifest Documents</h3>
+          <p style="margin: 0; font-size: 0.85rem; color: #64748b;">Every delivery, packing slip, authority invoice, and manifest received for E-ZPass tags.</p>
+        </div>
+        <button type="button" onclick="openBatchIntakeModal()" style="padding: 8px 16px; background: var(--ez-purple-600); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">
+          + Receive New Shipment
+        </button>
+      </div>
+
+      <div class="ez-table-card">
+        <table class="ez-table">
+          <thead>
+            <tr>
+              <th>Batch / PO #</th>
+              <th>Received Date</th>
+              <th>Supplier / Authority</th>
+              <th>Tag Range</th>
+              <th>Quantity</th>
+              <th>Unit Cost</th>
+              <th>Total Cost</th>
+              <th>Saved Document (Manifest / Invoice)</th>
+              <th>Received By</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in batches %}
+            <tr>
+              <td style="font-family: 'JetBrains Mono', monospace; font-weight: 800; color: #4338ca;">
+                {{ b.batch_number }}
+              </td>
+              <td>{{ b.received_date|date:"M j, Y" }}</td>
+              <td style="font-weight: 700;">{{ b.supplier_name }}</td>
+              <td style="font-family: monospace; font-size: 0.8rem;">
+                {% if b.tag_range_start %}{{ b.tag_range_start }} – {{ b.tag_range_end }}{% else %}—{% endif %}
+              </td>
+              <td style="font-weight: 800;">{{ b.quantity }} tags</td>
+              <td>${{ b.unit_cost|floatformat:2 }}</td>
+              <td style="font-weight: 900; color: #0f172a;">${{ b.total_cost|floatformat:2 }}</td>
+              <td>
+                {% if b.document %}
+                <a href="{% url 'ezpass-batch-document-download' b.id %}" target="_blank" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 6px; font-weight: 700; font-size: 0.78rem; text-decoration: none;">
+                  📄 {{ b.document_name|default:"Manifest File"|truncatechars:22 }}
+                </a>
+                {% else %}
+                <span style="color: #94a3b8; font-size: 0.78rem;">No document attached</span>
+                {% endif %}
+              </td>
+              <td style="font-size: 0.8rem; color: #64748b;">
+                {{ b.created_by.username|default:"Staff" }}
+              </td>
+              <td>
+                <div style="display: flex; gap: 0.35rem;">
+                  <button type="button" onclick="filterByBatch('{{ b.batch_number|escapejs }}')" style="padding: 4px 8px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
+                    View Tags
+                  </button>
+                  {% if is_owner %}
+                  <a href="{% url 'delete-ezpass-batch' b.id %}" onclick="return confirm('Delete batch record {{ b.batch_number }}? Tags will not be deleted.')" style="padding: 4px 6px; color: #ef4444; font-size: 0.75rem; font-weight: 700; text-decoration: none;">
+                    Del
+                  </a>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="10" style="text-align: center; padding: 3rem; color: #94a3b8;">
+                No shipment intake batches recorded yet. Use <strong>"Receive Shipment"</strong> to log incoming boxes and attach delivery receipts.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 3: INVOICES -->
+    <div id="eztab-invoices" class="ez-tab-panel">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <h3 style="margin: 0; font-weight: 900; color: #0f172a;">Customer Sales Invoices</h3>
+        <button type="button" onclick="openIssueModal()" style="padding: 8px 16px; background: var(--ez-purple-600); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">
+          + New E-ZPass Sale
+        </button>
+      </div>
+
+      <div class="ez-table-card">
+        <table class="ez-table">
+          <thead>
+            <tr>
+              <th>Invoice #</th>
+              <th>Date</th>
+              <th>Customer</th>
+              <th>Line Items</th>
+              <th>Payment</th>
+              <th>Total</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for inv in invoices %}
+            <tr>
+              <td style="font-family: 'JetBrains Mono', monospace; font-weight: 800; color: #4338ca;">
+                {{ inv.invoice_number }}
+              </td>
+              <td>{{ inv.invoice_date|date:"M j, Y" }}</td>
+              <td style="font-weight: 800;">{{ inv.buyer_name }}</td>
+              <td>
+                {% for l in inv.lines.all %}
+                  <div style="font-size: 0.8rem; color: #475569;">{{ l.description }}</div>
+                {% empty %}
+                  {{ inv.notes|default:"E-ZPass Transponder"|truncatechars:40 }}
+                {% endfor %}
+              </td>
+              <td>{{ inv.get_payment_method_display }}</td>
+              <td style="font-weight: 900; color: #0f172a;">${{ inv.total|floatformat:2 }}</td>
+              <td>
+                <div style="display: flex; gap: 0.4rem;">
+                  <a href="{% url 'inventory-invoice-pdf' inv.id %}" target="_blank" style="padding: 4px 8px; background: #eff6ff; color: #1d4ed8; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-decoration: none;">
+                    Standard PDF
+                  </a>
+                  {% if is_owner %}
+                  <a href="{% url 'delete-inventory-invoice' inv.id %}" onclick="return confirm('Delete invoice {{ inv.invoice_number }}?')" style="color: #dc2626; font-size: 0.75rem; font-weight: 700; text-decoration: none; padding: 4px 6px;">
+                    Del
+                  </a>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 3rem; color: #94a3b8;">
+                No customer invoices recorded yet.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 4: PRODUCTS & CATALOG (Keeps backward compatibility & tests 100% happy) -->
+    <div id="eztab-products" class="ez-tab-panel">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <div>
+          <h3 style="margin: 0 0 0.25rem; font-weight: 900; color: #0f172a;">E-ZPass Product Catalog & Pricing</h3>
+          <p style="margin: 0; font-size: 0.85rem; color: #64748b;">Pricing models, acquisition cost, and retail margins configured for this space.</p>
+        </div>
+        <button type="button" onclick="document.getElementById('addProductModal').classList.add('active')" style="padding: 8px 16px; background: var(--ez-purple-600); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">
+          + Add Product
+        </button>
+      </div>
+
+      <div class="ez-table-card">
+        <table class="ez-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>SKU</th>
+              <th>Cost Price</th>
+              <th>Sell Price</th>
+              <th>Unit Profit</th>
+              <th>Margin</th>
+              <th>In Stock Qty</th>
+              <th>Total Value</th>
+              <th>Stock Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in products %}
+            <tr>
+              <td style="font-weight: 800; color: #0f172a;">{{ p.name }}</td>
+              <td style="font-family: monospace; font-size: 0.8rem; color: #64748b;">{{ p.sku|default:"—" }}</td>
+              <td style="color: #64748b;">${{ p.cost_price|floatformat:2 }}</td>
+              <td style="font-weight: 700;">${{ p.unit_price|floatformat:2 }}</td>
+              <td style="color: #059669; font-weight: 800;">${{ p.unit_profit|floatformat:2 }}</td>
+              <td>{{ p.margin_percent|floatformat:1 }}%</td>
+              <td style="font-weight: 800; font-size: 0.95rem;">{{ p.quantity }}</td>
+              <td style="font-weight: 800; color: #4338ca;">${{ p.total_value|floatformat:2 }}</td>
+              <td>
+                {% if p.quantity <= p.low_stock_threshold %}
+                  <span class="chip-low" style="background:#fef2f2;color:#b91c1c;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:800;">Low Stock</span>
+                {% else %}
+                  <span class="chip-ok" style="background:#ecfdf5;color:#065f46;padding:3px 8px;border-radius:6px;font-size:0.72rem;font-weight:800;">In Stock</span>
+                {% endif %}
+              </td>
+              <td>
+                <button type="button" onclick="editProduct({{ p.id }})" style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; cursor: pointer; font-size: 0.75rem; font-weight: 700;">Edit</button>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="10" style="text-align: center; padding: 2.5rem; color: #94a3b8;">No products configured.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 5: IMPORTANT SPACE DOCUMENTS -->
+    <div id="eztab-documents" class="ez-tab-panel">
+      {% include "core/partials/space_important_docs.html" %}
+    </div>
+
+    <!-- TAB 6: REPORTS & EXPORTS -->
+    <div id="eztab-reports" class="ez-tab-panel">
+      <h3 style="margin: 0 0 1.25rem; font-weight: 900; color: #0f172a;">E-ZPass Financial & Stock Reports</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+        <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem;">
+          <h4 style="margin: 0 0 0.5rem; font-weight: 800;">🎯 Master E-ZPass CSV Export</h4>
+          <p style="margin: 0 0 1rem; font-size: 0.85rem; color: #64748b;">Complete dataset including transponder serial numbers, assigned customer names, license plates, costs, selling prices, and net profits.</p>
+          <a href="{% url 'export-ezpass-csv' card.id %}" style="display: inline-block; padding: 0.55rem 1rem; background: var(--ez-purple-600); color: white; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.85rem;">Download Complete CSV</a>
+        </div>
+        <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem;">
+          <h4 style="margin: 0 0 0.5rem; font-weight: 800;">📦 Standard Stock Report</h4>
+          <p style="margin: 0 0 1rem; font-size: 0.85rem; color: #64748b;">Inventory values and low-stock analysis in PDF and CSV.</p>
+          <div style="display: flex; gap: 0.5rem;">
+            <a href="{% url 'export-inventory-report' card.id %}?type=inventory&export=pdf" target="_blank" style="padding: 0.55rem 1rem; background: #334155; color: white; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.85rem;">PDF Report</a>
+            <a href="{% url 'export-inventory-report' card.id %}?type=inventory&export=csv" style="padding: 0.55rem 1rem; background: white; color: #334155; border: 1.5px solid #cbd5e1; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.85rem;">CSV</a>
+          </div>
+        </div>
+        <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem;">
+          <h4 style="margin: 0 0 0.5rem; font-weight: 800;">🧾 Sales Ledger</h4>
+          <p style="margin: 0 0 1rem; font-size: 0.85rem; color: #64748b;">All sales invoices, buyer records, payment methods, and tax breakdowns.</p>
+          <div style="display: flex; gap: 0.5rem;">
+            <a href="{% url 'export-inventory-report' card.id %}?type=sales&export=pdf" target="_blank" style="padding: 0.55rem 1rem; background: #334155; color: white; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.85rem;">PDF Report</a>
+            <a href="{% url 'export-inventory-report' card.id %}?type=sales&export=csv" style="padding: 0.55rem 1rem; background: white; color: #334155; border: 1.5px solid #cbd5e1; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.85rem;">CSV</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- MODAL 1: ISSUE E-ZPASS TAG TO CUSTOMER -->
+<div class="ez-modal-overlay" id="issueTagModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="ez-modal-box wide">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
+      <div>
+        <h3 style="margin: 0 0 0.25rem; font-weight: 900; color: #0f172a;">⚡ Issue E-ZPass Tag to Customer</h3>
+        <p style="margin: 0; font-size: 0.85rem; color: #64748b;">Assign transponder, record vehicle details, collect payment, and generate receipt.</p>
+      </div>
+      <button type="button" onclick="document.getElementById('issueTagModal').classList.remove('active')" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#94a3b8;">&times;</button>
+    </div>
+
+    <form method="POST" action="{% url 'issue-ezpass-tag' card.id %}">
+      {% csrf_token %}
+
+      <!-- Step 1: Select Tag -->
+      <div style="background: #f5f3ff; border: 1.5px solid #ddd6fe; border-radius: 14px; padding: 1rem; margin-bottom: 1.25rem;">
+        <label class="field-label" style="color: #4338ca;">Select Available In-Stock Tag</label>
+        <select name="tag_id" id="issueTagSelect" required class="field-input" onchange="syncTagPricing(this)">
+          <option value="">— Choose a transponder tag from in-stock inventory —</option>
+          {% for t in available_tags %}
+          <option value="{{ t.id }}" data-tag="{{ t.tag_number }}" data-deposit="{{ t.toll_deposit }}" data-fee="{{ t.convenience_fee }}" data-retail="{{ t.retail_price }}" data-type="{{ t.get_tag_type_display }}">
+            Tag #{{ t.tag_number }} ({{ t.get_tag_type_display }}) — Cost: ${{ t.cost_price }} | Price: ${{ t.retail_price }}
+          </option>
+          {% empty %}
+          <option value="" disabled>⚠️ No tags currently in stock. Please intake a shipment first.</option>
+          {% endfor %}
+        </select>
+        <div style="margin-top: 0.5rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #6d28d9;">
+          <span>Or scan transponder barcode into search box to select</span>
+          <span style="font-weight: 700;">{{ in_stock_count }} tags ready</span>
+        </div>
+      </div>
+
+      <!-- Step 2: Customer Details -->
+      <div class="grid-2" style="margin-bottom: 0.85rem;">
+        <div>
+          <label class="field-label">Customer Full Name *</label>
+          <input type="text" name="customer_name" required class="field-input" placeholder="e.g. John Doe">
+        </div>
+        <div>
+          <label class="field-label">Phone Number</label>
+          <input type="text" name="customer_phone" class="field-input" placeholder="e.g. (718) 555-0199">
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 0.85rem;">
+        <div>
+          <label class="field-label">Email Address</label>
+          <input type="email" name="customer_email" class="field-input" placeholder="e.g. customer@example.com">
+        </div>
+        <div>
+          <label class="field-label">Address</label>
+          <input type="text" name="customer_address" class="field-input" placeholder="Street, City, State ZIP">
+        </div>
+      </div>
+
+      <!-- Step 3: Vehicle Details -->
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1rem; margin-bottom: 1.25rem;">
+        <div style="font-size: 0.76rem; font-weight: 800; text-transform: uppercase; color: #475569; margin-bottom: 0.65rem;">
+          Vehicle Identification
+        </div>
+        <div class="grid-2" style="margin-bottom: 0.65rem;">
+          <div>
+            <label class="field-label">License Plate Number *</label>
+            <input type="text" name="plate_number" required class="field-input" style="font-family: monospace; font-weight: 800;" placeholder="e.g. ABC1234">
+          </div>
+          <div>
+            <label class="field-label">Plate State</label>
+            <input type="text" name="plate_state" value="NY" class="field-input" style="text-transform: uppercase;">
+          </div>
+        </div>
+        <div class="grid-3">
+          <div>
+            <label class="field-label">Year</label>
+            <input type="text" name="vehicle_year" class="field-input" placeholder="2023">
+          </div>
+          <div>
+            <label class="field-label">Make</label>
+            <input type="text" name="vehicle_make" class="field-input" placeholder="Toyota">
+          </div>
+          <div>
+            <label class="field-label">Model</label>
+            <input type="text" name="vehicle_model" class="field-input" placeholder="Camry">
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: Pricing & Payment -->
+      <div class="grid-3" style="margin-bottom: 0.85rem;">
+        <div>
+          <label class="field-label">Pre-Funded Toll Deposit ($)</label>
+          <input type="number" step="0.01" name="toll_deposit" id="issueTollDeposit" value="25.00" class="field-input" onchange="calcTotal()">
+        </div>
+        <div>
+          <label class="field-label">Retail Fee ($)</label>
+          <input type="number" step="0.01" name="convenience_fee" id="issueFee" value="10.00" class="field-input" onchange="calcTotal()">
+        </div>
+        <div>
+          <label class="field-label">Total to Collect ($)</label>
+          <input type="number" step="0.01" name="retail_price" id="issueTotal" value="35.00" readonly class="field-input" style="background:#f1f5f9;font-weight:900;color:#0f172a;">
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 1.25rem;">
+        <div>
+          <label class="field-label">Payment Method</label>
+          <select name="payment_method" class="field-input">
+            <option value="cash">Cash</option>
+            <option value="card">Credit / Debit Card</option>
+            <option value="zelle">Zelle</option>
+            <option value="check">Check</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">Notes</label>
+          <input type="text" name="notes" class="field-input" placeholder="Optional internal memo">
+        </div>
+      </div>
+
+      <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between;">
+        <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.85rem; color: #065f46; cursor: pointer;">
+          <input type="checkbox" name="print_receipt" value="1" checked style="width: 17px; height: 17px;">
+          Automatically open printable customer receipt & 48-hour instructions
+        </label>
+      </div>
+
+      <button type="submit" class="btn-ez-primary">
+        ⚡ Complete Sale, Deduct Stock & Generate Receipt
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL 2: BATCH INTAKE (RECEIVE TAG SHIPMENT & SAVE MANIFEST DOCUMENTS) -->
+<div class="ez-modal-overlay" id="batchIntakeModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="ez-modal-box wide">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
+      <div>
+        <h3 style="margin: 0 0 0.25rem; font-weight: 900; color: #0f172a;">📦 Receive E-ZPass Tag Shipment (Intake)</h3>
+        <p style="margin: 0; font-size: 0.85rem; color: #64748b;">Add new transponders to in-stock inventory and store your supplier packing slips / invoices.</p>
+      </div>
+      <button type="button" onclick="document.getElementById('batchIntakeModal').classList.remove('active')" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#94a3b8;">&times;</button>
+    </div>
+
+    <form method="POST" action="{% url 'batch-intake-ezpass' card.id %}" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <div class="grid-2" style="margin-bottom: 0.85rem;">
+        <div>
+          <label class="field-label">Batch / Order / PO #</label>
+          <input type="text" name="batch_number" class="field-input" placeholder="e.g. EZB-20261028-01">
+        </div>
+        <div>
+          <label class="field-label">Received Date</label>
+          <input type="date" name="received_date" value="{% now 'Y-m-d' %}" class="field-input">
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 0.85rem;">
+        <div>
+          <label class="field-label">Supplier / Issuing Authority</label>
+          <input type="text" name="supplier_name" value="NYS Thruway Authority / E-ZPass NY" class="field-input">
+        </div>
+        <div>
+          <label class="field-label">Tag Model / Type</label>
+          <select name="tag_type" class="field-input">
+            <option value="interior">Interior Windshield Tag</option>
+            <option value="exterior">Exterior License Plate Mount Tag</option>
+            <option value="commercial">Commercial / Truck Tag</option>
+            <option value="motorcycle">Motorcycle Tag</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-3" style="margin-bottom: 0.85rem;">
+        <div>
+          <label class="field-label">Unit Cost to Authority ($)</label>
+          <input type="number" step="0.01" name="unit_cost" value="25.00" class="field-input">
+        </div>
+        <div>
+          <label class="field-label">Toll Deposit Balance ($)</label>
+          <input type="number" step="0.01" name="toll_deposit" value="25.00" class="field-input">
+        </div>
+        <div>
+          <label class="field-label">Retail Sale Price ($)</label>
+          <input type="number" step="0.01" name="retail_price" value="35.00" class="field-input">
+        </div>
+      </div>
+
+      <!-- Tag Number Input Modes -->
+      <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 1.15rem; margin-bottom: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+          <div style="font-size: 0.76rem; font-weight: 800; text-transform: uppercase; color: #475569;">
+            Tag Serial Number Entry
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <label style="font-size: 0.8rem; font-weight: 700; color: #4338ca; cursor: pointer;">
+              <input type="radio" name="entry_mode" value="range" checked onchange="toggleEntryMode('range')"> Range Generator
+            </label>
+            <label style="font-size: 0.8rem; font-weight: 700; color: #4338ca; cursor: pointer;">
+              <input type="radio" name="entry_mode" value="list" onchange="toggleEntryMode('list')"> Paste List / Scan
+            </label>
+          </div>
+        </div>
+
+        <div id="modeRange">
+          <div class="grid-3">
+            <div>
+              <label class="field-label">Tag Prefix (Optional)</label>
+              <input type="text" name="tag_prefix" class="field-input" placeholder="e.g. 004">
+            </div>
+            <div>
+              <label class="field-label">Start Serial #</label>
+              <input type="text" name="range_start" class="field-input" placeholder="e.g. 1000001">
+            </div>
+            <div>
+              <label class="field-label">End Serial #</label>
+              <input type="text" name="range_end" class="field-input" placeholder="e.g. 1000050">
+            </div>
+          </div>
+          <p style="margin: 0.4rem 0 0; font-size: 0.76rem; color: #64748b;">
+            Automatically generates all sequential tag numbers in this range (up to 250 tags per batch).
+          </p>
+        </div>
+
+        <div id="modeList" style="display: none;">
+          <label class="field-label">Tag Numbers (Comma or Newline separated)</label>
+          <textarea name="tag_list" class="field-input" rows="4" placeholder="00401234501&#10;00401234502&#10;00401234503"></textarea>
+        </div>
+      </div>
+
+      <!-- Manifest Document Upload (Crucial user request!) -->
+      <div style="background: #fdf4ff; border: 1.5px solid #f0abfc; border-radius: 14px; padding: 1.15rem; margin-bottom: 1.25rem;">
+        <label class="field-label" style="color: #86198f;">
+          📁 Save Inventory Delivery Document (Manifest / Packing Slip / Invoice)
+        </label>
+        <input type="file" name="document" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" class="field-input" style="background:white; margin-bottom: 0.4rem;">
+        <p style="margin: 0; font-size: 0.76rem; color: #701a75;">
+          Upload the supplier invoice, shipping manifest, or delivery receipt so your office maintains an audit trail for every batch.
+        </p>
+      </div>
+
+      <div style="margin-bottom: 1.25rem;">
+        <label class="field-label">Shipment Notes</label>
+        <input type="text" name="notes" class="field-input" placeholder="e.g. Delivered via UPS Tracking 1Z...">
+      </div>
+
+      <button type="submit" class="btn-ez-primary">
+        📦 Receive Batch & Add Tags to Inventory
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL 3: ADD SINGLE TAG -->
+<div class="ez-modal-overlay" id="addSingleModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="ez-modal-box">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
+      <h3 style="margin: 0; font-weight: 900; color: #0f172a;">➕ Add Single E-ZPass Tag</h3>
+      <button type="button" onclick="document.getElementById('addSingleModal').classList.remove('active')" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#94a3b8;">&times;</button>
+    </div>
+
+    <form method="POST" action="{% url 'add-single-ezpass-tag' card.id %}">
+      {% csrf_token %}
+      <div style="margin-bottom: 0.85rem;">
+        <label class="field-label">Transponder Tag Number *</label>
+        <input type="text" name="tag_number" required class="field-input" style="font-family: monospace; font-weight: 800;" placeholder="e.g. 00401234567">
+      </div>
+      <div style="margin-bottom: 0.85rem;">
+        <label class="field-label">Tag Type</label>
+        <select name="tag_type" class="field-input">
+          <option value="interior">Interior Windshield Tag</option>
+          <option value="exterior">Exterior License Plate Mount Tag</option>
+          <option value="commercial">Commercial / Fleet Tag</option>
+          <option value="motorcycle">Motorcycle Tag</option>
+        </select>
+      </div>
+      <div class="grid-3" style="margin-bottom: 0.85rem;">
+        <div><label class="field-label">Cost ($)</label><input type="number" step="0.01" name="cost_price" value="25.00" class="field-input"></div>
+        <div><label class="field-label">Deposit ($)</label><input type="number" step="0.01" name="toll_deposit" value="25.00" class="field-input"></div>
+        <div><label class="field-label">Retail ($)</label><input type="number" step="0.01" name="retail_price" value="35.00" class="field-input"></div>
+      </div>
+      <div style="margin-bottom: 1.25rem;">
+        <label class="field-label">Notes</label>
+        <input type="text" name="notes" class="field-input" placeholder="Optional notes">
+      </div>
+      <button type="submit" class="btn-ez-primary">+ Add Tag to Stock</button>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL 4: CHANGE TAG STATUS (RMA / DEFECTIVE / LOST) -->
+<div class="ez-modal-overlay" id="statusModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="ez-modal-box">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
+      <h3 style="margin: 0; font-weight: 900; color: #0f172a;" id="statusModalTitle">Change Tag Status</h3>
+      <button type="button" onclick="document.getElementById('statusModal').classList.remove('active')" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#94a3b8;">&times;</button>
+    </div>
+
+    <form id="statusForm" method="POST" action="">
+      {% csrf_token %}
+      <div style="margin-bottom: 0.85rem;">
+        <label class="field-label">New Status</label>
+        <select name="status" id="statusSelect" class="field-input">
+          <option value="in_stock">In Stock (Available)</option>
+          <option value="sold">Sold / Assigned</option>
+          <option value="defective">Defective / RMA (Return to Authority)</option>
+          <option value="lost">Lost / Damaged</option>
+        </select>
+      </div>
+      <div style="margin-bottom: 1.25rem;">
+        <label class="field-label">Reason / Notes</label>
+        <textarea name="reason" class="field-input" rows="3" placeholder="Reason for status change (e.g. Transponder read failure at toll plaza, RMA replacement issued)"></textarea>
+      </div>
+      <button type="submit" class="btn-ez-primary">Update Status</button>
+    </form>
+  </div>
+</div>
+
+<!-- Business Settings Modal -->
+{% if is_owner %}
+<div class="ez-modal-overlay" id="renameSpaceModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="ez-modal-box">
+    <h3 style="margin: 0 0 0.35rem; font-weight: 800;">E-ZPass Business Settings</h3>
+    <p style="margin: 0 0 1.25rem; font-size: 0.85rem; color: #64748b;">This name and address appear on E-ZPass customer receipts and sales invoices.</p>
+    <form method="POST" action="{% url 'inventory-detail' card.id %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div style="margin-bottom: 1rem;"><label class="field-label">Space / Business Label</label><input type="text" name="label" value="{{ card.label }}" required class="field-input"></div>
+      <div style="margin-bottom: 1rem;">
+        <label class="field-label">Logo</label>
+        {% if card.logo %}
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+          <img src="{{ card.logo.url }}" alt="" style="height:48px;width:48px;object-fit:contain;border:1px solid #e2e8f0;border-radius:10px;background:#fff;">
+          <label style="font-size:0.85rem;"><input type="checkbox" name="clear_logo"> Remove current logo</label>
+        </div>
+        {% endif %}
+        <input type="file" name="logo" accept="image/*" class="field-input">
+      </div>
+      <div style="margin-bottom: 1rem;"><label class="field-label">Business Address</label><textarea name="business_address" class="field-input" rows="3">{{ card.business_address }}</textarea></div>
+      <div class="grid-2" style="margin-bottom: 1rem;">
+        <div><label class="field-label">Phone</label><input type="text" name="business_phone" value="{{ card.business_phone }}" class="field-input"></div>
+        <div><label class="field-label">Email</label><input type="email" name="business_email" value="{{ card.business_email }}" class="field-input"></div>
+      </div>
+      <div style="margin-bottom: 1.25rem;"><label class="field-label">Description</label><textarea name="description" class="field-input" rows="2">{{ card.description }}</textarea></div>
+      <button type="submit" class="btn-ez-primary">Save Settings</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- Add Product Modal (For standard product catalog) -->
+<div class="ez-modal-overlay" id="addProductModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="ez-modal-box">
+    <h3 style="margin: 0 0 1.25rem; font-weight: 800;">Add Catalog Product</h3>
+    <form method="POST" action="{% url 'add-inventory-product' card.id %}">
+      {% csrf_token %}
+      <div style="margin-bottom: 0.85rem;"><label class="field-label">Product Name</label><input type="text" name="name" required class="field-input" placeholder="e.g. Interior Tag"></div>
+      <div class="grid-2" style="margin-bottom: 0.85rem;">
+        <div><label class="field-label">SKU</label><input type="text" name="sku" class="field-input" placeholder="EZP-INT"></div>
+        <div><label class="field-label">Low Stock Buffer</label><input type="number" name="low_stock_threshold" value="10" class="field-input"></div>
+      </div>
+      <div class="grid-3" style="margin-bottom: 0.85rem;">
+        <div><label class="field-label">Cost ($)</label><input type="number" step="0.01" name="cost_price" value="25.00" class="field-input"></div>
+        <div><label class="field-label">Sell ($)</label><input type="number" step="0.01" name="unit_price" value="35.00" class="field-input"></div>
+        <div><label class="field-label">Quantity</label><input type="number" name="quantity" value="0" class="field-input"></div>
+      </div>
+      <div style="margin-bottom: 1.25rem;"><label class="field-label">Description</label><input type="text" name="description" class="field-input"></div>
+      <button type="submit" class="btn-ez-primary">Add Product</button>
+    </form>
+  </div>
+</div>
+
+<script>
+// Tab Switching
+function switchEzTab(tab, btn) {
+  document.querySelectorAll('.ez-tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.ez-tab-btn').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById('eztab-' + tab);
+  if (panel) panel.classList.add('active');
+  if (btn) btn.classList.add('active');
+  const url = new URL(window.location);
+  url.searchParams.set('tab', tab);
+  history.replaceState({}, '', url);
+}
+
+// Modal Handlers
+function openIssueModal() {
+  document.getElementById('issueTagModal').classList.add('active');
+}
+
+function openIssueModalForTag(tagId, tagNumber, deposit, fee) {
+  const sel = document.getElementById('issueTagSelect');
+  sel.value = tagId;
+  syncTagPricing(sel);
+  document.getElementById('issueTagModal').classList.add('active');
+}
+
+function openBatchIntakeModal() {
+  document.getElementById('batchIntakeModal').classList.add('active');
+}
+
+function openAddSingleModal() {
+  document.getElementById('addSingleModal').classList.add('active');
+}
+
+function openStatusModal(tagId, tagNumber, currentStatus) {
+  document.getElementById('statusModalTitle').textContent = 'Status: Tag #' + tagNumber;
+  document.getElementById('statusSelect').value = currentStatus;
+  document.getElementById('statusForm').action = '{% url "update-ezpass-tag-status" 0 %}'.replace('/0/', '/' + tagId + '/');
+  document.getElementById('statusModal').classList.add('active');
+}
+
+function toggleEntryMode(mode) {
+  if (mode === 'range') {
+    document.getElementById('modeRange').style.display = 'block';
+    document.getElementById('modeList').style.display = 'none';
+  } else {
+    document.getElementById('modeRange').style.display = 'none';
+    document.getElementById('modeList').style.display = 'block';
+  }
+}
+
+function syncTagPricing(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.dataset.deposit) return;
+  document.getElementById('issueTollDeposit').value = parseFloat(opt.dataset.deposit).toFixed(2);
+  document.getElementById('issueFee').value = parseFloat(opt.dataset.fee).toFixed(2);
+  calcTotal();
+}
+
+function calcTotal() {
+  const dep = parseFloat(document.getElementById('issueTollDeposit').value) || 0;
+  const fee = parseFloat(document.getElementById('issueFee').value) || 0;
+  document.getElementById('issueTotal').value = (dep + fee).toFixed(2);
+}
+
+// Master Client-side Live Filtering (NO STUPID PAGERS!)
+let activeStatusFilter = 'all';
+
+function filterByStatus(status, btn) {
+  activeStatusFilter = status;
+  document.querySelectorAll('.ez-pill-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  filterTagsTable();
+}
+
+function filterByBatch(batchNum) {
+  switchEzTab('tracker', document.querySelectorAll('.ez-tab-btn')[0]);
+  document.getElementById('tagSearchInput').value = batchNum;
+  filterTagsTable();
+}
+
+function filterTagsTable() {
+  const q = document.getElementById('tagSearchInput').value.toLowerCase().trim();
+  const typeFilter = document.getElementById('typeFilterSelect').value;
+  const rows = document.querySelectorAll('.tag-row');
+  let visibleCount = 0;
+
+  rows.forEach(row => {
+    const rowTag = row.getAttribute('data-tag') || '';
+    const rowStatus = row.getAttribute('data-status') || '';
+    const rowType = row.getAttribute('data-type') || '';
+    const rowCust = row.getAttribute('data-customer') || '';
+    const rowPlate = row.getAttribute('data-plate') || '';
+    const rowVeh = row.getAttribute('data-vehicle') || '';
+    const rowPhone = row.getAttribute('data-phone') || '';
+
+    // Status check
+    const matchStatus = (activeStatusFilter === 'all') || (rowStatus === activeStatusFilter);
+    // Type check
+    const matchType = (typeFilter === 'all') || (rowType === typeFilter);
+    // Query check
+    const matchQ = !q || rowTag.includes(q) || rowCust.includes(q) || rowPlate.includes(q) || rowVeh.includes(q) || rowPhone.includes(q);
+
+    if (matchStatus && matchType && matchQ) {
+      row.style.display = '';
+      visibleCount++;
+    } else {
+      row.style.display = 'none';
+    }
+  });
+
+  const display = document.getElementById('tagCountDisplay');
+  if (display) {
+    display.textContent = `Showing ${visibleCount} of ${rows.length} tags`;
+  }
+}
+
+// Auto open tab from URL parameter if present
+document.addEventListener('DOMContentLoaded', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const tab = urlParams.get('tab');
+  if (tab) {
+    const btn = Array.from(document.querySelectorAll('.ez-tab-btn')).find(b => b.getAttribute('onclick')?.includes(`'${tab}'`));
+    if (btn) switchEzTab(tab, btn);
+  }
+});
+</script>
+{% endblock %}

@@ -320,6 +320,18 @@ from core.tlc_edit_views import (
     edit_tlc_finance_company,
     edit_tlc_carrier_statement,
 )
+from core.ezpass_views import (
+    issue_ezpass_tag,
+    batch_intake_ezpass,
+    add_single_ezpass_tag,
+    update_ezpass_tag_status,
+    delete_ezpass_tag,
+    ezpass_receipt_view,
+    ezpass_receipt_pdf,
+    ezpass_batch_document_download,
+    delete_ezpass_batch,
+    export_ezpass_csv,
+)
 from core.inventory_views import (
     add_inventory_category,
     delete_inventory_category,
@@ -930,6 +942,18 @@ urlpatterns = [
     path("dashboard/spaces/inventory/<int:space_id>/supplier/add/", add_inventory_supplier, name="add-inventory-supplier"),
     path("dashboard/spaces/inventory/supplier/<int:supplier_id>/delete/", delete_inventory_supplier, name="delete-inventory-supplier"),
     path("dashboard/spaces/inventory/<int:space_id>/purchase/add/", add_inventory_purchase, name="add-inventory-purchase"),
+    
+    # E-ZPass Operations
+    path("dashboard/spaces/ezpass/<int:space_id>/issue/", issue_ezpass_tag, name="issue-ezpass-tag"),
+    path("dashboard/spaces/ezpass/<int:space_id>/batch/intake/", batch_intake_ezpass, name="batch-intake-ezpass"),
+    path("dashboard/spaces/ezpass/<int:space_id>/tag/add/", add_single_ezpass_tag, name="add-single-ezpass-tag"),
+    path("dashboard/spaces/ezpass/tag/<int:tag_id>/status/", update_ezpass_tag_status, name="update-ezpass-tag-status"),
+    path("dashboard/spaces/ezpass/tag/<int:tag_id>/delete/", delete_ezpass_tag, name="delete-ezpass-tag"),
+    path("dashboard/spaces/ezpass/tag/<int:tag_id>/receipt/", ezpass_receipt_view, name="ezpass-receipt-view"),
+    path("dashboard/spaces/ezpass/tag/<int:tag_id>/receipt/pdf/", ezpass_receipt_pdf, name="ezpass-receipt-pdf"),
+    path("dashboard/spaces/ezpass/batch/<int:batch_id>/document/", ezpass_batch_document_download, name="ezpass-batch-document-download"),
+    path("dashboard/spaces/ezpass/batch/<int:batch_id>/delete/", delete_ezpass_batch, name="delete-ezpass-batch"),
+    path("dashboard/spaces/ezpass/<int:space_id>/export/", export_ezpass_csv, name="export-ezpass-csv"),
     path("dashboard/spaces/motorclub/<int:space_id>/config/", save_motorclub_config, name="save-motorclub-config"),
     path("dashboard/spaces/motorclub/<int:space_id>/member/add/", add_motorclub_membership, name="add-motorclub-membership"),
     path("dashboard/spaces/motorclub/member/<int:membership_id>/edit/", edit_motorclub_membership, name="edit-motorclub-membership"),

@@ -7354,6 +7354,10 @@ def inventory_detail(request, inventory_id):
     from .inventory_spaces import is_inventory_space
 
     if is_inventory_space(card):
+        if card.key == "ezpass":
+            from .ezpass_views import build_ezpass_space_context
+            context = build_ezpass_space_context(request, card, is_owner, membership)
+            return render(request, "core/ezpass_space.html", context)
         from .inventory_views import build_inventory_space_context
         context = build_inventory_space_context(request, card, is_owner, membership)
         return render(request, "core/inventory_space.html", context)
