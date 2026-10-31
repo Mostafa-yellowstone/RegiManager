@@ -31,14 +31,19 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
+            "--list-orgs",
+            action="store_true",
+            help="List all available organizations with their IDs and exit.",
+        )
+        parser.add_argument(
             "--org-id",
             type=int,
-            required=True,
+            default=None,
             help="Primary key of the target Organization.",
         )
         parser.add_argument(
             "--csv",
-            required=True,
+            default=None,
             metavar="PATH",
             help="Absolute path to records.csv.",
         )
@@ -63,11 +68,27 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        if options["list_orgs"]:
+            self.stdout.write(self.style.NOTICE("Available Organizations:"))
+            for org in Organization.objects.filter(is_active=True).order_by("id"):
+                self.stdout.write(f"  --org-id {org.id:<3}  -->  {org.name} ({org.city or 'No city'}, {org.state or 'NY'})")
+            return
+
         org_id          = options["org_id"]
         csv_path        = options["csv"]
         attachments_dir = options["attachments"]
         link_column     = options["link_column"]
         user_id         = options["user_id"]
+
+        if not org_id:
+            self.stdout.write(self.style.ERROR("Error: --org-id is required unless --list-orgs is passed.\n"))
+            self.stdout.write("Available Organizations:")
+            for org in Organization.objects.filter(is_active=True).order_by("id"):
+                self.stdout.write(f"  --org-id {org.id:<3}  -->  {org.name} ({org.city or 'No city'}, {org.state or 'NY'})")
+            raise CommandError("Please specify --org-id from the list above.")
+
+        if not csv_path:
+            raise CommandError("Please specify --csv with the path to records.csv.")
 
         # ── Resolve organization ────────────────────────────────────────────
         try:
