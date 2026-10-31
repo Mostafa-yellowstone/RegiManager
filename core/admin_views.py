@@ -423,6 +423,45 @@ def kintone_import_view(request):
     })
 
 
+def _resolve_server_path(path_str: str, is_directory: bool = False) -> str | None:
+    """
+    Resolve a file or directory path, handling Windows-to-WSL/Linux cross-platform mapping.
+    """
+    if not path_str:
+        return None
+    raw = path_str.strip().strip("\"'").rstrip("/\\")
+    if not raw:
+        return None
+
+    checker = os.path.isdir if is_directory else os.path.isfile
+
+    # 1. Exact match
+    if checker(raw):
+        return os.path.normpath(raw)
+
+    # 2. Forward-slash normalized match
+    alt = raw.replace("\\", "/")
+    if checker(alt):
+        return os.path.normpath(alt)
+
+    # 3. WSL / Docker host mapping (when server runs on Linux but path is Windows e.g. C:\...)
+    import re
+    m = re.match(r"^([A-Za-z]):[\\/](.*)", raw)
+    if m:
+        drive = m.group(1).lower()
+        rest = m.group(2).replace("\\", "/").strip("/")
+        for candidate in [
+            f"/mnt/{drive}/{rest}",        # WSL
+            f"/{drive}/{rest}",            # Docker / Git Bash
+            f"/host_mnt/{drive}/{rest}",   # Docker Desktop on Windows/Mac
+            f"/media/{drive}/{rest}",
+        ]:
+            if checker(candidate):
+                return os.path.normpath(candidate)
+
+    return None
+
+
 def kintone_records_import_view(request):
     """
     Import records.csv + Attachments/ folder from a Kintone backup.
@@ -452,13 +491,8 @@ def kintone_records_import_view(request):
         org_id          = request.POST.get("organization")
         csv_file        = request.FILES.get("records_csv")
         csv_server_path = (request.POST.get("csv_server_path") or "").strip().strip("\"'")
-        attachments_dir = (request.POST.get("attachments_dir") or "").strip().strip("\"'")
+        attachments_dir_raw = (request.POST.get("attachments_dir") or "").strip().strip("\"'")
         link_column     = (request.POST.get("link_column") or "").strip()
-
-        if csv_server_path:
-            csv_server_path = os.path.normpath(csv_server_path)
-        if attachments_dir:
-            attachments_dir = os.path.normpath(attachments_dir)
 
         errors = []
         if not org_id:
@@ -478,8 +512,9 @@ def kintone_records_import_view(request):
             except Exception as e:
                 errors.append(f"Failed to process uploaded CSV: {e}")
         elif csv_server_path:
-            if os.path.isfile(csv_server_path):
-                csv_path = csv_server_path
+            resolved_csv = _resolve_server_path(csv_server_path, is_directory=False)
+            if resolved_csv:
+                csv_path = resolved_csv
                 is_temp_csv = False
             else:
                 errors.append(
@@ -490,11 +525,18 @@ def kintone_records_import_view(request):
         else:
             errors.append("Please upload records.csv or specify its path on the server.")
 
-        if attachments_dir and not os.path.isdir(attachments_dir):
-            errors.append(
-                f"Attachments directory not found on the server: '{attachments_dir}'. "
-                f"Leave this field blank to import all client profiles now, or copy the folder onto the server."
-            )
+        resolved_attachments_dir = None
+        if attachments_dir_raw:
+            resolved_attachments_dir = _resolve_server_path(attachments_dir_raw, is_directory=True)
+            if not resolved_attachments_dir:
+                errors.append(
+                    f"Attachments directory not found on the server: '{attachments_dir_raw}'. "
+                    f"Note: If your Django web server is running on a remote host (cloud/VPS), "
+                    f"it cannot access files on your local Windows PC drive (C:). "
+                    f"Either leave this field blank to import all client profiles now, "
+                    f"or run the import locally in your terminal using: "
+                    f"python manage.py import_kintone_records --org-id {org_id or '<ID>'} --csv \"{csv_server_path or 'path/to/records.csv'}\" --attachments \"{attachments_dir_raw}\""
+                )
 
         if errors:
             for msg in errors:
@@ -511,7 +553,7 @@ def kintone_records_import_view(request):
                     org.id,
                     request.user.id,
                     csv_path,
-                    attachments_dir or None,
+                    resolved_attachments_dir,
                     link_column,
                     is_temp_csv=is_temp_csv,
                 )

@@ -237,8 +237,9 @@ class _DiskStore:
         1. Direct join: root + rel_path   (fastest path, covers most cases)
         2. Basename lookup across the full tree (handles moved/renamed folders)
         """
-        # 1 – Direct path
-        direct = os.path.join(self._root, rel_path)
+        # 1 – Direct path (normalized for Windows and POSIX separators)
+        norm_rel = rel_path.replace("\\", os.sep).replace("/", os.sep)
+        direct = os.path.join(self._root, norm_rel)
         if os.path.isfile(direct):
             with open(direct, "rb") as fh:
                 return fh.read()
