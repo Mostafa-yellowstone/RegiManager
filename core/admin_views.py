@@ -451,9 +451,14 @@ def kintone_records_import_view(request):
     if request.method == "POST":
         org_id          = request.POST.get("organization")
         csv_file        = request.FILES.get("records_csv")
-        csv_server_path = (request.POST.get("csv_server_path") or "").strip()
-        attachments_dir = (request.POST.get("attachments_dir") or "").strip()
+        csv_server_path = (request.POST.get("csv_server_path") or "").strip().strip("\"'")
+        attachments_dir = (request.POST.get("attachments_dir") or "").strip().strip("\"'")
         link_column     = (request.POST.get("link_column") or "").strip()
+
+        if csv_server_path:
+            csv_server_path = os.path.normpath(csv_server_path)
+        if attachments_dir:
+            attachments_dir = os.path.normpath(attachments_dir)
 
         errors = []
         if not org_id:
@@ -477,14 +482,18 @@ def kintone_records_import_view(request):
                 csv_path = csv_server_path
                 is_temp_csv = False
             else:
-                errors.append(f"records.csv not found at server path: {csv_server_path!r}")
+                errors.append(
+                    f"records.csv not found at server path: '{csv_server_path}'. "
+                    f"If the web application is running on a remote server or in Docker, "
+                    f"please use the 'Upload records.csv' file picker instead."
+                )
         else:
             errors.append("Please upload records.csv or specify its path on the server.")
 
         if attachments_dir and not os.path.isdir(attachments_dir):
             errors.append(
-                f"Attachments directory not found on this server: {attachments_dir!r}  "
-                f"(leave blank to skip document upload)"
+                f"Attachments directory not found on the server: '{attachments_dir}'. "
+                f"Leave this field blank to import all client profiles now, or copy the folder onto the server."
             )
 
         if errors:

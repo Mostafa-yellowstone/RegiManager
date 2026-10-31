@@ -1,4 +1,4 @@
-﻿{% extends "admin/index.html" %}
+{% extends "admin/index.html" %}
 {% load i18n %}
 
 {% block sidebar %}
@@ -56,25 +56,27 @@
 
         <p style="font-size:0.78em;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748b;margin:12px 0 6px;">Tools</p>
         <p style="font-size:0.85em;color:#64748b;margin-bottom:12px;line-height:1.4;">
-            Bulk import clients and vehicles from CRM export files.
+            Bulk import clients, vehicles, and attachments.
         </p>
-        <a href="{% url 'admin:crm-import' %}" class="button" style="display:block;text-align:center;background:#79aec8;color:white;padding:8px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:0.9em;margin-bottom:10px;">
+        <a href="{% url 'admin:kintone-records-import' %}" class="button" style="display:block;text-align:center;background:#0f766e;color:white;padding:10px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:0.92em;margin-bottom:10px;">
+            📥 Import Kintone records.csv + Attachments
+        </a>
+        <a href="{% url 'admin:kintone-import' %}" class="button" style="display:block;text-align:center;background:#0d9488;color:white;padding:8px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:0.88em;margin-bottom:10px;">
+            Import Kintone (Zip Bundle)
+        </a>
+        <a href="{% url 'admin:crm-import' %}" class="button" style="display:block;text-align:center;background:#79aec8;color:white;padding:8px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:0.88em;margin-bottom:10px;">
             Import CRM Data
         </a>
-        <a href="{% url 'admin:kintone-import' %}" class="button" style="display:block;text-align:center;background:#0f766e;color:white;padding:8px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:0.9em;margin-bottom:10px;">
-            Import from Kintone
-        </a>
-        <a href="{% url 'contact-messages' %}" class="button" style="display:block;text-align:center;background:#1d4ed8;color:white;padding:8px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:0.9em;margin-bottom:10px;">
+        <a href="{% url 'contact-messages' %}" class="button" style="display:block;text-align:center;background:#1d4ed8;color:white;padding:8px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:0.88em;margin-bottom:10px;">
             Contact page messages
         </a>
         <p style="font-size:0.85em;color:#64748b;margin:16px 0 12px;line-height:1.4;">
             Disaster recovery: download a full PSB backup, or restore a zip into a PSB (superuser).
         </p>
-        <a href="{% url 'admin:psb-backup-import' %}" class="button" style="display:block;text-align:center;background:#b45309;color:white;padding:8px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:0.9em;">
+        <a href="{% url 'admin:psb-backup-import' %}" class="button" style="display:block;text-align:center;background:#b45309;color:white;padding:8px 12px;border-radius:4px;text-decoration:none;font-weight:bold;font-size:0.88em;">
             Restore PSB Backup
         </a>
     </div>
 </div>
 {{ block.super }}
 {% endblock %}
-

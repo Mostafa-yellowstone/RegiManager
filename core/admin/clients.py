@@ -1,4 +1,4 @@
-from django import forms
+﻿from django import forms
 from django.contrib import admin
 
 from ..models import Client, ClientIntake, Organization, SiteNews, Vehicle
@@ -66,3 +66,4 @@ class SiteNewsAdmin(admin.ModelAdmin):
     search_fields = ("title", "content", "organization__name")
     autocomplete_fields = ("organization", "published_by")
     ordering = ("-created_at",)
+
