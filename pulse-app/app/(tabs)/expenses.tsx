@@ -1,135 +1,191 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { ConnectedDateRangeSelector } from '@/components/pulse/ConnectedDateRangeSelector';
+import { RevenueChart } from '@/components/pulse/RevenueChart';
 import { SkeletonBlock } from '@/components/pulse/SkeletonBlock';
 import { getPulseDashboard } from '@/data/repositories/metricsRepository';
 import { useAuth } from '@/lib/auth';
-import { formatMoney } from '@/lib/format';
+import { formatMoney, formatPct } from '@/lib/format';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
-import { Colors } from '@/lib/theme';
+import { Colors, Fonts } from '@/lib/theme';
 import { useDateRangeStore } from '@/stores/dateRangeStore';
-import { useSpaceStore } from '@/stores/spaceStore';
 
-export default function ExpensesScreen() {
+export default function MoneyScreen() {
   const router = useRouter();
   const { selectedOrg } = useAuth();
   const preset = useDateRangeStore((s) => s.preset);
   const customStart = useDateRangeStore((s) => s.customStart);
   const customEnd = useDateRangeStore((s) => s.customEnd);
-  const spaceId = useSpaceStore((s) => s.selectedSpaceId);
-  const { data, isLoading, isFetching, refetch, isError, error } = useQuery({
-    queryKey: ['pulse-costs', selectedOrg?.id, spaceId, preset, customStart, customEnd],
-    queryFn: () => getPulseDashboard(spaceId, preset),
+  const [split, setSplit] = useState(false);
+
+  const dash = useQuery({
+    queryKey: ['pulse-money', selectedOrg?.id, preset, customStart, customEnd],
+    queryFn: () => getPulseDashboard('all', preset),
     enabled: Boolean(selectedOrg?.id),
   });
 
-  const costs = data?.costs ?? [];
-  const overview = data?.overview;
-  const total = overview?.bank_expenses ?? costs.reduce((s, c) => s + c.amount, 0);
+  const overview = dash.data?.overview;
+  const insurancePay = (overview?.insurance_commission || 0) + (overview?.insurance_broker_fee || 0);
 
   return (
-    <ScrollView
-      className="flex-1 bg-cream"
-      contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 10 }}
-      refreshControl={
-        <RefreshControl
-          refreshing={isFetching && !isLoading}
-          onRefresh={() => {
-            void hapticLight();
-            void refetch();
-          }}
-          tintColor="#1A2B48"
-        />
-      }
-    >
-      <Text className="text-title text-navy">Expenses</Text>
-      <Text className="mb-1 text-caption text-muted">
-        Real banking expenses from Insurance Finance. Tap a row for full detail. DMV fees, sales
-        tax, card fees, and referral commissions are transaction charges, not listed here.
-      </Text>
-      <ConnectedDateRangeSelector />
-
-      {isError ? (
-        <Text className="text-caption font-semibold text-danger">
-          {(error as Error)?.message || 'Failed to load expenses'}
-        </Text>
-      ) : null}
-
-      {overview && !overview.cashflow_available ? (
-        <View className="rounded-xl px-3 py-2" style={{ backgroundColor: Colors.orangeSoft }}>
-          <Text className="text-caption font-semibold" style={{ color: Colors.orangeDeep }}>
-            {overview.cashflow_warning || 'Banking cashflow unavailable for this account.'}
+    <View style={{ flex: 1, backgroundColor: Colors.cream }}>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 120, gap: 12 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={dash.isFetching && !dash.isLoading}
+            onRefresh={() => {
+              void hapticLight();
+              void dash.refetch();
+            }}
+            tintColor={Colors.teal}
+          />
+        }
+      >
+        <ConnectedDateRangeSelector />
+        {dash.isError ? (
+          <Text style={{ fontFamily: Fonts.semibold, color: Colors.danger }}>
+            {(dash.error as Error)?.message || 'Could not load money'}
           </Text>
-        </View>
-      ) : null}
-
-      {isLoading ? (
-        <>
-          <SkeletonBlock height={72} />
-          <SkeletonBlock height={72} />
-        </>
-      ) : (
-        <>
-          <View className="mb-2 rounded-2xl border border-border bg-white p-4">
-            <Text className="text-caption uppercase text-muted">Bank expenses in range</Text>
-            <Text className="mt-1 text-[28px] font-extrabold text-navy">{formatMoney(total)}</Text>
-            {overview ? (
-              <Text className="mt-2 text-caption text-muted">
-                Net profit {formatMoney(overview.net_cash_flow)} · Bank net{' '}
-                {formatMoney(overview.bank_net)}
-                {overview.badges.expenses
-                  ? ` · ${overview.badges.expenses.delta_pct > 0 ? '+' : ''}${overview.badges.expenses.delta_pct}% ${overview.badges.expenses.label}`
-                  : ''}
+        ) : null}
+        {dash.isLoading || !overview ? (
+          <>
+            <SkeletonBlock height={110} />
+            <SkeletonBlock height={180} />
+          </>
+        ) : (
+          <>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <MoneyCard label="Money in" value={formatMoney(overview.bank_income)} />
+              <MoneyCard label="Money out" value={formatMoney(overview.bank_expenses)} />
+              <MoneyCard label="What's left" value={formatMoney(overview.net_cash_flow)} />
+            </View>
+            {typeof overview.left_delta_pct === 'number' ? (
+              <Text style={{ fontFamily: Fonts.medium, fontSize: 13, color: Colors.muted }}>
+                What's left {formatPct(overview.left_delta_pct, 0)} versus the previous period
               </Text>
             ) : null}
-          </View>
-          {costs.length === 0 ? (
-            <Text className="mt-4 text-center text-body text-muted">
-              No bank expense transactions in this period.
-            </Text>
-          ) : (
-            costs.map((row) => (
+
+            <View style={card}>
+              <Line label="DMV Profit" value={formatMoney(overview.dmv_net_profit)} />
               <Pressable
-                key={row.id}
                 onPress={() => {
                   void hapticSelection();
-                  router.push({
-                    pathname: '/expense/[id]',
-                    params: {
-                      id: row.id,
-                      label: row.label,
-                      amount: String(row.amount),
-                      category: row.category,
-                      date: row.date || '',
-                      account: row.account || '',
-                      company: row.company || '',
-                      transaction_type: row.transaction_type || '',
-                    },
-                  });
+                  setSplit((open) => !open);
                 }}
-                className="rounded-2xl border border-border bg-white px-4 py-3"
-                android_ripple={{ color: 'rgba(15,61,76,0.06)' }}
+                style={{ marginTop: 12 }}
               >
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-1 pr-3">
-                    <Text className="text-body font-bold text-navy">{row.label}</Text>
-                    <Text className="text-caption text-muted">
-                      {[row.category, row.company || row.account, row.date]
-                        .filter(Boolean)
-                        .join(' · ')}
+                <Line label="Insurance pay" value={formatMoney(insurancePay)} hint={split ? 'Hide split' : 'Show split'} />
+              </Pressable>
+              {split ? (
+                <View style={{ marginTop: 8, gap: 6 }}>
+                  <Line label="Commission" value={formatMoney(overview.insurance_commission)} muted />
+                  <Line label="Broker fee" value={formatMoney(overview.insurance_broker_fee)} muted />
+                </View>
+              ) : null}
+            </View>
+
+            {!overview.cashflow_available && overview.cashflow_warning ? (
+              <Text style={{ fontFamily: Fonts.semibold, fontSize: 13, color: Colors.orangeDeep }}>
+                {overview.cashflow_warning}
+              </Text>
+            ) : null}
+
+            <RevenueChart data={overview.series} />
+
+            <Text style={{ fontFamily: Fonts.bold, fontSize: 16, color: Colors.navy }}>Money out</Text>
+            {(dash.data?.costs ?? []).length === 0 ? (
+              <Text style={{ fontFamily: Fonts.medium, color: Colors.muted }}>No bank lines in this range.</Text>
+            ) : (
+              (dash.data?.costs ?? []).map((row) => (
+                <Pressable
+                  key={row.id}
+                  onPress={() => {
+                    void hapticSelection();
+                    router.push({
+                      pathname: '/expense/[id]',
+                      params: {
+                        id: row.id,
+                        label: row.label,
+                        amount: String(row.amount),
+                        category: row.category,
+                        date: row.date || '',
+                        account: row.account || '',
+                        company: row.company || '',
+                        transaction_type: row.transaction_type || '',
+                      },
+                    });
+                  }}
+                  style={card}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontFamily: Fonts.bold, fontSize: 15, color: Colors.navy }} numberOfLines={2}>
+                        {row.label}
+                      </Text>
+                      <Text style={{ marginTop: 2, fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}>
+                        {[row.category, row.date].filter(Boolean).join(' · ')}
+                      </Text>
+                    </View>
+                    <Text style={{ fontFamily: Fonts.extrabold, fontSize: 15, color: Colors.navy }}>
+                      {formatMoney(row.amount)}
                     </Text>
                   </View>
-                  <Text className="text-body font-extrabold text-navy">
-                    {formatMoney(row.amount)}
-                  </Text>
-                </View>
-              </Pressable>
-            ))
-          )}
-        </>
-      )}
-    </ScrollView>
+                </Pressable>
+              ))
+            )}
+          </>
+        )}
+      </ScrollView>
+    </View>
   );
 }
+
+function MoneyCard({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={[card, { flex: 1 }]}>
+      <Text style={{ fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}>{label}</Text>
+      <Text style={{ marginTop: 6, fontFamily: Fonts.extrabold, fontSize: 16, color: Colors.navy }} numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function Line({
+  label,
+  value,
+  hint,
+  muted,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  muted?: boolean;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+      <Text style={{ fontFamily: muted ? Fonts.medium : Fonts.bold, fontSize: muted ? 13 : 15, color: muted ? Colors.muted : Colors.navy }}>
+        {label}
+      </Text>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={{ fontFamily: Fonts.extrabold, fontSize: muted ? 14 : 16, color: Colors.navy }}>{value}</Text>
+        {hint ? (
+          <Text style={{ fontFamily: Fonts.bold, fontSize: 11, color: Colors.teal }}>{hint}</Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+const card = {
+  backgroundColor: Colors.white,
+  borderRadius: 16,
+  borderWidth: 1,
+  borderColor: Colors.border,
+  padding: 14,
+};

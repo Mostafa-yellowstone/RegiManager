@@ -423,6 +423,108 @@ def kintone_import_view(request):
     })
 
 
+def kintone_records_import_view(request):
+    """
+    Import records.csv + Attachments/ folder from a Kintone backup.
+
+    The admin uploads only the CSV (small, ~100–500 KB).  Attachment files are
+    read directly from a directory on the **server** (given as a text field),
+    so the 5+ GB attachment folder never needs to be uploaded or zipped.
+
+    Processing runs in a background thread so the request returns immediately
+    and the page polls for progress every 4 seconds.
+    """
+    from .kintone_flatfile_import import (
+        flatfile_import_status,
+        start_flatfile_import,
+    )
+    from django.http import JsonResponse
+    import tempfile, os
+
+    organizations = Organization.objects.filter(is_active=True).order_by("name")
+    job_key = (request.GET.get("job") or "").strip()
+    job = flatfile_import_status(job_key)
+
+    if request.GET.get("format") == "json" or request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return JsonResponse(job or {"status": "none"})
+
+    if request.method == "POST":
+        org_id          = request.POST.get("organization")
+        csv_file        = request.FILES.get("records_csv")
+        csv_server_path = (request.POST.get("csv_server_path") or "").strip()
+        attachments_dir = (request.POST.get("attachments_dir") or "").strip()
+        link_column     = (request.POST.get("link_column") or "").strip()
+
+        errors = []
+        if not org_id:
+            errors.append("Please select an office.")
+
+        csv_path = None
+        is_temp_csv = False
+
+        if csv_file:
+            try:
+                handle, csv_path = tempfile.mkstemp(suffix=".csv")
+                os.close(handle)
+                with open(csv_path, "wb") as fh:
+                    for chunk in csv_file.chunks():
+                        fh.write(chunk)
+                is_temp_csv = True
+            except Exception as e:
+                errors.append(f"Failed to process uploaded CSV: {e}")
+        elif csv_server_path:
+            if os.path.isfile(csv_server_path):
+                csv_path = csv_server_path
+                is_temp_csv = False
+            else:
+                errors.append(f"records.csv not found at server path: {csv_server_path!r}")
+        else:
+            errors.append("Please upload records.csv or specify its path on the server.")
+
+        if attachments_dir and not os.path.isdir(attachments_dir):
+            errors.append(
+                f"Attachments directory not found on this server: {attachments_dir!r}  "
+                f"(leave blank to skip document upload)"
+            )
+
+        if errors:
+            for msg in errors:
+                messages.error(request, msg)
+            if is_temp_csv and csv_path and os.path.exists(csv_path):
+                try:
+                    os.remove(csv_path)
+                except OSError:
+                    pass
+        else:
+            org = get_object_or_404(Organization, id=org_id)
+            try:
+                job_id = start_flatfile_import(
+                    org.id,
+                    request.user.id,
+                    csv_path,
+                    attachments_dir or None,
+                    link_column,
+                    is_temp_csv=is_temp_csv,
+                )
+            except Exception as exc:
+                messages.error(request, f"Import failed to start: {exc}")
+                if is_temp_csv and csv_path and os.path.exists(csv_path):
+                    try:
+                        os.remove(csv_path)
+                    except OSError:
+                        pass
+            else:
+                return redirect(f"{request.path}?job={job_id}")
+
+    return render(request, "admin/kintone_records_import.html", {
+        "organizations": organizations,
+        "job":           job,
+        "results":       (job or {}).get("results"),
+        "progress":      (job or {}).get("progress"),
+        "title":         "Import records.csv",
+    })
+
+
 def _require_superuser(request):
     if not request.user.is_authenticated or not request.user.is_superuser:
         raise PermissionDenied("PSB backup and restore are limited to superusers.")

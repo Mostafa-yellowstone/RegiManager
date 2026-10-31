@@ -153,7 +153,7 @@ export default function SettingsScreen() {
             paddingVertical: 12,
             backgroundColor: Colors.tealSoft,
             borderWidth: 1,
-            borderColor: '#99F6E4',
+            borderColor: Colors.border,
           }}
         >
           <Text style={{ fontFamily: Fonts.extrabold, fontSize: 15, color: Colors.tealDeep }}>

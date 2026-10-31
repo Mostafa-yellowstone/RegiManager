@@ -43,7 +43,7 @@ export function AttendanceStrip({ agents, workDate, onSeeAll }: Props) {
       style={{
         borderWidth: 1,
         borderColor: Colors.border,
-        shadowColor: '#0F3D4C',
+        shadowColor: Colors.navy,
         shadowOpacity: 0.05,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 2 },

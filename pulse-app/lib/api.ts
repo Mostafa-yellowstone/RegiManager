@@ -244,6 +244,26 @@ export async function fetchOwnerProcesses() {
   return apiFetch('/api/owner/processes/');
 }
 
+export async function fetchOwnerNotifications() {
+  return apiFetch('/api/owner/notifications/?limit=50');
+}
+
+export async function markOwnerNotificationRead(id: number) {
+  return apiFetch(`/api/owner/notifications/${id}/read/`, { method: 'POST', body: {} });
+}
+
+export async function fetchOwnerAgentWorkboard(membershipId: number) {
+  return apiFetch(`/api/owner/agents/${membershipId}/workboard/`);
+}
+
+export async function fetchOwnerMotorclubMemberships() {
+  return apiFetch('/api/owner/motorclub/memberships/?limit=40');
+}
+
+export async function fetchOwnerTlcPolicies() {
+  return apiFetch('/api/owner/tlc/policies/?limit=40');
+}
+
 export async function fetchOwnerAgents() {
   return apiFetch('/api/owner/agents/');
 }

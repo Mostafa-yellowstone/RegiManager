@@ -17,7 +17,6 @@ import { PulseLogo } from '@/components/PulseLogo';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { hapticMedium, hapticSuccess } from '@/lib/haptics';
-import { Colors } from '@/lib/theme';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -52,10 +51,10 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: Colors.navy }}
+      style={{ flex: 1, backgroundColor: '#241C18' }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <LinearGradient colors={['#0F3D4C', '#0B2E3A', '#083344']} style={{ flex: 1 }}>
+      <LinearGradient colors={['#8E341C', '#4A2A22', '#241C18']} style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={{
             flexGrow: 1,

@@ -102,12 +102,12 @@ function AuthGate({ children }: { children: ReactNode }) {
       <View
         style={{
           flex: 1,
-          backgroundColor: Colors.navy,
+          backgroundColor: Colors.cream,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <ActivityIndicator color={Colors.teal} size="large" />
+        <ActivityIndicator color={Colors.tealDeep} size="large" />
       </View>
     );
   }
@@ -140,12 +140,12 @@ export default function RootLayout() {
       <View
         style={{
           flex: 1,
-          backgroundColor: Colors.navy,
+          backgroundColor: Colors.cream,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <ActivityIndicator color={Colors.teal} size="large" />
+        <ActivityIndicator color={Colors.tealDeep} size="large" />
       </View>
     );
   }
@@ -155,13 +155,14 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <BottomSheetModalProvider>
-            <StatusBar style="light" />
+            <StatusBar style="dark" />
             <AuthGate>
               <BiometricGate>
                 <Stack
                   screenOptions={{
-                    headerStyle: { backgroundColor: Colors.navy },
-                    headerTintColor: Colors.white,
+                    headerStyle: { backgroundColor: Colors.cream },
+                    headerTintColor: Colors.navy,
+                    headerShadowVisible: false,
                     headerTitleStyle: { fontFamily: Fonts.bold, fontWeight: '700' },
                     contentStyle: { backgroundColor: Colors.cream },
                   }}
@@ -170,7 +171,10 @@ export default function RootLayout() {
                   <Stack.Screen name="login" options={{ headerShown: false }} />
                   <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                   <Stack.Screen name="settings" options={{ title: 'Settings', headerShown: true }} />
-                  <Stack.Screen name="expense/[id]" options={{ title: 'Expense detail', headerShown: true }} />
+                  <Stack.Screen name="alerts" options={{ title: 'Alerts', headerShown: true }} />
+                  <Stack.Screen name="job/[id]" options={{ title: 'Job', headerShown: true }} />
+                  <Stack.Screen name="person/[id]" options={{ title: 'Person', headerShown: true }} />
+                  <Stack.Screen name="expense/[id]" options={{ title: 'Money line', headerShown: true }} />
                 </Stack>
               </BiometricGate>
             </AuthGate>

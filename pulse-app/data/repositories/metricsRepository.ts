@@ -12,6 +12,7 @@ import {
 import {
   activeDateParams,
   currentMonthKey,
+  presetToDateParams,
   previousMonthKey,
   previousPeriodDateParams,
 } from '@/lib/dateRange';
@@ -26,11 +27,15 @@ function isVirtualSpace(spaceId: SpaceIdOrAll) {
 export async function getPulseDashboard(
   spaceId: SpaceIdOrAll,
   preset: DateRangePreset,
+  options?: { locked?: boolean },
 ): Promise<PulseDashboardPayload> {
   const { customStart, customEnd } = useDateRangeStore.getState();
-  const { from_date, to_date } = activeDateParams();
+  const active = options?.locked ? presetToDateParams(preset) : activeDateParams();
+  const { from_date, to_date } = active;
   const rangeParams = { from_date, to_date };
-  const priorParams = previousPeriodDateParams(preset, customStart, customEnd);
+  const priorParams = options?.locked
+    ? previousPeriodDateParams(preset)
+    : previousPeriodDateParams(preset, customStart, customEnd);
 
   const comparePromise =
     preset === 'month' || preset === 'ytd'

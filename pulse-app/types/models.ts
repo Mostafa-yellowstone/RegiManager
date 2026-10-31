@@ -53,6 +53,8 @@ export interface FinancialOverview {
   /** False when cashflow API failed (e.g. banking permission). */
   cashflow_available: boolean;
   cashflow_warning?: string;
+  /** Bank income − money out, versus the previous same-length period. */
+  left_delta_pct?: number | null;
 }
 
 export interface ServiceBreakdownRow {
@@ -123,6 +125,13 @@ export interface AgentRosterRow {
   service_records_total: number;
 }
 
+export interface JobBookCounts {
+  waiting: number;
+  done: number;
+  failed: number;
+  refunded: number;
+}
+
 export interface PulseDashboardPayload {
   overview: FinancialOverview;
   services: ServiceBreakdownRow[];
@@ -130,6 +139,7 @@ export interface PulseDashboardPayload {
   space_summaries: SpaceSummary[];
   costs: CostFeeRow[];
   organization_name?: string;
+  job_counts: JobBookCounts;
 }
 
 export interface InsuranceCompanySummary {

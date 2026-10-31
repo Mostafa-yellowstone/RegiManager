@@ -1,63 +1,27 @@
-import { type BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigation, useRouter } from 'expo-router';
-import { useLayoutEffect, useMemo, useRef } from 'react';
-import {
-  Alert,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
-import { AttendanceStrip } from '@/components/pulse/AttendanceStrip';
-import { AttentionInbox } from '@/components/pulse/AttentionInbox';
-import { DateRangeSelector } from '@/components/pulse/DateRangeSelector';
-import { HeaderActions } from '@/components/pulse/HeaderActions';
-import { MetricCard } from '@/components/pulse/MetricCard';
-import { MetricGrid } from '@/components/pulse/MetricGrid';
-import { MorningBrief } from '@/components/pulse/MorningBrief';
-import { RevenueChart } from '@/components/pulse/RevenueChart';
 import { SkeletonBlock } from '@/components/pulse/SkeletonBlock';
-import { TargetProgress } from '@/components/pulse/TargetProgress';
-import { SpaceSwitcherSheet, SpaceSwitcherTrigger } from '@/components/space/SpaceSwitcher';
+import { WelcomeBand } from '@/components/pulse/WelcomeBand';
 import { listOwnerAgents } from '@/data/repositories/agentsRepository';
 import { getPulseDashboard } from '@/data/repositories/metricsRepository';
-import { listSalesActivity } from '@/data/repositories/salesRepository';
 import { useAuth } from '@/lib/auth';
-import { crmFinanceUrl, crmHomeUrl, openCrmUrl } from '@/lib/crmLinks';
-import { formatMoney } from '@/lib/format';
+import { formatMoney, formatPct } from '@/lib/format';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
-import { buildAttentionItems, buildMorningBrief, orgHasInsuranceSpace, spaceInsight } from '@/lib/ownerInsights';
 import { Colors, Fonts } from '@/lib/theme';
-import { useDateRangeStore } from '@/stores/dateRangeStore';
-import { useSpaceStore } from '@/stores/spaceStore';
-import type { DateRangePreset } from '@/types/models';
+import { useDeskStore } from '@/stores/deskStore';
 
-export default function PulseDashboardScreen() {
-  const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+export default function TodayScreen() {
   const router = useRouter();
-  const sheetRef = useRef<BottomSheetModal>(null);
   const queryClient = useQueryClient();
-  const { selectedOrg, organizations, selectOrganization, user } = useAuth();
-  const selectedSpaceId = useSpaceStore((s) => s.selectedSpaceId);
-  const setSelectedSpaceId = useSpaceStore((s) => s.setSelectedSpaceId);
-  const preset = useDateRangeStore((s) => s.preset);
-  const customStart = useDateRangeStore((s) => s.customStart);
-  const customEnd = useDateRangeStore((s) => s.customEnd);
-  const setPreset = useDateRangeStore((s) => s.setPreset);
-  const setCustomRange = useDateRangeStore((s) => s.setCustomRange);
+  const { selectedOrg, user } = useAuth();
+  const setStatus = useDeskStore((s) => s.setStatus);
+  const setKind = useDeskStore((s) => s.setKind);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({ headerShown: false });
-  }, [navigation]);
-
-  const { data, isLoading, isFetching, refetch, isError, error } = useQuery({
-    queryKey: ['pulse-dashboard', selectedOrg?.id, selectedSpaceId, preset, customStart, customEnd],
-    queryFn: () => getPulseDashboard(selectedSpaceId, preset),
+  const dash = useQuery({
+    queryKey: ['pulse-today', selectedOrg?.id],
+    queryFn: () => getPulseDashboard('all', 'today', { locked: true }),
     enabled: Boolean(selectedOrg?.id),
   });
 
@@ -67,580 +31,170 @@ export default function PulseDashboardScreen() {
     enabled: Boolean(selectedOrg?.id),
   });
 
-  const briefQuery = useQuery({
-    queryKey: ['pulse-brief-yesterday', selectedOrg?.id],
-    queryFn: () => getPulseDashboard('all', 'yesterday'),
-    enabled: Boolean(selectedOrg?.id),
-    staleTime: 60_000,
-  });
+  const overview = dash.data?.overview;
+  const agents = agentsQuery.data?.agents ?? [];
+  const late = agents.filter((agent) => agent.is_late).length;
+  const here = agents.filter((agent) => agent.attendance_open).length;
+  const stillOut = agents.filter(
+    (agent) => !agent.attendance_open && !agent.is_late && !agent.is_on_time,
+  ).length;
+  const firstName = (user?.full_name || user?.username || '').trim().split(/\s+/)[0] || '';
+  const jobsToday = (overview?.records_count || 0) + (overview?.insurance_bound_count || 0);
+  const leftDelta = overview?.left_delta_pct;
 
-  const salesQuery = useQuery({
-    queryKey: ['pulse-sales', selectedOrg?.id, preset, customStart, customEnd],
-    queryFn: () => listSalesActivity(preset),
-    enabled: Boolean(selectedOrg?.id),
-    staleTime: 30_000,
-  });
-
-  const morningBrief = useMemo(
-    () =>
-      buildMorningBrief({
-        overview: briefQuery.data?.overview,
-        agents: agentsQuery.data?.agents,
-        workDate: agentsQuery.data?.work_date,
-        asOfLabel: 'Yesterday · owner snapshot',
-        hasInsurance: orgHasInsuranceSpace(data?.space_summaries),
-        spaceSummaries: data?.space_summaries,
-      }),
-    [
-      agentsQuery.data?.agents,
-      agentsQuery.data?.work_date,
-      briefQuery.data?.overview,
-      data?.space_summaries,
-    ],
-  );
-
-  const attentionItems = useMemo(
-    () =>
-      buildAttentionItems({
-        overview: data?.overview,
-        agents: agentsQuery.data?.agents,
-        salesCount: salesQuery.data ? salesQuery.data.length : null,
-        spaceSummaries: data?.space_summaries,
-      }),
-    [agentsQuery.data?.agents, data?.overview, data?.space_summaries, salesQuery.data],
-  );
-
-  const sortedAgents = useMemo(() => {
-    const agents = [...(agentsQuery.data?.agents ?? [])];
-    agents.sort((a, b) => {
-      if (a.is_late !== b.is_late) return Number(b.is_late) - Number(a.is_late);
-      if (a.attendance_open !== b.attendance_open) {
-        return Number(b.attendance_open) - Number(a.attendance_open);
-      }
-      return a.name.localeCompare(b.name);
-    });
-    return agents;
-  }, [agentsQuery.data?.agents]);
-
-  const spaceLabel = useMemo(() => {
-    if (selectedSpaceId === 'all') return 'All Spaces';
-    if (selectedSpaceId === 'dmv') return 'DMV';
-    return data?.space_summaries.find((s) => s.space_id === selectedSpaceId)?.name ?? 'Space';
-  }, [data?.space_summaries, selectedSpaceId]);
-
-  const spaceOptions = useMemo(() => {
-    const rows = data?.space_summaries ?? [];
-    return [
-      {
-        id: 'all' as const,
-        name: 'All Spaces',
-        location: selectedOrg?.name || 'Organization rollup',
-        revenue: data?.overview.net_profit || 0,
-      },
-      {
-        id: 'dmv' as const,
-        name: 'DMV',
-        location: 'Processing fee · service records',
-        revenue: data?.overview.dmv_net_profit || 0,
-      },
-      ...rows.map((r) => ({
-        id: r.space_id,
-        name: r.name,
-        location: r.location,
-        revenue: r.profit,
-      })),
-    ];
-  }, [
-    data?.overview.dmv_net_profit,
-    data?.overview.net_profit,
-    data?.space_summaries,
-    selectedOrg?.name,
-  ]);
-
-  function onRangeChange(next: DateRangePreset) {
-    setPreset(next);
+  function openWork() {
+    void hapticSelection();
+    setKind('all');
+    setStatus('all');
+    router.navigate('/(tabs)/sales');
   }
-
-  async function onPickOrg() {
-    if (organizations.length < 2) return;
-    await hapticSelection();
-    Alert.alert(
-      'Switch location',
-      'Choose a PSB organization',
-      [
-        ...organizations.map((org) => ({
-          text: `${org.name}${org.city ? ` (${org.city})` : ''}`,
-          onPress: () => {
-            void (async () => {
-              await selectOrganization(org.id);
-              setSelectedSpaceId('all');
-              await queryClient.invalidateQueries({ queryKey: ['pulse-dashboard'] });
-              await queryClient.invalidateQueries({ queryKey: ['pulse-agents'] });
-            })();
-          },
-        })),
-        { text: 'Cancel', style: 'cancel' },
-      ],
-    );
-  }
-
-  const overview = data?.overview;
-  const selectedSpaceKey = data?.space_summaries.find((s) => s.space_id === selectedSpaceId)?.key;
-  const showDmvBlock = selectedSpaceId === 'all' || selectedSpaceId === 'dmv';
-  const showInsuranceBlock = selectedSpaceId === 'all' || selectedSpaceKey === 'insurance';
-  const showLobSection = showDmvBlock || showInsuranceBlock;
 
   return (
-    <View className="flex-1 bg-cream" style={{ paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: Colors.cream }}>
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 16 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 14 }}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
-            refreshing={isFetching && !isLoading}
+            refreshing={(dash.isFetching || agentsQuery.isFetching) && !dash.isLoading}
             onRefresh={() => {
               void hapticLight();
-              void refetch();
+              void dash.refetch();
               void agentsQuery.refetch();
-              void briefQuery.refetch();
-              void salesQuery.refetch();
+              void queryClient.invalidateQueries({ queryKey: ['pulse-alerts'] });
             }}
-            tintColor={Colors.teal}
+            tintColor={Colors.tealDeep}
           />
         }
       >
-        <View style={{ gap: 14 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-            <View style={{ flex: 1, minWidth: 0, paddingRight: 4 }}>
-              <Text
-                style={{
-                  fontFamily: Fonts.bold,
-                  fontSize: 11,
-                  letterSpacing: 2,
-                  textTransform: 'uppercase',
-                  color: Colors.teal,
-                }}
-              >
-                RegiManager
-              </Text>
-              <Text
-                style={{
-                  fontFamily: Fonts.extrabold,
-                  fontSize: 34,
-                  color: Colors.teal,
-                  marginTop: 2,
-                  letterSpacing: -0.8,
-                }}
-              >
-                Pulse
-              </Text>
-              {user?.full_name ? (
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    marginTop: 8,
-                    fontFamily: Fonts.extrabold,
-                    fontSize: 20,
-                    color: Colors.navy,
-                    letterSpacing: -0.3,
-                  }}
-                >
-                  {user.full_name}
-                </Text>
-              ) : null}
-              <Text
-                style={{
-                  marginTop: 4,
-                  fontFamily: Fonts.medium,
-                  fontSize: 13,
-                  color: Colors.muted,
-                }}
-              >
-                Owner command layer
-              </Text>
-              {selectedOrg ? (
-                <Pressable
-                  style={{
-                    marginTop: 10,
-                    alignSelf: 'flex-start',
-                    borderRadius: 999,
-                    paddingHorizontal: 12,
-                    paddingVertical: 7,
-                    backgroundColor: Colors.navySoft,
-                    borderWidth: 1,
-                    borderColor: Colors.border,
-                  }}
-                  onPress={() => {
-                    if (organizations.length > 1) void onPickOrg();
-                  }}
-                >
-                  <Text style={{ fontFamily: Fonts.extrabold, fontSize: 11, color: Colors.navy }}>
-                    {selectedOrg.city
-                      ? `${selectedOrg.name} · ${selectedOrg.city}`
-                      : selectedOrg.name}
-                    {organizations.length > 1 ? ' ▾' : ''}
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-            <HeaderActions
-              onSettings={() => {
-                void hapticLight();
-                router.push('/settings');
-              }}
-              onOpenCrm={() => {
-                void hapticLight();
-                void openCrmUrl(crmHomeUrl());
-              }}
-            />
-          </View>
-
-          <View style={{ gap: 10 }}>
-            <DateRangeSelector
-              value={preset}
-              customStart={customStart}
-              customEnd={customEnd}
-              onChange={onRangeChange}
-              onCustomRange={(start, end) => {
-                setCustomRange(start, end);
-              }}
-            />
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-start' }}>
-              <SpaceSwitcherTrigger
-                label={spaceLabel}
-                onPress={() => {
-                  void hapticLight();
-                  sheetRef.current?.present();
-                }}
-              />
-            </View>
-          </View>
-        </View>
-
-        {isError ? (
-          <View className="rounded-2xl border border-danger/30 bg-white p-4">
-            <Text className="font-bold text-danger">Could not load live metrics</Text>
-            <Text className="mt-1 text-caption text-muted">
-              {(error as Error)?.message || 'Check your connection and owner permissions.'}
-            </Text>
-            <Pressable className="mt-3" onPress={() => void refetch()}>
-              <Text className="font-semibold text-teal">Retry</Text>
-            </Pressable>
-          </View>
-        ) : null}
-
+        {selectedOrg?.id ? <WelcomeBand name={firstName} /> : null}
         {!selectedOrg?.id ? (
-          <View className="rounded-2xl border border-border bg-white p-4">
-            <Text className="font-bold text-navy">No owner organization</Text>
-            <Text className="mt-1 text-caption text-muted">
-              Sign in again with an organization owner account to load Pulse metrics.
-            </Text>
-          </View>
-        ) : isLoading || !overview ? (
-          <View className="gap-3">
-            <View className="flex-row flex-wrap gap-3">
-              <SkeletonBlock height={120} className="min-w-[46%] flex-1" />
-              <SkeletonBlock height={120} className="min-w-[46%] flex-1" />
-              <SkeletonBlock height={120} className="min-w-[46%] flex-1" />
-              <SkeletonBlock height={120} className="min-w-[46%] flex-1" />
-            </View>
-            <SkeletonBlock height={220} />
+          <EmptyCard title="No office" body="Sign in with an owner account to open this desk." />
+        ) : dash.isError ? (
+          <EmptyCard
+            title="Could not load the desk"
+            body={(dash.error as Error)?.message || 'Check the connection and try again.'}
+            action="Retry"
+            onAction={() => void dash.refetch()}
+          />
+        ) : dash.isLoading || !overview ? (
+          <View style={{ gap: 12 }}>
+            <SkeletonBlock height={88} />
+            <SkeletonBlock height={120} />
+            <SkeletonBlock height={72} />
           </View>
         ) : (
           <>
-            {morningBrief ? (
-              <MorningBrief
-                brief={morningBrief}
-                onOpenStaff={() => router.push('/(tabs)/staff')}
-                onOpenExpenses={() => router.push('/(tabs)/expenses')}
-              />
-            ) : briefQuery.isLoading ? (
-              <SkeletonBlock height={190} />
-            ) : null}
+            <Pressable onPress={openWork} style={card}>
+              <Text style={quiet}>Jobs today</Text>
+              <Text style={{ marginTop: 4, fontFamily: Fonts.extrabold, fontSize: 36, color: Colors.navy }}>
+                {jobsToday}
+              </Text>
+            </Pressable>
 
-            <AttentionInbox
-              items={attentionItems}
-              onOpen={(item) => {
+            <Pressable
+              onPress={() => {
                 void hapticSelection();
-                router.push(item.href as any);
+                router.navigate('/(tabs)/expenses');
               }}
-            />
-
-            {sortedAgents.length > 0 ? (
-              <AttendanceStrip
-                agents={sortedAgents}
-                workDate={agentsQuery.data?.work_date}
-                onSeeAll={() => router.push('/(tabs)/staff')}
-              />
-            ) : null}
-
-            <View style={{ gap: 10 }}>
-              <Text style={{ fontFamily: Fonts.bold, fontSize: 20, color: Colors.navy }}>
-                Financial overview
-              </Text>
-              <Text style={{ fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted, lineHeight: 17 }}>
-                Gross profit = insurance + DMV. Net profit = income - expenses. Do not mix them.
-              </Text>
-              {!overview.cashflow_available && overview.cashflow_warning ? (
-                <View
-                  style={{
-                    borderRadius: 12,
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    backgroundColor: Colors.orangeSoft,
-                  }}
-                >
-                  <Text style={{ fontFamily: Fonts.semibold, fontSize: 12, color: Colors.orangeDeep }}>
-                    {overview.cashflow_warning}
-                  </Text>
-                </View>
+              style={card}
+            >
+              <Text style={section}>Money</Text>
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 10 }}>
+                <MoneyBit label="Money in" value={formatMoney(overview.bank_income)} />
+                <MoneyBit label="Money out" value={formatMoney(overview.bank_expenses)} />
+                <MoneyBit label="What's left" value={formatMoney(overview.net_cash_flow)} />
+              </View>
+              {typeof leftDelta === 'number' ? (
+                <Text style={[quiet, { marginTop: 10 }]}>
+                  What's left {formatPct(leftDelta, 0)} versus yesterday
+                </Text>
               ) : null}
-              <MetricGrid>
-                <MetricCard
-                  label="Gross profit"
-                  value={overview.net_profit}
-                  badge={overview.badges.profit}
-                  accent="green"
-                  metaLabel="ins + DMV"
-                  hint="Operating profit"
-                  onPress={() => {
-                    void hapticSelection();
-                    router.push('/(tabs)/sales');
-                  }}
-                />
-                <MetricCard
-                  label="Expenses"
-                  value={overview.bank_expenses}
-                  badge={overview.badges.expenses}
-                  accent="orange"
-                  metaLabel="bank txs"
-                  metaValue={data?.costs?.length ?? 0}
-                  hint="Bank outflows"
-                  onPress={() => {
-                    void hapticSelection();
-                    router.push('/(tabs)/expenses');
-                  }}
-                />
-                <MetricCard
-                  label="Net profit"
-                  value={overview.net_cash_flow}
-                  accent="teal"
-                  metaLabel="income - exp"
-                  hint="Bank net profit"
-                  onPress={() => {
-                    void hapticSelection();
-                    router.push('/(tabs)/expenses');
-                  }}
-                />
-                <MetricCard
-                  label="Income"
-                  value={overview.bank_income}
-                  accent="teal"
-                  metaLabel="finance income"
-                  hint="Bank inflows"
-                  onPress={() => {
-                    void hapticSelection();
-                    router.push('/(tabs)/sales');
-                  }}
-                />
-              </MetricGrid>
-              <Pressable
-                onPress={() => {
-                  void hapticLight();
-                  void openCrmUrl(crmFinanceUrl());
-                }}
-                style={{
-                  alignSelf: 'flex-start',
-                  marginTop: 2,
-                  paddingVertical: 6,
-                }}
-              >
-                <Text style={{ fontFamily: Fonts.bold, fontSize: 12, color: Colors.teal }}>
-                  Review in CRM Finance →
-                </Text>
-              </Pressable>
-            </View>
+            </Pressable>
 
-            {showLobSection ? (
-              <View style={{ gap: 10, marginTop: 4 }}>
-                <Text style={{ fontFamily: Fonts.bold, fontSize: 20, color: Colors.navy }}>
-                  {selectedSpaceId === 'dmv'
-                    ? 'DMV processing'
-                    : selectedSpaceKey === 'insurance'
-                      ? 'Insurance profit'
-                      : 'By line of business'}
-                </Text>
-                <MetricGrid>
-                  {showDmvBlock ? (
-                    <MetricCard
-                      label="Processing fee"
-                      value={overview.dmv_net_profit}
-                      badge={overview.badges.dmv}
-                      accent="teal"
-                      metaLabel="records"
-                      metaValue={overview.records_count}
-                      onPress={() => {
-                        void hapticSelection();
-                        setSelectedSpaceId('dmv');
-                      }}
-                    />
-                  ) : null}
-                  {showInsuranceBlock ? (
-                    <MetricCard
-                      label="Insurance profit"
-                      value={overview.insurance_profit}
-                      badge={overview.badges.insurance}
-                      accent="green"
-                      metaLabel="bound"
-                      metaValue={overview.insurance_bound_count}
-                      onPress={() => {
-                        void hapticSelection();
-                        const insurance = data?.space_summaries.find((s) => s.key === 'insurance');
-                        if (insurance) {
-                          setSelectedSpaceId(insurance.space_id);
-                        } else {
-                          Alert.alert(
-                            'Insurance space',
-                            'No insurance space is available for this organization yet.',
-                          );
-                        }
-                      }}
-                    />
-                  ) : null}
-                  {showInsuranceBlock ? (
-                    <MetricCard
-                      label="Commission"
-                      value={overview.insurance_commission}
-                      accent="teal"
-                      metaLabel="bound"
-                      metaValue={overview.insurance_bound_count}
-                      onPress={() => {
-                        void hapticSelection();
-                        const insurance = data?.space_summaries.find((s) => s.key === 'insurance');
-                        if (insurance) {
-                          setSelectedSpaceId(insurance.space_id);
-                        } else {
-                          Alert.alert(
-                            'Insurance space',
-                            'No insurance space is available for this organization yet.',
-                          );
-                        }
-                      }}
-                    />
-                  ) : null}
-                  {showInsuranceBlock ? (
-                    <MetricCard
-                      label="Broker fees"
-                      value={overview.insurance_broker_fee}
-                      accent="orange"
-                      metaLabel="bound"
-                      metaValue={overview.insurance_bound_count}
-                      onPress={() => {
-                        void hapticSelection();
-                        const insurance = data?.space_summaries.find((s) => s.key === 'insurance');
-                        if (insurance) {
-                          setSelectedSpaceId(insurance.space_id);
-                        } else {
-                          Alert.alert(
-                            'Insurance space',
-                            'No insurance space is available for this organization yet.',
-                          );
-                        }
-                      }}
-                    />
-                  ) : null}
-                </MetricGrid>
-                <Text style={{ fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted, lineHeight: 17 }}>
-                  Processing fee matches CRM DMV profit. Insurance profit = commission + broker.
-                  Expenses are banking only.
-                </Text>
+            <Pressable
+              onPress={() => {
+                void hapticSelection();
+                router.navigate('/(tabs)/staff');
+              }}
+              style={card}
+            >
+              <Text style={section}>Who is here</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                <Pill label={`Here ${here}`} tone="good" />
+                <Pill label={`Late ${late}`} tone={late ? 'alert' : 'plain'} />
+                <Pill label={`Still out ${stillOut}`} tone="plain" />
               </View>
-            ) : null}
-
-            {selectedSpaceId === 'all' ? (
-              <View style={{ gap: 10 }}>
-                <Text style={{ fontFamily: Fonts.bold, fontSize: 20, color: Colors.navy }}>
-                  Space scorecards
-                </Text>
-                <View style={{ gap: 8 }}>
-                  {(data?.space_summaries ?? []).map((space) => (
-                    <Pressable
-                      key={space.space_id}
-                      onPress={() => {
-                        void hapticSelection();
-                        setSelectedSpaceId(space.space_id);
-                      }}
-                      style={{
-                        borderRadius: 16,
-                        backgroundColor: Colors.white,
-                        paddingHorizontal: 16,
-                        paddingVertical: 12,
-                        borderWidth: 1,
-                        borderColor: Colors.border,
-                      }}
-                      android_ripple={{ color: 'rgba(13,148,136,0.08)' }}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <View style={{ flex: 1, paddingRight: 12, minWidth: 0 }}>
-                          <Text
-                            numberOfLines={1}
-                            style={{ fontFamily: Fonts.bold, fontSize: 15, color: Colors.navy }}
-                          >
-                            {space.name}
-                          </Text>
-                          <Text
-                            numberOfLines={1}
-                            style={{ fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}
-                          >
-                            {space.location}
-                          </Text>
-                          <Text
-                            numberOfLines={1}
-                            style={{
-                              marginTop: 4,
-                              fontFamily: Fonts.bold,
-                              fontSize: 11,
-                              color: Colors.teal,
-                            }}
-                          >
-                            {spaceInsight(space)}
-                          </Text>
-                        </View>
-                        <Text style={{ fontFamily: Fonts.extrabold, fontSize: 15, color: Colors.teal }}>
-                          {formatMoney(space.profit)}
-                        </Text>
-                      </View>
-                    </Pressable>
-                  ))}
-                </View>
-                <Text style={{ fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}>
-                  Tap a space to filter the dashboard.
-                </Text>
-              </View>
-            ) : null}
-
-            <RevenueChart data={overview.series} />
-
-            {(data?.targets?.length ?? 0) > 0 ? (
-              <View style={{ gap: 10 }}>
-                <Text style={{ fontFamily: Fonts.bold, fontSize: 20, color: Colors.navy }}>
-                  Goals & run rate
-                </Text>
-                <TargetProgress items={data?.targets ?? []} />
-              </View>
-            ) : null}
+            </Pressable>
           </>
         )}
       </ScrollView>
-
-      <SpaceSwitcherSheet
-        ref={sheetRef}
-        options={spaceOptions}
-        selectedId={selectedSpaceId}
-        onSelect={(id) => {
-          setSelectedSpaceId(id);
-          sheetRef.current?.dismiss();
-        }}
-      />
     </View>
   );
 }
+
+function MoneyBit({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={quiet}>{label}</Text>
+      <Text style={{ marginTop: 4, fontFamily: Fonts.extrabold, fontSize: 15, color: Colors.navy }} numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function Pill({ label, tone }: { label: string; tone: 'good' | 'alert' | 'plain' }) {
+  const bg = tone === 'good' ? Colors.greenSoft : tone === 'alert' ? Colors.orangeSoft : Colors.navySoft;
+  const fg = tone === 'good' ? Colors.greenDeep : tone === 'alert' ? Colors.orangeDeep : Colors.navy;
+  return (
+    <View style={{ borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: bg }}>
+      <Text style={{ fontFamily: Fonts.bold, fontSize: 12, color: fg }}>{label}</Text>
+    </View>
+  );
+}
+
+function EmptyCard({
+  title,
+  body,
+  action,
+  onAction,
+}: {
+  title: string;
+  body: string;
+  action?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <View style={card}>
+      <Text style={section}>{title}</Text>
+      <Text style={[quiet, { marginTop: 4 }]}>{body}</Text>
+      {action && onAction ? (
+        <Pressable onPress={onAction} style={{ marginTop: 10 }}>
+          <Text style={{ fontFamily: Fonts.bold, color: Colors.tealDeep }}>{action}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+const card = {
+  backgroundColor: Colors.white,
+  borderRadius: 18,
+  borderWidth: 1,
+  borderColor: Colors.border,
+  padding: 16,
+};
+
+const section = {
+  fontFamily: Fonts.bold,
+  fontSize: 16,
+  color: Colors.navy,
+};
+
+const quiet = {
+  fontFamily: Fonts.medium,
+  fontSize: 13,
+  color: Colors.muted,
+  lineHeight: 18,
+};

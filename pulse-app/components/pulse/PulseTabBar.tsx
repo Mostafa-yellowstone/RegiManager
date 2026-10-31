@@ -7,26 +7,34 @@ import { Colors, Fonts } from '@/lib/theme';
 type Props = {
   state: { index: number; routes: Array<{ key: string; name: string }> };
   descriptors: Record<string, { options: any }>;
-  navigation: any;
+  emitter: {
+    emit: (options: {
+      type: 'tabPress';
+      target?: string;
+      canPreventDefault: true;
+    }) => { defaultPrevented: boolean };
+  };
+  navigateToTab: (routeKey: string) => void;
 };
 
 const LABELS: Record<TabKey, string> = {
-  pulse: 'Pulse',
-  sales: 'Sales',
+  today: 'Today',
+  work: 'Work',
+  money: 'Money',
+  team: 'Team',
   insurance: 'Insurance',
-  staff: 'Staff',
-  expenses: 'Expenses',
 };
 
 function routeToTab(name: string): TabKey {
-  if (name === 'index') return 'pulse';
-  if (name === 'sales' || name === 'insurance' || name === 'staff' || name === 'expenses') {
-    return name;
-  }
-  return 'pulse';
+  if (name === 'index') return 'today';
+  if (name === 'sales') return 'work';
+  if (name === 'expenses') return 'money';
+  if (name === 'staff') return 'team';
+  if (name === 'insurance') return 'insurance';
+  return 'today';
 }
 
-export function PulseTabBar({ state, descriptors, navigation }: Props) {
+export function PulseTabBar({ state, descriptors, emitter, navigateToTab }: Props) {
   const insets = useSafeAreaInsets();
 
   const visibleRoutes = state.routes.filter((route) => {
@@ -63,13 +71,13 @@ export function PulseTabBar({ state, descriptors, navigation }: Props) {
           const compact = visibleRoutes.length >= 5;
 
           const onPress = () => {
-            const event = navigation.emit({
+            const event = emitter.emit({
               type: 'tabPress',
               target: route.key,
               canPreventDefault: true,
             });
             if (!focused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
+              navigateToTab(route.key);
             }
           };
 
@@ -87,7 +95,7 @@ export function PulseTabBar({ state, descriptors, navigation }: Props) {
                 paddingVertical: 8,
                 paddingHorizontal: 2,
                 backgroundColor: focused ? Colors.white : 'transparent',
-                shadowColor: focused ? '#0B3D3A' : 'transparent',
+                shadowColor: focused ? Colors.navy : 'transparent',
                 shadowOpacity: focused ? 0.08 : 0,
                 shadowRadius: 8,
                 shadowOffset: { width: 0, height: 2 },

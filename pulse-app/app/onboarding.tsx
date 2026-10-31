@@ -47,7 +47,7 @@ const SLIDES: Slide[] = [
     id: 'welcome',
     badge: 'RegiManager Pulse',
     title: 'Your business,\nlive on your phone',
-    body: 'Pulse is the owner companion for RegiManager: profit, cash flow, staff, and spaces in one calm dashboard.',
+    body: 'Pulse is the owner companion for RegiManager: today, work, money, and the team on one desk.',
     points: ['Owner CRM login only', 'Built for PSB owners', 'Works alongside your agents'],
     accent: Colors.teal,
     kind: 'welcome',
@@ -56,8 +56,8 @@ const SLIDES: Slide[] = [
     id: 'profit',
     badge: 'Money pulse',
     title: 'See what you\nactually earned',
-    body: 'Track gross profit from insurance and DMV, plus bank net profit from income and expenses, day by day.',
-    points: ['Insurance + DMV profit', 'Bank income vs expenses', 'Period compare badges'],
+    body: 'Money in, money out, and what is left, plus desk fees and insurance pay for the range you pick.',
+    points: ['Money in and money out', "What's left versus last period", 'DMV Profit and insurance pay'],
     accent: Colors.gold,
     kind: 'profit',
   },
@@ -73,9 +73,9 @@ const SLIDES: Slide[] = [
   {
     id: 'ops',
     badge: 'Operations',
-    title: 'Drill into spaces\n& expenses',
-    body: 'Open DMV, insurance, and expense detail without leaving your pocket, then act from the full CRM when needed.',
-    points: ['Space-level performance', 'Expense transaction drill-down', 'Daily snapshot alerts'],
+    title: 'Open the work\nand the money',
+    body: 'Filter desk, insurance, Motor Club, and TLC in one list, then open a bank line when you need it.',
+    points: ['One work list', 'A person on every job', 'Bank lines you can open'],
     accent: Colors.blue,
     kind: 'ops',
   },
@@ -149,8 +149,8 @@ function ProfitCards() {
   return (
     <Animated.View style={[{ width: '100%', gap: 10 }, style]}>
       {[
-        { label: 'Gross profit', value: '+$12.4k', soft: Colors.tealSoft, color: Colors.tealDeep },
-        { label: 'Net profit', value: '+$8.1k', soft: Colors.goldSoft, color: Colors.navy },
+        { label: 'Money in', value: 'Today', soft: Colors.tealSoft, color: Colors.tealDeep },
+        { label: "What's left", value: 'This range', soft: Colors.goldSoft, color: Colors.navy },
       ].map((card) => (
         <View
           key={card.label}
@@ -440,7 +440,7 @@ export default function OnboardingScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: Colors.navy }}>
       <LinearGradient
-        colors={['#0F3D4C', '#0B2E3A', '#083344']}
+        colors={['#8E341C', '#4A2A22', '#241C18']}
         style={{ flex: 1, paddingTop: insets.top + 8, paddingBottom: footerPad }}
       >
         <View

@@ -1,0 +1,222 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div style="max-width:880px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+
+  <h1 style="margin-bottom:6px;color:#0f172a;">Import Kintone records.csv + Attachments</h1>
+  <p style="color:#475569;line-height:1.6;margin-bottom:18px;">
+    Import clients, commercial accounts, addresses, notes, and attachments directly from your Kintone backup.
+    Attachment files are processed directly from the server disk, allowing multi-gigabyte folders (e.g. 5.21 GB)
+    to merge seamlessly without browser timeouts, payload limits, or rate limiting.
+  </p>
+
+  <!-- Deduplication Rules -->
+  <details style="margin-bottom:20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;">
+    <summary style="font-weight:700;color:#1e293b;cursor:pointer;">Deduplication &amp; Validation Rules</summary>
+    <ul style="margin-top:10px;line-height:1.7;color:#334155;font-size:0.95em;">
+      <li><strong>Personal clients</strong> are matched by Driver License (<code>licenseper</code>) or Full Name. Existing clients are updated (blanks filled), never duplicated.</li>
+      <li><strong>Commercial clients</strong> are matched by EIN (<code>licensecom</code>) or Business Name (<code>business</code>).</li>
+      <li><strong>Subtable / Multiple Rows</strong>: Multiple rows for the same record (e.g. subtable rows) are safely grouped into a single client profile.</li>
+      <li><strong>Document Deduplication</strong>: Attachment files are uploaded once; repeated imports automatically skip existing documents by filename.</li>
+      <li><strong>Zero HTTP Timeout</strong>: Point directly to the server folder (e.g. <code>C:\KintoneBackup\Attachments</code>) to bypass browser uploads entirely.</li>
+    </ul>
+  </details>
+
+  <!-- Import Form -->
+  <form method="post" enctype="multipart/form-data" id="importForm"
+        style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+    {% csrf_token %}
+
+    <div style="margin-bottom:18px;">
+      <label for="organization" style="display:block;font-weight:700;margin-bottom:6px;color:#1e293b;">Target Office / PSB</label>
+      <select name="organization" id="organization" required
+              style="width:100%;max-width:400px;padding:9px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.95em;background:#fff;">
+        <option value="">— Select an office —</option>
+        {% for org in organizations %}
+        <option value="{{ org.id }}">{{ org.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Mode Selector: Server Path vs File Upload -->
+    <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin-bottom:18px;">
+      <label style="display:block;font-weight:700;margin-bottom:8px;color:#0f172a;">Source for records.csv</label>
+      
+      <div style="margin-bottom:10px;">
+        <label style="cursor:pointer;font-weight:600;color:#334155;">
+          <input type="radio" name="csv_mode" value="server" checked onchange="toggleCsvMode()" style="margin-right:6px;">
+          Direct Path on Server (Fastest — no upload needed)
+        </label>
+        <div id="server_csv_panel" style="margin-top:6px;margin-left:24px;">
+          <input name="csv_server_path" id="csv_server_path"
+                 value="C:\KintoneBackup\records.csv"
+                 placeholder="C:\KintoneBackup\records.csv"
+                 style="width:100%;max-width:550px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-family:monospace;font-size:0.9em;">
+          <small style="display:block;color:#64748b;margin-top:3px;">Absolute path to <code>records.csv</code> on the server disk.</small>
+        </div>
+      </div>
+
+      <div>
+        <label style="cursor:pointer;font-weight:600;color:#334155;">
+          <input type="radio" name="csv_mode" value="upload" onchange="toggleCsvMode()" style="margin-right:6px;">
+          Upload from My Computer
+        </label>
+        <div id="upload_csv_panel" style="margin-top:6px;margin-left:24px;display:none;">
+          <input type="file" name="records_csv" id="records_csv" accept=".csv"
+                 style="padding:6px 0;font-size:0.95em;">
+          <small style="display:block;color:#64748b;margin-top:3px;">Upload <code>records.csv</code> (typically &lt; 1 MB).</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attachments Path on Server -->
+    <div style="margin-bottom:18px;">
+      <label for="attachments_dir" style="display:block;font-weight:700;margin-bottom:6px;color:#1e293b;">
+        Attachments Directory on Server
+        <span style="font-weight:400;color:#64748b;font-size:0.9em;">(optional)</span>
+      </label>
+      <input name="attachments_dir" id="attachments_dir"
+             value="C:\KintoneBackup\Attachments"
+             placeholder="C:\KintoneBackup\Attachments"
+             style="width:100%;max-width:550px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-family:monospace;font-size:0.9em;">
+      <small style="display:block;color:#64748b;margin-top:4px;">
+        Root folder containing the <code>Attachment-XXXX</code> subfolders. Leave blank if importing client profiles only.
+      </small>
+    </div>
+
+    <!-- Link Column Override -->
+    <div style="margin-bottom:22px;">
+      <label for="link_column" style="display:block;font-weight:700;margin-bottom:6px;color:#1e293b;">
+        Unique Column Name
+        <span style="font-weight:400;color:#64748b;font-size:0.9em;">(optional)</span>
+      </label>
+      <input name="link_column" id="link_column"
+             placeholder="Auto-detect (uses Driver License for personal, EIN for commercial)"
+             style="width:100%;max-width:550px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9em;">
+    </div>
+
+    <button type="submit" id="submitBtn"
+            style="background:#0f766e;color:#fff;border:0;border-radius:6px;
+                   padding:11px 24px;font-weight:700;cursor:pointer;font-size:1em;box-shadow:0 1px 2px rgba(0,0,0,0.1);">
+      ▶ Start Kintone Merge
+    </button>
+  </form>
+
+  <!-- Running Job State -->
+  {% if job.status == "running" %}
+  <div id="jobStatusBox" style="margin:20px 0;padding:18px 20px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <strong style="color:#1e40af;font-size:1.05em;">⏳ Import is running in the background...</strong>
+      <span id="jobPercent" style="font-weight:700;color:#2563eb;">
+        {% if progress.total %}{% widthratio progress.done progress.total 100 %}%{% else %}Working...{% endif %}
+      </span>
+    </div>
+    
+    <div style="background:#dbeafe;border-radius:6px;height:14px;overflow:hidden;margin-bottom:8px;">
+      <div id="progressBar" style="background:#2563eb;height:100%;width:{% if progress.total %}{% widthratio progress.done progress.total 100 %}%{% else %}10%{% endif %};transition:width 0.4s ease;"></div>
+    </div>
+    
+    <div style="display:flex;justify-content:space-between;font-size:0.88em;color:#475569;">
+      <span id="jobCount">
+        {% if progress.total %}{{ progress.done }} of {{ progress.total }} records processed{% else %}Initializing records and attachments...{% endif %}
+      </span>
+      <span>Safe to close or leave this page open</span>
+    </div>
+  </div>
+
+  <script>
+    (function pollStatus() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const jobId = urlParams.get('job');
+      if (!jobId) return;
+
+      const timer = setInterval(() => {
+        fetch(window.location.pathname + '?job=' + jobId + '&format=json')
+          .then(res => res.json())
+          .then(data => {
+            if (!data || data.status === 'none') return;
+            if (data.status === 'running' && data.progress && data.progress.total) {
+              const pct = Math.round((data.progress.done / data.progress.total) * 100);
+              const bar = document.getElementById('progressBar');
+              const text = document.getElementById('jobPercent');
+              const count = document.getElementById('jobCount');
+              if (bar) bar.style.width = pct + '%';
+              if (text) text.innerText = pct + '%';
+              if (count) count.innerText = data.progress.done + ' of ' + data.progress.total + ' records processed';
+            } else if (data.status === 'done' || data.status === 'error') {
+              clearInterval(timer);
+              window.location.reload();
+            }
+          })
+          .catch(() => {});
+      }, 1500);
+    })();
+  </script>
+  <noscript>
+    <meta http-equiv="refresh" content="4">
+  </noscript>
+  {% elif job.status == "error" %}
+  <div style="margin:20px 0;padding:16px 20px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#991b1b;">
+    <strong>❌ Import Failed:</strong> {{ job.error }}
+  </div>
+  {% endif %}
+
+  <!-- Results Summary -->
+  {% if results %}
+  <div style="margin-top:24px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:22px;">
+    <h2 style="margin-top:0;font-size:1.2em;color:#14532d;display:flex;align-items:center;gap:8px;">
+      <span>✅</span> Import Completed Successfully
+    </h2>
+    <table style="border-collapse:collapse;width:100%;margin-top:14px;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #e2e8f0;">
+      <tr style="border-bottom:1px solid #e2e8f0;">
+        <td style="padding:10px 16px;color:#334155;font-weight:600;">New Profiles Created</td>
+        <td style="padding:10px 16px;color:#166534;font-weight:700;text-align:right;">{{ results.clients_created }}</td>
+      </tr>
+      <tr style="border-bottom:1px solid #e2e8f0;background:#f8fafc;">
+        <td style="padding:10px 16px;color:#334155;font-weight:600;">Profiles Merged / Updated (Already Existed)</td>
+        <td style="padding:10px 16px;color:#0f766e;font-weight:700;text-align:right;">{{ results.clients_skipped }}</td>
+      </tr>
+      <tr style="border-bottom:1px solid #e2e8f0;">
+        <td style="padding:10px 16px;color:#334155;font-weight:600;">Documents Uploaded &amp; Linked</td>
+        <td style="padding:10px 16px;color:#166534;font-weight:700;text-align:right;">{{ results.documents_created }}</td>
+      </tr>
+      <tr style="border-bottom:1px solid #e2e8f0;background:#f8fafc;">
+        <td style="padding:10px 16px;color:#334155;font-weight:600;">Documents Skipped (Already in system)</td>
+        <td style="padding:10px 16px;color:#64748b;text-align:right;">{{ results.documents_skipped }}</td>
+      </tr>
+      {% if results.error_count %}
+      <tr>
+        <td style="padding:10px 16px;color:#991b1b;font-weight:600;">Warnings / Items Skipped</td>
+        <td style="padding:10px 16px;color:#991b1b;font-weight:700;text-align:right;">{{ results.error_count }}</td>
+      </tr>
+      {% endif %}
+    </table>
+
+    {% if results.errors %}
+    <details style="margin-top:16px;">
+      <summary style="cursor:pointer;font-weight:600;color:#92400e;">
+        View {{ results.errors|length }} warning(s)
+        {% if results.error_count > results.errors|length %}
+          (showing first {{ results.errors|length }} of {{ results.error_count }})
+        {% endif %}
+      </summary>
+      <ul style="margin-top:8px;color:#7c2d12;font-size:0.9em;line-height:1.6;background:#fff;border:1px solid #fed7aa;border-radius:6px;padding:12px 28px;">
+        {% for err in results.errors %}
+        <li>{{ err }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+  function toggleCsvMode() {
+    const isServer = document.querySelector('input[name="csv_mode"]:checked').value === 'server';
+    document.getElementById('server_csv_panel').style.display = isServer ? 'block' : 'none';
+    document.getElementById('upload_csv_panel').style.display = isServer ? 'none' : 'block';
+  }
+</script>
+{% endblock %}

@@ -1,8 +1,14 @@
-from django.contrib import admin
+﻿from django.contrib import admin
 from django.core.exceptions import PermissionDenied
 from django.urls import path
 
-from ..admin_views import crm_import_view, kintone_import_view, psb_backup_download, psb_backup_import
+from ..admin_views import (
+    crm_import_view,
+    kintone_import_view,
+    kintone_records_import_view,
+    psb_backup_download,
+    psb_backup_import,
+)
 from .grouping import group_core_models, split_core_app_entry
 
 
@@ -42,6 +48,7 @@ def patch_admin_site(site=None):
         custom_urls = [
             path("crm-import/", superuser_view(crm_import_view), name="crm-import"),
             path("kintone-import/", superuser_view(kintone_import_view), name="kintone-import"),
+            path("kintone-records-import/", superuser_view(kintone_records_import_view), name="kintone-records-import"),
             path(
                 "psb-backup/import/",
                 superuser_view(psb_backup_import),
@@ -71,3 +78,4 @@ def patch_admin_site(site=None):
     site.site_header = "RegiManager Administration"
     site.site_title = "RegiManager Admin"
     site.index_title = "Operations Dashboard"
+

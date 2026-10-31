@@ -93,8 +93,8 @@ export function buildAttentionItems(params: {
     items.push({
       id: 'late-staff',
       level: 'critical',
-      title: `${lateAgents.length} staff late`,
-      body: `${names}${more}. Egypt start is 4:00 PM Cairo.`,
+      title: `${lateAgents.length} late`,
+      body: `${names}${more}`,
       href: '/(tabs)/staff',
     });
   }
@@ -104,8 +104,8 @@ export function buildAttentionItems(params: {
     items.push({
       id: 'expense-spike',
       level: 'warning',
-      title: 'Expenses spiked',
-      body: `Bank expenses are ${expenseDelta > 0 ? '+' : ''}${expenseDelta.toFixed(0)}% vs prior period.`,
+      title: 'Money out jumped',
+      body: `${expenseDelta > 0 ? '+' : ''}${expenseDelta.toFixed(0)}% versus the previous period.`,
       href: '/(tabs)/expenses',
     });
   }
@@ -115,8 +115,8 @@ export function buildAttentionItems(params: {
     items.push({
       id: 'profit-down',
       level: 'warning',
-      title: 'Profit soft vs prior',
-      body: `Gross profit is ${profitDelta.toFixed(0)}% vs the previous period.`,
+      title: 'Quieter than last period',
+      body: `${profitDelta.toFixed(0)}% versus the previous period.`,
       href: '/(tabs)',
     });
   }
@@ -125,8 +125,8 @@ export function buildAttentionItems(params: {
     items.push({
       id: 'cashflow-unavailable',
       level: 'info',
-      title: 'Bank net profit limited',
-      body: overview.cashflow_warning || 'Banking metrics may be incomplete for this account.',
+      title: 'Bank lines are incomplete',
+      body: overview.cashflow_warning || 'Some bank lines are missing for this account.',
       href: '/(tabs)/expenses',
     });
   }
@@ -135,8 +135,8 @@ export function buildAttentionItems(params: {
     items.push({
       id: 'quiet-sales',
       level: 'info',
-      title: 'No sales in this range',
-      body: 'DMV/insurance payments are empty for the selected dates.',
+      title: 'No payments in this range',
+      body: 'The desk and insurance lists are empty for these dates.',
       href: '/(tabs)/sales',
     });
   }
@@ -146,8 +146,8 @@ export function buildAttentionItems(params: {
       id: 'quiet-insurance',
       level: 'info',
       title: 'No insurance binds',
-      body: 'Open the Insurance tab to review premiums and commission by carrier.',
-      href: '/(tabs)/insurance',
+      body: 'Nothing was bound in this range.',
+      href: '/(tabs)/sales',
     });
   }
 
@@ -160,13 +160,13 @@ export function buildAttentionItems(params: {
     items.push({
       id: `space-soft-${softSpace.space_id}`,
       level: 'warning',
-      title: `${softSpace.name} is negative`,
-      body: 'This space lost money in the selected range. Tap Spaces on Pulse to filter.',
+      title: `${softSpace.name} is down`,
+      body: 'This part of the office is down for the selected range.',
       href: '/(tabs)',
     });
   }
 
-  return items.slice(0, 5);
+  return items.slice(0, 3);
 }
 
 export function spaceInsight(space: SpaceSummary): string {

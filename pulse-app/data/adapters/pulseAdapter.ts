@@ -285,8 +285,14 @@ export function adaptPulseDashboard(input: {
     cashflow_warning: cashflowAvailable
       ? undefined
       : input.cashflowError
-        ? `Banking expenses unavailable (${input.cashflowError}). Pull to refresh after backend deploy.`
-        : 'Banking cashflow unavailable. Confirm banking permission on this account.',
+        ? 'Bank lines are incomplete for this account.'
+        : 'Bank lines are incomplete for this account.',
+    left_delta_pct: input.priorCashflow?.cashflow
+      ? pctDelta(
+          netCashFlow,
+          money(input.priorCashflow.cashflow.income) - money(input.priorCashflow.cashflow.expense),
+        )
+      : null,
   };
 
   if (isDmvVirtual) {
@@ -300,6 +306,19 @@ export function adaptPulseDashboard(input: {
     space_summaries: adaptSpacesList(input.spaces, useCustom),
     costs: buildBankExpenses(resolvedCashflow),
     organization_name: input.overview?.organization?.name,
+    job_counts: jobCountsFrom(input.overview),
+  };
+}
+
+function jobCountsFrom(overview: any): PulseDashboardPayload['job_counts'] {
+  const rows = overview?.processes?.service_status || [];
+  const count = (status: string) =>
+    Number(rows.find((row: any) => row?.status === status)?.count || 0);
+  return {
+    waiting: count('pending'),
+    done: count('completed'),
+    failed: count('failed'),
+    refunded: count('refund'),
   };
 }
 

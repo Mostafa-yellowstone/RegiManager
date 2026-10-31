@@ -1,178 +1,151 @@
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
-import { AttendanceStrip } from '@/components/pulse/AttendanceStrip';
-import { ConnectedDateRangeSelector } from '@/components/pulse/ConnectedDateRangeSelector';
 import { SkeletonBlock } from '@/components/pulse/SkeletonBlock';
 import { listOwnerAgents } from '@/data/repositories/agentsRepository';
 import { useAuth } from '@/lib/auth';
-import { formatMoney } from '@/lib/format';
-import { hapticLight } from '@/lib/haptics';
-import { Colors } from '@/lib/theme';
+import { hapticLight, hapticSelection } from '@/lib/haptics';
+import { Colors, Fonts } from '@/lib/theme';
 
-export default function StaffScreen() {
+export default function TeamScreen() {
+  const router = useRouter();
   const { selectedOrg } = useAuth();
-  const { data, isLoading, isFetching, refetch, isError, error } = useQuery({
+  const agentsQuery = useQuery({
     queryKey: ['pulse-agents', selectedOrg?.id],
     queryFn: () => listOwnerAgents(),
     enabled: Boolean(selectedOrg?.id),
   });
 
-  const sortedAgents = useMemo(() => {
-    const agents = [...(data?.agents ?? [])];
-    agents.sort((a, b) => {
+  const agents = useMemo(() => {
+    const rows = [...(agentsQuery.data?.agents ?? [])];
+    rows.sort((a, b) => {
       if (a.is_late !== b.is_late) return Number(b.is_late) - Number(a.is_late);
-      if (a.is_on_time !== b.is_on_time) return Number(b.is_on_time) - Number(a.is_on_time);
-      if (a.attendance_open !== b.attendance_open) {
-        return Number(b.attendance_open) - Number(a.attendance_open);
-      }
+      if (a.attendance_open !== b.attendance_open) return Number(b.attendance_open) - Number(a.attendance_open);
       return a.name.localeCompare(b.name);
     });
-    return agents;
-  }, [data?.agents]);
+    return rows;
+  }, [agentsQuery.data?.agents]);
 
-  const counts = useMemo(() => {
-    const agents = data?.agents ?? [];
-    return {
-      late: agents.filter((a) => a.is_late).length,
-      onTime: agents.filter((a) => a.is_on_time).length,
-      onDuty: agents.filter((a) => a.attendance_open).length,
-    };
-  }, [data?.agents]);
+  const here = agents.filter((agent) => agent.attendance_open).length;
+  const late = agents.filter((agent) => agent.is_late).length;
+  const stillOut = agents.filter((agent) => !agent.attendance_open && !agent.is_late && !agent.is_on_time).length;
 
   return (
-    <ScrollView
-      className="flex-1 bg-cream"
-      contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 10 }}
-      refreshControl={
-        <RefreshControl
-          refreshing={isFetching && !isLoading}
-          onRefresh={() => {
-            void hapticLight();
-            void refetch();
-          }}
-          tintColor="#1A2B48"
-        />
-      }
-    >
-      <Text className="text-title text-navy">Staff attendance</Text>
-      <Text className="text-caption text-muted">
-        View-only roster · Egypt team start 4:00 PM Cairo · after 4:00 PM = late
-      </Text>
-      <ConnectedDateRangeSelector />
-      <View
-        className="rounded-xl px-3 py-2"
-        style={{ backgroundColor: Colors.navySoft, borderWidth: 1, borderColor: Colors.border }}
+    <View style={{ flex: 1, backgroundColor: Colors.cream }}>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 120, gap: 10 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={agentsQuery.isFetching && !agentsQuery.isLoading}
+            onRefresh={() => {
+              void hapticLight();
+              void agentsQuery.refetch();
+            }}
+            tintColor={Colors.teal}
+          />
+        }
       >
-        <Text className="text-caption font-semibold text-navy">
-          Attendance below is always today&apos;s NY work day
-          {data?.work_date ? ` (${data.work_date})` : ''}. Date chips sync Pulse, Sales, and Expenses.
-        </Text>
-      </View>
-
-      <View className="flex-row flex-wrap gap-2">
-        <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: Colors.orangeSoft }}>
-          <Text className="text-caption font-extrabold" style={{ color: Colors.orangeDeep }}>
-            Late {counts.late}
-          </Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Stat label="Here" value={here} />
+          <Stat label="Late" value={late} alert={late > 0} />
+          <Stat label="Still out" value={stillOut} />
         </View>
-        <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: Colors.greenSoft }}>
-          <Text className="text-caption font-extrabold" style={{ color: Colors.greenDeep }}>
-            On time {counts.onTime}
+        {agentsQuery.data?.work_date ? (
+          <Text style={{ fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}>
+            Today · {agentsQuery.data.work_date}
           </Text>
-        </View>
-        <View className="rounded-full px-3 py-1.5" style={{ backgroundColor: Colors.tealSoft }}>
-          <Text className="text-caption font-extrabold" style={{ color: Colors.tealDeep }}>
-            On duty {counts.onDuty}
+        ) : null}
+        {agentsQuery.isError ? (
+          <Text style={{ fontFamily: Fonts.semibold, color: Colors.danger }}>
+            {(agentsQuery.error as Error)?.message || 'Could not load the team'}
           </Text>
-        </View>
-      </View>
-
-      {isError ? (
-        <Text className="text-caption font-semibold text-danger">
-          {(error as Error)?.message || 'Owner access required for staff roster'}
-        </Text>
-      ) : null}
-
-      {isLoading ? (
-        <>
-          <SkeletonBlock height={88} />
-          <SkeletonBlock height={88} />
-        </>
-      ) : sortedAgents.length === 0 ? (
-        <Text className="mt-6 text-center text-body text-muted">No agents found.</Text>
-      ) : (
-        <>
-          <AttendanceStrip agents={sortedAgents} workDate={data?.work_date} />
-          {sortedAgents.map((agent) => (
-            <View
+        ) : null}
+        {agentsQuery.isLoading ? (
+          <>
+            <SkeletonBlock height={76} />
+            <SkeletonBlock height={76} />
+          </>
+        ) : agents.length === 0 ? (
+          <Text style={{ textAlign: 'center', marginTop: 24, fontFamily: Fonts.medium, color: Colors.muted }}>
+            No one on the roster.
+          </Text>
+        ) : (
+          agents.map((agent) => (
+            <Pressable
               key={agent.membership_id}
-              className="rounded-2xl border border-border bg-white px-4 py-3"
+              onPress={() => {
+                void hapticSelection();
+                router.push({
+                  pathname: '/person/[id]' as any,
+                  params: {
+                    id: String(agent.membership_id),
+                    name: agent.name,
+                    role: agent.role,
+                    late: agent.is_late ? '1' : '0',
+                    here: agent.attendance_open ? '1' : '0',
+                    label: agent.attendance_label,
+                    jobs: String(agent.service_records_total),
+                  },
+                });
+              }}
+              style={{
+                backgroundColor: Colors.white,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: Colors.border,
+                padding: 14,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+              }}
             >
-              <View className="flex-row items-center justify-between">
-                <View className="flex-1 pr-3">
-                  <Text className="text-body font-bold text-navy">{agent.name}</Text>
-                  <Text className="mt-0.5 text-caption text-muted">{agent.role}</Text>
-                </View>
-                <View className="flex-row gap-2">
-                  {agent.is_late ? (
-                    <View
-                      className="rounded-full px-2.5 py-1"
-                      style={{ backgroundColor: Colors.orangeSoft }}
-                    >
-                      <Text className="text-caption font-bold" style={{ color: Colors.orangeDeep }}>
-                        Late
-                      </Text>
-                    </View>
-                  ) : null}
-                  {agent.is_on_time ? (
-                    <View
-                      className="rounded-full px-2.5 py-1"
-                      style={{ backgroundColor: Colors.greenSoft }}
-                    >
-                      <Text className="text-caption font-bold" style={{ color: Colors.greenDeep }}>
-                        On time
-                      </Text>
-                    </View>
-                  ) : null}
-                  <View
-                    className={`rounded-full px-2.5 py-1 ${
-                      agent.attendance_open ? 'bg-success/15' : 'bg-navy-soft'
-                    }`}
-                  >
-                    <Text
-                      className={`text-caption font-bold ${
-                        agent.attendance_open ? 'text-success' : 'text-muted'
-                      }`}
-                    >
-                      {agent.attendance_open ? 'On duty' : 'Off'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              <Text className="mt-2 text-caption text-navy">{agent.attendance_label}</Text>
-              {(agent.started_at || agent.ended_at) && (
-                <View className="mt-2 flex-row justify-between">
-                  <Text className="text-caption text-muted">
-                    Started {agent.started_at || '—'}
-                  </Text>
-                  <Text className="text-caption text-muted">
-                    Ended {agent.ended_at || (agent.attendance_open ? 'still open' : '—')}
-                  </Text>
-                </View>
-              )}
-              <View className="mt-3 flex-row justify-between">
-                <Text className="text-caption text-muted">Tasks {agent.task_percent}%</Text>
-                <Text className="text-caption font-semibold text-navy">
-                  {agent.service_records_total} records ·{' '}
-                  {formatMoney(agent.service_revenue_total, true)}
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: Fonts.bold, fontSize: 16, color: Colors.navy }}>{agent.name}</Text>
+                <Text style={{ marginTop: 2, fontFamily: Fonts.medium, fontSize: 13, color: Colors.muted }}>
+                  {agent.attendance_label}
+                </Text>
+                <Text style={{ marginTop: 4, fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}>
+                  {agent.service_records_total} jobs
                 </Text>
               </View>
-            </View>
-          ))}
-        </>
-      )}
-    </ScrollView>
+              <StatusMark late={agent.is_late} here={agent.attendance_open} />
+            </Pressable>
+          ))
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+function Stat({ label, value, alert }: { label: string; value: number; alert?: boolean }) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: alert ? Colors.orangeSoft : Colors.white,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Colors.border,
+        padding: 12,
+      }}
+    >
+      <Text style={{ fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}>{label}</Text>
+      <Text style={{ marginTop: 4, fontFamily: Fonts.extrabold, fontSize: 22, color: Colors.navy }}>{value}</Text>
+    </View>
+  );
+}
+
+function StatusMark({ late, here }: { late: boolean; here: boolean }) {
+  const label = late ? 'Late' : here ? 'Here' : 'Out';
+  const bg = late ? Colors.orangeSoft : here ? Colors.greenSoft : Colors.navySoft;
+  const fg = late ? Colors.orangeDeep : here ? Colors.greenDeep : Colors.muted;
+  return (
+    <View style={{ borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: bg }}>
+      <Text style={{ fontFamily: Fonts.bold, fontSize: 12, color: fg }}>{label}</Text>
+    </View>
   );
 }

@@ -71,7 +71,7 @@ export function RevenueChart({ data }: Props) {
       style={{
         borderWidth: 1,
         borderColor: Colors.border,
-        shadowColor: '#0F3D4C',
+        shadowColor: Colors.navy,
         shadowOpacity: 0.06,
         shadowRadius: 12,
         shadowOffset: { width: 0, height: 4 },
@@ -80,7 +80,7 @@ export function RevenueChart({ data }: Props) {
     >
       <View className="mb-3 flex-row items-center justify-between">
         <Text className="text-caption font-bold uppercase tracking-wide text-muted">
-          Profit trend
+          Over time
         </Text>
       </View>
 

@@ -2,7 +2,7 @@
   "expo": {
     "name": "RegiManager Pulse",
     "slug": "regimanager-pulse",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "regimanagerpulse",
@@ -18,7 +18,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0F3D4C",
+        "backgroundColor": "#1B2437",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -49,14 +49,14 @@
         {
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#0F3D4C"
+          "backgroundColor": "#1B2437"
         }
       ],
       [
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
-          "color": "#0D9488"
+          "color": "#2F4BD0"
         }
       ]
     ],
