@@ -149,6 +149,7 @@
     <form id="policyForm" method="POST" action="{% url 'add-insurance-policy' %}">
       {% csrf_token %}
       <input type="hidden" name="organization" value="{{ active_org.id }}">
+      <input type="hidden" name="next" id="policyFormNext" value="">
 
       <div style="margin-bottom: 1rem;">
         <label class="field-label">Quote Date <span style="color:#dc2626;">*</span></label>

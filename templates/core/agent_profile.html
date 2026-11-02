@@ -285,9 +285,16 @@
 .audit-pill.is-failed { background: #fee2e2; color: #991b1b; }
 .audit-pill.is-pending { background: #fef3c7; color: #92400e; }
 .audit-pill.is-refund { background: #ede9fe; color: #5b21b6; }
-.audit-pages { display: flex; gap: .4rem; flex-wrap: wrap; padding: .9rem 1.15rem 1.15rem; }
-.audit-pages a, .audit-pages span { padding: .35rem .65rem; border-radius: 8px; border: 1px solid #e2e8f0; text-decoration: none; font-weight: 750; color: #334155; }
-.audit-pages .is-current { background: #0f172a; color: #fff; border-color: #0f172a; }
+.audit-pages { display: flex; align-items: center; justify-content: center; gap: .45rem; padding: 1.15rem 1.25rem; flex-wrap: wrap; }
+.audit-page-btn { display: inline-flex; align-items: center; padding: .42rem .85rem; border-radius: 10px; border: 1.5px solid #cbd5e1; background: #fff; font-weight: 750; color: #334155; font-size: .82rem; text-decoration: none; transition: all .15s ease; }
+.audit-page-btn:hover { background: #f8fafc; border-color: #94a3b8; color: #0f172a; }
+.audit-page-num { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; border: 1px solid #e2e8f0; background: #fff; font-weight: 800; font-size: .82rem; text-decoration: none; color: #334155; transition: all .15s ease; }
+.audit-page-num:hover { background: #f1f5f9; border-color: #cbd5e1; }
+.audit-page-num.is-active { background: #0f172a; color: #fff; border-color: #0f172a; box-shadow: 0 2px 6px rgba(15,23,42,.2); }
+.ins-stage-pill { display: inline-flex; padding: .15rem .5rem; border-radius: 999px; font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; }
+.ins-stage-pill.is-bound { background: #dcfce7; color: #166534; }
+.ins-stage-pill.is-quote { background: #eff6ff; color: #1e40af; }
+.ins-stage-pill.is-endorsement { background: #fef3c7; color: #92400e; }
 </style>
 {% endblock %}
 
@@ -317,11 +324,15 @@
     <a class="uap-tab {% if tab == 'overview' %}is-active{% endif %}" href="?tab=overview&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ period }}">Overview</a>
     <a class="uap-tab {% if tab == 'workboard' %}is-active{% endif %}" href="?tab=workboard&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ period }}">Workboard</a>
     <a class="uap-tab {% if tab == 'day' %}is-active{% endif %}" href="?tab=day&activity_date={{ activity_date|date:'Y-m-d' }}">Day trail</a>
+    {% if not is_insurance_agent %}
     <a class="uap-tab {% if tab == 'audit' %}is-active{% endif %}" href="?tab=audit&activity_date={{ activity_date|date:'Y-m-d' }}&{{ audit_filters }}">
       Service audit{% if active_filters_count %} <span class="uap-tab-count">{{ active_filters_count }}</span>{% endif %}
     </a>
-    {% if show_insurance %}
-    <a class="uap-tab {% if tab == 'insurance' %}is-active{% endif %}" href="?tab=insurance&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ period }}">Insurance CRM</a>
+    {% endif %}
+    {% if show_insurance or is_insurance_agent %}
+    <a class="uap-tab {% if tab == 'insurance' %}is-active{% endif %}" href="?tab=insurance&activity_date={{ activity_date|date:'Y-m-d' }}&{{ ins_filters }}">
+      Insurance audit{% if ins_active_filters_count %} <span class="uap-tab-count">{{ ins_active_filters_count }}</span>{% endif %}
+    </a>
     {% endif %}
   </nav>
 
@@ -420,7 +431,7 @@
   </section>
   {% endif %}
 
-  {% if tab == 'overview' or tab == 'audit' %}
+  {% if not is_insurance_agent and tab == 'overview' or not is_insurance_agent and tab == 'audit' %}
   <section class="uap-panel audit-crm" id="audit">
     <div class="audit-crm__top">
       <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:center;">
@@ -647,33 +658,256 @@
     {% if page_obj.paginator.num_pages > 1 %}
     <nav class="audit-pages" aria-label="Audit pages">
       {% if page_obj.has_previous %}
-      <a href="?{{ audit_kept }}&page={{ page_obj.previous_page_number }}">Previous</a>
+      <a href="?{{ audit_kept }}&page={{ page_obj.previous_page_number }}" class="audit-page-btn">← Previous</a>
       {% endif %}
-      <span class="is-current">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+      <div style="display:inline-flex;gap:4px;">
+        {% for num in page_obj.paginator.page_range %}
+          {% if num == page_obj.number %}
+          <span class="audit-page-num is-active">{{ num }}</span>
+          {% elif num > page_obj.number|add:"-3" and num < page_obj.number|add:"3" %}
+          <a href="?{{ audit_kept }}&page={{ num }}" class="audit-page-num">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+      </div>
       {% if page_obj.has_next %}
-      <a href="?{{ audit_kept }}&page={{ page_obj.next_page_number }}">Next</a>
+      <a href="?{{ audit_kept }}&page={{ page_obj.next_page_number }}" class="audit-page-btn">Next →</a>
       {% endif %}
     </nav>
     {% endif %}
   </section>
   {% endif %}
 
-  {% if tab == 'insurance' and show_insurance %}
-  <section class="uap-panel">
-    <h2>Insurance CRM</h2>
-    <p style="color:#64748b;font-weight:600;max-width:40rem;">
-      Open the full insurance policy CRM for this agent — quotes, binds, premiums, and period auditing live there.
-      Workboard and service audit stay on this unified profile.
-    </p>
-    <a class="btn btn-primary" href="{% url 'insurance-agent-detail' agent_membership.user_id %}?crm=1">Open insurance policy CRM</a>
-  </section>
-  {% endif %}
+  {% if tab == 'insurance' or is_insurance_agent and tab == 'overview' %}
+  <section class="uap-panel audit-crm" id="insurance-audit">
+    <div class="audit-crm__top">
+      <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:center;">
+        <h2>Insurance policy audit</h2>
+        <a class="audit-export" href="{% url 'insurance-agent-detail' agent_membership.user_id %}?crm=1">Full Insurance CRM →</a>
+      </div>
 
-  {% if tab == 'overview' and show_insurance %}
-  <section class="uap-panel">
-    <h2>Insurance</h2>
-    <p style="color:#64748b;font-weight:600;">This teammate is an insurance agent. Jump to their policy CRM when you need line-level detail.</p>
-    <a class="btn btn-secondary" href="?tab=insurance">Insurance CRM</a>
+      <!-- Period Tabs: Day, Month, Year, All time, Custom -->
+      <nav class="audit-periods" aria-label="Insurance audit time range">
+        {% for key, label in ins_periods %}
+        <a href="?tab=insurance&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ key }}{% if ins_window.q %}&q={{ ins_window.q|urlencode }}{% endif %}{% if ins_window.stage %}&stage={{ ins_window.stage }}{% endif %}{% if ins_window.status %}&status={{ ins_window.status }}{% endif %}{% if key == 'custom' and ins_window.start_date %}&start_date={{ ins_window.start_date }}&end_date={{ ins_window.end_date }}{% endif %}" class="{% if ins_window.period == key %}is-on{% endif %}">{{ label }}</a>
+        {% endfor %}
+      </nav>
+
+      <div class="audit-nav">
+        {% if ins_prev_href %}<a href="{{ ins_prev_href }}">← Previous</a>{% else %}<span></span>{% endif %}
+        <strong>{{ ins_window.label }}</strong>
+        {% if ins_next_href %}<a href="{{ ins_next_href }}">Next →</a>{% else %}<span></span>{% endif %}
+      </div>
+
+      <!-- Brilliant / Chic Filter Suite for Insurance -->
+      <div class="audit-filter-suite">
+        <form method="get" id="agentInsuranceAuditFilterForm">
+          <input type="hidden" name="tab" value="insurance">
+          <input type="hidden" name="activity_date" value="{{ activity_date|date:'Y-m-d' }}">
+          <input type="hidden" name="period" value="{{ ins_window.period }}">
+          <input type="hidden" name="offset" value="{{ ins_window.offset }}">
+
+          <div class="audit-filter-suite__header">
+            <div class="audit-filter-suite__title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+              <span>Insurance Audit Filters</span>
+              <span class="audit-filter-suite__badge">{{ ins_totals.total }} policy/quote{{ ins_totals.total|pluralize }}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem;">
+              {% if ins_window.q or ins_window.stage or ins_window.status or ins_window.insurance_type or ins_window.insurance_company or ins_window.min_premium or ins_window.max_premium or ins_window.sort != '-bound_date' %}
+              <a href="?tab=insurance&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ ins_window.period }}" class="audit-btn-reset">Reset Filters</a>
+              {% endif %}
+              <button type="submit" class="audit-btn-apply">Apply Filters</button>
+            </div>
+          </div>
+
+          {% if active_ins_chips %}
+          <div class="audit-active-chips">
+            <span class="audit-active-chips__label">Active:</span>
+            {% for chip in active_ins_chips %}
+            <a href="{{ chip.remove_href }}" class="audit-chip" title="Remove {{ chip.label }}">
+              <span>{{ chip.label }}</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </a>
+            {% endfor %}
+            <a href="?tab=insurance&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ ins_window.period }}" class="audit-chip-clear">Clear all</a>
+          </div>
+          {% endif %}
+
+          <div class="audit-filter-grid">
+            <div class="audit-filter-field">
+              <label>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                Keyword Search
+              </label>
+              <input type="search" name="q" value="{{ ins_window.q }}" placeholder="Policy #, client name, phone...">
+            </div>
+
+            <div class="audit-filter-field">
+              <label>Stage</label>
+              <select name="stage">
+                <option value="">All stages</option>
+                <option value="quote" {% if ins_window.stage == 'quote' %}selected{% endif %}>Quote</option>
+                <option value="bound" {% if ins_window.stage == 'bound' %}selected{% endif %}>Bound</option>
+                <option value="endorsement" {% if ins_window.stage == 'endorsement' %}selected{% endif %}>Endorsement</option>
+              </select>
+            </div>
+
+            <div class="audit-filter-field">
+              <label>Status</label>
+              <select name="status">
+                <option value="">All statuses</option>
+                <option value="active" {% if ins_window.status == 'active' %}selected{% endif %}>Active</option>
+                <option value="inactive" {% if ins_window.status == 'inactive' %}selected{% endif %}>Inactive</option>
+                <option value="pending" {% if ins_window.status == 'pending' %}selected{% endif %}>Pending</option>
+                <option value="rejected" {% if ins_window.status == 'rejected' %}selected{% endif %}>Rejected</option>
+              </select>
+            </div>
+
+            <div class="audit-filter-field">
+              <label>Insurance Type</label>
+              <select name="insurance_type">
+                <option value="">All types</option>
+                {% for key, label in ins_type_options %}
+                <option value="{{ key }}" {% if ins_window.insurance_type == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="audit-filter-field">
+              <label>Insurance Company</label>
+              <select name="insurance_company">
+                <option value="">All companies</option>
+                {% for c_id, c_name in ins_company_options %}
+                <option value="{{ c_id }}" {% if ins_window.insurance_company == c_id|stringformat:'s' %}selected{% endif %}>{{ c_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            {% if ins_window.period == 'custom' %}
+            <div class="audit-filter-field">
+              <label>From Date</label>
+              <input type="date" name="start_date" value="{{ ins_window.start_date }}">
+            </div>
+            <div class="audit-filter-field">
+              <label>To Date</label>
+              <input type="date" name="end_date" value="{{ ins_window.end_date }}">
+            </div>
+            {% endif %}
+
+            <div class="audit-filter-field">
+              <label>Min Premium ($)</label>
+              <input type="number" step="0.01" name="min_premium" value="{{ ins_window.min_premium }}" placeholder="0.00">
+            </div>
+
+            <div class="audit-filter-field">
+              <label>Max Premium ($)</label>
+              <input type="number" step="0.01" name="max_premium" value="{{ ins_window.max_premium }}" placeholder="5000.00">
+            </div>
+
+            <div class="audit-filter-field">
+              <label>Sort Order</label>
+              <select name="sort">
+                <option value="-bound_date" {% if ins_window.sort == '-bound_date' %}selected{% endif %}>Date (Newest first)</option>
+                <option value="bound_date" {% if ins_window.sort == 'bound_date' %}selected{% endif %}>Date (Oldest first)</option>
+                <option value="-premium" {% if ins_window.sort == '-premium' %}selected{% endif %}>Highest Premium</option>
+                <option value="premium" {% if ins_window.sort == 'premium' %}selected{% endif %}>Lowest Premium</option>
+                <option value="-broker_fee" {% if ins_window.sort == '-broker_fee' %}selected{% endif %}>Highest Broker Fee</option>
+                <option value="policy_number" {% if ins_window.sort == 'policy_number' %}selected{% endif %}>Policy # (A–Z)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="audit-filter-footer">
+            <div class="audit-filter-quick-pills">
+              <span style="font-size:.72rem;font-weight:800;text-transform:uppercase;color:#94a3b8;">Quick Audits:</span>
+              <a href="?tab=insurance&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ ins_window.period }}&stage=bound" class="audit-quick-pill {% if ins_window.stage == 'bound' %}is-active{% endif %}">🛡️ Bound ({{ ins_totals.bound }})</a>
+              <a href="?tab=insurance&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ ins_window.period }}&stage=quote" class="audit-quick-pill {% if ins_window.stage == 'quote' %}is-active{% endif %}">📝 Quotes ({{ ins_totals.quotes }})</a>
+              <a href="?tab=insurance&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ ins_window.period }}&status=active" class="audit-quick-pill {% if ins_window.status == 'active' %}is-active{% endif %}">✅ Active Policies ({{ ins_totals.active }})</a>
+              <a href="?tab=insurance&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ ins_window.period }}&status=pending" class="audit-quick-pill {% if ins_window.status == 'pending' %}is-active{% endif %}">⏳ Pending ({{ ins_totals.pending }})</a>
+              <a href="?tab=insurance&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ ins_window.period }}&min_premium=1000" class="audit-quick-pill {% if ins_window.min_premium == '1000' %}is-active{% endif %}">💰 High Premium (>$1k)</a>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Executive Insurance Metrics Cards -->
+      <div class="uap-grid">
+        <div class="uap-metric"><span>Total Policies</span><strong>{{ ins_totals.total }}</strong></div>
+        <div class="uap-metric"><span>Bound Closed</span><strong>{{ ins_totals.bound }}</strong></div>
+        <div class="uap-metric"><span>Conversion</span><strong>{{ ins_totals.conversion_rate }}%</strong></div>
+        <div class="uap-metric"><span>Premium Vol</span><strong style="color:#059669;">${{ ins_totals.premium|floatformat:2 }}</strong></div>
+        <div class="uap-metric"><span>Broker Fees</span><strong style="color:#4f46e5;">${{ ins_totals.broker_fees|floatformat:2 }}</strong></div>
+        <div class="uap-metric"><span>Est. Commission</span><strong style="color:#0d9488;">${{ ins_totals.commission|floatformat:2 }}</strong></div>
+      </div>
+    </div>
+
+    <!-- Insurance Policies Table -->
+    <div style="overflow:auto;">
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th>Quote Date</th>
+            <th>Policy #</th>
+            <th>Client</th>
+            <th>Type &amp; Company</th>
+            <th>Stage</th>
+            <th>Status</th>
+            <th style="text-align:right;">Premium</th>
+            <th style="text-align:right;">Broker Fee</th>
+            <th style="text-align:center;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pol in ins_page_obj %}
+          <tr>
+            <td>
+              <div style="font-weight:700;">{{ pol.bound_date|date:"M j, Y"|default:pol.created_at|date:"M j, Y" }}</div>
+              <div style="color:#94a3b8;font-size:.74rem;">{{ pol.created_at|date:"g:i A" }}</div>
+            </td>
+            <td><strong style="font-family:monospace;font-size:.88rem;">{{ pol.policy_number|default:"—" }}</strong></td>
+            <td>
+              <div style="font-weight:700;">{{ pol.client.name|default:"—" }}</div>
+              {% if pol.client.phone_no %}<div style="color:#64748b;font-size:.76rem;">{{ pol.client.phone_no }}</div>{% endif %}
+            </td>
+            <td>
+              <div style="font-weight:700;font-size:.82rem;">{{ pol.get_insurance_type_display|default:pol.insurance_type|default:"Insurance" }}</div>
+              <div style="color:#64748b;font-size:.76rem;">{{ pol.insurance_company.name|default:"—" }}</div>
+            </td>
+            <td><span class="ins-stage-pill is-{{ pol.stage }}">{{ pol.get_stage_display }}</span></td>
+            <td><span class="audit-pill is-{{ pol.status }}">{{ pol.get_status_display }}</span></td>
+            <td style="text-align:right;font-weight:800;color:#059669;">${{ pol.premium|floatformat:2 }}</td>
+            <td style="text-align:right;font-weight:750;color:#4f46e5;">${{ pol.broker_fee|default:0|floatformat:2 }}</td>
+            <td style="text-align:center;">
+              <a href="{% url 'insurance-policy-detail' pol.id %}?next={{ request.get_full_path|urlencode }}" class="audit-quick-pill" style="border-color:#c7d2fe;color:#4338ca;">Detail →</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="9" style="padding:1.5rem;text-align:center;color:#64748b;font-weight:600;">No insurance policies match your active audit filters in {{ ins_window.label }}.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Modern Clean Pagination (No pager text) -->
+    {% if ins_page_obj.paginator.num_pages > 1 %}
+    <nav class="audit-pages" aria-label="Insurance audit pages">
+      {% if ins_page_obj.has_previous %}
+      <a href="?{{ ins_kept }}&page={{ ins_page_obj.previous_page_number }}" class="audit-page-btn">← Previous</a>
+      {% endif %}
+      <div style="display:inline-flex;gap:4px;">
+        {% for num in ins_page_obj.paginator.page_range %}
+          {% if num == ins_page_obj.number %}
+          <span class="audit-page-num is-active">{{ num }}</span>
+          {% elif num > ins_page_obj.number|add:"-3" and num < ins_page_obj.number|add:"3" %}
+          <a href="?{{ ins_kept }}&page={{ num }}" class="audit-page-num">{{ num }}</a>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% if ins_page_obj.has_next %}
+      <a href="?{{ ins_kept }}&page={{ ins_page_obj.next_page_number }}" class="audit-page-btn">Next →</a>
+      {% endif %}
+    </nav>
+    {% endif %}
   </section>
   {% endif %}
 </main>

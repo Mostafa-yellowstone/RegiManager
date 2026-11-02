@@ -461,3 +461,284 @@ def audit_workbook(records, *, agent_name: str, window: dict) -> bytes:
     buffer = BytesIO()
     book.save(buffer)
     return buffer.getvalue()
+
+
+# ── Insurance Agent Auditing Suite ──────────────────────────────────────────
+
+INSURANCE_AUDIT_PERIODS = (
+    ("today", "Today (Day)"),
+    ("month", "This Month"),
+    ("year", "This Year"),
+    ("all", "All Time"),
+    ("custom", "Custom"),
+)
+INSURANCE_AUDIT_PERIOD_KEYS = {key for key, _label in INSURANCE_AUDIT_PERIODS}
+
+
+def resolve_insurance_audit_window(params, *, today: date | None = None) -> dict:
+    today = today or timezone.localdate()
+    period = (params.get("period") or "month").strip().lower()
+    if period in ("day", "daily"):
+        period = "today"
+    if period not in INSURANCE_AUDIT_PERIOD_KEYS:
+        period = "month"
+
+    try:
+        offset = int(params.get("offset") or 0)
+    except (TypeError, ValueError):
+        offset = 0
+    offset = max(-120, min(offset, 24))
+
+    start = end = None
+    if period == "today":
+        day = today + timedelta(days=offset)
+        start = end = day
+        if offset == 0:
+            label = f"Today · {day.strftime('%b %d, %Y')}"
+        elif offset == -1:
+            label = f"Yesterday · {day.strftime('%b %d, %Y')}"
+        else:
+            label = day.strftime("%A, %b %d, %Y")
+    elif period == "year":
+        year = today.year + offset
+        start = date(year, 1, 1)
+        end = date(year, 12, 31)
+        label = str(year)
+    elif period == "all":
+        label = "All time"
+        offset = 0
+    elif period == "custom":
+        start = _parse_date(params.get("start_date"))
+        end = _parse_date(params.get("end_date"))
+        if start and end and end < start:
+            start, end = end, start
+        if start and not end:
+            end = start
+        if end and not start:
+            start = end
+        if start and end:
+            label = f"{start.strftime('%b %d, %Y')} – {end.strftime('%b %d, %Y')}"
+        else:
+            label = "Custom range"
+        offset = 0
+    else:
+        period = "month"
+        year, month = _shift_month(today, offset)
+        start = date(year, month, 1)
+        end = date(year, month, calendar.monthrange(year, month)[1])
+        label = start.strftime("%B %Y")
+
+    stage = (params.get("stage") or "").strip().lower()
+    status = (params.get("status") or "").strip().lower()
+    insurance_type = (params.get("insurance_type") or "").strip()
+    company_id = (params.get("insurance_company") or "").strip()
+
+    min_prem_raw = (params.get("min_premium") or "").strip()
+    max_prem_raw = (params.get("max_premium") or "").strip()
+    min_prem = None
+    max_prem = None
+    if min_prem_raw:
+        try:
+            min_prem = Decimal(min_prem_raw)
+        except Exception:
+            min_prem = None
+    if max_prem_raw:
+        try:
+            max_prem = Decimal(max_prem_raw)
+        except Exception:
+            max_prem = None
+
+    sort_by = (params.get("sort") or "-bound_date").strip()
+    allowed_sorts = {
+        "-bound_date", "bound_date",
+        "-premium", "premium",
+        "-broker_fee", "broker_fee",
+        "policy_number", "-policy_number",
+        "-created_at", "created_at",
+    }
+    if sort_by not in allowed_sorts:
+        sort_by = "-bound_date"
+
+    return {
+        "period": period,
+        "offset": offset,
+        "start": start,
+        "end": end,
+        "label": label,
+        "start_date": start.isoformat() if start else "",
+        "end_date": end.isoformat() if end else "",
+        "q": (params.get("q") or "").strip(),
+        "stage": stage,
+        "status": status,
+        "insurance_type": insurance_type,
+        "insurance_company": company_id,
+        "min_premium": str(min_prem) if min_prem is not None else "",
+        "max_premium": str(max_prem) if max_prem is not None else "",
+        "sort": sort_by,
+        "can_step": period in {"today", "month", "year"},
+    }
+
+
+def insurance_audit_query(window: dict, **extra) -> str:
+    params = {
+        "tab": "insurance",
+        "period": window.get("period"),
+        "offset": window.get("offset"),
+        "q": window.get("q"),
+        "stage": window.get("stage"),
+        "status": window.get("status"),
+        "insurance_type": window.get("insurance_type"),
+        "insurance_company": window.get("insurance_company"),
+        "min_premium": window.get("min_premium"),
+        "max_premium": window.get("max_premium"),
+        "sort": window.get("sort"),
+    }
+    if window.get("period") == "custom":
+        params["start_date"] = window.get("start_date")
+        params["end_date"] = window.get("end_date")
+    params.update(extra)
+    return urlencode({key: value for key, value in params.items() if value not in (None, "")})
+
+
+def filter_insurance_policies_audit(qs, window: dict):
+    if window.get("start") and window.get("end"):
+        qs = qs.filter(
+            Q(bound_date__gte=window["start"], bound_date__lte=window["end"])
+            | Q(bound_date__isnull=True, created_at__date__gte=window["start"], created_at__date__lte=window["end"])
+        )
+    if window.get("stage"):
+        qs = qs.filter(stage=window["stage"])
+    if window.get("status"):
+        qs = qs.filter(status=window["status"])
+    if window.get("insurance_type"):
+        qs = qs.filter(insurance_type=window["insurance_type"])
+    if window.get("insurance_company") and window["insurance_company"].isdigit():
+        qs = qs.filter(insurance_company_id=int(window["insurance_company"]))
+    if window.get("min_premium"):
+        try:
+            qs = qs.filter(premium__gte=Decimal(window["min_premium"]))
+        except Exception:
+            pass
+    if window.get("max_premium"):
+        try:
+            qs = qs.filter(premium__lte=Decimal(window["max_premium"]))
+        except Exception:
+            pass
+    if window.get("q"):
+        qs = apply_text_search(
+            qs,
+            window["q"],
+            ["policy_number", "client__first_name", "client__last_name", "client__phone_no", "insurance_company__name"],
+        )
+    return qs
+
+
+def insurance_audit_totals(qs) -> dict:
+    row = qs.aggregate(
+        total=Count("id"),
+        premium=Sum("premium"),
+        broker_fees=Sum("broker_fee"),
+        commission=Sum("commission_amount"),
+        bound=Count("id", filter=Q(stage="bound")),
+        quotes=Count("id", filter=Q(stage="quote")),
+        active=Count("id", filter=Q(status="active")),
+        pending=Count("id", filter=Q(status="pending")),
+        inactive=Count("id", filter=Q(status__in=["inactive", "rejected"])),
+    )
+    total = row["total"] or 0
+    bound = row["bound"] or 0
+    return {
+        "total": total,
+        "premium": row["premium"] or Decimal("0"),
+        "broker_fees": row["broker_fees"] or Decimal("0"),
+        "commission": row["commission"] or Decimal("0"),
+        "bound": bound,
+        "quotes": row["quotes"] or 0,
+        "active": row["active"] or 0,
+        "pending": row["pending"] or 0,
+        "inactive": row["inactive"] or 0,
+        "conversion_rate": round((bound / total * 100), 1) if total else 0,
+    }
+
+
+def build_active_insurance_audit_chips(window: dict, *, type_options=None, company_options=None, tab="insurance", activity_date="") -> list[dict]:
+    chips = []
+    base_extra = {}
+    if tab:
+        base_extra["tab"] = tab
+    if activity_date:
+        base_extra["activity_date"] = activity_date
+
+    type_map = dict(type_options or [])
+    company_map = dict(company_options or [])
+
+    if window.get("q"):
+        chips.append({
+            "key": "q",
+            "label": f'Search: "{window["q"]}"',
+            "remove_href": f"?{insurance_audit_query(window, q='', **base_extra)}",
+        })
+
+    if window.get("stage"):
+        stage_map = {"quote": "Quote", "bound": "Bound", "endorsement": "Endorsement"}
+        chips.append({
+            "key": "stage",
+            "label": f"Stage: {stage_map.get(window['stage'], window['stage'].title())}",
+            "remove_href": f"?{insurance_audit_query(window, stage='', **base_extra)}",
+        })
+
+    if window.get("status"):
+        status_map = {"active": "Active", "inactive": "Inactive", "pending": "Pending", "rejected": "Rejected"}
+        chips.append({
+            "key": "status",
+            "label": f"Status: {status_map.get(window['status'], window['status'].title())}",
+            "remove_href": f"?{insurance_audit_query(window, status='', **base_extra)}",
+        })
+
+    if window.get("insurance_type"):
+        type_lbl = type_map.get(window["insurance_type"], window["insurance_type"])
+        chips.append({
+            "key": "insurance_type",
+            "label": f"Type: {type_lbl}",
+            "remove_href": f"?{insurance_audit_query(window, insurance_type='', **base_extra)}",
+        })
+
+    if window.get("insurance_company"):
+        comp_id = int(window["insurance_company"]) if window["insurance_company"].isdigit() else window["insurance_company"]
+        comp_lbl = company_map.get(comp_id, f"Company #{comp_id}")
+        chips.append({
+            "key": "insurance_company",
+            "label": f"Company: {comp_lbl}",
+            "remove_href": f"?{insurance_audit_query(window, insurance_company='', **base_extra)}",
+        })
+
+    if window.get("min_premium"):
+        chips.append({
+            "key": "min_premium",
+            "label": f"Min: ${window['min_premium']}",
+            "remove_href": f"?{insurance_audit_query(window, min_premium='', **base_extra)}",
+        })
+
+    if window.get("max_premium"):
+        chips.append({
+            "key": "max_premium",
+            "label": f"Max: ${window['max_premium']}",
+            "remove_href": f"?{insurance_audit_query(window, max_premium='', **base_extra)}",
+        })
+
+    sort = window.get("sort") or "-bound_date"
+    if sort != "-bound_date":
+        sort_map = {
+            "bound_date": "Oldest Quote Date",
+            "-premium": "Highest Premium",
+            "premium": "Lowest Premium",
+            "-broker_fee": "Highest Broker Fee",
+            "policy_number": "Policy #",
+        }
+        chips.append({
+            "key": "sort",
+            "label": f"Sort: {sort_map.get(sort, sort)}",
+            "remove_href": f"?{insurance_audit_query(window, sort='-bound_date', **base_extra)}",
+        })
+
+    return chips

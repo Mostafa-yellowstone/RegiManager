@@ -3968,7 +3968,7 @@ def all_agents_directory(request):
         filter_and_sort_team,
         resolve_audit_window,
     )
-    from .role_permissions import role_label, normalize_role
+    from .role_permissions import is_insurance_agent_role, role_label, normalize_role
 
     organizations = _get_user_organizations(request).filter(memberships__role=OrganizationMembership.Role.OWNER)
     owner_org_ids = list(organizations.values_list("id", flat=True))
@@ -3996,26 +3996,55 @@ def all_agents_directory(request):
 
     agent_data = []
     for agent in agents:
-        records = ServiceRecord.objects.filter(
-            organization=agent.organization,
-            handled_by=agent.user,
-            deleted_at__isnull=True,
-        )
-        totals = audit_totals(filter_agent_services(records, window))
         user = agent.user
         name = user.get_full_name() or user.username
         parts = [part[:1] for part in name.split() if part][:2]
-        agent_data.append({
-            "membership": agent,
-            "name": name,
-            "initials": "".join(parts).upper() or "?",
-            "role_label": role_label(normalize_role(agent.role)),
-            "total_records": totals["total"],
-            "total_revenue": totals["fees"],
-            "failed": totals["failed"],
-            "error_rate": totals["error_rate"],
-            "audit_href": f"{reverse('agent-profile', args=[agent.id])}?tab=audit&{audit_query(window)}",
-        })
+
+        if is_insurance_agent_role(agent):
+            from .models import InsurancePolicy
+            from .agent_audit import (
+                filter_insurance_policies_audit,
+                insurance_audit_totals,
+                insurance_audit_query,
+                resolve_insurance_audit_window,
+            )
+            ins_window = resolve_insurance_audit_window(request.GET)
+            ins_policies = InsurancePolicy.objects.filter(
+                organization=agent.organization,
+                added_by=agent.user,
+            )
+            ins_totals = insurance_audit_totals(filter_insurance_policies_audit(ins_policies, ins_window))
+            agent_data.append({
+                "membership": agent,
+                "is_insurance": True,
+                "name": name,
+                "initials": "".join(parts).upper() or "?",
+                "role_label": role_label(normalize_role(agent.role)),
+                "total_records": ins_totals["total"],
+                "total_revenue": ins_totals["premium"],
+                "failed": ins_totals["inactive"] + ins_totals["pending"],
+                "error_rate": ins_totals["conversion_rate"],
+                "audit_href": f"{reverse('agent-profile', args=[agent.id])}?tab=insurance&{insurance_audit_query(ins_window)}",
+            })
+        else:
+            records = ServiceRecord.objects.filter(
+                organization=agent.organization,
+                handled_by=agent.user,
+                deleted_at__isnull=True,
+            )
+            totals = audit_totals(filter_agent_services(records, window))
+            agent_data.append({
+                "membership": agent,
+                "is_insurance": False,
+                "name": name,
+                "initials": "".join(parts).upper() or "?",
+                "role_label": role_label(normalize_role(agent.role)),
+                "total_records": totals["total"],
+                "total_revenue": totals["fees"],
+                "failed": totals["failed"],
+                "error_rate": totals["error_rate"],
+                "audit_href": f"{reverse('agent-profile', args=[agent.id])}?tab=audit&{audit_query(window)}",
+            })
 
     # Team wide aggregate metrics in this window
     team_total_members = len(agent_data)
@@ -4240,6 +4269,82 @@ def agent_profile(request, membership_id):
             allow_staff=True,
         )
     show_insurance = is_insurance_agent_role(membership)
+    is_insurance_agent = (normalize_role(membership.role) == OrganizationMembership.Role.INSURANCE_AGENT) or show_insurance
+
+    if is_insurance_agent and tab == "audit":
+        tab = "insurance"
+
+    from .models import InsurancePolicy, InsuranceCompany
+    from .agent_audit import (
+        INSURANCE_AUDIT_PERIODS,
+        resolve_insurance_audit_window,
+        filter_insurance_policies_audit,
+        insurance_audit_totals,
+        insurance_audit_query,
+        build_active_insurance_audit_chips,
+    )
+
+    ins_window = resolve_insurance_audit_window(request.GET)
+    all_agent_policies = InsurancePolicy.objects.filter(
+        organization=membership.organization,
+        added_by=membership.user,
+    ).select_related("client", "insurance_company")
+
+    filtered_policies_qs = filter_insurance_policies_audit(all_agent_policies, ins_window)
+    ins_totals = insurance_audit_totals(filtered_policies_qs)
+
+    ins_sort_field = ins_window.get("sort") or "-bound_date"
+    if ins_sort_field == "-bound_date":
+        ins_ordering = ("-bound_date", "-created_at")
+    elif ins_sort_field == "bound_date":
+        ins_ordering = ("bound_date", "created_at")
+    elif ins_sort_field == "-premium":
+        ins_ordering = ("-premium", "-bound_date")
+    elif ins_sort_field == "premium":
+        ins_ordering = ("premium", "-bound_date")
+    elif ins_sort_field == "-broker_fee":
+        ins_ordering = ("-broker_fee", "-bound_date")
+    elif ins_sort_field == "policy_number":
+        ins_ordering = ("policy_number", "-bound_date")
+    else:
+        ins_ordering = ("-bound_date", "-created_at")
+
+    ins_page_obj = Paginator(
+        filtered_policies_qs.order_by(*ins_ordering), 20
+    ).get_page(request.GET.get("ins_page") or request.GET.get("page"))
+
+    ins_type_options = list(InsurancePolicy.INSURANCE_TYPE_CHOICES)
+    ins_company_options = list(
+        InsuranceCompany.objects.filter(organization=membership.organization).values_list("id", "name")
+    )
+
+    active_ins_chips = build_active_insurance_audit_chips(
+        ins_window,
+        type_options=ins_type_options,
+        company_options=ins_company_options,
+        tab="insurance" if tab == "insurance" else tab,
+        activity_date=activity_date.isoformat(),
+    )
+    ins_active_filters_count = len(active_ins_chips)
+    ins_kept = insurance_audit_query(ins_window, tab=tab, activity_date=activity_date.isoformat())
+    ins_filters = insurance_audit_query(ins_window)
+    ins_prev_href = f"?{insurance_audit_query(ins_window, tab=tab, activity_date=activity_date.isoformat(), offset=ins_window['offset'] - 1)}" if ins_window["can_step"] else ""
+    ins_next_href = f"?{insurance_audit_query(ins_window, tab=tab, activity_date=activity_date.isoformat(), offset=ins_window['offset'] + 1)}" if ins_window["can_step"] else ""
+
+    if is_insurance_agent:
+        total_records = ins_totals["total"]
+        total_profit = ins_totals["broker_fees"]
+        error_rate = 100 - ins_totals["conversion_rate"] if ins_totals["total"] else 0
+        badges = []
+        if ins_totals["conversion_rate"] >= 50 and ins_totals["total"] >= 5:
+            badges.append({"label": "Top Closer", "type": "success", "icon": "⭐"})
+        elif ins_totals["conversion_rate"] < 15 and ins_totals["total"] >= 10:
+            badges.append({"label": "Low Conversion", "type": "danger", "icon": "⚠️"})
+        if ins_totals["premium"] >= 10000:
+            badges.append({"label": "High Producer", "type": "warning", "icon": "💰"})
+        elif ins_totals["total"] >= 20:
+            badges.append({"label": "High Volume", "type": "info", "icon": "⚡"})
+
     role_key = normalize_role(membership.role)
 
     insurance_url = ""
@@ -4259,7 +4364,20 @@ def agent_profile(request, membership_id):
             "tab": tab,
             "role_label": role_label(role_key),
             "show_insurance": show_insurance,
+            "is_insurance_agent": is_insurance_agent,
             "insurance_url": insurance_url,
+            "ins_window": ins_window,
+            "ins_periods": INSURANCE_AUDIT_PERIODS,
+            "ins_totals": ins_totals,
+            "ins_page_obj": ins_page_obj,
+            "ins_type_options": ins_type_options,
+            "ins_company_options": ins_company_options,
+            "active_ins_chips": active_ins_chips,
+            "ins_active_filters_count": ins_active_filters_count,
+            "ins_kept": ins_kept,
+            "ins_filters": ins_filters,
+            "ins_prev_href": ins_prev_href,
+            "ins_next_href": ins_next_href,
             "portal_workboard": workboard,
             "assign_form": assign_form,
             "can_owner_assign_tasks": can_assign,
@@ -7891,7 +8009,7 @@ def add_insurance_policy(request):
     except Exception as e:
         messages.error(request, f"Error saving policy: {e}")
 
-    return _redirect_to_insurance_detail(org, request=request)
+    return _redirect_to_insurance_detail(org, tab="insurance", request=request)
 
 
 @login_required
@@ -7904,7 +8022,7 @@ def edit_insurance_policy(request, policy_id):
     if not can_edit_insurance_policy(request.user, policy, membership=membership):
         if request.method == "POST":
             messages.error(request, "You can only edit policies you added.")
-            return _redirect_to_insurance_detail(policy.organization, request=request)
+            return _redirect_to_insurance_detail(policy.organization, tab="insurance", request=request)
         return JsonResponse(
             {"error": "You can only edit policies you added."},
             status=403,
@@ -7917,7 +8035,7 @@ def edit_insurance_policy(request, policy_id):
         client_name = request.POST.get("client_name", "").strip()
         if not client_name:
             messages.error(request, "Client name is required.")
-            return _redirect_to_insurance_detail(policy.organization, request=request)
+            return _redirect_to_insurance_detail(policy.organization, tab="insurance", request=request)
 
         from .client_matching import DuplicateClientError, resolve_client_for_display_name
 
@@ -7927,7 +8045,7 @@ def edit_insurance_policy(request, policy_id):
             )
         except DuplicateClientError as exc:
             messages.error(request, exc.message)
-            return _redirect_to_insurance_detail(policy.organization, request=request)
+            return _redirect_to_insurance_detail(policy.organization, tab="insurance", request=request)
 
         from .client_referral import apply_referral_id_to_client, uses_referral_partner
 
@@ -7964,7 +8082,7 @@ def edit_insurance_policy(request, policy_id):
         bound_date = request.POST.get("bound_date", "").strip()
         if not bound_date:
             messages.error(request, "Quote date is required.")
-            return _redirect_to_insurance_detail(policy.organization, request=request)
+            return _redirect_to_insurance_detail(policy.organization, tab="insurance", request=request)
         policy.bound_date = bound_date
         policy.start_date = request.POST.get("start_date")
         policy.end_date = request.POST.get("end_date")
@@ -8005,7 +8123,7 @@ def edit_insurance_policy(request, policy_id):
             messages.error(request, str(e))
         except Exception as e:
             messages.error(request, f"Error updating policy: {e}")
-        return _redirect_to_insurance_detail(policy.organization, request=request)
+        return _redirect_to_insurance_detail(policy.organization, tab="insurance", request=request)
 
     return JsonResponse({
         "id": policy.id,
@@ -8070,7 +8188,7 @@ def delete_insurance_policy(request, policy_id):
         deny_access("You do not have permission to delete this policy.")
     policy.delete()
     messages.success(request, "Policy deleted.")
-    return _redirect_to_insurance_detail(org, request=request)
+    return _redirect_to_insurance_detail(org, tab="insurance", request=request)
 
 
 @login_required

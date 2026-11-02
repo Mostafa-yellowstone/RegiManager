@@ -182,3 +182,137 @@ class AgentAuditTests(TestCase):
         resp_sort_name = self.client.get(reverse("all-agents-directory"), {"period": "all", "sort": "name"})
         names = [d["name"] for d in resp_sort_name.context["agent_data"]]
         self.assertEqual(names, ["Ada Lane", "Zoe Vance"])
+
+    def test_insurance_agent_profile_audits_insurance_only(self):
+        from core.models import Client, InsuranceCompany, InsurancePolicy
+
+        ins_user = User.objects.create_user(username="insauditor", password="password123", first_name="Irene", last_name="Spears")
+        ins_member = OrganizationMembership.objects.create(
+            user=ins_user,
+            organization=self.org,
+            is_active=True,
+            role="insurance_agent",
+            can_view_spaces=True,
+        )
+        test_client = Client.objects.create(
+            organization=self.org,
+            first_name="Insured",
+            last_name="Client",
+            phone_number="555-123-4567",
+        )
+        company = InsuranceCompany.objects.create(
+            organization=self.org,
+            name="Apex Underwriters",
+        )
+        today = date.today()
+        # Today's bound policy
+        p_today = InsurancePolicy.objects.create(
+            organization=self.org,
+            client=test_client,
+            policy_number="POL-TODAY-001",
+            insurance_company=company,
+            premium=Decimal("1500.00"),
+            broker_fee=Decimal("100.00"),
+            stage="bound",
+            status="active",
+            insurance_type="auto_personal",
+            bound_date=today,
+            start_date=today,
+            end_date=date(today.year + 1, today.month, today.day),
+            added_by=ins_user,
+        )
+        # Year past quote policy
+        p_past = InsurancePolicy.objects.create(
+            organization=self.org,
+            client=test_client,
+            policy_number="POL-PAST-002",
+            insurance_company=company,
+            premium=Decimal("800.00"),
+            broker_fee=Decimal("50.00"),
+            stage="quote",
+            status="pending",
+            insurance_type="commercial_auto",
+            bound_date=date(today.year - 1, 6, 15) if today.month < 7 else date(today.year, 1, 10),
+            start_date=date(today.year - 1, 6, 15) if today.month < 7 else date(today.year, 1, 10),
+            end_date=date(today.year, 6, 15) if today.month < 7 else date(today.year + 1, 1, 10),
+            added_by=ins_user,
+        )
+
+        # Access insurance agent profile
+        resp = self.client.get(reverse("agent-profile", args=[ins_member.id]))
+        self.assertEqual(resp.status_code, 200)
+
+        # Service audit must NOT be in navigation for insurance agents
+        self.assertNotContains(resp, "Service audit")
+        self.assertContains(resp, "Insurance audit")
+
+        # Dummy placeholder button must be gone
+        self.assertNotContains(resp, "Open insurance policy CRM")
+
+        # Period filtering: Today (day)
+        resp_today = self.client.get(
+            reverse("agent-profile", args=[ins_member.id]),
+            {"tab": "insurance", "period": "today"},
+        )
+        self.assertEqual(resp_today.status_code, 200)
+        self.assertContains(resp_today, "POL-TODAY-001")
+        if p_past.bound_date != today:
+            self.assertNotContains(resp_today, "POL-PAST-002")
+
+        # Period filtering: Year
+        resp_year = self.client.get(
+            reverse("agent-profile", args=[ins_member.id]),
+            {"tab": "insurance", "period": "year"},
+        )
+        self.assertEqual(resp_year.status_code, 200)
+        self.assertContains(resp_year, "POL-TODAY-001")
+
+        # Multi-dimensional filter: stage=bound, min_premium=1000
+        resp_filter = self.client.get(
+            reverse("agent-profile", args=[ins_member.id]),
+            {"tab": "insurance", "period": "all", "stage": "bound", "min_premium": "1000.00"},
+        )
+        self.assertEqual(resp_filter.status_code, 200)
+        self.assertContains(resp_filter, "POL-TODAY-001")
+        self.assertNotContains(resp_filter, "POL-PAST-002")
+        self.assertEqual(resp_filter.context["ins_active_filters_count"], 2)
+        self.assertContains(resp_filter, "audit-chip")
+
+        # Pagination must not contain pager-looking text
+        self.assertNotContains(resp, "Page 1 of")
+        self.assertNotContains(resp, "1 / ")
+
+    def test_insurance_policy_actions_preserve_filter_state(self):
+        from core.models import Client, InsuranceCompany, InsurancePolicy
+
+        client = Client.objects.create(
+            organization=self.org,
+            first_name="Filter",
+            last_name="Preserve",
+        )
+        company = InsuranceCompany.objects.create(
+            organization=self.org,
+            name="SafeCo",
+        )
+        policy = InsurancePolicy.objects.create(
+            organization=self.org,
+            client=client,
+            policy_number="POL-DEL-999",
+            insurance_company=company,
+            premium=Decimal("950.00"),
+            stage="quote",
+            status="active",
+            bound_date=date.today(),
+            start_date=date.today(),
+            end_date=date(date.today().year + 1, date.today().month, date.today().day),
+            added_by=self.owner,
+        )
+
+        filter_url = "/dashboard/spaces/insurance/policies/?status=active&stage=quote&insurance_type=auto_personal&page=1"
+        resp_del = self.client.post(
+            reverse("delete-insurance-policy", args=[policy.id]),
+            {"next": filter_url},
+        )
+        # Should redirect back to the exact filtered CRM URL
+        self.assertEqual(resp_del.status_code, 302)
+        self.assertEqual(resp_del.url, filter_url)

@@ -75,13 +75,13 @@
               </td>
               <td>
                 <div class="ipc-actions">
-                  <a href="{% url 'insurance-policy-detail' policy.id %}" title="Open policy detail" class="ipc-act ipc-act--detail">Detail</a>
+                  <a href="{% url 'insurance-policy-detail' policy.id %}?next={{ request.get_full_path|urlencode }}" title="Open policy detail" class="ipc-act ipc-act--detail">Detail</a>
                   <button type="button" onclick="viewPolicy({{ policy.id }})" title="View Policy" aria-label="View policy" class="ipc-act ipc-act--view">👁️</button>
                   {% if policy.can_edit %}
                   <button type="button" onclick="editPolicy({{ policy.id }})" class="ipc-act">Edit</button>
                   {% endif %}
                   {% if can_delete_insurance_policies %}
-                  <a href="{% url 'delete-insurance-policy' policy.id %}" onclick="return confirm('Delete this policy?')" class="ipc-act ipc-act--danger">Del</a>
+                  <a href="{% url 'delete-insurance-policy' policy.id %}?next={{ request.get_full_path|urlencode }}" onclick="return confirm('Delete this policy?')" class="ipc-act ipc-act--danger">Del</a>
                   {% endif %}
                 </div>
               </td>
@@ -93,14 +93,13 @@
         </table>
       </div>
       {% if crm_policies_page.has_other_pages %}
-      <div class="ins-pager">
+      <div class="ins-pager" style="display:flex;align-items:center;justify-content:center;gap:0.4rem;margin-top:1.25rem;">
         {% if crm_policies_page.has_previous %}
         <a href="?page={{ crm_policies_page.previous_page_number }}&{{ insurance_policies_query_string }}" class="ins-pager-btn">← Previous</a>
         {% endif %}
-        <span class="ins-pager-meta">Page {{ crm_policies_page.number }} of {{ crm_policies_page.paginator.num_pages }}</span>
         {% for i in crm_policies_page.paginator.page_range %}
           {% if crm_policies_page.number == i %}
-            <span class="ins-pager-btn is-current">{{ i }}</span>
+            <span class="ins-pager-btn is-current" style="background:#0f172a;color:#fff;border-color:#0f172a;font-weight:800;">{{ i }}</span>
           {% elif i > crm_policies_page.number|add:"-3" and i < crm_policies_page.number|add:"3" %}
             <a href="?page={{ i }}&{{ insurance_policies_query_string }}" class="ins-pager-btn">{{ i }}</a>
           {% endif %}

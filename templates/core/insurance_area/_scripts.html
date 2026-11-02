@@ -172,6 +172,8 @@ function openAddPolicyModal() {
   document.getElementById('policyModalTitle').textContent = '🛡️ Add Insurance Policy';
   document.getElementById('policyForm').action = "{% url 'add-insurance-policy' %}";
   document.getElementById('policyForm').reset();
+  const nextInput = document.getElementById('policyFormNext');
+  if (nextInput) nextInput.value = window.location.pathname + window.location.search;
   document.getElementById('policyBrokerFee').value = '0.00';
   document.getElementById('policyStage').value = 'quote';
   document.getElementById('policyStatus').value = 'active';
@@ -320,6 +322,14 @@ function initInsuranceCrmLiveSearch() {
     liveSearch(params);
   }
 
+  const pForm = document.getElementById('policyForm');
+  if (pForm) {
+    pForm.addEventListener('submit', function() {
+      const nextInput = document.getElementById('policyFormNext');
+      if (nextInput) nextInput.value = window.location.pathname + window.location.search;
+    });
+  }
+
   input.addEventListener('input', () => {
     setSearching(true);
     clearTimeout(timer);
@@ -378,6 +388,8 @@ function editPolicy(id) {
       if (data.status === 'inactive') document.getElementById('policyInactiveDate').value = data.inactive_date || '';
       setPolicyProducer(data.producer_id, data.producer_rate, data.producer_payout);
       document.getElementById('policyModalTitle').textContent = '✏️ Edit Insurance Policy';
+      const nextInput = document.getElementById('policyFormNext');
+      if (nextInput) nextInput.value = window.location.pathname + window.location.search;
       document.getElementById('addPolicyModal').classList.add('active');
     })
     .catch(() => {

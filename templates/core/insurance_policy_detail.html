@@ -206,7 +206,9 @@ html.portal-theme-dark .ins-renewal__status a, html.portal-theme-dark .ins-renew
 <main class="portal-space-shell ins-detail">
   <div class="portal-space-inner portal-space-inner--wide">
     <div class="pd-toolbar">
-      {% if insurance_space %}
+      {% if request.GET.next %}
+      <a href="{{ request.GET.next }}" class="btn btn-secondary btn-sm">← Back to Policies</a>
+      {% elif insurance_space %}
       <a href="{% url 'insurance-policies' %}" class="btn btn-secondary btn-sm">← Back to Policies</a>
       {% else %}
       <a href="{% url 'spaces-home' %}" class="btn btn-secondary btn-sm">← Spaces</a>
