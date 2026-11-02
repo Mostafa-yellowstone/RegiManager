@@ -191,6 +191,82 @@
   border-radius: 8px;
 }
 .audit-btn-reset:hover { background: #fee2e2; }
+.uap-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ede9fe;
+  color: #4f46e5;
+  font-size: .72rem;
+  font-weight: 850;
+  border-radius: 999px;
+  padding: 1px 7px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.uap-tab.is-active .uap-tab-count {
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+}
+.audit-active-chips {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding: .55rem .75rem;
+  border-radius: 12px;
+  background: #f8faff;
+  border: 1px solid #e0e7ff;
+}
+.audit-active-chips__label {
+  font-size: .7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #6366f1;
+}
+.audit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 10px;
+  background: #fff;
+  border: 1.5px solid #c7d2fe;
+  border-radius: 999px;
+  color: #3730a3;
+  font-size: .74rem;
+  font-weight: 750;
+  text-decoration: none;
+  transition: all .15s ease;
+  box-shadow: 0 1px 3px rgba(79,70,229,.05);
+}
+.audit-chip:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+  transform: translateY(-1px);
+}
+.audit-chip svg {
+  opacity: .7;
+  transition: transform .15s ease;
+}
+.audit-chip:hover svg {
+  opacity: 1;
+  transform: scale(1.15);
+}
+.audit-chip-clear {
+  font-size: .74rem;
+  font-weight: 750;
+  color: #ef4444;
+  text-decoration: none;
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-left: auto;
+}
+.audit-chip-clear:hover {
+  background: #fee2e2;
+}
 .audit-export {
   display: inline-flex; align-items: center; gap: 6px;
   background: #fff; color: #0f172a; border: 1.5px solid #cbd5e1;
@@ -241,7 +317,9 @@
     <a class="uap-tab {% if tab == 'overview' %}is-active{% endif %}" href="?tab=overview&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ period }}">Overview</a>
     <a class="uap-tab {% if tab == 'workboard' %}is-active{% endif %}" href="?tab=workboard&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ period }}">Workboard</a>
     <a class="uap-tab {% if tab == 'day' %}is-active{% endif %}" href="?tab=day&activity_date={{ activity_date|date:'Y-m-d' }}">Day trail</a>
-    <a class="uap-tab {% if tab == 'audit' %}is-active{% endif %}" href="?tab=audit&activity_date={{ activity_date|date:'Y-m-d' }}&{{ audit_filters }}">Service audit</a>
+    <a class="uap-tab {% if tab == 'audit' %}is-active{% endif %}" href="?tab=audit&activity_date={{ activity_date|date:'Y-m-d' }}&{{ audit_filters }}">
+      Service audit{% if active_filters_count %} <span class="uap-tab-count">{{ active_filters_count }}</span>{% endif %}
+    </a>
     {% if show_insurance %}
     <a class="uap-tab {% if tab == 'insurance' %}is-active{% endif %}" href="?tab=insurance&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ period }}">Insurance CRM</a>
     {% endif %}
@@ -379,6 +457,19 @@
               <button type="submit" class="audit-btn-apply">Apply Filters</button>
             </div>
           </div>
+
+          {% if active_chips %}
+          <div class="audit-active-chips">
+            <span class="audit-active-chips__label">Active:</span>
+            {% for chip in active_chips %}
+            <a href="{{ chip.remove_href }}" class="audit-chip" title="Remove {{ chip.label }}">
+              <span>{{ chip.label }}</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </a>
+            {% endfor %}
+            <a href="?tab={{ tab }}&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ audit_window.period }}" class="audit-chip-clear">Clear all</a>
+          </div>
+          {% endif %}
 
           <div class="audit-filter-grid">
             <div class="audit-filter-field">

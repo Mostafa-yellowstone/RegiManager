@@ -186,6 +186,139 @@ def audit_query(window: dict, **extra) -> str:
     return urlencode({key: value for key, value in params.items() if value not in (None, "")})
 
 
+def build_active_audit_chips(window: dict, *, avail_service_types=None, payment_methods=None, tab="audit", activity_date="") -> list[dict]:
+    """Builds chic, dismissible tag pills for every active filter."""
+    chips = []
+    base_extra = {}
+    if tab:
+        base_extra["tab"] = tab
+    if activity_date:
+        base_extra["activity_date"] = activity_date
+
+    service_map = dict(avail_service_types or [])
+    payment_map = dict(payment_methods or ServiceRecord.PAYMENT_METHODS)
+    status_map = dict(ServiceRecord.STATUS_CHOICES)
+
+    if window.get("q"):
+        remove_href = f"?{audit_query(window, q='', **base_extra)}"
+        chips.append({
+            "key": "q",
+            "label": f'Search: "{window["q"]}"',
+            "remove_href": remove_href,
+        })
+
+    if window.get("status"):
+        st_label = status_map.get(window["status"], window["status"].title())
+        remove_href = f"?{audit_query(window, status='', **base_extra)}"
+        chips.append({
+            "key": "status",
+            "label": f"Status: {st_label}",
+            "remove_href": remove_href,
+        })
+
+    if window.get("service_type"):
+        srv_label = service_map.get(window["service_type"], window["service_type"])
+        remove_href = f"?{audit_query(window, service_type='', **base_extra)}"
+        chips.append({
+            "key": "service_type",
+            "label": f"Service: {srv_label}",
+            "remove_href": remove_href,
+        })
+
+    if window.get("payment_method"):
+        pm_label = payment_map.get(window["payment_method"], window["payment_method"].title())
+        remove_href = f"?{audit_query(window, payment_method='', **base_extra)}"
+        chips.append({
+            "key": "payment_method",
+            "label": f"Payment: {pm_label}",
+            "remove_href": remove_href,
+        })
+
+    if window.get("min_fee"):
+        remove_href = f"?{audit_query(window, min_fee='', **base_extra)}"
+        chips.append({
+            "key": "min_fee",
+            "label": f"Min: ${window['min_fee']}",
+            "remove_href": remove_href,
+        })
+
+    if window.get("max_fee"):
+        remove_href = f"?{audit_query(window, max_fee='', **base_extra)}"
+        chips.append({
+            "key": "max_fee",
+            "label": f"Max: ${window['max_fee']}",
+            "remove_href": remove_href,
+        })
+
+    if window.get("has_notes") == "yes":
+        remove_href = f"?{audit_query(window, has_notes='', **base_extra)}"
+        chips.append({
+            "key": "has_notes",
+            "label": "Has Notes",
+            "remove_href": remove_href,
+        })
+    elif window.get("has_notes") == "no":
+        remove_href = f"?{audit_query(window, has_notes='', **base_extra)}"
+        chips.append({
+            "key": "has_notes",
+            "label": "No Notes",
+            "remove_href": remove_href,
+        })
+
+    sort = window.get("sort") or "-transaction_date"
+    if sort != "-transaction_date":
+        sort_labels = {
+            "transaction_date": "Oldest Date First",
+            "-service_fee": "Highest Fee First",
+            "service_fee": "Lowest Fee First",
+            "client_name": "Client Name (A–Z)",
+            "-created_at": "Entry Time (Latest)",
+        }
+        remove_href = f"?{audit_query(window, sort='-transaction_date', **base_extra)}"
+        chips.append({
+            "key": "sort",
+            "label": f"Sort: {sort_labels.get(sort, sort)}",
+            "remove_href": remove_href,
+        })
+
+    return chips
+
+
+def filter_and_sort_team(agent_data: list[dict], *, role: str = "", activity: str = "", sort: str = "-revenue") -> list[dict]:
+    """Filters and sorts team members in the Agent Auditing directory."""
+    results = list(agent_data)
+    
+    role = (role or "").strip().lower()
+    if role:
+        results = [d for d in results if getattr(d.get("membership"), "role", "").lower() == role]
+
+    activity = (activity or "").strip().lower()
+    if activity == "active":
+        results = [d for d in results if d.get("total_records", 0) > 0]
+    elif activity == "has_errors":
+        results = [d for d in results if d.get("failed", 0) > 0]
+    elif activity == "inactive":
+        results = [d for d in results if d.get("total_records", 0) == 0]
+
+    sort = (sort or "-revenue").strip()
+    if sort == "-revenue":
+        results.sort(key=lambda d: (d.get("total_revenue") or Decimal("0")), reverse=True)
+    elif sort == "revenue":
+        results.sort(key=lambda d: (d.get("total_revenue") or Decimal("0")))
+    elif sort == "-records":
+        results.sort(key=lambda d: d.get("total_records", 0), reverse=True)
+    elif sort == "records":
+        results.sort(key=lambda d: d.get("total_records", 0))
+    elif sort == "-failed":
+        results.sort(key=lambda d: d.get("failed", 0), reverse=True)
+    elif sort == "name":
+        results.sort(key=lambda d: d.get("name", "").lower())
+    elif sort == "-name":
+        results.sort(key=lambda d: d.get("name", "").lower(), reverse=True)
+
+    return results
+
+
 def filter_agent_services(qs, window: dict):
     if window.get("start") and window.get("end"):
         qs = qs.filter(transaction_date__gte=window["start"], transaction_date__lte=window["end"])

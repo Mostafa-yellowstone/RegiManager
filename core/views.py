@@ -3960,7 +3960,14 @@ def all_service_types(request):
 
 @login_required
 def all_agents_directory(request):
-    from .agent_audit import audit_query, audit_totals, filter_agent_services, resolve_audit_window
+    from .agent_audit import (
+        AUDIT_PERIODS,
+        audit_query,
+        audit_totals,
+        filter_agent_services,
+        filter_and_sort_team,
+        resolve_audit_window,
+    )
     from .role_permissions import role_label, normalize_role
 
     organizations = _get_user_organizations(request).filter(memberships__role=OrganizationMembership.Role.OWNER)
@@ -3983,6 +3990,10 @@ def all_agents_directory(request):
             ["user__username", "user__first_name", "user__last_name", "user__email"],
         )
 
+    role_filter = (request.GET.get("role") or "").strip().lower()
+    activity_filter = (request.GET.get("activity") or "").strip().lower()
+    sort_filter = (request.GET.get("sort") or "-revenue").strip()
+
     agent_data = []
     for agent in agents:
         records = ServiceRecord.objects.filter(
@@ -4002,27 +4013,77 @@ def all_agents_directory(request):
             "total_records": totals["total"],
             "total_revenue": totals["fees"],
             "failed": totals["failed"],
+            "error_rate": totals["error_rate"],
             "audit_href": f"{reverse('agent-profile', args=[agent.id])}?tab=audit&{audit_query(window)}",
         })
+
+    # Team wide aggregate metrics in this window
+    team_total_members = len(agent_data)
+    team_total_records = sum(d["total_records"] for d in agent_data)
+    team_total_revenue = sum(d["total_revenue"] for d in agent_data)
+    team_total_failed = sum(d["failed"] for d in agent_data)
+    team_active_count = sum(1 for d in agent_data if d["total_records"] > 0)
+
+    # Filter and sort team
+    filtered_agent_data = filter_and_sort_team(
+        agent_data,
+        role=role_filter,
+        activity=activity_filter,
+        sort=sort_filter,
+    )
+
+    role_choices = [
+        ("agent", "Agent"),
+        ("insurance_agent", "Insurance Agent"),
+        ("manager", "Manager"),
+        ("accountant", "Accountant"),
+    ]
+    activity_choices = [
+        ("", "All Activity"),
+        ("active", "Active with Services"),
+        ("has_errors", "Has Issues / Failed"),
+        ("inactive", "Zero Activity"),
+    ]
+    sort_choices = [
+        ("-revenue", "Highest Collected"),
+        ("revenue", "Lowest Collected"),
+        ("-records", "Most Services"),
+        ("records", "Fewest Services"),
+        ("-failed", "Most Issues / Failed"),
+        ("name", "Name (A–Z)"),
+    ]
+
+    # Preserve current filter params for pagination/navigation
+    preserved_params = request.GET.copy()
+    if "offset" in preserved_params:
+        preserved_params.pop("offset")
+
+    prev_params = preserved_params.copy()
+    prev_params["offset"] = window["offset"] - 1
+    next_params = preserved_params.copy()
+    next_params["offset"] = window["offset"] + 1
 
     return render(
         request,
         "core/all_agents.html",
         {
-            "agent_data": agent_data,
+            "agent_data": filtered_agent_data,
+            "raw_agent_count": team_total_members,
+            "team_total_records": team_total_records,
+            "team_total_revenue": team_total_revenue,
+            "team_total_failed": team_total_failed,
+            "team_active_count": team_active_count,
             "audit_window": window,
-            "audit_periods": (
-                ("today", "Today"),
-                ("week", "Week"),
-                ("month", "Month"),
-                ("quarter", "Quarter"),
-                ("year", "Year"),
-                ("all", "All time"),
-                ("custom", "Custom"),
-            ),
+            "audit_periods": AUDIT_PERIODS,
             "directory_query": query,
-            "prev_href": f"?{audit_query(window, offset=window['offset'] - 1)}" if window["can_step"] else "",
-            "next_href": f"?{audit_query(window, offset=window['offset'] + 1)}" if window["can_step"] else "",
+            "role_filter": role_filter,
+            "activity_filter": activity_filter,
+            "sort_filter": sort_filter,
+            "role_choices": role_choices,
+            "activity_choices": activity_choices,
+            "sort_choices": sort_choices,
+            "prev_href": f"?{prev_params.urlencode()}" if window["can_step"] else "",
+            "next_href": f"?{next_params.urlencode()}" if window["can_step"] else "",
         },
     )
 
@@ -4150,6 +4211,16 @@ def agent_profile(request, membership_id):
     custom_types = CustomServiceType.objects.filter(organization=membership.organization).values_list("key", "label")
     avail_service_types.extend(custom_types)
 
+    from .agent_audit import build_active_audit_chips
+    active_chips = build_active_audit_chips(
+        window,
+        avail_service_types=avail_service_types,
+        payment_methods=ServiceRecord.PAYMENT_METHODS,
+        tab=tab,
+        activity_date=activity_date.isoformat(),
+    )
+    active_filters_count = len(active_chips)
+
     sort_field = window.get("sort") or "-transaction_date"
     page_obj = Paginator(
         records_qs.order_by(sort_field, "-created_at"), 25
@@ -4204,6 +4275,8 @@ def agent_profile(request, membership_id):
             "status_choices": ServiceRecord.STATUS_CHOICES,
             "payment_methods": ServiceRecord.PAYMENT_METHODS,
             "avail_service_types": avail_service_types,
+            "active_chips": active_chips,
+            "active_filters_count": active_filters_count,
             "audit_kept": kept,
             "audit_filters": audit_filters,
             "prev_href": f"?{audit_query(window, tab=tab, activity_date=activity_date.isoformat(), offset=window['offset'] - 1)}" if window["can_step"] else "",

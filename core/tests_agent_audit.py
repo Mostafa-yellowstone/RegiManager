@@ -127,3 +127,58 @@ class AgentAuditTests(TestCase):
         page_records = list(resp_sort.context["page_obj"])
         self.assertEqual(page_records[0].receipt_number, "RCPT-AUDIT-MAR")
         self.assertEqual(page_records[1].receipt_number, "RCPT-AUDIT-JAN")
+
+    def test_audit_active_chips_and_tab_counter(self):
+        resp = self.client.get(
+            reverse("agent-profile", args=[self.agent.id]),
+            {"tab": "audit", "period": "all", "status": "failed", "min_fee": "50.00"},
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["active_filters_count"], 2)
+        chip_keys = {c["key"] for c in resp.context["active_chips"]}
+        self.assertEqual(chip_keys, {"status", "min_fee"})
+        self.assertContains(resp, "audit-chip")
+        self.assertContains(resp, "uap-tab-count")
+
+    def test_all_agents_directory_filtration_and_sorting(self):
+        # Create second agent with insurance role and no records
+        ins_user = User.objects.create_user(username="insagent", password="password123", first_name="Zoe", last_name="Vance")
+        OrganizationMembership.objects.create(
+            user=ins_user,
+            organization=self.org,
+            is_active=True,
+            role="insurance_agent",
+            can_view_spaces=True,
+        )
+
+        # Baseline view: both agents present
+        resp_all = self.client.get(reverse("all-agents-directory"), {"period": "all"})
+        self.assertEqual(resp_all.status_code, 200)
+        self.assertEqual(len(resp_all.context["agent_data"]), 2)
+        self.assertEqual(resp_all.context["team_total_records"], 2)
+        self.assertEqual(resp_all.context["team_total_failed"], 1)
+
+        # Filter by role: insurance_agent only
+        resp_role = self.client.get(reverse("all-agents-directory"), {"period": "all", "role": "insurance_agent"})
+        self.assertEqual(len(resp_role.context["agent_data"]), 1)
+        self.assertEqual(resp_role.context["agent_data"][0]["name"], "Zoe Vance")
+
+        # Filter by activity: active only (has records) -> Ada Lane
+        resp_active = self.client.get(reverse("all-agents-directory"), {"period": "all", "activity": "active"})
+        self.assertEqual(len(resp_active.context["agent_data"]), 1)
+        self.assertEqual(resp_active.context["agent_data"][0]["name"], "Ada Lane")
+
+        # Filter by activity: has_errors -> Ada Lane (1 failed)
+        resp_errors = self.client.get(reverse("all-agents-directory"), {"period": "all", "activity": "has_errors"})
+        self.assertEqual(len(resp_errors.context["agent_data"]), 1)
+        self.assertEqual(resp_errors.context["agent_data"][0]["name"], "Ada Lane")
+
+        # Filter by activity: inactive (0 records) -> Zoe Vance
+        resp_inactive = self.client.get(reverse("all-agents-directory"), {"period": "all", "activity": "inactive"})
+        self.assertEqual(len(resp_inactive.context["agent_data"]), 1)
+        self.assertEqual(resp_inactive.context["agent_data"][0]["name"], "Zoe Vance")
+
+        # Sort by name
+        resp_sort_name = self.client.get(reverse("all-agents-directory"), {"period": "all", "sort": "name"})
+        names = [d["name"] for d in resp_sort_name.context["agent_data"]]
+        self.assertEqual(names, ["Ada Lane", "Zoe Vance"])

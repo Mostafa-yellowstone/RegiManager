@@ -1,117 +1,367 @@
 {% extends "base_portal.html" %}
 {% load static %}
 
-{% block title %}Team Directory | RegiManager{% endblock %}
+{% block title %}Agent Auditing & Team Directory | RegiManager{% endblock %}
 
 {% block portal_content %}
 <style>
-  .adir { max-width: 1180px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
-  .adir-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1.1rem; }
-  .adir-kicker { margin: 0 0 .35rem; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #0f766e; }
-  .adir h1 { margin: 0; font-size: clamp(1.7rem, 3vw, 2.2rem); letter-spacing: -.03em; color: #0f172a; }
-  .adir-lead { margin: .35rem 0 0; max-width: 38rem; color: #64748b; font-weight: 600; }
-  .adir-back { color: #475569; font-weight: 750; text-decoration: none; }
-  .adir-bar, .adir-card {
-    background: #fff; border: 1px solid #e2e8f0; border-radius: 18px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+  .adir { max-width: 1220px; margin: 0 auto; padding: 1.5rem 1.25rem 3.5rem; }
+  .adir-head {
+    display: flex; justify-content: space-between; gap: 1.25rem; align-items: flex-start;
+    flex-wrap: wrap; margin-bottom: 1.35rem; padding: 1.5rem 1.6rem; border-radius: 24px;
+    border: 1px solid #e0e7ff;
+    background:
+      radial-gradient(ellipse 70% 120% at 0% 0%, rgba(79,70,229,.12), transparent 55%),
+      radial-gradient(ellipse 50% 80% at 100% 0%, rgba(14,165,233,.12), transparent 50%),
+      #ffffff;
+    box-shadow: 0 4px 20px -2px rgba(79, 70, 229, 0.05);
   }
-  .adir-bar { padding: 1rem 1.1rem; margin-bottom: 1rem; display: grid; gap: .85rem; }
+  .adir-kicker {
+    margin: 0 0 .35rem; font-size: .72rem; font-weight: 800; letter-spacing: .08em;
+    text-transform: uppercase; color: #4f46e5; display: inline-flex; align-items: center; gap: 5px;
+  }
+  .adir-kicker svg { stroke: #4f46e5; }
+  .adir h1 { margin: 0; font-size: clamp(1.65rem, 3vw, 2.15rem); letter-spacing: -.03em; color: #0f172a; }
+  .adir-lead { margin: .45rem 0 0; max-width: 42rem; color: #64748b; font-weight: 600; font-size: .92rem; line-height: 1.45; }
+  .adir-back {
+    display: inline-flex; align-items: center; gap: 6px; padding: .45rem .85rem; border-radius: 10px;
+    background: #f1f5f9; color: #334155; font-weight: 750; font-size: .82rem; text-decoration: none;
+    transition: all .15s ease;
+  }
+  .adir-back:hover { background: #e2e8f0; color: #0f172a; }
+
+  /* ── Team Summary Metrics Grid ── */
+  .adir-metrics {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .85rem; margin-bottom: 1.25rem;
+  }
+  .adir-metric-card {
+    padding: 1rem 1.15rem; border-radius: 18px; border: 1.5px solid #e2e8f0; background: #fff;
+    box-shadow: 0 2px 8px rgba(15,23,42,.03); transition: transform .15s ease;
+  }
+  .adir-metric-card:hover { transform: translateY(-2px); }
+  .adir-metric-card span {
+    display: block; font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin-bottom: .25rem;
+  }
+  .adir-metric-card strong { font-size: 1.35rem; font-weight: 850; letter-spacing: -.02em; color: #0f172a; }
+  .adir-metric-card.is-revenue strong { color: #059669; }
+  .adir-metric-card.is-issues strong { color: #dc2626; }
+
+  /* ── Brilliant / Chic Filter Suite ── */
+  .adir-suite {
+    background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+    border: 1.5px solid #e0e7ff;
+    border-radius: 22px;
+    padding: 1.25rem 1.35rem;
+    margin-bottom: 1.35rem;
+    box-shadow: 0 4px 24px -2px rgba(79, 70, 229, 0.06);
+  }
+  .adir-suite__top {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    padding-bottom: .85rem; border-bottom: 1px dashed #e2e8f0; margin-bottom: 1rem;
+  }
+  .adir-suite__title {
+    display: flex; align-items: center; gap: .55rem; font-size: .96rem; font-weight: 800; color: #0f172a;
+  }
+  .adir-suite__badge {
+    background: #ede9fe; color: #4f46e5; font-size: .72rem; font-weight: 850; padding: 2px 9px;
+    border-radius: 999px; text-transform: uppercase; letter-spacing: .04em;
+  }
   .adir-periods { display: flex; flex-wrap: wrap; gap: .4rem; }
   .adir-periods a, .adir-step {
-    display: inline-flex; align-items: center; padding: .45rem .75rem; border-radius: 999px;
-    border: 1px solid #e2e8f0; background: #f8fafc; color: #334155; font-weight: 750;
-    font-size: .82rem; text-decoration: none;
+    display: inline-flex; align-items: center; padding: .42rem .75rem; border-radius: 999px;
+    border: 1px solid #cbd5e1; background: #fff; color: #334155; font-weight: 750;
+    font-size: .8rem; text-decoration: none; transition: all .15s ease;
   }
-  .adir-periods a.is-on { background: #0f172a; color: #fff; border-color: #0f172a; }
-  .adir-nav { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
-  .adir-label { font-weight: 800; color: #0f172a; }
-  .adir-search { display: flex; gap: .5rem; flex-wrap: wrap; align-items: end; }
-  .adir-search input[type="search"], .adir-search input[type="date"] {
-    padding: .55rem .7rem; border: 1px solid #cbd5e1; border-radius: 10px; min-width: 180px; font-weight: 650;
+  .adir-periods a:hover, .adir-step:hover { background: #ede9fe; border-color: #c7d2fe; color: #4338ca; }
+  .adir-periods a.is-on { background: #0f172a; color: #fff; border-color: #0f172a; box-shadow: 0 2px 6px rgba(15,23,42,.2); }
+  .adir-nav {
+    display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem;
   }
-  .adir-search button, .adir-apply {
-    padding: .55rem .9rem; border: none; border-radius: 10px; background: #0f766e; color: #fff; font-weight: 800; cursor: pointer;
+  .adir-label { font-weight: 800; color: #0f172a; font-size: 1.05rem; }
+
+  .adir-filter-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .85rem 1rem; margin-bottom: 1rem;
   }
-  .adir-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: .9rem; }
-  .adir-card { display: block; padding: 1.05rem 1.1rem 1rem; text-decoration: none; color: inherit; position: relative; overflow: hidden; }
-  .adir-card:hover { border-color: #99f6e4; transform: translateY(-1px); }
-  .adir-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #0f766e; }
-  .adir-who { display: flex; gap: .75rem; align-items: center; }
+  .adir-filter-field { display: flex; flex-direction: column; gap: .35rem; }
+  .adir-filter-field label {
+    font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #64748b;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .adir-filter-field input, .adir-filter-field select {
+    width: 100%; box-sizing: border-box; padding: .52rem .75rem; border: 1.5px solid #cbd5e1;
+    border-radius: 10px; font-size: .85rem; font-weight: 600; color: #1e293b; background: #fff;
+    transition: all .15s ease;
+  }
+  .adir-filter-field input:focus, .adir-filter-field select:focus {
+    border-color: #6366f1; outline: none; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+  }
+
+  .adir-suite__footer {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem;
+    padding-top: .85rem; border-top: 1px dashed #e2e8f0;
+  }
+  .adir-quick-pills { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+  .adir-quick-pill {
+    display: inline-flex; align-items: center; gap: 4px; background: #f1f5f9; border: 1px solid #e2e8f0;
+    color: #475569; font-size: .74rem; font-weight: 750; padding: 3px 9px; border-radius: 999px;
+    text-decoration: none; transition: all .15s ease;
+  }
+  .adir-quick-pill:hover, .adir-quick-pill.is-active {
+    background: #ede9fe; border-color: #c7d2fe; color: #5b21b6;
+  }
+  .adir-btn-apply {
+    background: linear-gradient(135deg, #4f46e5, #6366f1); color: #fff; border: none; padding: .55rem 1.5rem;
+    border-radius: 10px; font-weight: 800; font-size: .86rem; cursor: pointer;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.28); transition: all .15s ease;
+  }
+  .adir-btn-apply:hover {
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.38); transform: translateY(-1px);
+  }
+  .adir-btn-reset {
+    color: #ef4444; font-size: .8rem; font-weight: 700; text-decoration: none; padding: .35rem .6rem; border-radius: 8px;
+  }
+  .adir-btn-reset:hover { background: #fee2e2; }
+
+  /* ── Agent Cards Grid ── */
+  .adir-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 1rem; }
+  .adir-card {
+    display: flex; flex-direction: column; justify-content: space-between;
+    padding: 1.2rem 1.25rem 1.15rem; text-decoration: none; color: inherit; position: relative;
+    overflow: hidden; border-radius: 20px; border: 1.5px solid #e2e8f0; background: #fff;
+    box-shadow: 0 2px 10px rgba(15,23,42,.04); transition: all .2s ease;
+  }
+  .adir-card:hover {
+    border-color: #c7d2fe; transform: translateY(-3px);
+    box-shadow: 0 8px 24px -4px rgba(79, 70, 229, 0.12);
+  }
+  .adir-card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4.5px;
+    background: linear-gradient(180deg, #4f46e5, #06b6d4);
+  }
+  .adir-who { display: flex; gap: .85rem; align-items: center; }
   .adir-avatar {
-    width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center;
-    background: #ccfbf1; color: #115e59; font-weight: 850;
+    width: 48px; height: 48px; border-radius: 16px; display: grid; place-items: center;
+    background: linear-gradient(135deg, #ede9fe, #e0e7ff); color: #4338ca; font-weight: 850;
+    font-size: 1.05rem; box-shadow: 0 2px 6px rgba(99,102,241,.12);
   }
-  .adir-who h2 { margin: 0; font-size: 1.05rem; letter-spacing: -.02em; }
-  .adir-who p { margin: .15rem 0 0; color: #64748b; font-size: .82rem; font-weight: 650; }
+  .adir-who h2 { margin: 0; font-size: 1.08rem; letter-spacing: -.02em; color: #0f172a; }
+  .adir-who p { margin: .2rem 0 0; color: #64748b; font-size: .8rem; font-weight: 650; }
+  .adir-meta {
+    display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-top: .85rem; flex-wrap: wrap;
+  }
   .adir-role {
-    display: inline-flex; margin-top: .75rem; padding: .2rem .55rem; border-radius: 999px;
-    background: #eef2ff; color: #4338ca; font-size: .72rem; font-weight: 800;
+    display: inline-flex; padding: .24rem .65rem; border-radius: 999px;
+    background: #eef2ff; color: #4338ca; font-size: .72rem; font-weight: 800; letter-spacing: .02em;
   }
-  .adir-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .45rem; margin-top: .9rem; }
-  .adir-stat { padding: .55rem .4rem; border-radius: 12px; background: #f8fafc; }
-  .adir-stat span { display: block; font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #64748b; }
-  .adir-stat strong { font-size: 1rem; color: #0f172a; }
-  .adir-open { display: block; margin-top: .8rem; font-size: .82rem; font-weight: 800; color: #0f766e; }
-  .adir-empty { padding: 2.5rem 1rem; text-align: center; color: #64748b; background: #fff; border: 1px dashed #cbd5e1; border-radius: 18px; }
+  .adir-issue-tag {
+    display: inline-flex; align-items: center; gap: 3px; padding: .2rem .55rem; border-radius: 999px;
+    background: #fee2e2; color: #991b1b; font-size: .7rem; font-weight: 800;
+  }
+  .adir-stats {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: .45rem; margin-top: .95rem;
+  }
+  .adir-stat {
+    padding: .6rem .45rem; border-radius: 12px; background: #f8fafc; border: 1px solid #f1f5f9; text-align: center;
+  }
+  .adir-stat span {
+    display: block; font-size: .66rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #64748b;
+  }
+  .adir-stat strong { font-size: 1.02rem; color: #0f172a; font-weight: 850; }
+  .adir-open {
+    display: flex; align-items: center; justify-content: space-between; margin-top: 1rem;
+    padding-top: .75rem; border-top: 1px dashed #f1f5f9; font-size: .82rem; font-weight: 800; color: #4f46e5;
+  }
+  .adir-empty {
+    padding: 3rem 1.5rem; text-align: center; color: #64748b; background: #fff;
+    border: 1.5px dashed #cbd5e1; border-radius: 22px; grid-column: 1 / -1;
+  }
+  .adir-empty h2 { margin: 0 0 .5rem; color: #1e293b; font-size: 1.25rem; }
 </style>
 
 <main class="adir">
   <header class="adir-head">
     <div>
-      <p class="adir-kicker">Agent auditing</p>
+      <p class="adir-kicker">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="3"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+        Agent Auditing &amp; Quality Control
+      </p>
       <h1>Team directory</h1>
-      <p class="adir-lead">Choose a stretch of time, then open an agent to see every service they handled in that window.</p>
+      <p class="adir-lead">Inspect operational throughput, revenue attribution, and error rates across all agents in any time window with chic multi-dimensional filters.</p>
     </div>
-    <a class="adir-back" href="{% url 'dashboard' %}">Back to dashboard</a>
+    <a class="adir-back" href="{% url 'dashboard' %}">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+      Dashboard
+    </a>
   </header>
 
-  <section class="adir-bar">
-    <nav class="adir-periods" aria-label="Time range">
-      {% for key, label in audit_periods %}
-      <a href="?period={{ key }}{% if directory_query %}&q={{ directory_query|urlencode }}{% endif %}{% if key == 'custom' and audit_window.start_date %}&start_date={{ audit_window.start_date }}&end_date={{ audit_window.end_date }}{% endif %}" class="{% if audit_window.period == key %}is-on{% endif %}">{{ label }}</a>
-      {% endfor %}
-    </nav>
-    <div class="adir-nav">
-      {% if prev_href %}<a class="adir-step" href="{{ prev_href }}{% if directory_query %}&q={{ directory_query|urlencode }}{% endif %}">← Previous</a>{% else %}<span></span>{% endif %}
-      <strong class="adir-label">{{ audit_window.label }}</strong>
-      {% if next_href %}<a class="adir-step" href="{{ next_href }}{% if directory_query %}&q={{ directory_query|urlencode }}{% endif %}">Next →</a>{% else %}<span></span>{% endif %}
+  <!-- Team Summary Metrics -->
+  <section class="adir-metrics" aria-label="Team metrics">
+    <div class="adir-metric-card">
+      <span>Teammates</span>
+      <strong>{{ raw_agent_count }}</strong>
     </div>
-    <form class="adir-search" method="get">
+    <div class="adir-metric-card">
+      <span>Active in Window</span>
+      <strong>{{ team_active_count }}</strong>
+    </div>
+    <div class="adir-metric-card">
+      <span>Services Processed</span>
+      <strong>{{ team_total_records }}</strong>
+    </div>
+    <div class="adir-metric-card is-revenue">
+      <span>Total Collected</span>
+      <strong>${{ team_total_revenue|floatformat:2 }}</strong>
+    </div>
+    <div class="adir-metric-card is-issues">
+      <span>Failed / Issues</span>
+      <strong>{{ team_total_failed }}</strong>
+    </div>
+  </section>
+
+  <!-- Brilliant & Chic Filtration Suite -->
+  <section class="adir-suite">
+    <div class="adir-suite__top">
+      <div class="adir-suite__title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+        <span>Team Audit Filters</span>
+        <span class="adir-suite__badge">{{ agent_data|length }} Agent{{ agent_data|length|pluralize }} Shown</span>
+      </div>
+      <nav class="adir-periods" aria-label="Audit time window">
+        {% for key, label in audit_periods %}
+        <a href="?period={{ key }}{% if directory_query %}&q={{ directory_query|urlencode }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if activity_filter %}&activity={{ activity_filter }}{% endif %}{% if sort_filter %}&sort={{ sort_filter }}{% endif %}{% if key == 'custom' and audit_window.start_date %}&start_date={{ audit_window.start_date }}&end_date={{ audit_window.end_date }}{% endif %}" class="{% if audit_window.period == key %}is-on{% endif %}">{{ label }}</a>
+        {% endfor %}
+      </nav>
+    </div>
+
+    <div class="adir-nav">
+      {% if prev_href %}<a class="adir-step" href="{{ prev_href }}">← Previous</a>{% else %}<span></span>{% endif %}
+      <strong class="adir-label">{{ audit_window.label }}</strong>
+      {% if next_href %}<a class="adir-step" href="{{ next_href }}">Next →</a>{% else %}<span></span>{% endif %}
+    </div>
+
+    <form method="get" id="teamAuditFilterForm">
       <input type="hidden" name="period" value="{{ audit_window.period }}">
       <input type="hidden" name="offset" value="{{ audit_window.offset }}">
-      {% if audit_window.period == 'custom' %}
-      <label>From <input type="date" name="start_date" value="{{ audit_window.start_date }}"></label>
-      <label>To <input type="date" name="end_date" value="{{ audit_window.end_date }}"></label>
-      {% endif %}
-      <label>Find an agent
-        <input type="search" name="q" value="{{ directory_query }}" placeholder="Name or email">
-      </label>
-      <button type="submit">Apply</button>
+
+      <div class="adir-filter-grid">
+        <div class="adir-filter-field">
+          <label>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            Find Teammate
+          </label>
+          <input type="search" name="q" value="{{ directory_query }}" placeholder="Name, email, username...">
+        </div>
+
+        <div class="adir-filter-field">
+          <label>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            Role
+          </label>
+          <select name="role">
+            <option value="">All team roles</option>
+            {% for r_key, r_label in role_choices %}
+            <option value="{{ r_key }}" {% if role_filter == r_key %}selected{% endif %}>{{ r_label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="adir-filter-field">
+          <label>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            Activity Status
+          </label>
+          <select name="activity">
+            {% for a_key, a_label in activity_choices %}
+            <option value="{{ a_key }}" {% if activity_filter == a_key %}selected{% endif %}>{{ a_label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="adir-filter-field">
+          <label>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            Sort Order
+          </label>
+          <select name="sort">
+            {% for s_key, s_label in sort_choices %}
+            <option value="{{ s_key }}" {% if sort_filter == s_key %}selected{% endif %}>{{ s_label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {% if audit_window.period == 'custom' %}
+        <div class="adir-filter-field">
+          <label>From Date</label>
+          <input type="date" name="start_date" value="{{ audit_window.start_date }}">
+        </div>
+        <div class="adir-filter-field">
+          <label>To Date</label>
+          <input type="date" name="end_date" value="{{ audit_window.end_date }}">
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="adir-suite__footer">
+        <div class="adir-quick-pills">
+          <span style="font-size:.7rem;font-weight:800;text-transform:uppercase;color:#94a3b8;">Quick Audits:</span>
+          <a href="?period={{ audit_window.period }}&sort=-revenue&activity=active" class="adir-quick-pill {% if sort_filter == '-revenue' and activity_filter == 'active' %}is-active{% endif %}">🔥 Top Producers</a>
+          <a href="?period={{ audit_window.period }}&activity=has_errors" class="adir-quick-pill {% if activity_filter == 'has_errors' %}is-active{% endif %}">⚠️ Has Failures</a>
+          <a href="?period={{ audit_window.period }}&activity=active" class="adir-quick-pill {% if activity_filter == 'active' and sort_filter != '-revenue' %}is-active{% endif %}">⚡ Active Teammates</a>
+          <a href="?period={{ audit_window.period }}" class="adir-quick-pill">👥 View All</a>
+        </div>
+        <div style="display:flex;align-items:center;gap:.5rem;">
+          {% if directory_query or role_filter or activity_filter or sort_filter != '-revenue' %}
+          <a href="?period={{ audit_window.period }}" class="adir-btn-reset">Reset Filters</a>
+          {% endif %}
+          <button type="submit" class="adir-btn-apply">Apply Filters</button>
+        </div>
+      </div>
     </form>
   </section>
 
+  <!-- Agent Auditing Grid -->
   <section class="adir-grid">
     {% for data in agent_data %}
     <a class="adir-card" href="{{ data.audit_href }}">
-      <div class="adir-who">
-        <div class="adir-avatar">{{ data.initials }}</div>
-        <div>
-          <h2>{{ data.name }}</h2>
-          <p>{{ data.membership.organization.name }}</p>
+      <div>
+        <div class="adir-who">
+          <div class="adir-avatar">{{ data.initials }}</div>
+          <div>
+            <h2>{{ data.name }}</h2>
+            <p>{{ data.membership.organization.name }}</p>
+          </div>
+        </div>
+        <div class="adir-meta">
+          <span class="adir-role">{{ data.role_label }}</span>
+          {% if data.failed > 0 %}
+          <span class="adir-issue-tag">⚠️ {{ data.failed }} issue{{ data.failed|pluralize }}</span>
+          {% endif %}
+        </div>
+        <div class="adir-stats">
+          <div class="adir-stat">
+            <span>Services</span>
+            <strong>{{ data.total_records }}</strong>
+          </div>
+          <div class="adir-stat">
+            <span>Collected</span>
+            <strong>${{ data.total_revenue|floatformat:0 }}</strong>
+          </div>
+          <div class="adir-stat">
+            <span>Failed</span>
+            <strong style="color:{% if data.failed > 0 %}#dc2626{% else %}#64748b{% endif %};">{{ data.failed }}</strong>
+          </div>
         </div>
       </div>
-      <span class="adir-role">{{ data.role_label }}</span>
-      <div class="adir-stats">
-        <div class="adir-stat"><span>Services</span><strong>{{ data.total_records }}</strong></div>
-        <div class="adir-stat"><span>Collected</span><strong>${{ data.total_revenue|floatformat:0 }}</strong></div>
-        <div class="adir-stat"><span>Failed</span><strong>{{ data.failed }}</strong></div>
+      <div class="adir-open">
+        <span>Open audit profile</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
       </div>
-      <span class="adir-open">Open audit →</span>
     </a>
     {% empty %}
     <div class="adir-empty">
-      <h2>No teammates in this view</h2>
-      <p>Try another name, or a wider time range.</p>
+      <h2>No teammates match these filters</h2>
+      <p>Try resetting your filters or selecting a broader time period.</p>
+      <a href="?period=all" class="adir-btn-apply" style="display:inline-block;margin-top:.85rem;text-decoration:none;">View All Time</a>
     </div>
     {% endfor %}
   </section>
