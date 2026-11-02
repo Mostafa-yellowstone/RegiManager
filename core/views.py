@@ -4101,8 +4101,9 @@ def agent_profile(request, membership_id):
     )
     if request.GET.get("export") == "xlsx":
         agent_name = membership.user.get_full_name() or membership.user.username
+        sort_col = window.get("sort") or "-transaction_date"
         payload = audit_workbook(
-            records_qs.order_by("-transaction_date", "-created_at")[:5000],
+            records_qs.order_by(sort_col, "-created_at")[:5000],
             agent_name=agent_name,
             window=window,
         )
@@ -4142,8 +4143,16 @@ def agent_profile(request, membership_id):
         instructions = "No service activity in this period."
 
     breakdown = service_breakdown(records_qs, membership.organization)
+
+    # Collect available service types for the filter dropdown
+    from .models import CustomServiceType
+    avail_service_types = list(ServiceRecord.SERVICE_TYPES)
+    custom_types = CustomServiceType.objects.filter(organization=membership.organization).values_list("key", "label")
+    avail_service_types.extend(custom_types)
+
+    sort_field = window.get("sort") or "-transaction_date"
     page_obj = Paginator(
-        records_qs.order_by("-transaction_date", "-created_at"), 25
+        records_qs.order_by(sort_field, "-created_at"), 25
     ).get_page(request.GET.get("page"))
     kept = audit_query(window, tab=tab, activity_date=activity_date.isoformat())
     audit_filters = audit_query(window)
@@ -4193,6 +4202,8 @@ def agent_profile(request, membership_id):
             "audit_totals": totals,
             "service_breakdown": breakdown,
             "status_choices": ServiceRecord.STATUS_CHOICES,
+            "payment_methods": ServiceRecord.PAYMENT_METHODS,
+            "avail_service_types": avail_service_types,
             "audit_kept": kept,
             "audit_filters": audit_filters,
             "prev_href": f"?{audit_query(window, tab=tab, activity_date=activity_date.isoformat(), offset=window['offset'] - 1)}" if window["can_step"] else "",

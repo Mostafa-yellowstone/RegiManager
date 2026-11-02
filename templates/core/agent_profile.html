@@ -45,26 +45,159 @@
 .uap-task li { padding:.75rem .85rem; border-radius:12px; background:#f8fafc; border:1px solid #e2e8f0; }
 .uap-task li.is-done strong { text-decoration: line-through; opacity:.75; }
 .audit-crm { padding: 0; overflow: hidden; }
-.audit-crm__top { padding: 1.15rem 1.25rem 0; }
-.audit-crm__top h2 { margin: 0; font-size: 1.2rem; letter-spacing: -.02em; }
+.audit-crm__top { padding: 1.25rem 1.4rem 0; }
+.audit-crm__top h2 { margin: 0; font-size: 1.25rem; letter-spacing: -.02em; }
 .audit-periods { display: flex; flex-wrap: wrap; gap: .4rem; margin: .9rem 0 .75rem; }
 .audit-periods a {
-  padding: .42rem .72rem; border-radius: 999px; border: 1px solid #e2e8f0; background: #f8fafc;
-  color: #334155; text-decoration: none; font-size: .8rem; font-weight: 800;
+  padding: .42rem .75rem; border-radius: 999px; border: 1px solid #e2e8f0; background: #f8fafc;
+  color: #334155; text-decoration: none; font-size: .8rem; font-weight: 800; transition: all .15s ease;
 }
-.audit-periods a.is-on { background: #0f172a; color: #fff; border-color: #0f172a; }
-.audit-nav { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin-bottom: .85rem; }
-.audit-nav strong { font-size: 1.02rem; }
-.audit-nav a { color: #0f766e; font-weight: 800; text-decoration: none; }
-.audit-tools { display: flex; gap: .55rem; flex-wrap: wrap; align-items: end; margin-bottom: 1rem; }
-.audit-tools input, .audit-tools select {
-  padding: .5rem .65rem; border: 1px solid #cbd5e1; border-radius: 10px; font-weight: 650; background: #fff;
+.audit-periods a:hover { background: #ede9fe; color: #4338ca; border-color: #c7d2fe; }
+.audit-periods a.is-on { background: #0f172a; color: #fff; border-color: #0f172a; box-shadow: 0 2px 6px rgba(15,23,42,.2); }
+.audit-nav { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.audit-nav strong { font-size: 1.05rem; }
+.audit-nav a { color: #4f46e5; font-weight: 800; text-decoration: none; }
+
+/* ── Brilliant / Chic Filter Suite ────────────────────────── */
+.audit-filter-suite {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+  border: 1.5px solid #e0e7ff;
+  border-radius: 20px;
+  padding: 1.25rem 1.35rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 4px 20px -2px rgba(79, 70, 229, 0.06);
 }
-.audit-tools button, .audit-export {
-  padding: .52rem .85rem; border-radius: 10px; font-weight: 800; text-decoration: none; border: none; cursor: pointer;
+.audit-filter-suite__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: .75rem;
+  border-bottom: 1px dashed #e2e8f0;
 }
-.audit-tools button { background: #0f766e; color: #fff; }
-.audit-export { display: inline-flex; align-items: center; background: #fff; color: #0f172a; border: 1px solid #cbd5e1; }
+.audit-filter-suite__title {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  font-size: .95rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+.audit-filter-suite__badge {
+  background: #ede9fe;
+  color: #6366f1;
+  font-size: .72rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.audit-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: .85rem 1rem;
+}
+.audit-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+}
+.audit-filter-field label {
+  font-size: .72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.audit-filter-field input, .audit-filter-field select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: .5rem .75rem;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: .85rem;
+  font-weight: 600;
+  color: #1e293b;
+  background: #fff;
+  transition: all .15s ease;
+}
+.audit-filter-field input:focus, .audit-filter-field select:focus {
+  border-color: #6366f1;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+.audit-filter-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .75rem;
+  margin-top: 1rem;
+  padding-top: .85rem;
+  border-top: 1px dashed #e2e8f0;
+}
+.audit-filter-quick-pills {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  flex-wrap: wrap;
+}
+.audit-quick-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: .74rem;
+  font-weight: 750;
+  padding: 3px 9px;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: all .15s ease;
+}
+.audit-quick-pill:hover, .audit-quick-pill.is-active {
+  background: #ede9fe;
+  border-color: #c7d2fe;
+  color: #5b21b6;
+}
+.audit-btn-apply {
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: #fff;
+  border: none;
+  padding: .55rem 1.5rem;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: .86rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.28);
+  transition: all .15s ease;
+}
+.audit-btn-apply:hover {
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.38);
+  transform: translateY(-1px);
+}
+.audit-btn-reset {
+  color: #ef4444;
+  font-size: .8rem;
+  font-weight: 700;
+  text-decoration: none;
+  padding: .35rem .6rem;
+  border-radius: 8px;
+}
+.audit-btn-reset:hover { background: #fee2e2; }
+.audit-export {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #fff; color: #0f172a; border: 1.5px solid #cbd5e1;
+  padding: .48rem .95rem; border-radius: 10px; font-weight: 800;
+  font-size: .84rem; text-decoration: none; transition: all .15s;
+}
+.audit-export:hover { background: #f8fafc; border-color: #94a3b8; }
 .audit-types { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 1rem; }
 .audit-types span { padding: .3rem .6rem; border-radius: 999px; background: #f0fdfa; color: #115e59; font-size: .78rem; font-weight: 750; }
 .audit-table { width: 100%; border-collapse: collapse; }
@@ -226,28 +359,133 @@
         <strong>{{ audit_window.label }}</strong>
         {% if next_href %}<a href="{{ next_href }}">Next →</a>{% else %}<span></span>{% endif %}
       </div>
-      <form class="audit-tools" method="get">
-        <input type="hidden" name="tab" value="{{ tab }}">
-        <input type="hidden" name="activity_date" value="{{ activity_date|date:'Y-m-d' }}">
-        <input type="hidden" name="period" value="{{ audit_window.period }}">
-        <input type="hidden" name="offset" value="{{ audit_window.offset }}">
-        {% if audit_window.period == 'custom' %}
-        <label>From <input type="date" name="start_date" value="{{ audit_window.start_date }}"></label>
-        <label>To <input type="date" name="end_date" value="{{ audit_window.end_date }}"></label>
-        {% endif %}
-        <label>Search
-          <input type="search" name="q" value="{{ audit_window.q }}" placeholder="Receipt, client, plate, VIN">
-        </label>
-        <label>Status
-          <select name="status">
-            <option value="">All statuses</option>
-            {% for key, label in status_choices %}
-            <option value="{{ key }}" {% if audit_window.status == key %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <button type="submit">Apply</button>
-      </form>
+      <div class="audit-filter-suite">
+        <form method="get" id="agentAuditFilterForm">
+          <input type="hidden" name="tab" value="{{ tab }}">
+          <input type="hidden" name="activity_date" value="{{ activity_date|date:'Y-m-d' }}">
+          <input type="hidden" name="period" value="{{ audit_window.period }}">
+          <input type="hidden" name="offset" value="{{ audit_window.offset }}">
+
+          <div class="audit-filter-suite__header">
+            <div class="audit-filter-suite__title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.5"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+              <span>Audit Filters</span>
+              <span class="audit-filter-suite__badge">{{ total_records }} record{{ total_records|pluralize }}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem;">
+              {% if audit_window.q or audit_window.status or audit_window.service_type or audit_window.payment_method or audit_window.min_fee or audit_window.max_fee or audit_window.has_notes or audit_window.sort != '-transaction_date' %}
+              <a href="?tab={{ tab }}&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ audit_window.period }}" class="audit-btn-reset">Reset Filters</a>
+              {% endif %}
+              <button type="submit" class="audit-btn-apply">Apply Filters</button>
+            </div>
+          </div>
+
+          <div class="audit-filter-grid">
+            <div class="audit-filter-field">
+              <label>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                Keyword Search
+              </label>
+              <input type="search" name="q" value="{{ audit_window.q }}" placeholder="Receipt, client, plate, VIN, notes...">
+            </div>
+
+            <div class="audit-filter-field">
+              <label>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                Status
+              </label>
+              <select name="status">
+                <option value="">All statuses</option>
+                {% for key, label in status_choices %}
+                <option value="{{ key }}" {% if audit_window.status == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="audit-filter-field">
+              <label>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                Service Type
+              </label>
+              <select name="service_type">
+                <option value="">All services</option>
+                {% for key, label in avail_service_types %}
+                <option value="{{ key }}" {% if audit_window.service_type == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="audit-filter-field">
+              <label>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                Payment Method
+              </label>
+              <select name="payment_method">
+                <option value="">All payments</option>
+                {% for key, label in payment_methods %}
+                <option value="{{ key }}" {% if audit_window.payment_method == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            {% if audit_window.period == 'custom' %}
+            <div class="audit-filter-field">
+              <label>From Date</label>
+              <input type="date" name="start_date" value="{{ audit_window.start_date }}">
+            </div>
+            <div class="audit-filter-field">
+              <label>To Date</label>
+              <input type="date" name="end_date" value="{{ audit_window.end_date }}">
+            </div>
+            {% endif %}
+
+            <div class="audit-filter-field">
+              <label>Min Fee ($)</label>
+              <input type="number" step="0.01" name="min_fee" value="{{ audit_window.min_fee }}" placeholder="0.00">
+            </div>
+
+            <div class="audit-filter-field">
+              <label>Max Fee ($)</label>
+              <input type="number" step="0.01" name="max_fee" value="{{ audit_window.max_fee }}" placeholder="500.00">
+            </div>
+
+            <div class="audit-filter-field">
+              <label>Notes Filter</label>
+              <select name="has_notes">
+                <option value="">Any (with or without notes)</option>
+                <option value="yes" {% if audit_window.has_notes == 'yes' %}selected{% endif %}>Has Notes Only</option>
+                <option value="no" {% if audit_window.has_notes == 'no' %}selected{% endif %}>No Notes</option>
+              </select>
+            </div>
+
+            <div class="audit-filter-field">
+              <label>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                Sort Order
+              </label>
+              <select name="sort">
+                <option value="-transaction_date" {% if audit_window.sort == '-transaction_date' %}selected{% endif %}>Date (Newest first)</option>
+                <option value="transaction_date" {% if audit_window.sort == 'transaction_date' %}selected{% endif %}>Date (Oldest first)</option>
+                <option value="-service_fee" {% if audit_window.sort == '-service_fee' %}selected{% endif %}>Highest Fee First</option>
+                <option value="service_fee" {% if audit_window.sort == 'service_fee' %}selected{% endif %}>Lowest Fee First</option>
+                <option value="client_name" {% if audit_window.sort == 'client_name' %}selected{% endif %}>Client Name (A–Z)</option>
+                <option value="-created_at" {% if audit_window.sort == '-created_at' %}selected{% endif %}>Entry Time (Latest)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="audit-filter-footer">
+            <div class="audit-filter-quick-pills">
+              <span style="font-size:.72rem;font-weight:800;text-transform:uppercase;color:#94a3b8;">Quick Audits:</span>
+              <a href="?tab={{ tab }}&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ audit_window.period }}&status=failed" class="audit-quick-pill {% if audit_window.status == 'failed' %}is-active{% endif %}">⚠️ Failed Only ({{ audit_totals.failed }})</a>
+              <a href="?tab={{ tab }}&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ audit_window.period }}&status=completed" class="audit-quick-pill {% if audit_window.status == 'completed' %}is-active{% endif %}">✅ Completed ({{ audit_totals.completed }})</a>
+              <a href="?tab={{ tab }}&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ audit_window.period }}&status=refund" class="audit-quick-pill {% if audit_window.status == 'refund' %}is-active{% endif %}">🔄 Refunds ({{ audit_totals.refunds }})</a>
+              <a href="?tab={{ tab }}&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ audit_window.period }}&payment_method=cash" class="audit-quick-pill {% if audit_window.payment_method == 'cash' %}is-active{% endif %}">💵 Cash Transactions</a>
+              <a href="?tab={{ tab }}&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ audit_window.period }}&has_notes=yes" class="audit-quick-pill {% if audit_window.has_notes == 'yes' %}is-active{% endif %}">📝 Has Notes</a>
+            </div>
+          </div>
+        </form>
+      </div>
       {% if instructions %}<p style="color:#9f1239;font-weight:650;margin:0 0 .85rem;">{{ instructions }}</p>{% endif %}
       <div class="uap-grid">
         <div class="uap-metric"><span>Services</span><strong>{{ audit_totals.total }}</strong></div>
@@ -274,23 +512,43 @@
             <th>Client</th>
             <th>Service</th>
             <th>Status</th>
-            <th>Plate</th>
-            <th style="text-align:right;">Fee</th>
+            <th>Payment</th>
+            <th>Plate &amp; VIN</th>
+            <th style="text-align:right;">Service Fee</th>
+            <th style="text-align:right;">Profit</th>
           </tr>
         </thead>
         <tbody>
           {% for record in page_obj %}
           <tr>
-            <td>{{ record.transaction_date|date:"M j, Y" }}</td>
-            <td><strong>{{ record.receipt_number }}</strong></td>
-            <td>{{ record.client_name|default:"—" }}{% if record.phone_no %}<div style="color:#64748b;font-size:.78rem;">{{ record.phone_no }}</div>{% endif %}</td>
-            <td>{{ record.get_service_type_display|default:record.service_type }}</td>
+            <td>
+              <div style="font-weight:700;">{{ record.transaction_date|date:"M j, Y" }}</div>
+              <div style="color:#94a3b8;font-size:.74rem;">{{ record.created_at|date:"g:i A" }}</div>
+            </td>
+            <td><strong>{{ record.receipt_number|default:"—" }}</strong></td>
+            <td>
+              <div style="font-weight:700;">{{ record.client_name|default:"—" }}</div>
+              {% if record.phone_no %}<div style="color:#64748b;font-size:.76rem;">{{ record.phone_no }}</div>{% endif %}
+            </td>
+            <td>
+              <div style="font-weight:700;">{{ record.get_service_type_display|default:record.service_type }}</div>
+              {% if record.notes %}
+              <div style="color:#6d28d9;font-size:.74rem;background:#f5f3ff;padding:2px 6px;border-radius:4px;display:inline-block;margin-top:2px;" title="{{ record.notes }}">📝 {{ record.notes|truncatechars:40 }}</div>
+              {% endif %}
+            </td>
             <td><span class="audit-pill is-{{ record.status }}">{{ record.get_status_display }}</span></td>
-            <td>{{ record.plate_number|default:"—" }}</td>
-            <td style="text-align:right;">${{ record.service_fee|floatformat:2 }}</td>
+            <td>
+              <span style="font-size:.78rem;font-weight:700;background:#f1f5f9;padding:2px 6px;border-radius:6px;color:#334155;">{{ record.get_payment_method_display|default:record.payment_method }}</span>
+            </td>
+            <td>
+              <div style="font-weight:700;">{{ record.plate_number|default:"—" }}</div>
+              {% if record.vin %}<div style="color:#94a3b8;font-size:.72rem;font-family:monospace;">{{ record.vin|slice:":10" }}...</div>{% endif %}
+            </td>
+            <td style="text-align:right;font-weight:750;">${{ record.service_fee|floatformat:2 }}</td>
+            <td style="text-align:right;font-weight:800;color:#059669;">${{ record.processing_fee|floatformat:2 }}</td>
           </tr>
           {% empty %}
-          <tr><td colspan="7" style="padding:1.25rem;color:#64748b;">No services in {{ audit_window.label }}.</td></tr>
+          <tr><td colspan="9" style="padding:1.5rem;text-align:center;color:#64748b;font-weight:600;">No services match your active audit filters in {{ audit_window.label }}.</td></tr>
           {% endfor %}
         </tbody>
       </table>

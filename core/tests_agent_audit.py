@@ -40,7 +40,7 @@ class AgentAuditTests(TestCase):
             client_name="January Client",
             receipt_number="RCPT-AUDIT-JAN",
             transaction_date=date(2026, 1, 15),
-            service_fee=Decimal("40.00"),
+            dmv_fee=Decimal("25.00"),
             processing_fee=Decimal("15.00"),
             plate_number="JAN111",
         )
@@ -52,7 +52,8 @@ class AgentAuditTests(TestCase):
             client_name="March Client",
             receipt_number="RCPT-AUDIT-MAR",
             transaction_date=date(2026, 3, 2),
-            service_fee=Decimal("80.00"),
+            dmv_fee=Decimal("50.00"),
+            processing_fee=Decimal("30.00"),
             plate_number="MAR222",
         )
         self.client = TestClient()
@@ -88,3 +89,41 @@ class AgentAuditTests(TestCase):
         self.assertEqual(exported.status_code, 200)
         self.assertIn("spreadsheetml", exported["Content-Type"])
         self.assertIn(b"PK", exported.content[:2])
+
+    def test_advanced_audit_filters_service_type_payment_fee_notes(self):
+        # Service type filter
+        resp_service = self.client.get(
+            reverse("agent-profile", args=[self.agent.id]),
+            {"tab": "audit", "period": "all", "service_type": "vehicle_registration"},
+        )
+        self.assertEqual(resp_service.status_code, 200)
+        self.assertContains(resp_service, "RCPT-AUDIT-JAN")
+        self.assertNotContains(resp_service, "RCPT-AUDIT-MAR")
+
+        # Status filter
+        resp_status = self.client.get(
+            reverse("agent-profile", args=[self.agent.id]),
+            {"tab": "audit", "period": "all", "status": "failed"},
+        )
+        self.assertEqual(resp_status.status_code, 200)
+        self.assertContains(resp_status, "RCPT-AUDIT-MAR")
+        self.assertNotContains(resp_status, "RCPT-AUDIT-JAN")
+
+        # Fee range filter
+        resp_fee = self.client.get(
+            reverse("agent-profile", args=[self.agent.id]),
+            {"tab": "audit", "period": "all", "min_fee": "50.00"},
+        )
+        self.assertEqual(resp_fee.status_code, 200)
+        self.assertContains(resp_fee, "RCPT-AUDIT-MAR")
+        self.assertNotContains(resp_fee, "RCPT-AUDIT-JAN")
+
+        # Sorting filter
+        resp_sort = self.client.get(
+            reverse("agent-profile", args=[self.agent.id]),
+            {"tab": "audit", "period": "all", "sort": "-service_fee"},
+        )
+        self.assertEqual(resp_sort.status_code, 200)
+        page_records = list(resp_sort.context["page_obj"])
+        self.assertEqual(page_records[0].receipt_number, "RCPT-AUDIT-MAR")
+        self.assertEqual(page_records[1].receipt_number, "RCPT-AUDIT-JAN")

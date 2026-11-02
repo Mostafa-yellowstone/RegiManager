@@ -109,6 +109,43 @@ def resolve_audit_window(params, *, today: date | None = None) -> dict:
     status = (params.get("status") or "").strip().lower()
     if status not in {key for key, _label in ServiceRecord.STATUS_CHOICES}:
         status = ""
+
+    service_type = (params.get("service_type") or "").strip()
+    payment_method = (params.get("payment_method") or "").strip().lower()
+    if payment_method not in {key for key, _label in ServiceRecord.PAYMENT_METHODS}:
+        payment_method = ""
+
+    min_fee_raw = (params.get("min_fee") or "").strip()
+    max_fee_raw = (params.get("max_fee") or "").strip()
+    min_fee = None
+    max_fee = None
+    if min_fee_raw:
+        try:
+            min_fee = Decimal(min_fee_raw)
+        except Exception:
+            min_fee = None
+    if max_fee_raw:
+        try:
+            max_fee = Decimal(max_fee_raw)
+        except Exception:
+            max_fee = None
+
+    has_notes = (params.get("has_notes") or "").strip().lower()
+    if has_notes not in {"yes", "no"}:
+        has_notes = ""
+
+    sort_by = (params.get("sort") or "-transaction_date").strip()
+    allowed_sorts = {
+        "-transaction_date", "transaction_date",
+        "-service_fee", "service_fee",
+        "-created_at", "created_at",
+        "client_name", "-client_name",
+        "receipt_number", "-receipt_number",
+        "status", "-status",
+    }
+    if sort_by not in allowed_sorts:
+        sort_by = "-transaction_date"
+
     return {
         "period": period,
         "offset": offset,
@@ -119,34 +156,64 @@ def resolve_audit_window(params, *, today: date | None = None) -> dict:
         "end_date": end.isoformat() if end else "",
         "q": (params.get("q") or "").strip(),
         "status": status,
+        "service_type": service_type,
+        "payment_method": payment_method,
+        "min_fee": str(min_fee) if min_fee is not None else "",
+        "max_fee": str(max_fee) if max_fee is not None else "",
+        "has_notes": has_notes,
+        "sort": sort_by,
         "can_step": period not in {"all", "custom"},
     }
 
 
 def audit_query(window: dict, **extra) -> str:
     params = {
-        "period": window["period"],
-        "offset": window["offset"],
-        "q": window["q"],
-        "status": window["status"],
+        "period": window.get("period"),
+        "offset": window.get("offset"),
+        "q": window.get("q"),
+        "status": window.get("status"),
+        "service_type": window.get("service_type"),
+        "payment_method": window.get("payment_method"),
+        "min_fee": window.get("min_fee"),
+        "max_fee": window.get("max_fee"),
+        "has_notes": window.get("has_notes"),
+        "sort": window.get("sort"),
     }
-    if window["period"] == "custom":
-        params["start_date"] = window["start_date"]
-        params["end_date"] = window["end_date"]
+    if window.get("period") == "custom":
+        params["start_date"] = window.get("start_date")
+        params["end_date"] = window.get("end_date")
     params.update(extra)
     return urlencode({key: value for key, value in params.items() if value not in (None, "")})
 
 
 def filter_agent_services(qs, window: dict):
-    if window["start"] and window["end"]:
+    if window.get("start") and window.get("end"):
         qs = qs.filter(transaction_date__gte=window["start"], transaction_date__lte=window["end"])
-    if window["status"]:
+    if window.get("status"):
         qs = qs.filter(status=window["status"])
-    if window["q"]:
+    if window.get("service_type"):
+        qs = qs.filter(service_type=window["service_type"])
+    if window.get("payment_method"):
+        qs = qs.filter(Q(payment_method=window["payment_method"]) | Q(payment_method_2=window["payment_method"]))
+    if window.get("min_fee"):
+        try:
+            qs = qs.filter(service_fee__gte=Decimal(window["min_fee"]))
+        except Exception:
+            pass
+    if window.get("max_fee"):
+        try:
+            qs = qs.filter(service_fee__lte=Decimal(window["max_fee"]))
+        except Exception:
+            pass
+    if window.get("has_notes") == "yes":
+        qs = qs.exclude(notes="")
+    elif window.get("has_notes") == "no":
+        qs = qs.filter(Q(notes="") | Q(notes__isnull=True))
+    if window.get("q"):
         qs = apply_text_search(
             qs,
             window["q"],
-            ["receipt_number", "client_name", "plate_number", "vin", "phone_no", "case_id"],
+            ["receipt_number", "client_name", "plate_number", "vin", "phone_no", "case_id", "notes"],
         )
     return qs
 
