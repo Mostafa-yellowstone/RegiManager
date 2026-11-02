@@ -4125,8 +4125,10 @@ def agent_profile(request, membership_id):
         agent_workboard_payload,
         can_create_personal_tasks,
         current_work_date,
+        monthly_attendance_for_membership,
         owner_can_review_agent,
         portal_now,
+        save_agent_attendance_session_record,
         staff_day_audit_trail,
     )
     from .role_permissions import is_insurance_agent_role, normalize_role, role_label
@@ -4149,8 +4151,19 @@ def agent_profile(request, membership_id):
         deny_access("Owner or manager access required.")
 
     tab = (request.GET.get("tab") or "overview").strip()
-    if tab not in {"overview", "workboard", "day", "audit", "insurance"}:
+    if tab not in {"overview", "workboard", "day", "audit", "insurance", "attendance"}:
         tab = "overview"
+
+    # Monthly attendance calculation
+    att_year_raw = (request.GET.get("attendance_year") or request.GET.get("att_year") or "").strip()
+    att_month_raw = (request.GET.get("attendance_month") or request.GET.get("att_month") or "").strip()
+    att_year = int(att_year_raw) if att_year_raw.isdigit() else None
+    att_month = int(att_month_raw) if att_month_raw.isdigit() else None
+    monthly_attendance = monthly_attendance_for_membership(
+        membership,
+        year=att_year,
+        month=att_month,
+    )
 
     activity_date_raw = (request.GET.get("activity_date") or "").strip()
     activity_date = current_work_date(portal_now())
@@ -4399,6 +4412,7 @@ def agent_profile(request, membership_id):
             "audit_filters": audit_filters,
             "prev_href": f"?{audit_query(window, tab=tab, activity_date=activity_date.isoformat(), offset=window['offset'] - 1)}" if window["can_step"] else "",
             "next_href": f"?{audit_query(window, tab=tab, activity_date=activity_date.isoformat(), offset=window['offset'] + 1)}" if window["can_step"] else "",
+            "monthly_attendance": monthly_attendance,
             "export_href": f"?{audit_query(window, tab='audit', activity_date=activity_date.isoformat(), export='xlsx')}",
         "total_records": total_records,
         "error_rate": error_rate,
@@ -4408,6 +4422,48 @@ def agent_profile(request, membership_id):
         "page_obj": page_obj,
         },
     )
+
+
+@login_required
+@require_POST
+def save_agent_attendance_session(request, membership_id):
+    """Owner/manager action to manually record or adjust an agent attendance session."""
+    from .agent_portal_services import save_agent_attendance_session_record, owner_can_review_agent
+    from .policies import redirect_back
+
+    membership = get_object_or_404(
+        OrganizationMembership.objects.select_related("organization", "user"),
+        id=membership_id,
+    )
+    viewer = OrganizationMembership.objects.filter(
+        user=request.user,
+        organization=membership.organization,
+        is_active=True,
+    ).first()
+
+    if not (request.user.is_superuser or owner_can_review_agent(viewer, membership)):
+        deny_access("Owner or manager access required.")
+
+    work_date_str = (request.POST.get("work_date") or "").strip()
+    opened_time = (request.POST.get("opened_time") or "").strip()
+    closed_time = (request.POST.get("closed_time") or "").strip()
+
+    try:
+        w_date = timezone.datetime.strptime(work_date_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        messages.error(request, "Invalid work date.")
+        return redirect(f"{reverse('agent-profile', args=[membership.id])}?tab=attendance")
+
+    save_agent_attendance_session_record(
+        membership,
+        work_date=w_date,
+        opened_time_str=opened_time or None,
+        closed_time_str=closed_time if "closed_time" in request.POST else None,
+        actor=request.user,
+    )
+    messages.success(request, f"Attendance session for {w_date.strftime('%b %d, %Y')} saved.")
+    fallback = f"{reverse('agent-profile', args=[membership.id])}?tab=attendance&attendance_year={w_date.year}&attendance_month={w_date.month}"
+    return redirect_back(request, fallback)
 
 
 @login_required
@@ -9816,13 +9872,15 @@ def insurance_agent_detail(request, user_id):
         can_deal_with_insurance=True,
     ).select_related("organization", "user").first()
     portal_workboard = None
+    monthly_attendance = None
     can_owner_assign_tasks = False
     assign_form = None
     if agent_membership:
-        from .agent_portal_services import agent_workboard_payload, owner_can_review_agent
+        from .agent_portal_services import agent_workboard_payload, owner_can_review_agent, monthly_attendance_for_membership
         from .agent_portal_forms import AgentTaskAssignForm
 
         portal_workboard = agent_workboard_payload(agent_membership)
+        monthly_attendance = monthly_attendance_for_membership(agent_membership)
         viewer = OrganizationMembership.objects.filter(
             user=request.user,
             organization=active_org,
@@ -9844,6 +9902,7 @@ def insurance_agent_detail(request, user_id):
         "insurance_companies": insurance_companies,
         "agent_membership": agent_membership,
         "portal_workboard": portal_workboard,
+        "monthly_attendance": monthly_attendance,
         "can_owner_assign_tasks": can_owner_assign_tasks,
         "assign_form": assign_form,
         # Period auditing

@@ -295,6 +295,24 @@
 .ins-stage-pill.is-bound { background: #dcfce7; color: #166534; }
 .ins-stage-pill.is-quote { background: #eff6ff; color: #1e40af; }
 .ins-stage-pill.is-endorsement { background: #fef3c7; color: #92400e; }
+.att-badge { display: inline-flex; align-items: center; gap: 5px; padding: .2rem .55rem; border-radius: 999px; font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; }
+.att-badge.is-success { background: #dcfce7; color: #166534; }
+.att-badge.is-warning { background: #fef3c7; color: #92400e; }
+.att-badge.is-danger { background: #fee2e2; color: #991b1b; }
+.att-badge.is-info { background: #eff6ff; color: #1e40af; }
+.att-badge.is-neutral { background: #f1f5f9; color: #64748b; }
+.att-pulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #16a34a; box-shadow: 0 0 0 2px rgba(22,163,74,.35); animation: attPulse 1.8s infinite; }
+@keyframes attPulse { 0% { transform: scale(0.95); opacity: .8; } 50% { transform: scale(1.3); opacity: 1; } 100% { transform: scale(0.95); opacity: .8; } }
+.att-table tr.is-today { background: #f0f7ff !important; border-left: 3px solid #3b82f6; }
+.att-table tr.is-weekend { opacity: .75; background: #fafafa; }
+.att-nav-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-bottom: 1.15rem; padding: .85rem 1.15rem; border-radius: 16px; background: #f8fafc; border: 1.5px solid #e0e7ff; }
+.att-btn { display: inline-flex; align-items: center; gap: 6px; padding: .45rem .85rem; border-radius: 10px; border: 1.5px solid #cbd5e1; background: #fff; font-size: .82rem; font-weight: 750; color: #1e293b; text-decoration: none; cursor: pointer; transition: all .15s ease; }
+.att-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
+.att-btn-primary { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+.att-btn-primary:hover { background: #4338ca; border-color: #4338ca; color: #fff; }
+.att-modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.55); backdrop-filter: blur(4px); z-index: 9999; display: none; place-items: center; padding: 1rem; }
+.att-modal-overlay.is-open { display: grid; }
+.att-modal-box { background: #fff; border-radius: 20px; width: 100%; max-width: 440px; box-shadow: 0 20px 40px -10px rgba(15,23,42,.3); padding: 1.5rem; position: relative; }
 </style>
 {% endblock %}
 
@@ -322,6 +340,9 @@
 
   <nav class="uap-tabs" aria-label="Profile sections">
     <a class="uap-tab {% if tab == 'overview' %}is-active{% endif %}" href="?tab=overview&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ period }}">Overview</a>
+    <a class="uap-tab {% if tab == 'attendance' %}is-active{% endif %}" href="?tab=attendance&attendance_year={{ monthly_attendance.year }}&attendance_month={{ monthly_attendance.month }}">
+      Attendance <span class="uap-tab-count" style="background:{% if monthly_attendance.days_absent %}rgba(239,68,68,.15);color:#b91c1c{% else %}rgba(16,185,129,.15);color:#047857{% endif %};">{{ monthly_attendance.days_attended }}/{{ monthly_attendance.past_working_days }}d</span>
+    </a>
     <a class="uap-tab {% if tab == 'workboard' %}is-active{% endif %}" href="?tab=workboard&activity_date={{ activity_date|date:'Y-m-d' }}&period={{ period }}">Workboard</a>
     <a class="uap-tab {% if tab == 'day' %}is-active{% endif %}" href="?tab=day&activity_date={{ activity_date|date:'Y-m-d' }}">Day trail</a>
     {% if not is_insurance_agent %}
@@ -335,6 +356,50 @@
     </a>
     {% endif %}
   </nav>
+
+  {% if tab == 'overview' %}
+  <!-- Monthly Attendance Pulse & Summary Card -->
+  <section class="uap-panel" id="overview-attendance" style="background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%); border: 1.5px solid #e0e7ff;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem;margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px dashed #e2e8f0;">
+      <div>
+        <h2 style="margin:0 0 .25rem;font-size:1.15rem;letter-spacing:-.02em;display:flex;align-items:center;gap:8px;">
+          <span>Monthly Attendance Pulse</span>
+          <span style="font-size:.78rem;padding:2px 10px;border-radius:999px;background:#ede9fe;color:#4f46e5;font-weight:800;">{{ monthly_attendance.month_label }}</span>
+        </h2>
+        <p style="margin:0;font-size:.82rem;color:#64748b;font-weight:600;">Monthly attended shifts, missed days, and live shift status.</p>
+      </div>
+      <a href="?tab=attendance&attendance_year={{ monthly_attendance.year }}&attendance_month={{ monthly_attendance.month }}" class="audit-export" style="border-color:#c7d2fe;color:#4338ca;">
+        View Full Monthly Calendar &rarr;
+      </a>
+    </div>
+    <div class="uap-grid">
+      <div class="uap-metric">
+        <span>Days Attended</span>
+        <strong style="color:#16a34a;">{{ monthly_attendance.days_attended }} <small style="font-size:.75rem;color:#64748b;font-weight:600;">days</small></strong>
+      </div>
+      <div class="uap-metric">
+        <span>Days Left in Month</span>
+        <strong style="color:#2563eb;">{{ monthly_attendance.days_left_in_month }} <small style="font-size:.75rem;color:#64748b;font-weight:600;">work days</small></strong>
+      </div>
+      <div class="uap-metric">
+        <span>Days Missed / Left</span>
+        <strong style="color:{% if monthly_attendance.days_absent %}#dc2626{% else %}#64748b{% endif %};">{{ monthly_attendance.days_absent }} <small style="font-size:.75rem;color:#64748b;font-weight:600;">days</small></strong>
+      </div>
+      <div class="uap-metric">
+        <span>Attendance Rate</span>
+        <strong style="color:#0f172a;">{{ monthly_attendance.attendance_rate }}%</strong>
+      </div>
+      <div class="uap-metric">
+        <span>On-Time Clock-Ins</span>
+        <strong style="color:#059669;">{{ monthly_attendance.days_on_time }}</strong>
+      </div>
+      <div class="uap-metric">
+        <span>Late Clock-Ins</span>
+        <strong style="color:{% if monthly_attendance.days_late %}#d97706{% else %}#64748b{% endif %};">{{ monthly_attendance.days_late }}</strong>
+      </div>
+    </div>
+  </section>
+  {% endif %}
 
   {% if tab == 'overview' or tab == 'workboard' %}
   <section class="uap-panel" id="workboard">
@@ -429,6 +494,258 @@
       {% endif %}
     </ul>
   </section>
+  {% endif %}
+
+  {% if tab == 'attendance' %}
+  <!-- Full Monthly Attendance Board -->
+  <section class="uap-panel audit-crm" id="attendance-panel">
+    <div class="audit-crm__top" style="padding-bottom: 1.15rem;">
+      <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:center;margin-bottom:1.15rem;">
+        <div>
+          <h2 style="margin:0 0 .25rem;font-size:1.35rem;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;">
+            <span>Monthly Attendance Tracker</span>
+            <span style="font-size:.8rem;padding:3px 12px;border-radius:999px;background:#ede9fe;color:#4f46e5;font-weight:800;">
+              {{ monthly_attendance.month_label }}
+            </span>
+          </h2>
+          <p style="margin:0;color:#64748b;font-weight:600;font-size:.85rem;">
+            Full calendar log of daily clock-ins, clock-outs (departure), hours logged, and attendance records.
+          </p>
+        </div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+          {% if can_owner_assign_tasks or request.user.is_superuser %}
+          <button type="button" class="att-btn att-btn-primary" onclick="openAttendanceModal('', '09:00', '18:00')">
+            + Adjust / Record Session
+          </button>
+          {% endif %}
+          <a href="{% url 'agent-attendance-tracker' %}" class="att-btn">
+            Live Team Pulse &rarr;
+          </a>
+        </div>
+      </div>
+
+      <!-- Month Navigation Bar -->
+      <div class="att-nav-bar">
+        <a href="?tab=attendance&attendance_year={{ monthly_attendance.prev_year }}&attendance_month={{ monthly_attendance.prev_month }}" class="att-btn">
+          &larr; {{ monthly_attendance.prev_month }}/{{ monthly_attendance.prev_year }}
+        </a>
+
+        <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;">
+          <label style="font-size:.78rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.03em;">Select Month:</label>
+          <select class="att-btn" style="padding:.4rem .75rem;font-weight:750;" onchange="if(this.value) window.location.href=this.value;">
+            {% for opt in monthly_attendance.month_options %}
+            <option value="?tab=attendance&attendance_year={{ opt.year }}&attendance_month={{ opt.month }}" {% if opt.is_selected %}selected{% endif %}>
+              {{ opt.label }}{% if opt.is_current %} (Current){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+          {% if not monthly_attendance.is_current_month %}
+          <a href="?tab=attendance" class="att-btn" style="background:#f1f5f9;color:#334155;font-size:.78rem;padding:.35rem .65rem;">
+            Jump to Current Month
+          </a>
+          {% endif %}
+        </div>
+
+        <a href="?tab=attendance&attendance_year={{ monthly_attendance.next_year }}&attendance_month={{ monthly_attendance.next_month }}" class="att-btn">
+          {{ monthly_attendance.next_month }}/{{ monthly_attendance.next_year }} &rarr;
+        </a>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="uap-grid" style="margin-bottom:1.25rem;">
+        <div class="uap-metric" style="border-left: 4px solid #16a34a;">
+          <span>Days Attended</span>
+          <strong style="color:#16a34a;">{{ monthly_attendance.days_attended }} <small style="font-size:.78rem;color:#64748b;font-weight:600;">/ {{ monthly_attendance.past_working_days }} work days</small></strong>
+        </div>
+        <div class="uap-metric" style="border-left: 4px solid #2563eb;">
+          <span>Days Left in Month</span>
+          <strong style="color:#2563eb;">{{ monthly_attendance.days_left_in_month }} <small style="font-size:.78rem;color:#64748b;font-weight:600;">working days remaining</small></strong>
+        </div>
+        <div class="uap-metric" style="border-left: 4px solid {% if monthly_attendance.days_absent %}#dc2626{% else %}#94a3b8{% endif %};">
+          <span>Days Missed / Left</span>
+          <strong style="color:{% if monthly_attendance.days_absent %}#dc2626{% else %}#64748b{% endif %};">{{ monthly_attendance.days_absent }} <small style="font-size:.78rem;color:#64748b;font-weight:600;">missed days</small></strong>
+        </div>
+        <div class="uap-metric" style="border-left: 4px solid #0f172a;">
+          <span>Attendance Rate</span>
+          <strong>{{ monthly_attendance.attendance_rate }}%</strong>
+        </div>
+        <div class="uap-metric" style="border-left: 4px solid #059669;">
+          <span>On-Time Clock-Ins</span>
+          <strong style="color:#059669;">{{ monthly_attendance.days_on_time }}</strong>
+        </div>
+        <div class="uap-metric" style="border-left: 4px solid {% if monthly_attendance.days_late %}#d97706{% else %}#94a3b8{% endif %};">
+          <span>Late Clock-Ins</span>
+          <strong style="color:{% if monthly_attendance.days_late %}#d97706{% else %}#64748b{% endif %};">{{ monthly_attendance.days_late }}</strong>
+        </div>
+        <div class="uap-metric" style="border-left: 4px solid #7c3aed;">
+          <span>Total Hours Logged</span>
+          <strong style="color:#7c3aed;">{{ monthly_attendance.total_hours_display }}</strong>
+        </div>
+        <div class="uap-metric" style="border-left: 4px solid #0891b2;">
+          <span>Avg Hours / Shift</span>
+          <strong style="color:#0891b2;">{{ monthly_attendance.avg_hours_display }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daily Attendance Table -->
+    <div style="overflow-x:auto;">
+      <table class="audit-table att-table">
+        <thead>
+          <tr>
+            <th style="width:130px;">Date &amp; Day</th>
+            <th>Attendance Status</th>
+            <th>Check-In (NY Clock)</th>
+            <th>Check-In (Egypt)</th>
+            <th>Check-Out / Left (NY)</th>
+            <th>Check-Out (Egypt)</th>
+            <th>Duration</th>
+            <th>Punctuality</th>
+            {% if can_owner_assign_tasks or request.user.is_superuser %}
+            <th style="text-align:center;width:90px;">Action</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for day in monthly_attendance.days reversed %}
+          <tr class="{% if day.is_today %}is-today{% endif %} {% if day.is_weekend %}is-weekend{% endif %}">
+            <td>
+              <div style="font-weight:800;font-size:.85rem;color:#0f172a;">
+                {{ day.date|date:"M j, Y" }}
+              </div>
+              <div style="font-size:.76rem;color:#64748b;font-weight:700;">
+                {{ day.weekday_name }}{% if day.is_today %} &middot; <span style="color:#2563eb;font-weight:800;">Today</span>{% endif %}
+              </div>
+            </td>
+            <td>
+              <span class="att-badge is-{{ day.status_badge }}">
+                {% if day.status_key == 'on_shift' %}<span class="att-pulse"></span>{% endif %}
+                {{ day.status_label }}
+              </span>
+            </td>
+            <td>
+              {% if day.has_session %}
+              <div style="font-weight:750;font-size:.84rem;color:#1e293b;">{{ day.opened_ny }}</div>
+              {% else %}
+              <span style="color:#94a3b8;">&mdash;</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if day.has_session %}
+              <div style="font-size:.82rem;color:#475569;font-weight:600;">{{ day.opened_egypt }}</div>
+              {% else %}
+              <span style="color:#94a3b8;">&mdash;</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if day.has_session %}
+                {% if day.session.closed_at %}
+                <div style="font-weight:750;font-size:.84rem;color:#1e293b;">{{ day.closed_ny }}</div>
+                {% elif day.session.is_open and day.is_today %}
+                <span class="att-badge is-success"><span class="att-pulse"></span> On Shift</span>
+                {% else %}
+                <span style="color:#94a3b8;">&mdash;</span>
+                {% endif %}
+              {% else %}
+              <span style="color:#94a3b8;">&mdash;</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if day.has_session and day.session.closed_at %}
+              <div style="font-size:.82rem;color:#475569;font-weight:600;">{{ day.closed_egypt }}</div>
+              {% elif day.has_session and day.session.is_open and day.is_today %}
+              <span style="font-size:.8rem;color:#16a34a;font-weight:700;">Active</span>
+              {% else %}
+              <span style="color:#94a3b8;">&mdash;</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if day.has_session %}
+              <strong style="color:#0f172a;font-size:.84rem;">{{ day.duration_display }}</strong>
+              {% else %}
+              <span style="color:#94a3b8;">&mdash;</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if day.has_session %}
+                {% if day.status_key == 'on_time' %}
+                <span style="color:#16a34a;font-weight:750;font-size:.8rem;">&check; On time (by 4 PM)</span>
+                {% elif day.status_key == 'late' %}
+                <span style="color:#d97706;font-weight:750;font-size:.8rem;">&excl; Late</span>
+                {% else %}
+                <span style="color:#64748b;font-size:.8rem;">Recorded</span>
+                {% endif %}
+              {% elif day.status_key == 'absent' %}
+              <span style="color:#dc2626;font-weight:700;font-size:.8rem;">Missed Shift</span>
+              {% else %}
+              <span style="color:#94a3b8;font-size:.8rem;">{{ day.status_label }}</span>
+              {% endif %}
+            </td>
+            {% if can_owner_assign_tasks or request.user.is_superuser %}
+            <td style="text-align:center;">
+              <button type="button" class="audit-quick-pill" style="border-color:#cbd5e1;cursor:pointer;" onclick="openAttendanceModal('{{ day.date|date:'Y-m-d' }}', '{% if day.has_session %}{{ day.session.opened_at|timezone:'America/New_York'|date:'H:i' }}{% else %}09:00{% endif %}', '{% if day.has_session and day.session.closed_at %}{{ day.session.closed_at|timezone:'America/New_York'|date:'H:i' }}{% else %}18:00{% endif %}')">
+                Adjust
+              </button>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Modal for Adjusting / Recording Attendance Session -->
+  <div class="att-modal-overlay" id="attendanceAdjustModal" onclick="if(event.target===this) closeAttendanceModal();">
+    <div class="att-modal-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.15rem;padding-bottom:.65rem;border-bottom:1px solid #e2e8f0;">
+        <h3 style="margin:0;font-size:1.1rem;font-weight:800;color:#0f172a;">Record / Adjust Attendance</h3>
+        <button type="button" onclick="closeAttendanceModal()" style="border:none;background:none;font-size:1.25rem;cursor:pointer;color:#64748b;">&times;</button>
+      </div>
+      <form method="post" action="{% url 'agent-attendance-save' agent_membership.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <div style="display:grid;gap:.85rem;">
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:.78rem;font-weight:800;text-transform:uppercase;color:#64748b;">
+            Work Date (NY Calendar Date)
+            <input type="date" name="work_date" id="modalWorkDate" required style="padding:.5rem .75rem;border:1.5px solid #cbd5e1;border-radius:10px;font-size:.88rem;font-weight:700;">
+          </label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:.78rem;font-weight:800;text-transform:uppercase;color:#64748b;">
+              Check-In (NY Time)
+              <input type="time" name="opened_time" id="modalOpenedTime" required style="padding:.5rem .75rem;border:1.5px solid #cbd5e1;border-radius:10px;font-size:.88rem;font-weight:700;">
+            </label>
+            <label style="display:flex;flex-direction:column;gap:4px;font-size:.78rem;font-weight:800;text-transform:uppercase;color:#64748b;">
+              Check-Out (NY Time)
+              <input type="time" name="closed_time" id="modalClosedTime" style="padding:.5rem .75rem;border:1.5px solid #cbd5e1;border-radius:10px;font-size:.88rem;font-weight:700;">
+            </label>
+          </div>
+          <p style="margin:0;font-size:.76rem;color:#64748b;font-weight:600;">
+            Times are America/New_York (e.g. 09:00 AM NY = 4:00 PM Egypt, 18:00 = 6:00 PM NY).
+          </p>
+          <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.5rem;">
+            <button type="button" onclick="closeAttendanceModal()" class="att-btn">Cancel</button>
+            <button type="submit" class="att-btn att-btn-primary">Save Session</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function openAttendanceModal(date, openTime, closeTime) {
+      const modal = document.getElementById('attendanceAdjustModal');
+      if (!modal) return;
+      document.getElementById('modalWorkDate').value = date || new Date().toISOString().split('T')[0];
+      document.getElementById('modalOpenedTime').value = openTime || '09:00';
+      document.getElementById('modalClosedTime').value = closeTime || '18:00';
+      modal.classList.add('is-open');
+    }
+    function closeAttendanceModal() {
+      const modal = document.getElementById('attendanceAdjustModal');
+      if (modal) modal.classList.remove('is-open');
+    }
+  </script>
   {% endif %}
 
   {% if not is_insurance_agent and tab == 'overview' or not is_insurance_agent and tab == 'audit' %}

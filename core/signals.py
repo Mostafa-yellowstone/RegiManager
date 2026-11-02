@@ -56,9 +56,22 @@ def on_user_logged_out(sender, request, user, **kwargs):
     """
     When a user logs out, remove their active session record
     so the next login starts fresh with no stale state.
+    Also close open attendance sessions so check-out / departure time is saved.
     """
     if user and hasattr(user, "pk") and user.pk:
         UserSession.objects.filter(user=user).delete()
+        try:
+            from .agent_portal_models import AgentAttendanceSession
+            from .agent_portal_services import current_work_date, portal_now
+            now = portal_now()
+            wd = current_work_date(now)
+            AgentAttendanceSession.objects.filter(
+                membership__user=user,
+                work_date=wd,
+                closed_at__isnull=True,
+            ).update(closed_at=now)
+        except Exception:
+            pass
 
 
 @receiver(post_save, sender=OrganizationMembership)

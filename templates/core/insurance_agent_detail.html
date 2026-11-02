@@ -550,7 +550,11 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #a5b
               Shift {{ portal_workboard.work_date|date:"M j" }}
               {% if portal_workboard.attendance.closed_at %}· closed{% else %}· on shift{% endif %}
             {% else %}
-              No attendance yet
+              No attendance today
+            {% endif %}
+            {% if monthly_attendance %}
+              · <strong>{{ monthly_attendance.days_attended }}/{{ monthly_attendance.past_working_days }} days attended</strong> ({{ monthly_attendance.days_left_in_month }} days left this month)
+              <a href="{% url 'agent-profile' agent_membership.id %}?tab=attendance" style="margin-left:6px;color:#4f46e5;font-weight:750;text-decoration:none;">View monthly attendance &rarr;</a>
             {% endif %}
           </span>
           {% if can_owner_assign_tasks and agent_membership %}

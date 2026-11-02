@@ -316,3 +316,76 @@ class AgentAuditTests(TestCase):
         # Should redirect back to the exact filtered CRM URL
         self.assertEqual(resp_del.status_code, 302)
         self.assertEqual(resp_del.url, filter_url)
+
+    def test_monthly_attendance_saved_and_profile_metrics(self):
+        from core.agent_portal_models import AgentAttendanceSession
+        from core.agent_portal_services import monthly_attendance_for_membership
+        from zoneinfo import ZoneInfo
+        from datetime import datetime, time
+
+        ny_tz = ZoneInfo("America/New_York")
+        d1 = date(2026, 11, 2)  # Monday
+        d2 = date(2026, 11, 3)  # Tuesday
+
+        s1 = AgentAttendanceSession.objects.create(
+            membership=self.agent,
+            organization=self.org,
+            work_date=d1,
+            opened_at=datetime.combine(d1, time(9, 0), tzinfo=ny_tz),
+            closed_at=datetime.combine(d1, time(18, 0), tzinfo=ny_tz),
+        )
+        s2 = AgentAttendanceSession.objects.create(
+            membership=self.agent,
+            organization=self.org,
+            work_date=d2,
+            opened_at=datetime.combine(d2, time(9, 15), tzinfo=ny_tz),
+            closed_at=datetime.combine(d2, time(17, 30), tzinfo=ny_tz),
+        )
+
+        att = monthly_attendance_for_membership(self.agent, year=2026, month=11)
+        self.assertEqual(att["days_attended"], 2)
+        self.assertGreaterEqual(att["days_left_in_month"], 0)
+        self.assertEqual(att["month_label"], "November 2026")
+
+        # Open agent profile with tab=attendance
+        resp = self.client.get(
+            reverse("agent-profile", args=[self.agent.id]),
+            {"tab": "attendance", "attendance_year": "2026", "attendance_month": "11"},
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Monthly Attendance Tracker")
+        self.assertContains(resp, "Days Attended")
+        self.assertContains(resp, "Days Left in Month")
+
+        # Also test Overview tab has attendance pulse
+        resp_overview = self.client.get(
+            reverse("agent-profile", args=[self.agent.id]),
+            {"tab": "overview"},
+        )
+        self.assertEqual(resp_overview.status_code, 200)
+        self.assertContains(resp_overview, "Monthly Attendance Pulse")
+
+    def test_save_agent_attendance_session_manual(self):
+        from core.agent_portal_models import AgentAttendanceSession
+
+        test_date = "2026-11-04"
+        resp = self.client.post(
+            reverse("agent-attendance-save", args=[self.agent.id]),
+            {
+                "work_date": test_date,
+                "opened_time": "09:10",
+                "closed_time": "18:00",
+            },
+        )
+        self.assertEqual(resp.status_code, 302)
+
+        session = AgentAttendanceSession.objects.filter(
+            membership=self.agent,
+            work_date=date(2026, 11, 4),
+        ).first()
+        self.assertIsNotNone(session)
+        from zoneinfo import ZoneInfo
+        ny_tz = ZoneInfo("America/New_York")
+        self.assertEqual(session.opened_at.astimezone(ny_tz).hour, 9)
+        self.assertEqual(session.opened_at.astimezone(ny_tz).minute, 10)
+        self.assertIsNotNone(session.closed_at)

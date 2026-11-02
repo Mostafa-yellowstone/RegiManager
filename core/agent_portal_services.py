@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta
+import calendar
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from django.db.models import Count, Q
@@ -146,16 +147,13 @@ def ensure_attendance_open(membership: OrganizationMembership, *, now: datetime 
         .order_by("-opened_at")
         .first()
     )
-    # After 6 PM NY: return whatever exists, never open new.
-    if local_now >= deadline:
-        return existing
-
     if existing is None:
         return AgentAttendanceSession.objects.create(
             membership=membership,
             organization=membership.organization,
             work_date=work_date,
             opened_at=local_now,
+            closed_at=deadline if local_now >= deadline else None,
         )
 
     if existing.closed_at is not None and local_now < deadline:
@@ -566,3 +564,304 @@ def log_agent_activity(
         detail=(detail or "")[:400],
         object_id=object_id,
     )
+
+
+def monthly_attendance_for_membership(
+    membership: OrganizationMembership,
+    *,
+    year: int | None = None,
+    month: int | None = None,
+    now: datetime | None = None,
+) -> dict:
+    """
+    Month-by-month attendance statistics and full daily session breakdown for an agent.
+    Computes:
+    - Days attended (total sessions recorded this month)
+    - Days absent / missed (past working days with no check-in)
+    - Days remaining / left in the month (upcoming working days)
+    - On-time vs late clock-in counts
+    - Total shift duration (hours & minutes)
+    - Attendance percentage
+    - Full list of all calendar days in the month with check-in, check-out, duration, and status
+    - Navigation metadata (prev month, next month, month options list)
+    """
+    local_now = (now or portal_now()).astimezone(PORTAL_TZ)
+    today = current_work_date(local_now)
+
+    try:
+        y = int(year) if year is not None else today.year
+        m = int(month) if month is not None else today.month
+        target_date = date(y, m, 1)
+    except (ValueError, TypeError):
+        target_date = date(today.year, today.month, 1)
+
+    target_year = target_date.year
+    target_month = target_date.month
+
+    num_days = calendar.monthrange(target_year, target_month)[1]
+    month_start = date(target_year, target_month, 1)
+    month_end = date(target_year, target_month, num_days)
+
+    prev_month_date = (month_start - timedelta(days=1)).replace(day=1)
+    next_month_date = (month_end + timedelta(days=1)).replace(day=1)
+
+    # 12-month selector options around target
+    month_options = []
+    base_cursor = date(today.year, today.month, 1)
+    for offset in range(-11, 2):
+        m_offset = base_cursor.month + offset
+        y_offset = base_cursor.year
+        while m_offset < 1:
+            m_offset += 12
+            y_offset -= 1
+        while m_offset > 12:
+            m_offset -= 12
+            y_offset += 1
+        opt_d = date(y_offset, m_offset, 1)
+        month_options.append({
+            "year": y_offset,
+            "month": m_offset,
+            "label": opt_d.strftime("%B %Y"),
+            "is_selected": (y_offset == target_year and m_offset == target_month),
+            "is_current": (y_offset == today.year and m_offset == today.month),
+        })
+
+    # Close any stale sessions so closed_at is accurate
+    close_stale_attendance_sessions(now=now)
+
+    sessions = (
+        AgentAttendanceSession.objects.filter(
+            membership=membership,
+            work_date__gte=month_start,
+            work_date__lte=month_end,
+        )
+        .order_by("work_date")
+    )
+    sessions_by_date = {s.work_date: s for s in sessions}
+
+    days = []
+    days_attended = 0
+    days_on_time = 0
+    days_late = 0
+    days_absent = 0
+    working_days_total = 0
+    past_working_days = 0
+    future_working_days = 0
+    total_seconds_worked = 0
+
+    for day_num in range(1, num_days + 1):
+        cur_date = date(target_year, target_month, day_num)
+        is_past = cur_date < today
+        is_today = cur_date == today
+        is_future = cur_date > today
+        is_sunday = cur_date.weekday() == 6
+        is_saturday = cur_date.weekday() == 5
+        is_weekend = is_sunday or is_saturday
+        is_work_day = not is_weekend
+
+        if is_work_day:
+            working_days_total += 1
+            if is_past or is_today:
+                past_working_days += 1
+            if is_future:
+                future_working_days += 1
+
+        session = sessions_by_date.get(cur_date)
+
+        if session is not None:
+            days_attended += 1
+            punc = attendance_punctuality(session.opened_at, cur_date)
+            is_on_time = punc["is_on_time"]
+            is_late = punc["is_late"]
+            if is_on_time:
+                days_on_time += 1
+            elif is_late:
+                days_late += 1
+
+            shift_secs = 0
+            if session.opened_at and session.closed_at:
+                shift_secs = max(0, int((session.closed_at - session.opened_at).total_seconds()))
+            elif session.opened_at and session.is_open and is_today:
+                shift_secs = max(0, int((local_now - session.opened_at).total_seconds()))
+            total_seconds_worked += shift_secs
+
+            hrs = shift_secs // 3600
+            mins = (shift_secs % 3600) // 60
+            dur_display = f"{hrs}h {mins:02d}m" if shift_secs > 0 else "—"
+
+            if session.is_open and is_today:
+                status_key = "on_shift"
+                status_label = "On shift (Active)"
+                status_badge = "success"
+            elif is_on_time:
+                status_key = "on_time"
+                status_label = "Present · On time"
+                status_badge = "success"
+            elif is_late:
+                status_key = "late"
+                status_label = "Present · Late"
+                status_badge = "warning"
+            else:
+                status_key = "present"
+                status_label = "Present"
+                status_badge = "info"
+
+            days.append({
+                "date": cur_date,
+                "day_num": day_num,
+                "weekday_name": cur_date.strftime("%a"),
+                "is_today": is_today,
+                "is_past": is_past,
+                "is_future": is_future,
+                "is_weekend": is_weekend,
+                "is_work_day": is_work_day,
+                "has_session": True,
+                "session": session,
+                "status_key": status_key,
+                "status_label": status_label,
+                "status_badge": status_badge,
+                "opened_ny": format_ny_time(session.opened_at),
+                "opened_egypt": format_egypt_time(session.opened_at),
+                "closed_ny": format_ny_time(session.closed_at) if session.closed_at else ("On shift" if session.is_open and is_today else "—"),
+                "closed_egypt": format_egypt_time(session.closed_at) if session.closed_at else ("On shift" if session.is_open and is_today else "—"),
+                "duration_display": dur_display,
+                "duration_seconds": shift_secs,
+            })
+        else:
+            if is_weekend:
+                status_key = "weekend"
+                status_label = "Weekend (Off)"
+                status_badge = "neutral"
+            elif is_future:
+                status_key = "upcoming"
+                status_label = "Upcoming"
+                status_badge = "neutral"
+            elif is_today:
+                status_key = "no_checkin"
+                status_label = "No check-in yet"
+                status_badge = "warning"
+                if is_work_day:
+                    days_absent += 1
+            else:
+                status_key = "absent"
+                status_label = "Absent / Missed"
+                status_badge = "danger"
+                if is_work_day:
+                    days_absent += 1
+
+            days.append({
+                "date": cur_date,
+                "day_num": day_num,
+                "weekday_name": cur_date.strftime("%a"),
+                "is_today": is_today,
+                "is_past": is_past,
+                "is_future": is_future,
+                "is_weekend": is_weekend,
+                "is_work_day": is_work_day,
+                "has_session": False,
+                "session": None,
+                "status_key": status_key,
+                "status_label": status_label,
+                "status_badge": status_badge,
+                "opened_ny": "—",
+                "opened_egypt": "—",
+                "closed_ny": "—",
+                "closed_egypt": "—",
+                "duration_display": "—",
+                "duration_seconds": 0,
+            })
+
+    att_rate = round((days_attended / past_working_days * 100), 1) if past_working_days > 0 else 100.0
+    if att_rate > 100.0:
+        att_rate = 100.0
+
+    total_hrs = total_seconds_worked // 3600
+    total_mins = (total_seconds_worked % 3600) // 60
+    total_hours_display = f"{total_hrs}h {total_mins:02d}m"
+
+    avg_secs = (total_seconds_worked / days_attended) if days_attended > 0 else 0
+    avg_hrs = int(avg_secs // 3600)
+    avg_mins = int((avg_secs % 3600) // 60)
+    avg_hours_display = f"{avg_hrs}h {avg_mins:02d}m" if days_attended > 0 else "—"
+
+    is_current_month = (target_year == today.year and target_month == today.month)
+
+    return {
+        "membership": membership,
+        "year": target_year,
+        "month": target_month,
+        "month_label": target_date.strftime("%B %Y"),
+        "month_start": month_start,
+        "month_end": month_end,
+        "prev_year": prev_month_date.year,
+        "prev_month": prev_month_date.month,
+        "next_year": next_month_date.year,
+        "next_month": next_month_date.month,
+        "month_options": month_options,
+        "is_current_month": is_current_month,
+        "days": days,
+        "days_attended": days_attended,
+        "days_absent": days_absent,
+        "days_left_in_month": future_working_days,
+        "days_on_time": days_on_time,
+        "days_late": days_late,
+        "working_days_total": working_days_total,
+        "past_working_days": past_working_days,
+        "attendance_rate": att_rate,
+        "total_hours_display": total_hours_display,
+        "avg_hours_display": avg_hours_display,
+    }
+
+
+def save_agent_attendance_session_record(
+    membership: OrganizationMembership,
+    *,
+    work_date: date,
+    opened_time_str: str | None = None,
+    closed_time_str: str | None = None,
+    actor=None,
+) -> AgentAttendanceSession:
+    """Manual adjustment / backfill of an attendance session by owner/manager."""
+    session, _ = AgentAttendanceSession.objects.get_or_create(
+        membership=membership,
+        work_date=work_date,
+        defaults={
+            "organization": membership.organization,
+            "opened_at": shift_open_at(work_date),
+            "closed_at": shift_close_at(work_date),
+        },
+    )
+
+    if opened_time_str:
+        try:
+            parts = [int(p) for p in opened_time_str.split(":")]
+            session.opened_at = datetime.combine(
+                work_date, time(parts[0], parts[1]), tzinfo=PORTAL_TZ
+            )
+        except Exception:
+            pass
+
+    if closed_time_str:
+        try:
+            parts = [int(p) for p in closed_time_str.split(":")]
+            session.closed_at = datetime.combine(
+                work_date, time(parts[0], parts[1]), tzinfo=PORTAL_TZ
+            )
+        except Exception:
+            pass
+    elif closed_time_str == "":
+        session.closed_at = None
+
+    session.save()
+    if actor:
+        log_agent_activity(
+            organization=membership.organization,
+            actor=actor,
+            membership=membership,
+            domain="attendance",
+            event_type="attendance_adjusted",
+            title=f"Attendance adjusted for {work_date.isoformat()}",
+            detail=f"Opened: {format_ny_time(session.opened_at)}, Closed: {format_ny_time(session.closed_at)}",
+            object_id=session.id,
+        )
+    return session
