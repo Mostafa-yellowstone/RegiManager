@@ -231,6 +231,28 @@ def halloween_theme(request):
         return {"halloween_enabled": False}
 
 
+def thanksgiving_theme(request):
+    """Seasonal theme for signed-in portal users of an office that turned it on; never the public site."""
+    user = getattr(request, "user", None)
+    if not getattr(user, "is_authenticated", False):
+        return {"thanksgiving_enabled": False}
+    try:
+        from .models import Organization
+
+        org_id = request.session.get("active_org_id")
+        if org_id:
+            enabled = Organization.objects.filter(id=org_id, is_thanksgiving_theme_enabled=True).exists()
+        else:
+            from .models import OrganizationMembership
+
+            enabled = OrganizationMembership.objects.filter(
+                user=user, is_active=True, organization__is_thanksgiving_theme_enabled=True
+            ).exists()
+        return {"thanksgiving_enabled": enabled}
+    except Exception:
+        return {"thanksgiving_enabled": False}
+
+
 def agency_license_alerts(request):
     if not getattr(request.user, "is_authenticated", False):
         return {"agency_license_alerts": []}

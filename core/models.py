@@ -116,6 +116,11 @@ class Organization(models.Model):
         verbose_name="Enable Halloween Theme & Animations",
         help_text="Master toggle to enable spooky Halloween theme, spider descent, character icons, and scary logo system-wide.",
     )
+    is_thanksgiving_theme_enabled = models.BooleanField(
+        default=False,
+        verbose_name="Enable Thanksgiving Theme & Animations",
+        help_text="Master toggle to enable the Thanksgiving harvest theme, falling leaves, and turkey animations system-wide.",
+    )
     show_review_button = models.BooleanField(default=False, verbose_name="Show Review Button on Success Page", help_text="Add a custom review button to the intake completion page.")
     review_link = models.URLField(max_length=500, blank=True, null=True, verbose_name="Review/Custom Link", help_text="The URL that the review button will link to.")
     insurance_show_review_button = models.BooleanField(

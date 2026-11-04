@@ -176,6 +176,7 @@ TEMPLATES = [
                 "core.context_processors.portal_timezone",
                 "core.context_processors.agency_license_alerts",
                 "core.context_processors.halloween_theme",
+                "core.context_processors.thanksgiving_theme",
                 "core.context_processors.offline_queue",
                 "core.assistant.assistant_context",
             ],

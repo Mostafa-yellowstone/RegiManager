@@ -4466,6 +4466,61 @@ def save_agent_attendance_session(request, membership_id):
     return redirect_back(request, fallback)
 
 
+
+@login_required
+@require_POST
+def save_agent_day_off(request, membership_id):
+    """Owner/manager action to record or delete a day off for an agent."""
+    from .agent_portal_models import AgentDayOff
+    from .agent_portal_services import owner_can_review_agent
+    from .policies import redirect_back
+
+    membership = get_object_or_404(
+        OrganizationMembership.objects.select_related("organization", "user"),
+        id=membership_id,
+    )
+    viewer = OrganizationMembership.objects.filter(
+        user=request.user,
+        organization=membership.organization,
+        is_active=True,
+    ).first()
+
+    if not (request.user.is_superuser or owner_can_review_agent(viewer, membership)):
+        deny_access("Owner or manager access required.")
+
+    action = request.POST.get("action", "save")
+    date_str = (request.POST.get("day_off_date") or "").strip()
+    try:
+        day_off_date = timezone.datetime.strptime(date_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        messages.error(request, "Invalid date.")
+        return redirect(f"{reverse('agent-profile', args=[membership.id])}?tab=attendance")
+
+    if action == "delete":
+        AgentDayOff.objects.filter(membership=membership, day_off_date=day_off_date).delete()
+        messages.success(request, f"Day off for {day_off_date.strftime('%b %d, %Y')} removed.")
+    else:
+        reason = request.POST.get("reason", "other")
+        note = (request.POST.get("note") or "").strip()[:300]
+        AgentDayOff.objects.update_or_create(
+            membership=membership,
+            day_off_date=day_off_date,
+            defaults={
+                "organization": membership.organization,
+                "reason": reason,
+                "note": note,
+                "created_by": request.user,
+            },
+        )
+        messages.success(request, f"Day off recorded for {day_off_date.strftime('%b %d, %Y')}.")
+
+    fallback = (
+        f"{reverse('agent-profile', args=[membership.id])}"
+        f"?tab=attendance&attendance_year={day_off_date.year}&attendance_month={day_off_date.month}"
+    )
+    return redirect_back(request, fallback)
+
+
 @login_required
 def agent_audit_view(request, membership_id):
     """Legacy URL — redirect into the unified agent profile."""

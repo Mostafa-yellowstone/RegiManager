@@ -299,6 +299,7 @@
 .att-badge.is-success { background: #dcfce7; color: #166534; }
 .att-badge.is-warning { background: #fef3c7; color: #92400e; }
 .att-badge.is-danger { background: #fee2e2; color: #991b1b; }
+    .att-badge.is-amber { background: #fef3c7; color: #92400e; border: 1.5px solid #fbbf24; }
 .att-badge.is-info { background: #eff6ff; color: #1e40af; }
 .att-badge.is-neutral { background: #f1f5f9; color: #64748b; }
 .att-pulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #16a34a; box-shadow: 0 0 0 2px rgba(22,163,74,.35); animation: attPulse 1.8s infinite; }
@@ -577,6 +578,10 @@
           <span>Late Clock-Ins</span>
           <strong style="color:{% if monthly_attendance.days_late %}#d97706{% else %}#64748b{% endif %};">{{ monthly_attendance.days_late }}</strong>
         </div>
+        <div class="uap-metric" style="border-left: 4px solid #d97706;">
+          <span>Days Off</span>
+          <strong style="color:#d97706;">{{ monthly_attendance.days_off_count }} <small style="font-size:.78rem;color:#64748b;font-weight:600;">approved days off</small></strong>
+        </div>
         <div class="uap-metric" style="border-left: 4px solid #7c3aed;">
           <span>Total Hours Logged</span>
           <strong style="color:#7c3aed;">{{ monthly_attendance.total_hours_display }}</strong>
@@ -602,7 +607,7 @@
             <th>Duration</th>
             <th>Punctuality</th>
             {% if can_owner_assign_tasks or request.user.is_superuser %}
-            <th style="text-align:center;width:90px;">Action</th>
+            <th style="text-align:center;min-width:120px;">Actions</th>
             {% endif %}
           </tr>
         </thead>
@@ -683,9 +688,26 @@
             </td>
             {% if can_owner_assign_tasks or request.user.is_superuser %}
             <td style="text-align:center;">
-              <button type="button" class="audit-quick-pill" style="border-color:#cbd5e1;cursor:pointer;" onclick="openAttendanceModal('{{ day.date|date:'Y-m-d' }}', '{% if day.has_session %}{{ day.session.opened_at|timezone:'America/New_York'|date:'H:i' }}{% else %}09:00{% endif %}', '{% if day.has_session and day.session.closed_at %}{{ day.session.closed_at|timezone:'America/New_York'|date:'H:i' }}{% else %}18:00{% endif %}')">
-                Adjust
-              </button>
+              <div style="display:flex;flex-direction:column;gap:4px;align-items:center;">
+                <button type="button" class="audit-quick-pill" style="border-color:#cbd5e1;cursor:pointer;font-size:.74rem;" onclick="openAttendanceModal('{{ day.date|date:'Y-m-d' }}', '{% if day.has_session %}{{ day.session.opened_at|timezone:'America/New_York'|date:'H:i' }}{% else %}09:00{% endif %}', '{% if day.has_session and day.session.closed_at %}{{ day.session.closed_at|timezone:'America/New_York'|date:'H:i' }}{% else %}18:00{% endif %}')">
+                  Adjust
+                </button>
+                {% if day.status_key == 'day_off' %}
+                <form method="post" action="{% url 'agent-day-off-save' agent_membership.id %}" style="margin:0;">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="day_off_date" value="{{ day.date|date:'Y-m-d' }}">
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <button type="submit" class="audit-quick-pill" style="border-color:#fbbf24;background:#fffbeb;color:#92400e;cursor:pointer;font-size:.74rem;">
+                    Remove Day Off
+                  </button>
+                </form>
+                {% elif not day.has_session and day.is_work_day %}
+                <button type="button" class="audit-quick-pill" style="border-color:#fbbf24;background:#fffbeb;color:#92400e;cursor:pointer;font-size:.74rem;" onclick="openDayOffModal('{{ day.date|date:'Y-m-d' }}')">
+                  + Day Off
+                </button>
+                {% endif %}
+              </div>
             </td>
             {% endif %}
           </tr>
@@ -732,7 +754,58 @@
     </div>
   </div>
 
+
+  <!-- Modal for Recording a Day Off -->
+  <div class="att-modal-overlay" id="dayOffModal" onclick="if(event.target===this) closeDayOffModal();">
+    <div class="att-modal-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.15rem;padding-bottom:.65rem;border-bottom:1px solid #e2e8f0;">
+        <h3 style="margin:0;font-size:1.1rem;font-weight:800;color:#0f172a;">Record Day Off</h3>
+        <button type="button" onclick="closeDayOffModal()" style="border:none;background:none;font-size:1.25rem;cursor:pointer;color:#64748b;">&times;</button>
+      </div>
+      <form method="post" action="{% url 'agent-day-off-save' agent_membership.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save">
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <div style="display:grid;gap:.85rem;">
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:.78rem;font-weight:800;text-transform:uppercase;color:#64748b;">
+            Date
+            <input type="date" name="day_off_date" id="dayOffDate" required style="padding:.5rem .75rem;border:1.5px solid #cbd5e1;border-radius:10px;font-size:.88rem;font-weight:700;">
+          </label>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:.78rem;font-weight:800;text-transform:uppercase;color:#64748b;">
+            Reason
+            <select name="reason" style="padding:.5rem .75rem;border:1.5px solid #cbd5e1;border-radius:10px;font-size:.88rem;font-weight:700;">
+              <option value="vacation">Vacation</option>
+              <option value="sick">Sick Leave</option>
+              <option value="personal">Personal Day</option>
+              <option value="holiday">Holiday</option>
+              <option value="other" selected>Other</option>
+            </select>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:.78rem;font-weight:800;text-transform:uppercase;color:#64748b;">
+            Note (optional)
+            <input type="text" name="note" maxlength="300" placeholder="e.g. National holiday" style="padding:.5rem .75rem;border:1.5px solid #cbd5e1;border-radius:10px;font-size:.88rem;font-weight:700;">
+          </label>
+          <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.5rem;">
+            <button type="button" onclick="closeDayOffModal()" class="att-btn">Cancel</button>
+            <button type="submit" class="att-btn" style="background:#d97706;color:#fff;border-color:#d97706;">Save Day Off</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
+    function openDayOffModal(date) {
+      const modal = document.getElementById('dayOffModal');
+      if (!modal) return;
+      document.getElementById('dayOffDate').value = date || new Date().toISOString().split('T')[0];
+      modal.classList.add('is-open');
+    }
+    function closeDayOffModal() {
+      const modal = document.getElementById('dayOffModal');
+      if (modal) modal.classList.remove('is-open');
+    }
+
     function openAttendanceModal(date, openTime, closeTime) {
       const modal = document.getElementById('attendanceAdjustModal');
       if (!modal) return;

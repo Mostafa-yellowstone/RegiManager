@@ -1722,3 +1722,17 @@
 }
 html.portal-theme-dark .ap-crm-filters button.is-active { background: #e2e8f0; color: #0f172a; }
 
+
+.attendance-status--day_off {
+  background: rgba(217, 119, 6, 0.16);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.attendance-card--day_off {
+  border-left-color: #d97706 !important;
+}
+
+.attendance-stat--day-off strong {
+  color: #d97706;
+}

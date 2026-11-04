@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 from django.db.models import Count, Q
 from django.utils import timezone
 
-from .agent_portal_models import AgentActivityEvent, AgentAttendanceSession, AgentTask
+from .agent_portal_models import AgentActivityEvent, AgentAttendanceSession, AgentDayOff, AgentTask
 from .models import Organization, OrganizationMembership
 from .space_access import filter_accessible_spaces
 
@@ -478,15 +478,29 @@ def attendance_roster_for_owner(owner_user, *, work_date=None, organization_id=N
         )
     }
 
+    days_off_by_membership = {
+        d.membership_id: d
+        for d in AgentDayOff.objects.filter(
+            membership__in=agents,
+            day_off_date=selected_date,
+        )
+    }
+
     rows = []
     on_shift = 0
     closed = 0
     absent = 0
+    days_off_count = 0
     for membership in agents:
         session = sessions_by_membership.get(membership.id)
+        day_off = days_off_by_membership.get(membership.id)
         if session is None:
-            status = "absent"
-            absent += 1
+            if day_off is not None:
+                status = "day_off"
+                days_off_count += 1
+            else:
+                status = "absent"
+                absent += 1
         elif session.is_open:
             status = "on_shift"
             on_shift += 1
@@ -499,6 +513,7 @@ def attendance_roster_for_owner(owner_user, *, work_date=None, organization_id=N
             {
                 "membership": membership,
                 "session": session,
+                "day_off": day_off,
                 "status": status,
                 "open_at": open_at,
                 "close_at": close_at,
@@ -527,6 +542,7 @@ def attendance_roster_for_owner(owner_user, *, work_date=None, organization_id=N
             "on_shift": on_shift,
             "closed": closed,
             "absent": absent,
+            "day_off": days_off_count,
         },
     }
 
@@ -639,11 +655,19 @@ def monthly_attendance_for_membership(
     )
     sessions_by_date = {s.work_date: s for s in sessions}
 
+    days_off_qs = AgentDayOff.objects.filter(
+        membership=membership,
+        day_off_date__gte=month_start,
+        day_off_date__lte=month_end,
+    )
+    days_off_by_date = {d.day_off_date: d for d in days_off_qs}
+
     days = []
     days_attended = 0
     days_on_time = 0
     days_late = 0
     days_absent = 0
+    days_off_count = 0
     working_days_total = 0
     past_working_days = 0
     future_working_days = 0
@@ -717,6 +741,7 @@ def monthly_attendance_for_membership(
                 "is_work_day": is_work_day,
                 "has_session": True,
                 "session": session,
+                "day_off": None,
                 "status_key": status_key,
                 "status_label": status_label,
                 "status_badge": status_badge,
@@ -732,6 +757,12 @@ def monthly_attendance_for_membership(
                 status_key = "weekend"
                 status_label = "Weekend (Off)"
                 status_badge = "neutral"
+            elif cur_date in days_off_by_date:
+                day_off_obj = days_off_by_date[cur_date]
+                status_key = "day_off"
+                status_label = f"Day Off · {day_off_obj.get_reason_display()}"
+                status_badge = "amber"
+                days_off_count += 1
             elif is_future:
                 status_key = "upcoming"
                 status_label = "Upcoming"
@@ -760,6 +791,7 @@ def monthly_attendance_for_membership(
                 "is_work_day": is_work_day,
                 "has_session": False,
                 "session": None,
+                "day_off": days_off_by_date.get(cur_date),
                 "status_key": status_key,
                 "status_label": status_label,
                 "status_badge": status_badge,
@@ -771,7 +803,8 @@ def monthly_attendance_for_membership(
                 "duration_seconds": 0,
             })
 
-    att_rate = round((days_attended / past_working_days * 100), 1) if past_working_days > 0 else 100.0
+    past_effective_working_days = max(0, past_working_days - days_off_count)
+    att_rate = round((days_attended / past_effective_working_days * 100), 1) if past_effective_working_days > 0 else 100.0
     if att_rate > 100.0:
         att_rate = 100.0
 
@@ -802,6 +835,8 @@ def monthly_attendance_for_membership(
         "days": days,
         "days_attended": days_attended,
         "days_absent": days_absent,
+        "days_off_count": days_off_count,
+        "days_off_by_date": days_off_by_date,
         "days_left_in_month": future_working_days,
         "days_on_time": days_on_time,
         "days_late": days_late,

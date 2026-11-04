@@ -54,6 +54,57 @@ class AgentAttendanceSession(models.Model):
         return self.closed_at is None
 
 
+class AgentDayOff(models.Model):
+    """A scheduled day off for an agent, recorded by an owner/manager."""
+
+    class ReasonChoices(models.TextChoices):
+        VACATION = "vacation", "Vacation"
+        SICK = "sick", "Sick Leave"
+        PERSONAL = "personal", "Personal Day"
+        HOLIDAY = "holiday", "Holiday"
+        OTHER = "other", "Other"
+
+    membership = models.ForeignKey(
+        "OrganizationMembership",
+        on_delete=models.CASCADE,
+        related_name="days_off",
+    )
+    organization = models.ForeignKey(
+        "Organization",
+        on_delete=models.CASCADE,
+        related_name="agent_days_off",
+    )
+    day_off_date = models.DateField(db_index=True)
+    reason = models.CharField(
+        max_length=20,
+        choices=ReasonChoices.choices,
+        default=ReasonChoices.OTHER,
+    )
+    note = models.CharField(max_length=300, blank=True, default="")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="agent_days_off_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-day_off_date"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["membership", "day_off_date"],
+                name="uniq_agent_day_off_membership_date",
+            )
+        ]
+        verbose_name = "Agent day off"
+        verbose_name_plural = "Agent days off"
+
+    def __str__(self):
+        return f"{self.membership_id} off on {self.day_off_date} ({self.reason})"
+
+
 class AgentTask(models.Model):
     """Staged work item assigned to an insurance agent until completed."""
 

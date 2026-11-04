@@ -96,3 +96,17 @@ export const HalloweenColors = {
   vampire: '#E11D48',
   ghost: '#F8FAFC',
 };
+
+export const ThanksgivingColors = {
+  bgLight: '#FEF9F0',
+  bgDark: '#1A1208',
+  cardBgLight: '#FFFBEB',
+  cardBgDark: '#2D1B08',
+  amber: '#D97706',
+  rust: '#9A3412',
+  gold: '#FBBF24',
+  leafRed: '#DC2626',
+  leafOrange: '#EA580C',
+  turkeyBrown: '#78350F',
+  wheat: '#F59E0B',
+};
