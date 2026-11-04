@@ -122,12 +122,13 @@ class OrganizationAdmin(admin.ModelAdmin):
         "is_public_insurance_intake_enabled",
         "is_automation_enabled",
         "is_halloween_theme_enabled",
+        "is_thanksgiving_theme_enabled",
         "has_psb_portal",
         "has_insurance",
         "backup_download_link",
     )
-    list_editable = ("is_halloween_theme_enabled",)
-    list_filter = ("has_psb_portal", "has_insurance", "state", "city", "is_public_intake_enabled", "is_public_insurance_intake_enabled", "is_automation_enabled", "is_halloween_theme_enabled")
+    list_editable = ("is_halloween_theme_enabled", "is_thanksgiving_theme_enabled")
+    list_filter = ("has_psb_portal", "has_insurance", "state", "city", "is_public_intake_enabled", "is_public_insurance_intake_enabled", "is_automation_enabled", "is_halloween_theme_enabled", "is_thanksgiving_theme_enabled")
     search_fields = ("name", "address_line", "city", "state", "phone_number", "email", "psbc_license")
     readonly_fields = ("intake_link_display", "insurance_intake_link_display", "backup_download_link")
     inlines = [MembershipInline]
@@ -166,6 +167,7 @@ class OrganizationAdmin(admin.ModelAdmin):
             "fields": (
                 "is_automation_enabled",
                 "is_halloween_theme_enabled",
+                "is_thanksgiving_theme_enabled",
                 "is_public_intake_enabled",
                 "intake_link_display",
             ),
