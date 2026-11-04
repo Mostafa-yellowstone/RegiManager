@@ -680,7 +680,7 @@ def monthly_attendance_for_membership(
         is_future = cur_date > today
         is_sunday = cur_date.weekday() == 6
         is_saturday = cur_date.weekday() == 5
-        is_weekend = is_sunday or is_saturday
+        is_weekend = is_sunday  # Only Sunday is week-off; Saturday and Mon-Fri are working days
         is_work_day = not is_weekend
 
         if is_work_day:
@@ -755,7 +755,7 @@ def monthly_attendance_for_membership(
         else:
             if is_weekend:
                 status_key = "weekend"
-                status_label = "Weekend (Off)"
+                status_label = "Sunday (Off)"
                 status_badge = "neutral"
             elif cur_date in days_off_by_date:
                 day_off_obj = days_off_by_date[cur_date]
