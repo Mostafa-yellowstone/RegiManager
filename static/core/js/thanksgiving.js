@@ -213,7 +213,47 @@
     }
   }
 
-  if (document.readyState === 'loading') {
+
+  /* ── Bulletproof "Got it" & SweetAlert Modal Closer ─────── */
+  document.addEventListener('click', function (e) {
+    var target = e.target;
+    if (!target) return;
+
+    // SweetAlert2 confirm button ("Got it")
+    var isSwalConfirm = target.matches('.swal2-confirm, .portal-swal-confirm') ||
+      target.closest('.swal2-confirm, .portal-swal-confirm') ||
+      (target.textContent && target.textContent.trim() === 'Got it' && target.closest('.swal2-popup, .swal2-container'));
+
+    if (isSwalConfirm) {
+      if (window.Swal && typeof window.Swal.close === 'function') {
+        window.Swal.close();
+      }
+      var swalContainer = document.querySelector('.swal2-container');
+      if (swalContainer) {
+        swalContainer.style.setProperty('display', 'none', 'important');
+        if (swalContainer.parentNode) {
+          setTimeout(function() {
+            if (swalContainer.parentNode) swalContainer.parentNode.removeChild(swalContainer);
+          }, 150);
+        }
+      }
+    }
+
+    // Site news alert modal ("Got it" or dismiss)
+    var isNewsGotIt = target.matches('[data-site-news-got-it], .site-news-alert-btn') ||
+      target.closest('[data-site-news-got-it], .site-news-alert-btn');
+
+    if (isNewsGotIt) {
+      var newsModal = document.getElementById('siteNewsAlertModal');
+      if (newsModal) {
+        newsModal.classList.remove('is-open');
+        newsModal.style.setProperty('display', 'none', 'important');
+        document.body.classList.remove('portal-modal-open');
+      }
+    }
+  }, true);
+
+    if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();

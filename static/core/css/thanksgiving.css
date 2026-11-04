@@ -245,12 +245,47 @@ body.thanksgiving-active.portal-theme-dark h3,
 }
 
 /* ── SweetAlert2 Festive Modal Overrides ──────────────────────────────── */
+/* Ensure modal containers are above all decorative theme elements */
+.swal2-container,
+body.thanksgiving-active .swal2-container {
+  z-index: 99999999 !important;
+  pointer-events: auto !important;
+}
+
+.portal-modal,
+body.thanksgiving-active .portal-modal {
+  z-index: 99999999 !important;
+  pointer-events: auto !important;
+}
+
+.portal-modal-panel {
+  z-index: 10 !important;
+  pointer-events: auto !important;
+}
+
+.site-news-alert-btn,
+.portal-swal-confirm,
+.swal2-confirm {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 25 !important;
+}
+
 body.thanksgiving-active .swal2-popup {
   border: 2px solid var(--tg-amber) !important;
   border-radius: 20px !important;
   background: #fffdf7 !important;
-  animation: tg-modal-fall-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
   box-shadow: 0 16px 40px rgba(120, 53, 15, 0.22) !important;
+  pointer-events: auto !important;
+}
+
+body.thanksgiving-active .swal2-popup.swal2-show {
+  animation: tg-modal-fall-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+body.thanksgiving-active .swal2-popup.swal2-hide {
+  animation: swal2-hide 0.15s forwards !important;
 }
 
 body.thanksgiving-active .swal2-title {
