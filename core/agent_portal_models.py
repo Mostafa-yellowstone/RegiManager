@@ -58,6 +58,7 @@ class AgentDayOff(models.Model):
     """A scheduled day off for an agent, recorded by an owner/manager."""
 
     class ReasonChoices(models.TextChoices):
+        WEEKLY_OFF = "weekly_off", "Weekly Off"
         VACATION = "vacation", "Vacation"
         SICK = "sick", "Sick Leave"
         PERSONAL = "personal", "Personal Day"
@@ -78,7 +79,7 @@ class AgentDayOff(models.Model):
     reason = models.CharField(
         max_length=20,
         choices=ReasonChoices.choices,
-        default=ReasonChoices.OTHER,
+        default=ReasonChoices.WEEKLY_OFF,
     )
     note = models.CharField(max_length=300, blank=True, default="")
     created_by = models.ForeignKey(

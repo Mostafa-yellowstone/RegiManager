@@ -4394,6 +4394,7 @@ def agent_profile(request, membership_id):
             "portal_workboard": workboard,
             "assign_form": assign_form,
             "can_owner_assign_tasks": can_assign,
+            "can_manage_attendance": (request.user.is_superuser or (viewer is not None and viewer.role in {OrganizationMembership.Role.OWNER, OrganizationMembership.Role.MANAGER}) or can_assign),
             "activity_date": activity_date,
             "day_audit": day_audit,
             "period": period,
@@ -4441,7 +4442,15 @@ def save_agent_attendance_session(request, membership_id):
         is_active=True,
     ).first()
 
-    if not (request.user.is_superuser or owner_can_review_agent(viewer, membership)):
+    is_authorized = (
+        request.user.is_superuser
+        or (
+            viewer is not None
+            and viewer.role in {OrganizationMembership.Role.OWNER, OrganizationMembership.Role.MANAGER}
+        )
+        or owner_can_review_agent(viewer, membership)
+    )
+    if not is_authorized:
         deny_access("Owner or manager access required.")
 
     work_date_str = (request.POST.get("work_date") or "").strip()
@@ -4485,7 +4494,15 @@ def save_agent_day_off(request, membership_id):
         is_active=True,
     ).first()
 
-    if not (request.user.is_superuser or owner_can_review_agent(viewer, membership)):
+    is_authorized = (
+        request.user.is_superuser
+        or (
+            viewer is not None
+            and viewer.role in {OrganizationMembership.Role.OWNER, OrganizationMembership.Role.MANAGER}
+        )
+        or owner_can_review_agent(viewer, membership)
+    )
+    if not is_authorized:
         deny_access("Owner or manager access required.")
 
     action = request.POST.get("action", "save")
@@ -4500,7 +4517,7 @@ def save_agent_day_off(request, membership_id):
         AgentDayOff.objects.filter(membership=membership, day_off_date=day_off_date).delete()
         messages.success(request, f"Day off for {day_off_date.strftime('%b %d, %Y')} removed.")
     else:
-        reason = request.POST.get("reason", "other")
+        reason = request.POST.get("reason", "weekly_off")
         note = (request.POST.get("note") or "").strip()[:300]
         AgentDayOff.objects.update_or_create(
             membership=membership,

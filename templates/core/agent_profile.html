@@ -311,9 +311,36 @@
 .att-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
 .att-btn-primary { background: #4f46e5; color: #fff; border-color: #4f46e5; }
 .att-btn-primary:hover { background: #4338ca; border-color: #4338ca; color: #fff; }
-.att-modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.55); backdrop-filter: blur(4px); z-index: 9999; display: none; place-items: center; padding: 1rem; }
-.att-modal-overlay.is-open { display: grid; }
-.att-modal-box { background: #fff; border-radius: 20px; width: 100%; max-width: 440px; box-shadow: 0 20px 40px -10px rgba(15,23,42,.3); padding: 1.5rem; position: relative; }
+.att-modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(15, 23, 42, 0.65) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  z-index: 999999 !important;
+  display: none !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 1rem !important;
+  box-sizing: border-box !important;
+}
+.att-modal-overlay.is-open {
+  display: flex !important;
+}
+.att-modal-box {
+  background: #ffffff !important;
+  border-radius: 20px !important;
+  width: 100% !important;
+  max-width: 440px !important;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35) !important;
+  padding: 1.5rem !important;
+  position: relative !important;
+  z-index: 1000000 !important;
+}
 </style>
 {% endblock %}
 
@@ -514,9 +541,12 @@
           </p>
         </div>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
-          {% if can_owner_assign_tasks or request.user.is_superuser %}
+          {% if can_manage_attendance or can_owner_assign_tasks or request.user.is_superuser %}
           <button type="button" class="att-btn att-btn-primary" onclick="openAttendanceModal('', '09:00', '18:00')">
             + Adjust / Record Session
+          </button>
+          <button type="button" class="att-btn" style="background:#d97706;color:#fff;border-color:#d97706;font-weight:750;" onclick="openDayOffModal('')">
+            + Record Day Off
           </button>
           {% endif %}
           <a href="{% url 'agent-attendance-tracker' %}" class="att-btn">
@@ -606,7 +636,7 @@
             <th>Check-Out (Egypt)</th>
             <th>Duration</th>
             <th>Punctuality</th>
-            {% if can_owner_assign_tasks or request.user.is_superuser %}
+            {% if can_manage_attendance or can_owner_assign_tasks or request.user.is_superuser %}
             <th style="text-align:center;min-width:120px;">Actions</th>
             {% endif %}
           </tr>
@@ -686,7 +716,7 @@
               <span style="color:#94a3b8;font-size:.8rem;">{{ day.status_label }}</span>
               {% endif %}
             </td>
-            {% if can_owner_assign_tasks or request.user.is_superuser %}
+            {% if can_manage_attendance or can_owner_assign_tasks or request.user.is_superuser %}
             <td style="text-align:center;">
               <div style="display:flex;flex-direction:column;gap:4px;align-items:center;">
                 <button type="button" class="audit-quick-pill" style="border-color:#cbd5e1;cursor:pointer;font-size:.74rem;" onclick="openAttendanceModal('{{ day.date|date:'Y-m-d' }}', '{% if day.has_session %}{{ day.session.opened_at|timezone:'America/New_York'|date:'H:i' }}{% else %}09:00{% endif %}', '{% if day.has_session and day.session.closed_at %}{{ day.session.closed_at|timezone:'America/New_York'|date:'H:i' }}{% else %}18:00{% endif %}')">
@@ -697,12 +727,12 @@
                   {% csrf_token %}
                   <input type="hidden" name="action" value="delete">
                   <input type="hidden" name="day_off_date" value="{{ day.date|date:'Y-m-d' }}">
-                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <input type="hidden" name="next" value="{{ request.path }}?tab=attendance&attendance_year={{ monthly_attendance.year }}&attendance_month={{ monthly_attendance.month }}">
                   <button type="submit" class="audit-quick-pill" style="border-color:#fbbf24;background:#fffbeb;color:#92400e;cursor:pointer;font-size:.74rem;">
                     Remove Day Off
                   </button>
                 </form>
-                {% elif not day.has_session and day.is_work_day %}
+                {% else %}
                 <button type="button" class="audit-quick-pill" style="border-color:#fbbf24;background:#fffbeb;color:#92400e;cursor:pointer;font-size:.74rem;" onclick="openDayOffModal('{{ day.date|date:'Y-m-d' }}')">
                   + Day Off
                 </button>
@@ -726,7 +756,7 @@
       </div>
       <form method="post" action="{% url 'agent-attendance-save' agent_membership.id %}">
         {% csrf_token %}
-        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <input type="hidden" name="next" value="{{ request.path }}?tab=attendance&attendance_year={{ monthly_attendance.year }}&attendance_month={{ monthly_attendance.month }}">
         <div style="display:grid;gap:.85rem;">
           <label style="display:flex;flex-direction:column;gap:4px;font-size:.78rem;font-weight:800;text-transform:uppercase;color:#64748b;">
             Work Date (NY Calendar Date)
@@ -773,12 +803,13 @@
           </label>
           <label style="display:flex;flex-direction:column;gap:4px;font-size:.78rem;font-weight:800;text-transform:uppercase;color:#64748b;">
             Reason
-            <select name="reason" style="padding:.5rem .75rem;border:1.5px solid #cbd5e1;border-radius:10px;font-size:.88rem;font-weight:700;">
+            <select name="reason" id="dayOffReason" style="padding:.5rem .75rem;border:1.5px solid #cbd5e1;border-radius:10px;font-size:.88rem;font-weight:700;">
+              <option value="weekly_off" selected>Weekly Off</option>
               <option value="vacation">Vacation</option>
               <option value="sick">Sick Leave</option>
               <option value="personal">Personal Day</option>
               <option value="holiday">Holiday</option>
-              <option value="other" selected>Other</option>
+              <option value="other">Other</option>
             </select>
           </label>
           <label style="display:flex;flex-direction:column;gap:4px;font-size:.78rem;font-weight:800;text-transform:uppercase;color:#64748b;">
@@ -795,29 +826,69 @@
   </div>
 
   <script>
-    function openDayOffModal(date) {
-      const modal = document.getElementById('dayOffModal');
-      if (!modal) return;
-      document.getElementById('dayOffDate').value = date || new Date().toISOString().split('T')[0];
-      modal.classList.add('is-open');
-    }
-    function closeDayOffModal() {
-      const modal = document.getElementById('dayOffModal');
-      if (modal) modal.classList.remove('is-open');
-    }
+    window.openDayOffModal = function(date, reason) {
+      try {
+        var modal = document.getElementById('dayOffModal');
+        if (!modal) {
+          console.error('dayOffModal element not found');
+          return;
+        }
+        var dateInput = document.getElementById('dayOffDate');
+        if (dateInput) {
+          dateInput.value = date || new Date().toISOString().split('T')[0];
+        }
+        var reasonSelect = document.getElementById('dayOffReason');
+        if (reasonSelect && reason) {
+          reasonSelect.value = reason;
+        }
+        modal.classList.add('is-open');
+        modal.style.setProperty('display', 'flex', 'important');
+      } catch (err) {
+        console.error('Error opening day off modal:', err);
+      }
+    };
 
-    function openAttendanceModal(date, openTime, closeTime) {
-      const modal = document.getElementById('attendanceAdjustModal');
-      if (!modal) return;
-      document.getElementById('modalWorkDate').value = date || new Date().toISOString().split('T')[0];
-      document.getElementById('modalOpenedTime').value = openTime || '09:00';
-      document.getElementById('modalClosedTime').value = closeTime || '18:00';
-      modal.classList.add('is-open');
-    }
-    function closeAttendanceModal() {
-      const modal = document.getElementById('attendanceAdjustModal');
-      if (modal) modal.classList.remove('is-open');
-    }
+    window.closeDayOffModal = function() {
+      var modal = document.getElementById('dayOffModal');
+      if (modal) {
+        modal.classList.remove('is-open');
+        modal.style.setProperty('display', 'none', 'important');
+      }
+    };
+
+    window.openAttendanceModal = function(date, openTime, closeTime) {
+      try {
+        var modal = document.getElementById('attendanceAdjustModal');
+        if (!modal) {
+          console.error('attendanceAdjustModal element not found');
+          return;
+        }
+        var dateInput = document.getElementById('modalWorkDate');
+        if (dateInput) {
+          dateInput.value = date || new Date().toISOString().split('T')[0];
+        }
+        var openedInput = document.getElementById('modalOpenedTime');
+        if (openedInput) {
+          openedInput.value = openTime || '09:00';
+        }
+        var closedInput = document.getElementById('modalClosedTime');
+        if (closedInput) {
+          closedInput.value = closeTime || '18:00';
+        }
+        modal.classList.add('is-open');
+        modal.style.setProperty('display', 'flex', 'important');
+      } catch (err) {
+        console.error('Error opening attendance modal:', err);
+      }
+    };
+
+    window.closeAttendanceModal = function() {
+      var modal = document.getElementById('attendanceAdjustModal');
+      if (modal) {
+        modal.classList.remove('is-open');
+        modal.style.setProperty('display', 'none', 'important');
+      }
+    };
   </script>
   {% endif %}
 

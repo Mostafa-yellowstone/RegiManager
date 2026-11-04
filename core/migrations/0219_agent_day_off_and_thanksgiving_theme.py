@@ -27,7 +27,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('day_off_date', models.DateField(db_index=True)),
-                ('reason', models.CharField(choices=[('vacation', 'Vacation'), ('sick', 'Sick Leave'), ('personal', 'Personal Day'), ('holiday', 'Holiday'), ('other', 'Other')], default='other', max_length=20)),
+                ('reason', models.CharField(choices=[('weekly_off', 'Weekly Off'), ('vacation', 'Vacation'), ('sick', 'Sick Leave'), ('personal', 'Personal Day'), ('holiday', 'Holiday'), ('other', 'Other')], default='weekly_off', max_length=20)),
                 ('note', models.CharField(blank=True, default='', max_length=300)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='agent_days_off_created', to=settings.AUTH_USER_MODEL)),
