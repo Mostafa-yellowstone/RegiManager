@@ -1,0 +1,445 @@
+{% load portal_extras %}
+
+<!-- Profitability & Net Income Command Grid -->
+<section class="profitability-kpi-section" style="margin: 0 0 2rem 0;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+        <!-- Card 1: DMV Gross Profit -->
+        <div class="stat-card-premium stat-card-profit-item" style="border-left: 5px solid #2563eb; position: relative; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h4 style="color: #64748b; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 0.5rem; font-weight: 800;">
+                        DMV Gross Profit
+                    </h4>
+                    <div class="value" style="font-size: 2.2rem; font-weight: 900; color: #1e293b;">
+                        ${{ dmv_gross_profit|floatformat:2 }}
+                    </div>
+                </div>
+                <div style="width: 46px; height: 46px; border-radius: 14px; background: rgba(37, 99, 235, 0.12); color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                    📈
+                </div>
+            </div>
+            <div style="font-size: 0.82rem; color: #64748b; margin-top: 0.75rem; font-weight: 600;">
+                Agency processing fees from <strong>{{ total_services }}</strong> DMV service records
+            </div>
+        </div>
+
+        <!-- Card 2: Operating Expenses -->
+        <div class="stat-card-premium stat-card-profit-item" style="border-left: 5px solid #ef4444; position: relative; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h4 style="color: #64748b; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 0.5rem; font-weight: 800;">
+                        Total Operating Expenses
+                    </h4>
+                    <div class="value" style="font-size: 2.2rem; font-weight: 900; color: #b91c1c;">
+                        ${{ total_expenses|floatformat:2 }}
+                    </div>
+                </div>
+                <div style="width: 46px; height: 46px; border-radius: 14px; background: rgba(239, 68, 68, 0.12); color: #ef4444; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                    🧾
+                </div>
+            </div>
+            <div style="font-size: 0.82rem; color: #64748b; margin-top: 0.75rem; font-weight: 600;">
+                Total deductions across <strong>{{ expense_breakdown|length }}</strong> expense categories
+            </div>
+        </div>
+
+        <!-- Card 3: Net Profit -->
+        <div class="stat-card-premium stat-card-profit-item" style="border-left: 5px solid {% if net_profit >= 0 %}#10b981{% else %}#dc2626{% endif %}; background: {% if net_profit >= 0 %}linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, rgba(255, 255, 255, 1) 100%){% else %}linear-gradient(135deg, rgba(239, 68, 68, 0.06) 0%, rgba(255, 255, 255, 1) 100%){% endif %}; position: relative; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.5rem; flex-wrap: wrap;">
+                        <h4 style="color: #64748b; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; margin: 0; font-weight: 800;">
+                            Net Profit
+                        </h4>
+                        <span class="badge" style="font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 999px; {% if net_profit >= 0 %}background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;{% else %}background: #fee2e2; color: #991b1b; border: 1px solid #fecaca;{% endif %}">
+                            {% if net_profit >= 0 %}+{{ profit_margin_pct|floatformat:1 }}% Margin{% else %}Net Loss{% endif %}
+                        </span>
+                    </div>
+                    <div class="value" style="font-size: 2.2rem; font-weight: 900; color: {% if net_profit >= 0 %}#047857{% else %}#b91c1c{% endif %};">
+                        ${{ net_profit|floatformat:2 }}
+                    </div>
+                </div>
+                <div style="width: 46px; height: 46px; border-radius: 14px; background: {% if net_profit >= 0 %}rgba(16, 185, 129, 0.15){% else %}rgba(239, 68, 68, 0.15){% endif %}; color: {% if net_profit >= 0 %}#059669{% else %}#dc2626{% endif %}; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                    {% if net_profit >= 0 %}🎯{% else %}⚠️{% endif %}
+                </div>
+            </div>
+            <div style="font-size: 0.82rem; color: #64748b; margin-top: 0.75rem; font-weight: 600;">
+                DMV Gross Profit (${{ dmv_gross_profit|floatformat:2 }}) - Expenses (${{ total_expenses|floatformat:2 }})
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Operating Expenses Section -->
+<section id="expensesSection" class="dashboard-panel expenses-management-panel" style="background: white; border-radius: 26px; padding: 2rem; border: 1px solid #e2e8f0; margin-bottom: 2.5rem; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);">
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.75rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 1.25rem;">
+        <div>
+            <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 0.4rem;">
+                <span style="font-size: 1.3rem;">💸</span>
+                <span style="font-size: 0.75rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #2563eb; background: #eff6ff; padding: 3px 10px; border-radius: 999px; border: 1px solid #dbeafe;">
+                    EXPENSES MANAGEMENT &amp; BI
+                </span>
+            </div>
+            <h3 style="margin: 0; color: #0f172a; font-weight: 900; font-size: 1.55rem; letter-spacing: -0.5px;">
+                Operating Expenses &amp; Overhead Tracking
+            </h3>
+            <p style="margin: 0.35rem 0 0; color: #64748b; font-size: 0.92rem;">
+                Record overhead, supplies, rent, utilities, and custom agency expenses. Net profit updates in real time against DMV gross profit.
+            </p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 1.25rem;">
+            <div style="text-align: right;">
+                <div style="font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: 0.05em;">Current Total Expenses</div>
+                <div style="font-size: 1.5rem; font-weight: 900; color: #b91c1c;">${{ total_expenses|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Add Expense Form -->
+    <div class="expense-form-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 20px; padding: 1.5rem; margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+            <h4 style="margin: 0; color: #1e293b; font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                <span>➕</span> Record New Expense
+            </h4>
+            <button type="button" id="btnQuickAddLabel" class="btn btn-sm" style="font-size: 0.82rem; font-weight: 800; border-radius: 12px; padding: 0.45rem 0.95rem; display: inline-flex; align-items: center; gap: 6px; background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; cursor: pointer;">
+                <span>✨</span> + Add New Label
+            </button>
+        </div>
+
+        <form method="post" action="{% url 'finance-save-expense' %}" id="addExpenseForm" class="expense-entry-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)) auto; gap: 1rem; align-items: end;">
+            {% csrf_token %}
+            {% if org_filter %}
+            <input type="hidden" name="organization_id" value="{{ org_filter }}">
+            {% endif %}
+
+            <!-- Category / Label Dropdown with Add New Label Option -->
+            <div style="grid-column: span 1;">
+                <label for="expenseLabelSelect" style="display: block; font-size: 0.78rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 0.4rem; letter-spacing: 0.04em;">
+                    Expense Label <span style="color: #ef4444;">*</span>
+                </label>
+                <select name="label_id" id="expenseLabelSelect" required style="width: 100%; border: 1px solid #cbd5e1; border-radius: 12px; padding: 0.65rem 0.75rem; font-size: 0.92rem; font-weight: 700; background: white; color: #1e293b; height: 44px;">
+                    <option value="">-- Choose Expense Label --</option>
+                    {% for el in expense_labels %}
+                    <option value="{{ el.id }}">{{ el.name }}</option>
+                    {% endfor %}
+                    <option value="__NEW_LABEL__" style="font-weight: 900; color: #2563eb;">✨ + Add New Label...</option>
+                </select>
+            </div>
+
+            <!-- Amount -->
+            <div>
+                <label for="expenseAmountInput" style="display: block; font-size: 0.78rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 0.4rem; letter-spacing: 0.04em;">
+                    Amount ($) <span style="color: #ef4444;">*</span>
+                </label>
+                <div style="position: relative;">
+                    <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-weight: 800; color: #64748b; font-size: 1rem;">$</span>
+                    <input type="number" step="0.01" min="0.01" name="amount" id="expenseAmountInput" placeholder="0.00" required style="width: 100%; border: 1px solid #cbd5e1; border-radius: 12px; padding: 0.65rem 0.75rem 0.65rem 2rem; font-size: 0.95rem; font-weight: 800; background: white; color: #1e293b; height: 44px;">
+                </div>
+            </div>
+
+            <!-- Date -->
+            <div>
+                <label for="expenseDateInput" style="display: block; font-size: 0.78rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 0.4rem; letter-spacing: 0.04em;">
+                    Date <span style="color: #ef4444;">*</span>
+                </label>
+                <input type="date" name="expense_date" id="expenseDateInput" value="{{ today|date:'Y-m-d' }}" required style="width: 100%; border: 1px solid #cbd5e1; border-radius: 12px; padding: 0.65rem 0.75rem; font-size: 0.92rem; font-weight: 700; background: white; color: #1e293b; height: 44px;">
+            </div>
+
+            <!-- Description -->
+            <div>
+                <label for="expenseDescInput" style="display: block; font-size: 0.78rem; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 0.4rem; letter-spacing: 0.04em;">
+                    Note / Description
+                </label>
+                <input type="text" name="description" id="expenseDescInput" placeholder="e.g. Rent, DMV paper rolls, receipt..." style="width: 100%; border: 1px solid #cbd5e1; border-radius: 12px; padding: 0.65rem 0.75rem; font-size: 0.92rem; background: white; color: #1e293b; height: 44px;">
+            </div>
+
+            <!-- Submit -->
+            <div>
+                <button type="submit" id="btnSubmitExpense" class="btn btn-primary" style="padding: 0.65rem 1.4rem; border-radius: 12px; font-weight: 800; white-space: nowrap; height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%;">
+                    <span>💾</span> Record Expense
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Breakdown by Category & Expense Records Table -->
+    <div class="expense-details-grid" style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start;">
+        <!-- Left: Category Distribution -->
+        <div class="expense-breakdown-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 1.5rem;">
+            <h4 style="margin: 0 0 1.25rem; color: #0f172a; font-size: 1rem; font-weight: 900; display: flex; justify-content: space-between; align-items: center;">
+                <span>Category Breakdown</span>
+                <span style="font-size: 0.75rem; color: #64748b; font-weight: 700; background: #f1f5f9; padding: 2px 8px; border-radius: 999px;">{{ expense_breakdown|length }} categories</span>
+            </h4>
+            {% if expense_breakdown %}
+            <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+                {% for b in expense_breakdown %}
+                <div class="expense-cat-row" style="padding: 0.85rem 1rem; background: #f8fafc; border-radius: 14px; border: 1px solid #edf2f7; transition: transform 0.15s, border-color 0.15s;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                        <span style="font-weight: 800; font-size: 0.9rem; color: #1e293b;">{{ b.label__name }}</span>
+                        <span style="font-weight: 900; font-size: 0.95rem; color: #b91c1c;">${{ b.total|floatformat:2 }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: #64748b; font-weight: 600;">
+                        <span>{{ b.count }} record{{ b.count|pluralize }}</span>
+                        <span>{% widthratio b.total total_expenses 100 %}% of expenses</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 2.5rem 1rem; color: #94a3b8;">
+                <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">📊</div>
+                <div style="font-weight: 800; font-size: 0.92rem; color: #64748b;">No expenses recorded yet</div>
+                <div style="font-size: 0.8rem; margin-top: 0.35rem;">Record expenses to see category cost distribution.</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Right: Recent Expense Records Table -->
+        <div class="expense-log-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 1.5rem; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <h4 style="margin: 0; color: #0f172a; font-size: 1rem; font-weight: 900;">
+                    Expense Log ({{ expenses_list|length }})
+                </h4>
+            </div>
+
+            {% if expenses_list %}
+            <div style="overflow-x: auto;">
+                <table class="expense-log-table" style="width: 100%; border-collapse: collapse; font-size: 0.88rem; text-align: left;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid #e2e8f0; color: #64748b; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">
+                            <th style="padding: 0.75rem 0.85rem;">Date</th>
+                            <th style="padding: 0.75rem 0.85rem;">Label</th>
+                            <th style="padding: 0.75rem 0.85rem;">Description</th>
+                            <th style="padding: 0.75rem 0.85rem; text-align: right;">Amount</th>
+                            <th style="padding: 0.75rem 0.85rem; text-align: center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for exp in expenses_list %}
+                        <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;">
+                            <td style="padding: 0.85rem; color: #475569; font-weight: 700; white-space: nowrap;">
+                                {{ exp.expense_date|date:"M j, Y" }}
+                            </td>
+                            <td style="padding: 0.85rem;">
+                                <span style="background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 3px 10px; border-radius: 8px; font-weight: 800; font-size: 0.78rem; display: inline-block;">
+                                    {{ exp.label.name }}
+                                </span>
+                            </td>
+                            <td style="padding: 0.85rem; color: #1e293b; max-width: 250px;">
+                                {% if exp.description %}
+                                <div style="font-weight: 600;">{{ exp.description }}</div>
+                                {% else %}
+                                <span style="color: #94a3b8; font-style: italic;">No description</span>
+                                {% endif %}
+                                {% if exp.created_by %}
+                                <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 2px;">
+                                    by {{ exp.created_by.get_full_name|default:exp.created_by.username }}
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 0.85rem; text-align: right; font-weight: 900; color: #b91c1c; white-space: nowrap; font-size: 0.95rem;">
+                                -${{ exp.amount|floatformat:2 }}
+                            </td>
+                            <td style="padding: 0.85rem; text-align: center; white-space: nowrap;">
+                                <button type="button" class="btn btn-sm btn-delete-expense" data-id="{{ exp.id }}" data-amount="${{ exp.amount|floatformat:2 }}" data-label="{{ exp.label.name }}" title="Delete expense" style="background: transparent; border: 1px solid #fecaca; color: #dc2626; border-radius: 8px; padding: 4px 10px; font-size: 0.78rem; font-weight: 700; cursor: pointer;">
+                                    🗑️ Delete
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 3rem 1rem; color: #94a3b8;">
+                <div style="font-size: 2.8rem; margin-bottom: 0.5rem;">🧾</div>
+                <div style="font-weight: 800; font-size: 1.05rem; color: #64748b;">No expenses logged for this period</div>
+                <div style="font-size: 0.85rem; margin-top: 0.35rem;">Use the form above to record operating expenses and calculate net profit.</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- Expenses JavaScript Interactions -->
+<script>
+    (function () {
+        function getCsrfToken() {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, 10) === ('csrftoken=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(10));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        const select = document.getElementById('expenseLabelSelect');
+        const btnAddLabel = document.getElementById('btnQuickAddLabel');
+        const form = document.getElementById('addExpenseForm');
+
+        function triggerAddNewLabelModal() {
+            if (!window.Swal) {
+                const name = prompt("Enter new expense label/category name:");
+                if (name && name.trim()) {
+                    createExpenseLabelAjax(name.trim());
+                } else if (select.value === '__NEW_LABEL__') {
+                    select.value = '';
+                }
+                return;
+            }
+
+            Swal.fire({
+                title: 'Add New Expense Label',
+                html: '<p style="font-size: 0.9rem; color: #64748b; margin-bottom: 1rem;">Enter a new expense category name (e.g. Software, Office Supplies, Advertising):</p>' +
+                      '<input id="swalExpenseLabelInput" class="swal2-input" placeholder="e.g. Software Subscriptions" maxlength="100" style="margin-top:0;">',
+                showCancelButton: true,
+                confirmButtonText: 'Add Label',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#2563eb',
+                focusConfirm: false,
+                preConfirm: () => {
+                    const input = document.getElementById('swalExpenseLabelInput');
+                    const val = input ? input.value.trim() : '';
+                    if (!val) {
+                        Swal.showValidationMessage('Please enter a label name.');
+                        return false;
+                    }
+                    return val;
+                }
+            }).then((res) => {
+                if (res.isConfirmed && res.value) {
+                    createExpenseLabelAjax(res.value);
+                } else if (select && select.value === '__NEW_LABEL__') {
+                    select.value = '';
+                }
+            });
+        }
+
+        function createExpenseLabelAjax(labelName) {
+            fetch("{% url 'finance-add-expense-label' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    name: labelName,
+                    organization_id: "{{ org_filter|default:'' }}"
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success' && data.label) {
+                    if (select) {
+                        let opt = Array.from(select.options).find(o => o.value == data.label.id);
+                        if (!opt) {
+                            opt = document.createElement('option');
+                            opt.value = data.label.id;
+                            opt.textContent = data.label.name;
+                            const newLabelOpt = select.querySelector('option[value="__NEW_LABEL__"]');
+                            if (newLabelOpt) {
+                                select.insertBefore(opt, newLabelOpt);
+                            } else {
+                                select.appendChild(opt);
+                            }
+                        }
+                        select.value = data.label.id;
+                    }
+
+                    if (window.Swal) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Category Created!',
+                            text: `"${data.label.name}" is now ready and selected.`,
+                            timer: 1600,
+                            showConfirmButton: false
+                        });
+                    }
+                    const amountInput = document.getElementById('expenseAmountInput');
+                    if (amountInput) amountInput.focus();
+                } else {
+                    if (window.Swal) {
+                        Swal.fire('Error', data.message || 'Could not add label.', 'error');
+                    } else {
+                        alert(data.message || 'Could not add label.');
+                    }
+                    if (select && select.value === '__NEW_LABEL__') select.value = '';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                if (window.Swal) Swal.fire('Error', 'Network error adding label.', 'error');
+                if (select && select.value === '__NEW_LABEL__') select.value = '';
+            });
+        }
+
+        if (select) {
+            select.addEventListener('change', function () {
+                if (this.value === '__NEW_LABEL__') {
+                    triggerAddNewLabelModal();
+                }
+            });
+        }
+
+        if (btnAddLabel) {
+            btnAddLabel.addEventListener('click', function (e) {
+                e.preventDefault();
+                triggerAddNewLabelModal();
+            });
+        }
+
+        // Delete expense handler
+        document.querySelectorAll('.btn-delete-expense').forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const expId = this.dataset.id;
+                const expLabel = this.dataset.label;
+                const expAmount = this.dataset.amount;
+
+                const doDelete = () => {
+                    fetch(`/dashboard/finance/expenses/${expId}/delete/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCsrfToken(),
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            window.location.reload();
+                        } else {
+                            if (window.Swal) Swal.fire('Error', data.message || 'Could not delete.', 'error');
+                            else alert(data.message || 'Could not delete.');
+                        }
+                    })
+                    .catch(() => window.location.reload());
+                };
+
+                if (window.Swal) {
+                    Swal.fire({
+                        title: 'Delete Expense?',
+                        text: `Are you sure you want to delete ${expLabel} (${expAmount})? Net profit will be updated.`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#dc2626',
+                        confirmButtonText: 'Yes, Delete',
+                        cancelButtonText: 'Cancel'
+                    }).then(r => {
+                        if (r.isConfirmed) doDelete();
+                    });
+                } else {
+                    if (confirm(`Delete ${expLabel} (${expAmount})?`)) doDelete();
+                }
+            });
+        });
+    })();
+</script>

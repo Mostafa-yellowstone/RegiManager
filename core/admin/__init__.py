@@ -3,6 +3,7 @@
 from . import (
     clients,
     defense_driving,
+    expenses,
     insurance,
     inventory,
     motorclub,
@@ -21,6 +22,7 @@ patch_admin_site()
 __all__ = [
     "clients",
     "defense_driving",
+    "expenses",
     "insurance",
     "inventory",
     "motorclub",

@@ -3984,3 +3984,6 @@ class ContactMessage(models.Model):
     def __str__(self):
         return f"{self.name} <{self.email}> · {self.subject}"
 
+
+
+from .expense_models import Expense, ExpenseLabel  # noqa: E402,F401

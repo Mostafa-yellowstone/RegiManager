@@ -218,6 +218,31 @@
         color: var(--portal-text-muted) !important;
     }
 
+    html.portal-theme-dark .finance-hub-page .stat-card-profit-item,
+    html.portal-theme-dark .finance-hub-page .expenses-management-panel,
+    html.portal-theme-dark .finance-hub-page .expense-form-card,
+    html.portal-theme-dark .finance-hub-page .expense-breakdown-card,
+    html.portal-theme-dark .finance-hub-page .expense-log-card {
+        background: var(--portal-surface) !important;
+        border-color: var(--portal-border) !important;
+    }
+
+    html.portal-theme-dark .finance-hub-page .expense-cat-row {
+        background: var(--portal-surface-muted) !important;
+        border-color: var(--portal-border) !important;
+    }
+
+    html.portal-theme-dark .finance-hub-page .expense-entry-form input,
+    html.portal-theme-dark .finance-hub-page .expense-entry-form select {
+        background: var(--portal-surface-muted) !important;
+        color: var(--portal-text) !important;
+        border-color: var(--portal-border) !important;
+    }
+
+    html.portal-theme-dark .finance-hub-page .expense-log-table tr:hover {
+        background: var(--portal-surface-muted) !important;
+    }
+
     html.portal-theme-dark .finance-hub-page input[type="month"] {
         background: var(--portal-surface-muted);
         color: var(--portal-text);
@@ -902,6 +927,7 @@
 
         <nav class="finance-hub-tabs" aria-label="Finance hub sections">
             <a href="?{{ hub_query_analytics }}" class="finance-hub-tab {% if hub_tab == 'analytics' %}is-active{% endif %}">Analytics &amp; Reports</a>
+            <a href="?{{ hub_query_expenses }}" class="finance-hub-tab {% if hub_tab == 'expenses' %}is-active{% endif %}">Expenses &amp; Net Profit</a>
             <a href="?{{ hub_query_crm }}" class="finance-hub-tab {% if hub_tab == 'crm' %}is-active{% endif %}">Transaction CRM</a>
         </nav>
 
@@ -1081,6 +1107,14 @@
                     </div>
                 </article>
             </div>
+        </div>
+
+        <div style="margin-top: 3rem;">
+            {% include "core/partials/finance_hub_expenses.html" %}
+        </div>
+        {% elif hub_tab == 'expenses' %}
+        <div style="margin-top: -2.5rem;">
+            {% include "core/partials/finance_hub_expenses.html" %}
         </div>
         {% elif hub_tab == 'crm' %}
         {% include "core/partials/finance_hub_crm.html" %}

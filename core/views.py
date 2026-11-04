@@ -67,7 +67,8 @@ from datetime import timedelta
 from .client_search import build_full_client_search_q
 from .text_search import apply_text_search
 from .tasks import send_automation_email
-from .models import AutomationLog, FinanceStrategyNote, ClientNote, Notification
+from .models import AutomationLog, FinanceStrategyNote, ClientNote, Notification, Expense, ExpenseLabel
+from .expense_models import ensure_default_expense_labels
 from .source_choices import (
     INSURANCE_SOURCE_CHOICES,
     build_source_choices,
@@ -5459,7 +5460,7 @@ def finance_hub(request):
     compare_b = request.GET.get("compare_b", "").strip()
     compare_mode = request.GET.get("compare_mode", "month").strip().lower()
     hub_tab = request.GET.get("tab", "analytics").strip().lower()
-    if hub_tab not in {"analytics", "crm"}:
+    if hub_tab not in {"analytics", "crm", "expenses"}:
         hub_tab = "analytics"
     search_query = request.GET.get("q", "").strip()
     payment_filter = request.GET.get("payment_method", "").strip()
@@ -5488,9 +5489,49 @@ def finance_hub(request):
         records = records.filter(transaction_date__lte=date_to)
     
     # KPIs
-    totals = records.aggregate(total_revenue=Sum("service_fee"), total_services=Count("id"))
+    totals = records.aggregate(
+        total_revenue=Sum("service_fee"),
+        total_services=Count("id"),
+        dmv_gross_profit=Sum("processing_fee"),
+    )
     total_revenue = totals["total_revenue"] or Decimal("0")
     total_services = totals["total_services"] or 0
+    dmv_gross_profit = totals["dmv_gross_profit"] or Decimal("0")
+
+    # Expenses management and Net Profit
+    try:
+        for org in organizations:
+            ensure_default_expense_labels(org)
+    except Exception:
+        pass
+
+    expense_qs = Expense.objects.filter(organization__in=organizations).select_related(
+        "label", "created_by", "organization"
+    )
+    if org_filter.isdigit():
+        expense_qs = expense_qs.filter(organization_id=int(org_filter))
+    if date_from:
+        expense_qs = expense_qs.filter(expense_date__gte=date_from)
+    if date_to:
+        expense_qs = expense_qs.filter(expense_date__lte=date_to)
+
+    total_expenses = expense_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    net_profit = dmv_gross_profit - total_expenses
+    profit_margin_pct = (
+        (net_profit / dmv_gross_profit * Decimal("100")) if dmv_gross_profit > Decimal("0") else Decimal("0")
+    )
+
+    expense_labels_qs = ExpenseLabel.objects.filter(organization__in=organizations)
+    if org_filter.isdigit():
+        expense_labels_qs = expense_labels_qs.filter(organization_id=int(org_filter))
+    expense_labels = expense_labels_qs.order_by("name")
+
+    expense_breakdown = list(
+        expense_qs.values("label__id", "label__name")
+        .annotate(total=Sum("amount"), count=Count("id"))
+        .order_by("-total")
+    )
+    expenses_list = list(expense_qs.order_by("-expense_date", "-created_at")[:60])
     
     today_date = timezone.localdate()
     month_start_date = today_date.replace(day=1)
@@ -5721,6 +5762,8 @@ def finance_hub(request):
     hub_query.pop("page", None)
     hub_query_analytics = hub_query.copy()
     hub_query_analytics["tab"] = "analytics"
+    hub_query_expenses = hub_query.copy()
+    hub_query_expenses["tab"] = "expenses"
     hub_query_crm = hub_query.copy()
     hub_query_crm["tab"] = "crm"
 
@@ -5729,6 +5772,14 @@ def finance_hub(request):
         "total_services": total_services,
         "month_revenue": month_revenue,
         "avg_order_value": avg_order_value,
+        "dmv_gross_profit": dmv_gross_profit,
+        "total_expenses": total_expenses,
+        "net_profit": net_profit,
+        "profit_margin_pct": profit_margin_pct,
+        "expense_labels": expense_labels,
+        "expenses_list": expenses_list,
+        "expense_breakdown": expense_breakdown,
+        "expense_count": len(expenses_list),
         "daily_payment_cards": daily_payment_cards,
         "daily_payment_total": daily_payment_total,
         "goal_forecast": goal_forecast,
@@ -5770,6 +5821,7 @@ def finance_hub(request):
         "crm_page_obj": crm_page_obj,
         "crm_query_string_no_page": crm_query_string_no_page,
         "hub_query_analytics": hub_query_analytics.urlencode(),
+        "hub_query_expenses": hub_query_expenses.urlencode(),
         "hub_query_crm": hub_query_crm.urlencode(),
     }
     return render(request, "core/finance_hub.html", context)
@@ -5797,6 +5849,180 @@ def save_finance_strategy_note(request):
             },
             status=500,
         )
+
+
+@login_required
+@require_POST
+def add_expense_label(request):
+    """
+    Ajax/POST endpoint to dynamically create a new ExpenseLabel for an organization.
+    """
+    if not _can_access_finance_hub(request.user):
+        return JsonResponse({"status": "error", "message": "Permission denied."}, status=403)
+
+    user_orgs = _get_user_organizations(request).filter(
+        Q(memberships__role=OrganizationMembership.Role.OWNER) | Q(memberships__can_view_reports=True)
+    ).distinct()
+
+    if request.content_type == "application/json":
+        try:
+            payload = json.loads(request.body.decode("utf-8") or "{}")
+        except Exception:
+            payload = {}
+        name = (payload.get("name") or "").strip()
+        org_id = payload.get("organization_id")
+    else:
+        name = request.POST.get("name", "").strip()
+        org_id = request.POST.get("organization_id")
+
+    if not name:
+        return JsonResponse({"status": "error", "message": "Expense label name is required."}, status=400)
+
+    target_org = None
+    if org_id and str(org_id).isdigit():
+        target_org = user_orgs.filter(id=int(org_id)).first()
+    if not target_org:
+        target_org = user_orgs.first()
+
+    if not target_org:
+        return JsonResponse({"status": "error", "message": "No active organization found."}, status=400)
+
+    label, created = ExpenseLabel.objects.get_or_create(
+        organization=target_org,
+        name=name,
+    )
+    return JsonResponse({
+        "status": "success",
+        "created": created,
+        "label": {
+            "id": label.id,
+            "name": label.name,
+            "organization_id": target_org.id,
+        },
+    })
+
+
+@login_required
+@require_POST
+def save_expense(request):
+    """
+    Record an expense item in the Finance & BI hub.
+    """
+    if not _can_access_finance_hub(request.user):
+        if request.headers.get("x-requested-with") == "XMLHttpRequest" or request.content_type == "application/json":
+            return JsonResponse({"status": "error", "message": "Permission denied."}, status=403)
+        messages.error(request, "Permission denied.")
+        return redirect("finance-hub")
+
+    user_orgs = _get_user_organizations(request).filter(
+        Q(memberships__role=OrganizationMembership.Role.OWNER) | Q(memberships__can_view_reports=True)
+    ).distinct()
+
+    is_json = request.content_type == "application/json"
+    if is_json:
+        try:
+            payload = json.loads(request.body.decode("utf-8") or "{}")
+        except Exception:
+            payload = {}
+        label_id = payload.get("label_id")
+        amount_raw = payload.get("amount")
+        expense_date_raw = payload.get("expense_date")
+        description = (payload.get("description") or "").strip()
+        org_id = payload.get("organization_id")
+    else:
+        label_id = request.POST.get("label_id")
+        amount_raw = request.POST.get("amount")
+        expense_date_raw = request.POST.get("expense_date")
+        description = request.POST.get("description", "").strip()
+        org_id = request.POST.get("organization_id")
+
+    try:
+        amount = Decimal(str(amount_raw).replace("$", "").replace(",", "").strip())
+        if amount <= Decimal("0"):
+            raise ValueError()
+    except Exception:
+        err_msg = "Please enter a valid positive expense amount."
+        if is_json or request.headers.get("x-requested-with") == "XMLHttpRequest":
+            return JsonResponse({"status": "error", "message": err_msg}, status=400)
+        messages.error(request, err_msg)
+        return redirect("finance-hub")
+
+    try:
+        expense_label = ExpenseLabel.objects.filter(organization__in=user_orgs).get(id=int(label_id))
+    except (ExpenseLabel.DoesNotExist, ValueError, TypeError):
+        err_msg = "Please select a valid expense category."
+        if is_json or request.headers.get("x-requested-with") == "XMLHttpRequest":
+            return JsonResponse({"status": "error", "message": err_msg}, status=400)
+        messages.error(request, err_msg)
+        return redirect("finance-hub")
+
+    # Expense date
+    if expense_date_raw:
+        try:
+            expense_date = timezone.datetime.strptime(str(expense_date_raw).strip(), "%Y-%m-%d").date()
+        except Exception:
+            expense_date = timezone.localdate()
+    else:
+        expense_date = timezone.localdate()
+
+    org = expense_label.organization
+    expense = Expense.objects.create(
+        organization=org,
+        label=expense_label,
+        amount=amount,
+        expense_date=expense_date,
+        description=description,
+        created_by=request.user,
+    )
+
+    if is_json or request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return JsonResponse({
+            "status": "success",
+            "message": f"Recorded ${amount:.2f} for {expense_label.name}.",
+            "expense": {
+                "id": expense.id,
+                "label": expense_label.name,
+                "amount": float(expense.amount),
+                "date": expense.expense_date.strftime("%Y-%m-%d"),
+                "description": expense.description,
+            },
+        })
+
+    messages.success(request, f"Expense of ${amount:.2f} ({expense_label.name}) recorded successfully.")
+    redirect_url = request.META.get("HTTP_REFERER") or reverse("finance-hub")
+    return redirect(redirect_url)
+
+
+@login_required
+@require_POST
+def delete_expense(request, expense_id):
+    """
+    Delete an expense item from Finance & BI.
+    """
+    if not _can_access_finance_hub(request.user):
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            return JsonResponse({"status": "error", "message": "Permission denied."}, status=403)
+        messages.error(request, "Permission denied.")
+        return redirect("finance-hub")
+
+    user_orgs = _get_user_organizations(request).filter(
+        Q(memberships__role=OrganizationMembership.Role.OWNER) | Q(memberships__can_view_reports=True)
+    ).distinct()
+
+    expense = get_object_or_404(Expense, id=expense_id, organization__in=user_orgs)
+    label_name = expense.label.name
+    amount = expense.amount
+    expense.delete()
+
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return JsonResponse({
+            "status": "success",
+            "message": f"Deleted expense of ${amount:.2f} ({label_name}).",
+        })
+
+    messages.success(request, f"Expense of ${amount:.2f} deleted successfully.")
+    redirect_url = request.META.get("HTTP_REFERER") or reverse("finance-hub")
+    return redirect(redirect_url)
 
 
 @login_required
