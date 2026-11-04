@@ -5501,7 +5501,8 @@ def finance_hub(request):
     # Expenses management and Net Profit
     try:
         for org in organizations:
-            ensure_default_expense_labels(org)
+            if not ExpenseLabel.objects.filter(organization=org).exists():
+                ensure_default_expense_labels(org)
     except Exception:
         pass
 

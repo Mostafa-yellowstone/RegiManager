@@ -271,7 +271,7 @@
                 const cookies = document.cookie.split(';');
                 for (let i = 0; i < cookies.length; i++) {
                     const cookie = cookies[i].trim();
-                    if (cookie.substring(0, 10) === ('csrftoken=')) {
+                    if (cookie.substring(0, 10) === 'csrftoken=') {
                         cookieValue = decodeURIComponent(cookie.substring(10));
                         break;
                     }
@@ -283,13 +283,88 @@
         const select = document.getElementById('expenseLabelSelect');
         const btnAddLabel = document.getElementById('btnQuickAddLabel');
         const form = document.getElementById('addExpenseForm');
+        const submitBtn = document.getElementById('btnSubmitExpense');
 
+        // ----------------------------------------------------------------
+        // AJAX form submit — prevents page freeze caused by standard POST
+        // ----------------------------------------------------------------
+        if (form) {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                const formData = new FormData(form);
+
+                // Disable button to prevent double-submit
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span>⏳</span> Saving...';
+                }
+
+                fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': getCsrfToken()
+                    },
+                    body: formData
+                })
+                .then(function (res) {
+                    // Parse as JSON — view returns JSON when X-Requested-With header is present
+                    return res.json().catch(function () {
+                        // If the response isn't JSON (e.g. redirect page), reload anyway
+                        window.location.reload();
+                        return null;
+                    });
+                })
+                .then(function (data) {
+                    if (!data) return;
+                    if (data.status === 'success') {
+                        if (window.Swal) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Expense Recorded!',
+                                text: data.message || 'Expense saved successfully.',
+                                timer: 1800,
+                                showConfirmButton: false
+                            }).then(function () {
+                                window.location.reload();
+                            });
+                        } else {
+                            window.location.reload();
+                        }
+                    } else {
+                        if (window.Swal) {
+                            Swal.fire('Error', data.message || 'Could not record expense.', 'error');
+                        } else {
+                            alert(data.message || 'Could not record expense.');
+                        }
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = '<span>💾</span> Record Expense';
+                        }
+                    }
+                })
+                .catch(function (err) {
+                    console.error('Expense save error:', err);
+                    if (window.Swal) {
+                        Swal.fire('Error', 'Network error. Please try again.', 'error');
+                    }
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<span>💾</span> Record Expense';
+                    }
+                });
+            });
+        }
+
+        // ----------------------------------------------------------------
+        // Add New Label helpers
+        // ----------------------------------------------------------------
         function triggerAddNewLabelModal() {
             if (!window.Swal) {
-                const name = prompt("Enter new expense label/category name:");
+                const name = prompt('Enter new expense label/category name:');
                 if (name && name.trim()) {
                     createExpenseLabelAjax(name.trim());
-                } else if (select.value === '__NEW_LABEL__') {
+                } else if (select && select.value === '__NEW_LABEL__') {
                     select.value = '';
                 }
                 return;
@@ -304,7 +379,7 @@
                 cancelButtonText: 'Cancel',
                 confirmButtonColor: '#2563eb',
                 focusConfirm: false,
-                preConfirm: () => {
+                preConfirm: function () {
                     const input = document.getElementById('swalExpenseLabelInput');
                     const val = input ? input.value.trim() : '';
                     if (!val) {
@@ -313,7 +388,7 @@
                     }
                     return val;
                 }
-            }).then((res) => {
+            }).then(function (res) {
                 if (res.isConfirmed && res.value) {
                     createExpenseLabelAjax(res.value);
                 } else if (select && select.value === '__NEW_LABEL__') {
@@ -335,11 +410,11 @@
                     organization_id: "{{ org_filter|default:'' }}"
                 })
             })
-            .then(res => res.json())
-            .then(data => {
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
                 if (data.status === 'success' && data.label) {
                     if (select) {
-                        let opt = Array.from(select.options).find(o => o.value == data.label.id);
+                        let opt = Array.from(select.options).find(function (o) { return o.value == data.label.id; });
                         if (!opt) {
                             opt = document.createElement('option');
                             opt.value = data.label.id;
@@ -353,12 +428,11 @@
                         }
                         select.value = data.label.id;
                     }
-
                     if (window.Swal) {
                         Swal.fire({
                             icon: 'success',
                             title: 'Category Created!',
-                            text: `"${data.label.name}" is now ready and selected.`,
+                            text: '"' + data.label.name + '" is now ready and selected.',
                             timer: 1600,
                             showConfirmButton: false
                         });
@@ -374,7 +448,7 @@
                     if (select && select.value === '__NEW_LABEL__') select.value = '';
                 }
             })
-            .catch(err => {
+            .catch(function (err) {
                 console.error(err);
                 if (window.Swal) Swal.fire('Error', 'Network error adding label.', 'error');
                 if (select && select.value === '__NEW_LABEL__') select.value = '';
@@ -396,48 +470,89 @@
             });
         }
 
+        // ----------------------------------------------------------------
         // Delete expense handler
-        document.querySelectorAll('.btn-delete-expense').forEach(btn => {
+        // ----------------------------------------------------------------
+        document.querySelectorAll('.btn-delete-expense').forEach(function (btn) {
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
-                const expId = this.dataset.id;
-                const expLabel = this.dataset.label;
-                const expAmount = this.dataset.amount;
+                const self = this;
+                const expId = self.dataset.id;
+                const expLabel = self.dataset.label;
+                const expAmount = self.dataset.amount;
 
-                const doDelete = () => {
-                    fetch(`/dashboard/finance/expenses/${expId}/delete/`, {
+                function doDelete() {
+                    // Visually disable button immediately
+                    self.disabled = true;
+                    self.textContent = 'Deleting...';
+
+                    fetch('/dashboard/finance/expenses/' + expId + '/delete/', {
                         method: 'POST',
                         headers: {
                             'X-CSRFToken': getCsrfToken(),
                             'X-Requested-With': 'XMLHttpRequest'
                         }
                     })
-                    .then(res => res.json())
-                    .then(data => {
+                    .then(function (res) {
+                        if (!res.ok) {
+                            throw new Error('HTTP ' + res.status);
+                        }
+                        return res.json();
+                    })
+                    .then(function (data) {
                         if (data.status === 'success') {
-                            window.location.reload();
+                            // Remove the table row immediately for instant feedback
+                            const row = self.closest('tr');
+                            if (row) {
+                                row.style.transition = 'opacity 0.25s';
+                                row.style.opacity = '0';
+                                setTimeout(function () {
+                                    row.remove();
+                                }, 250);
+                            }
+                            if (window.Swal) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Deleted!',
+                                    text: data.message || 'Expense removed.',
+                                    timer: 1500,
+                                    showConfirmButton: false
+                                }).then(function () {
+                                    window.location.reload();
+                                });
+                            } else {
+                                window.location.reload();
+                            }
                         } else {
+                            self.disabled = false;
+                            self.innerHTML = '🗑️ Delete';
                             if (window.Swal) Swal.fire('Error', data.message || 'Could not delete.', 'error');
                             else alert(data.message || 'Could not delete.');
                         }
                     })
-                    .catch(() => window.location.reload());
-                };
+                    .catch(function (err) {
+                        console.error('Delete error:', err);
+                        self.disabled = false;
+                        self.innerHTML = '🗑️ Delete';
+                        if (window.Swal) Swal.fire('Error', 'Network error. Please try again.', 'error');
+                        else window.location.reload();
+                    });
+                }
 
                 if (window.Swal) {
                     Swal.fire({
                         title: 'Delete Expense?',
-                        text: `Are you sure you want to delete ${expLabel} (${expAmount})? Net profit will be updated.`,
+                        text: 'Are you sure you want to delete ' + expLabel + ' (' + expAmount + ')? Net profit will be updated.',
                         icon: 'warning',
                         showCancelButton: true,
                         confirmButtonColor: '#dc2626',
                         confirmButtonText: 'Yes, Delete',
                         cancelButtonText: 'Cancel'
-                    }).then(r => {
+                    }).then(function (r) {
                         if (r.isConfirmed) doDelete();
                     });
                 } else {
-                    if (confirm(`Delete ${expLabel} (${expAmount})?`)) doDelete();
+                    if (confirm('Delete ' + expLabel + ' (' + expAmount + ')?')) doDelete();
                 }
             });
         });
