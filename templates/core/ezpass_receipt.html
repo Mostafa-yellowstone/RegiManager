@@ -523,7 +523,7 @@
             </div>
           </div>
           <div class="svc-amt-col">
-            <div class="svc-amount">${{ tag.toll_deposit|floatformat:2 }}</div>
+            <div class="svc-amount">${{ receipt_amount|default:tag.retail_price|floatformat:2 }}</div>
           </div>
         </div>
 
@@ -531,7 +531,7 @@
         <div class="svc-total-row">
           <div class="svc-total-label">Total</div>
           <div class="svc-total-sep"></div>
-          <div class="svc-total-val">${{ tag.toll_deposit|floatformat:2 }}</div>
+          <div class="svc-total-val">${{ receipt_amount|default:tag.retail_price|floatformat:2 }}</div>
         </div>
 
       </div><!-- /mid-right -->

@@ -119,11 +119,18 @@ def render_ezpass_receipt_pdf(pdf: Canvas, tag):
     space = tag.space
 
     # Computed values
-    inv_num = tag.invoice.invoice_number if tag.invoice else f"EZP-{tag.id:06d}"
+    inv_num = tag.invoice.invoice_number if (tag.invoice and tag.invoice.invoice_number) else (f"EZP-{tag.id:06d}" if tag.id else "EZP-000000")
     date_str = (tag.assigned_at.strftime("%b %d, %Y") if tag.assigned_at
                 else timezone.now().strftime("%b %d, %Y"))
-    toll  = tag.toll_deposit  or Decimal("0.00")
-    total = toll
+    retail_amt = tag.retail_price
+    if not retail_amt or retail_amt <= Decimal("0.00"):
+        if tag.invoice and tag.invoice.total and tag.invoice.total > Decimal("0.00"):
+            retail_amt = tag.invoice.total
+        elif tag.toll_deposit and tag.toll_deposit > Decimal("0.00"):
+            retail_amt = tag.toll_deposit + (tag.convenience_fee or Decimal("0.00"))
+        else:
+            retail_amt = Decimal("35.00")
+    total = retail_amt
     fee   = tag.convenience_fee or Decimal("0.00")
 
     cur_y = PAGE_H  # top of page
@@ -252,7 +259,7 @@ def render_ezpass_receipt_pdf(pdf: Canvas, tag):
 
     pdf.setFont("Helvetica", 9)
     pdf.setFillColor(DARK_GREY)
-    pdf.drawRightString(PAGE_W - M_R - 6, svc_y, f"${toll:.2f}")
+    pdf.drawRightString(PAGE_W - M_R - 6, svc_y, f"${total:.2f}")
 
     # Convenience fee row removed from receipt
 

@@ -298,7 +298,13 @@ def issue_ezpass_tag(request, space_id):
     try:
         toll_deposit = Decimal(request.POST.get("toll_deposit", "25.00") or "25.00")
         convenience_fee = Decimal(request.POST.get("convenience_fee", "10.00") or "10.00")
-        retail_price = toll_deposit + convenience_fee
+        retail_raw = request.POST.get("retail_price")
+        if retail_raw:
+            retail_price = Decimal(str(retail_raw).replace("$", "").replace(",", "").strip())
+        else:
+            retail_price = toll_deposit + convenience_fee
+        if retail_price <= Decimal("0.00"):
+            retail_price = Decimal("35.00")
     except (InvalidOperation, ValueError):
         toll_deposit = Decimal("25.00")
         convenience_fee = Decimal("10.00")
@@ -626,11 +632,28 @@ def delete_ezpass_tag(request, tag_id):
 def ezpass_receipt_view(request, tag_id):
     """Printable, beautiful HTML receipt and driver registration instructions handout."""
     tag = _owned_ezpass_tag(request, tag_id)
+    amount = tag.retail_price
+    if not amount or amount <= Decimal("0.00"):
+        if tag.invoice and tag.invoice.total and tag.invoice.total > Decimal("0.00"):
+            amount = tag.invoice.total
+        elif tag.toll_deposit and tag.toll_deposit > Decimal("0.00"):
+            amount = tag.toll_deposit + (tag.convenience_fee or Decimal("0.00"))
+        else:
+            prod = InventoryProduct.objects.filter(
+                organization=tag.space.organization,
+                space=tag.space,
+                name__icontains="Exterior" if tag.tag_type == EZPassTag.TagType.EXTERIOR else "Interior",
+            ).first()
+            amount = prod.unit_price if prod else Decimal("35.00")
+        tag.retail_price = amount
+        tag.save(update_fields=["retail_price"])
+
     return render(
         request,
         "core/ezpass_receipt.html",
         {
             "tag": tag,
+            "receipt_amount": amount,
             "space": tag.space,
             "organization": tag.space.organization,
         },
@@ -785,7 +808,11 @@ def edit_inventory_invoice(request, invoice_id):
             "vehicle_model": tag.vehicle_model if tag else "",
             "vehicle_vin": tag.vehicle_vin if tag else "",
             "payment_method": invoice.payment_method or (tag.payment_method if tag else "cash"),
-            "amount": str(tag.toll_deposit if (tag and tag.toll_deposit) else invoice.total),
+            "amount": str(
+                tag.retail_price
+                if (tag and tag.retail_price and tag.retail_price > Decimal("0.00"))
+                else (invoice.total if (invoice and invoice.total and invoice.total > Decimal("0.00")) else Decimal("35.00"))
+            ),
             "date": invoice.invoice_date.strftime("%Y-%m-%d") if invoice.invoice_date else timezone.localdate().strftime("%Y-%m-%d"),
             "tag_id": tag.id if tag else None,
             "tag_number": tag.tag_number if tag else "",
@@ -948,7 +975,11 @@ def edit_ezpass_tag_receipt(request, tag_id):
             "vehicle_model": tag.vehicle_model,
             "vehicle_vin": tag.vehicle_vin,
             "payment_method": tag.payment_method or "cash",
-            "amount": str(tag.toll_deposit or tag.retail_price or "25.00"),
+            "amount": str(
+                tag.retail_price
+                if (tag.retail_price and tag.retail_price > Decimal("0.00"))
+                else (tag.toll_deposit if (tag.toll_deposit and tag.toll_deposit > Decimal("0.00")) else Decimal("35.00"))
+            ),
             "date": tag.assigned_at.strftime("%Y-%m-%d") if tag.assigned_at else timezone.localdate().strftime("%Y-%m-%d"),
             "tag_id": tag.id,
             "tag_number": tag.tag_number,
