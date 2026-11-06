@@ -753,7 +753,7 @@ html.portal-theme-dark .agent-audit-workboard .agent-progress__fg { stroke: #a5b
             {% for policy in policies_page %}
             <tr>
               <td>
-                {% if policy.client %}<a href="{% url 'client-detail' policy.client.id %}" style="color: var(--blue); text-decoration: none; font-weight: 700;">{{ policy.client.name }}</a>{% else %}—{% endif %}
+                {% if policy.client %}<a href="{% url 'client-detail' policy.client.id %}" style="color: var(--blue); text-decoration: none; font-weight: 700;">{{ policy.client.full_display_name|default:policy.client.name }}</a>{% else %}—{% endif %}
               </td>
               <td style="font-family: monospace; font-size: 0.82rem;">{{ policy.policy_number }}</td>
               <td style="font-size: 0.8rem; color: var(--muted);">{{ policy.get_insurance_type_display|default:"—" }}</td>

@@ -138,11 +138,15 @@ function toggleInactiveDate() {
   const s = document.getElementById('policyStatus').value;
   const row = document.getElementById('inactiveDateRow');
   const inp = document.getElementById('policyInactiveDate');
+  const stage = document.getElementById('policyStage');
   if (s === 'inactive') {
     row.style.display = 'block';
     inp.required = true;
     if (!inp.value) {
       inp.value = new Date().toISOString().split('T')[0];
+    }
+    if (stage && stage.value === 'quote') {
+      stage.value = 'bound';
     }
   } else {
     row.style.display = 'none';

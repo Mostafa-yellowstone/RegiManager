@@ -492,7 +492,8 @@ class Client(SoftDeleteModel):
     def name(self):
         if self.is_commercial and self.business_name:
             return self.business_name
-        return f"{self.first_name} {self.last_name}".strip()
+        parts = [self.first_name, self.middle_name, self.last_name]
+        return " ".join(p.strip() for p in parts if p and p.strip())
 
     @property
     def full_display_name(self):
@@ -1545,7 +1546,8 @@ class ClientIntake(models.Model):
     def name(self):
         if self.is_commercial and self.business_name:
             return self.business_name
-        return f"{self.first_name} {self.last_name}"
+        parts = [self.first_name, getattr(self, "middle_name", ""), self.last_name]
+        return " ".join(p.strip() for p in parts if p and p.strip())
 
     @property
     def estimated_sales_tax(self):
@@ -2487,8 +2489,12 @@ class InsurancePolicy(models.Model):
         if self.renewal_date is None and self.end_date:
             self.renewal_date = self.end_date
 
-        if self.commission_rate is None:
-            self.commission_amount = None
+        if self.commission_rate is None or self.commission_rate <= Decimal("0.00"):
+            if self.premium and self.premium > Decimal("0.00"):
+                self.commission_rate = Decimal("15.00")
+                self.commission_amount = Decimal(str(self.premium)) * Decimal("0.15")
+            else:
+                self.commission_amount = None
         else:
             premium = self.premium if self.premium is not None else Decimal("0.00")
             self.commission_amount = Decimal(str(premium)) * (Decimal(str(self.commission_rate)) / Decimal("100.00"))
@@ -2500,12 +2506,16 @@ class InsurancePolicy(models.Model):
         from .insurance_commissions import calculate_unearned_commission
 
         if self.status == self.StatusChoices.INACTIVE:
+            if self.stage == self.StageChoices.QUOTE:
+                self.stage = self.StageChoices.BOUND
             self.unearned_commission = calculate_unearned_commission(
                 self.commission_amount,
                 self.start_date,
                 self.end_date,
                 self.inactive_date,
                 insurance_period_months=self.insurance_period_months,
+                premium=self.premium,
+                commission_rate=self.commission_rate,
             )
         else:
             self.unearned_commission = Decimal("0.00")

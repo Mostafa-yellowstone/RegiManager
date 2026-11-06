@@ -8,7 +8,7 @@
             <tr>
               <td>
                 {% if policy.client %}
-                  <a href="{% url 'client-detail' policy.client.id %}" class="ipc-client">{{ policy.client.name }}</a>
+                  <a href="{% url 'client-detail' policy.client.id %}" class="ipc-client">{{ policy.client.full_display_name|default:policy.client.name }}</a>
                 {% else %}
                   <span class="ipc-muted">—</span>
                 {% endif %}

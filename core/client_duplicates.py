@@ -71,13 +71,13 @@ def find_clients_by_full_name(
     exclude_client_id: int | None = None,
 ):
     """
-    Match individual clients by first + last name (case-insensitive).
-
-    Middle name is ignored so "John Smith", "JOHN SMITH", and "John A Smith"
-    all resolve to the same identity set. Prefer exact middle matches with
-    prefer_exact_middle_match() when choosing among results.
+    Match individual clients by exact name parts.
+    Preserves distinct profiles so clients sharing first+last but different middle
+    names (or with/without middle names) are never mixed up into the wrong profile.
     """
+    from django.db.models import Q
     first = normalize_name_part(first_name)
+    middle = normalize_name_part(middle_name)
     last = normalize_name_part(last_name)
     if not first or not last:
         return Client.objects.none()
@@ -86,13 +86,17 @@ def find_clients_by_full_name(
         first_name__iexact=first,
         last_name__iexact=last,
     )
+    if middle:
+        qs = qs.filter(middle_name__iexact=middle)
+    else:
+        qs = qs.filter(Q(middle_name="") | Q(middle_name__isnull=True))
     if exclude_client_id:
         qs = qs.exclude(pk=exclude_client_id)
     return qs
 
 
 def prefer_exact_middle_match(clients, middle_name: str = ""):
-    """Prefer a client whose middle name matches (case-insensitive); else first."""
+    """Prefer a client whose middle name matches (case-insensitive); otherwise None."""
     clients = list(clients)
     if not clients:
         return None
@@ -100,7 +104,7 @@ def prefer_exact_middle_match(clients, middle_name: str = ""):
     for client in clients:
         if normalize_name_part(client.middle_name).casefold() == middle.casefold():
             return client
-    return clients[0]
+    return None
 
 
 def _name_identity_matches(existing: Client, *, driver_license: str = "") -> bool:

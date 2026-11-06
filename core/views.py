@@ -7286,6 +7286,14 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
             crm_period_label = f"from {quote_from:%b %d, %Y} onward"
         else:
             crm_period_label = f"up to {quote_to:%b %d, %Y}"
+    elif search_query or status_filter == "inactive" or request.GET.get("all_dates") == "1":
+        policies = all_policies
+        if search_query:
+            crm_period_label = f"matching '{search_query}' (all dates)"
+        elif status_filter == "inactive":
+            crm_period_label = "all inactive policies"
+        else:
+            crm_period_label = "all dates"
     else:
         policies = filter_policies_by_quote_period(all_policies, comp_start, comp_end)
         crm_period_label = f"in {comp_start:%b %d} – {comp_end:%b %d, %Y}"
@@ -7408,8 +7416,8 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
             pass
 
     # Global metrics calculations (unfiltered total stats)
-    active_policies = all_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="active")
-    inactive_policies = all_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="inactive")
+    active_policies = all_policies.filter(status="active")
+    inactive_policies = all_policies.filter(status="inactive")
 
     active_totals = active_policies.aggregate(
         total_premium=Sum("premium"),
@@ -7429,7 +7437,6 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
     if want("policies", "companies", "finance"):
         inactive_for_unearned = InsurancePolicy.objects.filter(
             organization=active_org,
-            stage__in=InsurancePolicy.BOUND_STAGES,
             status="inactive",
         ).only(
             "id",
@@ -8308,11 +8315,13 @@ def add_insurance_policy(request):
     policy_number = request.POST.get("policy_number", "").strip()
     premium = request.POST.get("premium", "0.00").strip()
     broker_fee = request.POST.get("broker_fee", "0.00").strip()
-    commission_rate = request.POST.get("commission_rate", "0.00").strip()
-    if not can_edit_commission:
-        commission_rate = "0.00"
+    commission_rate = request.POST.get("commission_rate", "").strip()
+    if not commission_rate or commission_rate in ("0", "0.00", "0.0"):
+        commission_rate = "15.00"
     stage = request.POST.get("stage", "quote")
     status = request.POST.get("status", "active")
+    if status == "inactive" and stage == "quote":
+        stage = "bound"
     insurance_type = request.POST.get("insurance_type", "")
     business_type = request.POST.get("business_type", "new_business")
     bound_date = request.POST.get("bound_date", "").strip()
@@ -8431,6 +8440,11 @@ def edit_insurance_policy(request, policy_id):
             policy.commission_rate = Decimal(raw_rate) if raw_rate else None
         policy.stage = request.POST.get("stage", "quote")
         policy.status = request.POST.get("status", "active")
+        if policy.status == "inactive" and policy.stage == "quote":
+            policy.stage = "bound"
+        if policy.commission_rate is None or policy.commission_rate <= Decimal("0.00"):
+            if policy.premium and policy.premium > Decimal("0.00"):
+                policy.commission_rate = Decimal("15.00")
         policy.insurance_type = request.POST.get("insurance_type", "")
         policy.source = source
         policy.business_type = request.POST.get("business_type", "new_business")

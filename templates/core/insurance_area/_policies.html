@@ -157,7 +157,14 @@
       <div class="ipc-head">
         <div>
           <h3 class="ins-section-title" style="margin-bottom: 0.2rem;">Client Insurance Policies</h3>
-          <p class="ipc-head__sub">Showing quote dates {{ crm_period_label }}</p>
+          <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+            <p class="ipc-head__sub" style="margin: 0;">Showing {{ crm_period_label }}</p>
+            <div style="display: inline-flex; align-items: center; gap: 4px;">
+              <a href="?comp_month_offset={{ comp_month_offset|default:0|add:'-1' }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}" style="padding: 2px 8px; background: #e2e8f0; border-radius: 4px; text-decoration: none; color: #1e293b; font-weight: 700; font-size: 0.78rem;" title="Previous Month">‹ Prev Month</a>
+              <a href="?comp_month_offset={{ comp_month_offset|default:0|add:'1' }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}" style="padding: 2px 8px; background: #e2e8f0; border-radius: 4px; text-decoration: none; color: #1e293b; font-weight: 700; font-size: 0.78rem;" title="Next Month">Next Month ›</a>
+              <a href="?all_dates=1{% if status_filter %}&status={{ status_filter }}{% endif %}{% if stage_filter %}&stage={{ stage_filter }}{% endif %}" style="padding: 2px 8px; background: {% if request.GET.all_dates == '1' %}#0f172a; color:#fff{% else %}#f1f5f9; color:#475569{% endif %}; border: 1px solid #cbd5e1; border-radius: 4px; text-decoration: none; font-weight: 700; font-size: 0.75rem;" title="Show All Dates">All Dates</a>
+            </div>
+          </div>
         </div>
         <div class="ipc-head__actions">
           <button type="button" onclick="openAddPolicyModal()" class="ipc-btn ipc-btn--primary">+ Add Policy</button>

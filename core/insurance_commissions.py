@@ -80,6 +80,8 @@ def calculate_unearned_commission(
     inactive_date,
     *,
     insurance_period_months=6,
+    premium=None,
+    commission_rate=None,
 ):
     """
     Return commission that must be paid back after cancellation.
@@ -89,18 +91,31 @@ def calculate_unearned_commission(
     policy term is unearned.
     """
     commission_amount = Decimal(str(commission_amount or "0"))
-    if commission_amount <= 0 or not inactive_date:
+    if commission_amount <= 0:
+        if premium and Decimal(str(premium)) > 0:
+            rate = Decimal(str(commission_rate)) if (commission_rate and Decimal(str(commission_rate)) > 0) else Decimal("15.00")
+            commission_amount = Decimal(str(premium)) * (rate / Decimal("100.00"))
+        else:
+            return Decimal("0.00")
+
+    if not inactive_date:
         return Decimal("0.00")
 
     if start_date and end_date:
-        if inactive_date >= end_date:
-            return Decimal("0.00")
         if inactive_date <= start_date:
             return _money(commission_amount)
 
         policy_term_days = (end_date - start_date).days
-        if policy_term_days <= 0:
-            return _money(commission_amount)
+        if policy_term_days < 45 and insurance_period_months and int(insurance_period_months) >= 1:
+            total_term_days = int(insurance_period_months) * 30
+            elapsed_days = max(0, (inactive_date - start_date).days)
+            remaining_days = max(0, total_term_days - elapsed_days)
+            if remaining_days <= 0:
+                return Decimal("0.00")
+            return _money(commission_amount * Decimal(remaining_days) / Decimal(total_term_days))
+
+        if inactive_date >= end_date:
+            return Decimal("0.00")
 
         remaining_days = (end_date - inactive_date).days
         if remaining_days <= 0:
@@ -116,7 +131,7 @@ def calculate_unearned_commission(
 
 def policy_unearned_commission(policy):
     """Fresh unearned amount for display; does not rely on stored DB value."""
-    if getattr(policy, "stage", None) not in InsurancePolicy.BOUND_STAGES or getattr(policy, "status", None) != "inactive":
+    if getattr(policy, "status", None) != "inactive":
         return Decimal("0.00")
     return calculate_unearned_commission(
         policy.commission_amount,
@@ -124,6 +139,8 @@ def policy_unearned_commission(policy):
         policy.end_date,
         policy.inactive_date,
         insurance_period_months=getattr(policy, "insurance_period_months", 6),
+        premium=getattr(policy, "premium", Decimal("0.00")),
+        commission_rate=getattr(policy, "commission_rate", None),
     )
 
 

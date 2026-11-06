@@ -162,7 +162,7 @@
         <input type="text" name="client_name" id="policyClientName" required class="field-input" list="clientList" placeholder="e.g. John Doe">
         <datalist id="clientList">
           {% for c in clients %}
-            <option value="{{ c.name }}"></option>
+            <option value="{{ c.full_display_name|default:c.name }}"></option>
           {% endfor %}
         </datalist>
       </div>

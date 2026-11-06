@@ -89,9 +89,11 @@ def previous_insurance_period_bounds(
 
 
 def filter_policies_by_quote_period(policy_qs, start, end):
-    """Policies active in a period: bound on bound_date, open quotes on created date."""
+    """Policies active in a period: bound on bound_date, effective on start_date, cancelled on inactive_date, or open quotes."""
     return policy_qs.filter(
         Q(bound_date__gte=start, bound_date__lte=end)
+        | Q(start_date__gte=start, start_date__lte=end)
+        | Q(inactive_date__gte=start, inactive_date__lte=end)
         | Q(
             bound_date__isnull=True,
             created_at__date__gte=start,
@@ -102,15 +104,29 @@ def filter_policies_by_quote_period(policy_qs, start, end):
 
 def filter_policies_by_quote_dates(policy_qs, start=None, end=None):
     """Like ``filter_policies_by_quote_period`` but either bound may be open."""
-    bound = Q(bound_date__isnull=False)
-    unbound = Q(bound_date__isnull=True)
-    if start:
-        bound &= Q(bound_date__gte=start)
-        unbound &= Q(created_at__date__gte=start)
-    if end:
-        bound &= Q(bound_date__lte=end)
-        unbound &= Q(created_at__date__lte=end)
-    return policy_qs.filter(bound | unbound)
+    date_q = Q()
+    if start and end:
+        date_q = (
+            Q(bound_date__gte=start, bound_date__lte=end)
+            | Q(start_date__gte=start, start_date__lte=end)
+            | Q(inactive_date__gte=start, inactive_date__lte=end)
+            | Q(bound_date__isnull=True, created_at__date__gte=start, created_at__date__lte=end)
+        )
+    elif start:
+        date_q = (
+            Q(bound_date__gte=start)
+            | Q(start_date__gte=start)
+            | Q(inactive_date__gte=start)
+            | Q(bound_date__isnull=True, created_at__date__gte=start)
+        )
+    elif end:
+        date_q = (
+            Q(bound_date__lte=end)
+            | Q(start_date__lte=end)
+            | Q(inactive_date__lte=end)
+            | Q(bound_date__isnull=True, created_at__date__lte=end)
+        )
+    return policy_qs.filter(date_q)
 
 
 def filter_policies_by_search(policy_qs, query: str):
@@ -203,7 +219,7 @@ def build_adjusted_unearned_for_org(insurance_companies, inactive_policies_qs):
 
 def decorate_policies(policies, adjusted_unearned_map):
     for policy in policies:
-        if policy.stage in InsurancePolicy.BOUND_STAGES and policy.status == "inactive":
+        if policy.status == "inactive":
             policy.unearned_commission = adjusted_unearned_map.get(
                 policy.id, policy_unearned_commission(policy)
             )
