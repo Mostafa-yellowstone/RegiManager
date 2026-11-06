@@ -857,6 +857,9 @@
                     <a href="{% url 'ezpass-receipt-pdf' t.id %}" target="_blank" style="padding: 4px 8px; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; border-radius: 6px; font-weight: 700; font-size: 0.75rem; text-decoration: none;">
                       PDF
                     </a>
+                    <button type="button" onclick="editTagReceipt({{ t.id }})" style="padding: 4px 8px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: 700; font-size: 0.75rem; cursor: pointer; color: #1e293b;" title="Edit Transponder & Receipt Details">
+                      ✏️ Edit
+                    </button>
                     {% endif %}
 
                     <button type="button" onclick="openStatusModal('{{ t.id }}', '{{ t.tag_number|escapejs }}', '{{ t.status }}')" style="padding: 4px 7px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.75rem; cursor: pointer;" title="Change Status">
@@ -1009,10 +1012,18 @@
               <td>{{ inv.get_payment_method_display }}</td>
               <td style="font-weight: 900; color: #0f172a;">${{ inv.total|floatformat:2 }}</td>
               <td>
-                <div style="display: flex; gap: 0.4rem;">
+                <div style="display: flex; gap: 0.4rem; align-items: center;">
                   <a href="{% url 'inventory-invoice-pdf' inv.id %}" target="_blank" style="padding: 4px 8px; background: #eff6ff; color: #1d4ed8; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-decoration: none;">
                     Standard PDF
                   </a>
+                  {% if inv.ezpass_tags.first %}
+                  <a href="{% url 'ezpass-receipt-view' inv.ezpass_tags.first.id %}" target="_blank" style="padding: 4px 8px; background: #f0fdf4; color: #065f46; border: 1px solid #a7f3d0; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-decoration: none;" title="Print/View E-ZPass Service Receipt">
+                    🧾 Receipt
+                  </a>
+                  {% endif %}
+                  <button type="button" onclick="editReceipt({{ inv.id }})" style="padding: 4px 8px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; color: #1e293b;" title="Edit Receipt & Transponder Record">
+                    ✏️ Edit
+                  </button>
                   {% if is_owner or is_manager or membership.role == 'manager' %}
                   <a href="{% url 'delete-inventory-invoice' inv.id %}" onclick="return confirm('Delete invoice {{ inv.invoice_number }}?')" style="color: #dc2626; font-size: 0.75rem; font-weight: 700; text-decoration: none; padding: 4px 6px;" title="Delete Invoice">
                     Del
@@ -1555,6 +1566,112 @@
   </div>
 </div>
 
+<!-- Edit Receipt / Invoice Modal -->
+<div class="ez-modal-overlay" id="editReceiptModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="ez-modal-box" style="max-width: 640px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <div>
+        <h3 style="margin: 0; font-weight: 800; color: #0f172a;" id="editReceiptModalTitle">Edit Customer Receipt</h3>
+        <p style="margin: 0.25rem 0 0; font-size: 0.82rem; color: #64748b;">Updates invoice record and syncs automatically with the Transponder Tracker.</p>
+      </div>
+      <button type="button" onclick="document.getElementById('editReceiptModal').classList.remove('active')" style="background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #64748b; line-height: 1;">&times;</button>
+    </div>
+    <form id="editReceiptForm" method="POST" action="">
+      {% csrf_token %}
+      
+      <!-- Tag / Invoice Notice Badge -->
+      <div id="editReceiptBadge" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; border-radius: 8px; padding: 6px 12px; font-size: 0.8rem; font-weight: 700; margin-bottom: 1rem; display: flex; justify-content: space-between;">
+        <span id="editReceiptInvNumber">Invoice</span>
+        <span id="editReceiptTagNumber">Tag #</span>
+      </div>
+
+      <!-- Customer Contact -->
+      <div class="grid-2" style="margin-bottom: 0.85rem;">
+        <div>
+          <label class="field-label">Customer Name <span style="color:#ef4444;">*</span></label>
+          <input type="text" name="customer_name" id="editRcptCustName" required class="field-input">
+        </div>
+        <div>
+          <label class="field-label">Phone Number</label>
+          <input type="text" name="customer_phone" id="editRcptCustPhone" class="field-input">
+        </div>
+      </div>
+      <div class="grid-2" style="margin-bottom: 0.85rem;">
+        <div>
+          <label class="field-label">Email Address</label>
+          <input type="email" name="customer_email" id="editRcptCustEmail" class="field-input">
+        </div>
+        <div>
+          <label class="field-label">Address</label>
+          <input type="text" name="customer_address" id="editRcptCustAddress" class="field-input">
+        </div>
+      </div>
+
+      <!-- Vehicle & Plate -->
+      <div class="grid-2" style="margin-bottom: 0.85rem;">
+        <div>
+          <label class="field-label">License Plate #</label>
+          <input type="text" name="plate_number" id="editRcptPlateNum" class="field-input" style="text-transform:uppercase;">
+        </div>
+        <div>
+          <label class="field-label">Plate State</label>
+          <input type="text" name="plate_state" id="editRcptPlateState" value="NY" class="field-input" style="text-transform:uppercase;">
+        </div>
+      </div>
+      <div class="grid-3" style="margin-bottom: 0.85rem;">
+        <div>
+          <label class="field-label">Year</label>
+          <input type="text" name="vehicle_year" id="editRcptVehYear" class="field-input" placeholder="e.g. 2022">
+        </div>
+        <div>
+          <label class="field-label">Make</label>
+          <input type="text" name="vehicle_make" id="editRcptVehMake" class="field-input" placeholder="e.g. Toyota">
+        </div>
+        <div>
+          <label class="field-label">Model</label>
+          <input type="text" name="vehicle_model" id="editRcptVehModel" class="field-input" placeholder="e.g. Camry">
+        </div>
+      </div>
+      <div style="margin-bottom: 0.85rem;">
+        <label class="field-label">VIN (Vehicle Identification Number)</label>
+        <input type="text" name="vehicle_vin" id="editRcptVehVin" class="field-input" style="text-transform:uppercase;">
+      </div>
+
+      <!-- Financials & Payment -->
+      <div class="grid-3" style="margin-bottom: 0.85rem;">
+        <div>
+          <label class="field-label">Amount ($) <span style="color:#ef4444;">*</span></label>
+          <input type="number" step="0.01" min="0" name="amount" id="editRcptAmount" required class="field-input">
+        </div>
+        <div>
+          <label class="field-label">Receipt Date <span style="color:#ef4444;">*</span></label>
+          <input type="date" name="invoice_date" id="editRcptDate" required class="field-input">
+        </div>
+        <div>
+          <label class="field-label">Payment Method</label>
+          <select name="payment_method" id="editRcptPayment" class="field-input">
+            <option value="cash">Cash</option>
+            <option value="card">Credit / Debit Card</option>
+            <option value="check">Check</option>
+            <option value="zelle">Zelle / Transfer</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 1.25rem;">
+        <label class="field-label">Notes</label>
+        <textarea name="notes" id="editRcptNotes" rows="2" class="field-input" style="height: auto; resize: vertical;"></textarea>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button type="button" onclick="document.getElementById('editReceiptModal').classList.remove('active')" style="padding: 8px 16px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 700; cursor: pointer;">Cancel</button>
+        <button type="submit" id="btnSaveReceipt" class="btn-ez-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
 // Tab Switching
 function switchEzTab(tab, btn) {
@@ -1760,6 +1877,102 @@ function editProduct(id) {
       alert('Unable to load product details for editing.');
     });
 }
+
+
+function editReceipt(invoiceId) {
+  const url = '{% url "edit-inventory-invoice" 0 %}'.replace('/0/', '/' + invoiceId + '/');
+  fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(r => r.json())
+    .then(d => {
+      populateReceiptModal(d, url);
+    })
+    .catch(err => {
+      console.error(err);
+      alert('Unable to load receipt details.');
+    });
+}
+
+function editTagReceipt(tagId) {
+  const url = '{% url "edit-ezpass-tag-receipt" 0 %}'.replace('/0/', '/' + tagId + '/');
+  fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(r => r.json())
+    .then(d => {
+      populateReceiptModal(d, url);
+    })
+    .catch(err => {
+      console.error(err);
+      alert('Unable to load transponder receipt details.');
+    });
+}
+
+function populateReceiptModal(d, actionUrl) {
+  const form = document.getElementById('editReceiptForm');
+  form.action = actionUrl;
+  document.getElementById('editReceiptInvNumber').textContent = d.invoice_number ? ('Invoice: ' + d.invoice_number) : 'E-ZPass Receipt';
+  document.getElementById('editReceiptTagNumber').textContent = d.tag_number ? ('Tag #' + d.tag_number) : '';
+  document.getElementById('editRcptCustName').value = d.customer_name || '';
+  document.getElementById('editRcptCustPhone').value = d.customer_phone || '';
+  document.getElementById('editRcptCustEmail').value = d.customer_email || '';
+  document.getElementById('editRcptCustAddress').value = d.customer_address || '';
+  document.getElementById('editRcptPlateNum').value = d.plate_number || '';
+  document.getElementById('editRcptPlateState').value = d.plate_state || 'NY';
+  document.getElementById('editRcptVehYear').value = d.vehicle_year || '';
+  document.getElementById('editRcptVehMake').value = d.vehicle_make || '';
+  document.getElementById('editRcptVehModel').value = d.vehicle_model || '';
+  document.getElementById('editRcptVehVin').value = d.vehicle_vin || '';
+  document.getElementById('editRcptAmount').value = d.amount || '25.00';
+  document.getElementById('editRcptDate').value = d.date || '';
+  document.getElementById('editRcptPayment').value = d.payment_method || 'cash';
+  document.getElementById('editRcptNotes').value = d.notes || '';
+  document.getElementById('editReceiptModal').classList.add('active');
+}
+
+// Receipt Form AJAX submission
+document.addEventListener('DOMContentLoaded', () => {
+  const rcptForm = document.getElementById('editReceiptForm');
+  if (rcptForm) {
+    rcptForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const form = this;
+      const btn = document.getElementById('btnSaveReceipt');
+      if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+      const csrfEl = form.querySelector('[name=csrfmiddlewaretoken]');
+      const csrfToken = csrfEl ? csrfEl.value : '{{ csrf_token }}';
+      const formData = new FormData(form);
+
+      fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': csrfToken
+        },
+        body: formData
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.status === 'success') {
+          if (window.Swal) {
+            Swal.fire({
+              icon: 'success',
+              title: 'Receipt Updated!',
+              text: d.message || 'Updated successfully.',
+              timer: 1500,
+              showConfirmButton: false
+            }).then(() => window.location.reload());
+          } else {
+            window.location.reload();
+          }
+        } else {
+          if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
+          alert(d.message || 'Error saving receipt.');
+        }
+      })
+      .catch(err => {
+        window.location.reload();
+      });
+    });
+  }
+});
 
 // Auto open tab from URL parameter if present
 document.addEventListener('DOMContentLoaded', () => {

@@ -750,3 +750,288 @@ def export_ezpass_csv(request, space_id):
         ])
 
     return response
+
+
+@login_required
+def edit_inventory_invoice(request, invoice_id):
+    """
+    GET: Returns JSON details of an invoice and its linked E-ZPass tag.
+    POST: Updates customer, vehicle, plate, date, payment, amount, and notes
+          on BOTH the InventoryInvoice AND the linked EZPassTag so changes
+          reflect instantly in the Transponder Tracker and on the receipt.
+    """
+    organizations = _get_user_organizations(request)
+    invoice = get_object_or_404(
+        InventoryInvoice.objects.select_related("space", "buyer"),
+        id=invoice_id,
+        organization__in=organizations,
+    )
+    space = invoice.space
+    tag = invoice.ezpass_tags.first()
+
+    if request.method == "GET":
+        return JsonResponse({
+            "status": "success",
+            "invoice_id": invoice.id,
+            "invoice_number": invoice.invoice_number,
+            "customer_name": tag.customer_name if (tag and tag.customer_name) else invoice.buyer_name,
+            "customer_phone": tag.customer_phone if (tag and tag.customer_phone) else invoice.buyer_phone,
+            "customer_email": tag.customer_email if (tag and tag.customer_email) else invoice.buyer_email,
+            "customer_address": tag.customer_address if (tag and tag.customer_address) else invoice.buyer_address,
+            "plate_number": tag.plate_number if tag else "",
+            "plate_state": tag.plate_state if tag else "NY",
+            "vehicle_year": tag.vehicle_year if tag else "",
+            "vehicle_make": tag.vehicle_make if tag else "",
+            "vehicle_model": tag.vehicle_model if tag else "",
+            "vehicle_vin": tag.vehicle_vin if tag else "",
+            "payment_method": invoice.payment_method or (tag.payment_method if tag else "cash"),
+            "amount": str(tag.toll_deposit if (tag and tag.toll_deposit) else invoice.total),
+            "date": invoice.invoice_date.strftime("%Y-%m-%d") if invoice.invoice_date else timezone.localdate().strftime("%Y-%m-%d"),
+            "tag_id": tag.id if tag else None,
+            "tag_number": tag.tag_number if tag else "",
+            "notes": tag.notes if (tag and tag.notes) else invoice.notes,
+        })
+
+    is_json = request.content_type == "application/json"
+    if is_json:
+        try:
+            data = json.loads(request.body.decode("utf-8") or "{}")
+        except Exception:
+            data = {}
+    else:
+        data = request.POST
+
+    customer_name = (data.get("customer_name") or data.get("buyer_name") or "").strip()
+    if not customer_name:
+        if request.headers.get("x-requested-with") == "XMLHttpRequest" or is_json:
+            return JsonResponse({"status": "error", "message": "Customer name is required."}, status=400)
+        messages.error(request, "Customer name is required.")
+        return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=invoices")
+
+    customer_phone = (data.get("customer_phone") or data.get("buyer_phone") or "").strip()
+    customer_email = (data.get("customer_email") or data.get("buyer_email") or "").strip()
+    customer_address = (data.get("customer_address") or data.get("buyer_address") or "").strip()
+    plate_number = (data.get("plate_number") or "").strip().upper()
+    plate_state = (data.get("plate_state") or "NY").strip().upper() or "NY"
+    vehicle_year = (data.get("vehicle_year") or "").strip()
+    vehicle_make = (data.get("vehicle_make") or "").strip()
+    vehicle_model = (data.get("vehicle_model") or "").strip()
+    vehicle_vin = (data.get("vehicle_vin") or "").strip().upper()
+    payment_method = (data.get("payment_method") or "cash").strip().lower()
+    notes = (data.get("notes") or "").strip()
+
+    amount_raw = data.get("amount") or data.get("total") or "25.00"
+    try:
+        amount = Decimal(str(amount_raw).replace("$", "").replace(",", "").strip())
+        if amount < Decimal("0"):
+            amount = Decimal("0.00")
+    except Exception:
+        amount = Decimal("25.00")
+
+    date_raw = data.get("invoice_date") or data.get("date")
+    if date_raw:
+        try:
+            parsed_date = timezone.datetime.strptime(str(date_raw).strip(), "%Y-%m-%d").date()
+        except Exception:
+            parsed_date = timezone.localdate()
+    else:
+        parsed_date = timezone.localdate()
+
+    with transaction.atomic():
+        # 1. Update Invoice
+        invoice.buyer_name = customer_name
+        invoice.buyer_phone = customer_phone
+        invoice.buyer_email = customer_email
+        invoice.buyer_address = customer_address
+        invoice.invoice_date = parsed_date
+        invoice.payment_method = payment_method
+        invoice.subtotal = amount
+        invoice.total = amount
+        if notes:
+            invoice.notes = notes
+        invoice.save()
+
+        # Update Buyer contact if present
+        if invoice.buyer:
+            invoice.buyer.name = customer_name
+            if customer_phone:
+                invoice.buyer.phone = customer_phone
+            if customer_email:
+                invoice.buyer.email = customer_email
+            if customer_address:
+                invoice.buyer.address = customer_address
+            invoice.buyer.save()
+
+        # Update or create invoice line
+        line = invoice.lines.first()
+        tag_num_str = f" #{tag.tag_number}" if tag else ""
+        desc_plate = f" - Plate: {plate_state} {plate_number}" if plate_number else ""
+        desc_line = f"E-ZPass Transponder{tag_num_str}{desc_plate}".strip()
+        if line:
+            line.description = desc_line
+            line.unit_price = amount
+            line.line_total = amount
+            line.save()
+        else:
+            InventoryInvoiceLine.objects.create(
+                invoice=invoice,
+                description=desc_line,
+                quantity=1,
+                unit_price=amount,
+                line_total=amount,
+            )
+
+        # 2. Update linked EZPassTag so changes reflect in Transponder Tracker
+        if tag:
+            tag.customer_name = customer_name
+            tag.customer_phone = customer_phone
+            tag.customer_email = customer_email
+            tag.customer_address = customer_address
+            tag.plate_number = plate_number
+            tag.plate_state = plate_state
+            tag.vehicle_year = vehicle_year
+            tag.vehicle_make = vehicle_make
+            tag.vehicle_model = vehicle_model
+            tag.vehicle_vin = vehicle_vin
+            tag.payment_method = payment_method
+            tag.retail_price = amount
+            tag.toll_deposit = amount
+            if notes:
+                tag.notes = notes
+            if tag.assigned_at:
+                try:
+                    tag.assigned_at = tag.assigned_at.replace(
+                        year=parsed_date.year, month=parsed_date.month, day=parsed_date.day
+                    )
+                except Exception:
+                    pass
+            else:
+                tag.assigned_at = timezone.now()
+            tag.save()
+
+    messages.success(request, f"Receipt & Transponder record for '{customer_name}' updated successfully.")
+
+    if request.headers.get("x-requested-with") == "XMLHttpRequest" or is_json:
+        return JsonResponse({
+            "status": "success",
+            "message": f"Receipt & Transponder record for '{customer_name}' updated successfully.",
+            "invoice_id": invoice.id,
+            "tag_id": tag.id if tag else None,
+        })
+
+    return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=invoices")
+
+
+@login_required
+def edit_ezpass_tag_receipt(request, tag_id):
+    """
+    Edits a receipt and customer assignment directly from the Transponder Tracker row.
+    """
+    tag = _owned_ezpass_tag(request, tag_id)
+    if tag.invoice:
+        return edit_inventory_invoice(request, tag.invoice.id)
+
+    space = tag.space
+    if request.method == "GET":
+        return JsonResponse({
+            "status": "success",
+            "invoice_id": None,
+            "invoice_number": f"EZP-{tag.id:06d}",
+            "customer_name": tag.customer_name,
+            "customer_phone": tag.customer_phone,
+            "customer_email": tag.customer_email,
+            "customer_address": tag.customer_address,
+            "plate_number": tag.plate_number,
+            "plate_state": tag.plate_state or "NY",
+            "vehicle_year": tag.vehicle_year,
+            "vehicle_make": tag.vehicle_make,
+            "vehicle_model": tag.vehicle_model,
+            "vehicle_vin": tag.vehicle_vin,
+            "payment_method": tag.payment_method or "cash",
+            "amount": str(tag.toll_deposit or tag.retail_price or "25.00"),
+            "date": tag.assigned_at.strftime("%Y-%m-%d") if tag.assigned_at else timezone.localdate().strftime("%Y-%m-%d"),
+            "tag_id": tag.id,
+            "tag_number": tag.tag_number,
+            "notes": tag.notes,
+        })
+
+    is_json = request.content_type == "application/json"
+    if is_json:
+        try:
+            data = json.loads(request.body.decode("utf-8") or "{}")
+        except Exception:
+            data = {}
+    else:
+        data = request.POST
+
+    customer_name = (data.get("customer_name") or "").strip()
+    if not customer_name:
+        if request.headers.get("x-requested-with") == "XMLHttpRequest" or is_json:
+            return JsonResponse({"status": "error", "message": "Customer name is required."}, status=400)
+        messages.error(request, "Customer name is required.")
+        return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=tags")
+
+    customer_phone = (data.get("customer_phone") or "").strip()
+    customer_email = (data.get("customer_email") or "").strip()
+    customer_address = (data.get("customer_address") or "").strip()
+    plate_number = (data.get("plate_number") or "").strip().upper()
+    plate_state = (data.get("plate_state") or "NY").strip().upper() or "NY"
+    vehicle_year = (data.get("vehicle_year") or "").strip()
+    vehicle_make = (data.get("vehicle_make") or "").strip()
+    vehicle_model = (data.get("vehicle_model") or "").strip()
+    vehicle_vin = (data.get("vehicle_vin") or "").strip().upper()
+    payment_method = (data.get("payment_method") or "cash").strip().lower()
+    notes = (data.get("notes") or "").strip()
+
+    amount_raw = data.get("amount") or "25.00"
+    try:
+        amount = Decimal(str(amount_raw).replace("$", "").replace(",", "").strip())
+    except Exception:
+        amount = Decimal("25.00")
+
+    date_raw = data.get("invoice_date") or data.get("date")
+    if date_raw:
+        try:
+            parsed_date = timezone.datetime.strptime(str(date_raw).strip(), "%Y-%m-%d").date()
+        except Exception:
+            parsed_date = timezone.localdate()
+    else:
+        parsed_date = timezone.localdate()
+
+    with transaction.atomic():
+        tag.customer_name = customer_name
+        tag.customer_phone = customer_phone
+        tag.customer_email = customer_email
+        tag.customer_address = customer_address
+        tag.plate_number = plate_number
+        tag.plate_state = plate_state
+        tag.vehicle_year = vehicle_year
+        tag.vehicle_make = vehicle_make
+        tag.vehicle_model = vehicle_model
+        tag.vehicle_vin = vehicle_vin
+        tag.payment_method = payment_method
+        tag.retail_price = amount
+        tag.toll_deposit = amount
+        if notes:
+            tag.notes = notes
+        if tag.assigned_at:
+            try:
+                tag.assigned_at = tag.assigned_at.replace(
+                    year=parsed_date.year, month=parsed_date.month, day=parsed_date.day
+                )
+            except Exception:
+                pass
+        else:
+            tag.assigned_at = timezone.now()
+        tag.save()
+
+    messages.success(request, f"Transponder record for '{customer_name}' updated successfully.")
+
+    if request.headers.get("x-requested-with") == "XMLHttpRequest" or is_json:
+        return JsonResponse({
+            "status": "success",
+            "message": f"Transponder record for '{customer_name}' updated successfully.",
+            "tag_id": tag.id,
+        })
+
+    return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=tags")
