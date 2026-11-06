@@ -521,17 +521,9 @@
               <div class="svc-tag-detail">Plate: {{ tag.plate_state }} {{ tag.plate_number }}{% if tag.vehicle_make %} &middot; {{ tag.vehicle_year }} {{ tag.vehicle_make }} {{ tag.vehicle_model }}{% endif %}</div>
               {% endif %}
             </div>
-            {% if tag.convenience_fee %}
-            <div class="svc-item" style="margin-top:.5rem;">
-              Authorized Retailer Processing &amp; Convenience Fee
-            </div>
-            {% endif %}
           </div>
           <div class="svc-amt-col">
             <div class="svc-amount">${{ tag.toll_deposit|floatformat:2 }}</div>
-            {% if tag.convenience_fee %}
-            <div class="svc-amount" style="margin-top:.5rem;">${{ tag.convenience_fee|floatformat:2 }}</div>
-            {% endif %}
           </div>
         </div>
 
@@ -539,7 +531,7 @@
         <div class="svc-total-row">
           <div class="svc-total-label">Total</div>
           <div class="svc-total-sep"></div>
-          <div class="svc-total-val">${{ tag.retail_price|floatformat:2 }}</div>
+          <div class="svc-total-val">${{ tag.toll_deposit|floatformat:2 }}</div>
         </div>
 
       </div><!-- /mid-right -->

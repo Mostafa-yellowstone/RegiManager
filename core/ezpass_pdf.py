@@ -122,8 +122,8 @@ def render_ezpass_receipt_pdf(pdf: Canvas, tag):
     inv_num = tag.invoice.invoice_number if tag.invoice else f"EZP-{tag.id:06d}"
     date_str = (tag.assigned_at.strftime("%b %d, %Y") if tag.assigned_at
                 else timezone.now().strftime("%b %d, %Y"))
-    total = tag.retail_price or Decimal("0.00")
     toll  = tag.toll_deposit  or Decimal("0.00")
+    total = toll
     fee   = tag.convenience_fee or Decimal("0.00")
 
     cur_y = PAGE_H  # top of page
@@ -254,12 +254,7 @@ def render_ezpass_receipt_pdf(pdf: Canvas, tag):
     pdf.setFillColor(DARK_GREY)
     pdf.drawRightString(PAGE_W - M_R - 6, svc_y, f"${toll:.2f}")
 
-    if fee:
-        svc_y2 = svc_y - 30
-        pdf.setFont("Helvetica", 8.5)
-        pdf.setFillColor(DARK_GREY)
-        pdf.drawString(desc_x, svc_y2, "Authorized Retailer Processing & Convenience Fee")
-        pdf.drawRightString(PAGE_W - M_R - 6, svc_y2, f"${fee:.2f}")
+    # Convenience fee row removed from receipt
 
     # ── Thin line above Total ─────────────────────────────────
     total_line_y = mid_bot_y + 0.42 * inch
