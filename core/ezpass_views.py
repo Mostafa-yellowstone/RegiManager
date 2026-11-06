@@ -52,29 +52,26 @@ def _owned_ezpass_tag(request, tag_id):
     return tag
 
 
-def _ensure_ezpass_products_in_sync(space):
+def _ensure_ezpass_products_in_sync(space, create_if_empty=False):
     """
-    Ensures that standard E-ZPass products exist in InventoryProduct
-    and their quantities reflect current in-stock EZPassTag records.
+    Ensures that standard E-ZPass products reflect current in-stock EZPassTag records.
+    Only seeds initial products if create_if_empty=True and no products exist at all.
+    Never resurrects products that the user has explicitly deleted.
     """
     has_tags = EZPassTag.objects.filter(space=space).exists()
     if not has_tags:
         return
 
-    interior_count = EZPassTag.objects.filter(
-        space=space, tag_type=EZPassTag.TagType.INTERIOR, status=EZPassTag.Status.IN_STOCK
-    ).count()
-    exterior_count = EZPassTag.objects.filter(
-        space=space, tag_type=EZPassTag.TagType.EXTERIOR, status=EZPassTag.Status.IN_STOCK
-    ).count()
+    # Only seed initial products if space has zero products and create_if_empty is True
+    if create_if_empty and not InventoryProduct.objects.filter(space=space).exists():
+        interior_count = EZPassTag.objects.filter(
+            space=space, tag_type=EZPassTag.TagType.INTERIOR, status=EZPassTag.Status.IN_STOCK
+        ).count()
+        exterior_count = EZPassTag.objects.filter(
+            space=space, tag_type=EZPassTag.TagType.EXTERIOR, status=EZPassTag.Status.IN_STOCK
+        ).count()
 
-    interior_prod = InventoryProduct.objects.filter(
-        organization=space.organization,
-        space=space,
-        name="Interior Tag",
-    ).first()
-    if not interior_prod:
-        interior_prod = InventoryProduct.objects.create(
+        InventoryProduct.objects.create(
             organization=space.organization,
             space=space,
             name="Interior Tag",
@@ -85,17 +82,7 @@ def _ensure_ezpass_products_in_sync(space):
             quantity=interior_count,
             low_stock_threshold=10,
         )
-    elif interior_prod.quantity != interior_count:
-        interior_prod.quantity = interior_count
-        interior_prod.save(update_fields=["quantity"])
-
-    exterior_prod = InventoryProduct.objects.filter(
-        organization=space.organization,
-        space=space,
-        name="Exterior Tag",
-    ).first()
-    if not exterior_prod:
-        exterior_prod = InventoryProduct.objects.create(
+        InventoryProduct.objects.create(
             organization=space.organization,
             space=space,
             name="Exterior Tag",
@@ -106,9 +93,34 @@ def _ensure_ezpass_products_in_sync(space):
             quantity=exterior_count,
             low_stock_threshold=5,
         )
-    elif exterior_prod.quantity != exterior_count:
-        exterior_prod.quantity = exterior_count
-        exterior_prod.save(update_fields=["quantity"])
+        return
+
+    # Otherwise, ONLY sync in-stock quantities for existing products
+    interior_prod = InventoryProduct.objects.filter(
+        organization=space.organization,
+        space=space,
+        name__icontains="Interior Tag",
+    ).first()
+    if interior_prod:
+        interior_count = EZPassTag.objects.filter(
+            space=space, tag_type=EZPassTag.TagType.INTERIOR, status=EZPassTag.Status.IN_STOCK
+        ).count()
+        if interior_prod.quantity != interior_count:
+            interior_prod.quantity = interior_count
+            interior_prod.save(update_fields=["quantity"])
+
+    exterior_prod = InventoryProduct.objects.filter(
+        organization=space.organization,
+        space=space,
+        name__icontains="Exterior Tag",
+    ).first()
+    if exterior_prod:
+        exterior_count = EZPassTag.objects.filter(
+            space=space, tag_type=EZPassTag.TagType.EXTERIOR, status=EZPassTag.Status.IN_STOCK
+        ).count()
+        if exterior_prod.quantity != exterior_count:
+            exterior_prod.quantity = exterior_count
+            exterior_prod.save(update_fields=["quantity"])
 
 
 def build_ezpass_space_context(request, card, is_owner, membership):
@@ -192,9 +204,23 @@ def build_ezpass_space_context(request, card, is_owner, membership):
             inv_context["stats"]["total_inventory_value"] = total_retail_stock_value
         inv_context["stats"]["low_stock_count"] = 1 if is_low_stock else 0
 
+    from .models import OrganizationMembership
+    is_manager = (
+        is_owner
+        or request.user.is_superuser
+        or bool(membership and membership.role in [
+            OrganizationMembership.Role.OWNER,
+            OrganizationMembership.Role.MANAGER
+        ])
+    )
+
     return {
         **inv_context,
         "is_ezpass_master": True,
+        "is_owner": is_owner,
+        "is_manager": is_manager,
+        "can_delete": is_manager,
+        "membership": membership,
         "tags": all_tags,
         "available_tags": in_stock_tags,
         "batches": batches,
@@ -495,7 +521,7 @@ def batch_intake_ezpass(request, space_id):
                 )
                 created_count += 1
 
-            _ensure_ezpass_products_in_sync(space)
+            _ensure_ezpass_products_in_sync(space, create_if_empty=True)
 
         doc_msg = f" with attached manifest '{doc_name}'" if doc_name else ""
         skip_msg = f" ({skipped_count} skipped because already registered)" if skipped_count else ""
@@ -551,7 +577,7 @@ def add_single_ezpass_tag(request, space_id):
             convenience_fee=convenience_fee,
             notes=request.POST.get("notes", "").strip(),
         )
-        _ensure_ezpass_products_in_sync(space)
+        _ensure_ezpass_products_in_sync(space, create_if_empty=True)
         messages.success(request, f"Tag #{tag_number} added to in-stock inventory.")
     except Exception as e:
         messages.error(request, f"Error adding tag: {e}")

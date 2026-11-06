@@ -299,6 +299,8 @@ def delete_inventory_product(request, product_id):
     name = product.name
     product.delete()
     messages.success(request, f"Product '{name}' deleted.")
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        return JsonResponse({"status": "success", "message": f"Product '{name}' deleted."})
     return redirect_back(request, f"/dashboard/inventory/{space.id}/?tab=products")
 
 

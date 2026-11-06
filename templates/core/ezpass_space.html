@@ -863,7 +863,7 @@
                       ⚙️
                     </button>
 
-                    {% if is_owner %}
+                    {% if is_owner or is_manager or membership.role == 'manager' %}
                     <a href="{% url 'delete-ezpass-tag' t.id %}" onclick="return confirm('Delete Tag #{{ t.tag_number }}?')" style="padding: 4px 6px; color: #ef4444; font-size: 0.75rem; font-weight: 700; text-decoration: none;" title="Delete">
                       🗑️
                     </a>
@@ -949,7 +949,7 @@
                   <button type="button" onclick="filterByBatch('{{ b.batch_number|escapejs }}')" style="padding: 4px 8px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
                     View Tags
                   </button>
-                  {% if is_owner %}
+                  {% if is_owner or is_manager or membership.role == 'manager' %}
                   <a href="{% url 'delete-ezpass-batch' b.id %}" onclick="return confirm('Delete batch record {{ b.batch_number }}? Tags will not be deleted.')" style="padding: 4px 6px; color: #ef4444; font-size: 0.75rem; font-weight: 700; text-decoration: none;">
                     Del
                   </a>
@@ -1013,8 +1013,8 @@
                   <a href="{% url 'inventory-invoice-pdf' inv.id %}" target="_blank" style="padding: 4px 8px; background: #eff6ff; color: #1d4ed8; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-decoration: none;">
                     Standard PDF
                   </a>
-                  {% if is_owner %}
-                  <a href="{% url 'delete-inventory-invoice' inv.id %}" onclick="return confirm('Delete invoice {{ inv.invoice_number }}?')" style="color: #dc2626; font-size: 0.75rem; font-weight: 700; text-decoration: none; padding: 4px 6px;">
+                  {% if is_owner or is_manager or membership.role == 'manager' %}
+                  <a href="{% url 'delete-inventory-invoice' inv.id %}" onclick="return confirm('Delete invoice {{ inv.invoice_number }}?')" style="color: #dc2626; font-size: 0.75rem; font-weight: 700; text-decoration: none; padding: 4px 6px;" title="Delete Invoice">
                     Del
                   </a>
                   {% endif %}
@@ -1674,18 +1674,46 @@ function filterTagsTable() {
 
 
 function deleteProduct(id, name) {
-  const doDel = () => {
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = '{% url "delete-inventory-product" 0 %}'.replace('/0/', '/' + id + '/');
-    const csrf = document.createElement('input');
-    csrf.type = 'hidden';
-    csrf.name = 'csrfmiddlewaretoken';
-    csrf.value = '{{ csrf_token }}';
-    form.appendChild(csrf);
-    document.body.appendChild(form);
-    form.submit();
-  };
+  const url = '{% url "delete-inventory-product" 0 %}'.replace('/0/', '/' + id + '/');
+
+  function getCsrf() {
+    const el = document.querySelector('[name=csrfmiddlewaretoken]');
+    return (el && el.value) ? el.value : '{{ csrf_token }}';
+  }
+
+  function doDel() {
+    const csrfToken = getCsrf();
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': csrfToken,
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(r => {
+      if (r.ok) {
+        window.location.reload();
+      } else {
+        submitFallbackForm();
+      }
+    })
+    .catch(() => {
+      submitFallbackForm();
+    });
+
+    function submitFallbackForm() {
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = url;
+      const csrf = document.createElement('input');
+      csrf.type = 'hidden';
+      csrf.name = 'csrfmiddlewaretoken';
+      csrf.value = csrfToken;
+      form.appendChild(csrf);
+      document.body.appendChild(form);
+      form.submit();
+    }
+  }
 
   if (window.Swal) {
     Swal.fire({
