@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, usePathname } from 'expo-router';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,10 +10,16 @@ import { Colors } from '@/lib/theme';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const pathname = usePathname();
+  const onHome =
+    !pathname.includes('sales') &&
+    !pathname.includes('insurance') &&
+    !pathname.includes('staff') &&
+    !pathname.includes('expenses');
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.cream, paddingTop: insets.top }}>
-      <DeskHeader />
+      {onHome ? null : <DeskHeader />}
       <PulseRequestBar />
       <View style={{ flex: 1 }}>
         <Tabs
@@ -28,11 +34,11 @@ export default function TabLayout() {
             sceneStyle: { backgroundColor: Colors.cream },
           }}
         >
-          <Tabs.Screen name="index" options={{ title: 'Today' }} />
-          <Tabs.Screen name="sales" options={{ title: 'Work' }} />
-          <Tabs.Screen name="expenses" options={{ title: 'Money' }} />
-          <Tabs.Screen name="staff" options={{ title: 'Team' }} />
-          <Tabs.Screen name="insurance" options={{ title: 'Insurance', href: null }} />
+          <Tabs.Screen name="index" options={{ title: 'Pulse' }} />
+          <Tabs.Screen name="sales" options={{ title: 'Sales' }} />
+          <Tabs.Screen name="insurance" options={{ title: 'Insurance' }} />
+          <Tabs.Screen name="staff" options={{ title: 'Staff' }} />
+          <Tabs.Screen name="expenses" options={{ title: 'Expenses' }} />
         </Tabs>
       </View>
     </View>

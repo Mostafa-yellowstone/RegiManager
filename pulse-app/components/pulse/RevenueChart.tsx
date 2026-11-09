@@ -7,6 +7,8 @@ import { Colors } from '@/lib/theme';
 
 type Props = {
   data: Array<{ timestamp: number; value: number }>;
+  title?: string;
+  caption?: string;
 };
 
 const WIDTH = 340;
@@ -14,7 +16,7 @@ const HEIGHT = 180;
 const PAD_X = 12;
 const PAD_Y = 16;
 
-export function RevenueChart({ data }: Props) {
+export function RevenueChart({ data, title = 'DMV profit', caption = 'Last 12 months' }: Props) {
   const { area, dots, yLabels, xLabels } = useMemo(() => {
     if (!data.length) {
       return {
@@ -79,9 +81,10 @@ export function RevenueChart({ data }: Props) {
       }}
     >
       <View className="mb-3 flex-row items-center justify-between">
-        <Text className="text-caption font-bold uppercase tracking-wide text-muted">
-          Over time
-        </Text>
+        <View>
+          <Text className="text-caption font-bold uppercase tracking-wide text-muted">{title}</Text>
+          <Text className="text-[11px] text-muted">{caption}</Text>
+        </View>
       </View>
 
       <View className="flex-row">

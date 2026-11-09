@@ -19,10 +19,10 @@ type Props = {
 };
 
 const LABELS: Record<TabKey, string> = {
-  today: 'Today',
-  work: 'Work',
-  money: 'Money',
-  team: 'Team',
+  today: 'Pulse',
+  work: 'Sales',
+  money: 'Expenses',
+  team: 'Staff',
   insurance: 'Insurance',
 };
 

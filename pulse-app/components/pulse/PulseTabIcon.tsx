@@ -18,8 +18,14 @@ export function PulseTabIcon({ name, focused, compact }: Props) {
   if (name === 'today') {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24">
-        <Circle cx="12" cy="12" r="8" fill="none" stroke={color} strokeWidth={2} />
-        <Path d="M12 8v4l3 2" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" />
+        <Path
+          d="M3 12h3l2-5 4 10 2-5h7"
+          fill="none"
+          stroke={color}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </Svg>
     );
   }

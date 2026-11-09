@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ConnectedDateRangeSelector } from '@/components/pulse/ConnectedDateRangeSelector';
 import { MetricCard } from '@/components/pulse/MetricCard';
@@ -23,7 +22,6 @@ function levelTone(level: 'critical' | 'warning' | 'info') {
 }
 
 export default function InsuranceScreen() {
-  const insets = useSafeAreaInsets();
   const { selectedOrg } = useAuth();
   const preset = useDateRangeStore((s) => s.preset);
   const customStart = useDateRangeStore((s) => s.customStart);
@@ -39,7 +37,7 @@ export default function InsuranceScreen() {
   const totals = data?.totals;
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.cream, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: Colors.cream }}>
       <ScrollView
         contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 16 }}
         refreshControl={
