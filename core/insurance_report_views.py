@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.text import slugify
 from django.views.decorators.http import require_GET
 
 from .access import organizations_for_user
@@ -17,6 +18,7 @@ from .insurance_report_pdf import (
     render_book_of_business_pdf,
     render_cashout_pdf,
     render_commission_production_pdf,
+    render_company_report_pdf,
     render_compliance_pdf,
     render_payment_receipt_pdf,
     render_quote_conversion_pdf,
@@ -26,7 +28,7 @@ from .insurance_report_pdf import (
 )
 from .insurance_permissions import membership_for_org
 from .insurance_targets_metrics import resolve_target_month
-from .models import DailyPaymentTransaction, OrganizationMembership
+from .models import DailyPaymentTransaction, InsuranceCompany, OrganizationMembership
 
 
 def _org(request, *, finance=False):
@@ -66,9 +68,10 @@ def _company_id(request):
     return int(raw) if raw.isdigit() else None
 
 
-def _pdf(content: bytes, filename: str) -> HttpResponse:
+def _pdf(content: bytes, filename: str, *, download: bool = False) -> HttpResponse:
     response = HttpResponse(content, content_type="application/pdf")
-    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    disposition = "attachment" if download else "inline"
+    response["Content-Disposition"] = f'{disposition}; filename="{filename}"'
     return response
 
 
@@ -169,6 +172,22 @@ def export_insurance_targets_pdf(request):
     year, month = resolve_target_month(request.GET.get("month") or "")
     pdf = render_targets_pdf(org, year=year, month=month, prepared_by=_prepared_by(request))
     return _pdf(pdf, f"targets-{year:04d}-{month:02d}.pdf")
+
+
+@login_required
+@require_GET
+def export_insurance_company_report_pdf(request):
+    org = _org(request, finance=True)
+    start, end = _range(request)
+    company_id = _company_id(request)
+    company = get_object_or_404(InsuranceCompany, id=company_id, organization=org) if company_id else None
+    pdf = render_company_report_pdf(
+        org, start=start, end=end, company=company, prepared_by=_prepared_by(request)
+    )
+    name = slugify(company.name) if company else "all-companies"
+    period = "-".join(d.isoformat() for d in (start, end) if d)
+    filename = f"company-report-{name or company.id}{'-' + period if period else ''}.pdf"
+    return _pdf(pdf, filename, download=request.GET.get("download") == "1")
 
 
 @login_required

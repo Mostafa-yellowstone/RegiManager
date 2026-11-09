@@ -2019,7 +2019,7 @@ def start_process(request, vehicle_id):
 def get_latest_news(request):
     from .site_news import unread_news_for_user
 
-    organizations = organizations_for_user(request)
+    organizations = _get_user_organizations(request)
     news = unread_news_for_user(request.user, organizations).first()
     if news:
         return JsonResponse({

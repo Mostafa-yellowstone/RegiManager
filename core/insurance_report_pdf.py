@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 from django.utils import timezone
 from reportlab.lib import colors
@@ -1592,6 +1593,115 @@ def render_commission_production_pdf(org, *, start=None, end=None, prepared_by="
         org,
         title="Commission production",
         subtitle="Policy-level premiums and commissions for the selected effective-date range.",
+        period=period_label(start, end),
+        prepared_by=prepared_by,
+        flowables=flow,
+    )
+
+
+def company_report_policies(org, *, start=None, end=None, company_id=None):
+    """Bound policies in the period (by bound date, else start date), oldest first."""
+    policies = []
+    qs = _policies(org).filter(stage__in=InsurancePolicy.BOUND_STAGES)
+    if company_id:
+        qs = qs.filter(insurance_company_id=company_id)
+    for p in qs:
+        day = p.bound_date or p.start_date
+        if start and (day is None or day < start):
+            continue
+        if end and (day is None or day > end):
+            continue
+        policies.append(p)
+    policies.sort(key=lambda p: (p.bound_date or p.start_date or date.min, p.id))
+    return policies
+
+
+def _company_totals(policies) -> dict:
+    return {
+        "count": len(policies),
+        "premium": sum((p.premium or ZERO for p in policies), ZERO),
+        "commission": sum((p.commission_amount or ZERO for p in policies), ZERO),
+        "broker_fee": sum((p.broker_fee or ZERO for p in policies), ZERO),
+    }
+
+
+def _company_kpis(totals, styles, width):
+    return kpi_row([
+        ("Policies bound", str(totals["count"])),
+        ("Premium", _money(totals["premium"])),
+        ("Commission", _money(totals["commission"])),
+        ("Broker fees", _money(totals["broker_fee"])),
+    ], styles, width)
+
+
+def _company_policy_table(policies, styles):
+    rows = []
+    for p in policies:
+        day = p.bound_date or p.start_date
+        agent = (p.added_by.get_full_name() or p.added_by.username) if p.added_by_id else "—"
+        rows.append([
+            day.strftime("%m/%d/%Y") if day else "—",
+            escape(p.client.name if p.client_id else "—"),
+            escape(p.policy_number),
+            escape(p.get_insurance_type_display() or "—"),
+            escape(agent),
+            _money(p.premium),
+            f"{p.commission_rate}%" if p.commission_rate is not None else "—",
+            _money(p.commission_amount),
+            _money(p.broker_fee),
+        ])
+    return data_table(
+        ["Bound", "Insured", "Policy #", "Line", "Agent", "Premium", "Rate", "Commission", "Broker fee"],
+        rows or [["—", "No policies bound in this period", "—", "—", "—", "$0.00", "—", "$0.00", "$0.00"]],
+        [0.8*inch, 1.75*inch, 1.15*inch, 1.3*inch, 1.25*inch, 0.95*inch, 0.6*inch, 1.0*inch, 0.9*inch],
+        styles,
+    )
+
+
+def render_company_report_pdf(org, *, start=None, end=None, company=None, prepared_by="Staff") -> bytes:
+    """Policies bound per insurance company for the period: one company, or a section per company."""
+    styles = _styles()
+    width = _content_w(True)
+    policies = company_report_policies(org, start=start, end=end, company_id=company.id if company else None)
+    flow = [_company_kpis(_company_totals(policies), styles, width), Spacer(1, 10)]
+
+    if company is not None:
+        flow.append(_company_policy_table(policies, styles))
+        title = f"Company report · {company.name}"
+    else:
+        grouped = defaultdict(list)
+        for p in policies:
+            grouped[p.insurance_company.name if p.insurance_company_id else "No company"].append(p)
+        names = sorted(grouped, key=lambda n: (n == "No company", n.lower()))
+        summary_rows = []
+        for name in names:
+            t = _company_totals(grouped[name])
+            summary_rows.append([
+                escape(name), str(t["count"]), _money(t["premium"]), _money(t["commission"]), _money(t["broker_fee"]),
+            ])
+        flow.append(_p("Companies at a glance", styles["section"]))
+        flow.append(Spacer(1, 4))
+        flow.append(data_table(
+            ["Company", "Policies", "Premium", "Commission", "Broker fee"],
+            summary_rows or [["No policies bound in this period", "0", "$0.00", "$0.00", "$0.00"]],
+            [3.4*inch, 1.0*inch, 1.65*inch, 1.65*inch, 1.65*inch],
+            styles,
+        ))
+        for name in names:
+            flow.append(Spacer(1, 14))
+            flow.append(KeepTogether([
+                _p(escape(name), styles["section"]),
+                Spacer(1, 4),
+                _company_kpis(_company_totals(grouped[name]), styles, width),
+                Spacer(1, 6),
+            ]))
+            flow.append(_company_policy_table(grouped[name], styles))
+        title = "Company report · All companies"
+
+    return build_pdf(
+        org,
+        title=title,
+        subtitle="Policies bound with each insurance company in the period, with premium, commission and broker fee.",
         period=period_label(start, end),
         prepared_by=prepared_by,
         flowables=flow,

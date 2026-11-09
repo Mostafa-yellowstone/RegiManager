@@ -39,6 +39,35 @@
       <section class="ins-report-group">
         <h4>Carrier evidence</h4>
         <div class="ins-reports-grid ins-reports-grid--3">
+          <article class="ins-report-card ins-report-card--company">
+            <div class="ins-report-card__head">
+              <span class="ins-report-card__icon ins-report-card__icon--indigo" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 21v-5h6v5M9 10h.01M15 10h.01"/></svg>
+              </span>
+              <div>
+                <div class="ins-report-card__badge">New</div>
+                <h3>Company report</h3>
+              </div>
+            </div>
+            <p>Policies bound with each insurance company in the period: premium, commission and broker fee, with totals.</p>
+            <form method="GET" action="{% url 'export-insurance-company-report-pdf' %}" target="_blank" class="ins-report-form">
+              <div class="ins-report-form__dates">
+                <label class="ins-report-field"><span>From</span><input type="date" name="start_date" class="field-input" value="{{ ledger_default_from }}"></label>
+                <label class="ins-report-field"><span>To</span><input type="date" name="end_date" class="field-input" value="{{ ledger_default_to }}"></label>
+              </div>
+              <label class="ins-report-field"><span>Company</span>
+                <select name="company" class="field-input">
+                  <option value="">All companies (one section each)</option>
+                  {% for company in insurance_companies %}<option value="{{ company.id }}">{{ company.name }}</option>{% endfor %}
+                </select>
+              </label>
+              <div class="ins-report-actions">
+                <button type="submit" class="ins-report-btn">View</button>
+                <button type="submit" name="download" value="1" formtarget="_self" class="ins-report-btn ins-report-btn--ghost">Download PDF</button>
+              </div>
+            </form>
+          </article>
+
           <article class="ins-report-card ins-report-card--ledger">
             <div class="ins-report-card__head">
               <span class="ins-report-card__icon" aria-hidden="true">

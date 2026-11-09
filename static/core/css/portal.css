@@ -5054,6 +5054,23 @@ html.portal-theme-dark .portal-automation-title {
     filter: brightness(1.06);
 }
 
+.ins-report-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.ins-report-btn--ghost {
+    background: transparent;
+    color: #0f766e;
+    box-shadow: inset 0 0 0 1.5px #0f766e;
+}
+
+html.portal-theme-dark .ins-report-btn--ghost {
+    color: #5eead4;
+    box-shadow: inset 0 0 0 1.5px #2dd4bf;
+}
+
 .ins-reports-grid--3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
 }

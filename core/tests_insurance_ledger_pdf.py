@@ -151,3 +151,61 @@ class InsuranceLedgerPdfTests(TestCase):
         self._assert_pdf("export-insurance-compliance-pdf", must_contain=("License", "Progressive"))
         self._assert_pdf("export-insurance-targets-pdf", {"month": "2026-08"}, must_contain=("Targets vs actual",))
         self._assert_pdf("export-insurance-commission-register-pdf", must_contain=("Commission production",))
+
+    def _bind(self, number, company, bound, premium):
+        from core.models import InsurancePolicy
+
+        return InsurancePolicy.objects.create(
+            organization=self.org, client=self.insured, insurance_company=company, policy_number=number,
+            premium=Decimal(premium), commission_rate=Decimal("10"), broker_fee=Decimal("50"),
+            stage="bound", status="active", bound_date=bound, start_date=bound, end_date=date(2027, 2, 1),
+            added_by=self.owner,
+        )
+
+    def test_company_report_for_one_company_and_period(self):
+        geico = InsuranceCompany.objects.create(organization=self.org, name="Geico")
+        self._bind("PRG-IN", self.company, date(2026, 8, 10), "1000")
+        self._bind("PRG-OUT", self.company, date(2026, 6, 10), "700")
+        self._bind("GEI-IN", geico, date(2026, 8, 12), "500")
+        text = self._assert_pdf(
+            "export-insurance-company-report-pdf",
+            {"start_date": "2026-08-01", "end_date": "2026-08-31", "company": self.company.id},
+            must_contain=("Company report", "Progressive", "PRG-IN", "$1,000.00", "$100.00", "$50.00"),
+        )
+        self.assertNotIn("PRG-OUT", text)
+        self.assertNotIn("GEI-IN", text)
+
+    def test_company_report_all_companies_has_a_section_each(self):
+        geico = InsuranceCompany.objects.create(organization=self.org, name="Geico")
+        self._bind("PRG-IN", self.company, date(2026, 8, 10), "1000")
+        self._bind("GEI-IN", geico, date(2026, 8, 12), "500")
+        self._assert_pdf(
+            "export-insurance-company-report-pdf",
+            {"start_date": "2026-08-01", "end_date": "2026-08-31"},
+            must_contain=("All companies", "Companies at a glance", "Geico", "Progressive", "PRG-IN", "GEI-IN", "$1,500.00"),
+        )
+
+    def test_company_report_view_opens_inline_and_download_saves(self):
+        self._login()
+        url = reverse("export-insurance-company-report-pdf")
+        params = {"start_date": "2026-08-01", "end_date": "2026-08-31", "company": self.company.id}
+        view = self.client.get(url, params)
+        self.assertTrue(view["Content-Disposition"].startswith("inline;"))
+        download = self.client.get(url, {**params, "download": "1"})
+        self.assertEqual(
+            download["Content-Disposition"],
+            'attachment; filename="company-report-progressive-2026-08-01-2026-08-31.pdf"',
+        )
+
+    def test_company_report_rejects_another_offices_company(self):
+        other = Organization.objects.create(name="Other PSB")
+        foreign = InsuranceCompany.objects.create(organization=other, name="Foreign Mutual")
+        self._login()
+        resp = self.client.get(reverse("export-insurance-company-report-pdf"), {"company": foreign.id})
+        self.assertEqual(resp.status_code, 404)
+
+    def test_reports_page_has_view_and_download_buttons(self):
+        self._login()
+        resp = self.client.get(reverse("insurance-reports"))
+        self.assertContains(resp, reverse("export-insurance-company-report-pdf"))
+        self.assertContains(resp, 'name="download" value="1"')
