@@ -164,8 +164,10 @@ def build_insurance_profit_report(
         period_qs = filter_policies_by_quote_period(policies, start, end)
         bound_qs = period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES)
         quote_qs = period_qs.filter(stage__in=InsurancePolicy.QUOTE_STAGES)
-        agg = bound_qs.aggregate(
-            count=Count("id"),
+        # Money matches website period_stats: inactive policies stay in the bound count
+        # and drop out of premium, commission, and broker fee.
+        active_qs = bound_qs.filter(status="active")
+        agg = active_qs.aggregate(
             premium=Sum("premium"),
             commission=Sum("commission_amount"),
             broker_fee=Sum("broker_fee"),
@@ -173,7 +175,7 @@ def build_insurance_profit_report(
         commission = agg["commission"] or Decimal("0")
         broker = agg["broker_fee"] or Decimal("0")
         quotes = quote_qs.count()
-        bound_count = agg["count"] or 0
+        bound_count = bound_qs.count()
         total = quotes + bound_count
         conversion = "0"
         if total > 0:
@@ -303,17 +305,18 @@ def build_space_period_profit(
 
         def _profit(start, end):
             period_qs = filter_policies_by_quote_period(policies, start, end)
-            agg = period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES).aggregate(
+            active_qs = period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="active")
+            bound_count = period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES).count()
+            agg = active_qs.aggregate(
                 commission=Sum("commission_amount"),
                 broker_fee=Sum("broker_fee"),
                 premium=Sum("premium"),
-                count=Count("id"),
             )
             total = (agg["commission"] or Decimal("0")) + (agg["broker_fee"] or Decimal("0"))
             return {
                 "profit": _money(total),
                 "revenue": _money(agg["premium"]),
-                "transactions": agg["count"] or 0,
+                "transactions": bound_count,
             }
 
         return _with_custom(
@@ -745,14 +748,18 @@ def build_owner_insurance_summary(
     else:
         period_qs = bound_qs
 
+    active_period = period_qs.filter(status="active")
     period_by_company = {
         row["insurance_company_id"]: row
-        for row in period_qs.values("insurance_company_id").annotate(
+        for row in active_period.values("insurance_company_id").annotate(
             premium=Sum("premium"),
             commission=Sum("commission_amount"),
             broker_fee=Sum("broker_fee"),
-            bound_count=Count("id"),
         )
+    }
+    bound_count_by_company = {
+        row["insurance_company_id"]: row["bound_count"]
+        for row in period_qs.values("insurance_company_id").annotate(bound_count=Count("id"))
     }
     book_premium_by_company = {
         row["insurance_company_id"]: row["premium"] or Decimal("0")
@@ -761,11 +768,10 @@ def build_owner_insurance_summary(
         .annotate(premium=Sum("premium"))
     }
 
-    period_totals = period_qs.aggregate(
+    period_totals = active_period.aggregate(
         premium=Sum("premium"),
         commission=Sum("commission_amount"),
         broker_fee=Sum("broker_fee"),
-        bound_count=Count("id"),
     )
     active_book = bound_qs.filter(status="active").aggregate(
         premium=Sum("premium"),
@@ -797,7 +803,7 @@ def build_owner_insurance_summary(
                 "period_premium": _money(period.get("premium")),
                 "period_commission": _money(period.get("commission")),
                 "period_broker_fee": _money(period.get("broker_fee")),
-                "period_bound_count": period.get("bound_count") or 0,
+                "period_bound_count": bound_count_by_company.get(cid, 0),
                 "book_premium": _money(book_premium_by_company.get(cid)),
                 "license_status": row.get("license_status") or {},
             }
@@ -823,7 +829,7 @@ def build_owner_insurance_summary(
             "period_commission": _money(period_totals.get("commission")),
             "period_broker_fee": _money(period_totals.get("broker_fee")),
             "book_premium": _money(active_book.get("premium")),
-            "period_bound_count": period_totals.get("bound_count") or 0,
+            "period_bound_count": period_qs.count(),
             "active_policy_count": active_book.get("count") or 0,
         },
         "companies": companies_out,

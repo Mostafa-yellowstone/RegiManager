@@ -235,7 +235,7 @@ function OpsBlocks({ color }: { color: string }) {
               backgroundColor: i === 0 ? color : 'rgba(255,255,255,0.35)',
             }}
           />
-          <Text style={{ color: Colors.white, fontWeight: '700', fontSize: 14 }}>{label}</Text>
+          <Text style={{ color: '#F4F7FB', fontWeight: '700', fontSize: 14 }}>{label}</Text>
         </View>
       ))}
     </View>
@@ -330,7 +330,7 @@ function SlidePage({
             <Text
               style={{
                 marginTop: 10,
-                color: Colors.white,
+                color: '#F4F7FB',
                 fontSize: titleSize,
                 lineHeight: titleLine,
                 fontWeight: '800',
@@ -440,7 +440,7 @@ export default function OnboardingScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: Colors.navy }}>
       <LinearGradient
-        colors={['#8E341C', '#4A2A22', '#241C18']}
+        colors={['#12352A', '#0E141C', '#07090C']}
         style={{ flex: 1, paddingTop: insets.top + 8, paddingBottom: footerPad }}
       >
         <View
@@ -518,7 +518,7 @@ export default function OnboardingScreen() {
                 alignItems: 'center',
               }}
             >
-              <Text style={{ color: Colors.navy, fontWeight: '800', fontSize: 15 }}>
+              <Text style={{ color: '#07090C', fontWeight: '800', fontSize: 15 }}>
                 {index === SLIDES.length - 1 ? 'Get started' : 'Continue'}
               </Text>
             </Pressable>

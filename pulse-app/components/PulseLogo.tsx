@@ -35,7 +35,7 @@ export function PulseLogo({
   showText = true,
   showTagline = false,
   animated = true,
-  textColor = Colors.white,
+  textColor = Colors.navy,
   taglineColor = 'rgba(255,255,255,0.65)',
 }: PulseLogoProps) {
   const scale = useSharedValue(animated ? 0.72 : 1);

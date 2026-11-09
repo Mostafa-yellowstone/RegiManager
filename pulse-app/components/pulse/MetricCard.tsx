@@ -1,7 +1,8 @@
 import { Pressable, Text, View } from 'react-native';
 
 import { formatMoney, formatPct } from '@/lib/format';
-import { Fonts, MetricAccents, type MetricAccent } from '@/lib/theme';
+import { usePulseScale } from '@/lib/responsive';
+import { Colors, Fonts, MetricAccents, type MetricAccent } from '@/lib/theme';
 import type { ComparativeBadge } from '@/types/models';
 
 type Props = {
@@ -30,6 +31,7 @@ export function MetricCard({
   onPress,
 }: Props) {
   const theme = MetricAccents[accent];
+  const { fs } = usePulseScale();
   const display =
     format === 'pct'
       ? `${value.toFixed(1)}%`
@@ -63,8 +65,8 @@ export function MetricCard({
         style={{
           marginTop: 8,
           fontFamily: Fonts.extrabold,
-          fontSize: 22,
-          color: '#0F1F1C',
+          fontSize: fs(22),
+          color: Colors.navy,
         }}
       >
         {display}
@@ -125,7 +127,7 @@ export function MetricCard({
     borderWidth: 1,
     borderColor: theme.border,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.white,
     padding: 14,
     minHeight: 124,
     width: '100%' as const,

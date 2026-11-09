@@ -155,7 +155,7 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <BottomSheetModalProvider>
-            <StatusBar style="dark" />
+            <StatusBar style="light" />
             <AuthGate>
               <BiometricGate>
                 <Stack

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { ConnectedDateRangeSelector } from '@/components/pulse/ConnectedDateRangeSelector';
@@ -10,6 +10,7 @@ import { getPulseDashboard } from '@/data/repositories/metricsRepository';
 import { useAuth } from '@/lib/auth';
 import { formatMoney, formatPct } from '@/lib/format';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
+import { usePulseScale } from '@/lib/responsive';
 import { Colors, Fonts } from '@/lib/theme';
 import { useDateRangeStore } from '@/stores/dateRangeStore';
 
@@ -19,13 +20,21 @@ export default function MoneyScreen() {
   const preset = useDateRangeStore((s) => s.preset);
   const customStart = useDateRangeStore((s) => s.customStart);
   const customEnd = useDateRangeStore((s) => s.customEnd);
+  const { pad } = usePulseScale();
   const [split, setSplit] = useState(false);
 
   const dash = useQuery({
     queryKey: ['pulse-money', selectedOrg?.id, preset, customStart, customEnd],
     queryFn: () => getPulseDashboard('all', preset),
     enabled: Boolean(selectedOrg?.id),
+    staleTime: 0,
   });
+  const refetchMoney = dash.refetch;
+  useFocusEffect(
+    useCallback(() => {
+      void refetchMoney();
+    }, [refetchMoney]),
+  );
 
   const overview = dash.data?.overview;
   const insurancePay = (overview?.insurance_commission || 0) + (overview?.insurance_broker_fee || 0);
@@ -34,7 +43,7 @@ export default function MoneyScreen() {
     <View style={{ flex: 1, backgroundColor: Colors.cream }}>
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 120, gap: 12 }}
+        contentContainerStyle={{ paddingHorizontal: pad, paddingTop: 12, paddingBottom: 120, gap: 12 }}
         refreshControl={
           <RefreshControl
             refreshing={dash.isFetching && !dash.isLoading}
@@ -59,7 +68,7 @@ export default function MoneyScreen() {
           </>
         ) : (
           <>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
               <MoneyCard label="Money in" value={formatMoney(overview.bank_income)} />
               <MoneyCard label="Money out" value={formatMoney(overview.bank_expenses)} />
               <MoneyCard label="What's left" value={formatMoney(overview.net_cash_flow)} />
@@ -146,10 +155,16 @@ export default function MoneyScreen() {
 }
 
 function MoneyCard({ label, value }: { label: string; value: string }) {
+  const { fs, isLandscape } = usePulseScale();
   return (
-    <View style={[card, { flex: 1 }]}>
-      <Text style={{ fontFamily: Fonts.medium, fontSize: 12, color: Colors.muted }}>{label}</Text>
-      <Text style={{ marginTop: 6, fontFamily: Fonts.extrabold, fontSize: 16, color: Colors.navy }} numberOfLines={1}>
+    <View style={[card, { flexGrow: 1, flexBasis: isLandscape ? '22%' : '30%', minWidth: 96 }]}>
+      <Text style={{ fontFamily: Fonts.medium, fontSize: fs(12), color: Colors.muted }}>{label}</Text>
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.65}
+        numberOfLines={1}
+        style={{ marginTop: 6, fontFamily: Fonts.extrabold, fontSize: fs(18), color: Colors.navy }}
+      >
         {value}
       </Text>
     </View>
@@ -167,15 +182,23 @@ function Line({
   hint?: string;
   muted?: boolean;
 }) {
+  const { fs } = usePulseScale();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-      <Text style={{ fontFamily: muted ? Fonts.medium : Fonts.bold, fontSize: muted ? 13 : 15, color: muted ? Colors.muted : Colors.navy }}>
+      <Text style={{ flex: 1, fontFamily: muted ? Fonts.medium : Fonts.bold, fontSize: fs(muted ? 13 : 15), color: muted ? Colors.muted : Colors.navy }}>
         {label}
       </Text>
-      <View style={{ alignItems: 'flex-end' }}>
-        <Text style={{ fontFamily: Fonts.extrabold, fontSize: muted ? 14 : 16, color: Colors.navy }}>{value}</Text>
+      <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
+        <Text
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+          numberOfLines={1}
+          style={{ fontFamily: Fonts.extrabold, fontSize: fs(muted ? 14 : 16), color: Colors.navy }}
+        >
+          {value}
+        </Text>
         {hint ? (
-          <Text style={{ fontFamily: Fonts.bold, fontSize: 11, color: Colors.teal }}>{hint}</Text>
+          <Text style={{ fontFamily: Fonts.bold, fontSize: fs(11), color: Colors.teal }}>{hint}</Text>
         ) : null}
       </View>
     </View>

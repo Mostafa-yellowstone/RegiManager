@@ -10,7 +10,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Fonts } from '@/lib/theme';
+import { usePulseScale } from '@/lib/responsive';
+import { Colors, Fonts } from '@/lib/theme';
 
 const QUOTES = [
   'Keep the desk moving. The day pays you back.',
@@ -20,9 +21,10 @@ const QUOTES = [
   'Small finished jobs build a strong week.',
 ];
 
-const BLOCKS = ['#C4512F', '#E3A008', '#2E4A7A', '#7A4E8A', '#E07A55', '#C4512F', '#E3A008', '#2E4A7A'];
+const BLOCKS = ['#3DDC97', '#4C8DFF', '#F5A524', '#3DDC97', '#4C8DFF', '#F5A524'];
 
 export function WelcomeBand({ name }: { name: string }) {
+  const { fs } = usePulseScale();
   const [quote, setQuote] = useState(0);
   const shift = useSharedValue(0);
 
@@ -49,7 +51,7 @@ export function WelcomeBand({ name }: { name: string }) {
         borderRadius: 24,
         overflow: 'hidden',
         minHeight: 196,
-        backgroundColor: '#241C18',
+        backgroundColor: '#07090C',
         justifyContent: 'flex-end',
       }}
     >
@@ -77,18 +79,18 @@ export function WelcomeBand({ name }: { name: string }) {
           right: 0,
           bottom: 0,
           height: 150,
-          backgroundColor: 'rgba(36, 28, 24, 0.55)',
+          backgroundColor: 'rgba(7, 9, 12, 0.62)',
         }}
       />
       <View style={{ paddingHorizontal: 18, paddingTop: 28, paddingBottom: 20, gap: 10 }}>
-        <Text style={{ fontFamily: Fonts.extrabold, fontSize: 32, color: '#FFFCF8', letterSpacing: -0.6 }}>
+        <Text style={{ fontFamily: Fonts.extrabold, fontSize: fs(30), color: '#F4F7FB', letterSpacing: -0.6 }}>
           {hello}
         </Text>
         <Animated.Text
           key={quote}
           entering={FadeIn.duration(400)}
           exiting={FadeOut.duration(200)}
-          style={{ fontFamily: Fonts.medium, fontSize: 18, lineHeight: 26, color: '#FFF6E8', minHeight: 52 }}
+          style={{ fontFamily: Fonts.medium, fontSize: fs(17), lineHeight: fs(24), color: '#E7EDF5', minHeight: fs(52) }}
         >
           {QUOTES[quote]}
         </Animated.Text>

@@ -3,10 +3,10 @@
     "name": "RegiManager Pulse",
     "slug": "regimanager-pulse",
     "version": "1.0.7",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "regimanagerpulse",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.regimanager.pulse",
@@ -49,14 +49,14 @@
         {
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#1B2437"
+          "backgroundColor": "#07090C"
         }
       ],
       [
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
-          "color": "#2F4BD0"
+          "color": "#3DDC97"
         }
       ]
     ],

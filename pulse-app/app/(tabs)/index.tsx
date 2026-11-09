@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { SkeletonBlock } from '@/components/pulse/SkeletonBlock';
@@ -9,6 +10,7 @@ import { getPulseDashboard } from '@/data/repositories/metricsRepository';
 import { useAuth } from '@/lib/auth';
 import { formatMoney, formatPct } from '@/lib/format';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
+import { usePulseScale } from '@/lib/responsive';
 import { Colors, Fonts } from '@/lib/theme';
 import { useDeskStore } from '@/stores/deskStore';
 
@@ -16,6 +18,7 @@ export default function TodayScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { selectedOrg, user } = useAuth();
+  const { fs, pad } = usePulseScale();
   const setStatus = useDeskStore((s) => s.setStatus);
   const setKind = useDeskStore((s) => s.setKind);
 
@@ -23,13 +26,24 @@ export default function TodayScreen() {
     queryKey: ['pulse-today', selectedOrg?.id],
     queryFn: () => getPulseDashboard('all', 'today', { locked: true }),
     enabled: Boolean(selectedOrg?.id),
+    staleTime: 0,
   });
 
   const agentsQuery = useQuery({
     queryKey: ['pulse-agents', selectedOrg?.id],
     queryFn: () => listOwnerAgents(),
     enabled: Boolean(selectedOrg?.id),
+    staleTime: 0,
   });
+
+  const refetchDesk = dash.refetch;
+  const refetchAgents = agentsQuery.refetch;
+  useFocusEffect(
+    useCallback(() => {
+      void refetchDesk();
+      void refetchAgents();
+    }, [refetchDesk, refetchAgents]),
+  );
 
   const overview = dash.data?.overview;
   const agents = agentsQuery.data?.agents ?? [];
@@ -52,7 +66,7 @@ export default function TodayScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: Colors.cream }}>
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 14 }}
+        contentContainerStyle={{ padding: pad, paddingBottom: 120, gap: 14 }}
         keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
@@ -87,7 +101,11 @@ export default function TodayScreen() {
           <>
             <Pressable onPress={openWork} style={card}>
               <Text style={quiet}>Jobs today</Text>
-              <Text style={{ marginTop: 4, fontFamily: Fonts.extrabold, fontSize: 36, color: Colors.navy }}>
+              <Text
+                adjustsFontSizeToFit
+                numberOfLines={1}
+                style={{ marginTop: 4, fontFamily: Fonts.extrabold, fontSize: fs(36), color: Colors.navy }}
+              >
                 {jobsToday}
               </Text>
             </Pressable>
@@ -134,10 +152,16 @@ export default function TodayScreen() {
 }
 
 function MoneyBit({ label, value }: { label: string; value: string }) {
+  const { fs } = usePulseScale();
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, minWidth: 0 }}>
       <Text style={quiet}>{label}</Text>
-      <Text style={{ marginTop: 4, fontFamily: Fonts.extrabold, fontSize: 15, color: Colors.navy }} numberOfLines={1}>
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.65}
+        numberOfLines={1}
+        style={{ marginTop: 4, fontFamily: Fonts.extrabold, fontSize: fs(16), color: Colors.navy }}
+      >
         {value}
       </Text>
     </View>

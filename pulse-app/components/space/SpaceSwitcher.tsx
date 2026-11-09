@@ -45,8 +45,8 @@ export const SpaceSwitcherSheet = forwardRef<BottomSheetModalType, Props>(
         snapPoints={snapPoints}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: '#FFFFFF' }}
-        handleIndicatorStyle={{ backgroundColor: '#CBD5E1', width: 40 }}
+        backgroundStyle={{ backgroundColor: Colors.cream }}
+        handleIndicatorStyle={{ backgroundColor: Colors.border, width: 40 }}
       >
         <View className="px-4 pb-2">
           <Text style={{ fontFamily: Fonts.bold, fontSize: 20, color: Colors.navy }}>Switch space</Text>
@@ -77,7 +77,7 @@ export const SpaceSwitcherSheet = forwardRef<BottomSheetModalType, Props>(
                   paddingHorizontal: 16,
                   paddingVertical: 12,
                   borderColor: active ? Colors.teal : Colors.border,
-                  backgroundColor: active ? Colors.tealSoft : Colors.white,
+                  backgroundColor: active ? Colors.tealSoft : Colors.navySoft,
                 }}
               >
                 <View className="flex-row items-center justify-between">

@@ -2,6 +2,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PulseTabIcon, type TabKey } from '@/components/pulse/PulseTabIcon';
+import { usePulseScale } from '@/lib/responsive';
 import { Colors, Fonts } from '@/lib/theme';
 
 type Props = {
@@ -36,6 +37,7 @@ function routeToTab(name: string): TabKey {
 
 export function PulseTabBar({ state, descriptors, emitter, navigateToTab }: Props) {
   const insets = useSafeAreaInsets();
+  const { fs } = usePulseScale();
 
   const visibleRoutes = state.routes.filter((route) => {
     const options = descriptors[route.key]?.options || {};
@@ -94,7 +96,7 @@ export function PulseTabBar({ state, descriptors, emitter, navigateToTab }: Prop
                 borderRadius: 14,
                 paddingVertical: 8,
                 paddingHorizontal: 2,
-                backgroundColor: focused ? Colors.white : 'transparent',
+                backgroundColor: focused ? '#F4F7FB' : 'transparent',
                 shadowColor: focused ? Colors.navy : 'transparent',
                 shadowOpacity: focused ? 0.08 : 0,
                 shadowRadius: 8,
@@ -108,8 +110,8 @@ export function PulseTabBar({ state, descriptors, emitter, navigateToTab }: Prop
                   numberOfLines={1}
                   style={{
                     fontFamily: Fonts.bold,
-                    fontSize: compact ? 10 : 11,
-                    color: focused ? Colors.teal : Colors.muted,
+                    fontSize: fs(compact ? 10 : 11),
+                    color: focused ? '#07090C' : Colors.muted,
                   }}
                 >
                   {label}

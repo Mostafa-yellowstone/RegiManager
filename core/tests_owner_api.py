@@ -215,6 +215,21 @@ class OwnerAPITests(APITestCase):
             bound_date=timezone.localdate(),
             added_by=self.agent,
         )
+        InsurancePolicy.objects.create(
+            organization=self.org,
+            client=self.client_obj,
+            policy_number="POL-OFF",
+            insurance_company=self.company,
+            premium=Decimal("5000.00"),
+            commission_rate=Decimal("10.00"),
+            broker_fee=Decimal("500.00"),
+            start_date=timezone.localdate(),
+            end_date=timezone.localdate().replace(month=12, day=31),
+            stage="bound",
+            status="inactive",
+            bound_date=timezone.localdate(),
+            added_by=self.agent,
+        )
         summary = build_system_profit_summary(
             self.org,
             self.owner_mem,
@@ -233,6 +248,7 @@ class OwnerAPITests(APITestCase):
             Decimal(summary["insurance"]["today"]["total_profit"]),
             Decimal("150.00"),
         )
+        self.assertEqual(summary["insurance"]["today"]["bound_count"], 2)
         self.assertNotEqual(
             Decimal(summary["combined_profit"]["today"]),
             expected + Decimal(summary["insurance"]["today"]["total_profit"]),

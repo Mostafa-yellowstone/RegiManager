@@ -1,44 +1,43 @@
 export const Colors = {
-  // Warm sand, ink, and terracotta. The welcome band carries the brighter colors.
-  teal: '#C4512F',
-  tealDeep: '#8E341C',
-  tealSoft: '#F8E4DC',
-  tealMid: '#E07A55',
+  // Dark desk from the Pulse boards. Green for money in, blue for what's left, amber for money out.
+  teal: '#3DDC97',
+  tealDeep: '#1FA971',
+  tealSoft: '#12352A',
+  tealMid: '#67E8B5',
 
-  orange: '#E07A55',
-  orangeSoft: '#FDE8DF',
-  orangeDeep: '#8E341C',
+  orange: '#F5A524',
+  orangeSoft: '#3A2A12',
+  orangeDeep: '#E08A12',
 
-  green: '#C4512F',
-  greenSoft: '#F8E4DC',
-  greenDeep: '#8E341C',
+  green: '#3DDC97',
+  greenSoft: '#12352A',
+  greenDeep: '#1FA971',
 
-  purple: '#7A4E8A',
-  purpleSoft: '#F3E8F6',
-  purpleDeep: '#4E2E5C',
+  purple: '#7AA2FF',
+  purpleSoft: '#152038',
+  purpleDeep: '#4C74D4',
 
-  blue: '#2E4A7A',
-  blueSoft: '#E4EAF4',
+  blue: '#4C8DFF',
+  blueSoft: '#152033',
 
-  navy: '#241C18',
-  navyMid: '#5C5148',
-  navySoft: '#F3EBE3',
+  navy: '#F4F7FB',
+  navyMid: '#A7B0C0',
+  navySoft: '#1C232E',
 
-  cream: '#F7F1E8',
-  white: '#FFFCF8',
-  ink: '#241C18',
-  muted: '#7A6E64',
-  mutedLight: '#B3A69B',
-  border: '#E7DDD2',
+  cream: '#07090C',
+  white: '#141922',
+  ink: '#F4F7FB',
+  muted: '#8E98A8',
+  mutedLight: '#66707F',
+  border: '#2A3342',
 
-  success: '#C4512F',
-  danger: '#B42318',
-  warning: '#C4512F',
-  gold: '#E3A008',
-  goldSoft: '#FFF3D0',
+  success: '#3DDC97',
+  danger: '#FF6B6B',
+  warning: '#F5A524',
+  gold: '#E2B340',
+  goldSoft: '#3A3014',
 } as const;
 
-/** Manrope — load via useFonts in root layout before rendering UI. */
 export const Fonts = {
   regular: 'Manrope_400Regular',
   medium: 'Manrope_500Medium',
@@ -53,9 +52,9 @@ export const MetricAccents: Record<
   MetricAccent,
   { main: string; soft: string; deep: string; border: string }
 > = {
-  teal: { main: Colors.teal, soft: Colors.tealSoft, deep: Colors.tealDeep, border: '#F0D2C6' },
-  orange: { main: Colors.orange, soft: Colors.orangeSoft, deep: Colors.orangeDeep, border: '#F0D2C6' },
-  green: { main: Colors.green, soft: Colors.greenSoft, deep: Colors.greenDeep, border: '#F0D2C6' },
-  purple: { main: Colors.purple, soft: Colors.purpleSoft, deep: Colors.purpleDeep, border: '#E6D4EC' },
-  blue: { main: Colors.blue, soft: Colors.blueSoft, deep: Colors.blue, border: '#D5DEEC' },
+  teal: { main: Colors.teal, soft: Colors.tealSoft, deep: Colors.tealDeep, border: '#1E4D38' },
+  orange: { main: Colors.orange, soft: Colors.orangeSoft, deep: Colors.orangeDeep, border: '#5A3E12' },
+  green: { main: Colors.green, soft: Colors.greenSoft, deep: Colors.greenDeep, border: '#1E4D38' },
+  purple: { main: Colors.purple, soft: Colors.purpleSoft, deep: Colors.purpleDeep, border: '#24365C' },
+  blue: { main: Colors.blue, soft: Colors.blueSoft, deep: Colors.blue, border: '#24365C' },
 };

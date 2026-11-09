@@ -13,7 +13,7 @@ type Props = {
 
 export function PulseTabIcon({ name, focused, compact }: Props) {
   const size = compact ? 22 : 26;
-  const color = focused ? Colors.teal : Colors.muted;
+  const color = focused ? '#07090C' : Colors.muted;
 
   if (name === 'today') {
     return (

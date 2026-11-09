@@ -51,10 +51,10 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#241C18' }}
+      style={{ flex: 1, backgroundColor: '#07090C' }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <LinearGradient colors={['#8E341C', '#4A2A22', '#241C18']} style={{ flex: 1 }}>
+      <LinearGradient colors={['#12352A', '#0E141C', '#07090C']} style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={{
             flexGrow: 1,
@@ -76,7 +76,16 @@ export default function LoginScreen() {
 
           <View style={{ marginTop: 28, gap: 12 }}>
             <TextInput
-              className="rounded-xl border border-white/20 bg-white/10 px-4 py-3.5 text-body text-white"
+              className="text-body"
+              style={{
+                color: '#F4F7FB',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.22)',
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+              }}
               placeholder="Username or email"
               placeholderTextColor="rgba(255,255,255,0.45)"
               autoCapitalize="none"
@@ -87,7 +96,16 @@ export default function LoginScreen() {
               onChangeText={setUsername}
             />
             <TextInput
-              className="rounded-xl border border-white/20 bg-white/10 px-4 py-3.5 text-body text-white"
+              className="text-body"
+              style={{
+                color: '#F4F7FB',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.22)',
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+              }}
               placeholder="Password"
               placeholderTextColor="rgba(255,255,255,0.45)"
               secureTextEntry
@@ -108,7 +126,7 @@ export default function LoginScreen() {
               {loading ? (
                 <ActivityIndicator color="#1A2B48" />
               ) : (
-                <Text className="text-body font-extrabold text-navy">Sign in</Text>
+                <Text className="text-body font-extrabold" style={{ color: '#07090C' }}>Sign in</Text>
               )}
             </Pressable>
           </View>

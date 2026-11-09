@@ -7,6 +7,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { fetchOwnerNotifications } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { hapticLight, hapticSelection } from '@/lib/haptics';
+import { usePulseScale } from '@/lib/responsive';
 import { Colors, Fonts } from '@/lib/theme';
 import { useDeskStore } from '@/stores/deskStore';
 import { useSpaceStore } from '@/stores/spaceStore';
@@ -16,10 +17,10 @@ function GearIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"
-        stroke={Colors.tealDeep}
+        stroke={Colors.teal}
         strokeWidth={1.7}
       />
-      <Circle cx="12" cy="12" r="9" stroke={Colors.tealDeep} strokeWidth={1.5} fill="none" />
+      <Circle cx="12" cy="12" r="9" stroke={Colors.teal} strokeWidth={1.5} fill="none" />
     </Svg>
   );
 }
@@ -29,11 +30,11 @@ function BellIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M6 9a6 6 0 1 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9Z"
-        stroke={Colors.tealDeep}
+        stroke={Colors.teal}
         strokeWidth={1.7}
         strokeLinejoin="round"
       />
-      <Path d="M10 20a2 2 0 0 0 4 0" stroke={Colors.tealDeep} strokeWidth={1.7} strokeLinecap="round" />
+      <Path d="M10 20a2 2 0 0 0 4 0" stroke={Colors.teal} strokeWidth={1.7} strokeLinecap="round" />
     </Svg>
   );
 }
@@ -47,6 +48,7 @@ export function DeskHeader() {
   const setQuery = useDeskStore((s) => s.setQuery);
   const setSelectedSpaceId = useSpaceStore((s) => s.setSelectedSpaceId);
   const [focused, setFocused] = useState(false);
+  const { fs } = usePulseScale();
 
   const alertsQuery = useQuery({
     queryKey: ['pulse-alerts', selectedOrg?.id],
@@ -94,7 +96,7 @@ export function DeskHeader() {
         <Pressable style={{ flex: 1 }} onPress={() => void onPickOrg()}>
           <Text
             numberOfLines={1}
-            style={{ fontFamily: Fonts.extrabold, fontSize: 22, color: Colors.navy, letterSpacing: -0.4 }}
+            style={{ fontFamily: Fonts.extrabold, fontSize: fs(22), color: Colors.navy, letterSpacing: -0.4 }}
           >
             {office}
             {organizations.length > 1 ? ' ▾' : ''}
@@ -160,7 +162,7 @@ export function DeskHeader() {
           paddingHorizontal: 14,
           paddingVertical: 12,
           fontFamily: Fonts.medium,
-          fontSize: 15,
+          fontSize: fs(15),
           color: Colors.navy,
         }}
       />
