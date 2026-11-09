@@ -88,7 +88,7 @@ export default function MoneyScreen() {
                 }}
                 style={{ marginTop: 12 }}
               >
-                <Line label="Insurance pay" value={formatMoney(insurancePay)} hint={split ? 'Hide split' : 'Show split'} />
+                <Line label="Insurance profit" value={formatMoney(insurancePay)} hint={split ? 'Hide split' : 'Show split'} />
               </Pressable>
               {split ? (
                 <View style={{ marginTop: 8, gap: 6 }}>

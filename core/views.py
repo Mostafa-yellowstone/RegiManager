@@ -2,11 +2,13 @@ from decimal import Decimal
 import csv
 import io
 import json
+import logging
 import os
 import re
 import requests
 from io import BytesIO
 
+from django.core.cache import cache
 from django.db.models import Count, Sum, Q
 from django.db.models.functions import TruncMonth, TruncDate, ExtractHour
 import calendar
@@ -115,6 +117,8 @@ from .insurance_permissions import (
 from .role_permissions import is_owner_or_manager_role
 import io
 from django.utils.text import slugify
+
+logger = logging.getLogger(__name__)
 
 
 def _require_insurance_finance(request, organization, *, membership=None, is_owner=None):
@@ -5006,6 +5010,7 @@ def delete_referral_document(request, document_id):
 
 
 @login_required
+@require_POST
 def run_automation_scan(request):
     memberships = OrganizationMembership.objects.filter(
         user=request.user,
@@ -5019,8 +5024,8 @@ def run_automation_scan(request):
         return redirect('dashboard')
         
     from .tasks import check_registration_reminders
-    check_registration_reminders()
-    messages.success(request, 'Automation scan completed. Check the Recent Automations log for details.')
+    check_registration_reminders.delay()
+    messages.success(request, 'Automation scan started. Check the Recent Automations log for details.')
     return redirect('dashboard')
 
 @login_required
@@ -7463,10 +7468,13 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
         sync_org_company_license_alerts,
     )
 
-    try:
-        sync_org_company_license_alerts(active_org)
-    except Exception:
-        pass
+    license_sync_key = f"ins-license-sync:{active_org.id}"
+    if cache.add(license_sync_key, 1, 15 * 60):
+        try:
+            sync_org_company_license_alerts(active_org)
+        except Exception:
+            cache.delete(license_sync_key)
+            logger.exception("License alert sync failed for organization %s", active_org.id)
     license_attention = companies_needing_license_attention(active_org)
     license_attention_has_expired = any(
         row["status"]["state"] == "expired" for row in license_attention

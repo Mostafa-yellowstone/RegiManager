@@ -1,6 +1,6 @@
 """Tests for owner companion API."""
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -253,6 +253,32 @@ class OwnerAPITests(APITestCase):
             Decimal(summary["combined_profit"]["today"]),
             expected + Decimal(summary["insurance"]["today"]["total_profit"]),
         )
+
+    def test_today_insurance_ignores_policies_that_only_start_today(self):
+        yesterday = timezone.localdate() - timedelta(days=1)
+        InsurancePolicy.objects.create(
+            organization=self.org,
+            client=self.client_obj,
+            policy_number="POL-START",
+            insurance_company=self.company,
+            premium=Decimal("800.00"),
+            commission_rate=Decimal("10.00"),
+            broker_fee=Decimal("40.00"),
+            start_date=timezone.localdate(),
+            end_date=timezone.localdate().replace(month=12, day=31),
+            stage="bound",
+            status="active",
+            bound_date=yesterday,
+            added_by=self.agent,
+        )
+        summary = build_system_profit_summary(
+            self.org,
+            self.owner_mem,
+            ServiceRecord.objects.filter(organization=self.org),
+            timezone.localdate(),
+        )
+        self.assertEqual(Decimal(summary["insurance"]["today"]["total_profit"]), Decimal("0.00"))
+        self.assertEqual(summary["insurance"]["today"]["bound_count"], 0)
 
     def test_overview_custom_range_returns_ledger_totals(self):
         in_range = date(2026, 7, 10)

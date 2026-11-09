@@ -47,7 +47,7 @@ class ClientDuplicateTests(TestCase):
         )
         self.assertIsNotNone(error)
 
-    def test_blocks_same_first_last_different_middle(self):
+    def test_allows_same_first_last_different_middle(self):
         Client.objects.create(
             organization=self.org,
             first_name="John",
@@ -55,13 +55,15 @@ class ClientDuplicateTests(TestCase):
             last_name="Smith",
             gender="male",
         )
-        duplicate = find_duplicate_client(
-            self.org,
-            first_name="John",
-            middle_name="",
-            last_name="Smith",
+        self.assertIsNone(
+            find_duplicate_client(self.org, first_name="John", middle_name="", last_name="Smith")
         )
-        self.assertIsNotNone(duplicate)
+        self.assertIsNone(
+            find_duplicate_client(self.org, first_name="John", middle_name="B", last_name="Smith")
+        )
+        self.assertIsNotNone(
+            find_duplicate_client(self.org, first_name="JOHN", middle_name="ann", last_name="smith")
+        )
 
     def test_allows_same_name_different_driver_license(self):
         Client.objects.create(
@@ -158,7 +160,7 @@ class ClientDuplicateTests(TestCase):
         self.assertEqual(client.id, existing.id)
         self.assertEqual(Client.objects.filter(organization=self.org).count(), 1)
 
-    def test_insurance_reuses_case_and_middle_variants(self):
+    def test_insurance_reuses_case_variants_but_keeps_middle_names_apart(self):
         existing = Client.objects.create(
             organization=self.org,
             first_name="Maria",
@@ -166,15 +168,15 @@ class ClientDuplicateTests(TestCase):
             last_name="Garcia",
             gender="female",
         )
-        from_add = resolve_client_for_display_name(
-            self.org, "MARIA GARCIA", source="insurance"
+        same_person = resolve_client_for_display_name(
+            self.org, "MARIA ELENA GARCIA", source="insurance"
         )
-        from_dec = resolve_client_for_display_name(
+        other_person = resolve_client_for_display_name(
             self.org, "Maria L Garcia", source="insurance"
         )
-        self.assertEqual(from_add.id, existing.id)
-        self.assertEqual(from_dec.id, existing.id)
-        self.assertEqual(Client.objects.filter(organization=self.org).count(), 1)
+        self.assertEqual(same_person.id, existing.id)
+        self.assertNotEqual(other_person.id, existing.id)
+        self.assertEqual(other_person.middle_name, "L")
 
     def test_insurance_rejects_ambiguous_same_name(self):
         Client.objects.create(
@@ -196,7 +198,7 @@ class ClientDuplicateTests(TestCase):
         with self.assertRaises(DuplicateClientError):
             resolve_client_for_display_name(self.org, "John Smith", source="insurance")
 
-    def test_check_client_name_ajax_treats_middle_as_same_person(self):
+    def test_check_client_name_ajax_keeps_middle_names_apart(self):
         Client.objects.create(
             organization=self.org,
             first_name="John",
@@ -215,13 +217,24 @@ class ClientDuplicateTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()["exists"])
+        self.assertFalse(response.json()["exists"])
 
         response = self.client.get(
             reverse("check-client-name"),
             {
                 "first_name": "john",
                 "middle_name": "B",
+                "last_name": "SMITH",
+                "org_id": self.org.id,
+            },
+        )
+        self.assertFalse(response.json()["exists"])
+
+        response = self.client.get(
+            reverse("check-client-name"),
+            {
+                "first_name": "john",
+                "middle_name": "ANN",
                 "last_name": "SMITH",
                 "org_id": self.org.id,
             },

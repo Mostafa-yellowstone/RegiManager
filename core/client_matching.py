@@ -69,8 +69,9 @@ def resolve_client_for_display_name(
     """
     Find or create a client from a typed display name.
 
-    Reuses an existing first+last match (ignores case and middle-name drift)
-    so DEC import and Add Policy cannot create duplicate people.
+    Reuses an existing first+middle+last match (case-insensitive) so DEC import
+    and Add Policy cannot create duplicate people; a different middle name is a
+    different profile.
 
     Raises DuplicateClientError when multiple profiles share the same first+last
     with conflicting identities (e.g. different driver licenses).

@@ -159,13 +159,17 @@ def build_insurance_profit_report(
     policies = InsurancePolicy.objects.filter(organization_id=organization_id)
 
     def _bound_profit(start, end):
-        # Same period membership as website CRM: bound_date in range OR
-        # (bound_date null and created_at.date in range).
-        period_qs = filter_policies_by_quote_period(policies, start, end)
-        bound_qs = period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES)
-        quote_qs = period_qs.filter(stage__in=InsurancePolicy.QUOTE_STAGES)
-        # Money matches website period_stats: inactive policies stay in the bound count
-        # and drop out of premium, commission, and broker fee.
+        # Written money matches website period_stats: a policy counts on its bound_date.
+        # Start date and inactive date do not pull an older policy into a closed day.
+        bound_qs = policies.filter(
+            stage__in=InsurancePolicy.BOUND_STAGES,
+            bound_date__gte=start,
+            bound_date__lte=end,
+        )
+        quote_qs = filter_policies_by_quote_period(policies, start, end).filter(
+            stage__in=InsurancePolicy.QUOTE_STAGES
+        )
+        # Inactive policies stay in the bound count and drop out of the money.
         active_qs = bound_qs.filter(status="active")
         agg = active_qs.aggregate(
             premium=Sum("premium"),
@@ -304,9 +308,13 @@ def build_space_period_profit(
         policies = InsurancePolicy.objects.filter(organization_id=org_id)
 
         def _profit(start, end):
-            period_qs = filter_policies_by_quote_period(policies, start, end)
-            active_qs = period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="active")
-            bound_count = period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES).count()
+            written_qs = policies.filter(
+                stage__in=InsurancePolicy.BOUND_STAGES,
+                bound_date__gte=start,
+                bound_date__lte=end,
+            )
+            active_qs = written_qs.filter(status="active")
+            bound_count = written_qs.count()
             agg = active_qs.aggregate(
                 commission=Sum("commission_amount"),
                 broker_fee=Sum("broker_fee"),
@@ -744,7 +752,7 @@ def build_owner_insurance_summary(
 
     bound_qs = all_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES)
     if start and end:
-        period_qs = filter_policies_by_quote_period(bound_qs, start, end)
+        period_qs = bound_qs.filter(bound_date__gte=start, bound_date__lte=end)
     else:
         period_qs = bound_qs
 

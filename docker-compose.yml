@@ -10,7 +10,8 @@ services:
       POSTGRES_USER: regi_admin
       POSTGRES_PASSWORD: your_secure_password # CHANGE THIS
     ports:
-      - "5432:5432"
+      # Local only: never publish Postgres to the internet.
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -24,7 +25,8 @@ services:
     container_name: regi_redis
     restart: always
     ports:
-      - "6379:6379"
+      # Local only: this Redis has no password.
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
 

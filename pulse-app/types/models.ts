@@ -18,6 +18,8 @@ export type TargetType = 'revenue' | 'service_count';
 export interface ComparativeBadge {
   label: string;
   delta_pct: number;
+  /** Shown instead of a percent when the previous period had nothing to compare. */
+  note?: string;
 }
 
 export interface FinancialOverview {

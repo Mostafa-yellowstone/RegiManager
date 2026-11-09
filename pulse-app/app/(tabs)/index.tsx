@@ -195,7 +195,7 @@ export default function PulseScreen() {
               />
               <MetricTile
                 basis={cardBasis}
-                label="Insurance pay"
+                label="Insurance profit"
                 hint="Commission + broker fee"
                 value={formatMoney(overview.insurance_profit)}
                 badge={overview.badges.insurance}
@@ -298,7 +298,7 @@ export default function PulseScreen() {
                   Desk profit {formatPct(overview.badges.profit.delta_pct, 0)} {overview.badges.profit.label}.
                 </Text>
               ) : (
-                <Text style={[quiet, { marginTop: 8 }]}>Desk profit is DMV Profit plus insurance pay.</Text>
+                <Text style={[quiet, { marginTop: 8 }]}>Desk profit is DMV Profit plus insurance profit.</Text>
               )}
               {bestSpace ? (
                 <Text style={{ marginTop: 6, fontFamily: Fonts.medium, fontSize: fs(14), color: Colors.navy }}>
@@ -342,8 +342,8 @@ function MetricTile({
       </Text>
       <Text style={[quiet, { marginTop: 4 }]}>{hint}</Text>
       {badge ? (
-        <Text style={{ marginTop: 6, fontFamily: Fonts.bold, fontSize: fs(12), color: badge.delta_pct < 0 ? Colors.danger : Colors.teal }}>
-          {formatPct(badge.delta_pct, 0)} {badge.label}
+        <Text style={{ marginTop: 6, fontFamily: Fonts.bold, fontSize: fs(12), color: badge.note ? Colors.muted : badge.delta_pct < 0 ? Colors.danger : Colors.teal }}>
+          {badge.note || `${formatPct(badge.delta_pct, 0)} ${badge.label}`}
         </Text>
       ) : null}
     </Pressable>

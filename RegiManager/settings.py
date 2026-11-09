@@ -296,7 +296,9 @@ LOGOUT_REDIRECT_URL = "login"
 
 # Increase max body size to prevent CSRF verification failures on large file uploads
 DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
-FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
+# Uploads above this spill to a temp file instead of RAM, so several big uploads at once can't
+# exhaust worker memory (an OOM-killed worker shows up as a 502). Size limits are unchanged.
+FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("FILE_UPLOAD_MAX_MEMORY_SIZE", str(5 * 1024 * 1024)))
 
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")

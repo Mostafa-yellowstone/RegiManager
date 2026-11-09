@@ -29,6 +29,7 @@ packaging==26.2
 pillow==12.2.0
 prompt_toolkit==3.0.52
 psycopg2-binary==2.9.12
+psycogreen==1.0.2
 PyMuPDF==1.26.5
 pypdf==6.11.0
 python-crontab==3.3.0

@@ -37,10 +37,10 @@ def can_edit_added_org_record(user, organization, added_by_id, *, membership=Non
 
 
 def can_edit_insurance_policy(user, policy, *, membership=None) -> bool:
-  membership = membership or membership_for_org(user, policy.organization)
+  membership = membership or membership_for_org(user, policy.organization_id)
   if can_edit_added_org_record(
       user,
-      policy.organization,
+      policy.organization_id,
       getattr(policy, "added_by_id", None),
       membership=membership,
   ):

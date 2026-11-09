@@ -165,7 +165,7 @@ class PoliciesQuoteDateFilterTests(InsuranceAreaBase):
         res = self.client.get(reverse("insurance-policies"), {"date_from": self.old_day.isoformat()})
         self.assertContains(res, '<td class="ipc-mono">OLD-1</td>')
         self.assertContains(res, '<td class="ipc-mono">NEW-1</td>')
-        self.assertContains(res, f"Showing quote dates from {self.old_day:%b %d, %Y} onward")
+        self.assertContains(res, f"Showing from {self.old_day:%b %d, %Y} onward")
 
     def test_quote_range_and_live_table(self):
         params = {"date_from": self.old_day.isoformat(), "date_to": self.old_day.isoformat(), "partial": "crm_policies"}

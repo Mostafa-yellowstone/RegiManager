@@ -172,18 +172,25 @@ def quote_period_ordering():
 
 def period_stats(policy_qs, start, end):
     period_qs = filter_policies_by_quote_period(policy_qs, start, end)
+    # Written figures count a policy once, in the period it was bound; the wider
+    # period filter (start/inactive dates) would count it in several periods.
+    written_qs = policy_qs.filter(
+        stage__in=InsurancePolicy.BOUND_STAGES,
+        bound_date__gte=start,
+        bound_date__lte=end,
+    )
     quotes = period_qs.filter(stage__in=InsurancePolicy.QUOTE_STAGES).count()
-    bound = period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES).count()
+    bound = written_qs.count()
     total = quotes + bound
     conversion = (bound / total * 100) if total > 0 else 0
-    bound_stats = period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="active").aggregate(
+    bound_stats = written_qs.filter(status="active").aggregate(
         premium=Sum("premium"),
         broker_fee=Sum("broker_fee"),
         earned_commission=Sum("commission_amount"),
     )
     by_business = {
         row["business_type"]: float(row["total"] or 0)
-        for row in period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES, status="active")
+        for row in written_qs.filter(status="active")
         .values("business_type")
         .annotate(total=Sum("premium"))
     }

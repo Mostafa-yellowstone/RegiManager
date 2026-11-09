@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="30">
+<title>RegiManager is restarting</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f1f5f9; color: #0f172a; }
+  .card { max-width: 30rem; margin: 1.5rem; padding: 2.25rem 2rem; background: #fff; border-radius: 18px; box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12); text-align: center; }
+  h1 { margin: 0 0 0.6rem; font-size: 1.45rem; }
+  p { margin: 0 0 1rem; line-height: 1.55; color: #475569; }
+  .dot { display: inline-block; width: 0.6rem; height: 0.6rem; margin-right: 0.4rem; border-radius: 50%; background: #f59e0b; animation: pulse 1.4s ease-in-out infinite; }
+  button { padding: 0.7rem 1.4rem; border: 0; border-radius: 10px; background: #0f766e; color: #fff; font-weight: 700; font-size: 0.95rem; cursor: pointer; }
+  small { display: block; margin-top: 1rem; color: #64748b; }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+  @media (prefers-color-scheme: dark) {
+    body { background: #0b1220; color: #e2e8f0; }
+    .card { background: #111a2e; box-shadow: none; }
+    p { color: #94a3b8; }
+    small { color: #94a3b8; }
+  }
+</style>
+</head>
+<body>
+  <main class="card">
+    <h1><span class="dot"></span>We'll be right back</h1>
+    <p>RegiManager is restarting or briefly busy. Your saved data is safe. If you were in the middle of saving a form, check whether it went through before submitting it again.</p>
+    <button type="button" onclick="location.reload()">Try again</button>
+    <small>This page refreshes by itself every 30 seconds.</small>
+  </main>
+</body>
+</html>

@@ -7,7 +7,7 @@ from decimal import Decimal
 from django.db.models import Sum
 
 from .daily_payments import PAYMENT_METHOD_META, bucket_payment_method, payment_grand_total
-from .models import DailyPaymentTransaction
+from .models import DailyPaymentTransaction, ServiceRecord
 
 CARD_METHODS = frozenset({
     "visa",
@@ -34,7 +34,7 @@ def _count_bucket(counts, payment_method):
         counts[bucket] += 1
 
 
-def _record_amounts(record):
+def _record_amounts(record, refunded_ids=None):
     paid = record.paid_amount or Decimal("0")
     fee = record.service_fee or Decimal("0")
     if record.status == "refund":
@@ -43,7 +43,11 @@ def _record_amounts(record):
         amt2 = record.paid_amount_2 or Decimal("0")
         amt1 = paid - amt2 if paid else fee - amt2
         return (record.payment_method, amt1), (record.payment_method_2, amt2)
-    if paid <= Decimal("0") and record.refund_entries.filter(status="refund").exists():
+    if refunded_ids is not None:
+        was_refunded = record.id in refunded_ids
+    else:
+        was_refunded = paid <= Decimal("0") and record.refund_entries.filter(status="refund").exists()
+    if paid <= Decimal("0") and was_refunded:
         amount = Decimal("0")
     else:
         amount = paid if paid else fee
@@ -88,8 +92,13 @@ def build_payment_cards_for_range(records, from_date, to_date):
         transaction_date__gte=from_date,
         transaction_date__lte=to_date,
     ).exclude(status="refund")
+    refunded_ids = set(
+        ServiceRecord.objects.filter(refunded_from__in=ranged, status="refund").values_list(
+            "refunded_from_id", flat=True
+        )
+    )
     for record in ranged.iterator():
-        primary, secondary = _record_amounts(record)
+        primary, secondary = _record_amounts(record, refunded_ids)
         _add_to_bucket(totals, primary[0], primary[1])
         _count_bucket(counts, primary[0])
         if secondary[0]:

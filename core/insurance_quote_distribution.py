@@ -98,18 +98,42 @@ def eligible_agents_for_auto(
     *,
     work_date: date | None = None,
     config: InsuranceQuoteDistributionConfig | None = None,
+    pool: list[OrganizationMembership] | None = None,
 ) -> list[OrganizationMembership]:
     work_date = work_date or ny_work_date()
     config = config or get_or_create_distribution_config(organization)
-    agents = insurance_agent_pool(organization)
-    eligible = []
-    for agent in agents:
-        if agent_is_off(agent, work_date):
-            continue
-        if config.require_attendance_present and not agent_is_present(agent, work_date):
-            continue
-        eligible.append(agent)
-    return eligible
+    agents = pool if pool is not None else insurance_agent_pool(organization)
+    if not agents:
+        return []
+    ids = [agent.id for agent in agents]
+    off_ids = set(
+        InsuranceAgentOffDay.objects.filter(membership_id__in=ids, off_date=work_date).values_list(
+            "membership_id", flat=True
+        )
+    )
+    present_ids = set()
+    if config.require_attendance_present:
+        latest_closed = {}
+        sessions = AgentAttendanceSession.objects.filter(membership_id__in=ids, work_date=work_date).order_by(
+            "membership_id", "-opened_at"
+        )
+        for membership_id, closed_at in sessions.values_list("membership_id", "closed_at"):
+            latest_closed.setdefault(membership_id, closed_at)
+        present_ids = {mid for mid, closed_at in latest_closed.items() if closed_at is None}
+    return [
+        agent
+        for agent in agents
+        if agent.id not in off_ids and (not config.require_attendance_present or agent.id in present_ids)
+    ]
+
+
+def _next_in_rotation(eligible, config):
+    if not eligible:
+        return None
+    ids = [m.id for m in eligible]
+    cursor = config.last_assigned_membership_id
+    start_idx = (ids.index(cursor) + 1) % len(ids) if cursor in ids else 0
+    return eligible[start_idx]
 
 
 def pick_next_agent(
@@ -122,14 +146,7 @@ def pick_next_agent(
     eligible = eligible_agents_for_auto(
         organization, work_date=work_date, config=config
     )
-    if not eligible:
-        return None
-    ids = [m.id for m in eligible]
-    cursor = config.last_assigned_membership_id
-    start_idx = 0
-    if cursor in ids:
-        start_idx = (ids.index(cursor) + 1) % len(ids)
-    return eligible[start_idx]
+    return _next_in_rotation(eligible, config)
 
 
 def _membership_channel_card(membership) -> dict | None:
@@ -163,10 +180,8 @@ def rotation_queue(
     eligible = eligible_agents_for_auto(
         organization, work_date=work_date, config=config
     )
-    next_agent = pick_next_agent(
-        organization, work_date=work_date, config=config
-    )
-    if not eligible or next_agent is None:
+    next_agent = _next_in_rotation(eligible, config)
+    if next_agent is None:
         return []
     ids = [m.id for m in eligible]
     start = ids.index(next_agent.id) if next_agent.id in ids else 0
@@ -178,9 +193,11 @@ def distribution_channel_payload(organization, *, work_date: date | None = None)
     status = distribution_status(organization, work_date=work_date)
     config = status["config"]
     paused = status["auto_paused"]
-    queue_members = [] if paused else rotation_queue(
-        organization, work_date=status["work_date"], config=config
-    )
+    queue_members = []
+    if not paused and status["next_agent"] is not None:
+        eligible = status["eligible"]
+        start = eligible.index(status["next_agent"])
+        queue_members = eligible[start:] + eligible[:start]
     queue = [card for card in (_membership_channel_card(m) for m in queue_members) if card]
     last_card = _membership_channel_card(config.last_assigned_membership)
     if not config.is_auto_enabled:
@@ -520,15 +537,13 @@ def distribution_status(organization, *, work_date: date | None = None) -> dict:
     config = get_or_create_distribution_config(organization)
     pool = insurance_agent_pool(organization)
     eligible = eligible_agents_for_auto(
-        organization, work_date=work_date, config=config
+        organization, work_date=work_date, config=config, pool=pool
     )
     sunday = is_sunday_ny(work_date)
     auto_paused = (not config.is_auto_enabled) or (
         config.skip_sundays and sunday
     )
-    next_agent = None if auto_paused else pick_next_agent(
-        organization, work_date=work_date, config=config
-    )
+    next_agent = None if auto_paused else _next_in_rotation(eligible, config)
     return {
         "work_date": work_date,
         "is_sunday": sunday,

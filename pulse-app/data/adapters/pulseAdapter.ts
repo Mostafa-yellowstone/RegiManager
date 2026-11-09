@@ -117,14 +117,23 @@ function buildActivityFromProcesses(processes: any): ServiceBreakdownRow[] {
   }));
 }
 
-function insuranceProfitFromOverview(overview: any): number {
+function insuranceSnapshot(overview: any): { profit: number; bound: number } {
   const useCustom = hasCustomRange(overview) || true;
-  const profit = overview?.profit || {};
-  const insurance = profit.insurance || {};
-  const insActive = activePeriod(insurance, useCustom);
+  const insActive = activePeriod(overview?.profit?.insurance, useCustom);
   const commission = money(insActive.commission);
   const broker = money(insActive.broker_fee);
-  return money(insActive.total_profit) || commission + broker;
+  return {
+    profit: money(insActive.total_profit) || commission + broker,
+    bound: Number(insActive.bound_count || 0),
+  };
+}
+
+function noInsuranceNote(preset: DateRangePreset): string {
+  if (preset === 'today') return 'No insurance yesterday';
+  if (preset === 'yesterday') return 'No insurance the day before';
+  if (preset === 'week') return 'No insurance the week before';
+  if (preset === 'month') return 'No insurance last month';
+  return 'No insurance in the previous period';
 }
 
 export function adaptPulseDashboard(input: {
@@ -235,12 +244,15 @@ export function adaptPulseDashboard(input: {
   const deltas = input.compare?.deltas;
 
   const priorDmv = input.priorOverview ? profitBucketGross(input.priorOverview) : 0;
-  const priorIns = input.priorOverview ? insuranceProfitFromOverview(input.priorOverview) : 0;
+  const priorInsSnap = input.priorOverview
+    ? insuranceSnapshot(input.priorOverview)
+    : { profit: 0, bound: 0 };
+  const priorIns = priorInsSnap.profit;
   const priorOpsProfit = priorIns + priorDmv;
 
-  if (priorOpsProfit || netProfit) {
+  if (priorOpsProfit > 0) {
     badges.profit = { label: badgeLabel, delta_pct: pctDelta(netProfit, priorOpsProfit) };
-  } else if (deltas?.net_profit_pct != null) {
+  } else if (deltas?.net_profit_pct != null && input.preset !== 'today' && input.preset !== 'yesterday') {
     badges.profit = { label: badgeLabel, delta_pct: Number(deltas.net_profit_pct) };
   }
 
@@ -259,10 +271,10 @@ export function adaptPulseDashboard(input: {
   }
 
   if (input.priorOverview) {
-    badges.insurance = {
-      label: badgeLabel,
-      delta_pct: pctDelta(insuranceProfit, priorIns),
-    };
+    const priorHadInsurance = priorInsSnap.bound > 0 || priorIns > 0;
+    badges.insurance = priorHadInsurance
+      ? { label: badgeLabel, delta_pct: pctDelta(insuranceProfit, priorIns) }
+      : { label: badgeLabel, delta_pct: 0, note: noInsuranceNote(input.preset) };
   }
 
   const overview: FinancialOverview = {

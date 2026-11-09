@@ -1110,9 +1110,10 @@ function startAutomationScan() {
     btn.style.opacity = '0.7';
     btn.style.cursor = 'not-allowed';
     
-    window.location.href = '/dashboard/run-automation/';
+    document.getElementById('runAutomationForm').submit();
 }
 </script>
+<form id="runAutomationForm" method="post" action="{% url 'run-automation' %}" hidden>{% csrf_token %}</form>
 
 <script src="{% static 'core/js/dashboard.js' %}?v=3"></script>
 
@@ -1159,7 +1160,7 @@ function confirmAutomationScan() {
                 showConfirmButton: false
             });
             setTimeout(() => {
-                window.location.href = "{% url 'run-automation' %}";
+                document.getElementById('runAutomationForm').submit();
             }, 2000);
         }
     });

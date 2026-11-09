@@ -1055,8 +1055,12 @@ urlpatterns = [
 ]
 
 from core.error_handlers import render_error_page
+from core.health import healthz
+from core.media_access import media_auth
 
 urlpatterns += [
+    path("healthz/", healthz, name="healthz"),
+    path("media-auth/", media_auth, name="media-auth"),
     path("errors/502/", lambda request: render_error_page(request, 502)),
     path("errors/503/", lambda request: render_error_page(request, 503)),
     path(

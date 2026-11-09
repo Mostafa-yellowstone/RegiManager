@@ -138,6 +138,8 @@ class InsuranceBookPremiumCardsTests(TestCase):
             start_date=date(2026, 10, 10),
             end_date=date(2027, 4, 10),
         )
+        InsurancePolicy.objects.filter(pk=policy.pk).update(commission_rate=None, commission_amount=None)
+        policy.refresh_from_db()
         self.assertIsNone(policy.commission_amount)
 
         http = DjangoClient()
