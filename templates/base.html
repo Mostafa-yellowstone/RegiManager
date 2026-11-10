@@ -43,6 +43,7 @@
     <link rel="stylesheet" href="{% static 'core/css/offline-queue.css' %}?v=oq-1">
     <script src="{% static 'core/js/rate-limit-retry.js' %}?v=rl-2"></script>
     {% block extra_head %}{% endblock %}
+    {% block site_layout_css %}<link rel="stylesheet" href="{% static 'core/css/site-layout.css' %}?v=layout-3">{% endblock %}
 </head>
 
 <body {% block body_attrs %}{% endblock %}>

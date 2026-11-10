@@ -430,6 +430,33 @@ html.portal-theme-dark .prd-table a { color: #a5b4fc; }
 }
 
 /* ── producer modals ─────────────────────────────────────────── */
+.modal-overlay:has(> .prd-modal) {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  padding: 1rem;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.modal-overlay.active:has(> .prd-modal) {
+  display: flex;
+  animation: prd-overlay-in 0.18s ease-out;
+}
+.modal-overlay.active > .modal-box.prd-modal {
+  animation: prd-modal-in 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+html.portal-theme-dark .modal-overlay:has(> .prd-modal) { background: rgba(2, 6, 23, 0.7); }
+body.prd-modal-open { overflow: hidden; }
+@keyframes prd-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes prd-modal-in { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay.active:has(> .prd-modal),
+  .modal-overlay.active > .modal-box.prd-modal { animation: none; }
+}
 .modal-box.prd-modal {
   --prd-ink: var(--portal-text, #0f172a);
   --prd-mute: var(--portal-text-muted, #64748b);

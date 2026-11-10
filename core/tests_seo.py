@@ -72,6 +72,7 @@ class SeoPublicPagesTests(TestCase):
             res = self.client.get(reverse(name))
             self.assertEqual(res.status_code, 200, name)
             self.assertContains(res, '<meta name="description"', msg_prefix=name)
+            self.assertContains(res, "core/css/site-layout.css", msg_prefix=name)
 
     @override_settings(GOOGLE_SITE_VERIFICATION="g-token", BING_SITE_VERIFICATION="b-token")
     def test_search_console_verification_tags(self):
@@ -92,6 +93,7 @@ class SeoPrivatePagesTests(InsuranceAreaBase):
         self.assertContains(res, '<meta name="robots" content="noindex, nofollow">')
         self.assertNotContains(res, 'property="og:title"')
         self.assertNotContains(res, 'rel="canonical"')
+        self.assertNotContains(res, "core/css/site-layout.css")
 
     def test_public_intake_is_noindex(self):
         res = self.client.get(reverse("public-intake-start"))

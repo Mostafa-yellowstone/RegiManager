@@ -4,7 +4,7 @@
 {% block title %}{{ producer.name }} — Producer | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_producers.css' %}?v=prd-6">
+<link rel="stylesheet" href="{% static 'core/css/insurance_producers.css' %}?v=prd-7">
 {% endblock %}
 
 {% block portal_content %}
@@ -432,6 +432,26 @@
     refreshButton();
   });
   amount.addEventListener('input', refreshButton);
+})();
+
+(function () {
+  const overlays = document.querySelectorAll('.modal-overlay');
+  const sync = function () {
+    document.body.classList.toggle('prd-modal-open', !!document.querySelector('.modal-overlay.active'));
+  };
+  overlays.forEach(function (overlay) {
+    new MutationObserver(function () {
+      sync();
+      if (overlay.classList.contains('active')) {
+        const field = overlay.querySelector('input:not([type=hidden]):not([type=checkbox]):not([type=radio]), select, textarea');
+        if (field) setTimeout(function () { field.focus(); }, 60);
+      }
+    }).observe(overlay, { attributes: true, attributeFilter: ['class'] });
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+    document.querySelectorAll('.modal-overlay.active').forEach(function (overlay) { overlay.classList.remove('active'); });
+  });
 })();
 
 function copyProducerPassword(button) {

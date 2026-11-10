@@ -1,0 +1,144 @@
+/* Public site layout: every marketing page runs edge to edge with one small side gutter. */
+:root {
+    --site-gutter: clamp(0.875rem, 2vw, 2.25rem);
+}
+
+html,
+body {
+    overflow-x: clip;
+}
+
+/* Header and footer */
+.site-header--marketing .site-header-bar,
+.site-shell .site-header--marketing .site-header-bar {
+    max-width: none !important;
+    padding-left: var(--site-gutter) !important;
+    padding-right: var(--site-gutter) !important;
+}
+
+.site-footer .site-footer-inner {
+    max-width: none !important;
+    padding-left: var(--site-gutter) !important;
+    padding-right: var(--site-gutter) !important;
+}
+
+/* Home and solution pages */
+.site-shell {
+    width: 100%;
+    max-width: none;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.site-shell .hero-wrapper,
+.site-shell .capabilities-wrapper,
+.site-shell .pricing-wrapper,
+.site-shell .site-cta-wrapper {
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.site-shell .site-section {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.site-shell .site-hero {
+    max-width: none;
+    padding-left: var(--site-gutter);
+    padding-right: var(--site-gutter);
+}
+
+.site-shell-inner {
+    max-width: none;
+    padding-left: var(--site-gutter);
+    padding-right: var(--site-gutter);
+}
+
+.site-shell .solution-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (min-width: 1101px) {
+    .site-shell .solution-grid:has(> :nth-child(4):last-child) {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1100px) {
+    .site-shell .solution-grid,
+    .site-shell .solution-grid:has(> :nth-child(4):last-child) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .site-shell .solution-grid,
+    .site-shell .solution-grid:has(> :nth-child(4):last-child) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.site-shell .pricing-tier-grid {
+    width: 100%;
+}
+
+.site-shell .seo-faq {
+    max-width: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr));
+    align-items: start;
+}
+
+/* Contact page */
+.cu-hero {
+    padding-left: var(--site-gutter) !important;
+    padding-right: var(--site-gutter) !important;
+}
+
+.cu-hero-inner,
+.cu-wrap {
+    width: 100% !important;
+}
+
+.cu-wrap {
+    padding-left: var(--site-gutter) !important;
+    padding-right: var(--site-gutter) !important;
+}
+
+/* Privacy page */
+.privacy-page .contact-hero {
+    padding-left: var(--site-gutter);
+    padding-right: var(--site-gutter);
+}
+
+.privacy-shell {
+    width: auto !important;
+    margin-left: var(--site-gutter) !important;
+    margin-right: var(--site-gutter) !important;
+}
+
+@media (min-width: 1100px) {
+    .privacy-card {
+        column-count: 2;
+        column-gap: clamp(2rem, 4vw, 4rem);
+        column-rule: 1px solid rgba(148, 163, 184, 0.14);
+    }
+
+    .privacy-card > .privacy-visual,
+    .privacy-card > .privacy-meta,
+    .privacy-card > .privacy-disclaimer,
+    .privacy-card > .privacy-footer-note {
+        column-span: all;
+    }
+
+    .privacy-card h2 {
+        break-after: avoid;
+    }
+
+    .privacy-card ul,
+    .privacy-card li {
+        break-inside: avoid;
+    }
+}
