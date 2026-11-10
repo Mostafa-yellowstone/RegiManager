@@ -42,11 +42,28 @@ def received_commission_total(transactions):
     )
 
 
+def policy_commission_split(policy):
+    """(earned, unearned) parts of a bound policy's commission.
+
+    Active policies keep the full commission. A cancelled policy keeps only the
+    time it was in force; the rest is unearned and never exceeds the commission.
+    """
+    if policy.stage not in InsurancePolicy.BOUND_STAGES:
+        return Decimal("0.00"), Decimal("0.00")
+    commission = max(_as_money(policy.commission_amount), Decimal("0.00"))
+    if policy.status == "active":
+        return commission, Decimal("0.00")
+    if policy.status != "inactive":
+        return Decimal("0.00"), Decimal("0.00")
+    unearned = min(policy_unearned_commission(policy), commission)
+    return commission - unearned, unearned
+
+
 def received_commission_from_policies(policies):
-    """Sum commission_amount for policies explicitly marked as received."""
+    """Earned commission of bound policies explicitly marked as received."""
     return sum(
         (
-            _as_money(p.commission_amount)
+            policy_commission_split(p)[0]
             for p in policies
             if getattr(p, "commission_received", False)
         ),
@@ -55,12 +72,9 @@ def received_commission_from_policies(policies):
 
 
 def gross_earned_from_policies(policies):
+    """Commission kept on bound policies, including the earned part of cancelled ones."""
     return sum(
-        (
-            _as_money(p.commission_amount)
-            for p in policies
-            if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "active"
-        ),
+        (policy_commission_split(p)[0] for p in policies),
         Decimal("0.00"),
     )
 
@@ -148,12 +162,19 @@ def policy_unearned_commission(policy):
     )
 
 
+def policy_refund_owed(policy):
+    """Unearned commission owed back; nothing is owed until the commission was received."""
+    if not getattr(policy, "commission_received", False):
+        return Decimal("0.00")
+    return policy_commission_split(policy)[1]
+
+
 def build_adjusted_unearned_map(inactive_policies, refund_amount):
     """FIFO distribution of refund amounts across inactive policies."""
     adjusted = {}
-    remaining = Decimal(str(refund_amount))
+    remaining = max(Decimal(str(refund_amount or "0")), Decimal("0.00"))
     for p in inactive_policies:
-        raw_val = policy_unearned_commission(p)
+        raw_val = policy_refund_owed(p)
         if remaining >= raw_val:
             adjusted[p.id] = Decimal("0.00")
             remaining -= raw_val
@@ -177,8 +198,8 @@ def company_commission_summary(company_policies, company_transactions):
     refund_amt = refund_total(company_transactions)
     adjusted_map = build_adjusted_unearned_map(inactive, refund_amt)
     unearned = sum(
-        adjusted_map.get(p.id, policy_unearned_commission(p))
-        for p in inactive
+        (adjusted_map.get(p.id, policy_refund_owed(p)) for p in inactive),
+        Decimal("0.00"),
     )
 
     return {

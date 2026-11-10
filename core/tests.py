@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from django.test import TestCase, Client as TestClient, override_settings
 from django.urls import reverse
@@ -416,6 +416,7 @@ class InsurancePolicyEditPermissionTests(TestCase):
         response = self.http.get(
             url,
             {"tab": "insurance", "q": "pat policy", "partial": "crm_policies"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "POL-OWN")
@@ -1104,6 +1105,36 @@ class AgentAuditingTests(TestCase):
         policy_numbers = [p.policy_number for p in response.context["policies"]]
         self.assertEqual(policy_numbers, ["POL-MONTH-PRIOR"])
 
+    def test_policy_counts_in_its_quote_month_not_effective_or_cancel_month(self):
+        today = date.today()
+        this_month = today.replace(day=1)
+        prior_month_day = (this_month - timedelta(days=1)).replace(day=10)
+
+        InsurancePolicy.objects.create(
+            organization=self.org, client=self.client_obj1, policy_number="POL-BOUND-PRIOR-EFF-NOW",
+            insurance_company=self.company, premium=Decimal("900.00"), commission_rate=Decimal("10.00"),
+            stage="bound", status="active", added_by=self.user1,
+            start_date=this_month, end_date=this_month + timedelta(days=180),
+            bound_date=prior_month_day,
+        )
+        InsurancePolicy.objects.create(
+            organization=self.org, client=self.client_obj2, policy_number="POL-BOUND-PRIOR-CANCEL-NOW",
+            insurance_company=self.company, premium=Decimal("700.00"), commission_rate=Decimal("10.00"),
+            stage="bound", status="inactive", added_by=self.user1,
+            start_date=prior_month_day, end_date=prior_month_day + timedelta(days=180),
+            inactive_date=this_month, bound_date=prior_month_day,
+        )
+
+        response = self.client.get(reverse("insurance-policies") + "?tab=insurance")
+        current = [p.policy_number for p in response.context["policies"]]
+        self.assertNotIn("POL-BOUND-PRIOR-EFF-NOW", current)
+        self.assertNotIn("POL-BOUND-PRIOR-CANCEL-NOW", current)
+
+        response = self.client.get(reverse("insurance-policies") + "?tab=insurance&comp_month_offset=-1")
+        prior = [p.policy_number for p in response.context["policies"]]
+        self.assertIn("POL-BOUND-PRIOR-EFF-NOW", prior)
+        self.assertIn("POL-BOUND-PRIOR-CANCEL-NOW", prior)
+
     def test_unearned_commission_deducted_by_transactions(self):
         # Set active_org_id in session for PDF report endpoint compatibility
         session = self.client.session
@@ -1116,7 +1147,7 @@ class AgentAuditingTests(TestCase):
             insurance_company=self.company, premium=Decimal("1000.00"), broker_fee=Decimal("0.00"),
             commission_rate=Decimal("10.00"), stage="bound", status="inactive", added_by=self.user1,
             start_date="2026-06-01", end_date="2026-12-01", insurance_period_months=6,
-            inactive_date="2026-06-01", bound_date=self.quote_date,
+            inactive_date="2026-06-01", bound_date=self.quote_date, commission_received=True,
         )
         # Verify initial unearned commission is exactly commission_amount ($100.00)
         self.assertEqual(policy.commission_amount, Decimal("100.00"))
@@ -1364,6 +1395,88 @@ class CompanyProfileCommissionTests(TestCase):
         response = self.client.get(reverse("insurance-company-detail", args=[self.company.id]))
         self.assertEqual(response.context["total_received_commission"], Decimal("100.00"))
         self.assertEqual(response.context["total_commission"], Decimal("0.00"))
+
+    def _cancel_policy(self, inactive_date="2026-09-01"):
+        self.policy.status = "inactive"
+        self.policy.inactive_date = inactive_date
+        self.policy.save()
+
+    def _toggle(self, received):
+        response = self.client.post(
+            reverse("toggle-policy-commission-received", args=[self.policy.id]),
+            {"received": "1" if received else "0"},
+        )
+        self.assertEqual(response.status_code, 200)
+        return response.json()
+
+    def test_received_inactive_policy_splits_earned_and_unearned(self):
+        self._cancel_policy()
+        unearned = (Decimal("100.00") * Decimal(91) / Decimal(183)).quantize(Decimal("0.01"))
+        earned = Decimal("100.00") - unearned
+
+        response = self.client.get(reverse("insurance-company-detail", args=[self.company.id]))
+        self.assertEqual(response.context["total_commission"], earned)
+        self.assertEqual(response.context["total_received_commission"], Decimal("0.00"))
+        self.assertEqual(response.context["total_unearned"], Decimal("0.00"))
+
+        data = self._toggle(True)
+        self.assertEqual(data["received_commission"], f"{earned:.2f}")
+        self.assertEqual(data["earned_commission"], "0.00")
+        self.assertEqual(data["unearned_commission"], f"{unearned:.2f}")
+        self.assertEqual(data["policy_earned"], f"{earned:.2f}")
+        self.assertEqual(data["policy_unearned"], f"{unearned:.2f}")
+
+        response = self.client.get(reverse("insurance-company-detail", args=[self.company.id]))
+        self.assertEqual(response.context["total_received_commission"], earned)
+        self.assertEqual(response.context["total_unearned"], unearned)
+        self.assertContains(response, 'id="unearnedCommissionValue"')
+
+        data = self._toggle(False)
+        self.assertEqual(data["received_commission"], "0.00")
+        self.assertEqual(data["earned_commission"], f"{earned:.2f}")
+        self.assertEqual(data["unearned_commission"], "0.00")
+
+    def test_received_policy_cancelled_before_start_is_fully_unearned(self):
+        self._cancel_policy("2026-05-15")
+        data = self._toggle(True)
+        self.assertEqual(data["received_commission"], "0.00")
+        self.assertEqual(data["earned_commission"], "0.00")
+        self.assertEqual(data["unearned_commission"], "100.00")
+
+    def test_received_inactive_without_cancel_date_keeps_full_commission(self):
+        self._cancel_policy(None)
+        data = self._toggle(True)
+        self.assertEqual(data["received_commission"], "100.00")
+        self.assertEqual(data["unearned_commission"], "0.00")
+
+    def test_refunds_larger_than_unearned_never_go_negative(self):
+        from .models import BankAccount, BankTransaction
+
+        self._cancel_policy("2026-05-15")
+        self._toggle(True)
+        account = BankAccount.objects.create(
+            organization=self.org, account_name="Main", bank_name="Chase", balance=Decimal("500.00")
+        )
+        BankTransaction.objects.create(
+            bank_account=account,
+            transaction_type=BankTransaction.TransactionType.EXPENSE,
+            amount=Decimal("250.00"),
+            category="Unearned Commission Refund",
+            insurance_company=self.company,
+        )
+        data = self._toggle(True)
+        self.assertEqual(data["unearned_commission"], "0.00")
+
+    def test_quote_cannot_be_marked_received(self):
+        self.policy.stage = "quote"
+        self.policy.save()
+        response = self.client.post(
+            reverse("toggle-policy-commission-received", args=[self.policy.id]),
+            {"received": "1"},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.policy.refresh_from_db()
+        self.assertFalse(self.policy.commission_received)
 
     def test_toggle_denied_without_finance_permission(self):
         self.owner_membership.can_view_banking = False

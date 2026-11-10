@@ -75,13 +75,13 @@
               </td>
               <td>
                 <div class="ipc-actions">
-                  <a href="{% url 'insurance-policy-detail' policy.id %}?next={{ request.get_full_path|urlencode }}" title="Open policy detail" class="ipc-act ipc-act--detail">Detail</a>
+                  <a href="{% url 'insurance-policy-detail' policy.id %}?next={{ policies_return_url|default:request.get_full_path|urlencode }}" title="Open policy detail" class="ipc-act ipc-act--detail">Detail</a>
                   <button type="button" onclick="viewPolicy({{ policy.id }})" title="View Policy" aria-label="View policy" class="ipc-act ipc-act--view">👁️</button>
                   {% if policy.can_edit %}
                   <button type="button" onclick="editPolicy({{ policy.id }})" class="ipc-act">Edit</button>
                   {% endif %}
                   {% if can_delete_insurance_policies %}
-                  <a href="{% url 'delete-insurance-policy' policy.id %}?next={{ request.get_full_path|urlencode }}" onclick="return confirm('Delete this policy?')" class="ipc-act ipc-act--danger">Del</a>
+                  <a href="{% url 'delete-insurance-policy' policy.id %}?next={{ policies_return_url|default:request.get_full_path|urlencode }}" onclick="return confirm('Delete this policy?')" class="ipc-act ipc-act--danger">Del</a>
                   {% endif %}
                 </div>
               </td>

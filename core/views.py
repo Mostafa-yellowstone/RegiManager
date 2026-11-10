@@ -79,6 +79,7 @@ from .source_choices import (
 from .insurance_commissions import (
     build_adjusted_unearned_map,
     company_commission_summary,
+    policy_commission_split,
     refund_total,
 )
 from .finance_hub_metrics import build_daily_payment_cards, build_month_goal_forecast
@@ -1283,6 +1284,12 @@ def _note_follow_up(raw):
     except ValueError:
         parsed = None
     return parsed, parsed is not None
+
+
+def _filter_date(raw):
+    """A YYYY-MM-DD filter value, or None when blank or invalid."""
+    parsed, _ok = _note_follow_up(raw)
+    return parsed
 
 
 def _person_label(user):
@@ -7346,6 +7353,11 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
             pass
 
     if request.GET.get("partial") == "crm_policies":
+        return_query = request.GET.copy()
+        return_query.pop("partial", None)
+        return_url = f"{request.path}?{return_query.urlencode()}" if return_query else request.path
+        if request.headers.get("x-requested-with") != "XMLHttpRequest":
+            return redirect(return_url)
         crm_page_num = request.GET.get("page", 1)
         crm_policies_page = Paginator(
             policies.order_by(*quote_period_ordering()), 12
@@ -7371,6 +7383,7 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
                     or (membership and is_owner_or_manager_role(membership.role))
                 ),
                 "insurance_policies_query_string": query.urlencode(),
+                "policies_return_url": return_url,
             },
         )
 
@@ -7453,7 +7466,7 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
     comp_period_label = f"{comp_start.strftime('%b %d')} – {comp_end.strftime('%b %d, %Y')}"
     prev_period_label = f"{prev_start.strftime('%b %d')} – {prev_end.strftime('%b %d, %Y')}"
 
-    from .insurance_commissions import policy_unearned_commission
+    from .insurance_commissions import policy_refund_owed
 
     if want("policies", "companies", "finance"):
         inactive_for_unearned = InsurancePolicy.objects.filter(
@@ -7464,6 +7477,9 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
             "stage",
             "status",
             "commission_amount",
+            "commission_received",
+            "commission_rate",
+            "premium",
             "inactive_date",
             "start_date",
             "end_date",
@@ -7496,8 +7512,8 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
         row["status"]["state"] == "expired" for row in license_attention
     )
     total_unearned_commission = sum(
-        adjusted_unearned_map.get(p.id, policy_unearned_commission(p))
-        for p in inactive_for_unearned
+        (adjusted_unearned_map.get(p.id, policy_refund_owed(p)) for p in inactive_for_unearned),
+        Decimal("0.00"),
     )
 
     if want("policies"):
@@ -9692,12 +9708,12 @@ def export_insurance_report_pdf(request):
         company_adjusted = build_adjusted_unearned_map(comp_inactive, company_refunded)
         adjusted_unearned_map.update(company_adjusted)
                 
-    from .insurance_commissions import policy_unearned_commission
+    from .insurance_commissions import policy_refund_owed
 
     for p in policies_list:
         if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "inactive":
             p.unearned_commission = adjusted_unearned_map.get(
-                p.id, policy_unearned_commission(p)
+                p.id, policy_refund_owed(p)
             )
             
     active_policies_list = [p for p in policies_list if p.stage in InsurancePolicy.BOUND_STAGES and p.status == "active"]
@@ -9888,10 +9904,10 @@ def insurance_company_detail(request, company_id):
         policies = policies.filter(business_type=business_type_filter)
     if agent_filter.isdigit():
         policies = policies.filter(added_by_id=agent_filter)
-    if date_from:
-        policies = policies.filter(start_date__gte=date_from)
-    if date_to:
-        policies = policies.filter(start_date__lte=date_to)
+    if date_from or date_to:
+        policies = filter_policies_by_quote_dates(
+            policies, _filter_date(date_from), _filter_date(date_to)
+        )
     if min_premium:
         try:
             policies = policies.filter(premium__gte=Decimal(min_premium))
@@ -9910,6 +9926,8 @@ def insurance_company_detail(request, company_id):
         policies_page = policy_paginator.page(policy_page_num)
     except Exception:
         policies_page = policy_paginator.page(1)
+    for p in policies_page:
+        p.commission_earned_part, p.commission_unearned_part = policy_commission_split(p)
 
     # Metrics
     all_policies = InsurancePolicy.objects.filter(organization=active_org, insurance_company=company)
@@ -10037,8 +10055,13 @@ def toggle_policy_commission_received(request, policy_id):
             return JsonResponse({"ok": False, "error": "Access denied."}, status=403)
 
     received = request.POST.get("received") in ("1", "true", "on", "yes")
+    if received and policy.stage not in InsurancePolicy.BOUND_STAGES:
+        return JsonResponse(
+            {"ok": False, "error": "Only bound policies can be marked as received."}, status=400
+        )
     policy.commission_received = received
     policy.save(update_fields=["commission_received", "updated_at"])
+    policy_earned, policy_unearned = policy_commission_split(policy)
 
     all_policies = list(
         InsurancePolicy.objects.filter(
@@ -10056,6 +10079,9 @@ def toggle_policy_commission_received(request, policy_id):
         "commission_received": received,
         "received_commission": f"{summary['received_commission']:.2f}",
         "earned_commission": f"{summary['earned_commission']:.2f}",
+        "unearned_commission": f"{summary['unearned_commission']:.2f}",
+        "policy_earned": f"{policy_earned:.2f}",
+        "policy_unearned": f"{policy_unearned:.2f}",
     })
 
 
@@ -10221,10 +10247,10 @@ def insurance_agent_detail(request, user_id):
         policies = policies.filter(business_type=business_type_filter)
     if company_filter:
         policies = policies.filter(insurance_company_id=company_filter)
-    if table_date_from:
-        policies = policies.filter(start_date__gte=table_date_from)
-    if table_date_to:
-        policies = policies.filter(start_date__lte=table_date_to)
+    if table_date_from or table_date_to:
+        policies = filter_policies_by_quote_dates(
+            policies, _filter_date(table_date_from), _filter_date(table_date_to)
+        )
 
     # Pagination
     page_num = request.GET.get("page", 1)

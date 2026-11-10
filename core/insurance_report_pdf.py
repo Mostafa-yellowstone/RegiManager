@@ -32,7 +32,7 @@ from .daily_payments import PAYMENT_METHOD_META, summarize_daily_payments
 from .insurance_commissions import (
     build_adjusted_unearned_map,
     inactive_policy_sort_key,
-    policy_unearned_commission,
+    policy_refund_owed,
     refund_total,
 )
 from .insurance_policy_schedule import summarize_insurance_schedule
@@ -1136,7 +1136,7 @@ def render_unearned_pdf(org, *, start=None, end=None, prepared_by="Staff") -> by
         company_refunded = refund_total([t for t in refunds if t.insurance_company_id == company.id])
         adjusted = build_adjusted_unearned_map(company_pols, company_refunded)
         for p in company_pols:
-            raw = policy_unearned_commission(p)
+            raw = policy_refund_owed(p)
             adj = adjusted.get(p.id, raw)
             total_raw += raw
             total_adj += adj

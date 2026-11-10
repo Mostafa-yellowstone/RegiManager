@@ -169,9 +169,22 @@ class PoliciesQuoteDateFilterTests(InsuranceAreaBase):
 
     def test_quote_range_and_live_table(self):
         params = {"date_from": self.old_day.isoformat(), "date_to": self.old_day.isoformat(), "partial": "crm_policies"}
-        res = self.client.get(reverse("insurance-policies"), params)
+        res = self.client.get(reverse("insurance-policies"), params, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
         self.assertContains(res, '<td class="ipc-mono">OLD-1</td>')
         self.assertNotContains(res, '<td class="ipc-mono">NEW-1</td>')
+
+    def test_live_table_links_return_to_the_full_page(self):
+        from urllib.parse import quote
+
+        params = {"q": "Quote", "tab": "insurance", "partial": "crm_policies"}
+        res = self.client.get(reverse("insurance-policies"), params, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+        html = res.content.decode()
+        self.assertIn("?next=" + quote(reverse("insurance-policies") + "?q=Quote&tab=insurance", safe="/"), html)
+        self.assertNotIn("partial%3Dcrm_policies", html)
+
+    def test_opening_the_fragment_url_directly_shows_the_full_page(self):
+        res = self.client.get(reverse("insurance-policies"), {"q": "Quote", "partial": "crm_policies"})
+        self.assertRedirects(res, reverse("insurance-policies") + "?q=Quote", fetch_redirect_response=False)
 
     def test_invalid_date_is_ignored(self):
         res = self.client.get(reverse("insurance-policies"), {"date_from": "2026-02-30"})

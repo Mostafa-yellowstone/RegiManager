@@ -529,7 +529,7 @@ html.portal-theme-dark .company-license-box__title { color: var(--portal-text); 
       <div class="metric-card"><div class="metric-label">Total Premium</div><div class="metric-value" style="color: var(--blue); font-size: 1.4rem;">${{ total_premium|floatformat:2 }}</div></div>
       <div class="metric-card"><div class="metric-label">Earned Commission</div><div class="metric-value" id="earnedCommissionValue" style="color: var(--green); font-size: 1.4rem;">${{ total_commission|floatformat:2 }}</div><div style="font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem;">Outstanding balance</div></div>
       <div class="metric-card"><div class="metric-label">Received Commission</div><div class="metric-value" id="receivedCommissionValue" style="color: #7c3aed; font-size: 1.4rem;">${{ total_received_commission|floatformat:2 }}</div><div style="font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem;">Policies marked as received</div></div>
-      <div class="metric-card"><div class="metric-label">Unearned (Return)</div><div class="metric-value" style="color: var(--red); font-size: 1.4rem;">${{ total_unearned|floatformat:2 }}</div></div>
+      <div class="metric-card"><div class="metric-label">Unearned (Return)</div><div class="metric-value" id="unearnedCommissionValue" style="color: var(--red); font-size: 1.4rem;">${{ total_unearned|floatformat:2 }}</div><div style="font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem;">Received on cancelled policies</div></div>
     </div>
 
     <!-- Policies CRM -->
@@ -643,7 +643,7 @@ html.portal-theme-dark .company-license-box__title { color: var(--portal-text); 
               <td style="font-family: monospace; font-size: 0.82rem;">{{ policy.policy_number }}</td>
               <td style="font-size: 0.82rem; color: var(--muted);">{{ policy.get_insurance_type_display|default:"—" }}</td>
               <td style="font-weight: 800;">${{ policy.premium|floatformat:2 }}</td>
-              <td class="policy-commission-cell" style="color: var(--green); font-weight: 700;">${{ policy.commission_amount|floatformat:2 }}</td>
+              <td class="policy-commission-cell" style="color: var(--green); font-weight: 700;">${{ policy.commission_amount|floatformat:2 }}{% if policy.stage == 'bound' and policy.status == 'inactive' %}<div style="font-size: 0.68rem; font-weight: 600; color: var(--muted); white-space: nowrap;" title="Earned while in force / unearned after cancellation">Earned ${{ policy.commission_earned_part|floatformat:2 }} · <span style="color: var(--red);">Unearned ${{ policy.commission_unearned_part|floatformat:2 }}</span></div>{% endif %}</td>
               <td>{% if policy.added_by %}<span style="font-size: 0.8rem; font-weight: 700; color: var(--muted);">{{ policy.added_by.get_full_name|default:policy.added_by.username }}</span>{% else %}<span style="color: var(--muted); font-style: italic; font-size: 0.8rem;">System</span>{% endif %}</td>
               <td>{% if policy.stage == 'quote' %}<span class="chip chip-quote">{{ policy.get_stage_display }}</span>{% elif policy.stage == 'endorsement' %}<span class="chip chip-endorsement">{{ policy.get_stage_display }}</span>{% else %}<span class="chip chip-bound">{{ policy.get_stage_display }}</span>{% endif %}</td>
               <td>
@@ -1015,16 +1015,19 @@ async function togglePolicyCommissionReceived(checkbox) {
 
     const receivedEl = document.getElementById('receivedCommissionValue');
     const earnedEl = document.getElementById('earnedCommissionValue');
+    const unearnedEl = document.getElementById('unearnedCommissionValue');
+    const unearnedChanged = unearnedEl && unearnedEl.textContent.trim() !== '$' + data.unearned_commission;
     if (receivedEl) receivedEl.textContent = '$' + data.received_commission;
     if (earnedEl) earnedEl.textContent = '$' + data.earned_commission;
+    if (unearnedEl) unearnedEl.textContent = '$' + data.unearned_commission;
 
+    const fx = checkbox.checked ? 'celebrate' : 'revert';
+    pulseMetricValue(receivedEl, fx);
+    pulseMetricValue(earnedEl, fx);
+    if (unearnedChanged) pulseMetricValue(unearnedEl, fx);
     if (checkbox.checked) {
-      pulseMetricValue(receivedEl, 'celebrate');
-      pulseMetricValue(earnedEl, 'celebrate');
       playReceivedFx(row, label, commissionCell);
     } else {
-      pulseMetricValue(receivedEl, 'revert');
-      pulseMetricValue(earnedEl, 'revert');
       playRevertedFx(row, label, commissionCell);
     }
   } catch (err) {

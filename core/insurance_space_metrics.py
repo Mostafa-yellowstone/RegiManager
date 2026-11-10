@@ -11,7 +11,7 @@ from .insurance_commissions import (
     build_adjusted_unearned_map,
     company_commission_summary,
     inactive_policy_sort_key,
-    policy_unearned_commission,
+    policy_refund_owed,
     refund_total,
 )
 from .insurance_company_license import company_license_status
@@ -98,44 +98,25 @@ def filter_policies_by_stage(policy_qs, stage):
 
 
 def filter_policies_by_quote_period(policy_qs, start, end):
-    """Policies active in a period: bound on bound_date, effective on start_date, cancelled on inactive_date, or open quotes."""
-    return policy_qs.filter(
-        Q(bound_date__gte=start, bound_date__lte=end)
-        | Q(start_date__gte=start, start_date__lte=end)
-        | Q(inactive_date__gte=start, inactive_date__lte=end)
-        | Q(
-            bound_date__isnull=True,
-            created_at__date__gte=start,
-            created_at__date__lte=end,
-        )
-    )
+    """Policies made in a period, by quote (bound) date only; undated ones by created date.
+
+    Effective and cancellation dates are ignored so a policy bound in October
+    but effective in November counts once, in October.
+    """
+    return filter_policies_by_quote_dates(policy_qs, start, end)
 
 
 def filter_policies_by_quote_dates(policy_qs, start=None, end=None):
     """Like ``filter_policies_by_quote_period`` but either bound may be open."""
-    date_q = Q()
-    if start and end:
-        date_q = (
-            Q(bound_date__gte=start, bound_date__lte=end)
-            | Q(start_date__gte=start, start_date__lte=end)
-            | Q(inactive_date__gte=start, inactive_date__lte=end)
-            | Q(bound_date__isnull=True, created_at__date__gte=start, created_at__date__lte=end)
-        )
-    elif start:
-        date_q = (
-            Q(bound_date__gte=start)
-            | Q(start_date__gte=start)
-            | Q(inactive_date__gte=start)
-            | Q(bound_date__isnull=True, created_at__date__gte=start)
-        )
-    elif end:
-        date_q = (
-            Q(bound_date__lte=end)
-            | Q(start_date__lte=end)
-            | Q(inactive_date__lte=end)
-            | Q(bound_date__isnull=True, created_at__date__lte=end)
-        )
-    return policy_qs.filter(date_q)
+    dated = Q(bound_date__isnull=False)
+    undated = Q(bound_date__isnull=True)
+    if start:
+        dated &= Q(bound_date__gte=start)
+        undated &= Q(created_at__date__gte=start)
+    if end:
+        dated &= Q(bound_date__lte=end)
+        undated &= Q(created_at__date__lte=end)
+    return policy_qs.filter(dated | undated)
 
 
 def filter_policies_by_search(policy_qs, query: str):
@@ -181,13 +162,7 @@ def quote_period_ordering():
 
 def period_stats(policy_qs, start, end):
     period_qs = filter_policies_by_quote_period(policy_qs, start, end)
-    # Written figures count a policy once, in the period it was bound; the wider
-    # period filter (start/inactive dates) would count it in several periods.
-    written_qs = policy_qs.filter(
-        stage__in=InsurancePolicy.BOUND_STAGES,
-        bound_date__gte=start,
-        bound_date__lte=end,
-    )
+    written_qs = period_qs.filter(stage__in=InsurancePolicy.BOUND_STAGES)
     quotes = period_qs.filter(stage__in=InsurancePolicy.QUOTE_STAGES).count()
     bound = written_qs.count()
     total = quotes + bound
@@ -237,7 +212,7 @@ def decorate_policies(policies, adjusted_unearned_map):
     for policy in policies:
         if policy.status == "inactive":
             policy.unearned_commission = adjusted_unearned_map.get(
-                policy.id, policy_unearned_commission(policy)
+                policy.id, policy_refund_owed(policy)
             )
         if policy.added_by:
             bg, text = get_user_colors(policy.added_by.username)
