@@ -32,6 +32,7 @@ from ..models import (
     InsurancePolicyInstallment,
     InsurancePolicyVehicle,
     InsuranceTypeOption,
+    InsuranceWholesaler,
 )
 
 
@@ -143,10 +144,11 @@ class InsuranceCompanyAdmin(admin.ModelAdmin):
     list_filter = ("organization", "broker_arrangement")
     search_fields = ("name", "license_number", "organization__name")
     autocomplete_fields = ("organization",)
+    filter_horizontal = ("wholesalers",)
     ordering = ("organization", "name")
     inlines = [InsuranceCompanyDocumentInline]
     fieldsets = (
-        (None, {"fields": ("organization", "name", "broker_arrangement")}),
+        (None, {"fields": ("organization", "name", "broker_arrangement", "wholesalers")}),
         (
             "License",
             {
@@ -161,6 +163,15 @@ class InsuranceCompanyAdmin(admin.ModelAdmin):
         ("Meta", {"fields": ("created_at",), "classes": ("collapse",)}),
     )
     readonly_fields = ("created_at",)
+
+
+@admin.register(InsuranceWholesaler)
+class InsuranceWholesalerAdmin(admin.ModelAdmin):
+    list_display = ("name", "organization", "contact_name", "phone", "email", "created_at")
+    list_filter = ("organization",)
+    search_fields = ("name", "contact_name", "email", "organization__name")
+    autocomplete_fields = ("organization",)
+    ordering = ("organization", "name")
 
 
 @admin.register(InsuranceCompanyDocument)
@@ -216,7 +227,7 @@ class InsurancePolicyAdmin(admin.ModelAdmin):
         "added_by__first_name",
         "added_by__last_name",
     )
-    autocomplete_fields = ("organization", "client", "insurance_company")
+    autocomplete_fields = ("organization", "client", "insurance_company", "wholesaler")
     list_select_related = ("client", "insurance_company", "organization", "added_by")
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
@@ -236,6 +247,7 @@ class InsurancePolicyAdmin(admin.ModelAdmin):
                     "policy_number",
                     "added_by",
                     "insurance_company",
+                    "wholesaler",
                     "stage",
                     "status",
                     "insurance_type",

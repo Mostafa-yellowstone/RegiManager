@@ -171,6 +171,10 @@ def issue_compensation_disclosure(policy, user=None) -> InsurancePolicyDocument:
     return document
 
 
+class EndorsementError(ValueError):
+    pass
+
+
 def _record_premium_change(policy, old_premium, new_premium, effective, user, note):
     if old_premium == new_premium:
         return
@@ -209,7 +213,12 @@ def record_transaction(
         policy.inactive_date = None
         policy.stage = InsurancePolicy.StageChoices.BOUND
     elif kind == InsurancePolicyTransaction.Kind.ENDORSEMENT:
-        policy.stage = InsurancePolicy.StageChoices.ENDORSEMENT
+        if policy.stage == InsurancePolicy.StageChoices.QUOTE:
+            raise EndorsementError("Bind the policy before recording an endorsement.")
+        # An endorsement changes the premium of a bound policy; the policy itself stays bound
+        # so it keeps counting in written premium, commission and finance totals.
+        policy.stage = InsurancePolicy.StageChoices.BOUND
+        old_commission = policy.commission_amount or ZERO
         policy.premium = updated_premium
     elif kind == InsurancePolicyTransaction.Kind.NEW_BUSINESS:
         policy.stage = InsurancePolicy.StageChoices.BOUND
@@ -218,7 +227,7 @@ def record_transaction(
             policy.premium = updated_premium
     policy.save()
     _record_premium_change(policy, old_premium, policy.premium or ZERO, effective, user, note or kind)
-    return InsurancePolicyTransaction.objects.create(
+    tx = InsurancePolicyTransaction.objects.create(
         policy=policy,
         kind=kind,
         effective_date=effective,
@@ -230,6 +239,11 @@ def record_transaction(
         note=(note or "")[:500],
         created_by=user if getattr(user, "is_authenticated", False) else None,
     )
+    if kind == InsurancePolicyTransaction.Kind.ENDORSEMENT:
+        from .owner_notifications import notify_policy_endorsed
+
+        notify_policy_endorsed(policy, tx, old_commission=old_commission, actor=user)
+    return tx
 
 
 def _coverage_rows_from_option(option: InsuranceQuoteOption):
@@ -604,6 +618,31 @@ def recent_statements(organization, limit=8):
         .prefetch_related("lines")
         .order_by("-created_at")[:limit]
     )
+
+
+def recent_endorsements(organization, limit=15) -> list[dict]:
+    """Latest endorsements with the premium and commission change each one made."""
+    rows = []
+    transactions = (
+        InsurancePolicyTransaction.objects.filter(
+            policy__organization=organization,
+            kind=InsurancePolicyTransaction.Kind.ENDORSEMENT,
+        )
+        .select_related("policy", "policy__client", "policy__insurance_company", "policy__wholesaler", "created_by")
+        .order_by("-effective_date", "-id")[:limit]
+    )
+    for tx in transactions:
+        premium_change = (tx.new_premium or ZERO) - (tx.old_premium or ZERO)
+        rate = tx.policy.commission_rate or ZERO
+        rows.append(
+            {
+                "tx": tx,
+                "policy": tx.policy,
+                "premium_change": premium_change,
+                "commission_change": (premium_change * rate / Decimal("100")).quantize(Decimal("0.01")),
+            }
+        )
+    return rows
 
 
 def coverage_form_rows(policy) -> list[dict]:

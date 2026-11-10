@@ -190,7 +190,31 @@ function openAddPolicyModal() {
   syncPolicyReferralPartner();
   toggleInactiveDate();
   setPolicyProducer('', '', '');
+  const addRate = document.getElementById('policyRate');
+  if (addRate) addRate.readOnly = false;
+  syncPolicyWholesalers('');
   document.getElementById('addPolicyModal').classList.add('active');
+}
+
+function syncPolicyWholesalers(selectedId) {
+  const company = document.getElementById('policyCompany');
+  const select = document.getElementById('policyWholesaler');
+  const row = document.getElementById('policyWholesalerRow');
+  if (!company || !select || !row) return;
+  const companyId = company.value;
+  let available = 0;
+  Array.from(select.options).forEach(function (opt) {
+    if (!opt.value) return;
+    const ids = (opt.dataset.companies || '').split(',').filter(Boolean);
+    const show = !!companyId && ids.indexOf(companyId) !== -1;
+    opt.hidden = !show;
+    opt.disabled = !show;
+    if (show) available += 1;
+  });
+  const wanted = selectedId ? String(selectedId) : '';
+  const match = Array.from(select.options).find(function (opt) { return opt.value === wanted && !opt.disabled; });
+  select.value = match ? wanted : '';
+  row.hidden = available === 0 && !match;
 }
 
 function setPolicyProducer(producerId, rate, payout) {
@@ -375,7 +399,11 @@ function editPolicy(id) {
       document.getElementById('policyPremium').value = data.premium;
       document.getElementById('policyBrokerFee').value = data.broker_fee || '0.00';
       const policyRate = document.getElementById('policyRate');
-      if (policyRate) policyRate.value = data.commission_rate;
+      if (policyRate) {
+        policyRate.value = data.commission_rate;
+        policyRate.readOnly = policyRate.dataset.canEdit !== '1';
+      }
+      syncPolicyWholesalers(data.wholesaler_id || '');
       document.getElementById('policyStart').value = data.start_date;
       document.getElementById('policyEnd').value = data.end_date;
       document.getElementById('policyPeriod').value = data.insurance_period_months;

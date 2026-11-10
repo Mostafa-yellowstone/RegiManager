@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-12">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preload" as="image" href="{% static page.image %}">
+<script type="application/ld+json">{{ structured_data|safe }}</script>
+{% endblock %}
+
+{% block content %}
+<main class="site-shell seo-solution">
+    <div class="hero-wrapper">
+        {% include "partials/_site_header.html" with active_page=page.slug %}
+
+        <section class="site-hero" id="home">
+            <div class="hero-glow-orb hero-glow-orb--1" aria-hidden="true"></div>
+            <div class="hero-glow-orb hero-glow-orb--2" aria-hidden="true"></div>
+            <div class="hero-grid-pattern" aria-hidden="true"></div>
+
+            <div class="site-hero-inner">
+                <div class="site-hero-content reveal active">
+                    <nav class="seo-breadcrumb" aria-label="Breadcrumb">
+                        <a href="{% url 'home' %}">RegiManager</a>
+                        <span aria-hidden="true">/</span>
+                        <span aria-current="page">{{ page.nav_label }}</span>
+                    </nav>
+                    <div class="brand-pill-glow">
+                        <span class="pulse-dot"></span>
+                        <span>{{ page.eyebrow }}</span>
+                    </div>
+
+                    <h1 class="hero-title-shimmer">{{ page.h1 }}</h1>
+                    <p class="hero-description">{{ page.lead }}</p>
+
+                    <div class="hero-actions">
+                        {% if user.is_authenticated %}
+                            <a href="{% url 'dashboard' %}" class="btn btn-primary btn-hero-glow"><span>Open Dashboard</span></a>
+                        {% else %}
+                            <a href="{% url 'member-signup' %}" class="btn btn-primary btn-hero-glow">
+                                <span>Start Free Trial</span>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            </a>
+                        {% endif %}
+                        <a href="{% url 'contact' %}" class="btn btn-secondary btn-hero-glass"><span>Book a Demo</span></a>
+                    </div>
+                </div>
+
+                <div class="hero-visual-showcase reveal active">
+                    <div class="hero-visual-frame">
+                        <img src="{% static page.image %}" alt="{{ page.image_alt }}" class="hero-img-main" width="1024" height="1024" fetchpriority="high">
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div class="capabilities-wrapper">
+        <section class="site-section" id="features" aria-labelledby="featuresTitle">
+            <div class="site-shell-inner">
+                <div class="section-heading">
+                    <span class="brand-pill-subtle">Features</span>
+                    <h2 id="featuresTitle">{{ page.eyebrow }} Features That Save Hours Every Day</h2>
+                </div>
+                <div class="solution-grid">
+                    {% for feature_title, feature_text in page.features %}
+                    <article class="capability-card">
+                        <h3>{{ feature_title }}</h3>
+                        <p>{{ feature_text }}</p>
+                    </article>
+                    {% endfor %}
+                </div>
+
+                <div class="showcase-banner-wrapper">
+                    <div class="showcase-banner">
+                        <div class="showcase-text">
+                            <span class="showcase-badge">WHY REGIMANAGER</span>
+                            <h3>Built for real offices, not generic sales teams</h3>
+                            <ul class="showcase-list">
+                                {% for line in page.highlights %}
+                                <li><span>✓</span> {{ line }}</li>
+                                {% endfor %}
+                            </ul>
+                            <a href="{% url 'home' %}#pricing" class="btn btn-primary btn-sm">See plans &amp; pricing</a>
+                        </div>
+                        <div class="showcase-image">
+                            <img src="{% static 'core/img/intake-automation.webp' %}" alt="RegiManager client intake and document automation" width="1024" height="1024" loading="lazy" decoding="async">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div class="capabilities-wrapper">
+        <section class="site-section" id="faq" aria-labelledby="faqTitle">
+            <div class="site-shell-inner">
+                <div class="section-heading">
+                    <span class="brand-pill-subtle">FAQ</span>
+                    <h2 id="faqTitle">{{ page.nav_label }} questions, answered</h2>
+                </div>
+                <div class="seo-faq">
+                    {% for question, answer in page.faqs %}
+                    <details class="seo-faq__item"{% if forloop.first %} open{% endif %}>
+                        <summary>{{ question }}</summary>
+                        <p>{{ answer }}</p>
+                    </details>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div class="capabilities-wrapper">
+        <section class="site-section" id="more" aria-labelledby="moreTitle">
+            <div class="site-shell-inner">
+                <div class="section-heading">
+                    <span class="brand-pill-subtle">One Platform</span>
+                    <h2 id="moreTitle">Add more desks when you grow</h2>
+                </div>
+                <div class="solution-grid">
+                    {% for item in related_pages %}
+                    <a class="capability-card seo-industry-card" href="{% url item.url_name %}">
+                        <span class="brand-pill-subtle">{{ item.eyebrow }}</span>
+                        <h3>{{ item.h1 }}</h3>
+                        <p>{{ item.description }}</p>
+                        <span class="card-link">Explore {{ item.nav_label }} &rarr;</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div class="site-cta-wrapper">
+        <div class="cta-glow-bg" aria-hidden="true"></div>
+        <section class="site-section site-cta-final">
+            <div class="site-shell-inner">
+                <span class="brand-pill-glow">Get Started</span>
+                <h2>Ready to run your office on RegiManager?</h2>
+                <p class="cta-lead">Free trial, white-glove data migration and a team that knows DMV and insurance work.</p>
+                <div class="hero-actions hero-actions--center">
+                    <a href="{% url 'member-signup' %}" class="btn btn-primary btn-hero-glow"><span>Create Your Account</span></a>
+                    <a href="{% url 'contact' %}" class="btn btn-secondary btn-hero-glass"><span>Talk to an Expert</span></a>
+                </div>
+            </div>
+        </section>
+    </div>
+</main>
+{% endblock %}

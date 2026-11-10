@@ -297,6 +297,7 @@ html.portal-theme-dark .ins-renewal__status a, html.portal-theme-dark .ins-renew
             <div class="pd-row"><span>Named insured</span><strong>{{ overview_named_insured }}</strong></div>
             <div class="pd-row"><span>Address</span><strong>{{ overview_address }}</strong></div>
             <div class="pd-row"><span>Company</span><strong>{% if policy.insurance_company %}{{ policy.insurance_company.name }}{% else %}—{% endif %}</strong></div>
+            <div class="pd-row"><span>Wholesaler</span><strong>{{ policy.wholesaler.name|default:"Direct" }}</strong></div>
             <div class="pd-row"><span>Line</span><strong>{% if policy.insurance_type %}{{ policy.get_insurance_type_display }}{% else %}—{% endif %}</strong></div>
             <div class="pd-row"><span>Source</span><strong>{{ policy.get_source_display }}</strong></div>
             <div class="pd-row"><span>Bound</span><strong>{{ policy.bound_date|date:"M j, Y"|default:"—" }}</strong></div>

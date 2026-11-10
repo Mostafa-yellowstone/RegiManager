@@ -27,5 +27,33 @@
     {% endif %}
   </div>
 </section>
+<section class="ins-panel" style="margin-bottom:1rem;">
+  <div class="ins-panel__head"><h2>Recent endorsements</h2></div>
+  <div class="ins-panel__body">
+    {% if recent_endorsements %}
+    <div style="overflow-x:auto;">
+      <table class="ins-table">
+        <thead><tr><th>Effective</th><th>Policy</th><th>Client</th><th>Carrier</th><th>Premium</th><th>Change</th><th>Commission change</th><th>By</th></tr></thead>
+        <tbody>
+          {% for row in recent_endorsements %}
+          <tr>
+            <td>{{ row.tx.effective_date|date:"M j, Y" }}</td>
+            <td><a href="{% url 'insurance-policy-detail' row.policy.id %}">{{ row.policy.policy_number|default:"—" }}</a></td>
+            <td>{{ row.policy.client.name }}</td>
+            <td>{{ row.policy.insurance_company.name|default:"—" }}{% if row.policy.wholesaler %}<div style="font-size:0.75rem;color:#64748b;">via {{ row.policy.wholesaler.name }}</div>{% endif %}</td>
+            <td>${{ row.tx.old_premium|floatformat:2 }} → <strong>${{ row.tx.new_premium|floatformat:2 }}</strong></td>
+            <td style="font-weight:800;color:{% if row.premium_change < 0 %}#dc2626{% else %}#16a34a{% endif %};">{% if row.premium_change >= 0 %}+{% endif %}${{ row.premium_change|floatformat:2 }}</td>
+            <td style="font-weight:800;color:{% if row.commission_change < 0 %}#dc2626{% else %}#16a34a{% endif %};">{% if row.commission_change >= 0 %}+{% endif %}${{ row.commission_change|floatformat:2 }}</td>
+            <td>{% if row.tx.created_by %}{{ row.tx.created_by.get_full_name|default:row.tx.created_by.username }}{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="margin:0;color:#64748b;">No endorsements yet. Record one from a policy's Transactions card; the new premium updates policies, commission and these totals.</p>
+    {% endif %}
+  </div>
+</section>
 {% include "core/partials/insurance_banking_tab.html" %}
 {% endblock %}

@@ -96,7 +96,8 @@
 <div class="modal-overlay" id="addProducerModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box prd-modal">
     <div class="prd-modal__head">
-      <h3>Add producer</h3>
+      <span class="prd-modal__icon" aria-hidden="true">+</span>
+      <div class="prd-modal__title"><h3>Add producer</h3><p>Someone who brings in policies and earns a share of each one.</p></div>
       <button type="button" class="prd-modal__close" aria-label="Close" onclick="document.getElementById('addProducerModal').classList.remove('active')">&times;</button>
     </div>
     <form method="POST" action="{% url 'add-insurance-producer' %}" class="prd-form" autocomplete="off">
@@ -135,20 +136,29 @@
         <label class="field-label" for="prdLicense">License # (optional)</label>
         <input type="text" name="license_number" id="prdLicense" class="field-input">
       </div>
-      <label class="prd-form-toggle">
+      <label class="prd-form-toggle prd-form-toggle--card">
         <input type="checkbox" name="create_login" value="1" id="prdCreateLogin" onchange="document.getElementById('prdLoginFields').hidden = !this.checked; document.getElementById('prdUsername').required = this.checked; document.getElementById('prdPassword').required = this.checked;">
         <span class="prd-form-toggle__box" aria-hidden="true"></span>
         <span><strong>Give this producer a portal login</strong><small>They can only see their own policies and commissions.</small></span>
       </label>
       <div class="prd-form-grid" id="prdLoginFields" hidden>
         <div><label class="field-label" for="prdUsername">Username</label><input type="text" name="username" id="prdUsername" class="field-input" autocomplete="off"></div>
-        <div><label class="field-label" for="prdPassword">Password (8+ characters)</label><input type="text" name="password" id="prdPassword" class="field-input" minlength="8" autocomplete="new-password"></div>
+        <div>
+          <label class="field-label" for="prdPassword">Password (8+ characters)</label>
+          <div class="prd-input-action">
+            <input type="password" name="password" id="prdPassword" class="field-input" minlength="8" autocomplete="new-password">
+            <button type="button" class="prd-input-action__btn" onclick="const f=document.getElementById('prdPassword'); f.type = f.type === 'password' ? 'text' : 'password'; this.textContent = f.type === 'password' ? 'Show' : 'Hide';">Show</button>
+          </div>
+        </div>
       </div>
       <div>
         <label class="field-label" for="prdNotes">Notes</label>
         <textarea name="notes" id="prdNotes" rows="2" class="field-input"></textarea>
       </div>
-      <button type="submit" class="btn-submit">Save producer</button>
+      <div class="prd-modal__foot">
+        <button type="button" class="prd-btn prd-btn--ghost" onclick="document.getElementById('addProducerModal').classList.remove('active')">Cancel</button>
+        <button type="submit" class="prd-btn prd-btn--primary">Save producer</button>
+      </div>
     </form>
   </div>
 </div>

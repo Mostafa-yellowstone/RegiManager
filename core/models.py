@@ -2199,6 +2199,29 @@ class UserSession(models.Model):
         return f"{self.user.username} → {self.session_key[:8]}..."
 
 
+class InsuranceWholesaler(models.Model):
+    """A wholesaler (MGA / broker) the agency writes carriers through."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="insurance_wholesalers")
+    name = models.CharField(max_length=120)
+    contact_name = models.CharField(max_length=120, blank=True, default="")
+    phone = models.CharField(max_length=40, blank=True, default="")
+    email = models.EmailField(blank=True, default="")
+    notes = models.CharField(max_length=500, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(fields=["organization", "name"], name="uniq_insurance_wholesaler_org_name"),
+        ]
+        verbose_name = "Insurance wholesaler"
+        verbose_name_plural = "Insurance wholesalers"
+
+    def __str__(self):
+        return self.name
+
+
 class InsuranceCompany(models.Model):
     class BrokerArrangement(models.TextChoices):
         BR = "br", "BR — Take broker fees"
@@ -2239,6 +2262,12 @@ class InsuranceCompany(models.Model):
     quote_for_commercial = models.BooleanField(
         default=False,
         help_text="Show this carrier when the team compares a commercial quote.",
+    )
+    wholesalers = models.ManyToManyField(
+        InsuranceWholesaler,
+        blank=True,
+        related_name="companies",
+        help_text="Wholesalers this carrier can be written through.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -2281,6 +2310,7 @@ class InsurancePolicy(models.Model):
 
     QUOTE_STAGES = frozenset({StageChoices.QUOTE})
     BOUND_STAGES = frozenset({StageChoices.BOUND})
+    DEFAULT_COMMISSION_RATE = Decimal("10.00")
 
     class StatusChoices(models.TextChoices):
         ACTIVE = "active", "Active"
@@ -2314,6 +2344,14 @@ class InsurancePolicy(models.Model):
         null=True,
         blank=True,
         related_name="policies",
+    )
+    wholesaler = models.ForeignKey(
+        InsuranceWholesaler,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="policies",
+        help_text="Wholesaler the policy was written through; blank when written direct.",
     )
     premium = models.DecimalField(max_digits=12, decimal_places=2)
     broker_fee = models.DecimalField(
@@ -2491,8 +2529,8 @@ class InsurancePolicy(models.Model):
 
         if self.commission_rate is None or self.commission_rate <= Decimal("0.00"):
             if self.premium and self.premium > Decimal("0.00"):
-                self.commission_rate = Decimal("15.00")
-                self.commission_amount = Decimal(str(self.premium)) * Decimal("0.15")
+                self.commission_rate = self.DEFAULT_COMMISSION_RATE
+                self.commission_amount = Decimal(str(self.premium)) * (self.commission_rate / Decimal("100.00"))
             else:
                 self.commission_amount = None
         else:

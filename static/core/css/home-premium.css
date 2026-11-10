@@ -111,7 +111,7 @@
 .site-shell .site-nav--desktop {
     display: flex !important;
     align-items: center !important;
-    gap: 2rem !important;
+    gap: 1.1rem !important;
     position: absolute !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
@@ -121,7 +121,7 @@
 .site-shell .site-nav-link {
     color: #94a3b8 !important;
     text-decoration: none !important;
-    font-size: 0.95rem !important;
+    font-size: 0.92rem !important;
     font-weight: 600 !important;
     transition: color 0.25s ease !important;
     padding: 0.4rem 0.6rem !important;
@@ -167,7 +167,7 @@
 }
 
 /* Mobile & Tablet Header Responsive Rules */
-@media (max-width: 992px) {
+@media (max-width: 1200px) {
     .site-shell .site-nav--desktop {
         display: none !important;
     }
@@ -1233,4 +1233,104 @@
     .floating-widget {
         display: none;
     }
+}
+
+/* Industry landing pages */
+a.seo-industry-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    text-decoration: none;
+    color: inherit;
+}
+
+a.seo-industry-card .brand-pill-subtle {
+    margin-bottom: 0.75rem;
+}
+
+a.seo-industry-card .card-link {
+    margin-top: auto;
+}
+
+a.seo-industry-card:focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 3px;
+}
+
+.seo-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+.seo-breadcrumb a {
+    color: #cbd5e1;
+    text-decoration: none;
+}
+
+.seo-breadcrumb a:hover {
+    color: #ffffff;
+}
+
+.seo-faq {
+    max-width: 860px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.seo-faq__item {
+    background: #ffffff;
+    border: 1px solid var(--glass-border-light);
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.03);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.seo-faq__item[open] {
+    border-color: rgba(37, 99, 235, 0.3);
+    box-shadow: 0 16px 36px rgba(37, 99, 235, 0.08);
+}
+
+.seo-faq__item summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-main-light);
+}
+
+.seo-faq__item summary::-webkit-details-marker {
+    display: none;
+}
+
+.seo-faq__item summary::after {
+    content: "+";
+    flex-shrink: 0;
+    font-size: 1.4rem;
+    line-height: 1;
+    color: var(--primary);
+    transition: transform 0.25s ease;
+}
+
+.seo-faq__item[open] summary::after {
+    transform: rotate(45deg);
+}
+
+.seo-faq__item p {
+    margin: 0.85rem 0 0;
+    color: var(--text-muted-light);
+    font-size: 0.97rem;
+    line-height: 1.7;
 }

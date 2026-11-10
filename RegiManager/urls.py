@@ -100,6 +100,9 @@ from core import insurance_renewal_views
 from core import insurance_client_views
 from core import insurance_radar_views
 from core import insurance_desk_views
+from core import insurance_wholesaler_views
+from core import seo_views
+from core.seo import SOLUTION_PAGES
 from core.views import (
     dashboard,
     home,
@@ -556,6 +559,12 @@ urlpatterns = [
     path('api/docs/redoc/', AuthenticatedSpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
     path("", home, name="home"),
+    path("robots.txt", seo_views.robots_txt, name="robots-txt"),
+    path("sitemap.xml", seo_views.sitemap_xml, name="sitemap-xml"),
+    *[
+        path(f"{page['slug']}/", seo_views.solution_page, {"slug": page["slug"]}, name=f"solution-{page['slug']}")
+        for page in SOLUTION_PAGES
+    ],
     path("sw.js", service_worker, name="service-worker"),
     path("assistant/chat/", assistant_chat, name="assistant-chat"),
 
@@ -804,6 +813,12 @@ urlpatterns = [
     path("insurance/finance/", insurance_area_views.insurance_finance, name="insurance-finance"),
     path("insurance/finance/commission-statement/", insurance_desk_views.import_commission_statement, name="insurance-commission-import"),
     path("insurance/companies/", insurance_area_views.insurance_companies, name="insurance-companies"),
+    path("insurance/wholesalers/save/", insurance_wholesaler_views.save_insurance_wholesaler, name="insurance-wholesaler-save"),
+    path(
+        "insurance/wholesalers/<int:wholesaler_id>/delete/",
+        insurance_wholesaler_views.delete_insurance_wholesaler,
+        name="insurance-wholesaler-delete",
+    ),
     path("insurance/producers/", insurance_area_views.insurance_producers, name="insurance-producers"),
     path("insurance/reports/", insurance_area_views.insurance_reports, name="insurance-reports"),
     path("insurance/targets/", insurance_area_views.insurance_targets, name="insurance-targets"),

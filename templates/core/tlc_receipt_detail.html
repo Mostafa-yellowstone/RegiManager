@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+{% block seo_head %}{% endblock %}
 {% block title %}Receipt {{ receipt.receipt_number }}{% endblock %}
 {% block content %}
 <style>

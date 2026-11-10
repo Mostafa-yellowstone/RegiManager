@@ -4,7 +4,7 @@
 {% block title %}{{ producer.name }} — Producer | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_producers.css' %}?v=prd-5">
+<link rel="stylesheet" href="{% static 'core/css/insurance_producers.css' %}?v=prd-6">
 {% endblock %}
 
 {% block portal_content %}
@@ -22,7 +22,8 @@
 
   {% if new_password %}
   <div class="prd-secret" role="status">
-    New portal password for {{ producer.user.username }}: <code>{{ new_password }}</code>
+    New portal password for {{ producer.user.username }}: <code id="prdNewPassword">{{ new_password }}</code>
+    <button type="button" class="prd-btn prd-btn--sm" onclick="copyProducerPassword(this)">Copy</button>
     <span style="font-weight:600;">Copy it now — it won't be shown again.</span>
   </div>
   {% endif %}
@@ -267,14 +268,22 @@
 
 <div class="modal-overlay" id="editProducerModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box prd-modal">
-    <div class="prd-modal__head"><h3>Edit producer</h3><button type="button" class="prd-modal__close" aria-label="Close" onclick="document.getElementById('editProducerModal').classList.remove('active')">&times;</button></div>
+    <div class="prd-modal__head">
+      <span class="prd-modal__icon" aria-hidden="true">{{ producer.initials }}</span>
+      <div class="prd-modal__title"><h3>Edit producer</h3><p>Contact details, default commission and status.</p></div>
+      <button type="button" class="prd-modal__close" aria-label="Close" onclick="document.getElementById('editProducerModal').classList.remove('active')">&times;</button>
+    </div>
     <form method="POST" action="{% url 'edit-insurance-producer' producer.id %}" class="prd-form">
       {% csrf_token %}
-      <div><label class="field-label" for="epName">Full name</label><input type="text" id="epName" name="name" value="{{ producer.name }}" required class="field-input" maxlength="160"></div>
-      <div class="prd-form-grid">
-        <div><label class="field-label" for="epPhone">Phone</label><input type="tel" id="epPhone" name="phone" value="{{ producer.phone }}" class="field-input"></div>
-        <div><label class="field-label" for="epEmail">Email</label><input type="email" id="epEmail" name="email" value="{{ producer.email }}" class="field-input"></div>
-      </div>
+      <fieldset class="prd-fieldset">
+        <legend>Contact</legend>
+        <div><label class="field-label" for="epName">Full name</label><input type="text" id="epName" name="name" value="{{ producer.name }}" required class="field-input" maxlength="160"></div>
+        <div class="prd-form-grid">
+          <div><label class="field-label" for="epPhone">Phone</label><input type="tel" id="epPhone" name="phone" value="{{ producer.phone }}" class="field-input"></div>
+          <div><label class="field-label" for="epEmail">Email</label><input type="email" id="epEmail" name="email" value="{{ producer.email }}" class="field-input"></div>
+        </div>
+        <div><label class="field-label" for="epLicense">License #</label><input type="text" id="epLicense" name="license_number" value="{{ producer.license_number }}" class="field-input"></div>
+      </fieldset>
       <fieldset class="prd-fieldset">
         <legend>Default commission</legend>
         <div class="prd-form-grid prd-form-grid--3">
@@ -294,36 +303,58 @@
         </div>
         <p class="prd-help">Changes apply to new policies. Existing policies keep the rate saved on them.</p>
       </fieldset>
-      <div><label class="field-label" for="epLicense">License #</label><input type="text" id="epLicense" name="license_number" value="{{ producer.license_number }}" class="field-input"></div>
       <div><label class="field-label" for="epNotes">Notes</label><textarea id="epNotes" name="notes" rows="2" class="field-input">{{ producer.notes }}</textarea></div>
-      <label class="prd-form-toggle">
+      <label class="prd-form-toggle prd-form-toggle--card">
         <input type="checkbox" name="is_active" value="1" {% if producer.is_active %}checked{% endif %}>
         <span class="prd-form-toggle__box" aria-hidden="true"></span>
         <span><strong>Active</strong><small>Paused producers can't be picked on new policies and can't sign in.</small></span>
       </label>
-      <button type="submit" class="btn-submit">Save changes</button>
+      <div class="prd-modal__foot">
+        <button type="button" class="prd-btn prd-btn--ghost" onclick="document.getElementById('editProducerModal').classList.remove('active')">Cancel</button>
+        <button type="submit" class="prd-btn prd-btn--primary">Save changes</button>
+      </div>
     </form>
   </div>
 </div>
 
 <div class="modal-overlay" id="producerLoginModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box prd-modal">
-    <div class="prd-modal__head"><h3>Portal login</h3><button type="button" class="prd-modal__close" aria-label="Close" onclick="document.getElementById('producerLoginModal').classList.remove('active')">&times;</button></div>
-    <p class="prd-help" style="margin:0 0 1rem;">The producer signs in on the normal RegiManager sign-in page and only sees their own policies, commissions and payouts.</p>
+    <div class="prd-modal__head">
+      <span class="prd-modal__icon prd-modal__icon--key" aria-hidden="true">🔑</span>
+      <div class="prd-modal__title"><h3>Portal login</h3><p>The producer signs in on the normal sign-in page and sees only their own policies, commissions and payouts.</p></div>
+      <button type="button" class="prd-modal__close" aria-label="Close" onclick="document.getElementById('producerLoginModal').classList.remove('active')">&times;</button>
+    </div>
+    <div class="prd-login-status {% if producer.user and producer.user.is_active %}is-on{% endif %}">
+      <span class="prd-login-status__dot" aria-hidden="true"></span>
+      <div>
+        {% if producer.user and producer.user.is_active %}
+        <strong>Login is on</strong><small>Signs in as <span class="prd-mono">{{ producer.user.username }}</span>{% if producer.user.last_login %} · last sign-in {{ producer.user.last_login|date:"M j, Y" }}{% endif %}</small>
+        {% else %}
+        <strong>No portal login yet</strong><small>Pick a username and a password, or let the system generate one.</small>
+        {% endif %}
+      </div>
+    </div>
     <form method="POST" action="{% url 'set-insurance-producer-login' producer.id %}" class="prd-form" autocomplete="off">
       {% csrf_token %}
       <div><label class="field-label" for="plUser">Username</label><input type="text" id="plUser" name="username" value="{{ producer.user.username|default:'' }}" required class="field-input" autocomplete="off"></div>
-      <div><label class="field-label" for="plPass">New password (8+ characters)</label><input type="text" id="plPass" name="password" minlength="8" class="field-input" autocomplete="new-password" placeholder="Leave empty and use “Generate”"></div>
-      <div class="prd-form-grid">
-        <button type="submit" class="prd-btn prd-btn--primary" onclick="document.getElementById('plPass').required = true;">Save login</button>
+      <div>
+        <label class="field-label" for="plPass">New password <span class="prd-form-hint">· 8+ characters</span></label>
+        <div class="prd-input-action">
+          <input type="password" id="plPass" name="password" minlength="8" class="field-input" autocomplete="new-password" placeholder="Leave empty and use Generate">
+          <button type="button" class="prd-input-action__btn" onclick="const f=document.getElementById('plPass'); f.type = f.type === 'password' ? 'text' : 'password'; this.textContent = f.type === 'password' ? 'Show' : 'Hide';">Show</button>
+        </div>
+      </div>
+      <div class="prd-modal__foot">
         <button type="submit" name="generate" value="1" class="prd-btn" onclick="document.getElementById('plPass').required = false;">Generate password</button>
+        <button type="submit" class="prd-btn prd-btn--primary" onclick="document.getElementById('plPass').required = true;">Save login</button>
       </div>
     </form>
     {% if producer.user and producer.user.is_active %}
-    <form method="POST" action="{% url 'set-insurance-producer-login' producer.id %}" style="margin-top:0.75rem;">
+    <form method="POST" action="{% url 'set-insurance-producer-login' producer.id %}" class="prd-danger-zone" onsubmit="return confirm('Turn off the portal login for {{ producer.name|escapejs }}?')">
       {% csrf_token %}
       <input type="hidden" name="action" value="disable">
-      <button type="submit" class="prd-btn prd-btn--ghost prd-btn--danger">Turn off portal login</button>
+      <div><strong>Turn off portal login</strong><small>The producer is signed out and can't sign in until you set a new password.</small></div>
+      <button type="submit" class="prd-btn prd-btn--sm prd-btn--danger-solid">Turn off</button>
     </form>
     {% endif %}
   </div>
@@ -331,37 +362,87 @@
 
 <div class="modal-overlay" id="recordPayoutModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="modal-box prd-modal">
-    <div class="prd-modal__head"><h3>Record payment</h3><button type="button" class="prd-modal__close" aria-label="Close" onclick="document.getElementById('recordPayoutModal').classList.remove('active')">&times;</button></div>
-    <form method="POST" action="{% url 'record-insurance-producer-payout' producer.id %}" class="prd-form">
+    <div class="prd-modal__head">
+      <span class="prd-modal__icon prd-modal__icon--money" aria-hidden="true">$</span>
+      <div class="prd-modal__title"><h3>Record payment</h3><p>Pay {{ producer.name }} for one policy. Use “Pay everything due” to settle all policies at once.</p></div>
+      <button type="button" class="prd-modal__close" aria-label="Close" onclick="document.getElementById('recordPayoutModal').classList.remove('active')">&times;</button>
+    </div>
+    <form method="POST" action="{% url 'record-insurance-producer-payout' producer.id %}" class="prd-form" id="recordPayoutForm">
       {% csrf_token %}
       <div>
         <label class="field-label" for="rpPolicy">Policy</label>
-        <select id="rpPolicy" name="policy" class="field-input" required onchange="const o=this.selectedOptions[0]; if(o && o.dataset.due) document.getElementById('rpAmount').value=o.dataset.due;">
+        <select id="rpPolicy" name="policy" class="field-input" required>
           <option value="">Choose policy…</option>
           {% for lg in ledgers %}
-          <option value="{{ lg.policy.id }}" data-due="{{ lg.due_now }}">{{ lg.policy.policy_number }} — {{ lg.policy.client.name }} · due ${{ lg.due_now|floatformat:2 }}</option>
+          <option value="{{ lg.policy.id }}" data-due="{{ lg.due_now }}" data-paid="{{ lg.paid }}" data-total="{{ lg.total }}">{{ lg.policy.policy_number }} — {{ lg.policy.client.name }} · due ${{ lg.due_now|floatformat:2 }}</option>
           {% endfor %}
         </select>
       </div>
+      <div class="prd-pay-summary" id="rpSummary" hidden>
+        <div><span>Producer commission</span><strong id="rpSumTotal">$0.00</strong></div>
+        <div><span>Already paid</span><strong id="rpSumPaid">$0.00</strong></div>
+        <div class="is-due"><span>Due now</span><strong id="rpSumDue">$0.00</strong></div>
+      </div>
       <div class="prd-form-grid">
-        <div><label class="field-label" for="rpAmount">Amount ($)</label><input type="number" step="0.01" id="rpAmount" name="amount" class="field-input" required></div>
+        <div>
+          <label class="field-label" for="rpAmount">Amount</label>
+          <div class="prd-input-money"><span aria-hidden="true">$</span><input type="number" step="0.01" id="rpAmount" name="amount" class="field-input" required placeholder="0.00"></div>
+        </div>
         <div><label class="field-label" for="rpDate">Paid on</label><input type="date" id="rpDate" name="paid_on" class="field-input" value="{{ today|date:'Y-m-d' }}" required></div>
       </div>
       <div>
-        <label class="field-label" for="rpMethod">Method</label>
-        <select id="rpMethod" name="method" class="field-input">
-          {% for value, label in payout_methods %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
-        </select>
+        <span class="field-label">Method</span>
+        <div class="prd-segment" role="radiogroup" aria-label="Payment method">
+          {% for value, label in payout_methods %}
+          <label><input type="radio" name="method" value="{{ value }}" {% if forloop.first %}checked{% endif %}><span>{{ label }}</span></label>
+          {% endfor %}
+        </div>
       </div>
       <div><label class="field-label" for="rpNote">Note</label><input type="text" id="rpNote" name="note" maxlength="255" class="field-input" placeholder="Optional · the producer can see this"></div>
       <p class="prd-help" style="margin:0;">Use a negative amount to record money the producer paid back.</p>
       {% include "core/partials/producer_payout_extras.html" with prefix="rp" %}
-      <button type="submit" class="btn-submit">Save payment</button>
+      <div class="prd-modal__foot">
+        <button type="button" class="prd-btn prd-btn--ghost" onclick="document.getElementById('recordPayoutModal').classList.remove('active')">Cancel</button>
+        <button type="submit" class="prd-btn prd-btn--ok" id="rpSubmit">Save payment</button>
+      </div>
     </form>
   </div>
 </div>
 
 <script>
+(function () {
+  const policy = document.getElementById('rpPolicy');
+  const amount = document.getElementById('rpAmount');
+  const submit = document.getElementById('rpSubmit');
+  if (!policy || !amount) return;
+  const money = (v) => '$' + (parseFloat(v || '0') || 0).toFixed(2);
+  function refreshButton() {
+    const value = parseFloat(amount.value || '0') || 0;
+    submit.textContent = value < 0 ? 'Record ' + money(Math.abs(value)) + ' paid back' : 'Save ' + money(value) + ' payment';
+  }
+  policy.addEventListener('change', function () {
+    const o = policy.selectedOptions[0];
+    const box = document.getElementById('rpSummary');
+    if (!o || !o.value) { box.hidden = true; return; }
+    document.getElementById('rpSumTotal').textContent = money(o.dataset.total);
+    document.getElementById('rpSumPaid').textContent = money(o.dataset.paid);
+    document.getElementById('rpSumDue').textContent = money(o.dataset.due);
+    box.hidden = false;
+    if (o.dataset.due) amount.value = (parseFloat(o.dataset.due) || 0).toFixed(2);
+    refreshButton();
+  });
+  amount.addEventListener('input', refreshButton);
+})();
+
+function copyProducerPassword(button) {
+  const code = document.getElementById('prdNewPassword');
+  if (!code || !navigator.clipboard) return;
+  navigator.clipboard.writeText(code.textContent.trim()).then(function () {
+    button.textContent = 'Copied';
+    setTimeout(function () { button.textContent = 'Copy'; }, 1800);
+  });
+}
+
 function toggleCarrierCommission(box, policyId) {
   const label = box.nextElementSibling;
   const body = new URLSearchParams({ received: box.checked ? '1' : '0' });

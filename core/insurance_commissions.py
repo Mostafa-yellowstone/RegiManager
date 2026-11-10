@@ -93,7 +93,11 @@ def calculate_unearned_commission(
     commission_amount = Decimal(str(commission_amount or "0"))
     if commission_amount <= 0:
         if premium and Decimal(str(premium)) > 0:
-            rate = Decimal(str(commission_rate)) if (commission_rate and Decimal(str(commission_rate)) > 0) else Decimal("15.00")
+            rate = (
+                Decimal(str(commission_rate))
+                if (commission_rate and Decimal(str(commission_rate)) > 0)
+                else InsurancePolicy.DEFAULT_COMMISSION_RATE
+            )
             commission_amount = Decimal(str(premium)) * (rate / Decimal("100.00"))
         else:
             return Decimal("0.00")

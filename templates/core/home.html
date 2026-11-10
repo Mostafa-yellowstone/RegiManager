@@ -2,7 +2,7 @@
 {% load static i18n %}
 
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-11">
+<link rel="stylesheet" href="{% static 'core/css/home-premium.css' %}?v=home-premium-12">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -28,7 +28,7 @@
                     </div>
 
                     <h1 class="hero-title-shimmer">
-                        RegiManager for High-Volume <span class="gradient-text">DMV &amp; PSB Teams.</span>
+                        DMV Registration &amp; Insurance Software for <span class="gradient-text">High-Volume PSB Teams.</span>
                     </h1>
 
                     <p class="hero-description">
@@ -84,7 +84,7 @@
                             <div class="window-title">regimanager.app/ops-center</div>
                             <div class="window-badge">● LIVE DEMO</div>
                         </div>
-                        <img src="{% static 'core/img/hero-dashboard.png' %}" alt="RegiManager Enterprise Dashboard" class="hero-img-main">
+                        <img src="{% static 'core/img/hero-dashboard.webp' %}" alt="RegiManager DMV registration and insurance CRM dashboard" class="hero-img-main" width="1024" height="1024" fetchpriority="high">
                         
                         <!-- Floating Glass Micro-Widgets -->
                         <div class="floating-widget widget-vin float-anim-1">
@@ -182,9 +182,31 @@
                             <a href="{% url 'member-signup' %}" class="btn btn-primary btn-sm">Try Intake Portal</a>
                         </div>
                         <div class="showcase-image">
-                            <img src="{% static 'core/img/intake-automation.png' %}" alt="Intake & Document Verification Automation">
+                            <img src="{% static 'core/img/intake-automation.webp' %}" alt="Client intake and document verification automation" width="1024" height="1024" loading="lazy" decoding="async">
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div class="capabilities-wrapper">
+        <section class="site-section reveal" id="industries" aria-labelledby="industriesTitle">
+            <div class="site-shell-inner">
+                <div class="section-heading">
+                    <span class="brand-pill-subtle">Software by Industry</span>
+                    <h2 id="industriesTitle">DMV, Insurance, Policy CRM &amp; ERP in One Platform.</h2>
+                    <p>Start with DMV registrations and add insurance, a policy CRM and full ERP whenever your office is ready.</p>
+                </div>
+                <div class="solution-grid">
+                    {% for item in solution_pages %}
+                    <a class="capability-card seo-industry-card" href="{% url item.url_name %}">
+                        <span class="brand-pill-subtle">{{ item.eyebrow }}</span>
+                        <h3>{{ item.h1 }}</h3>
+                        <p>{{ item.description }}</p>
+                        <span class="card-link">Explore {{ item.nav_label }} &rarr;</span>
+                    </a>
+                    {% endfor %}
                 </div>
             </div>
         </section>

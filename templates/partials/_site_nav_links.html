@@ -1,4 +1,6 @@
-<a href="{% if on_home_page %}#home{% else %}{% url 'home' %}#home{% endif %}" class="site-nav-link">Platform</a>
-<a href="{% if on_home_page %}#solutions{% else %}{% url 'home' %}#solutions{% endif %}" class="site-nav-link">Solutions</a>
+<a href="{% url 'solution-dmv-registration-software' %}" class="site-nav-link {% if active_page == 'dmv-registration-software' %}active{% endif %}">DMV Software</a>
+<a href="{% url 'solution-insurance-agency-software' %}" class="site-nav-link {% if active_page == 'insurance-agency-software' %}active{% endif %}">Insurance</a>
+<a href="{% url 'solution-insurance-policy-crm' %}" class="site-nav-link {% if active_page == 'insurance-policy-crm' %}active{% endif %}">Policy CRM</a>
+<a href="{% url 'solution-business-erp-software' %}" class="site-nav-link {% if active_page == 'business-erp-software' %}active{% endif %}">ERP</a>
 <a href="{% if on_home_page %}#pricing{% else %}{% url 'home' %}#pricing{% endif %}" class="site-nav-link">Pricing</a>
 <a href="{% url 'contact' %}" class="site-nav-link {% if active_page == 'contact' %}active{% endif %}">Contact</a>

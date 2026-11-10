@@ -88,6 +88,15 @@ def previous_insurance_period_bounds(
     )
 
 
+def filter_policies_by_stage(policy_qs, stage):
+    """Stage filter; "endorsement" means bound policies that have an endorsement on record."""
+    if stage == InsurancePolicy.StageChoices.ENDORSEMENT:
+        return policy_qs.filter(
+            Q(stage=stage) | Q(transactions__kind="endorsement") | Q(premium_changes__note__iexact="endorsement")
+        ).distinct()
+    return policy_qs.filter(stage=stage)
+
+
 def filter_policies_by_quote_period(policy_qs, start, end):
     """Policies active in a period: bound on bound_date, effective on start_date, cancelled on inactive_date, or open quotes."""
     return policy_qs.filter(
@@ -263,6 +272,7 @@ def build_company_summaries(insurance_companies, all_policies):
             "broker_arrangement_label": (
                 company.get_broker_arrangement_display() if company.broker_arrangement else ""
             ),
+            "wholesalers": list(company.wholesalers.all()),
         })
     return summaries
 
@@ -319,7 +329,8 @@ def build_agent_stats(policy_qs, insurance_memberships, start=None, end=None):
 def prefetch_insurance_companies(active_org):
     tx_qs = BankTransaction.objects.select_related("bank_account").order_by("-date", "-created_at")
     return InsuranceCompany.objects.filter(organization=active_org).prefetch_related(
-        Prefetch("transactions", queryset=tx_qs)
+        Prefetch("transactions", queryset=tx_qs),
+        "wholesalers",
     )
 
 

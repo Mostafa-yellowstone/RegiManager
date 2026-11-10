@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% load static i18n %}
 
+{% block title %}{{ title|default:"Sign in" }} | RegiManager{% endblock %}
+{% block meta_description %}Sign in to RegiManager or create your agent account to manage DMV registrations, insurance policies, clients and finance.{% endblock %}
+
 {% block body_attrs %}class="auth-body"{% endblock %}
 
 {% block extra_head %}

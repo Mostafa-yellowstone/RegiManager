@@ -343,13 +343,14 @@ def insurance_payments(request):
 
 @login_required
 def insurance_finance(request):
-    from .insurance_desk import recent_statements
+    from .insurance_desk import recent_endorsements, recent_statements
     from .models import InsuranceCompany
 
     def extra(organization, membership):
         return {
             "commission_statements": recent_statements(organization),
             "statement_companies": InsuranceCompany.objects.filter(organization=organization).order_by("name"),
+            "recent_endorsements": recent_endorsements(organization),
         }
 
     return _render_page(request, "banking", "core/insurance_area/finance.html", finance_only=True, extra=extra)

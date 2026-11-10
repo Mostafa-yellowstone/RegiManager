@@ -95,6 +95,7 @@
       <p class="pd-empty">No endorsements, cancellations, or reinstatements yet.</p>
       {% endif %}
       {% if can_edit_policy %}
+      <p class="pd-note">An endorsement needs the new full-term premium. The policy stays bound, and policies, commission and finance switch to the new premium. Owners, managers and the agent get a notification.</p>
       <form class="pd-stack pd-split" method="post" action="{% url 'insurance-policy-desk' policy.id %}">
         {% csrf_token %}
         <input type="hidden" name="desk_action" value="transaction">
@@ -103,7 +104,7 @@
             <select class="field-input" name="kind">{% for value, label in transaction_kinds %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
           </label>
           <label>Effective date <input class="field-input" type="date" name="effective_date" required></label>
-          <label>New premium <input class="field-input" name="new_premium" placeholder="0.00" inputmode="decimal"></label>
+          <label>New premium <input class="field-input" name="new_premium" placeholder="Now ${{ policy.premium }}" inputmode="decimal"></label>
           <label>Reason
             <select class="field-input" name="reason"><option value="">None</option>{% for value, label in cancel_reasons %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
           </label>

@@ -836,7 +836,9 @@ class OwnerInsurancePoliciesView(OwnerAPIBase):
         )
         stage = request.query_params.get("stage", "").strip()
         if stage in {"quote", "bound", "endorsement"}:
-            qs = qs.filter(stage=stage)
+            from .insurance_space_metrics import filter_policies_by_stage
+
+            qs = filter_policies_by_stage(qs, stage)
 
         custom_range = parse_owner_date_range(request.query_params)
         if custom_range:

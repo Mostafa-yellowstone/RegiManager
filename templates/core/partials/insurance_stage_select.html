@@ -1,5 +1,5 @@
 <select name="stage" id="{{ select_id|default:'policyStage' }}" {% if required %}required{% endif %} class="{{ class_name|default:'field-input' }}">
   <option value="quote" {% if selected == 'quote' %}selected{% endif %}>Quote</option>
   <option value="bound" {% if selected == 'bound' %}selected{% endif %}>Bound</option>
-  <option value="endorsement" {% if selected == 'endorsement' %}selected{% endif %}>Endorsement</option>
+  <option value="endorsement" {% if selected == 'endorsement' %}selected{% endif %}>Endorsement (new premium, stays bound)</option>
 </select>

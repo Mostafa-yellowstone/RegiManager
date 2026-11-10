@@ -42,7 +42,7 @@
                 </span>
                 {% else %}—{% endif %}
               </td>
-              <td class="ipc-company">{% if policy.insurance_company %}{{ policy.insurance_company.name }}{% else %}—{% endif %}</td>
+              <td class="ipc-company">{% if policy.insurance_company %}{{ policy.insurance_company.name }}{% else %}—{% endif %}{% if policy.wholesaler %}<span class="ipc-via">via {{ policy.wholesaler.name }}</span>{% endif %}</td>
               <td class="ipc-money">${{ policy.premium }}</td>
               {% if user_can_view_banking %}
               <td class="ipc-money ipc-money--soft">{% if policy.broker_fee is not None %}${{ policy.broker_fee }}{% else %}—{% endif %}</td>

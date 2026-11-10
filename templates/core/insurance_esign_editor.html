@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+{% block seo_head %}{% endblock %}
 {% load static %}
 
 {% block title %}{% if is_public %}Sign {{ envelope.title }}{% else %}E-sign {{ envelope.title }}{% endif %} | RegiManager{% endblock %}

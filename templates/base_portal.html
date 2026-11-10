@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+{% block seo_head %}{% endblock %}
 {% load static i18n %}
 
 {% block body_attrs %}class="portal-body" data-portal-app data-halloween-master="{% if halloween_enabled %}true{% else %}false{% endif %}" data-thanksgiving-master="{% if thanksgiving_enabled %}true{% else %}false{% endif %}"{% endblock %}

@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import csv
 import io
 import json
@@ -92,6 +92,7 @@ from .insurance_space_metrics import (
     decorate_policies,
     filter_policies_by_quote_dates,
     filter_policies_by_quote_period,
+    filter_policies_by_stage,
     period_stats,
     prefetch_insurance_companies,
     previous_insurance_period_bounds,
@@ -620,7 +621,20 @@ def _can_access_finance_hub(user):
 
 
 def home(request):
-    return render(request, "core/home.html")
+    from .seo import SOLUTION_PAGES
+
+    return render(
+        request,
+        "core/home.html",
+        {
+            "seo_title": "RegiManager | DMV Registration Software, Insurance CRM & ERP",
+            "seo_description": (
+                "DMV registration software for PSBs and tag offices, plus insurance agency management, "
+                "policy CRM and ERP in one platform. VIN decoding, MV-82 forms, policies and commissions."
+            ),
+            "solution_pages": SOLUTION_PAGES,
+        },
+    )
 
 
 @rate_limit(key_prefix="contact", limit=5, window_seconds=600, methods={"POST"})
@@ -7229,7 +7243,7 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
     def want(*names):
         return sections is None or any(name in sections for name in names)
 
-    from .models import InsuranceCompany, InsurancePolicy, BankAccount, BankTransaction
+    from .models import InsuranceCompany, InsurancePolicy, InsuranceWholesaler, BankAccount, BankTransaction
     active_org = card.organization
     
     clients = Client.objects.filter(organization=active_org).order_by("first_name", "last_name")[:500]
@@ -7267,7 +7281,9 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
     )
 
     # Base query for all policies
-    all_policies = InsurancePolicy.objects.filter(organization=active_org).select_related("client", "insurance_company", "added_by")
+    all_policies = InsurancePolicy.objects.filter(organization=active_org).select_related(
+        "client", "insurance_company", "wholesaler", "added_by"
+    )
 
     from django.utils.dateparse import parse_date
 
@@ -7305,7 +7321,7 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
     if search_query:
         policies = filter_policies_by_search(policies, search_query)
     if stage_filter:
-        policies = policies.filter(stage=stage_filter)
+        policies = filter_policies_by_stage(policies, stage_filter)
     if status_filter:
         policies = policies.filter(status=status_filter)
     if type_filter:
@@ -7742,6 +7758,8 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
         "clients": clients,
         "referral_partners": Referral.objects.filter(organization=active_org).order_by("name", "category"),
         "insurance_companies": insurance_companies,
+        "insurance_wholesalers": InsuranceWholesaler.objects.filter(organization=active_org).prefetch_related("companies"),
+        "default_commission_rate": InsurancePolicy.DEFAULT_COMMISSION_RATE,
         "company_summaries": company_summaries,
         "license_attention": license_attention,
         "license_attention_has_expired": license_attention_has_expired,
@@ -8324,9 +8342,16 @@ def add_insurance_policy(request):
     premium = request.POST.get("premium", "0.00").strip()
     broker_fee = request.POST.get("broker_fee", "0.00").strip()
     commission_rate = request.POST.get("commission_rate", "").strip()
-    if not commission_rate or commission_rate in ("0", "0.00", "0.0"):
-        commission_rate = "15.00"
+    try:
+        if Decimal(commission_rate or "0") <= 0:
+            commission_rate = ""
+    except InvalidOperation:
+        commission_rate = ""
+    if not commission_rate:
+        commission_rate = str(InsurancePolicy.DEFAULT_COMMISSION_RATE)
     stage = request.POST.get("stage", "quote")
+    if stage == InsurancePolicy.StageChoices.ENDORSEMENT:
+        stage = InsurancePolicy.StageChoices.BOUND
     status = request.POST.get("status", "active")
     if status == "inactive" and stage == "quote":
         stage = "bound"
@@ -8344,9 +8369,17 @@ def add_insurance_policy(request):
         inactive_date = timezone.now().date()
 
     from .insurance_producers import ProducerInputError, apply_producer_from_post
+    from .insurance_wholesalers import WholesalerInputError, wholesaler_for_policy
+
+    try:
+        wholesaler = wholesaler_for_policy(org, company, request.POST.get("wholesaler"))
+    except WholesalerInputError as e:
+        messages.error(request, str(e))
+        return _redirect_to_insurance_detail(org, tab="insurance", request=request)
 
     try:
         policy = InsurancePolicy(
+            wholesaler=wholesaler,
             organization=org,
             client=client,
             policy_number=policy_number,
@@ -8435,6 +8468,16 @@ def edit_insurance_policy(request, policy_id):
             policy.insurance_company = get_object_or_404(
                 InsuranceCompany, id=company_id, organization=policy.organization
             )
+        if "wholesaler" in request.POST:
+            from .insurance_wholesalers import WholesalerInputError, wholesaler_for_policy
+
+            try:
+                policy.wholesaler = wholesaler_for_policy(
+                    policy.organization, policy.insurance_company, request.POST.get("wholesaler")
+                )
+            except WholesalerInputError as e:
+                messages.error(request, str(e))
+                return _redirect_to_insurance_detail(policy.organization, tab="insurance", request=request)
 
         old_premium = policy.premium
         policy.client = client
@@ -8447,12 +8490,15 @@ def edit_insurance_policy(request, policy_id):
             raw_rate = request.POST.get("commission_rate", "").strip()
             policy.commission_rate = Decimal(raw_rate) if raw_rate else None
         policy.stage = request.POST.get("stage", "quote")
+        endorse = policy.stage == InsurancePolicy.StageChoices.ENDORSEMENT
+        if endorse:
+            policy.stage = InsurancePolicy.StageChoices.BOUND
         policy.status = request.POST.get("status", "active")
         if policy.status == "inactive" and policy.stage == "quote":
             policy.stage = "bound"
         if policy.commission_rate is None or policy.commission_rate <= Decimal("0.00"):
             if policy.premium and policy.premium > Decimal("0.00"):
-                policy.commission_rate = Decimal("15.00")
+                policy.commission_rate = InsurancePolicy.DEFAULT_COMMISSION_RATE
         policy.insurance_type = request.POST.get("insurance_type", "")
         policy.source = source
         policy.business_type = request.POST.get("business_type", "new_business")
@@ -8488,14 +8534,28 @@ def edit_insurance_policy(request, policy_id):
                 can_edit_rates=can_edit_commission,
             )
             with transaction.atomic():
-                policy.save()
-                record_premium_change(
-                    policy,
-                    old_premium,
-                    user=request.user,
-                    note="Endorsement" if policy.stage == "endorsement" else "Premium edited",
-                )
-            messages.success(request, "Insurance policy updated.")
+                if endorse:
+                    from .insurance_desk import record_transaction
+
+                    endorsed_premium = policy.premium
+                    policy.premium = old_premium
+                    policy.save()
+                    record_transaction(
+                        policy,
+                        kind="endorsement",
+                        user=request.user,
+                        new_premium=endorsed_premium,
+                        note="Endorsed from the policy editor",
+                    )
+                else:
+                    policy.save()
+                    record_premium_change(policy, old_premium, user=request.user, note="Premium edited")
+            messages.success(
+                request,
+                "Endorsement recorded; the policy stays bound with the new premium."
+                if endorse
+                else "Insurance policy updated.",
+            )
         except ProducerInputError as e:
             messages.error(request, str(e))
         except Exception as e:
@@ -8512,6 +8572,7 @@ def edit_insurance_policy(request, policy_id):
             else ""
         ),
         "insurance_company_id": policy.insurance_company_id,
+        "wholesaler_id": policy.wholesaler_id or "",
         "policy_number": policy.policy_number,
         "premium": str(policy.premium),
         "broker_fee": "" if policy.broker_fee is None else str(policy.broker_fee),
@@ -8875,6 +8936,10 @@ def add_insurance_company(request):
             if broker_arrangement:
                 company.broker_arrangement = broker_arrangement
             company.save()
+        if request.POST.getlist("wholesalers"):
+            from .insurance_wholesalers import set_company_wholesalers
+
+            set_company_wholesalers(company, request.POST)
 
         if is_ajax:
             return JsonResponse({"success": True, "id": company.id, "name": company.name, "created": created})
@@ -8953,6 +9018,10 @@ def edit_insurance_company_license(request, company_id):
             "quote_portal_url",
         ]
     )
+    if request.POST.get("wholesalers_present"):
+        from .insurance_wholesalers import set_company_wholesalers
+
+        set_company_wholesalers(company, request.POST)
     try:
         sync_company_license_alerts(company)
     except Exception:
@@ -9808,7 +9877,7 @@ def insurance_company_detail(request, company_id):
     if search_query:
         policies = filter_policies_by_search(policies, search_query)
     if stage_filter:
-        policies = policies.filter(stage=stage_filter)
+        policies = filter_policies_by_stage(policies, stage_filter)
     if status_filter:
         policies = policies.filter(status=status_filter)
     if type_filter:
@@ -9935,6 +10004,9 @@ def insurance_company_detail(request, company_id):
         "can_manage_commission": can_manage_commission,
         "license_status": license_status,
         "broker_arrangement_choices": InsuranceCompany.BrokerArrangement.choices,
+        "org_wholesalers": company.organization.insurance_wholesalers.all(),
+        "company_wholesalers": list(company.wholesalers.all()),
+        "company_wholesaler_ids": set(company.wholesalers.values_list("id", flat=True)),
     })
 
 
@@ -10138,7 +10210,7 @@ def insurance_agent_detail(request, user_id):
     if search_query:
         policies = filter_policies_by_search(policies, search_query)
     if stage_filter:
-        policies = policies.filter(stage=stage_filter)
+        policies = filter_policies_by_stage(policies, stage_filter)
     if status_filter:
         policies = policies.filter(status=status_filter)
     if type_filter:

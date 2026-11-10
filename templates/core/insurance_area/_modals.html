@@ -100,6 +100,14 @@
           <input type="date" name="license_expiration_date" class="field-input">
         </div>
       </div>
+      {% if insurance_wholesalers %}
+      <div style="margin-bottom: 1.5rem;">
+        <label class="field-label">Listed under wholesalers (optional)</label>
+        <div class="ins-wholesaler-picks">
+          {% for w in insurance_wholesalers %}<label><input type="checkbox" name="wholesalers" value="{{ w.id }}"> {{ w.name }}</label>{% endfor %}
+        </div>
+      </div>
+      {% endif %}
       <button type="submit" class="btn-submit">Add Company</button>
     </form>
   </div>
@@ -169,18 +177,32 @@
 
       <div style="margin-bottom: 1rem;"><label class="field-label">Insurance Company</label>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
-          <select name="insurance_company" id="policyCompany" required class="field-input" onchange="handleCompanySelect(this)">
+          <select name="insurance_company" id="policyCompany" required class="field-input" onchange="handleCompanySelect(this); syncPolicyWholesalers('');">
             <option value="">-- Select Company --</option>
             {% for comp in insurance_companies %}<option value="{{ comp.id }}">{{ comp.name }}</option>{% endfor %}
             <option value="__add_new__" style="color:#2563eb; font-weight:700;">➕ Add New Company</option>
           </select>
         </div>
       </div>
+      <div style="margin-bottom: 1rem;" id="policyWholesalerRow" hidden>
+        <label class="field-label">Wholesaler</label>
+        <select name="wholesaler" id="policyWholesaler" class="field-input">
+          <option value="">Direct (no wholesaler)</option>
+          {% for w in insurance_wholesalers %}
+          <option value="{{ w.id }}" data-companies="{% for c in w.companies.all %}{{ c.id }}{% if not forloop.last %},{% endif %}{% endfor %}">{{ w.name }}</option>
+          {% endfor %}
+        </select>
+        <small style="display:block;margin-top:0.25rem;color:#64748b;font-size:0.72rem;font-weight:600;">Only wholesalers this company is listed under.</small>
+      </div>
       <div style="margin-bottom: 1rem;"><label class="field-label">Policy Number</label><input type="text" name="policy_number" id="policyNumber" required class="field-input" placeholder="POL-1234567"></div>
-      <div style="display: grid; grid-template-columns: repeat({% if user_can_view_banking %}3{% else %}2{% endif %}, 1fr); gap: 1rem; margin-bottom: 1rem;">
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1rem;">
         <div><label class="field-label">Premium ($)</label><input type="number" step="0.01" name="premium" id="policyPremium" required class="field-input" placeholder="0.00"></div>
         <div><label class="field-label">Broker Fee ($)</label><input type="number" step="0.01" name="broker_fee" id="policyBrokerFee" required class="field-input" placeholder="0.00" value="0.00"></div>
-        {% if user_can_view_banking %}<div><label class="field-label">Commission Rate (%)</label><input type="number" step="0.01" name="commission_rate" id="policyRate" required class="field-input" placeholder="15.00"></div>{% endif %}
+        <div>
+          <label class="field-label">Commission Rate (%)</label>
+          <input type="number" step="0.01" min="0" max="100" name="commission_rate" id="policyRate" class="field-input" placeholder="{{ default_commission_rate|floatformat:0 }}" data-can-edit="{% if user_can_view_banking %}1{% else %}0{% endif %}">
+          <small style="display:block;margin-top:0.25rem;color:#64748b;font-size:0.72rem;font-weight:600;">Blank or 0 uses {{ default_commission_rate|floatformat:0 }}%.</small>
+        </div>
       </div>
       <div class="grid-2" style="margin-bottom: 1rem;">
         <div><label class="field-label">Effective Date</label><input type="date" name="start_date" id="policyStart" required class="field-input"></div>

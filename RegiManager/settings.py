@@ -41,6 +41,11 @@ CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:8000,
 # Ensure they all start with http:// or https://
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS if origin.strip()]
 
+# Public canonical origin used for canonical links, sitemap.xml and share previews.
+SEO_SITE_URL = os.getenv("SEO_SITE_URL", "https://www.regimanager.com").rstrip("/")
+GOOGLE_SITE_VERIFICATION = os.getenv("GOOGLE_SITE_VERIFICATION", "").strip()
+BING_SITE_VERIFICATION = os.getenv("BING_SITE_VERIFICATION", "").strip()
+
 # Security settings - enabled in production, disabled in development
 if not DEBUG:
     SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))  # 1 year default
@@ -178,6 +183,7 @@ TEMPLATES = [
                 "core.context_processors.halloween_theme",
                 "core.context_processors.thanksgiving_theme",
                 "core.context_processors.offline_queue",
+                "core.context_processors.seo",
                 "core.assistant.assistant_context",
             ],
         },

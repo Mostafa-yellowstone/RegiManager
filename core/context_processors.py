@@ -263,3 +263,20 @@ def agency_license_alerts(request):
     except Exception:
         rows = []
     return {"agency_license_alerts": rows}
+
+
+def seo(request):
+    from django.conf import settings
+
+    site_url = settings.SEO_SITE_URL
+    return {
+        "seo_site_url": site_url,
+        "seo_canonical_url": f"{site_url}{request.path}",
+        "seo_default_title": "RegiManager | DMV Registration, Insurance CRM & ERP Software",
+        "seo_default_description": (
+            "RegiManager is DMV registration, insurance agency, policy CRM and ERP software for PSBs, "
+            "tag offices and insurance agencies. VIN decoding, policies, commissions, finance and more."
+        ),
+        "google_site_verification": settings.GOOGLE_SITE_VERIFICATION,
+        "bing_site_verification": settings.BING_SITE_VERIFICATION,
+    }

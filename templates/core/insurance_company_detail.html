@@ -484,6 +484,10 @@ html.portal-theme-dark .company-license-box__title { color: var(--portal-text); 
           <div class="val">{{ company.naic|default:"—" }}</div>
         </div>
         <div class="company-license-item">
+          <div class="lbl">Wholesalers</div>
+          <div class="val">{% for w in company_wholesalers %}{{ w.name }}{% if not forloop.last %}, {% endif %}{% empty %}Direct{% endfor %}</div>
+        </div>
+        <div class="company-license-item">
           <div class="lbl">Quote portal</div>
           <div class="val">{% if company.quote_portal_url %}<a href="{{ company.quote_portal_url }}" target="_blank" rel="noopener">Open</a>{% else %}—{% endif %}</div>
         </div>
@@ -792,6 +796,19 @@ html.portal-theme-dark .company-license-box__title { color: var(--portal-text); 
             {% endfor %}
           </select>
           <p style="margin:0.35rem 0 0;font-size:0.75rem;color:var(--muted);">BR = take broker fees · BC = no broker fees.</p>
+        </div>
+        <div style="grid-column:1/-1;">
+          <input type="hidden" name="wholesalers_present" value="1">
+          <label class="field-label">Listed under wholesalers</label>
+          {% if org_wholesalers %}
+          <div style="display:flex;flex-wrap:wrap;gap:0.4rem 1rem;padding:0.6rem 0.7rem;border:1px solid var(--line, #e2e8f0);border-radius:10px;">
+            {% for w in org_wholesalers %}
+            <label style="display:flex;align-items:center;gap:0.35rem;font-weight:650;font-size:0.85rem;"><input type="checkbox" name="wholesalers" value="{{ w.id }}" {% if w.id in company_wholesaler_ids %}checked{% endif %}> {{ w.name }}</label>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p style="margin:0;font-size:0.8rem;color:var(--muted);">No wholesalers yet. Add them on the Companies page.</p>
+          {% endif %}
         </div>
       </div>
       <button type="submit" class="btn-primary" style="margin-top:1.25rem;width:100%;">Save License Details</button>

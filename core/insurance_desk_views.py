@@ -411,20 +411,36 @@ def save_policy_desk(request, policy_id):
         if kind not in dict(InsurancePolicyTransaction.Kind.choices):
             messages.error(request, "Choose a transaction type.")
             return redirect("insurance-policy-detail", policy_id=policy.id)
-        from .insurance_desk import _money
+        from .insurance_desk import EndorsementError, _money
 
-        record_transaction(
-            policy,
-            kind=kind,
-            user=request.user,
-            effective_date=_parse_date(request.POST.get("effective_date")) or timezone.localdate(),
-            new_premium=_money(request.POST.get("new_premium")),
-            reason=(request.POST.get("reason") or "").strip(),
-            requested_by=(request.POST.get("requested_by") or "").strip(),
-            notice_date=_parse_date(request.POST.get("notice_date")),
-            note=(request.POST.get("note") or "").strip(),
-        )
-        messages.success(request, "Transaction recorded.")
+        new_premium = _money(request.POST.get("new_premium"))
+        is_endorsement = kind == InsurancePolicyTransaction.Kind.ENDORSEMENT
+        if is_endorsement and new_premium is None:
+            messages.error(request, "Enter the new premium for the endorsement.")
+            return redirect("insurance-policy-detail", policy_id=policy.id)
+        try:
+            tx = record_transaction(
+                policy,
+                kind=kind,
+                user=request.user,
+                effective_date=_parse_date(request.POST.get("effective_date")) or timezone.localdate(),
+                new_premium=new_premium,
+                reason=(request.POST.get("reason") or "").strip(),
+                requested_by=(request.POST.get("requested_by") or "").strip(),
+                notice_date=_parse_date(request.POST.get("notice_date")),
+                note=(request.POST.get("note") or "").strip(),
+            )
+        except EndorsementError as exc:
+            messages.error(request, str(exc))
+            return redirect("insurance-policy-detail", policy_id=policy.id)
+        if is_endorsement:
+            messages.success(
+                request,
+                f"Endorsement recorded. Premium ${tx.old_premium:,.2f} → ${tx.new_premium:,.2f}; "
+                "policies, finance and commission now use the new premium.",
+            )
+        else:
+            messages.success(request, "Transaction recorded.")
     elif action == "confirm_coverages":
         policy.coverages_need_review = False
         policy.save(update_fields=["coverages_need_review", "updated_at"])

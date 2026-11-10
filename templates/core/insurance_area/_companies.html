@@ -1,8 +1,94 @@
     <div id="tab-companies" class="tab-panel" style="display: none;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
         <h3 class="ins-section-title">Insurance Companies</h3>
-        <button onclick="document.getElementById('addCompanyModal').classList.add('active')" style="padding: 8px 18px; background: #093de6; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Add Company</button>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <button type="button" onclick="openWholesalerModal()" style="padding: 8px 18px; background: #fff; border: 1px solid #cbd5e1; color: #0f172a; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Add Wholesaler</button>
+          <button onclick="document.getElementById('addCompanyModal').classList.add('active')" style="padding: 8px 18px; background: #093de6; border: none; color: white; font-weight: 700; border-radius: 8px; cursor: pointer;">+ Add Company</button>
+        </div>
       </div>
+
+      <section class="ins-wholesalers">
+        <div class="ins-wholesalers__head">
+          <div>
+            <h4>Wholesalers</h4>
+            <p>A company can be written direct or through one or more wholesalers. The Add Policy form offers only the wholesalers a company is listed under.</p>
+          </div>
+        </div>
+        {% if insurance_wholesalers %}
+        <div class="ins-wholesalers__grid">
+          {% for w in insurance_wholesalers %}
+          <article class="ins-wholesaler">
+            <div class="ins-wholesaler__top">
+              <strong>{{ w.name }}</strong>
+              <div class="ins-wholesaler__actions">
+                <button type="button" class="ins-wholesaler__btn" onclick='openWholesalerModal({{ w.id }}, {"name": "{{ w.name|escapejs }}", "contact_name": "{{ w.contact_name|escapejs }}", "phone": "{{ w.phone|escapejs }}", "email": "{{ w.email|escapejs }}", "notes": "{{ w.notes|escapejs }}", "companies": [{% for c in w.companies.all %}{{ c.id }}{% if not forloop.last %},{% endif %}{% endfor %}]})'>Edit</button>
+                <form method="post" action="{% url 'insurance-wholesaler-delete' w.id %}" onsubmit="return confirm('Remove {{ w.name|escapejs }}? Its policies will show as written direct.')">
+                  {% csrf_token %}
+                  <button type="submit" class="ins-wholesaler__btn ins-wholesaler__btn--danger">Remove</button>
+                </form>
+              </div>
+            </div>
+            {% if w.contact_name or w.phone or w.email %}
+            <p class="ins-wholesaler__meta">{{ w.contact_name }}{% if w.contact_name and w.phone %} · {% endif %}{{ w.phone }}{% if w.email %}{% if w.contact_name or w.phone %} · {% endif %}{{ w.email }}{% endif %}</p>
+            {% endif %}
+            <div class="ins-wholesaler__chips">
+              {% for c in w.companies.all %}<span>{{ c.name }}</span>{% empty %}<em>No companies listed yet</em>{% endfor %}
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="ins-wholesalers__empty">No wholesalers yet. Add one, then tick the companies you write through it.</p>
+        {% endif %}
+      </section>
+
+      <div class="modal-overlay" id="wholesalerModal" onclick="if(event.target===this)this.classList.remove('active')">
+        <div class="modal-box" style="max-width: 560px; width: 95%;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.1rem;">
+            <h3 style="margin:0;font-weight:800;font-size:1.15rem;" id="wholesalerModalTitle">Add Wholesaler</h3>
+            <button type="button" onclick="document.getElementById('wholesalerModal').classList.remove('active')" style="background:transparent;border:none;font-size:1.5rem;cursor:pointer;color:#94a3b8;">&times;</button>
+          </div>
+          <form method="post" action="{% url 'insurance-wholesaler-save' %}" id="wholesalerForm">
+            {% csrf_token %}
+            <input type="hidden" name="wholesaler_id" id="wholesalerId" value="">
+            <div style="margin-bottom:0.9rem;"><label class="field-label">Wholesaler name <span style="color:#dc2626;">*</span></label><input type="text" name="name" id="wholesalerName" required maxlength="120" class="field-input" placeholder="e.g. AmWINS, Burns &amp; Wilcox"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.9rem;">
+              <div><label class="field-label">Contact</label><input type="text" name="contact_name" id="wholesalerContact" class="field-input"></div>
+              <div><label class="field-label">Phone</label><input type="text" name="phone" id="wholesalerPhone" class="field-input"></div>
+            </div>
+            <div style="margin-bottom:0.9rem;"><label class="field-label">Email</label><input type="email" name="email" id="wholesalerEmail" class="field-input"></div>
+            <div style="margin-bottom:0.9rem;">
+              <label class="field-label">Companies written through this wholesaler</label>
+              <div class="ins-wholesaler-picks">
+                {% for comp in insurance_companies %}
+                <label><input type="checkbox" name="companies" value="{{ comp.id }}"> {{ comp.name }}</label>
+                {% empty %}
+                <em>Add a company first.</em>
+                {% endfor %}
+              </div>
+            </div>
+            <div style="margin-bottom:1.1rem;"><label class="field-label">Notes</label><input type="text" name="notes" id="wholesalerNotes" maxlength="500" class="field-input"></div>
+            <button type="submit" class="btn-submit">Save wholesaler</button>
+          </form>
+        </div>
+      </div>
+      <script>
+        function openWholesalerModal(id, data) {
+          data = data || {};
+          document.getElementById('wholesalerModalTitle').textContent = id ? 'Edit Wholesaler' : 'Add Wholesaler';
+          document.getElementById('wholesalerId').value = id || '';
+          document.getElementById('wholesalerName').value = data.name || '';
+          document.getElementById('wholesalerContact').value = data.contact_name || '';
+          document.getElementById('wholesalerPhone').value = data.phone || '';
+          document.getElementById('wholesalerEmail').value = data.email || '';
+          document.getElementById('wholesalerNotes').value = data.notes || '';
+          var picked = (data.companies || []).map(String);
+          document.querySelectorAll('#wholesalerForm input[name="companies"]').forEach(function (box) {
+            box.checked = picked.indexOf(box.value) !== -1;
+          });
+          document.getElementById('wholesalerModal').classList.add('active');
+        }
+      </script>
       {% if license_attention %}
       <div style="margin-bottom:1.25rem;padding:0.95rem 1.1rem;border-radius:14px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #f59e0b;color:#92400e;">
         <div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.35rem;">License renewal alerts</div>
@@ -40,6 +126,9 @@
               {% elif entry.broker_arrangement == 'bc' %}<span style="font-size:0.72rem;font-weight:800;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;padding:0.2rem 0.5rem;border-radius:999px;">BC</span>{% endif %}
             </div>
             {% endif %}
+            <div class="ins-company-via">
+              {% for w in entry.wholesalers %}<span>via {{ w.name }}</span>{% empty %}<span class="is-direct">Direct only</span>{% endfor %}
+            </div>
             <div style="color: #64748b; font-size: 0.85rem; margin-bottom: 0.75rem;">Active Policies: <strong style="color: #0f172a;">{{ entry.active_count }}</strong></div>
             <div style="border-top: 1px solid #f1f5f9; padding-top: 0.75rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem;">
               <div>

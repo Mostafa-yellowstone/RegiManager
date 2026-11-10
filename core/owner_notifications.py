@@ -51,6 +51,55 @@ def notify_owners_policy_bound(policy) -> int:
     return created
 
 
+def _signed_money(value: Decimal) -> str:
+    sign = "+" if value >= 0 else "−"
+    return f"{sign}${abs(value):,.2f}"
+
+
+def notify_policy_endorsed(policy, transaction, *, old_commission=None, actor=None) -> int:
+    """Notify owners, managers and the policy's agent about an endorsement. Returns count sent."""
+    from django.urls import reverse
+
+    users = {membership.user_id: membership.user for membership in _owner_manager_memberships(policy.organization)}
+    if policy.added_by_id:
+        users.setdefault(policy.added_by_id, policy.added_by)
+
+    old_premium = Decimal(transaction.old_premium or 0)
+    new_premium = Decimal(transaction.new_premium or 0)
+    new_commission = Decimal(policy.commission_amount or 0)
+    old_commission = Decimal(old_commission or 0)
+    company_name = policy.insurance_company.name if policy.insurance_company_id else "no carrier"
+    by = ""
+    if actor is not None and getattr(actor, "is_authenticated", False):
+        by = f" by {actor.get_full_name() or actor.username}"
+    message = (
+        f"{policy.client.name}: policy {policy.policy_number} ({company_name}) endorsed{by}, "
+        f"effective {transaction.effective_date:%b %d, %Y}. "
+        f"Premium ${old_premium:,.2f} → ${new_premium:,.2f} ({_signed_money(new_premium - old_premium)}). "
+        f"Commission ${old_commission:,.2f} → ${new_commission:,.2f}."
+    )
+    if transaction.note:
+        message += f" {transaction.note}"
+    action_url = reverse("insurance-policy-detail", args=[policy.id])
+    Notification.objects.bulk_create(
+        [
+            Notification(
+                user=user,
+                client=policy.client,
+                organization=policy.organization,
+                policy=policy,
+                event_type="policy_endorsed",
+                level=Notification.Level.INFO,
+                title="Policy endorsed",
+                message=message,
+                action_url=action_url,
+            )
+            for user in users.values()
+        ]
+    )
+    return len(users)
+
+
 def notify_pulse_daily_snapshot(
     *,
     organization,
