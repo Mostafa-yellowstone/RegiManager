@@ -2619,6 +2619,74 @@ class DocumentsSpaceTests(TestCase):
         doc_type.refresh_from_db()
         self.assertEqual(doc_type.name, "New Type")
 
+    def _record_with_file(self):
+        from django.core.files.base import ContentFile
+        from core.models import SpaceDocumentRecord, SpaceDocumentType
+
+        self.doc_type = SpaceDocumentType.objects.create(space=self.space, organization=self.org, name="MV-82")
+        self.other_type = SpaceDocumentType.objects.create(space=self.space, organization=self.org, name="MV-900")
+        record = SpaceDocumentRecord(
+            space=self.space, organization=self.org, document_type=self.doc_type,
+            order_number="ORD-1", quantity=10, notes="old", added_by=self.owner,
+        )
+        record.file.save("manifest.pdf", ContentFile(b"%PDF-1.4"), save=False)
+        record.save()
+        return record
+
+    def test_edit_record_updates_details_and_keeps_file(self):
+        record = self._record_with_file()
+        file_name = record.file.name
+        response = self.client.post(
+            reverse("edit-document-record", args=[record.id]),
+            {
+                "document_type": self.other_type.id,
+                "order_number": "ORD-2",
+                "range_start": "100",
+                "range_end": "200",
+                "quantity": "25",
+                "notes": "updated",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        record.refresh_from_db()
+        self.assertEqual(record.document_type, self.other_type)
+        self.assertEqual(record.order_number, "ORD-2")
+        self.assertEqual((record.range_start, record.range_end), ("100", "200"))
+        self.assertEqual(record.quantity, 25)
+        self.assertEqual(record.notes, "updated")
+        self.assertEqual(record.file.name, file_name)
+        record.file.delete(save=False)
+
+    def test_edit_record_rejects_type_from_another_space_and_non_managers(self):
+        from core.models import SpaceDocumentType
+
+        record = self._record_with_file()
+        foreign_space = Space.objects.create(organization=self.org, key="documents_other", label="X")
+        foreign_type = SpaceDocumentType.objects.create(space=foreign_space, organization=self.org, name="Z")
+        response = self.client.post(
+            reverse("edit-document-record", args=[record.id]), {"document_type": foreign_type.id}
+        )
+        self.assertEqual(response.status_code, 404)
+
+        self.owner_membership.role = "agent"
+        self.owner_membership.can_manage_documents = False
+        self.owner_membership.save()
+        response = self.client.post(
+            reverse("edit-document-record", args=[record.id]),
+            {"document_type": self.other_type.id, "order_number": "HACK"},
+        )
+        self.assertEqual(response.status_code, 403)
+        record.refresh_from_db()
+        self.assertEqual(record.order_number, "ORD-1")
+        record.file.delete(save=False)
+
+    def test_records_table_shows_edit_action(self):
+        record = self._record_with_file()
+        response = self.client.get(reverse("inventory-detail", args=[self.space.id]))
+        self.assertContains(response, reverse("edit-document-record", args=[record.id]))
+        self.assertContains(response, 'id="editRecordModal"')
+        record.file.delete(save=False)
+
 
 class MotorclubTests(TestCase):
     def setUp(self):

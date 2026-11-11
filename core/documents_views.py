@@ -321,6 +321,34 @@ def add_document_record(request, space_id):
 
 @login_required
 @require_POST
+def edit_document_record(request, record_id):
+    """Updates a record's details; the attached file is left as it is."""
+    record = get_object_or_404(SpaceDocumentRecord, id=record_id)
+    card, is_owner, membership = _resolve_documents_access(request, card=record.space)
+    if not _can_manage_documents(is_owner, membership):
+        deny_access("You do not have permission to manage documents.")
+
+    doc_type_id = request.POST.get("document_type", "").strip()
+    if not doc_type_id.isdigit():
+        messages.error(request, "Select a document type.")
+        return _redirect_documents(card, record.folder_id, request=request)
+    doc_type = get_object_or_404(SpaceDocumentType, id=int(doc_type_id), space=card)
+
+    record.document_type = doc_type
+    record.order_number = request.POST.get("order_number", "").strip()[:80]
+    record.range_start = request.POST.get("range_start", "").strip()[:80]
+    record.range_end = request.POST.get("range_end", "").strip()[:80]
+    record.quantity = _parse_quantity(request.POST.get("quantity"), default=record.quantity)
+    record.notes = request.POST.get("notes", "").strip()
+    record.save(
+        update_fields=["document_type", "order_number", "range_start", "range_end", "quantity", "notes"]
+    )
+    messages.success(request, f"Record {record.record_number} updated.")
+    return _redirect_documents(card, record.folder_id, request=request)
+
+
+@login_required
+@require_POST
 def delete_document_record(request, record_id):
     record = get_object_or_404(SpaceDocumentRecord, id=record_id)
     card, is_owner, membership = _resolve_documents_access(request, card=record.space)

@@ -435,10 +435,24 @@ html.portal-theme-dark .doc-icon-btn { background: rgba(129, 140, 248, 0.2); col
                 </td>
                 {% if can_manage_documents %}
                 <td>
-                  <form method="post" action="{% url 'delete-document-record' rec.id %}" onsubmit="return confirm('Delete record {{ rec.record_number }}?');">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.72rem;">Delete</button>
-                  </form>
+                  <div style="display:flex;gap:0.35rem;align-items:center;">
+                    <button type="button" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.72rem;"
+                      title="Edit record details (the attached file stays the same)"
+                      data-url="{% url 'edit-document-record' rec.id %}"
+                      data-record="{{ rec.record_number }}"
+                      data-type="{{ rec.document_type_id }}"
+                      data-order="{{ rec.order_number }}"
+                      data-start="{{ rec.range_start }}"
+                      data-end="{{ rec.range_end }}"
+                      data-quantity="{{ rec.quantity }}"
+                      data-notes="{{ rec.notes }}"
+                      data-file="{% if rec.file %}{{ rec.file.name }}{% endif %}"
+                      onclick="openEditRecordModal(this)">Edit</button>
+                    <form method="post" action="{% url 'delete-document-record' rec.id %}" onsubmit="return confirm('Delete record {{ rec.record_number }}?');" style="margin:0;">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-secondary btn-sm" style="padding:4px 8px;font-size:0.72rem;">Delete</button>
+                    </form>
+                  </div>
                 </td>
                 {% endif %}
               </tr>
@@ -595,6 +609,54 @@ html.portal-theme-dark .doc-icon-btn { background: rgba(129, 140, 248, 0.2); col
     </form>
   </div>
 </div>
+
+<!-- Edit Record Modal -->
+<div id="editRecordModal" class="modal-overlay" onclick="if(event.target===this)closeModal('editRecordModal')">
+  <div class="modal-box wide">
+    <h2 style="margin:0 0 0.35rem;font-weight:900;color:var(--portal-text);">Edit Record <span id="editRecordNumber" class="doc-record-num"></span></h2>
+    <p id="editRecordFileNote" style="font-size:0.8rem;color:var(--portal-text-muted);margin:0 0 1.1rem;"></p>
+    <form id="editRecordForm" method="post" action="">
+      {% csrf_token %}
+      <div style="margin-bottom:0.85rem;">
+        <label class="field-label">Document Type</label>
+        <select name="document_type" id="editRecordType" class="field-input" required>
+          {% for dt in document_types %}
+          <option value="{{ dt.id }}">{{ dt.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:0.85rem;">
+        <div>
+          <label class="field-label">Order Number</label>
+          <input type="text" name="order_number" id="editRecordOrder" class="field-input" maxlength="80">
+        </div>
+        <div>
+          <label class="field-label">Quantity</label>
+          <input type="number" name="quantity" id="editRecordQuantity" class="field-input" step="1" min="0">
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:0.85rem;">
+        <div>
+          <label class="field-label">Range Start</label>
+          <input type="text" name="range_start" id="editRecordStart" class="field-input" maxlength="80">
+        </div>
+        <div>
+          <label class="field-label">Range End</label>
+          <input type="text" name="range_end" id="editRecordEnd" class="field-input" maxlength="80">
+        </div>
+      </div>
+
+      <div style="margin-bottom:1.25rem;">
+        <label class="field-label">Notes</label>
+        <textarea name="notes" id="editRecordNotes" class="field-input" rows="3"></textarea>
+      </div>
+
+      <button type="submit" class="btn-submit">Save Changes</button>
+    </form>
+  </div>
+</div>
 {% endif %}
 
 <script>
@@ -612,6 +674,21 @@ function openEditFolderModal(folderId, folderName, redirectFolderId) {
   document.getElementById('editFolderName').value = folderName;
   document.getElementById('editFolderRedirectId').value = redirectFolderId || folderId;
   openModal('editFolderModal');
+}
+function openEditRecordModal(btn) {
+  var d = btn.dataset;
+  document.getElementById('editRecordForm').action = d.url;
+  document.getElementById('editRecordNumber').textContent = d.record || '';
+  document.getElementById('editRecordType').value = d.type;
+  document.getElementById('editRecordOrder').value = d.order || '';
+  document.getElementById('editRecordQuantity').value = d.quantity || 0;
+  document.getElementById('editRecordStart').value = d.start || '';
+  document.getElementById('editRecordEnd').value = d.end || '';
+  document.getElementById('editRecordNotes').value = d.notes || '';
+  document.getElementById('editRecordFileNote').textContent = d.file
+    ? 'Attached file "' + d.file.split('/').pop() + '" stays as it is — only the details below change.'
+    : 'No file attached. Only the details below change.';
+  openModal('editRecordModal');
 }
 function openEditTypeModal(typeId, typeName) {
   var form = document.getElementById('editTypeForm');

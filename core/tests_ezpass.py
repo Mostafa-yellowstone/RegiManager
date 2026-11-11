@@ -320,9 +320,11 @@ class EZPassStaffDocumentsTests(TestCase):
         listing = self.http.get(reverse("ezpass-client-documents", args=[self.tag.id])).json()
         self.assertEqual(len(listing["documents"]), 2)
         doc = EZPassClientDocument.objects.get(original_name="license.pdf")
-        file_resp = self.http.get(reverse("ezpass-client-document-file", args=[doc.id]))
+        with self.settings(X_FRAME_OPTIONS="DENY"):
+            file_resp = self.http.get(reverse("ezpass-client-document-file", args=[doc.id]))
         self.assertEqual(file_resp.status_code, 200)
         self.assertEqual(file_resp["Content-Type"], "application/pdf")
+        self.assertEqual(file_resp["X-Frame-Options"], "SAMEORIGIN")
 
         page = self.http.get(reverse("inventory-detail", args=[self.space.id]))
         self.assertContains(page, 'class="ez-docs-count">2<')

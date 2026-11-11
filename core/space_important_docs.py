@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_GET, require_POST
 
 from .http import deny_access
@@ -164,6 +165,7 @@ def upload_space_important_document(request, space_id):
 
 @login_required
 @require_GET
+@xframe_options_sameorigin
 def download_space_important_document(request, document_id):
     organizations = _get_user_organizations(request)
     doc = get_object_or_404(

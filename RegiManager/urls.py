@@ -289,6 +289,7 @@ from core.documents_views import (
     add_document_type,
     edit_document_type,
     add_document_record,
+    edit_document_record,
     delete_document_record,
 )
 from core.document_search_views import dashboard_documents_crm
@@ -1028,6 +1029,7 @@ urlpatterns = [
     path("dashboard/spaces/documents/<int:space_id>/type/add/", add_document_type, name="add-document-type"),
     path("dashboard/spaces/documents/type/<int:type_id>/edit/", edit_document_type, name="edit-document-type"),
     path("dashboard/spaces/documents/<int:space_id>/record/add/", add_document_record, name="add-document-record"),
+    path("dashboard/spaces/documents/record/<int:record_id>/edit/", edit_document_record, name="edit-document-record"),
     path("dashboard/spaces/documents/record/<int:record_id>/delete/", delete_document_record, name="delete-document-record"),
     path("dashboard/spaces/tlc/<int:space_id>/policy/<int:policy_id>/", tlc_policy_detail, name="tlc-policy-detail"),
     path("dashboard/spaces/tlc/<int:space_id>/policy/add/", add_tlc_policy, name="add-tlc-policy"),

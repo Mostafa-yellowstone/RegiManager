@@ -12,6 +12,7 @@ from django.db.models import Sum, Q, F
 from django.http import Http404, HttpResponse, JsonResponse, FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -860,6 +861,7 @@ def ezpass_client_documents(request, tag_id):
 
 
 @login_required
+@xframe_options_sameorigin
 def ezpass_client_document_file(request, doc_id):
     import mimetypes
     import os
