@@ -103,6 +103,15 @@
   75%, 100% { transform: scale(1.3); opacity: 0; }
 }
 
+.ez-banner-eyebrow {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #b91c1c;
+  margin-bottom: 2px;
+}
 .ez-banner-title {
   margin: 0 0 0.25rem;
   font-size: 1.15rem;
@@ -521,6 +530,84 @@
 .ez-docs-empty { text-align: center; padding: 1.5rem 1rem; color: #94a3b8; font-size: 0.85rem; font-weight: 600; border: 1px dashed #e2e8f0; border-radius: 10px; }
 .ez-docs-preview { width: 100%; min-height: 65vh; border: none; border-radius: 10px; background: #0f172a; }
 .ez-docs-preview-img { max-width: 100%; max-height: 70vh; display: block; margin: 0 auto; border-radius: 10px; }
+.ez-docs-submit {
+  width: 100%; margin-top: 0.7rem; padding: 0.72rem 1rem; border: none; border-radius: 12px;
+  background: linear-gradient(135deg, var(--ez-purple-600), var(--ez-purple-700));
+  color: white; font-weight: 800; font-size: 0.9rem; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(91, 33, 182, 0.28); transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.ez-docs-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(91, 33, 182, 0.38); }
+.ez-docs-submit:disabled { opacity: 0.65; cursor: progress; }
+
+/* ── Dark mode: low-stock banner ── */
+html.portal-theme-dark .ez-low-stock-banner {
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.38) 0%, rgba(124, 45, 18, 0.28) 50%, rgba(69, 10, 10, 0.45) 100%), #111827;
+  border-color: rgba(248, 113, 113, 0.55);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  animation-name: pulse-border-dark;
+}
+@keyframes pulse-border-dark {
+  0%, 100% { border-color: rgba(248, 113, 113, 0.45); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), 0 0 0 0 rgba(248, 113, 113, 0.18); }
+  50% { border-color: rgba(248, 113, 113, 0.85); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), 0 0 0 6px rgba(248, 113, 113, 0.1); }
+}
+html.portal-theme-dark .ez-beacon-wrap { background: rgba(239, 68, 68, 0.16); border-color: rgba(248, 113, 113, 0.5); }
+html.portal-theme-dark .ez-beacon-ping { border-color: #f87171; }
+html.portal-theme-dark .ez-banner-eyebrow { color: #fca5a5; }
+html.portal-theme-dark .ez-banner-title { color: #fee2e2; }
+html.portal-theme-dark .ez-banner-sub { color: #fecaca; opacity: 0.85; }
+html.portal-theme-dark .ez-stock-chip {
+  background: rgba(15, 23, 42, 0.65); border-color: rgba(248, 113, 113, 0.35); color: #fecaca;
+}
+html.portal-theme-dark .ez-stock-chip strong { color: #fff; }
+html.portal-theme-dark .ez-stock-chip.critical {
+  background: linear-gradient(135deg, #dc2626, #b91c1c); border-color: #f87171; color: white;
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.25), 0 4px 10px rgba(220, 38, 38, 0.35);
+}
+html.portal-theme-dark .ez-btn-replenish { box-shadow: 0 6px 18px rgba(220, 38, 38, 0.45); }
+
+/* ── Dark mode: client documents ── */
+html.portal-theme-dark .ez-docs-btn { background: rgba(30, 41, 59, 0.8); color: #cbd5e1; border-color: #334155; }
+html.portal-theme-dark .ez-docs-btn.has-docs { background: rgba(37, 99, 235, 0.18); color: #93c5fd; border-color: rgba(96, 165, 250, 0.45); }
+html.portal-theme-dark .ez-docs-count { background: #3b82f6; }
+html.portal-theme-dark #clientDocsModal,
+html.portal-theme-dark #clientDocPreviewModal { background: rgba(2, 6, 23, 0.7); }
+html.portal-theme-dark #clientDocsModal .ez-modal-box,
+html.portal-theme-dark #clientDocPreviewModal .ez-modal-box {
+  background: #0f172a; border-color: #1e293b; color: #e2e8f0;
+  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+html.portal-theme-dark #clientDocsModal h3,
+html.portal-theme-dark #clientDocPreviewModal h3 { color: #f8fafc !important; }
+html.portal-theme-dark #clientDocsModal p { color: #94a3b8 !important; }
+html.portal-theme-dark #clientDocsModal button[aria-label="Close"],
+html.portal-theme-dark #clientDocPreviewModal button[aria-label="Close"] { color: #94a3b8 !important; }
+html.portal-theme-dark .ez-docs-client { background: #111c33; border-color: #1e293b; color: #94a3b8; }
+html.portal-theme-dark .ez-docs-client strong { color: #f1f5f9; }
+html.portal-theme-dark .ez-docs-drop { border-color: #334155; color: #94a3b8; background: rgba(15, 23, 42, 0.4); }
+html.portal-theme-dark .ez-docs-drop span { color: #a78bfa !important; }
+html.portal-theme-dark .ez-docs-drop.dragover,
+html.portal-theme-dark .ez-docs-drop:hover { border-color: #8b5cf6; background: rgba(139, 92, 246, 0.1); }
+html.portal-theme-dark .ez-docs-selected { color: #cbd5e1; }
+html.portal-theme-dark #clientDocsModal .field-input {
+  background: #111c33; border-color: #334155; color: #e2e8f0;
+}
+html.portal-theme-dark #clientDocsModal .field-input::placeholder { color: #64748b; }
+html.portal-theme-dark #clientDocsModal .field-input:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2); }
+html.portal-theme-dark .ez-docs-submit {
+  background: linear-gradient(135deg, #7c3aed, #6366f1); box-shadow: 0 6px 18px rgba(124, 58, 237, 0.35);
+}
+html.portal-theme-dark .ez-docs-item { background: #111c33; border-color: #1e293b; transition: border-color 0.15s; }
+html.portal-theme-dark .ez-docs-item:hover { border-color: #334155; }
+html.portal-theme-dark .ez-docs-item-title { color: #f1f5f9; }
+html.portal-theme-dark .ez-docs-item-meta { color: #94a3b8; }
+html.portal-theme-dark .ez-docs-ext { background: rgba(139, 92, 246, 0.18); color: #c4b5fd; }
+html.portal-theme-dark .ez-docs-item-actions a,
+html.portal-theme-dark .ez-docs-item-actions button { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+html.portal-theme-dark .ez-docs-item-actions a:hover,
+html.portal-theme-dark .ez-docs-item-actions button:hover { background: #273449; }
+html.portal-theme-dark .ez-docs-item-actions .danger { background: rgba(239, 68, 68, 0.12); color: #fca5a5; border-color: rgba(248, 113, 113, 0.4); }
+html.portal-theme-dark .ez-docs-empty { border-color: #334155; color: #64748b; }
+html.portal-theme-dark .ez-docs-preview { background: #020617; }
 
 .field-label {
   display: block;
@@ -615,7 +702,7 @@
             <span>⚠️</span>
           </div>
           <div>
-            <div style="display: inline-block; font-size: 0.72rem; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; color: #b91c1c; margin-bottom: 2px;">
+            <div class="ez-banner-eyebrow">
               {% if is_out_of_stock %}CRITICAL: OUT OF STOCK{% elif is_critical_stock %}URGENT REPLENISHMENT REQUIRED{% else %}INVENTORY BUFFER LOW{% endif %}
             </div>
             <h3 class="ez-banner-title">
@@ -1638,7 +1725,7 @@
         <input type="text" name="title" maxlength="200" class="field-input" placeholder="Title (optional) e.g. Driver license">
         <input type="text" name="notes" class="field-input" placeholder="Notes (optional)">
       </div>
-      <button type="submit" id="clientDocsSubmit" class="ez-btn-replenish" style="width: 100%; margin-top: 0.7rem; justify-content: center;">Upload to client</button>
+      <button type="submit" id="clientDocsSubmit" class="ez-docs-submit">Upload to client</button>
     </form>
 
     <div class="ez-docs-search">
