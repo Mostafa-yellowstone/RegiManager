@@ -7,7 +7,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from core.models import Organization, OrganizationMembership, Space
-from core.tlc_models import TLCInstallment, TLCPaymentTransaction, TLCPolicy, TLCReceipt
+from core.tlc_models import TLCEndorsement, TLCInstallment, TLCPaymentTransaction, TLCPolicy, TLCReceipt
 from core.tlc_payments import record_tlc_payment
 
 User = get_user_model()
@@ -143,3 +143,20 @@ class TLCPaymentReceiptTests(TestCase):
         pdf = self.client.get(reverse("tlc-receipt-pdf", args=[receipt.id]))
         self.assertEqual(pdf.status_code, 200)
         self.assertEqual(pdf["Content-Type"], "application/pdf")
+
+    def test_policy_detail_renders_records_without_a_user(self):
+        record_tlc_payment(
+            self.policy,
+            user=self.owner,
+            payment_date=self.installment.due_date,
+            installment_id=self.installment.id,
+            splits=[{"payment_method": "cash", "amount": Decimal("403.46")}],
+        )
+        TLCEndorsement.objects.create(policy=self.policy, premium_difference=Decimal("-100.00"))
+        TLCPaymentTransaction.objects.filter(policy=self.policy).update(processed_by=None)
+        TLCReceipt.objects.filter(policy=self.policy).update(generated_by=None)
+
+        response = self.client.get(reverse("tlc-policy-detail", args=[self.space.id, self.policy.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "PCA-PAY-1")
