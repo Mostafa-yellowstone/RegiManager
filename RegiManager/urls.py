@@ -342,6 +342,9 @@ from core.ezpass_views import (
     delete_ezpass_batch,
     export_ezpass_csv,
     edit_ezpass_tag_receipt,
+    ezpass_client_documents,
+    ezpass_client_document_file,
+    delete_ezpass_client_document,
     edit_inventory_invoice,
 )
 from core.inventory_views import (
@@ -987,6 +990,9 @@ urlpatterns = [
     path("dashboard/spaces/ezpass/<int:space_id>/export/", export_ezpass_csv, name="export-ezpass-csv"),
     path("dashboard/spaces/inventory/invoice/<int:invoice_id>/edit/", edit_inventory_invoice, name="edit-inventory-invoice"),
     path("dashboard/spaces/ezpass/tag/<int:tag_id>/edit-receipt/", edit_ezpass_tag_receipt, name="edit-ezpass-tag-receipt"),
+    path("dashboard/spaces/ezpass/tag/<int:tag_id>/documents/", ezpass_client_documents, name="ezpass-client-documents"),
+    path("dashboard/spaces/ezpass/client-document/<int:doc_id>/", ezpass_client_document_file, name="ezpass-client-document-file"),
+    path("dashboard/spaces/ezpass/client-document/<int:doc_id>/delete/", delete_ezpass_client_document, name="delete-ezpass-client-document"),
     path("dashboard/spaces/motorclub/<int:space_id>/config/", save_motorclub_config, name="save-motorclub-config"),
     path("dashboard/spaces/motorclub/<int:space_id>/member/add/", add_motorclub_membership, name="add-motorclub-membership"),
     path("dashboard/spaces/motorclub/member/<int:membership_id>/edit/", edit_motorclub_membership, name="edit-motorclub-membership"),

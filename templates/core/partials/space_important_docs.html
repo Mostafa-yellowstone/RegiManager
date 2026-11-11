@@ -101,7 +101,7 @@
       <div class="sid-hero-value">{{ important_docs_count }} file{% if important_docs_count != 1 %}s{% endif %}</div>
       <div class="sid-hero-meta">Contracts, licenses, agreements &amp; certificates for this space</div>
     </div>
-    {% if can_manage_important_docs %}
+    {% if can_upload_important_docs %}
     <button type="button" class="btn btn-primary btn-sm" style="background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:white;" onclick="document.getElementById('sidUploadModal').classList.add('active')">+ Upload Document</button>
     {% endif %}
   </div>
@@ -125,7 +125,7 @@
           onclick="sidOpenPreview('{% url 'download-space-important-document' doc.id %}', '{{ doc.title|escapejs }}', {% if doc.is_previewable_pdf %}true{% else %}false{% endif %})">Preview</button>
         {% endif %}
         <a href="{% url 'download-space-important-document' doc.id %}?download=1" class="btn btn-secondary btn-sm">Download</a>
-        {% if can_manage_important_docs %}
+        {% if can_manage_important_docs or important_docs_uploader_can_delete and doc.uploaded_by_id == request.user.id %}
         <form method="post" action="{% url 'delete-space-important-document' doc.id %}" style="display:inline;" onsubmit="return confirm('Delete this document?');">
           {% csrf_token %}
           <button type="submit" class="btn btn-sm" style="color:#b91c1c;border:1px solid #fecaca;">Delete</button>
@@ -134,12 +134,12 @@
       </div>
     </article>
     {% empty %}
-    <div class="sid-empty">No important documents yet.{% if can_manage_important_docs %} Upload contracts, licenses, or agreements to keep them with this space.{% endif %}</div>
+    <div class="sid-empty">No important documents yet.{% if can_upload_important_docs %} Upload contracts, licenses, or agreements to keep them with this space.{% endif %}</div>
     {% endfor %}
   </div>
 </div>
 
-{% if can_manage_important_docs %}
+{% if can_upload_important_docs %}
 <div class="sid-modal-overlay" id="sidUploadModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="sid-modal-box">
     <h3 style="margin:0 0 1rem;color:var(--portal-text);">Upload Important Document</h3>

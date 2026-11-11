@@ -1,5 +1,6 @@
 """Comprehensive test suite for the E-ZPass space, operations, trackers, documents, and receipts."""
 
+import tempfile
 from decimal import Decimal
 
 from django.contrib.auth.models import User
@@ -10,12 +11,14 @@ from django.urls import reverse
 
 from core.models import (
     EZPassBatch,
+    EZPassClientDocument,
     EZPassTag,
     InventoryInvoice,
     InventoryProduct,
     Organization,
     OrganizationMembership,
     Space,
+    SpaceImportantDocument,
 )
 from core.inventory_spaces import ensure_inventory_space, grant_space_to_owners
 
@@ -222,3 +225,145 @@ class EZPassOperationsTests(TestCase):
         self.assertContains(csv_resp, "David Miller")
         self.assertContains(csv_resp, "ABC1234")
         self.assertContains(csv_resp, "Net Profit")
+
+
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    MEDIA_ROOT=tempfile.mkdtemp(prefix="ezpass-docs-"),
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+)
+class EZPassStaffDocumentsTests(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Docs Motors", city="Brooklyn")
+        self.owner = User.objects.create_user(username="ez_docs_owner", password="password123")
+        self.agent = User.objects.create_user(username="ez_docs_agent", password="password123")
+        self.other_agent = User.objects.create_user(username="ez_docs_agent2", password="password123")
+        self.outsider = User.objects.create_user(username="ez_docs_outsider", password="password123")
+        OrganizationMembership.objects.create(
+            user=self.owner, organization=self.org, is_active=True, role="owner", can_view_spaces=True
+        )
+        self.space = ensure_inventory_space(self.org, key="ezpass", label="E-ZPass", description="Tags")
+        grant_space_to_owners(self.org, self.space)
+        for user in (self.agent, self.other_agent):
+            membership = OrganizationMembership.objects.create(
+                user=user, organization=self.org, is_active=True, role="agent", can_view_spaces=True
+            )
+            membership.accessible_spaces.add(self.space)
+        OrganizationMembership.objects.create(
+            user=self.outsider, organization=self.org, is_active=True, role="agent", can_view_spaces=True
+        )
+        self.tag = self._sold_tag("0041110001", "Maria Gonzalez", "(917) 555-8899")
+        self.http = TestClient()
+        self.http.login(username="ez_docs_agent", password="password123")
+
+    def _sold_tag(self, number, name, phone):
+        return EZPassTag.objects.create(
+            organization=self.org,
+            space=self.space,
+            tag_number=number,
+            status=EZPassTag.Status.SOLD,
+            customer_name=name,
+            customer_phone=phone,
+            plate_number="KRT9988",
+        )
+
+    def _pdf(self, name="license.pdf"):
+        return SimpleUploadedFile(name, b"%PDF-1.4 test", content_type="application/pdf")
+
+    def _upload(self, tag, *files, client=None, **extra):
+        return (client or self.http).post(
+            reverse("ezpass-client-documents", args=[tag.id]), {"files": list(files), **extra}
+        )
+
+    def test_staff_can_upload_space_documents(self):
+        response = self.http.post(
+            reverse("upload-space-important-document", args=[self.space.id]),
+            {"title": "Thruway agreement", "category": "agreement", "file": self._pdf()},
+        )
+        self.assertEqual(response.status_code, 302)
+        doc = SpaceImportantDocument.objects.get(space=self.space)
+        self.assertEqual(doc.uploaded_by, self.agent)
+
+        page = self.http.get(reverse("inventory-detail", args=[self.space.id]))
+        self.assertContains(page, "+ Upload Document")
+
+    def test_staff_cannot_delete_someone_elses_space_document(self):
+        doc = SpaceImportantDocument.objects.create(
+            space=self.space, organization=self.org, title="Owner file", file=self._pdf(), uploaded_by=self.owner
+        )
+        response = self.http.post(reverse("delete-space-important-document", args=[doc.id]))
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(SpaceImportantDocument.objects.filter(id=doc.id).exists())
+
+        own = SpaceImportantDocument.objects.create(
+            space=self.space, organization=self.org, title="Mine", file=self._pdf(), uploaded_by=self.agent
+        )
+        response = self.http.post(reverse("delete-space-important-document", args=[own.id]))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(SpaceImportantDocument.objects.filter(id=own.id).exists())
+
+    def test_row_shows_docs_action_instead_of_pdf(self):
+        page = self.http.get(reverse("inventory-detail", args=[self.space.id]))
+        self.assertContains(page, "openClientDocs(")
+        self.assertNotContains(page, reverse("ezpass-receipt-pdf", args=[self.tag.id]))
+        self.assertContains(page, reverse("ezpass-receipt-view", args=[self.tag.id]))
+
+    def test_upload_and_reopen_client_documents(self):
+        response = self._upload(self.tag, self._pdf(), self._pdf("registration.jpg"), title="Intake")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(len(data["documents"]), 2)
+        titles = {d["title"] for d in data["documents"]}
+        self.assertEqual(titles, {"Intake – license.pdf", "Intake – registration.jpg"})
+
+        listing = self.http.get(reverse("ezpass-client-documents", args=[self.tag.id])).json()
+        self.assertEqual(len(listing["documents"]), 2)
+        doc = EZPassClientDocument.objects.get(original_name="license.pdf")
+        file_resp = self.http.get(reverse("ezpass-client-document-file", args=[doc.id]))
+        self.assertEqual(file_resp.status_code, 200)
+        self.assertEqual(file_resp["Content-Type"], "application/pdf")
+
+        page = self.http.get(reverse("inventory-detail", args=[self.space.id]))
+        self.assertContains(page, 'class="ez-docs-count">2<')
+
+    def test_documents_follow_the_client_across_tags(self):
+        self._upload(self.tag, self._pdf())
+        second = self._sold_tag("0041110002", "  maria   GONZALEZ ", "917-555-8899")
+        other = self._sold_tag("0041110003", "Maria Gonzalez", "(212) 000-0000")
+
+        self.assertEqual(len(self.http.get(reverse("ezpass-client-documents", args=[second.id])).json()["documents"]), 1)
+        self.assertEqual(len(self.http.get(reverse("ezpass-client-documents", args=[other.id])).json()["documents"]), 0)
+
+        self.tag.delete()
+        self.assertEqual(len(self.http.get(reverse("ezpass-client-documents", args=[second.id])).json()["documents"]), 1)
+
+    def test_rejects_unassigned_tag_bad_type_and_missing_files(self):
+        blank = EZPassTag.objects.create(organization=self.org, space=self.space, tag_number="0041110009")
+        self.assertEqual(self._upload(blank, self._pdf()).status_code, 400)
+        self.assertEqual(self._upload(self.tag).status_code, 400)
+        bad = SimpleUploadedFile("run.exe", b"MZ", content_type="application/octet-stream")
+        self.assertEqual(self._upload(self.tag, bad).status_code, 400)
+        self.assertFalse(EZPassClientDocument.objects.exists())
+
+    def test_only_uploader_or_manager_can_delete_client_document(self):
+        self._upload(self.tag, self._pdf())
+        doc = EZPassClientDocument.objects.get()
+
+        other = TestClient()
+        other.login(username="ez_docs_agent2", password="password123")
+        listing = other.get(reverse("ezpass-client-documents", args=[self.tag.id])).json()
+        self.assertFalse(listing["documents"][0]["can_delete"])
+        self.assertEqual(other.post(reverse("delete-ezpass-client-document", args=[doc.id])).status_code, 403)
+
+        response = self.http.post(reverse("delete-ezpass-client-document", args=[doc.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(EZPassClientDocument.objects.exists())
+
+    def test_member_without_space_access_is_denied(self):
+        self._upload(self.tag, self._pdf())
+        doc = EZPassClientDocument.objects.get()
+        outsider = TestClient()
+        outsider.login(username="ez_docs_outsider", password="password123")
+        self.assertEqual(outsider.get(reverse("ezpass-client-documents", args=[self.tag.id])).status_code, 403)
+        self.assertEqual(outsider.get(reverse("ezpass-client-document-file", args=[doc.id])).status_code, 403)

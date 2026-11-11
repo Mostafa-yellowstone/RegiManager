@@ -2182,6 +2182,53 @@ class EZPassTag(models.Model):
         return self.status == self.Status.IN_STOCK
 
 
+def ezpass_client_doc_upload_to(instance, filename):
+    from django.utils import timezone
+
+    stamp = timezone.now().strftime("%Y/%m")
+    return f"ezpass_client_docs/{instance.organization_id}/{instance.space_id}/{stamp}/{filename}"
+
+
+class EZPassClientDocument(models.Model):
+    """A file attached to the customer of an issued E-ZPass tag (ID, registration, application…)."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="ezpass_client_documents")
+    space = models.ForeignKey(Space, on_delete=models.CASCADE, related_name="ezpass_client_documents")
+    tag = models.ForeignKey(
+        EZPassTag,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="client_documents",
+    )
+    customer_name = models.CharField(max_length=150, blank=True, default="", db_index=True)
+    customer_phone = models.CharField(max_length=40, blank=True, default="")
+    plate_number = models.CharField(max_length=20, blank=True, default="")
+    title = models.CharField(max_length=200)
+    file = models.FileField(upload_to=ezpass_client_doc_upload_to)
+    original_name = models.CharField(max_length=255, blank=True, default="")
+    notes = models.TextField(blank=True, default="")
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_ezpass_client_documents",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} ({self.customer_name})"
+
+    @property
+    def file_extension(self):
+        name = (self.original_name or self.file.name or "").rsplit(".", 1)
+        return name[-1].lower() if len(name) > 1 else ""
+
+
 class UserSession(models.Model):
     """
     Tracks the single allowed active session per user.

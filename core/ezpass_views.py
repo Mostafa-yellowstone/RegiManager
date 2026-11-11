@@ -19,6 +19,7 @@ from reportlab.pdfgen import canvas
 from .http import deny_access
 from .models import (
     EZPassBatch,
+    EZPassClientDocument,
     EZPassTag,
     InventoryBuyer,
     InventoryInvoice,
@@ -52,6 +53,113 @@ def _owned_ezpass_tag(request, tag_id):
         organization__in=organizations,
     )
     return tag
+
+
+CLIENT_DOC_MAX_BYTES = 15 * 1024 * 1024
+CLIENT_DOC_MAX_FILES = 10
+CLIENT_DOC_EXTENSIONS = frozenset({
+    "pdf", "png", "jpg", "jpeg", "gif", "webp", "heic", "doc", "docx", "xls", "xlsx", "txt",
+})
+
+
+def _phone_digits(value):
+    return "".join(ch for ch in (value or "") if ch.isdigit())
+
+
+def _client_key(name, phone, tag_id=None):
+    """Tags and documents of the same customer share a key: name (case-insensitive) plus phone digits."""
+    clean = (name or "").strip().lower()
+    if not clean:
+        return ("tag", tag_id)
+    return ("client", " ".join(clean.split()), _phone_digits(phone))
+
+
+def _tag_client_key(tag):
+    return _client_key(tag.customer_name, tag.customer_phone, tag.id)
+
+
+def _doc_client_key(doc):
+    if doc.tag_id and doc.tag is not None:
+        return _tag_client_key(doc.tag)
+    return _client_key(doc.customer_name, doc.customer_phone, doc.tag_id)
+
+
+def _client_documents(tag):
+    key = _tag_client_key(tag)
+    docs = (
+        EZPassClientDocument.objects.filter(space=tag.space)
+        .select_related("tag", "uploaded_by")
+        .order_by("-created_at")
+    )
+    return [d for d in docs if _doc_client_key(d) == key]
+
+
+def _client_doc_counts(space, tags):
+    counts = {}
+    for doc in EZPassClientDocument.objects.filter(space=space).select_related("tag"):
+        key = _doc_client_key(doc)
+        counts[key] = counts.get(key, 0) + 1
+    for t in tags:
+        t.client_doc_count = counts.get(_tag_client_key(t), 0)
+
+
+def _tag_with_space_access(request, tag_id):
+    tag = _owned_ezpass_tag(request, tag_id)
+    space, is_owner, membership = _resolve_space_access(request, tag.space_id)
+    if not space:
+        deny_access("Access denied.")
+    return tag, is_owner, membership
+
+
+def _client_doc_with_space_access(request, doc_id):
+    organizations = _get_user_organizations(request)
+    doc = get_object_or_404(
+        EZPassClientDocument.objects.select_related("space", "tag", "uploaded_by"),
+        id=doc_id,
+        organization__in=organizations,
+    )
+    space, is_owner, membership = _resolve_space_access(request, doc.space_id)
+    if not space:
+        deny_access("Access denied.")
+    return doc, is_owner, membership
+
+
+def _can_delete_client_doc(request, doc, is_owner, membership):
+    if is_owner or request.user.is_superuser or doc.uploaded_by_id == request.user.id:
+        return True
+    return bool(membership and membership.role == OrganizationMembership.Role.MANAGER)
+
+
+def _client_doc_payload(request, doc, is_owner, membership):
+    from django.urls import reverse
+
+    ext = doc.file_extension
+    by = doc.uploaded_by
+    return {
+        "id": doc.id,
+        "title": doc.title,
+        "file_name": doc.original_name or doc.title,
+        "extension": ext,
+        "previewable": ext in {"pdf", "png", "jpg", "jpeg", "gif", "webp"},
+        "is_pdf": ext == "pdf",
+        "notes": doc.notes,
+        "tag_number": doc.tag.tag_number if doc.tag_id and doc.tag else "",
+        "uploaded_by": (by.get_full_name() or by.username) if by else "",
+        "uploaded_at": timezone.localtime(doc.created_at).strftime("%b %d, %Y %I:%M %p"),
+        "url": reverse("ezpass-client-document-file", args=[doc.id]),
+        "delete_url": reverse("delete-ezpass-client-document", args=[doc.id]),
+        "can_delete": _can_delete_client_doc(request, doc, is_owner, membership),
+    }
+
+
+def _validate_client_doc(upload):
+    name = upload.name or ""
+    ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    if ext not in CLIENT_DOC_EXTENSIONS:
+        return f"“{name}” is not a supported file type."
+    if upload.size and upload.size > CLIENT_DOC_MAX_BYTES:
+        return f"“{name}” is larger than 15 MB."
+    return ""
 
 
 def _ensure_ezpass_products_in_sync(space, create_if_empty=False):
@@ -135,6 +243,7 @@ def build_ezpass_space_context(request, card, is_owner, membership):
         .order_by("-assigned_at", "-created_at")
     )
     all_tags = list(tags_qs)
+    _client_doc_counts(card, all_tags)
 
     batches_qs = (
         EZPassBatch.objects.filter(space=card)
@@ -690,6 +799,98 @@ def ezpass_batch_document_download(request, batch_id):
         raise Http404("No document attached to this batch.")
 
     return FileResponse(batch.document.open("rb"), as_attachment=True, filename=batch.document_name or f"manifest-{batch.batch_number}.pdf")
+
+
+@login_required
+def ezpass_client_documents(request, tag_id):
+    """GET lists every document of this tag's customer; POST attaches new files to them."""
+    tag, is_owner, membership = _tag_with_space_access(request, tag_id)
+
+    if request.method == "POST":
+        if not (tag.customer_name or "").strip():
+            return JsonResponse(
+                {"ok": False, "error": "Assign this tag to a customer before attaching documents."}, status=400
+            )
+        uploads = request.FILES.getlist("files")
+        if not uploads:
+            return JsonResponse({"ok": False, "error": "Choose at least one file to upload."}, status=400)
+        if len(uploads) > CLIENT_DOC_MAX_FILES:
+            return JsonResponse(
+                {"ok": False, "error": f"Upload up to {CLIENT_DOC_MAX_FILES} files at a time."}, status=400
+            )
+        errors = [msg for msg in (_validate_client_doc(u) for u in uploads) if msg]
+        if errors:
+            return JsonResponse({"ok": False, "error": " ".join(errors)}, status=400)
+
+        title = (request.POST.get("title") or "").strip()[:200]
+        notes = (request.POST.get("notes") or "").strip()
+        with transaction.atomic():
+            for upload in uploads:
+                original = (upload.name or "document")[:255]
+                if title and len(uploads) == 1:
+                    doc_title = title
+                elif title:
+                    doc_title = f"{title} – {original}"
+                else:
+                    doc_title = original
+                EZPassClientDocument.objects.create(
+                    organization=tag.organization,
+                    space=tag.space,
+                    tag=tag,
+                    customer_name=tag.customer_name,
+                    customer_phone=tag.customer_phone,
+                    plate_number=tag.plate_number,
+                    title=doc_title[:200],
+                    file=upload,
+                    original_name=original,
+                    notes=notes,
+                    uploaded_by=request.user,
+                )
+
+    docs = _client_documents(tag)
+    return JsonResponse({
+        "ok": True,
+        "customer_name": tag.customer_name,
+        "customer_phone": tag.customer_phone,
+        "plate": f"{tag.plate_state} {tag.plate_number}".strip() if tag.plate_number else "",
+        "tag_number": tag.tag_number,
+        "can_upload": bool((tag.customer_name or "").strip()),
+        "documents": [_client_doc_payload(request, d, is_owner, membership) for d in docs],
+    })
+
+
+@login_required
+def ezpass_client_document_file(request, doc_id):
+    import mimetypes
+    import os
+
+    doc, _is_owner, _membership = _client_doc_with_space_access(request, doc_id)
+    if not doc.file:
+        raise Http404("File not found.")
+    filename = doc.original_name or os.path.basename(doc.file.name)
+    content_type, _ = mimetypes.guess_type(filename)
+    try:
+        handle = doc.file.open("rb")
+    except FileNotFoundError:
+        raise Http404("File not found.")
+    return FileResponse(
+        handle,
+        as_attachment=request.GET.get("download") == "1",
+        filename=filename,
+        content_type=content_type or "application/octet-stream",
+    )
+
+
+@login_required
+@require_POST
+def delete_ezpass_client_document(request, doc_id):
+    doc, is_owner, membership = _client_doc_with_space_access(request, doc_id)
+    if not _can_delete_client_doc(request, doc, is_owner, membership):
+        return JsonResponse({"ok": False, "error": "Only a manager or the uploader can delete this file."}, status=403)
+    if doc.file:
+        doc.file.delete(save=False)
+    doc.delete()
+    return JsonResponse({"ok": True})
 
 
 @login_required

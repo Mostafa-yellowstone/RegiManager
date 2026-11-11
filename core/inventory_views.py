@@ -128,11 +128,16 @@ def build_inventory_space_context(request, card, is_owner, membership):
     supplier_data = supplier_dashboard_data(card)
     suppliers = InventorySupplier.objects.filter(space=card, is_active=True).order_by("name")
 
-    from .space_important_docs import important_docs_context, user_can_manage_space_docs
+    from .space_important_docs import (
+        important_docs_context,
+        user_can_manage_space_docs,
+        user_can_upload_space_docs,
+    )
 
     docs_ctx = important_docs_context(
         card,
         can_manage=user_can_manage_space_docs(is_owner, membership, card),
+        can_upload=user_can_upload_space_docs(is_owner, membership, card),
         accent="#0d9488",
     )
 

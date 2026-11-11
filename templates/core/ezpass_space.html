@@ -475,6 +475,53 @@
   max-width: 760px;
 }
 
+/* Client documents */
+.ez-docs-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 8px; background: #f8fafc; color: #475569;
+  border: 1px solid #e2e8f0; border-radius: 6px;
+  font-weight: 700; font-size: 0.75rem; cursor: pointer;
+}
+.ez-docs-btn.has-docs { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.ez-docs-count {
+  min-width: 16px; padding: 0 5px; border-radius: 999px;
+  background: #1d4ed8; color: white; font-size: 0.66rem; line-height: 16px; text-align: center;
+}
+.ez-docs-client {
+  display: flex; flex-wrap: wrap; gap: 0.4rem 0.9rem; align-items: center;
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+  padding: 0.6rem 0.85rem; font-size: 0.82rem; color: #475569; margin-bottom: 1rem;
+}
+.ez-docs-client strong { color: #0f172a; font-size: 0.92rem; }
+.ez-docs-drop {
+  border: 2px dashed #cbd5e1; border-radius: 12px; padding: 1rem; text-align: center;
+  color: #64748b; font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+}
+.ez-docs-drop.dragover, .ez-docs-drop:hover { border-color: var(--ez-purple-600, #7c3aed); background: #faf5ff; }
+.ez-docs-selected { font-size: 0.78rem; color: #475569; margin-top: 0.4rem; word-break: break-word; }
+.ez-docs-search { margin: 1.1rem 0 0.6rem; }
+.ez-docs-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.ez-docs-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.6rem 0.75rem;
+}
+.ez-docs-item-main { min-width: 0; }
+.ez-docs-item-title { font-weight: 800; color: #0f172a; font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ez-docs-item-meta { font-size: 0.74rem; color: #64748b; margin-top: 2px; }
+.ez-docs-item-actions { display: flex; gap: 0.35rem; flex-shrink: 0; }
+.ez-docs-item-actions a, .ez-docs-item-actions button {
+  padding: 4px 8px; border-radius: 6px; font-size: 0.74rem; font-weight: 700;
+  border: 1px solid #e2e8f0; background: white; color: #1e293b; cursor: pointer; text-decoration: none;
+}
+.ez-docs-item-actions .danger { color: #b91c1c; border-color: #fecaca; }
+.ez-docs-ext {
+  display: inline-block; padding: 1px 6px; border-radius: 5px; background: #f1f5f9;
+  color: #475569; font-size: 0.64rem; font-weight: 800; text-transform: uppercase; margin-right: 4px;
+}
+.ez-docs-empty { text-align: center; padding: 1.5rem 1rem; color: #94a3b8; font-size: 0.85rem; font-weight: 600; border: 1px dashed #e2e8f0; border-radius: 10px; }
+.ez-docs-preview { width: 100%; min-height: 65vh; border: none; border-radius: 10px; background: #0f172a; }
+.ez-docs-preview-img { max-width: 100%; max-height: 70vh; display: block; margin: 0 auto; border-radius: 10px; }
+
 .field-label {
   display: block;
   font-size: 0.75rem;
@@ -854,9 +901,9 @@
                     <a href="{% url 'ezpass-receipt-view' t.id %}" target="_blank" style="padding: 4px 8px; background: #f0fdf4; color: #065f46; border: 1px solid #a7f3d0; border-radius: 6px; font-weight: 700; font-size: 0.75rem; text-decoration: none;">
                       🧾 Receipt
                     </a>
-                    <a href="{% url 'ezpass-receipt-pdf' t.id %}" target="_blank" style="padding: 4px 8px; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; border-radius: 6px; font-weight: 700; font-size: 0.75rem; text-decoration: none;">
-                      PDF
-                    </a>
+                    <button type="button" class="ez-docs-btn{% if t.client_doc_count %} has-docs{% endif %}" data-tag-id="{{ t.id }}" onclick="openClientDocs({{ t.id }})" title="Client documents">
+                      📎 Docs{% if t.client_doc_count %} <span class="ez-docs-count">{{ t.client_doc_count }}</span>{% endif %}
+                    </button>
                     <button type="button" onclick="editTagReceipt({{ t.id }})" style="padding: 4px 8px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: 700; font-size: 0.75rem; cursor: pointer; color: #1e293b;" title="Edit Transponder & Receipt Details">
                       ✏️ Edit
                     </button>
@@ -1566,6 +1613,51 @@
   </div>
 </div>
 
+<!-- Client Documents Modal -->
+<div class="ez-modal-overlay" id="clientDocsModal" onclick="if(event.target===this)closeClientDocs()">
+  <div class="ez-modal-box wide" role="dialog" aria-modal="true" aria-labelledby="clientDocsTitle">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <div>
+        <h3 style="margin: 0; font-weight: 800; color: #0f172a;" id="clientDocsTitle">Client Documents</h3>
+        <p style="margin: 0.25rem 0 0; font-size: 0.82rem; color: #64748b;">Every file attached to this customer, across all of their tags.</p>
+      </div>
+      <button type="button" onclick="closeClientDocs()" aria-label="Close" style="background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #64748b; line-height: 1;">&times;</button>
+    </div>
+
+    <div class="ez-docs-client" id="clientDocsClient"></div>
+
+    <form id="clientDocsForm" enctype="multipart/form-data">
+      <label class="ez-docs-drop" id="clientDocsDrop" for="clientDocsFiles">
+        <div>📎 Drop files here or <span style="color: #7c3aed; text-decoration: underline;">browse</span></div>
+        <div style="font-size: 0.74rem; font-weight: 500; margin-top: 0.2rem;">PDF, images, Word, Excel · up to 10 files · 15 MB each</div>
+        <div class="ez-docs-selected" id="clientDocsSelected"></div>
+      </label>
+      <input type="file" id="clientDocsFiles" name="files" multiple hidden
+        accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.heic,.doc,.docx,.xls,.xlsx,.txt">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-top: 0.7rem;">
+        <input type="text" name="title" maxlength="200" class="field-input" placeholder="Title (optional) e.g. Driver license">
+        <input type="text" name="notes" class="field-input" placeholder="Notes (optional)">
+      </div>
+      <button type="submit" id="clientDocsSubmit" class="ez-btn-replenish" style="width: 100%; margin-top: 0.7rem; justify-content: center;">Upload to client</button>
+    </form>
+
+    <div class="ez-docs-search">
+      <input type="search" id="clientDocsFilter" class="field-input" placeholder="Search this client's documents…" oninput="renderClientDocs()">
+    </div>
+    <div class="ez-docs-list" id="clientDocsList"></div>
+  </div>
+</div>
+
+<div class="ez-modal-overlay" id="clientDocPreviewModal" onclick="if(event.target===this)closeClientDocPreview()">
+  <div class="ez-modal-box" style="max-width: 920px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; gap: 1rem;">
+      <h3 id="clientDocPreviewTitle" style="margin: 0; font-weight: 800; color: #0f172a; font-size: 1rem;"></h3>
+      <button type="button" onclick="closeClientDocPreview()" aria-label="Close" style="background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #64748b; line-height: 1;">&times;</button>
+    </div>
+    <div id="clientDocPreviewBody"></div>
+  </div>
+</div>
+
 <!-- Edit Receipt / Invoice Modal -->
 <div class="ez-modal-overlay" id="editReceiptModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="ez-modal-box" style="max-width: 640px;">
@@ -1972,6 +2064,209 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   }
+});
+
+// ── Client documents ──────────────────────────────────────────────
+const clientDocsState = { tagId: null, docs: [] };
+const clientDocsUrl = (tagId) => '{% url "ezpass-client-documents" 0 %}'.replace('/0/', '/' + tagId + '/');
+
+function clientDocsCsrf() {
+  const el = document.querySelector('[name=csrfmiddlewaretoken]');
+  return (el && el.value) ? el.value : '{{ csrf_token }}';
+}
+
+function ezDocEl(tag, attrs, children) {
+  const node = document.createElement(tag);
+  Object.entries(attrs || {}).forEach(([k, v]) => {
+    if (k === 'text') node.textContent = v;
+    else if (k === 'className') node.className = v;
+    else node.setAttribute(k, v);
+  });
+  (children || []).forEach(c => c && node.appendChild(c));
+  return node;
+}
+
+function openClientDocs(tagId) {
+  clientDocsState.tagId = tagId;
+  clientDocsState.docs = [];
+  document.getElementById('clientDocsForm').reset();
+  document.getElementById('clientDocsSelected').textContent = '';
+  document.getElementById('clientDocsFilter').value = '';
+  document.getElementById('clientDocsClient').textContent = 'Loading…';
+  document.getElementById('clientDocsList').replaceChildren(ezDocEl('div', { className: 'ez-docs-empty', text: 'Loading documents…' }));
+  document.getElementById('clientDocsModal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+  loadClientDocs();
+}
+
+function closeClientDocs() {
+  document.getElementById('clientDocsModal').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+function loadClientDocs() {
+  return fetch(clientDocsUrl(clientDocsState.tagId), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(r => r.json().then(d => ({ ok: r.ok, d })))
+    .then(({ ok, d }) => {
+      if (!ok || !d.ok) throw new Error(d.error || 'Could not load documents.');
+      applyClientDocs(d);
+    })
+    .catch(err => {
+      document.getElementById('clientDocsList').replaceChildren(ezDocEl('div', { className: 'ez-docs-empty', text: err.message }));
+    });
+}
+
+function applyClientDocs(d) {
+  clientDocsState.docs = d.documents || [];
+  const client = document.getElementById('clientDocsClient');
+  client.replaceChildren(
+    ezDocEl('strong', { text: d.customer_name || 'Unassigned tag' }),
+    d.customer_phone ? ezDocEl('span', { text: '📞 ' + d.customer_phone }) : null,
+    d.plate ? ezDocEl('span', { text: '🚗 ' + d.plate }) : null,
+    ezDocEl('span', { text: 'Tag #' + d.tag_number }),
+  );
+  const form = document.getElementById('clientDocsForm');
+  form.style.display = d.can_upload ? '' : 'none';
+  if (!d.can_upload) {
+    client.appendChild(ezDocEl('span', { text: 'Issue this tag to a customer before attaching documents.', style: 'color:#b45309;font-weight:700;' }));
+  }
+  updateDocsBadges(d.documents.length, d.customer_name, d.customer_phone);
+  renderClientDocs();
+}
+
+function updateDocsBadges(count, customerName, customerPhone) {
+  const norm = (v) => (v || '').trim().toLowerCase().split(/\s+/).join(' ');
+  const digits = (v) => (v || '').replace(/\D/g, '');
+  const name = norm(customerName);
+  document.querySelectorAll('.ez-docs-btn').forEach(btn => {
+    const row = btn.closest('.tag-row');
+    const sameClient = String(btn.dataset.tagId) === String(clientDocsState.tagId)
+      || (name && row && norm(row.dataset.customer) === name && digits(row.dataset.phone) === digits(customerPhone));
+    if (!sameClient) return;
+    btn.classList.toggle('has-docs', count > 0);
+    btn.replaceChildren(document.createTextNode('📎 Docs'));
+    if (count > 0) {
+      btn.appendChild(document.createTextNode(' '));
+      btn.appendChild(ezDocEl('span', { className: 'ez-docs-count', text: String(count) }));
+    }
+  });
+}
+
+function renderClientDocs() {
+  const q = document.getElementById('clientDocsFilter').value.trim().toLowerCase();
+  const list = document.getElementById('clientDocsList');
+  const docs = clientDocsState.docs.filter(doc => !q
+    || [doc.title, doc.file_name, doc.notes, doc.tag_number, doc.uploaded_by].join(' ').toLowerCase().includes(q));
+  if (!docs.length) {
+    list.replaceChildren(ezDocEl('div', {
+      className: 'ez-docs-empty',
+      text: clientDocsState.docs.length ? 'No documents match your search.' : 'No documents attached to this client yet.',
+    }));
+    return;
+  }
+  list.replaceChildren(...docs.map(doc => {
+    const meta = [doc.uploaded_at, doc.uploaded_by && ('by ' + doc.uploaded_by), doc.tag_number && ('Tag #' + doc.tag_number)]
+      .filter(Boolean).join(' · ');
+    const actions = ezDocEl('div', { className: 'ez-docs-item-actions' }, [
+      doc.previewable ? ezDocEl('button', { type: 'button', text: 'Open' }) : null,
+      ezDocEl('a', { href: doc.url + '?download=1', text: 'Download' }),
+      doc.can_delete ? ezDocEl('button', { type: 'button', className: 'danger', text: 'Delete' }) : null,
+    ]);
+    if (doc.previewable) actions.firstChild.addEventListener('click', () => openClientDocPreview(doc));
+    if (doc.can_delete) actions.lastChild.addEventListener('click', () => deleteClientDoc(doc));
+    return ezDocEl('div', { className: 'ez-docs-item' }, [
+      ezDocEl('div', { className: 'ez-docs-item-main' }, [
+        ezDocEl('div', { className: 'ez-docs-item-title', title: doc.title }, [
+          ezDocEl('span', { className: 'ez-docs-ext', text: doc.extension || 'file' }),
+          document.createTextNode(doc.title),
+        ]),
+        ezDocEl('div', { className: 'ez-docs-item-meta', text: meta }),
+        doc.notes ? ezDocEl('div', { className: 'ez-docs-item-meta', text: doc.notes }) : null,
+      ]),
+      actions,
+    ]);
+  }));
+}
+
+function openClientDocPreview(doc) {
+  document.getElementById('clientDocPreviewTitle').textContent = doc.title;
+  const body = document.getElementById('clientDocPreviewBody');
+  body.replaceChildren(doc.is_pdf
+    ? ezDocEl('iframe', { className: 'ez-docs-preview', src: doc.url, title: doc.title })
+    : ezDocEl('img', { className: 'ez-docs-preview-img', src: doc.url, alt: doc.title }));
+  document.getElementById('clientDocPreviewModal').classList.add('active');
+}
+
+function closeClientDocPreview() {
+  document.getElementById('clientDocPreviewModal').classList.remove('active');
+  document.getElementById('clientDocPreviewBody').replaceChildren();
+}
+
+function deleteClientDoc(doc) {
+  if (!confirm('Delete "' + doc.title + '"?')) return;
+  fetch(doc.delete_url, { method: 'POST', headers: { 'X-CSRFToken': clientDocsCsrf(), 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(r => r.json().then(d => ({ ok: r.ok, d })))
+    .then(({ ok, d }) => {
+      if (!ok || !d.ok) throw new Error(d.error || 'Could not delete the document.');
+      loadClientDocs();
+    })
+    .catch(err => alert(err.message));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('clientDocsForm');
+  const input = document.getElementById('clientDocsFiles');
+  const drop = document.getElementById('clientDocsDrop');
+  const selected = document.getElementById('clientDocsSelected');
+  if (!form) return;
+
+  const showSelected = () => {
+    const names = Array.from(input.files || []).map(f => f.name);
+    selected.textContent = names.length ? names.length + ' selected: ' + names.join(', ') : '';
+  };
+  input.addEventListener('change', showSelected);
+  ['dragenter', 'dragover'].forEach(evt => drop.addEventListener(evt, e => { e.preventDefault(); drop.classList.add('dragover'); }));
+  ['dragleave', 'drop'].forEach(evt => drop.addEventListener(evt, e => { e.preventDefault(); drop.classList.remove('dragover'); }));
+  drop.addEventListener('drop', e => {
+    if (e.dataTransfer && e.dataTransfer.files.length) {
+      input.files = e.dataTransfer.files;
+      showSelected();
+    }
+  });
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    if (!input.files || !input.files.length) {
+      alert('Choose at least one file to upload.');
+      return;
+    }
+    const btn = document.getElementById('clientDocsSubmit');
+    btn.disabled = true;
+    btn.textContent = 'Uploading…';
+    fetch(clientDocsUrl(clientDocsState.tagId), {
+      method: 'POST',
+      headers: { 'X-CSRFToken': clientDocsCsrf(), 'X-Requested-With': 'XMLHttpRequest' },
+      body: new FormData(form),
+    })
+      .then(r => r.json().then(d => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => {
+        if (!ok || !d.ok) throw new Error(d.error || 'Upload failed.');
+        form.reset();
+        selected.textContent = '';
+        applyClientDocs(d);
+      })
+      .catch(err => alert(err.message))
+      .finally(() => {
+        btn.disabled = false;
+        btn.textContent = 'Upload to client';
+      });
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (document.getElementById('clientDocPreviewModal').classList.contains('active')) closeClientDocPreview();
+    else if (document.getElementById('clientDocsModal').classList.contains('active')) closeClientDocs();
+  });
 });
 
 // Auto open tab from URL parameter if present

@@ -24,6 +24,8 @@ SPACE_DOC_PERMISSION_FLAGS = {
     "staff": "can_manage_staff",
 }
 
+STAFF_UPLOAD_SPACE_KEYS = frozenset({"ezpass"})
+
 
 def space_supports_important_docs(space: Space) -> bool:
     from .inventory_spaces import is_inventory_space
@@ -38,12 +40,27 @@ def user_can_manage_space_docs(is_owner, membership, space: Space) -> bool:
         return True
     if not membership:
         return False
+    if space.key in STAFF_UPLOAD_SPACE_KEYS:
+        return membership.role == OrganizationMembership.Role.MANAGER
     if is_inventory_space(space):
         return False
     flag = SPACE_DOC_PERMISSION_FLAGS.get(space.key)
     if not flag or flag == "__owner__":
         return False
     return bool(getattr(membership, flag, False))
+
+
+def user_can_upload_space_docs(is_owner, membership, space: Space) -> bool:
+    """Staff with access to these spaces may upload; deleting stays with managers and the uploader."""
+    if user_can_manage_space_docs(is_owner, membership, space):
+        return True
+    return bool(membership) and space.key in STAFF_UPLOAD_SPACE_KEYS
+
+
+def user_can_delete_space_doc(user, is_owner, membership, doc) -> bool:
+    if user_can_manage_space_docs(is_owner, membership, doc.space):
+        return True
+    return doc.space.key in STAFF_UPLOAD_SPACE_KEYS and doc.uploaded_by_id == user.id
 
 
 def list_important_documents(space: Space):
@@ -54,13 +71,17 @@ def list_important_documents(space: Space):
     )
 
 
-def important_docs_context(space: Space, *, can_manage: bool, accent: str | None = None):
+def important_docs_context(
+    space: Space, *, can_manage: bool, accent: str | None = None, can_upload: bool | None = None
+):
     docs = list_important_documents(space)
     return {
         "important_docs": docs,
         "important_docs_count": len(docs),
         "important_doc_categories": SpaceImportantDocument.Category.choices,
         "can_manage_important_docs": can_manage,
+        "can_upload_important_docs": can_manage if can_upload is None else can_upload,
+        "important_docs_uploader_can_delete": space.key in STAFF_UPLOAD_SPACE_KEYS,
         "important_docs_accent": accent or "#2563eb",
         "important_docs_space": space,
     }
@@ -111,7 +132,7 @@ def _redirect_to_docs(request, space):
 @require_POST
 def upload_space_important_document(request, space_id):
     space, is_owner, membership = _resolve_space_docs_access(request, space_id)
-    if not user_can_manage_space_docs(is_owner, membership, space):
+    if not user_can_upload_space_docs(is_owner, membership, space):
         deny_access("You do not have permission to upload documents for this space.")
 
     title = (request.POST.get("title") or "").strip()
@@ -177,7 +198,7 @@ def delete_space_important_document(request, document_id):
         organization__in=organizations,
     )
     space, is_owner, membership = _resolve_space_docs_access(request, doc.space_id)
-    if not user_can_manage_space_docs(is_owner, membership, space):
+    if not user_can_delete_space_doc(request.user, is_owner, membership, doc):
         deny_access("You do not have permission to delete documents for this space.")
 
     title = doc.title
