@@ -43,7 +43,9 @@ CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS if ori
 
 # Public canonical origin used for canonical links, sitemap.xml and share previews.
 SEO_SITE_URL = os.getenv("SEO_SITE_URL", "https://www.regimanager.com").rstrip("/")
-GOOGLE_SITE_VERIFICATION = os.getenv("GOOGLE_SITE_VERIFICATION", "").strip()
+GOOGLE_SITE_VERIFICATION = os.getenv(
+    "GOOGLE_SITE_VERIFICATION", "0_NmcHxFrbo-gfD6VywOYWi58gk3DFE1_H53XipjmH0"
+).strip()
 BING_SITE_VERIFICATION = os.getenv("BING_SITE_VERIFICATION", "").strip()
 
 # Security settings - enabled in production, disabled in development
