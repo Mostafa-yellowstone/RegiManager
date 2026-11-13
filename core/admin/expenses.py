@@ -1,5 +1,11 @@
 from django.contrib import admin
-from ..models import Expense, ExpenseLabel
+from ..models import Expense, ExpenseLabel, ExpenseWatchSettings
+
+
+@admin.register(ExpenseWatchSettings)
+class ExpenseWatchSettingsAdmin(admin.ModelAdmin):
+    list_display = ("organization", "enabled", "single_expense_limit", "category_jump_percent", "updated_at")
+    list_filter = ("enabled",)
 
 
 @admin.register(ExpenseLabel)

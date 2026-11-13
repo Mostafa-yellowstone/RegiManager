@@ -48,6 +48,9 @@ GOOGLE_SITE_VERIFICATION = os.getenv(
 ).strip()
 BING_SITE_VERIFICATION = os.getenv("BING_SITE_VERIFICATION", "").strip()
 
+# Pulse phone alerts (policy bound, DMV transaction) via the Expo push service.
+PUSH_NOTIFICATIONS_ENABLED = os.getenv("PUSH_NOTIFICATIONS_ENABLED", "True") == "True"
+
 # Security settings - enabled in production, disabled in development
 if not DEBUG:
     SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))  # 1 year default

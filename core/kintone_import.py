@@ -992,6 +992,7 @@ class KintoneImporter:
             handled_by=self.actor,
             case_id=case_id,
         )
+        record._skip_owner_notify = True
         self._write_transaction(record, client, row, vehicle, case_id, creating=True)
         self.created_transactions += 1
 

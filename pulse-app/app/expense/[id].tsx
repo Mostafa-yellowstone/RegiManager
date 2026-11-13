@@ -21,10 +21,13 @@ export default function ExpenseDetailScreen() {
     account?: string;
     company?: string;
     transaction_type?: string;
+    segment?: string;
   }>();
 
   const amount = Number(param(params.amount) || 0);
+  const isDmv = param(params.segment) === 'dmv';
   const rows = [
+    { label: 'Expense of', value: isDmv ? 'DMV office' : 'Insurance' },
     { label: 'Category', value: param(params.category) },
     { label: 'Date', value: param(params.date) },
     { label: 'Account', value: param(params.account) },
@@ -40,7 +43,7 @@ export default function ExpenseDetailScreen() {
         style={{ borderWidth: 1, borderColor: Colors.border }}
       >
         <Text className="text-[11px] font-bold uppercase tracking-wide text-muted">
-          Bank expense
+          {isDmv ? 'DMV expense' : 'Insurance bank expense'}
         </Text>
         <Text className="mt-2 text-[22px] font-extrabold text-navy">
           {param(params.label) || 'Expense'}

@@ -1,6 +1,7 @@
 import type {
   CostFeeRow,
   DateRangePreset,
+  ExpenseSegmentTotals,
   FinancialOverview,
   PulseDashboardPayload,
   ServiceBreakdownRow,
@@ -90,8 +91,7 @@ function buildTargets(goal: any): TargetProgressRow[] {
 }
 
 function buildBankExpenses(cashflow: any): CostFeeRow[] {
-  const rows: any[] = cashflow?.expenses || [];
-  return rows.map((tx) => ({
+  const insurance: CostFeeRow[] = (cashflow?.expenses || []).map((tx: any) => ({
     id: String(tx.id),
     label: tx.description || tx.category || 'Expense',
     category: tx.category || 'Banking',
@@ -100,7 +100,31 @@ function buildBankExpenses(cashflow: any): CostFeeRow[] {
     account: tx.account || '',
     company: tx.company || '',
     transaction_type: tx.transaction_type_label || tx.transaction_type || '',
+    segment: 'insurance' as const,
   }));
+  const dmv: CostFeeRow[] = (cashflow?.dmv_expenses || []).map((row: any) => ({
+    id: String(row.id),
+    label: row.description || row.category || 'Expense',
+    category: row.category || 'Office expense',
+    amount: money(row.amount),
+    date: row.date || '',
+    segment: 'dmv' as const,
+  }));
+  return [...insurance, ...dmv].sort((a, b) => ((a.date || '') < (b.date || '') ? 1 : -1));
+}
+
+function buildExpenseSegments(cashflow: any, costs: CostFeeRow[]): ExpenseSegmentTotals {
+  const seg = cashflow?.segments;
+  const fallback = (segment: CostFeeRow['segment']) => {
+    const rows = costs.filter((row) => row.segment === segment);
+    return { total: rows.reduce((sum, row) => sum + row.amount, 0), count: rows.length };
+  };
+  return {
+    insurance: seg?.insurance
+      ? { total: money(seg.insurance.total), count: Number(seg.insurance.count) || 0 }
+      : fallback('insurance'),
+    dmv: seg?.dmv ? { total: money(seg.dmv.total), count: Number(seg.dmv.count) || 0 } : fallback('dmv'),
+  };
 }
 
 function buildActivityFromProcesses(processes: any): ServiceBreakdownRow[] {
@@ -311,12 +335,15 @@ export function adaptPulseDashboard(input: {
     overview.records_count = Number(dmvActive.total_records || 0);
   }
 
+  const costs = buildBankExpenses(resolvedCashflow);
+
   return {
     overview,
     services: buildActivityFromProcesses(input.processes),
     targets: buildTargets(input.finance?.goal_forecast),
     space_summaries: adaptSpacesList(input.spaces, useCustom),
-    costs: buildBankExpenses(resolvedCashflow),
+    costs,
+    expense_segments: buildExpenseSegments(resolvedCashflow, costs),
     organization_name: input.overview?.organization?.name,
     job_counts: jobCountsFrom(input.overview),
   };

@@ -99,6 +99,15 @@ export interface CostFeeRow {
   account?: string;
   company?: string;
   transaction_type?: string;
+  /** DMV office expense vs insurance banking expense. */
+  segment: ExpenseSegment;
+}
+
+export type ExpenseSegment = 'dmv' | 'insurance';
+
+export interface ExpenseSegmentTotals {
+  dmv: { total: number; count: number };
+  insurance: { total: number; count: number };
 }
 
 export interface ActivityRow {
@@ -140,6 +149,7 @@ export interface PulseDashboardPayload {
   targets: TargetProgressRow[];
   space_summaries: SpaceSummary[];
   costs: CostFeeRow[];
+  expense_segments: ExpenseSegmentTotals;
   organization_name?: string;
   job_counts: JobBookCounts;
 }
@@ -174,4 +184,52 @@ export interface InsuranceSummaryPayload {
     active_policy_count: number;
   };
   companies: InsuranceCompanySummary[];
+}
+
+export interface LeaderboardRow {
+  rank: number;
+  membership_id: number | null;
+  name: string;
+  role: string;
+  policies_bound: number;
+  premium: number;
+  commission: number;
+  broker_fee: number;
+  dmv_jobs: number;
+  dmv_office_keeps: number;
+  total_earned: number;
+}
+
+export interface LeaderboardPayload {
+  range: { from: string; to: string };
+  agents: LeaderboardRow[];
+  totals: {
+    policies_bound: number;
+    commission: number;
+    broker_fee: number;
+    dmv_jobs: number;
+    dmv_office_keeps: number;
+    total_earned: number;
+  };
+}
+
+export interface ExpenseWatchSettings {
+  enabled: boolean;
+  single_expense_limit: number;
+  category_jump_percent: number;
+}
+
+export interface ExpenseWatchCategory {
+  segment: ExpenseSegment;
+  category: string;
+  this_month: number;
+  last_month: number;
+  change_pct: number | null;
+  over: boolean;
+}
+
+export interface ExpenseWatchPayload {
+  settings: ExpenseWatchSettings;
+  month: string;
+  categories: ExpenseWatchCategory[];
 }

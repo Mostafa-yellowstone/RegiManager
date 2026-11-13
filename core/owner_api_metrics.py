@@ -713,11 +713,12 @@ def build_owner_insurance_summary(
     """
     Pulse Insurance tab payload.
 
-    Book commissions (earned / received / unearned) match CRM company summaries.
-    Period premium / commission / broker are scoped to the optional date range.
+    Commissions (earned / received / unearned), premium and broker fees follow the
+    optional date range by quote date, like the CRM; without a range they cover the book.
     """
     from .insurance_space_metrics import (
         build_company_summaries,
+        filter_policies_by_quote_period,
         prefetch_insurance_companies,
     )
 
@@ -748,13 +749,14 @@ def build_owner_insurance_summary(
 
     companies_qs = prefetch_insurance_companies(organization)
     all_policies = InsurancePolicy.objects.filter(organization=organization)
-    book_rows = build_company_summaries(companies_qs, all_policies)
+    if start and end:
+        scoped_policies = filter_policies_by_quote_period(all_policies, start, end)
+    else:
+        scoped_policies = all_policies
+    book_rows = build_company_summaries(companies_qs, scoped_policies)
 
     bound_qs = all_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES)
-    if start and end:
-        period_qs = bound_qs.filter(bound_date__gte=start, bound_date__lte=end)
-    else:
-        period_qs = bound_qs
+    period_qs = scoped_policies.filter(stage__in=InsurancePolicy.BOUND_STAGES)
 
     active_period = period_qs.filter(status="active")
     period_by_company = {
@@ -769,11 +771,11 @@ def build_owner_insurance_summary(
         row["insurance_company_id"]: row["bound_count"]
         for row in period_qs.values("insurance_company_id").annotate(bound_count=Count("id"))
     }
-    book_premium_by_company = {
-        row["insurance_company_id"]: row["premium"] or Decimal("0")
+    book_by_company = {
+        row["insurance_company_id"]: row
         for row in bound_qs.filter(status="active")
         .values("insurance_company_id")
-        .annotate(premium=Sum("premium"))
+        .annotate(premium=Sum("premium"), active=Count("id"))
     }
 
     period_totals = active_period.aggregate(
@@ -804,7 +806,7 @@ def build_owner_insurance_summary(
             {
                 "id": cid,
                 "name": row["name"],
-                "active_count": row["active_count"],
+                "active_count": book_by_company.get(cid, {}).get("active", 0),
                 "earned_commission": _money(earned),
                 "received_commission": _money(received),
                 "unearned_commission": _money(unearned),
@@ -812,7 +814,7 @@ def build_owner_insurance_summary(
                 "period_commission": _money(period.get("commission")),
                 "period_broker_fee": _money(period.get("broker_fee")),
                 "period_bound_count": bound_count_by_company.get(cid, 0),
-                "book_premium": _money(book_premium_by_company.get(cid)),
+                "book_premium": _money(book_by_company.get(cid, {}).get("premium")),
                 "license_status": row.get("license_status") or {},
             }
         )

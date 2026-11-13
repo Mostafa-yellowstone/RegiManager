@@ -1,11 +1,18 @@
+import logging
+from datetime import datetime
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.signals import user_logged_in, user_logged_out
 from django.contrib.sessions.models import Session
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
+from django.utils import timezone
 
-from .models import InsurancePolicy, OrganizationMembership, UserSession
-from .owner_notifications import notify_owners_policy_bound
+from .expense_models import Expense
+from .models import BankTransaction, InsurancePolicy, OrganizationMembership, ServiceRecord, UserSession
+from .owner_notifications import notify_owners_dmv_transaction, notify_owners_policy_bound
+
+logger = logging.getLogger(__name__)
 
 
 @receiver(user_logged_in)
@@ -130,3 +137,61 @@ def notify_on_policy_bound(sender, instance, created, **kwargs):
         return
     if created or previous_stage not in InsurancePolicy.BOUND_STAGES:
         notify_owners_policy_bound(instance)
+
+
+@receiver(post_save, sender=ServiceRecord)
+def notify_on_dmv_transaction(sender, instance, created, **kwargs):
+    if not created or kwargs.get("raw") or getattr(instance, "_skip_owner_notify", False):
+        return
+    if instance.status == "refund" or instance.refunded_from_id:
+        return
+    # Back-dated entries are history being keyed in, not new desk activity.
+    tx_date = instance.transaction_date
+    if isinstance(tx_date, datetime):
+        tx_date = timezone.localtime(tx_date).date() if timezone.is_aware(tx_date) else tx_date.date()
+    if tx_date and (timezone.localdate() - tx_date).days > 2:
+        return
+    try:
+        notify_owners_dmv_transaction(instance)
+    except Exception:
+        logger.exception("DMV transaction notification failed for record %s", instance.pk)
+
+
+@receiver(post_save, sender=Expense)
+def watch_dmv_expense(sender, instance, created, **kwargs):
+    if not created or kwargs.get("raw"):
+        return
+    from .expense_watch import check_new_expense
+
+    try:
+        check_new_expense(
+            instance.organization,
+            segment="dmv",
+            category=instance.label.name if instance.label_id else "Expense",
+            amount=instance.amount,
+            expense_date=instance.expense_date,
+            description=instance.description,
+        )
+    except Exception:
+        logger.exception("Expense watch failed for expense %s", instance.pk)
+
+
+@receiver(post_save, sender=BankTransaction)
+def watch_insurance_bank_expense(sender, instance, created, **kwargs):
+    if not created or kwargs.get("raw"):
+        return
+    from .expense_watch import check_new_expense, is_bank_expense
+
+    if not is_bank_expense(instance):
+        return
+    try:
+        check_new_expense(
+            instance.bank_account.organization,
+            segment="insurance",
+            category=instance.category or "Expense",
+            amount=instance.amount,
+            expense_date=instance.date,
+            description=instance.description,
+        )
+    except Exception:
+        logger.exception("Expense watch failed for bank transaction %s", instance.pk)

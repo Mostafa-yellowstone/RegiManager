@@ -630,3 +630,272 @@ class OwnerAPITests(APITestCase):
         self.assertEqual(payload["companies"][0]["period_premium"], "2000.00")
         self.assertIn("earned_commission", payload["totals"])
         self.assertIn("unearned_commission", payload["totals"])
+
+    def test_insurance_summary_commissions_follow_date_range(self):
+        today = timezone.localdate()
+        old_day = today - timedelta(days=120)
+        for number, bound_on, premium in (("POL-NEW", today, "1000.00"), ("POL-OLD", old_day, "3000.00")):
+            InsurancePolicy.objects.create(
+                organization=self.org,
+                client=self.client_obj,
+                policy_number=number,
+                insurance_company=self.company,
+                premium=Decimal(premium),
+                commission_rate=Decimal("10.00"),
+                start_date=bound_on,
+                end_date=bound_on + timedelta(days=365),
+                stage="bound",
+                status="active",
+                bound_date=bound_on,
+                added_by=self.agent,
+            )
+        scoped = build_owner_insurance_summary(
+            self.org, self.owner_mem, start=today, end=today, today=today
+        )
+        book = build_owner_insurance_summary(self.org, self.owner_mem, today=today)
+        self.assertEqual(scoped["totals"]["period_premium"], "1000.00")
+        self.assertEqual(scoped["totals"]["period_bound_count"], 1)
+        scoped_total = Decimal(scoped["totals"]["earned_commission"]) + Decimal(
+            scoped["totals"]["unearned_commission"]
+        )
+        book_total = Decimal(book["totals"]["earned_commission"]) + Decimal(
+            book["totals"]["unearned_commission"]
+        )
+        self.assertLess(scoped_total, book_total)
+        self.assertEqual(scoped["companies"][0]["active_count"], 2)
+
+    def test_policy_bound_notification_includes_broker_fee(self):
+        policy = InsurancePolicy.objects.create(
+            organization=self.org,
+            client=self.client_obj,
+            policy_number="POL-BRK",
+            insurance_company=self.company,
+            premium=Decimal("1000.00"),
+            commission_rate=Decimal("10.00"),
+            broker_fee=Decimal("50.00"),
+            start_date=timezone.localdate(),
+            end_date=timezone.localdate() + timedelta(days=365),
+            stage="quote",
+            status="pending",
+            bound_date=timezone.localdate(),
+            added_by=self.agent,
+        )
+        policy.stage = "bound"
+        policy.status = "active"
+        policy.save()
+        note = Notification.objects.get(user=self.owner, event_type="policy_bound", policy=policy)
+        self.assertIn("broker fee $50.00", note.message)
+        self.assertEqual(note.data["kind"], "insurance")
+        self.assertEqual(note.data["headline"]["amount"], "150.00")
+        labels = {line["label"]: line["amount"] for line in note.data["lines"]}
+        self.assertEqual(labels["Broker fee"], "50.00")
+        self.assertEqual(labels["Commission"], "100.00")
+
+    def test_dmv_transaction_notifies_owner_with_fee_split(self):
+        Notification.objects.all().delete()
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.agent,
+            client_name="Mark Roe",
+            service_type="registration",
+            status="completed",
+            dmv_fee=Decimal("60.00"),
+            dmv_sales_tax=Decimal("40.00"),
+            processing_fee=Decimal("35.00"),
+            transaction_date=timezone.localdate(),
+        )
+        note = Notification.objects.get(user=self.owner, event_type="dmv_transaction")
+        self.assertFalse(
+            Notification.objects.filter(user=self.agent, event_type="dmv_transaction").exists()
+        )
+        self.assertEqual(note.data["kind"], "dmv")
+        self.assertEqual(note.data["headline"]["amount"], "35.00")
+        dmv_total = next(line for line in note.data["lines"] if line.get("total"))
+        self.assertEqual(dmv_total["amount"], "100.00")
+
+    def test_dmv_notification_skips_refunds_and_backdated(self):
+        Notification.objects.all().delete()
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.agent,
+            client_name="Old Entry",
+            service_type="registration",
+            status="completed",
+            processing_fee=Decimal("25.00"),
+            transaction_date=timezone.localdate() - timedelta(days=30),
+        )
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.agent,
+            client_name="Refunded",
+            service_type="registration",
+            status="refund",
+            processing_fee=Decimal("25.00"),
+            transaction_date=timezone.localdate(),
+        )
+        self.assertFalse(Notification.objects.filter(event_type="dmv_transaction").exists())
+
+    def test_notifications_kind_filter_and_data(self):
+        Notification.objects.all().delete()
+        Notification.objects.create(
+            user=self.owner,
+            organization=self.org,
+            event_type="policy_bound",
+            title="Policy bound",
+            message="Bound",
+            data={"kind": "insurance"},
+        )
+        Notification.objects.create(
+            user=self.owner,
+            organization=self.org,
+            event_type="dmv_transaction",
+            title="DMV transaction",
+            message="DMV",
+        )
+        self._auth(self.owner_token)
+        response = self.client.get(reverse("api-owner-notifications"), {"kind": "insurance"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["notifications"]), 1)
+        self.assertEqual(response.data["notifications"][0]["data"], {"kind": "insurance"})
+        self.assertEqual(response.data["unread_count"], 1)
+        everything = self.client.get(reverse("api-owner-notifications"))
+        self.assertEqual(everything.data["unread_count"], 2)
+
+    def test_bank_cashflow_splits_dmv_and_insurance_expenses(self):
+        from core.expense_models import Expense, ExpenseLabel
+        from core.owner_api import _serialize_owner_bank_cashflow
+
+        label, _ = ExpenseLabel.objects.get_or_create(organization=self.org, name="Rent & Lease")
+        today = timezone.localdate()
+        Expense.objects.create(
+            organization=self.org,
+            label=label,
+            amount=Decimal("800.00"),
+            expense_date=today,
+        )
+        payload = _serialize_owner_bank_cashflow(self.org, today, today)
+        self.assertEqual(payload["segments"]["dmv"]["total"], "800.00")
+        self.assertEqual(payload["segments"]["dmv"]["count"], 1)
+        self.assertEqual(payload["segments"]["insurance"]["total"], "0.00")
+        self.assertEqual(payload["dmv_expenses"][0]["category"], "Rent & Lease")
+        self.assertEqual(payload["dmv_expenses"][0]["segment"], "dmv")
+
+    def test_leaderboard_credits_binds_and_dmv_jobs_per_agent(self):
+        today = timezone.localdate()
+        InsurancePolicy.objects.create(
+            organization=self.org,
+            client=self.client_obj,
+            policy_number="POL-LB",
+            insurance_company=self.company,
+            premium=Decimal("1000.00"),
+            commission_rate=Decimal("10.00"),
+            broker_fee=Decimal("40.00"),
+            start_date=today,
+            end_date=today + timedelta(days=365),
+            stage="bound",
+            status="active",
+            bound_date=today,
+            added_by=self.agent,
+        )
+        self._auth(self.owner_token)
+        response = self.client.get(
+            reverse("api-owner-leaderboard"),
+            {"from_date": today.isoformat(), "to_date": today.isoformat()},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        top = response.data["agents"][0]
+        self.assertEqual(top["user_id"], self.agent.id)
+        self.assertEqual(top["rank"], 1)
+        self.assertEqual(top["policies_bound"], 1)
+        self.assertEqual(top["broker_fee"], "40.00")
+        self.assertEqual(top["dmv_jobs"], 1)
+        self.assertEqual(top["dmv_office_keeps"], "25.00")
+        self.assertEqual(top["total_earned"], "165.00")
+        self.assertEqual(response.data["totals"]["policies_bound"], 1)
+
+        self._auth(self.agent_token)
+        denied = self.client.get(reverse("api-owner-leaderboard"))
+        self.assertEqual(denied.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_expense_watch_alerts_large_expense_and_category_jump_once(self):
+        from core.expense_models import Expense, ExpenseLabel
+
+        today = timezone.localdate()
+        last_month_day = today.replace(day=1) - timedelta(days=1)
+        label, _ = ExpenseLabel.objects.get_or_create(organization=self.org, name="Utilities & Electric")
+        Expense.objects.create(organization=self.org, label=label, amount=Decimal("100.00"), expense_date=last_month_day)
+        Notification.objects.all().delete()
+
+        Expense.objects.create(organization=self.org, label=label, amount=Decimal("600.00"), expense_date=today)
+        alerts = Notification.objects.filter(user=self.owner, event_type="expense_alert")
+        self.assertEqual(alerts.count(), 2)
+        titles = set(alerts.values_list("title", flat=True))
+        self.assertEqual(titles, {"Large expense", "Category over last month"})
+        self.assertFalse(Notification.objects.filter(user=self.agent, event_type="expense_alert").exists())
+
+        Expense.objects.create(organization=self.org, label=label, amount=Decimal("50.00"), expense_date=today)
+        self.assertEqual(
+            Notification.objects.filter(user=self.owner, title="Category over last month").count(), 1
+        )
+
+    def test_expense_watch_skips_backdated_and_disabled(self):
+        from core.expense_models import Expense, ExpenseLabel, ExpenseWatchSettings
+
+        label, _ = ExpenseLabel.objects.get_or_create(organization=self.org, name="Miscellaneous")
+        Notification.objects.all().delete()
+        Expense.objects.create(
+            organization=self.org,
+            label=label,
+            amount=Decimal("900.00"),
+            expense_date=timezone.localdate() - timedelta(days=60),
+        )
+        ExpenseWatchSettings.objects.update_or_create(organization=self.org, defaults={"enabled": False})
+        Expense.objects.create(
+            organization=self.org, label=label, amount=Decimal("900.00"), expense_date=timezone.localdate()
+        )
+        self.assertFalse(Notification.objects.filter(event_type="expense_alert").exists())
+
+    def test_expense_watch_covers_insurance_bank_expenses(self):
+        from core.models import BankAccount, BankTransaction
+
+        account = BankAccount.objects.create(
+            organization=self.org, account_name="Operating", balance=Decimal("0.00")
+        )
+        Notification.objects.all().delete()
+        BankTransaction.objects.create(
+            bank_account=account,
+            transaction_type=BankTransaction.TransactionType.EXPENSE,
+            amount=Decimal("750.00"),
+            category="Marketing",
+            date=timezone.localdate(),
+        )
+        note = Notification.objects.get(user=self.owner, event_type="expense_alert")
+        self.assertEqual(note.data["segment"], "insurance")
+        self.assertEqual(note.data["headline"]["amount"], "750.00")
+
+    def test_expense_watch_endpoint_reads_and_saves_settings(self):
+        self._auth(self.owner_token)
+        response = self.client.get(reverse("api-owner-expense-watch"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["settings"]["single_expense_limit"], "500.00")
+        self.assertEqual(response.data["settings"]["category_jump_percent"], 20)
+
+        saved = self.client.post(
+            reverse("api-owner-expense-watch"),
+            {"single_expense_limit": "250", "category_jump_percent": 35, "enabled": True},
+            format="json",
+        )
+        self.assertEqual(saved.status_code, status.HTTP_200_OK)
+        self.assertEqual(saved.data["settings"]["single_expense_limit"], "250.00")
+        self.assertEqual(saved.data["settings"]["category_jump_percent"], 35)
+
+        bad = self.client.post(
+            reverse("api-owner-expense-watch"), {"single_expense_limit": "-5"}, format="json"
+        )
+        self.assertEqual(bad.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self._auth(self.agent_token)
+        denied = self.client.post(
+            reverse("api-owner-expense-watch"), {"category_jump_percent": 5}, format="json"
+        )
+        self.assertEqual(denied.status_code, status.HTTP_403_FORBIDDEN)

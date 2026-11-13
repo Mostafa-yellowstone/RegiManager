@@ -244,8 +244,29 @@ export async function fetchOwnerProcesses() {
   return apiFetch('/api/owner/processes/');
 }
 
-export async function fetchOwnerNotifications() {
-  return apiFetch('/api/owner/notifications/?limit=50');
+export async function fetchOwnerLeaderboard(params?: Record<string, string>) {
+  const q = new URLSearchParams(params || {}).toString();
+  return apiFetch(`/api/owner/leaderboard/${q ? `?${q}` : ''}`);
+}
+
+export async function fetchOwnerExpenseWatch() {
+  return apiFetch('/api/owner/expense-watch/');
+}
+
+export async function saveOwnerExpenseWatch(body: {
+  enabled?: boolean;
+  single_expense_limit?: string;
+  category_jump_percent?: number;
+}) {
+  return apiFetch('/api/owner/expense-watch/', { method: 'POST', body });
+}
+
+export async function fetchOwnerNotifications(kind?: 'insurance' | 'dmv' | 'expenses') {
+  return apiFetch(`/api/owner/notifications/?limit=80${kind ? `&kind=${kind}` : ''}`);
+}
+
+export async function markAllOwnerNotificationsRead() {
+  return apiFetch('/api/owner/notifications/mark-all-read/', { method: 'POST', body: {} });
 }
 
 export async function markOwnerNotificationRead(id: number) {

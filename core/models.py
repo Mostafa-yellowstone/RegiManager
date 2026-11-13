@@ -1332,6 +1332,11 @@ class Notification(models.Model):
         default="",
         help_text="Relative portal path opened when the user clicks this notification.",
     )
+    data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Structured amounts shown as a breakdown in Pulse (premium, fees, commission).",
+    )
     level = models.CharField(max_length=20, choices=Level.choices, default=Level.WARNING, db_index=True)
     is_read = models.BooleanField(default=False, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -4081,4 +4086,4 @@ class ContactMessage(models.Model):
 
 
 
-from .expense_models import Expense, ExpenseLabel  # noqa: E402,F401
+from .expense_models import Expense, ExpenseLabel, ExpenseWatchSettings  # noqa: E402,F401

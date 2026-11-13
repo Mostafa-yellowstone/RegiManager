@@ -37,6 +37,8 @@ yarn-error.*
 
 # Google Play / EAS submit secrets
 google-service-account.json
+# Firebase config; EAS builds read it from the GOOGLE_SERVICES_JSON file variable
+google-services.json
 *.keystore
 credentials.json
 

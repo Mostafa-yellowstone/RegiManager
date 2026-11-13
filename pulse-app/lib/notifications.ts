@@ -6,6 +6,8 @@ import { kvDelete, kvGet, kvSet } from '@/lib/storage';
 
 const PREF_KEY = 'pulse_daily_snapshot_enabled';
 const SCHEDULE_ID_KEY = 'pulse_daily_snapshot_schedule_id';
+/** Must match ACTIVITY_CHANNEL_ID in core/push_notifications.py. */
+const ACTIVITY_CHANNEL_ID = 'pulse-activity';
 
 /** Expo Go on Android cannot load expo-notifications (remote push removed in SDK 53+). */
 function isExpoGo(): boolean {
@@ -36,7 +38,7 @@ async function ensureHandler(Notifications: NotificationsModule) {
       shouldShowAlert: true,
       shouldShowBanner: true,
       shouldShowList: true,
-      shouldPlaySound: false,
+      shouldPlaySound: true,
       shouldSetBadge: false,
     }),
   });
@@ -74,17 +76,38 @@ async function ensurePermissions(Notifications: NotificationsModule): Promise<bo
   );
 }
 
-async function registerPushToken(Notifications: NotificationsModule): Promise<void> {
+async function ensureChannels(Notifications: NotificationsModule) {
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync(ACTIVITY_CHANNEL_ID, {
+    name: 'Policies bound & DMV transactions',
+    description: 'Instant alerts when a policy is bound or a DMV transaction is recorded.',
+    importance: Notifications.AndroidImportance.HIGH,
+    sound: 'default',
+    vibrationPattern: [0, 200, 120, 200],
+    lightColor: '#3DDC97',
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+  });
+  await Notifications.setNotificationChannelAsync('pulse-daily', {
+    name: 'Pulse daily snapshot',
+    importance: Notifications.AndroidImportance.DEFAULT,
+  });
+}
+
+function easProjectId(): string | undefined {
+  return (
+    (Constants.expoConfig?.extra as any)?.eas?.projectId ||
+    (Constants as any).easConfig?.projectId ||
+    undefined
+  );
+}
+
+async function registerPushToken(Notifications: NotificationsModule): Promise<boolean> {
   try {
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('pulse-daily', {
-        name: 'Pulse daily snapshot',
-        importance: Notifications.AndroidImportance.DEFAULT,
-      });
-    }
-    const tokenData = await Notifications.getExpoPushTokenAsync();
+    await ensureChannels(Notifications);
+    const projectId = easProjectId();
+    const tokenData = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
     const token = tokenData.data;
-    if (!token) return;
+    if (!token) return false;
     await apiFetch('/api/push/register/', {
       method: 'POST',
       body: {
@@ -92,8 +115,32 @@ async function registerPushToken(Notifications: NotificationsModule): Promise<vo
         platform: Platform.OS === 'ios' ? 'ios' : 'android',
       },
     });
+    return true;
   } catch {
-    // Local schedule can still work without remote push registration.
+    return false;
+  }
+}
+
+/**
+ * Register this phone for instant policy-bound and DMV alerts. They are delivered by
+ * the server, so they arrive in the notification center even when Pulse is closed.
+ */
+export async function registerActivityPush(): Promise<{ ok: boolean; message: string }> {
+  try {
+    const Notifications = await getNotifications();
+    if (!Notifications) {
+      return { ok: false, message: 'Phone alerts need the installed Pulse app (not Expo Go).' };
+    }
+    await ensureHandler(Notifications);
+    if (!(await ensurePermissions(Notifications))) {
+      return { ok: false, message: 'Notifications are turned off for Pulse in your phone settings.' };
+    }
+    const ok = await registerPushToken(Notifications);
+    return ok
+      ? { ok: true, message: 'Phone alerts are on for bound policies and DMV transactions.' }
+      : { ok: false, message: 'Could not register this phone for alerts. Try again later.' };
+  } catch {
+    return { ok: false, message: 'Could not register this phone for alerts.' };
   }
 }
 
@@ -151,6 +198,7 @@ export async function disableDailySnapshot(): Promise<void> {
 /** Re-apply schedule after login when preference is on (no-op crash-safe in Expo Go). */
 export async function syncDailySnapshotPreference(): Promise<void> {
   try {
+    await registerActivityPush();
     if (await isDailySnapshotEnabled()) {
       await enableDailySnapshot();
     }
@@ -159,14 +207,16 @@ export async function syncDailySnapshotPreference(): Promise<void> {
   }
 }
 
-type SnapshotRouteHandler = () => void;
+export type NotificationTapType = 'pulse_daily_snapshot' | 'policy_bound' | 'dmv_transaction' | 'expense_alert';
+
+const TAP_TYPES = new Set<string>(['pulse_daily_snapshot', 'policy_bound', 'dmv_transaction', 'expense_alert']);
 
 /**
- * Route notification taps to Pulse home. Safe no-op in Expo Go / missing module.
+ * Route notification taps (warm and cold start). Safe no-op in Expo Go / missing module.
  * Returns an unsubscribe function.
  */
-export async function registerSnapshotNotificationHandler(
-  onOpenSnapshot: SnapshotRouteHandler,
+export async function registerNotificationTapHandler(
+  onOpen: (type: NotificationTapType) => void,
 ): Promise<() => void> {
   const Notifications = await getNotifications();
   if (!Notifications) return () => undefined;
@@ -177,19 +227,17 @@ export async function registerSnapshotNotificationHandler(
     return () => undefined;
   }
 
+  const route = (type: unknown) => {
+    if (typeof type === 'string' && TAP_TYPES.has(type)) onOpen(type as NotificationTapType);
+  };
+
   const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-    const type = response?.notification?.request?.content?.data?.type;
-    if (type === 'pulse_daily_snapshot') {
-      onOpenSnapshot();
-    }
+    route(response?.notification?.request?.content?.data?.type);
   });
 
   try {
     const last = await Notifications.getLastNotificationResponseAsync();
-    const type = last?.notification?.request?.content?.data?.type;
-    if (type === 'pulse_daily_snapshot') {
-      onOpenSnapshot();
-    }
+    route(last?.notification?.request?.content?.data?.type);
   } catch {
     // ignore cold-start read failures
   }

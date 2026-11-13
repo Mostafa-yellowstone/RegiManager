@@ -1,5 +1,4 @@
-import { View } from 'react-native';
-import Svg, { Circle, Path, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { Colors } from '@/lib/theme';
 
@@ -14,18 +13,18 @@ type Props = {
 export function PulseTabIcon({ name, focused, compact }: Props) {
   const size = compact ? 22 : 26;
   const color = focused ? '#07090C' : Colors.muted;
+  const stroke = {
+    fill: 'none',
+    stroke: color,
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  };
 
   if (name === 'today') {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24">
-        <Path
-          d="M3 12h3l2-5 4 10 2-5h7"
-          fill="none"
-          stroke={color}
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <Path d="M3 12h3l2-5 4 10 2-5h7" {...stroke} />
       </Svg>
     );
   }
@@ -33,13 +32,7 @@ export function PulseTabIcon({ name, focused, compact }: Props) {
   if (name === 'work') {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24">
-        <Path
-          d="M8 7h11M8 12h11M8 17h11"
-          fill="none"
-          stroke={color}
-          strokeWidth={2}
-          strokeLinecap="round"
-        />
+        <Path d="M8 7h11M8 12h11M8 17h11" {...stroke} />
         <Circle cx="4.5" cy="7" r="1.2" fill={color} />
         <Circle cx="4.5" cy="12" r="1.2" fill={color} />
         <Circle cx="4.5" cy="17" r="1.2" fill={color} />
@@ -50,18 +43,8 @@ export function PulseTabIcon({ name, focused, compact }: Props) {
   if (name === 'insurance') {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24">
-        <Path
-          d="M12 3 4 6.5V12c0 5 3.4 8.6 8 9.5 4.6-.9 8-4.5 8-9.5V6.5L12 3z"
-          fill={focused ? Colors.teal : '#E7C3B6'}
-        />
-        <Path
-          d="M9.2 12.2 11 14l3.8-4"
-          fill="none"
-          stroke="#fff"
-          strokeWidth={1.8}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <Path d="M12 3 4.5 6.2V12c0 4.6 3.1 7.9 7.5 9 4.4-1.1 7.5-4.4 7.5-9V6.2L12 3z" {...stroke} />
+        <Path d="M9 12.2 11 14.2l4-4.2" {...stroke} />
       </Svg>
     );
   }
@@ -69,31 +52,17 @@ export function PulseTabIcon({ name, focused, compact }: Props) {
   if (name === 'team') {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24">
-        <Circle cx="12" cy="7" r="2.5" fill={focused ? Colors.teal : '#E7C3B6'} />
-        <Circle cx="7" cy="8.5" r="2" fill={focused ? Colors.teal : '#E7C3B6'} opacity={0.85} />
-        <Circle cx="17" cy="8.5" r="2" fill={focused ? Colors.teal : '#E7C3B6'} opacity={0.85} />
-        <Path
-          d="M5 18c.7-2.2 2.4-3.3 4-3.3h6c1.6 0 3.3 1.1 4 3.3"
-          fill="none"
-          stroke={focused ? Colors.teal : '#E7C3B6'}
-          strokeWidth={1.8}
-          strokeLinecap="round"
-        />
+        <Circle cx="9" cy="8" r="3" {...stroke} />
+        <Path d="M3.5 19c.6-2.9 2.8-4.5 5.5-4.5s4.9 1.6 5.5 4.5" {...stroke} />
+        <Path d="M15.5 5.3a3 3 0 0 1 0 5.4M17.5 14.7c1.6.6 2.7 2 3 4.3" {...stroke} />
       </Svg>
     );
   }
 
   return (
-    <View>
-      <Svg width={size} height={size} viewBox="0 0 24 24">
-        <Path
-          d="M7 3h10a1 1 0 0 1 1 1v16l-2-1.2L14 20l-2-1.2L10 20l-2-1.2L6 20V4a1 1 0 0 1 1-1z"
-          fill={focused ? Colors.teal : '#E7C3B6'}
-        />
-        <Rect x="9" y="7" width="6" height="1.3" rx="0.5" fill="#fff" />
-        <Rect x="9" y="10" width="6" height="1.3" rx="0.5" fill="#fff" />
-        <Rect x="9" y="13" width="4" height="1.3" rx="0.5" fill="#fff" />
-      </Svg>
-    </View>
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="M6 3h12v18l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.2V3z" {...stroke} />
+      <Path d="M9 8h6M9 11.5h6M9 15h3.5" {...stroke} />
+    </Svg>
   );
 }

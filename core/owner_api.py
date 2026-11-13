@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.exceptions import PermissionDenied
@@ -109,6 +109,34 @@ def _serialize_owner_bank_cashflow(organization, start, end, *, expense_limit: i
         }
         for tx in expense_rows
     ]
+    insurance_expense_total = expense_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0")
+
+    from .expense_models import Expense
+
+    dmv_qs = (
+        Expense.objects.filter(
+            organization=organization,
+            expense_date__gte=start,
+            expense_date__lte=end,
+        )
+        .select_related("label")
+        .order_by("-expense_date", "-created_at")
+    )
+    dmv_expense_total = dmv_qs.aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    dmv_expense_count = dmv_qs.count()
+    dmv_expenses = [
+        {
+            "id": f"dmv-{row.id}",
+            "date": row.expense_date.isoformat() if row.expense_date else "",
+            "amount": str(Decimal(row.amount or 0).quantize(Decimal("0.01"))),
+            "category": row.label.name if row.label_id else "Expense",
+            "description": row.description or "",
+            "segment": "dmv",
+        }
+        for row in dmv_qs[: max(1, expense_limit)]
+    ]
+    for row in expenses:
+        row["segment"] = "insurance"
 
     return {
         "range": {
@@ -129,6 +157,17 @@ def _serialize_owner_bank_cashflow(organization, start, end, *, expense_limit: i
         "expense_count": len(expenses),
         "expense_total_count": expense_total_count,
         "expense_truncated": expense_total_count > len(expenses),
+        "dmv_expenses": dmv_expenses,
+        "segments": {
+            "insurance": {
+                "total": str(Decimal(insurance_expense_total).quantize(Decimal("0.01"))),
+                "count": expense_total_count,
+            },
+            "dmv": {
+                "total": str(Decimal(dmv_expense_total).quantize(Decimal("0.01"))),
+                "count": dmv_expense_count,
+            },
+        },
     }
 
 
@@ -820,6 +859,75 @@ class OwnerInsuranceSummaryView(OwnerAPIBase):
         return Response(payload)
 
 
+class OwnerAgentLeaderboardView(OwnerAPIBase):
+    """Pulse Team leaderboard: binds, broker fees and DMV jobs per agent for the range."""
+
+    def get(self, request):
+        organization, membership, _orgs, _records, today = self.resolve_context(request)
+        if not self.can_view_finance(membership):
+            raise PermissionDenied("Owner or finance access required.")
+
+        from .owner_leaderboard import build_agent_leaderboard
+
+        custom_range = parse_owner_date_range(request.query_params)
+        start, end = custom_range if custom_range else (today.replace(day=1), today)
+        return Response(build_agent_leaderboard(organization, start, end))
+
+
+class OwnerExpenseWatchView(OwnerAPIBase):
+    """Expense watch thresholds plus this month vs last month by category."""
+
+    def _payload(self, organization, today):
+        from .expense_watch import category_watch_rows, watch_settings_for
+
+        settings_row = watch_settings_for(organization)
+        return {
+            "settings": {
+                "enabled": settings_row.enabled,
+                "single_expense_limit": str(settings_row.single_expense_limit),
+                "category_jump_percent": settings_row.category_jump_percent,
+            },
+            "month": today.strftime("%Y-%m"),
+            "categories": category_watch_rows(organization, today=today),
+        }
+
+    def get(self, request):
+        organization, membership, _orgs, _records, today = self.resolve_context(request)
+        if not self.can_view_finance(membership):
+            raise PermissionDenied("Owner or finance access required.")
+        return Response(self._payload(organization, today))
+
+    def post(self, request):
+        organization, membership, _orgs, _records, today = self.resolve_context(request)
+        if membership.role != OrganizationMembership.Role.OWNER:
+            raise PermissionDenied("Only owners can change expense alerts.")
+
+        from .expense_watch import watch_settings_for
+
+        settings_row = watch_settings_for(organization)
+        data = request.data if hasattr(request, "data") else {}
+        try:
+            if "enabled" in data:
+                settings_row.enabled = bool(data.get("enabled"))
+            if "single_expense_limit" in data:
+                limit = Decimal(str(data.get("single_expense_limit") or 0))
+                if limit < 0:
+                    raise ValueError
+                settings_row.single_expense_limit = limit.quantize(Decimal("0.01"))
+            if "category_jump_percent" in data:
+                pct = int(data.get("category_jump_percent") or 0)
+                if pct < 0 or pct > 1000:
+                    raise ValueError
+                settings_row.category_jump_percent = pct
+        except (ArithmeticError, TypeError, ValueError):
+            return Response(
+                {"detail": "Use a limit of 0 or more and a percent between 0 and 1000."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        settings_row.save()
+        return Response(self._payload(organization, today))
+
+
 class OwnerInsurancePoliciesView(OwnerAPIBase):
     def get(self, request):
         organization, membership, _orgs, _records, today = self.resolve_context(request)
@@ -920,6 +1028,13 @@ class OwnerProcessesView(OwnerAPIBase):
         )
 
 
+NOTIFICATION_KIND_EVENTS = {
+    "insurance": ("policy_bound", "policy_endorsed"),
+    "dmv": ("dmv_transaction", "pulse_daily_snapshot"),
+    "expenses": ("expense_alert",),
+}
+
+
 class OwnerNotificationsView(OwnerAPIBase):
     def get(self, request):
         organization, membership, _orgs, _records, _today = self.resolve_context(request)
@@ -935,8 +1050,12 @@ class OwnerNotificationsView(OwnerAPIBase):
         event_type = request.query_params.get("event_type", "").strip()
         if event_type:
             qs = qs.filter(event_type=event_type)
+        kind = request.query_params.get("kind", "").strip().lower()
+        if kind in NOTIFICATION_KIND_EVENTS:
+            qs = qs.filter(event_type__in=NOTIFICATION_KIND_EVENTS[kind])
         if organization:
             qs = qs.filter(Q(organization=organization) | Q(organization__isnull=True))
+        unread_count = qs.filter(is_read=False).count()
 
         unread_only = request.query_params.get("unread", "").strip() in {"1", "true", "yes"}
         if unread_only:
@@ -967,9 +1086,9 @@ class OwnerNotificationsView(OwnerAPIBase):
                     ),
                     "organization_id": note.organization_id,
                     "policy_id": note.policy_id,
+                    "data": note.data or {},
                 }
             )
-        unread_count = Notification.objects.filter(user=request.user, is_read=False).count()
         return Response({"notifications": items, "unread_count": unread_count})
 
 
@@ -985,7 +1104,11 @@ class OwnerNotificationReadView(OwnerAPIBase):
 
 class OwnerNotificationMarkAllReadView(OwnerAPIBase):
     def post(self, request):
-        updated = Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+        organization, _membership, _orgs, _records, _today = self.resolve_context(request)
+        qs = Notification.objects.filter(user=request.user, is_read=False)
+        if organization:
+            qs = qs.filter(Q(organization=organization) | Q(organization__isnull=True))
+        updated = qs.update(is_read=True)
         return Response({"detail": "Marked read.", "updated": updated})
 
 

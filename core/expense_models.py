@@ -89,6 +89,35 @@ class Expense(models.Model):
         return f"{self.label.name}: ${self.amount} ({self.expense_date})"
 
 
+class ExpenseWatchSettings(models.Model):
+    """Per-organization thresholds for Pulse expense alerts (DMV expenses and insurance bank expenses)."""
+
+    organization = models.OneToOneField(
+        "Organization",
+        on_delete=models.CASCADE,
+        related_name="expense_watch",
+    )
+    enabled = models.BooleanField(default=True)
+    single_expense_limit = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("500.00"),
+        help_text="Alert when one expense is at or above this amount. 0 turns it off.",
+    )
+    category_jump_percent = models.PositiveIntegerField(
+        default=20,
+        help_text="Alert when a category's month-to-date total passes last month by this percent. 0 turns it off.",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Expense Watch Settings"
+        verbose_name_plural = "Expense Watch Settings"
+
+    def __str__(self):
+        return f"Expense watch for {self.organization_id}"
+
+
 def ensure_default_expense_labels(organization):
     """Ensure standard starter expense labels exist for an organization."""
     if not organization:

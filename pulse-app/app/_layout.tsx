@@ -9,7 +9,7 @@ import {
   useFonts,
 } from '@expo-google-fonts/manrope';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -20,7 +20,7 @@ import 'react-native-reanimated';
 
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { hasCompletedOnboarding, subscribeOnboarding } from '@/lib/onboarding';
-import { registerSnapshotNotificationHandler } from '@/lib/notifications';
+import { registerNotificationTapHandler } from '@/lib/notifications';
 import { Colors, Fonts } from '@/lib/theme';
 import { useDateRangeStore } from '@/stores/dateRangeStore';
 import { BiometricGate } from '@/components/pulse/BiometricGate';
@@ -34,6 +34,7 @@ function AuthGate({ children }: { children: ReactNode }) {
   const segments = useSegments();
   const router = useRouter();
   const setPreset = useDateRangeStore((s) => s.setPreset);
+  const queryClient = useQueryClient();
   const [onboardingReady, setOnboardingReady] = useState(false);
   const [seenOnboarding, setSeenOnboarding] = useState(false);
 
@@ -62,10 +63,15 @@ function AuthGate({ children }: { children: ReactNode }) {
     if (!ready || !onboardingReady || !token) return;
     let active = true;
     let unsubscribe: (() => void) | undefined;
-    void registerSnapshotNotificationHandler(() => {
+    void registerNotificationTapHandler((type) => {
       if (!active) return;
-      setPreset('yesterday');
-      router.replace('/(tabs)');
+      if (type === 'pulse_daily_snapshot') {
+        setPreset('yesterday');
+        router.replace('/(tabs)');
+        return;
+      }
+      void queryClient.invalidateQueries();
+      router.push('/alerts');
     }).then((fn) => {
       unsubscribe = fn;
     });
@@ -73,7 +79,7 @@ function AuthGate({ children }: { children: ReactNode }) {
       active = false;
       unsubscribe?.();
     };
-  }, [ready, onboardingReady, token, router, setPreset]);
+  }, [ready, onboardingReady, token, router, setPreset, queryClient]);
 
   useEffect(() => {
     if (!ready || !onboardingReady) return;

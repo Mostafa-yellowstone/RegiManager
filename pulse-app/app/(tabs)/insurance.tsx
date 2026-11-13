@@ -56,7 +56,7 @@ export default function InsuranceScreen() {
             Insurance
           </Text>
           <Text style={{ fontFamily: Fonts.medium, fontSize: 13, color: Colors.muted, lineHeight: 18 }}>
-            Earned vs unearned commission, premium by carrier, and owner recommendations.
+            Commissions, broker fees and premium for the selected range, by carrier.
           </Text>
           <ConnectedDateRangeSelector />
         </View>
@@ -113,19 +113,19 @@ export default function InsuranceScreen() {
                   label="Earned"
                   value={totals?.earned_commission || 0}
                   accent="green"
-                  hint="Outstanding earned book"
+                  hint="Kept on policies in range"
                 />
                 <MetricCard
                   label="Unearned"
                   value={totals?.unearned_commission || 0}
                   accent="orange"
-                  hint="Still to earn / chase"
+                  hint="Owed back on cancellations"
                 />
                 <MetricCard
                   label="Received"
                   value={totals?.received_commission || 0}
                   accent="teal"
-                  hint="Already remitted"
+                  hint="Paid by carriers"
                 />
                 <MetricCard
                   label="Broker fee"
@@ -272,6 +272,20 @@ export default function InsuranceScreen() {
                             Unearned {formatMoney(company.unearned_commission, true)}
                           </Text>
                         </View>
+                        {company.period_broker_fee > 0 ? (
+                          <View
+                            style={{
+                              borderRadius: 999,
+                              paddingHorizontal: 10,
+                              paddingVertical: 5,
+                              backgroundColor: Colors.purpleSoft,
+                            }}
+                          >
+                            <Text style={{ fontFamily: Fonts.bold, fontSize: 11, color: Colors.purple }}>
+                              Broker {formatMoney(company.period_broker_fee, true)}
+                            </Text>
+                          </View>
+                        ) : null}
                         <View
                           style={{
                             borderRadius: 999,
