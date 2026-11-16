@@ -4,7 +4,7 @@
 {% block title %}{{ producer.name }} — Producer | RegiManager{% endblock %}
 
 {% block portal_head %}
-<link rel="stylesheet" href="{% static 'core/css/insurance_producers.css' %}?v=prd-7">
+<link rel="stylesheet" href="{% static 'core/css/insurance_producers.css' %}?v=prd-8">
 {% endblock %}
 
 {% block portal_content %}
@@ -49,61 +49,62 @@
     <div class="prd-hero__actions">
       <button type="button" class="prd-btn" onclick="document.getElementById('editProducerModal').classList.add('active')">Edit</button>
       <button type="button" class="prd-btn" onclick="document.getElementById('producerLoginModal').classList.add('active')">Portal login</button>
-      <a class="prd-btn" href="{% url 'producer-statement-pdf' %}?producer={{ producer.id }}" target="_blank" rel="noopener">Statement PDF</a>
+      <a class="prd-btn" id="prdStatementBtn" href="{% url 'producer-statement-pdf' %}?producer={{ producer.id }}" target="_blank" rel="noopener">Statement PDF</a>
       <button type="button" class="prd-btn prd-btn--primary" onclick="document.getElementById('recordPayoutModal').classList.add('active')">Record payment</button>
     </div>
   </section>
 
-  <div class="prd-stats">
+  <div class="prd-stats" id="prdStats" data-selection-hint="Checked policies only">
     <div class="prd-stat">
       <span class="prd-stat__label">Total commission</span>
-      <strong class="prd-stat__value">${{ summary.total_commission|floatformat:2 }}</strong>
-      <span class="prd-stat__hint">{{ summary.bound_count }} bound polic{{ summary.bound_count|pluralize:"y,ies" }} · {{ summary.carrier_received_count }} paid to us by the carrier</span>
+      <strong class="prd-stat__value" data-stat="total_commission">${{ summary.total_commission|floatformat:2 }}</strong>
+      <span class="prd-stat__hint" data-stat="bound_hint">{{ summary.bound_count }} bound polic{{ summary.bound_count|pluralize:"y,ies" }} · {{ summary.carrier_received_count }} paid to us by the carrier</span>
     </div>
     <div class="prd-stat prd-stat--ok">
       <span class="prd-stat__label">Paid to producer</span>
-      <strong class="prd-stat__value">${{ summary.paid|floatformat:2 }}</strong>
-      <span class="prd-stat__hint">All payouts, after deductions</span>
+      <strong class="prd-stat__value" data-stat="paid">${{ summary.paid|floatformat:2 }}</strong>
+      <span class="prd-stat__hint">Checked policies, after deductions</span>
     </div>
     <div class="prd-stat">
       <span class="prd-stat__label">Due now</span>
-      <strong class="prd-stat__value">${{ summary.due_now|floatformat:2 }}</strong>
+      <strong class="prd-stat__value" data-stat="due_now">${{ summary.due_now|floatformat:2 }}</strong>
       <span class="prd-stat__hint">Earned to date, not paid</span>
     </div>
     <div class="prd-stat prd-stat--warn">
       <span class="prd-stat__label">Deductions</span>
-      <strong class="prd-stat__value">−${{ summary.deductions|floatformat:2 }}</strong>
+      <strong class="prd-stat__value" data-stat="deductions">−${{ summary.deductions|floatformat:2 }}</strong>
       <span class="prd-stat__hint">Overpaid on inactive policies</span>
     </div>
     <div class="prd-stat prd-stat--accent">
       <span class="prd-stat__label">Net to pay now</span>
-      <strong class="prd-stat__value">${{ summary.net_payable|floatformat:2 }}</strong>
-      <span class="prd-stat__hint">{% if summary.carried_deduction %}−${{ summary.carried_deduction|floatformat:2 }} carries to future commissions{% else %}Upcoming later: ${{ summary.upcoming|floatformat:2 }}{% endif %}</span>
+      <strong class="prd-stat__value" data-stat="net_payable">${{ summary.net_payable|floatformat:2 }}</strong>
+      <span class="prd-stat__hint" data-stat="net_hint">{% if summary.carried_deduction %}−${{ summary.carried_deduction|floatformat:2 }} carries to future commissions{% else %}Upcoming later: ${{ summary.upcoming|floatformat:2 }}{% endif %}</span>
     </div>
   </div>
 
-  {% if settle_rows %}
-  <section class="prd-panel prd-no-print">
+  <section class="prd-panel prd-no-print" id="prdSettlePanel" {% if not settle_rows %}hidden{% endif %}>
     <div class="prd-panel__head">
       <div>
-        <h2>Pay everything due</h2>
-        <p>Pays each policy's due amount and takes deductions from cancelled policies out of the same payment.</p>
+        <h2>Pay checked policies</h2>
+        <p>Pays the due amount on each checked policy and takes deductions from checked cancelled policies out of the same payment.</p>
       </div>
     </div>
     <div class="prd-panel__body prd-settle">
       <div>
-        <ul class="prd-settle__rows">
+        <ul class="prd-settle__rows" id="prdSettleRows">
           {% for policy, kind, amount in settle_rows %}
-          <li class="{% if kind == 'deduction' %}is-deduction{% endif %}">
+          <li class="{% if kind == 'deduction' %}is-deduction{% endif %}" data-policy="{{ policy.id }}" data-kind="{{ kind }}" data-amount="{{ amount }}" data-label="{% if kind == 'deduction' %}Deduction · {% endif %}{{ policy.policy_number }} — {{ policy.client.name }}">
             <span>{% if kind == 'deduction' %}Deduction · {% endif %}<span class="prd-mono">{{ policy.policy_number }}</span> — {{ policy.client.name }}</span>
             <b>{% if kind == 'deduction' %}−${{ amount|stringformat:".2f"|slice:"1:" }}{% else %}${{ amount }}{% endif %}</b>
           </li>
           {% endfor %}
         </ul>
-        <div class="prd-settle__total"><span>Net payment</span><strong>${{ summary.net_payable|floatformat:2 }}</strong></div>
+        <p class="prd-help" id="prdSettleEmpty" hidden>Nothing is due on the checked policies.</p>
+        <div class="prd-settle__total"><span>Net payment</span><strong id="prdSettleNet">${{ summary.net_payable|floatformat:2 }}</strong></div>
       </div>
-      <form method="POST" action="{% url 'settle-insurance-producer' producer.id %}" onsubmit="return confirm('Record this payment to {{ producer.name|escapejs }}?')">
+      <form method="POST" action="{% url 'settle-insurance-producer' producer.id %}" id="prdSettleForm" onsubmit="return confirmSettleProducer()">
         {% csrf_token %}
+        <div id="prdSettlePolicyIds"></div>
         <div><label class="field-label" for="settleDate">Paid on</label><input type="date" id="settleDate" name="paid_on" class="field-input" value="{{ today|date:'Y-m-d' }}" required></div>
         <div>
           <label class="field-label" for="settleMethod">Method</label>
@@ -113,23 +114,32 @@
         </div>
         <div><label class="field-label" for="settleNote">Note</label><input type="text" id="settleNote" name="note" class="field-input" maxlength="255" placeholder="Optional · the producer can see this"></div>
         {% include "core/partials/producer_payout_extras.html" with prefix="settle" %}
-        <button type="submit" class="prd-btn prd-btn--ok">Record ${{ summary.net_payable|floatformat:2 }} payment</button>
+        <button type="submit" class="prd-btn prd-btn--ok" id="prdSettleSubmit">Record ${{ summary.net_payable|floatformat:2 }} payment</button>
       </form>
     </div>
   </section>
-  {% endif %}
 
   <section class="prd-panel">
     <div class="prd-panel__head">
       <div>
         <h2>Policies</h2>
-        <p>Carrier commission = whether the carrier paid <em>us</em>. Producer status = what the producer has received.</p>
+        <p>Check the policies to include in the totals, payment, and statement PDF. Carrier commission = whether the carrier paid <em>us</em>.</p>
+      </div>
+      <div class="prd-select-bar prd-no-print" id="prdSelectBar">
+        <span id="prdSelectCount">0 selected</span>
+        <button type="button" class="prd-btn prd-btn--sm" id="prdSelectAll">Select all</button>
+        <button type="button" class="prd-btn prd-btn--sm prd-btn--ghost" id="prdSelectNone">Clear</button>
       </div>
     </div>
     <div class="prd-table-wrap">
-      <table class="prd-table prd-table--policies">
+      <table class="prd-table prd-table--policies" id="prdPoliciesTable">
         <thead>
           <tr>
+            <th class="prd-col-check prd-no-print">
+              <label class="prd-check" title="Select all">
+                <input type="checkbox" id="prdCheckAll" checked aria-label="Select all policies">
+              </label>
+            </th>
             <th class="prd-col-policy">Policy</th>
             <th>Status</th>
             <th class="num">Premium</th>
@@ -146,7 +156,23 @@
         <tbody>
           {% for lg in ledgers %}
           {% with p=lg.policy %}
-          <tr>
+          <tr
+            data-policy-id="{{ p.id }}"
+            data-earns="{% if lg.earns %}1{% else %}0{% endif %}"
+            data-total="{{ lg.effective_total|default:lg.total }}"
+            data-paid="{{ lg.paid }}"
+            data-due="{{ lg.due_now }}"
+            data-owes="{{ lg.owes_back }}"
+            data-upcoming="{{ lg.upcoming }}"
+            data-carrier="{% if p.commission_received %}1{% else %}0{% endif %}"
+            data-number="{{ p.policy_number|default:'' }}"
+            data-client="{% if p.client %}{{ p.client.name }}{% endif %}"
+          >
+            <td class="prd-col-check prd-no-print">
+              <label class="prd-check">
+                <input type="checkbox" class="prd-policy-check" value="{{ p.id }}" checked aria-label="Include policy {{ p.policy_number|default:p.id }}">
+              </label>
+            </td>
             <td>
               <a href="{% url 'insurance-policy-detail' p.id %}" class="prd-mono">{{ p.policy_number|default:"—" }}</a>
               <span class="prd-sub">{% if p.client %}<a href="{% url 'client-detail' p.client.id %}">{{ p.client.name }}</a>{% endif %}{% if p.insurance_company %} · {{ p.insurance_company.name }}{% endif %}</span>
@@ -201,7 +227,7 @@
           </tr>
           {% endwith %}
           {% empty %}
-          <tr><td colspan="11" class="prd-empty-row">No policies yet. Tick “This policy has a producer” on a policy and choose {{ producer.name }}.</td></tr>
+          <tr><td colspan="12" class="prd-empty-row">No policies yet. Tick “This policy has a producer” on a policy and choose {{ producer.name }}.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -410,6 +436,188 @@
 </div>
 
 <script>
+(function () {
+  const money = (v) => '$' + (Math.abs(parseFloat(v || '0') || 0)).toFixed(2);
+  const n = (v) => parseFloat(v || '0') || 0;
+  const table = document.getElementById('prdPoliciesTable');
+  const checks = () => Array.from(document.querySelectorAll('.prd-policy-check'));
+  const selectedIds = () => checks().filter((box) => box.checked).map((box) => box.value);
+  const producerId = {{ producer.id }};
+  const statementBase = '{% url "producer-statement-pdf" %}?producer=' + producerId;
+
+  function setText(sel, text) {
+    const el = document.querySelector(sel);
+    if (el) el.textContent = text;
+  }
+
+  function rowLabel(row, prefix) {
+    const number = row.dataset.number || ('#' + row.dataset.policyId);
+    const client = row.dataset.client || '';
+    return (prefix || '') + number + (client ? ' — ' + client : '');
+  }
+
+  function rebuildSettle(ids) {
+    const idSet = new Set(ids.map(String));
+    const payments = [];
+    const deductions = [];
+    document.querySelectorAll('#prdPoliciesTable tbody tr[data-policy-id]').forEach((row) => {
+      if (!idSet.has(String(row.dataset.policyId))) return;
+      const due = n(row.dataset.due);
+      const owes = n(row.dataset.owes);
+      if (due > 0) {
+        payments.push({
+          policy: row.dataset.policyId,
+          kind: 'payment',
+          amount: due,
+          label: rowLabel(row),
+        });
+      }
+      if (owes > 0) {
+        deductions.push({
+          policy: row.dataset.policyId,
+          kind: 'deduction',
+          amount: owes,
+          label: rowLabel(row, 'Deduction · '),
+        });
+      }
+    });
+    let available = payments.reduce((sum, row) => sum + row.amount, 0);
+    const applied = payments.slice();
+    deductions.forEach((row) => {
+      if (available <= 0) return;
+      const take = Math.min(row.amount, available);
+      if (take <= 0) return;
+      applied.push({ ...row, amount: -take });
+      available -= take;
+    });
+    const list = document.getElementById('prdSettleRows');
+    const empty = document.getElementById('prdSettleEmpty');
+    const panel = document.getElementById('prdSettlePanel');
+    const submit = document.getElementById('prdSettleSubmit');
+    const netEl = document.getElementById('prdSettleNet');
+    const idsBox = document.getElementById('prdSettlePolicyIds');
+    if (!list || !panel) return;
+    list.innerHTML = '';
+    applied.forEach((row) => {
+      const li = document.createElement('li');
+      if (row.kind === 'deduction') li.className = 'is-deduction';
+      const amountText = row.amount < 0 ? '−' + money(row.amount) : money(row.amount);
+      li.innerHTML = '<span></span><b></b>';
+      li.firstChild.textContent = row.label;
+      li.lastChild.textContent = amountText;
+      list.appendChild(li);
+    });
+    const net = applied.reduce((sum, row) => sum + row.amount, 0);
+    if (netEl) netEl.textContent = money(net);
+    if (submit) {
+      submit.textContent = 'Record ' + money(net) + ' payment';
+      submit.disabled = applied.length === 0 || ids.length === 0;
+    }
+    if (empty) empty.hidden = applied.length > 0;
+    panel.hidden = ids.length === 0 || applied.length === 0;
+    if (idsBox) {
+      idsBox.innerHTML = '';
+      ids.forEach((id) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'policy_ids';
+        input.value = id;
+        idsBox.appendChild(input);
+      });
+    }
+  }
+
+  function refreshSelection() {
+    const boxes = checks();
+    const ids = selectedIds();
+    const all = document.getElementById('prdCheckAll');
+    if (all) {
+      all.checked = boxes.length > 0 && ids.length === boxes.length;
+      all.indeterminate = ids.length > 0 && ids.length < boxes.length;
+    }
+    setText('#prdSelectCount', ids.length + ' selected');
+    const statement = document.getElementById('prdStatementBtn');
+    if (statement) {
+      if (!ids.length) {
+        statement.removeAttribute('href');
+        statement.setAttribute('aria-disabled', 'true');
+        statement.classList.add('is-disabled');
+      } else {
+        statement.href = statementBase + ids.map((id) => '&policy_ids=' + encodeURIComponent(id)).join('');
+        statement.removeAttribute('aria-disabled');
+        statement.classList.remove('is-disabled');
+      }
+    }
+
+    let total = 0, paid = 0, due = 0, owes = 0, upcoming = 0, bound = 0, carrier = 0;
+    boxes.forEach((box) => {
+      if (!box.checked) return;
+      const row = box.closest('tr');
+      if (!row) return;
+      paid += n(row.dataset.paid);
+      due += n(row.dataset.due);
+      owes += n(row.dataset.owes);
+      upcoming += n(row.dataset.upcoming);
+      if (row.dataset.earns === '1') {
+        bound += 1;
+        total += n(row.dataset.total);
+        if (row.dataset.carrier === '1') carrier += 1;
+      }
+    });
+    const net = Math.max(due - owes, 0);
+    const carried = Math.max(owes - due, 0);
+    setText('[data-stat="total_commission"]', money(total));
+    setText('[data-stat="paid"]', money(paid));
+    setText('[data-stat="due_now"]', money(due));
+    setText('[data-stat="deductions"]', '−' + money(owes));
+    setText('[data-stat="net_payable"]', money(net));
+    setText(
+      '[data-stat="bound_hint"]',
+      bound + ' bound polic' + (bound === 1 ? 'y' : 'ies') + ' · ' + carrier + ' paid to us by the carrier'
+    );
+    setText(
+      '[data-stat="net_hint"]',
+      carried > 0
+        ? '−' + money(carried) + ' carries to future commissions'
+        : 'Upcoming later: ' + money(upcoming)
+    );
+    rebuildSettle(ids);
+  }
+
+  window.confirmSettleProducer = function () {
+    const ids = selectedIds();
+    if (!ids.length) {
+      alert('Check at least one policy before recording a payment.');
+      return false;
+    }
+    return confirm('Record this payment to {{ producer.name|escapejs }} for the ' + ids.length + ' checked polic' + (ids.length === 1 ? 'y' : 'ies') + '?');
+  };
+
+  if (table) {
+    table.addEventListener('change', function (event) {
+      if (event.target && event.target.classList.contains('prd-policy-check')) refreshSelection();
+    });
+    const all = document.getElementById('prdCheckAll');
+    if (all) {
+      all.addEventListener('change', function () {
+        checks().forEach((box) => { box.checked = all.checked; });
+        refreshSelection();
+      });
+    }
+    const selectAll = document.getElementById('prdSelectAll');
+    const selectNone = document.getElementById('prdSelectNone');
+    if (selectAll) selectAll.addEventListener('click', function () {
+      checks().forEach((box) => { box.checked = true; });
+      refreshSelection();
+    });
+    if (selectNone) selectNone.addEventListener('click', function () {
+      checks().forEach((box) => { box.checked = false; });
+      refreshSelection();
+    });
+    refreshSelection();
+  }
+})();
+
 (function () {
   const policy = document.getElementById('rpPolicy');
   const amount = document.getElementById('rpAmount');

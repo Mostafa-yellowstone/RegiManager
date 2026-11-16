@@ -95,8 +95,10 @@ def _business_label(policy) -> str:
     return escape(text) if text else "—"
 
 
-def render_producer_statement_pdf(producer, *, start=None, end=None, prepared_by="Staff") -> bytes:
-    """Ledger for every policy as of today, plus payouts recorded inside the date range."""
+def render_producer_statement_pdf(
+    producer, *, start=None, end=None, prepared_by="Staff", policy_ids=None
+) -> bytes:
+    """Ledger for selected policies (or every policy), plus payouts in the date range."""
     styles = _styles()
     width = _content_w(True)
     policies = (
@@ -105,11 +107,16 @@ def render_producer_statement_pdf(producer, *, start=None, end=None, prepared_by
         .prefetch_related("producer_payouts")
         .order_by("-start_date", "-id")
     )
+    selected = {int(pid) for pid in (policy_ids or []) if str(pid).isdigit() or isinstance(pid, int)}
+    if selected:
+        policies = policies.filter(id__in=selected)
     summary = summarize_producer(producer, policies=policies)
 
     payouts = InsuranceProducerPayout.objects.filter(producer=producer).select_related(
         "policy", "policy__client"
     )
+    if selected:
+        payouts = payouts.filter(policy_id__in=selected)
     if start:
         payouts = payouts.filter(paid_on__gte=start)
     if end:

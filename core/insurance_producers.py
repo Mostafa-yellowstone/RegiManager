@@ -201,6 +201,21 @@ class ProducerSummary:
         return max(0, min(int(self.paid / self.total_commission * 100), 100))
 
 
+def parse_policy_ids(raw_values) -> set[int]:
+    """Accept repeated form/query values, or one comma-separated string. Empty = no filter."""
+    ids: set[int] = set()
+    if raw_values is None:
+        return ids
+    if isinstance(raw_values, (str, bytes)):
+        raw_values = [raw_values]
+    for raw in raw_values:
+        for part in str(raw or "").replace(";", ",").split(","):
+            part = part.strip()
+            if part.isdigit():
+                ids.add(int(part))
+    return ids
+
+
 def summarize_producer(producer, *, today: date | None = None, policies=None) -> ProducerSummary:
     from .models import InsurancePolicy
 

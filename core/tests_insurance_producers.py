@@ -264,8 +264,11 @@ class ProducerStaffPageTests(ProducerBase):
         omar = InsuranceProducer.objects.get(name="Omar Lee")
         self.assertEqual(omar.user.username, "omar.prod")
         self.assertTrue(omar.user.check_password("Prod-Login-7731"))
-        self.policy("SET-1", producer=omar, rate="10", basis="premium")
-        self.client.post(reverse("settle-insurance-producer", args=[omar.id]), {"method": "zelle"})
+        settled = self.policy("SET-1", producer=omar, rate="10", basis="premium")
+        self.client.post(
+            reverse("settle-insurance-producer", args=[omar.id]),
+            {"method": "zelle", "policy_ids": [settled.id]},
+        )
         payout = InsuranceProducerPayout.objects.get(producer=omar)
         self.assertEqual(payout.amount, Decimal("120.00"))
         self.assertEqual(summarize_producer(omar).due_now, Decimal("0.00"))
@@ -458,6 +461,27 @@ class ProducerStatementTests(ProducerBase):
         res = self.client.get(self.url, {"producer": self.producer.id, "start_date": "2026-13-45"})
         self.assertEqual(res.status_code, 200)
 
+    def test_statement_includes_only_selected_policies(self):
+        other = self.policy("STMT-2")
+        InsuranceProducerPayout.objects.create(
+            organization=self.org,
+            producer=self.producer,
+            policy=other,
+            kind="payment",
+            amount=Decimal("15.00"),
+            paid_on=self.today,
+            method="cash",
+            recorded_by=self.owner,
+        )
+        self.client.force_login(self.owner)
+        res = self.client.get(self.url, {"producer": self.producer.id, "policy_ids": [self.p1.id]})
+        self.assertEqual(res.status_code, 200)
+        text = _pdf_text(res)
+        self.assertIn("STMT-1", text)
+        self.assertNotIn("STMT-2", text)
+        self.assertIn("40.00", text)
+        self.assertNotIn("15.00", text)
+
     def test_non_finance_agent_is_blocked(self):
         self.client.force_login(self.agent)
         self.assertEqual(self.client.get(self.url, {"producer": self.producer.id}).status_code, 403)
@@ -547,11 +571,15 @@ class ProducerPayoutExtrasTests(ProducerBase):
         self.assertEqual(self.account.balance, Decimal("1025.00"))
 
     def test_settlement_uses_one_bank_entry_and_resyncs(self):
-        self.policy("BANK-2")
+        second = self.policy("BANK-2")
         with self.captureOnCommitCallbacks(execute=True):
             self.client.post(
                 reverse("settle-insurance-producer", args=[self.producer.id]),
-                {"method": "zelle", "bank_account": self.account.id},
+                {
+                    "method": "zelle",
+                    "bank_account": self.account.id,
+                    "policy_ids": [self.p1.id, second.id],
+                },
             )
         payouts = list(InsuranceProducerPayout.objects.filter(producer=self.producer))
         self.assertEqual(len(payouts), 2)
@@ -607,3 +635,23 @@ class ProducerPayoutExtrasTests(ProducerBase):
         self.assertContains(res, "Operating")
         self.assertContains(res, 'name="notify"')
         self.assertContains(res, "This producer has no email address.")
+        self.assertContains(res, "prd-policy-check")
+        self.assertContains(res, f'value="{self.p1.id}"')
+
+    def test_settle_uses_only_checked_policies(self):
+        kept = self.p1
+        skipped = self.policy("BANK-SKIP")
+        self.client.post(
+            reverse("settle-insurance-producer", args=[self.producer.id]),
+            {"method": "cash", "policy_ids": [kept.id]},
+        )
+        paid_policies = set(
+            InsuranceProducerPayout.objects.filter(producer=self.producer).values_list("policy_id", flat=True)
+        )
+        self.assertEqual(paid_policies, {kept.id})
+        self.assertNotIn(skipped.id, paid_policies)
+        self.assertEqual(summarize_producer(self.producer).due_now, Decimal("90.00"))
+
+    def test_settle_requires_checked_policies(self):
+        self.client.post(reverse("settle-insurance-producer", args=[self.producer.id]), {"method": "cash"})
+        self.assertFalse(InsuranceProducerPayout.objects.filter(producer=self.producer).exists())

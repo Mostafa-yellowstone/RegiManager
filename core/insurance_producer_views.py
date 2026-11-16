@@ -37,6 +37,7 @@ from .insurance_producers import (
     ZERO,
     build_policy_ledger,
     money,
+    parse_policy_ids,
     settlement_plan,
     summarize_producer,
 )
@@ -363,10 +364,22 @@ def record_insurance_producer_payout(request, producer_id):
     return redirect("insurance-producer-detail", producer_id=producer.id)
 
 
+def _producer_policies_qs(producer, *, policy_ids=None):
+    qs = (
+        InsurancePolicy.objects.filter(producer=producer)
+        .select_related("client", "insurance_company")
+        .prefetch_related("producer_payouts", "premium_changes")
+        .order_by("-start_date", "-id")
+    )
+    if policy_ids:
+        qs = qs.filter(id__in=policy_ids)
+    return qs
+
+
 @login_required
 @require_POST
 def settle_insurance_producer(request, producer_id):
-    """Pay everything due now, minus deductions from cancelled policies, in one batch."""
+    """Pay due amounts for the selected policies (or all), net of their deductions, in one batch."""
     producer = _producer_for_staff(request, producer_id)
     try:
         paid_on = _paid_on(request.POST.get("paid_on"))
@@ -381,14 +394,26 @@ def settle_insurance_producer(request, producer_id):
     except ValueError as exc:
         messages.error(request, str(exc))
         return redirect("insurance-producer-detail", producer_id=producer.id)
+    selected = parse_policy_ids(request.POST.getlist("policy_ids") or request.POST.get("policy_ids"))
+    if not selected:
+        messages.error(request, "Check at least one policy before recording a payment.")
+        return redirect("insurance-producer-detail", producer_id=producer.id)
+    owned = set(
+        InsurancePolicy.objects.filter(producer=producer, id__in=selected).values_list("id", flat=True)
+    )
+    if not owned:
+        messages.error(request, "None of the checked policies belong to this producer.")
+        return redirect("insurance-producer-detail", producer_id=producer.id)
     batch = f"PAY-{timezone.now():%y%m%d%H%M%S}"
     note = (request.POST.get("note") or "").strip()[:255]
     with transaction.atomic():
         # Lock the producer so a double-submit can't pay the same balance twice.
         InsuranceProducer.objects.select_for_update().filter(id=producer.id).first()
-        rows = settlement_plan(summarize_producer(producer))
+        rows = settlement_plan(
+            summarize_producer(producer, policies=_producer_policies_qs(producer, policy_ids=owned))
+        )
         if not rows:
-            messages.info(request, "Nothing is due for this producer right now.")
+            messages.info(request, "Nothing is due on the checked policies right now.")
             return redirect("insurance-producer-detail", producer_id=producer.id)
         created = [
             InsuranceProducerPayout.objects.create(
@@ -431,12 +456,7 @@ def delete_insurance_producer_payout(request, payout_id):
 
 
 def _producer_page_context(producer, *, staff: bool) -> dict:
-    policies = (
-        InsurancePolicy.objects.filter(producer=producer)
-        .select_related("client", "insurance_company")
-        .prefetch_related("producer_payouts", "premium_changes")
-        .order_by("-start_date", "-id")
-    )
+    policies = _producer_policies_qs(producer)
     summary = summarize_producer(producer, policies=policies)
     payouts = (
         InsuranceProducerPayout.objects.filter(producer=producer)
@@ -475,11 +495,13 @@ def insurance_producer_detail(request, producer_id):
     return render(request, "core/insurance_producer_detail.html", context)
 
 
-def _statement_response(producer, request, *, start, end):
+def _statement_response(producer, request, *, start, end, policy_ids=None):
     if start and end and start > end:
         start, end = end, start
     prepared_by = request.user.get_full_name() or request.user.username
-    pdf = render_producer_statement_pdf(producer, start=start, end=end, prepared_by=prepared_by)
+    pdf = render_producer_statement_pdf(
+        producer, start=start, end=end, prepared_by=prepared_by, policy_ids=policy_ids
+    )
     response = HttpResponse(pdf, content_type="application/pdf")
     slug = slugify(producer.name) or f"producer-{producer.id}"
     response["Content-Disposition"] = f'inline; filename="statement-{slug}.pdf"'
@@ -494,11 +516,19 @@ def producer_statement_pdf(request):
     if not raw.isdigit():
         raise Http404("Choose a producer.")
     producer = _producer_for_staff(request, int(raw))
+    selected = parse_policy_ids(request.GET.getlist("policy_ids") or request.GET.get("policy_ids"))
+    if selected:
+        selected &= set(
+            InsurancePolicy.objects.filter(producer=producer, id__in=selected).values_list("id", flat=True)
+        )
+        if not selected:
+            raise Http404("None of the selected policies belong to this producer.")
     return _statement_response(
         producer,
         request,
         start=_optional_date(request.GET.get("start_date")),
         end=_optional_date(request.GET.get("end_date")),
+        policy_ids=selected or None,
     )
 
 
