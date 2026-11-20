@@ -1135,6 +1135,42 @@ class AgentAuditingTests(TestCase):
         self.assertIn("POL-BOUND-PRIOR-EFF-NOW", prior)
         self.assertIn("POL-BOUND-PRIOR-CANCEL-NOW", prior)
 
+    def test_inactive_policy_shows_prorated_unearned_before_commission_is_received(self):
+        session = self.client.session
+        session["active_org_id"] = self.org.id
+        session.save()
+
+        policy = InsurancePolicy.objects.create(
+            organization=self.org,
+            client=self.client_obj1,
+            policy_number="POL-UNEARNED-OPEN",
+            insurance_company=self.company,
+            premium=Decimal("1000.00"),
+            broker_fee=Decimal("0.00"),
+            commission_rate=Decimal("10.00"),
+            stage="bound",
+            status="inactive",
+            added_by=self.user1,
+            start_date="2026-06-01",
+            end_date="2026-12-01",
+            insurance_period_months=6,
+            inactive_date="2026-09-01",
+            bound_date=self.quote_date,
+            commission_received=False,
+        )
+        self.assertGreater(policy.unearned_commission, Decimal("0.00"))
+
+        response = self.client.get(reverse("insurance-policies") + "?status=inactive&all_dates=1")
+        context_policy = next(p for p in response.context["policies"] if p.id == policy.id)
+        self.assertEqual(context_policy.unearned_commission, policy.unearned_commission)
+        self.assertContains(response, f"Inactive (${policy.unearned_commission:.2f})")
+
+        partial = self.client.get(
+            reverse("insurance-policies") + "?partial=crm_policies&status=inactive&all_dates=1",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertContains(partial, f"Inactive (${policy.unearned_commission:.2f})")
+
     def test_unearned_commission_deducted_by_transactions(self):
         # Set active_org_id in session for PDF report endpoint compatibility
         session = self.client.session

@@ -7362,7 +7362,27 @@ def build_insurance_context(request, card, membership, is_owner, user_can_view_b
         crm_policies_page = Paginator(
             policies.order_by(*quote_period_ordering()), 12
         ).get_page(crm_page_num)
-        decorate_policies(crm_policies_page, {})
+        inactive_for_unearned = InsurancePolicy.objects.filter(
+            organization=active_org,
+            status="inactive",
+        ).only(
+            "id",
+            "stage",
+            "status",
+            "commission_amount",
+            "commission_received",
+            "commission_rate",
+            "premium",
+            "inactive_date",
+            "start_date",
+            "end_date",
+            "insurance_period_months",
+            "insurance_company_id",
+        )
+        decorate_policies(
+            crm_policies_page,
+            build_adjusted_unearned_for_org(insurance_companies, inactive_for_unearned),
+        )
         for policy in crm_policies_page:
             policy.can_edit = can_edit_insurance_policy(
                 request.user, policy, membership=membership

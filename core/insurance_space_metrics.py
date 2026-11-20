@@ -11,7 +11,7 @@ from .insurance_commissions import (
     build_adjusted_unearned_map,
     company_commission_summary,
     inactive_policy_sort_key,
-    policy_refund_owed,
+    policy_unearned_commission,
     refund_total,
 )
 from .insurance_company_license import company_license_status
@@ -211,9 +211,13 @@ def build_adjusted_unearned_for_org(insurance_companies, inactive_policies_qs):
 def decorate_policies(policies, adjusted_unearned_map):
     for policy in policies:
         if policy.status == "inactive":
-            policy.unearned_commission = adjusted_unearned_map.get(
-                policy.id, policy_refund_owed(policy)
-            )
+            # The pill shows prorated unearned as soon as the policy is cancelled.
+            # Refunds only reduce that figure after the commission was actually received.
+            gross = policy_unearned_commission(policy)
+            if getattr(policy, "commission_received", False):
+                policy.unearned_commission = adjusted_unearned_map.get(policy.id, gross)
+            else:
+                policy.unearned_commission = gross
         if policy.added_by:
             bg, text = get_user_colors(policy.added_by.username)
             policy.agent_bg_color = bg
