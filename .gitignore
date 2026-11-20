@@ -13,3 +13,4 @@ staticfiles/
 .vscode/
 gunicorn.log
 scratch/
+dev-certs/

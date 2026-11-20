@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -70,9 +71,45 @@ else:
     X_FRAME_OPTIONS = os.getenv("X_FRAME_OPTIONS", "SAMEORIGIN")
 
 
+def running_dev_server(argv=None):
+    """True only for `manage.py runserver`. Gunicorn never takes this path."""
+    command = (sys.argv if argv is None else argv)[1:]
+    return bool(command) and command[0] == "runserver"
+
+
+# HTTPS on the development server is separate from production TLS (nginx).
+# Default on for runserver so a browser that already uses https:// can connect.
+# Gunicorn ignores this and keeps speaking HTTP behind nginx.
+DEV_SERVER_HTTPS = os.getenv(
+    "DEV_SERVER_HTTPS",
+    "True" if running_dev_server() else "False",
+).strip().lower() in ("1", "true", "yes")
+
+if running_dev_server():
+    # Don't pin the browser to HTTPS for a year from a local certificate.
+    SECURE_HSTS_SECONDS = 0
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
+    if DEV_SERVER_HTTPS:
+        https_origins = []
+        for origin in CSRF_TRUSTED_ORIGINS:
+            if origin.startswith("http://"):
+                https_origin = "https://" + origin[len("http://"):]
+                if https_origin not in CSRF_TRUSTED_ORIGINS and https_origin not in https_origins:
+                    https_origins.append(https_origin)
+        CSRF_TRUSTED_ORIGINS = [*CSRF_TRUSTED_ORIGINS, *https_origins]
+    else:
+        # Plain HTTP development server: don't redirect it onto HTTPS.
+        SECURE_SSL_REDIRECT = False
+        SESSION_COOKIE_SECURE = False
+        CSRF_COOKIE_SECURE = False
+
+
 # Application definition
 
 INSTALLED_APPS = [
+    # First so its runserver wins over django.contrib.staticfiles (that command is HTTP-only).
+    "core.https_devserver",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
