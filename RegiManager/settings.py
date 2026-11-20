@@ -188,6 +188,7 @@ SPECTACULAR_SETTINGS = {
 
 
 MIDDLEWARE = [
+    "core.dev_preview.DevServerPreviewMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "core.offline_sync.OfflineSyncMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -226,6 +227,7 @@ TEMPLATES = [
                 "core.context_processors.thanksgiving_theme",
                 "core.context_processors.offline_queue",
                 "core.context_processors.seo",
+                "core.context_processors.dev_server",
                 "core.assistant.assistant_context",
             ],
         },

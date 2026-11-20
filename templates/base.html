@@ -43,6 +43,7 @@
     <link rel="stylesheet" href="{% static 'core/css/offline-queue.css' %}?v=oq-1">
     <script src="{% static 'core/js/rate-limit-retry.js' %}?v=rl-2"></script>
     {% block extra_head %}{% endblock %}
+    {% if running_dev_server %}<script src="https://tweakcn.com/live-preview.min.js"></script>{% endif %}
     {% block site_layout_css %}<link rel="stylesheet" href="{% static 'core/css/site-layout.css' %}?v=layout-3">{% endblock %}
 </head>
 

@@ -265,6 +265,12 @@ def agency_license_alerts(request):
     return {"agency_license_alerts": rows}
 
 
+def dev_server(request):
+    from RegiManager.settings import running_dev_server
+
+    return {"running_dev_server": running_dev_server()}
+
+
 def seo(request):
     from django.conf import settings
 

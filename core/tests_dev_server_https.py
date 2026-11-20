@@ -7,15 +7,51 @@ import urllib.request
 from pathlib import Path
 
 from django.core.management import get_commands
-from django.test import SimpleTestCase
+from unittest.mock import patch
+
+from django.http import HttpResponse
+from django.test import RequestFactory, SimpleTestCase
 
 from RegiManager.settings import running_dev_server
+from core.dev_preview import DevServerPreviewMiddleware
 from core.dev_server_https import DevHTTPSWSGIServer, ensure_dev_certificate
 
 
 class DevServerHTTPSTests(SimpleTestCase):
     def test_runserver_command_comes_from_the_https_dev_server(self):
         self.assertEqual(get_commands()["runserver"], "core.https_devserver")
+
+    @patch("core.dev_preview.running_dev_server", return_value=True)
+    def test_development_server_can_be_opened_in_a_preview_frame(self, _running):
+        def get_response(request):
+            response = HttpResponse("ok")
+            response["X-Frame-Options"] = "DENY"
+            response["Cross-Origin-Opener-Policy"] = "same-origin"
+            return response
+
+        middleware = DevServerPreviewMiddleware(get_response)
+        request = RequestFactory().get(
+            "/",
+            HTTP_ORIGIN="https://tweakcn.com",
+            HTTP_ACCESS_CONTROL_REQUEST_PRIVATE_NETWORK="true",
+        )
+        response = middleware(request)
+        self.assertNotIn("X-Frame-Options", response)
+        self.assertNotIn("Cross-Origin-Opener-Policy", response)
+        self.assertIn("https://tweakcn.com", response["Content-Security-Policy"])
+        self.assertEqual(response["Access-Control-Allow-Private-Network"], "true")
+        self.assertEqual(response["Access-Control-Allow-Origin"], "https://tweakcn.com")
+
+    @patch("core.dev_preview.running_dev_server", return_value=False)
+    def test_production_server_stays_locked_in_a_frame(self, _running):
+        def get_response(request):
+            response = HttpResponse("ok")
+            response["X-Frame-Options"] = "DENY"
+            return response
+
+        response = DevServerPreviewMiddleware(get_response)(RequestFactory().get("/"))
+        self.assertEqual(response["X-Frame-Options"], "DENY")
+        self.assertNotIn("Content-Security-Policy", response)
 
     def test_https_switch_is_only_for_runserver(self):
         self.assertTrue(running_dev_server(["manage.py", "runserver", "8000"]))

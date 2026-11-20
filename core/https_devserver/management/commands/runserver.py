@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.contrib.staticfiles.handlers import StaticFilesHandler
 from django.contrib.staticfiles.management.commands.runserver import Command as StaticfilesRunserver
 
 from core.dev_server_https import CA_FILE, DevHTTPSWSGIServer, ensure_dev_certificate, trust_dev_ca
@@ -18,6 +19,14 @@ class Command(StaticfilesRunserver):
             self.server_cls = DevHTTPSWSGIServer
             self.protocol = "https"
         super().handle(*args, **options)
+
+    def get_handler(self, *args, **options):
+        # DEBUG is often off in this project's local .env. Still serve CSS and images
+        # from runserver. Gunicorn does not use this command; nginx serves static files there.
+        handler = super().get_handler(*args, **options)
+        if not isinstance(handler, StaticFilesHandler):
+            return StaticFilesHandler(handler)
+        return handler
 
     def on_bind(self, server_port):
         super().on_bind(server_port)
