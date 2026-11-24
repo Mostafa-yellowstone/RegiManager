@@ -811,6 +811,7 @@ urlpatterns = [
     
     # Insurance area
     path("insurance/", insurance_area_views.insurance_home, name="insurance-home"),
+    path("quoting/", include("quoting.urls")),
     path("insurance/pipeline/", insurance_area_views.insurance_pipeline, name="insurance-pipeline"),
     path("insurance/pipeline/<int:lead_id>/quotes/", insurance_desk_views.quote_worksheet, name="insurance-quote-worksheet"),
     path("insurance/pipeline/<int:lead_id>/rating-packet.pdf", insurance_desk_views.rating_packet, name="insurance-rating-packet"),

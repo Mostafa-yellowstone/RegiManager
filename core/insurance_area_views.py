@@ -50,6 +50,7 @@ NAV_GROUPS = (
     )),
     ("Sales", (
         ("quote-pipeline", "insurance-pipeline", "Quote Pipeline", "pipeline", False),
+        ("ny-auto-quote", "ny-auto-quote", "NY Auto Quote", "car", False),
         ("insurance", "insurance-policies", "Policies", "policies", False),
         ("renewals", "insurance-renewals", "Renewals", "renewals", False),
         ("radar", "insurance-radar", "DMV Radar", "radar", False),
