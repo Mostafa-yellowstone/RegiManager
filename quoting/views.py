@@ -31,19 +31,25 @@ PREFILL_NOTE = (
 )
 
 
+_DROPPED_FORM_KEYS = {"csrfmiddlewaretoken", "carriers_submitted"}
+
+
+def _keep_form_key(key: str) -> bool:
+    lowered = key.lower()
+    if key in _DROPPED_FORM_KEYS:
+        return False
+    return "password" not in lowered and "secret" not in lowered
+
+
 def _plain_form(data) -> dict:
     if hasattr(data, "lists"):
         plain = {}
         for key, values in data.lists():
-            if key in ("csrfmiddlewaretoken", "carriers_submitted"):
+            if not _keep_form_key(key):
                 continue
             plain[key] = values if len(values) > 1 else (values[0] if values else "")
         return plain
-    return {
-        key: value
-        for key, value in data.items()
-        if key not in ("csrfmiddlewaretoken", "carriers_submitted")
-    }
+    return {key: value for key, value in data.items() if _keep_form_key(key)}
 
 
 def _applicant(data) -> str:

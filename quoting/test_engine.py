@@ -192,6 +192,59 @@ class QuoteJobTests(unittest.TestCase):
             self.assertEqual(item.blocker.code, "mvr_required")
             self.assertNotIn("configured", json.dumps(item.to_dict()))
 
+    def test_bot_check_stops_without_submitting(self):
+        class Session:
+            def __init__(self):
+                self.submitted = False
+
+            def ensure_ready(self):
+                raise PortalChallenge("bot_check", "National General showed a bot check.")
+
+            def submit_quote(self, application):
+                self.submitted = True
+                raise AssertionError("submit must not run after a bot check")
+
+        session = Session()
+        previous = {name: os.environ.get(name) for name in SECRET_NAMES}
+        try:
+            for name in SECRET_NAMES:
+                os.environ[name] = "configured"
+            result = run_from_form(
+                clean(TODAY),
+                mode="live",
+                today=TODAY,
+                sessions={"national_general": session},
+            )
+        finally:
+            for name, value in previous.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
+        national = _by_key(result)["national_general"]
+        self.assertFalse(session.submitted)
+        self.assertEqual(national.blocker.code, "portal_challenge")
+        self.assertIn("bot check", national.blocker.missing[0])
+        self.assertIsNone(national.offer)
+
+    def test_empty_carrier_selection_does_not_quote_anyone(self):
+        form = clean(TODAY)
+        form["carriers"] = []
+        result = run_from_form(form, mode="demo", today=TODAY)
+        self.assertEqual(result.status, "intake_incomplete")
+        self.assertEqual(result.results, ())
+        self.assertTrue(any(issue.field == "carriers" for issue in result.issues))
+
+    def test_declination_without_a_carrier_name_stops_assigned_risk(self):
+        form = clean(TODAY)
+        form["voluntary_market_declined"] = "yes"
+        form["declination_carrier"] = ""
+        result = run_from_form(form, mode="demo", today=TODAY)
+        nyaip = _by_key(result)["nyaip"]
+        self.assertEqual(nyaip.status, "blocked")
+        self.assertIsNone(nyaip.offer)
+        self.assertIn("name of the voluntary carrier that declined", nyaip.blocker.missing[0])
+
     def test_mfa_challenge_stops_that_carrier_without_submitting(self):
         class Session:
             def __init__(self):
