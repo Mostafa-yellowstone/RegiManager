@@ -68,6 +68,16 @@ jobs:
           rm -f .git/objects/.perm-test
           stamp=$(date -u +%Y%m%dT%H%M%SZ)
           mkdir -p "$HOME/regi-deploy-backups"
+          while IFS= read -r line; do
+            flag=${line:0:1}
+            path=${line:2}
+            case "$flag" in
+              [a-z]|S)
+                echo "Clearing a hidden local-edit flag on $path"
+                git update-index --no-assume-unchanged --no-skip-worktree -- "$path"
+                ;;
+            esac
+          done < <(git ls-files -v)
           if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
             echo "Tracked files differ from the last deploy; saving a copy before the pull"
             git status --porcelain --untracked-files=no
@@ -79,6 +89,7 @@ jobs:
             git checkout -- .
           fi
           before=$(git rev-parse HEAD)
+          git pull --ff-only origin main
           bash -l /home/Projects/sc.sh
           git fetch origin main
           after=$(git rev-parse HEAD)
