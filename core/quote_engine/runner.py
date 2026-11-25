@@ -22,7 +22,8 @@ class RunReport:
 
 
 def run_quotes(req: dict, carriers: list[CarrierAdapter] | None = None, today: date | None = None,
-               max_workers: int = 6, per_carrier_timeout: float = 600.0) -> RunReport:
+               max_workers: int = 6, per_carrier_timeout: float = 600.0,
+               allowed_keys: set[str] | None = None) -> RunReport:
     issues = validate_quote_request(req, today)
     if has_errors(issues):
         return RunReport(issues=issues, blocked=True)
@@ -31,6 +32,8 @@ def run_quotes(req: dict, carriers: list[CarrierAdapter] | None = None, today: d
     todo: list[CarrierAdapter] = []
     for c in pool:
         why = c.eligibility(req)
+        if not why and allowed_keys is not None and c.key not in allowed_keys:
+            why = f"No enabled login for {c.name} (turn it on in Carrier credentials)."
         if why:
             report.results.append(QuoteResult(c.name, "skipped", detail=why))
         else:

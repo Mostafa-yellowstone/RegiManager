@@ -4016,6 +4016,12 @@ from .insurance_quote_pipeline_models import (  # noqa: E402,F401
     InsuranceQuoteLead,
 )
 
+# Quote engine carrier logins (encrypted)
+from .carrier_credentials_models import (  # noqa: E402,F401
+    CarrierCredential,
+    CarrierCredentialLog,
+)
+
 # Insurance Space e-signature
 from .insurance_esign_models import (  # noqa: E402,F401
     InsuranceESignEnvelope,
