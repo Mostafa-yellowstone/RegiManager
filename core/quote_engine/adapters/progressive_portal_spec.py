@@ -64,3 +64,32 @@ COVERAGE_OPTIONS = {"bi_pd": ["25/50/25"], "um_uim": {"25/50/25": "25/50 Excludi
 # RECALCULATE is clicked. Snapshot Enrollment is required (blank by default). A PBV modal appears on entry (close X).
 COVERAGE_RULES = ["set bi_pd first, then um_uim", "click RECALCULATE after the last change", "snapshot must be chosen",
                   "close the PBV modal", "if another browser session holds the quote click RECOVER QUOTE"]
+
+
+# Recovered from the Nov 24 2026 session transcripts (two real quotes). Not re-verified live.
+# After Coverages: "PORTFOLIO (SUBMIT AND MOVE TO NEXT STEP)" at bottom right, then POINT OF SALE.
+# Click RECALCULATE first; premium then reads "Total Auto Premium:$X".
+UM_UIM_25_50_OPTIONS = ["25/50 Including Supplementary", "25/50 Excluding Supplementary"]  # both seen; pick by rule, do not assume
+SNAPSHOT_DEFAULT = "Do Not Participate"
+PORTFOLIO = {
+    "title_pattern": "<Insured>'s Portfolio",
+    "summary_columns": ["TOTAL PREMIUM", "INITIAL PAYMENT", "BILL PLAN", "POLICY TERM", "PACKAGE SAVINGS"],
+    "default_bill_plan": "PAY IN FULL",  # radio id P0100Y_input; other plans list down payment + installments
+    "term": "6 months",
+    "premium_text": "Total Premium:",
+}
+POINT_OF_SALE = {
+    "order_button": "ORDER POINT OF SALE",  # orders CLUE + MVR (consumer reports): MONEY/RECORD-PULL GATE, needs modal approval
+    "status_labels": {"clue": "CLUE for Auto", "mvr": "MVR for Auto and/or Toys"},
+    "states": ["Not Ordered", "Ordered"],
+    "alerts_heading": "Point of Sale Alerts",
+    "alert_examples": ["Required: Pre-binding verification may be required",
+                       "Prior Damage, Theft or Title issue may impact rate for vehicle 1",
+                       "Risk has no lapse in coverage."],
+    "verification_table": ["VIN VERIFICATION", "VEHICLE HISTORY STATUS", "Financial Responsibility", "Proof of Residency", "Multi-Policy Verification"],
+    "report_validity": "CLUE/MVR status shows 30-day window",
+    "ssn_optional": True,
+    "rate_after_pos": "re-read from Portfolio page ($ amounts) after ordering; Coverages page may show a different number later",
+}
+# Evidence that the POS rate can move a lot: quote A 6,408 -> 6,408 (unchanged); quote B 6,332 -> alert 12,022, later 10,299.
+# So the engine must report the post-POS rate separately and flag any jump. Bind/Final Sale are never clicked.
