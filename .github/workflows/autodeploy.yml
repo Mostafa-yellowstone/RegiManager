@@ -38,4 +38,32 @@ jobs:
           echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/key
           chmod 600 ~/.ssh/key
           ssh-keyscan -H ${{ vars.VPS_HOST }} >> ~/.ssh/known_hosts
-          ssh -i ~/.ssh/key ${{ secrets.VPS_USER }}@${{ vars.VPS_HOST }} 'bash -l /home/Projects/sc.sh && bash "$HOME/RegiManager/scripts/install_quote_browser.sh"'
+          ssh -i ~/.ssh/key ${{ secrets.VPS_USER }}@${{ vars.VPS_HOST }} bash -s <<'EOF'
+          set -u
+          cd "$HOME/RegiManager"
+          echo "user=$(id -un) pwd=$(pwd)"
+          if sudo -n true; then
+            echo "Giving the deploy user ownership of the app checkout"
+            sudo -n chown -R "$(id -un):$(id -gn)" "$HOME/RegiManager"
+          else
+            echo "No passwordless sudo; continuing with the current ownership"
+          fi
+          if [ -d .git/objects ] && ! ( : > .git/objects/.perm-test ) 2>/dev/null; then
+            echo "git objects are still not writable"
+            ls -ld .git .git/objects || true
+            exit 1
+          fi
+          rm -f .git/objects/.perm-test
+          bash -l /home/Projects/sc.sh
+          bash "$HOME/RegiManager/scripts/install_quote_browser.sh"
+          if sudo -n true; then
+            while read -r unit _; do
+              case "$unit" in
+                *gunicorn*|*regimanager*|*celery*)
+                  echo "Restarting $unit"
+                  sudo -n systemctl restart "$unit" || true
+                  ;;
+              esac
+            done < <(sudo -n systemctl list-units --type=service --all --no-legend --no-pager 2>/dev/null || true)
+          fi
+          EOF

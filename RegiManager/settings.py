@@ -250,8 +250,9 @@ if DB_NAME:
             "PASSWORD": os.getenv("DB_PASSWORD", ""),
             "HOST": os.getenv("DB_HOST", "localhost"),
             "PORT": os.getenv("DB_PORT", "5432"),
-            # Postgres stability/perf defaults (override via env when needed)
-            "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "120")),
+            # Gevent workers cannot share a Postgres connection. Keep the default at 0
+            # so a dead connection is not reused and idle workers do not fill the server.
+            "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "0")),
             "CONN_HEALTH_CHECKS": os.getenv("DB_CONN_HEALTH_CHECKS", "True") == "True",
             "OPTIONS": {
                 "sslmode": os.getenv("DB_SSLMODE", "prefer"),
