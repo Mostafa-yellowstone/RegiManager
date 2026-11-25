@@ -24,6 +24,8 @@ from core.models import (
     InsuranceCompany,
     InsurancePolicy,
     InsurancePolicyDocument,
+    InsurancePolicyDriver,
+    InsurancePolicyVehicle,
     Organization,
     OrganizationMembership,
     Space,
@@ -292,6 +294,95 @@ class InsuranceDeskTests(TestCase):
         self.assertRedirects(page, reverse("insurance-pipeline"), fetch_redirect_response=False)
         packet = self.client.get(reverse("insurance-rating-packet", args=[lead.id]))
         self.assertRedirects(packet, reverse("insurance-pipeline"), fetch_redirect_response=False)
+
+    def test_policy_page_keeps_the_record_and_hides_the_desk(self):
+        InsurancePolicyVehicle.objects.create(
+            policy=self.policy,
+            year=2020,
+            make="Toyota",
+            vin="1HGCM82633A004352",
+        )
+        InsurancePolicyDriver.objects.create(policy=self.policy, name="Mina Cole", license_number="D999")
+        page = self.client.get(reverse("insurance-policy-detail", args=[self.policy.id]))
+        self.assertEqual(page.status_code, 200)
+        html = page.content.decode()
+        for text in (
+            "NY-100",
+            "Mina Cole",
+            "1200",
+            "Policy record",
+            "Vehicles",
+            "Toyota",
+            "Drivers",
+            "Documents",
+            "Payment schedule",
+        ):
+            self.assertIn(text, html)
+        for text in (
+            "desk_action",
+            "Photo inspection",
+            "Temporary ID card",
+            "Compensation disclosure",
+            "Message the client",
+            "Vehicle coverage",
+        ):
+            self.assertNotIn(text, html)
+
+    def test_quote_pipeline_board_assigns_and_moves_without_carrier_shopping(self):
+        created = self.client.post(
+            reverse("create-quote-lead"),
+            {
+                "client_name": "Nora Quote",
+                "phone": "5550100199",
+                "email": "nora@example.com",
+                "insurance_type": "auto_personal",
+                "street_address": "10 Main St",
+                "city": "Brooklyn",
+                "state": "NY",
+                "zip_code": "11201",
+                "notes": "Call after 5",
+            },
+        )
+        self.assertEqual(created.status_code, 302)
+        lead = InsuranceQuoteLead.objects.get(client_name="Nora Quote")
+        self.assertEqual(lead.phone, "5550100199")
+        self.assertEqual(lead.city, "Brooklyn")
+        self.assertEqual(lead.notes, "Call after 5")
+        self.assertEqual(lead.vehicle_make, "")
+        self.assertEqual(lead.vin, "")
+
+        moved = self.client.post(
+            reverse("update-quote-lead-stage", args=[lead.id]),
+            {"stage": InsuranceQuoteLead.Stage.QUOTED},
+        )
+        self.assertEqual(moved.status_code, 302)
+        lead.refresh_from_db()
+        self.assertEqual(lead.stage, InsuranceQuoteLead.Stage.QUOTED)
+
+        page = self.client.get(reverse("insurance-pipeline"))
+        self.assertEqual(page.status_code, 200)
+        html = page.content.decode()
+        for text in (
+            "Nora Quote",
+            "5550100199",
+            "10 Main St",
+            "Assign to agent",
+            "New quote lead",
+            "Edit quote lead",
+            "Quoted",
+        ):
+            self.assertIn(text, html)
+        for text in (
+            "Compare carriers",
+            "Shop sites and save premiums",
+            "Car info",
+            "Driver license",
+            "Recommended companies",
+            "iqp-compare",
+        ):
+            self.assertNotIn(text, html)
+        self.assertContains(page, reverse("update-quote-lead-stage", args=[lead.id]))
+        self.assertContains(page, reverse("assign-quote-lead", args=[lead.id]))
 
 
 @override_settings(
