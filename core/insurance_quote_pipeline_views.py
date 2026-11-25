@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from django.contrib import messages
+from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -39,6 +40,9 @@ from .insurance_quote_permissions import (
     membership_for_org,
 )
 from .insurance_quote_pipeline_models import (
+    BODILY_INJURY_LIMITS,
+    DEFAULT_BODILY_INJURY,
+    GENDER_CHOICES,
     InsuranceAgentOffDay,
     InsuranceQuoteLead,
     InsuranceQuoteLeadDocument,
@@ -226,6 +230,10 @@ def build_quote_pipeline_context(request, organization, membership):
         "quote_vehicle_ownership_choices": InsuranceQuoteLead.VehicleOwnership.choices,
         "quote_coverage_type_choices": InsuranceQuoteLead.CoverageType.choices,
         "quote_heard_about_choices": InsuranceQuoteLead.HeardAbout.choices,
+        "quote_gender_choices": GENDER_CHOICES,
+        "quote_bi_limits": BODILY_INJURY_LIMITS,
+        "quote_default_bi": DEFAULT_BODILY_INJURY,
+        "quote_default_effective_date": (timezone.localdate() + timedelta(days=1)).isoformat(),
         "quote_us_states": US_STATES,
         "can_edit_quote_leads": can_create_quote_leads(
             request.user, organization, membership=membership
@@ -260,6 +268,16 @@ def _parse_dealer_name(request, heard_about: str) -> str:
     return (request.POST.get("dealer_name") or "").strip()[:200]
 
 
+def _parse_gender(raw: str) -> str:
+    value = (raw or "").strip()
+    return value if value in {key for key, _label in GENDER_CHOICES} else ""
+
+
+def _parse_bodily_injury(raw: str) -> str:
+    value = (raw or "").strip()
+    return value if value in BODILY_INJURY_LIMITS else ""
+
+
 def _parse_date_of_birth(raw: str):
     value = (raw or "").strip()
     if not value:
@@ -284,6 +302,9 @@ def _apply_car_and_dl_fields(request, lead: InsuranceQuoteLead) -> None:
     lead.vin = (request.POST.get("vin") or "").strip().upper()[:32]
     lead.dl_number = (request.POST.get("dl_number") or "").strip()[:40]
     lead.date_of_birth = _parse_date_of_birth(request.POST.get("date_of_birth"))
+    lead.gender = _parse_gender(request.POST.get("gender"))
+    lead.effective_date = _parse_date_of_birth(request.POST.get("effective_date"))
+    lead.bodily_injury_limit = _parse_bodily_injury(request.POST.get("bodily_injury_limit"))
 
 
 def _apply_address_fields(request, lead: InsuranceQuoteLead) -> None:
@@ -435,6 +456,9 @@ def create_quote_lead(request):
         vin=(request.POST.get("vin") or "").strip().upper()[:32],
         dl_number=(request.POST.get("dl_number") or "").strip()[:40],
         date_of_birth=_parse_date_of_birth(request.POST.get("date_of_birth")),
+        gender=_parse_gender(request.POST.get("gender")),
+        effective_date=_parse_date_of_birth(request.POST.get("effective_date")),
+        bodily_injury_limit=_parse_bodily_injury(request.POST.get("bodily_injury_limit")),
         notes=(request.POST.get("notes") or "").strip(),
         stage=InsuranceQuoteLead.Stage.ASSIGNED,
         assignment_mode=InsuranceQuoteLead.AssignmentMode.UNASSIGNED,

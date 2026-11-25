@@ -382,10 +382,13 @@ def validate_quote_request(data: dict, today: date | None = None) -> list[Issue]
     drivers = data.get("drivers") or []
     if not drivers:
         out.append(Issue("drivers", "required", "At least one driver is required."))
+    require_license = data.get("require_license", True)
+    if isinstance(require_license, str):
+        require_license = require_license.strip().lower() not in ("", "0", "false", "no")
     seen: set[tuple] = set()
     seen_lic: set[str] = set()
     for i, d in enumerate(drivers):
-        out += validate_person(d, f"drivers[{i}]", today, state)
+        out += validate_person(d, f"drivers[{i}]", today, state, require_license=bool(require_license))
         key = (_clean(d.get("first_name")).lower(), _clean(d.get("last_name")).lower(), str(d.get("date_of_birth")))
         if key in seen:
             out.append(Issue(f"drivers[{i}]", "duplicate_driver", "Duplicate driver (same name and date of birth)."))

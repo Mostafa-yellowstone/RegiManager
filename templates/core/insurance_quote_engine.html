@@ -5,7 +5,7 @@
 
 {% block portal_head %}
 <link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=26">
-<link rel="stylesheet" href="{% static 'core/css/quote_engine.css' %}?v=2">
+<link rel="stylesheet" href="{% static 'core/css/quote_engine.css' %}?v=3">
 {% endblock %}
 
 {% block portal_content %}
@@ -30,8 +30,10 @@
     <div class="qe-snapshot__grid">
       <article class="qe-snap">
         <h3>Contact</h3>
-        <p>{{ lead.client_name }}</p>
+        <p>{{ lead.client_name }}{% if lead.gender %} · {{ lead.get_gender_display }}{% endif %}</p>
         <p>{{ lead.phone }}{% if lead.email %} · {{ lead.email }}{% endif %}</p>
+        <p class="qe-muted">{% if lead.date_of_birth %}Born {{ lead.date_of_birth|date:"M j, Y" }}{% else %}Date of birth is still missing{% endif %}</p>
+        <p class="qe-muted">Effective {{ flat.effective_date }} · Bodily injury {{ flat.bodily_injury_limit }}</p>
         <p class="qe-muted">
           {% if lead.street_address %}{{ lead.street_address }}{% if lead.apartment %}, Apt {{ lead.apartment }}{% endif %}<br>{% endif %}
           {{ lead.city }}{% if lead.city and lead.state %}, {% endif %}{{ lead.state }} {{ lead.zip_code }}
@@ -90,7 +92,11 @@
       {% if is_commercial %}
       <label>Combined single limit ($)<input name="csl_limit" value="{{ flat.csl_limit }}" placeholder="1000000"></label>
       {% else %}
-      <label>Bodily injury limit<input name="bodily_injury_limit" value="{{ flat.bodily_injury_limit }}" placeholder="25/50"></label>
+      <label>Bodily injury limit<select name="bodily_injury_limit">
+        {% for value in bi_limits %}
+        <option value="{{ value }}" {% if flat.bodily_injury_limit == value %}selected{% endif %}>{{ value }}</option>
+        {% endfor %}
+      </select></label>
       {% endif %}
       <label>License state<input name="license_state" maxlength="2" value="{{ flat.license_state }}" placeholder="{{ lead.state }}"></label>
       <label>Prior carrier<input name="prior_carrier" value="{{ flat.prior_carrier }}"></label>

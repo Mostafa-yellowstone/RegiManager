@@ -1,6 +1,7 @@
 """Quote engine page for one pipeline lead: fill the missing details, run, see results."""
 from __future__ import annotations
 
+from datetime import datetime
 from types import SimpleNamespace
 
 from django.contrib import messages
@@ -14,8 +15,26 @@ from .insurance_quote_permissions import can_edit_quote_lead, membership_for_org
 from .insurance_quote_pipeline_models import InsuranceQuoteLead
 from .insurance_quote_pipeline_views import _active_org
 from .quote_followup_models import STEP_KEYS, mark_step
-from .quote_engine.lead_bridge import FLAT_FIELDS, file_results_to_pipeline, flat_to_extra, lead_to_request, run_for_lead
+from .insurance_quote_pipeline_models import BODILY_INJURY_LIMITS, DEFAULT_BODILY_INJURY
+from .quote_engine.lead_bridge import (
+    FLAT_FIELDS,
+    default_effective_date,
+    file_results_to_pipeline,
+    flat_to_extra,
+    lead_to_request,
+    run_for_lead,
+)
 from .quote_engine.validators import validate_quote_request
+
+
+def _parse_iso_date(raw: str):
+    value = (raw or "").strip()
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
 
 
 @login_required
@@ -40,7 +59,12 @@ def quote_engine_page(request, lead_id: int):
     if request.method == "POST":
         flat = {k: (request.POST.get(k) or "").strip() for k in FLAT_FIELDS}
         lead.quote_details = flat
-        lead.save(update_fields=["quote_details", "updated_at"])
+        parsed_effective = _parse_iso_date(flat.get("effective_date"))
+        if parsed_effective:
+            lead.effective_date = parsed_effective
+        if flat.get("bodily_injury_limit") in BODILY_INJURY_LIMITS:
+            lead.bodily_injury_limit = flat["bodily_injury_limit"]
+        lead.save(update_fields=["quote_details", "effective_date", "bodily_injury_limit", "updated_at"])
         if request.POST.get("action") == "run":
             report = run_for_lead(lead, flat_to_extra(flat), user=request.user, save=True,
                                   spend_approved=request.POST.get("spend_approved") == "1")
@@ -54,6 +78,14 @@ def quote_engine_page(request, lead_id: int):
             messages.success(request, "Details saved.")
             return redirect(reverse("quote-engine-lead", args=[lead.id]))
     flat = {k: (lead.quote_details or {}).get(k, "") for k in FLAT_FIELDS}
+    if not flat.get("effective_date") and lead.effective_date:
+        flat["effective_date"] = lead.effective_date.isoformat()
+    if not flat.get("bodily_injury_limit"):
+        flat["bodily_injury_limit"] = lead.bodily_injury_limit or DEFAULT_BODILY_INJURY
+    if not flat.get("effective_date"):
+        flat["effective_date"] = default_effective_date().isoformat()
+    if not flat.get("license_state"):
+        flat["license_state"] = (lead.state or "NY").upper()
     if report is None:
         latest = lead.engine_runs.exclude(results=[]).first()
         if latest is not None:
@@ -67,6 +99,7 @@ def quote_engine_page(request, lead_id: int):
         "is_commercial": line == "commercial_auto", "line": line,
         "ready": not errors, "past_runs": lead.engine_runs.all()[:5],
         "documents": lead.documents.all(),
+        "bi_limits": BODILY_INJURY_LIMITS,
         "extra_vehicles": lead.additional_vehicles.all(),
         "insurance_space": True,
     })

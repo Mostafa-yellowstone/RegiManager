@@ -1,14 +1,22 @@
 """Bridge: InsuranceQuoteLead (quote pipeline) -> quote engine request -> run.
 
-Uses only data that is on the lead. Nothing is invented: a field the lead does
-not have is left empty, so validation reports it as missing. Agents can pass
-`extra` (same shape as the request) to fill gaps; extra wins over lead data.
+The lead supplies the customer, car, date of birth, gender, effective date, and
+bodily injury limit. Carrier knobs the pipeline does not ask for use a default:
+effective date is tomorrow, bodily injury is 25/50, license state is the
+garaging state, and a blank ownership is owned. Prior insurance is not required
+unless the run form supplies a carrier and an expiration. A blank license does
+not block the run, and a birthday or license number is never invented. `extra`
+wins over the lead and over those defaults.
 """
 from __future__ import annotations
 
 from copy import deepcopy
+from datetime import timedelta
 from typing import Any
 
+from django.utils import timezone
+
+from ..insurance_quote_pipeline_models import BODILY_INJURY_LIMITS, DEFAULT_BODILY_INJURY
 from .runner import RunReport, run_quotes
 from .validators import has_errors, validate_quote_request
 
@@ -29,34 +37,49 @@ def _merge(base: dict, extra: dict) -> dict:
     return out
 
 
+def default_effective_date():
+    """Tomorrow, so a lead that did not pick a date can still be quoted."""
+    return timezone.localdate() + timedelta(days=1)
+
+
 def lead_to_request(lead, extra: dict | None = None) -> dict[str, Any]:
     parts = (lead.client_name or "").strip().split()
     first = parts[0] if parts else ""
     last = " ".join(parts[1:]) if len(parts) > 1 else ""
     lob = LINE_BY_TYPE.get((lead.insurance_type or "").strip(), (lead.insurance_type or "").strip() or "auto")
     street = " ".join(x for x in ((lead.street_address or "").strip(), (lead.apartment or "").strip()) if x)
+    license_state = (lead.state or "NY").strip().upper() or "NY"
+    ownership = lead.vehicle_ownership if lead.vehicle_ownership in ("owned", "financed", "leased") else "owned"
+    driver: dict[str, Any] = {
+        "first_name": first, "last_name": last,
+        "date_of_birth": lead.date_of_birth.isoformat() if lead.date_of_birth else "",
+        "license_number": lead.dl_number, "license_state": license_state, "relationship": "self",
+    }
+    if (lead.gender or "").strip():
+        driver["gender"] = lead.gender
+    saved_bi = (lead.bodily_injury_limit or "").strip()
+    bi = saved_bi if saved_bi in BODILY_INJURY_LIMITS else DEFAULT_BODILY_INJURY
     req: dict[str, Any] = {
         "line_of_business": lob,
         "contact": {"email": lead.email or "", "phone": lead.phone or ""},
         "garaging_address": {"street": street, "city": lead.city, "state": lead.state, "zip": lead.zip_code},
-        "drivers": [{
-            "first_name": first, "last_name": last,
-            "date_of_birth": lead.date_of_birth.isoformat() if lead.date_of_birth else "",
-            "license_number": lead.dl_number, "relationship": "self",
-        }],
+        "drivers": [driver],
         "vehicles": [{
             "vin": lead.vin, "year": lead.vehicle_year, "make": lead.vehicle_make, "model": lead.vehicle_model,
-            "ownership": lead.vehicle_ownership if lead.vehicle_ownership in ("owned", "financed") else "",
+            "ownership": ownership,
             "coverage": lead.coverage_type,
         }],
-        "prior_insurance": {"has_prior": bool(lead.has_prior)},
+        "prior_insurance": {"has_prior": False},
+        "effective_date": lead.effective_date.isoformat() if lead.effective_date else default_effective_date().isoformat(),
+        "bodily_injury_limit": bi,
+        "require_license": bool((lead.dl_number or "").strip()),
     }
     for d in lead.additional_drivers.all():
         dp = (d.full_name or "").strip().split()
         req["drivers"].append({
             "first_name": dp[0] if dp else "", "last_name": " ".join(dp[1:]),
             "date_of_birth": d.date_of_birth.isoformat() if d.date_of_birth else "",
-            "license_number": d.dl_number, "relationship": "other",
+            "license_number": d.dl_number, "license_state": license_state, "relationship": "other",
         })
     for v in lead.additional_vehicles.all():
         req["vehicles"].append({"vin": v.vin, "year": v.year, "make": v.make, "model": v.model,

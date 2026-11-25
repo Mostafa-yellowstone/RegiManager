@@ -349,6 +349,10 @@ class InsuranceDeskTests(TestCase):
                 "vehicle_make": "Toyota",
                 "vehicle_model": "Camry",
                 "vin": "1HGCM82633A004352",
+                "date_of_birth": "1990-04-02",
+                "gender": "female",
+                "effective_date": "2026-12-01",
+                "bodily_injury_limit": "100/300",
             },
         )
         self.assertEqual(created.status_code, 302)
@@ -358,6 +362,10 @@ class InsuranceDeskTests(TestCase):
         self.assertEqual(lead.notes, "Call after 5")
         self.assertEqual(lead.vehicle_make, "Toyota")
         self.assertEqual(lead.vin, "1HGCM82633A004352")
+        self.assertEqual(str(lead.date_of_birth), "1990-04-02")
+        self.assertEqual(lead.gender, "female")
+        self.assertEqual(str(lead.effective_date), "2026-12-01")
+        self.assertEqual(lead.bodily_injury_limit, "100/300")
         InsuranceQuoteLeadDocument.objects.create(
             lead=lead,
             file=SimpleUploadedFile("dec-page.pdf", b"%PDF-1.4"),
@@ -390,6 +398,12 @@ class InsuranceDeskTests(TestCase):
             "dec-page.pdf",
             "Car info",
             "Upload documents",
+            "Date of birth",
+            "Gender",
+            "Effective date",
+            "Bodily injury",
+            "100/300",
+            "Female",
         ):
             self.assertIn(text, html)
         for text in (

@@ -323,6 +323,12 @@
       if (dlEl) dlEl.value = card.getAttribute('data-dl-number') || '';
       var dobEl = document.getElementById('iqpEditDob');
       if (dobEl) dobEl.value = card.getAttribute('data-date-of-birth') || '';
+      var genderEl = document.getElementById('iqpEditGender');
+      if (genderEl) genderEl.value = card.getAttribute('data-gender') || '';
+      var effectiveEl = document.getElementById('iqpEditEffective');
+      if (effectiveEl) effectiveEl.value = card.getAttribute('data-effective-date') || '';
+      var biEl = document.getElementById('iqpEditBi');
+      if (biEl) biEl.value = card.getAttribute('data-bodily-injury') || '{{ quote_default_bi|escapejs }}';
       var extras = [];
       try {
         extras = JSON.parse(card.getAttribute('data-extra-drivers') || '[]');

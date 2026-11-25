@@ -43,6 +43,7 @@ def run_quotes(req: dict, carriers: list[CarrierAdapter] | None = None, today: d
         t = time.monotonic()
         try:
             creq = dict(req)
+            creq.pop("require_license", None)
             creq["spend_approved"] = spend_approved
             if carrier_emails and carrier_emails.get(c.key):
                 creq["otp_email"] = carrier_emails[c.key]

@@ -67,6 +67,31 @@
             {% endfor %}
           </select>
         </label>
+        <label class="iqp-field">
+          <span>Date of birth</span>
+          <input type="date" name="date_of_birth" autocomplete="bday">
+        </label>
+        <label class="iqp-field">
+          <span>Gender</span>
+          <select name="gender">
+            <option value="">Select</option>
+            {% for value, label in quote_gender_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="iqp-field">
+          <span>Effective date</span>
+          <input type="date" name="effective_date" value="{{ quote_default_effective_date }}">
+        </label>
+        <label class="iqp-field">
+          <span>Bodily injury</span>
+          <select name="bodily_injury_limit">
+            {% for value in quote_bi_limits %}
+            <option value="{{ value }}" {% if value == quote_default_bi %}selected{% endif %}>{{ value }}</option>
+            {% endfor %}
+          </select>
+        </label>
       </div>
 
       <div class="iqp-block">
@@ -223,6 +248,31 @@
             <option value="">Liability / Full</option>
             {% for value, label in quote_coverage_type_choices %}
             <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="iqp-field">
+          <span>Date of birth</span>
+          <input type="date" name="date_of_birth" id="iqpEditDob" autocomplete="bday">
+        </label>
+        <label class="iqp-field">
+          <span>Gender</span>
+          <select name="gender" id="iqpEditGender">
+            <option value="">Select</option>
+            {% for value, label in quote_gender_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="iqp-field">
+          <span>Effective date</span>
+          <input type="date" name="effective_date" id="iqpEditEffective">
+        </label>
+        <label class="iqp-field">
+          <span>Bodily injury</span>
+          <select name="bodily_injury_limit" id="iqpEditBi">
+            {% for value in quote_bi_limits %}
+            <option value="{{ value }}">{{ value }}</option>
             {% endfor %}
           </select>
         </label>

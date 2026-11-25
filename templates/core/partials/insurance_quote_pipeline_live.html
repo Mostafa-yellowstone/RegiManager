@@ -46,6 +46,9 @@
             data-vin="{{ lead.vin }}"
             data-dl-number="{{ lead.dl_number }}"
             data-date-of-birth="{% if lead.date_of_birth %}{{ lead.date_of_birth|date:'Y-m-d' }}{% endif %}"
+            data-gender="{{ lead.gender }}"
+            data-effective-date="{% if lead.effective_date %}{{ lead.effective_date|date:'Y-m-d' }}{% endif %}"
+            data-bodily-injury="{{ lead.bodily_injury_limit }}"
             data-extra-drivers='[{% for d in lead.additional_drivers.all %}{"name":"{{ d.full_name|escapejs }}","dl":"{{ d.dl_number|escapejs }}","dob":"{% if d.date_of_birth %}{{ d.date_of_birth|date:'Y-m-d' }}{% endif %}"}{% if not forloop.last %},{% endif %}{% endfor %}]'
             data-extra-cars='[{% for v in lead.additional_vehicles.all %}{"make":"{{ v.make|escapejs }}","model":"{{ v.model|escapejs }}","year":"{{ v.year|escapejs }}","vin":"{{ v.vin|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]'
             data-has-prior="{% if lead.has_prior %}1{% else %}0{% endif %}"
@@ -81,6 +84,20 @@
                 <dd><a href="mailto:{{ lead.email }}">{{ lead.email }}</a></dd>
               </div>
               {% endif %}
+              <div class="iqp-card__meta-row">
+                <dt>Driver</dt>
+                <dd>
+                  {% if lead.gender %}{{ lead.get_gender_display }}{% else %}Gender not set{% endif %}
+                  {% if lead.date_of_birth %} · {{ lead.date_of_birth|date:"M j, Y" }}{% else %} · Date of birth missing{% endif %}
+                </dd>
+              </div>
+              <div class="iqp-card__meta-row">
+                <dt>Quote</dt>
+                <dd>
+                  {% if lead.effective_date %}{{ lead.effective_date|date:"M j, Y" }}{% else %}Starts tomorrow{% endif %}
+                  · BI {{ lead.bodily_injury_limit|default:quote_default_bi }}
+                </dd>
+              </div>
               {% if lead.heard_about %}
               <div class="iqp-card__meta-row">
                 <dt>Source</dt>

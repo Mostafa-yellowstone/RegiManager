@@ -116,5 +116,8 @@ def _fill_blank_client_fields(client, lead):
     if lead.date_of_birth and not client.dob:
         client.dob = lead.date_of_birth
         updates.append("dob")
+    if lead.gender and not client.gender:
+        client.gender = lead.gender
+        updates.append("gender")
     if updates:
         client.save(update_fields=updates)

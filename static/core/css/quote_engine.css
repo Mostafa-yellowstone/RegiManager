@@ -24,6 +24,8 @@
   color: var(--portal-hero-title);
 }
 .qe-hero h1 { margin: 0; font-size: 1.85rem; letter-spacing: -0.02em; }
+body.portal-body .qe-hero h1,
+body.portal-body .qe-hero .qe-kicker { color: #fff; }
 .qe-hero p { margin: 6px 0 0; color: var(--portal-hero-subtitle); }
 .qe-hero .qe-kicker { color: #c7d2fe; }
 .qe-card {

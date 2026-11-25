@@ -126,14 +126,25 @@ class LeadBridgeTests(TestCase):
         self.assertEqual(r["drivers"][0]["first_name"], "Ann")
         self.assertEqual(r["drivers"][0]["last_name"], "Lee")
         self.assertEqual(r["vehicles"][0]["vin"], "1HGCM82633A004352")
-        self.assertNotIn("effective_date", r)
-        self.assertNotIn("bodily_injury_limit", r)
+        self.assertEqual(r["vehicles"][0]["ownership"], "owned")
+        self.assertEqual(r["drivers"][0]["license_state"], "NY")
+        self.assertEqual(r["drivers"][0]["license_number"], "123456789")
+        self.assertEqual(r["bodily_injury_limit"], "25/50")
+        self.assertTrue(r["effective_date"])
 
     def test_missing_fields_reported_then_extra_fills_them(self):
-        from .quote_engine.lead_bridge import missing_fields
-        codes_ = {m["code"] for m in missing_fields(self.lead)}
-        self.assertTrue({"date_invalid", "limit_invalid"} <= codes_)
-        extra = {"effective_date": "2099-01-01", "bodily_injury_limit": "25/50"}
+        from datetime import date
+        from .quote_engine.lead_bridge import lead_to_request, missing_fields
+        self.assertEqual(missing_fields(self.lead), [])
+        self.lead.date_of_birth = None
+        self.assertIn("dob_invalid", {m["code"] for m in missing_fields(self.lead)})
+        self.lead.date_of_birth = date(1985, 4, 2)
+        extra = {"effective_date": "2099-01-01", "bodily_injury_limit": "100/300"}
+        filled = lead_to_request(self.lead, extra)
+        self.assertEqual(filled["bodily_injury_limit"], "100/300")
+        self.assertEqual(filled["effective_date"], "2099-01-01")
+        self.lead.has_prior = True
+        self.lead.dl_number = ""
         self.assertEqual(missing_fields(self.lead, extra), [])
 
     def test_commercial_lead_needs_business_data(self):
@@ -181,17 +192,20 @@ class EnginePageTests(TestCase):
     def test_page_lists_missing_fields(self):
         r = self.client.get(self.url)
         self.assertEqual(r.status_code, 200)
-        self.assertContains(r, "Needs fixing")
+        self.assertContains(r, "Ready to run")
+        self.assertContains(r, "25/50")
         self.assertContains(r, "Run quotes")
         self.assertContains(r, "Honda")
         self.assertContains(r, "Accord")
         self.assertContains(r, "1HGCM82633A004352")
-        self.assertContains(r, "id=\"qe-missing\"")
+        self.assertNotContains(r, "Needs fixing")
         self.assertContains(r, "Running the quote")
         self.assertContains(r, "window.location.pathname + window.location.search")
         self.assertNotContains(r, "Follow-up")
 
     def test_blocked_run_saves_history_and_sends_nothing(self):
+        self.lead.date_of_birth = None
+        self.lead.save(update_fields=["date_of_birth"])
         r = self.client.post(self.url, {"action": "run"})
         self.assertEqual(r.status_code, 200)
         run = self.lead.engine_runs.get()

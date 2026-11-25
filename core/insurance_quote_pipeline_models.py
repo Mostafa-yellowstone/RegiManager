@@ -5,6 +5,11 @@ from __future__ import annotations
 from django.conf import settings
 from django.db import models
 
+# Personal-auto bodily injury limits the quote engine accepts. 25/50 is the NY minimum.
+BODILY_INJURY_LIMITS = ("15/30", "25/50", "30/60", "50/100", "100/300", "250/500", "300/500", "500/500")
+DEFAULT_BODILY_INJURY = "25/50"
+GENDER_CHOICES = (("male", "Male"), ("female", "Female"), ("other", "Other"))
+
 
 class InsuranceQuoteLead(models.Model):
     """Fundamental quote lead captured inside Insurance Space."""
@@ -92,6 +97,14 @@ class InsuranceQuoteLead(models.Model):
     vin = models.CharField(max_length=32, blank=True, default="")
     dl_number = models.CharField(max_length=40, blank=True, default="")
     date_of_birth = models.DateField(null=True, blank=True)
+    gender = models.CharField(
+        max_length=20,
+        choices=GENDER_CHOICES,
+        blank=True,
+        default="",
+    )
+    effective_date = models.DateField(null=True, blank=True)
+    bodily_injury_limit = models.CharField(max_length=20, blank=True, default="")
     notes = models.TextField(blank=True, default="")
     quote_details = models.JSONField(default=dict, blank=True, help_text="Extra fields the quote engine needs (limits, prior carrier, business data).")
     recommended_companies = models.ManyToManyField(
