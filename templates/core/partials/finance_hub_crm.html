@@ -9,7 +9,7 @@
         </div>
 
         <div class="list-controls">
-            <form method="get" class="search-filter-form">
+            <form method="get" class="search-filter-form" data-rm-loader-label="Loading">
                 <input type="hidden" name="tab" value="crm">
                 {% if daily_payment_date %}<input type="hidden" name="daily_date" value="{{ daily_payment_date|date:'Y-m-d' }}">{% endif %}
                 <div class="form-group search-group" style="min-width: 240px;">
@@ -126,7 +126,7 @@
                 <div class="portal-crm-toolbar">
                     <button type="submit" class="btn btn-primary">Apply Filters</button>
                     <a href="{% url 'finance-hub' %}?tab=crm" class="btn btn-secondary portal-crm-toolbar-btn--secondary">Clear</a>
-                    <button type="submit" name="export" value="xlsx" class="btn btn-secondary portal-crm-toolbar-btn--secondary">Export Excel</button>
+                    <button type="submit" name="export" value="xlsx" class="btn btn-secondary portal-crm-toolbar-btn--secondary" data-rm-loader-skip>Export Excel</button>
                 </div>
             </form>
         </div>

@@ -3258,6 +3258,7 @@ class FinanceBiTransactionDateTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Export Excel")
         self.assertContains(response, 'name="export" value="xlsx"')
+        self.assertContains(response, "data-rm-loader-skip")
 
     def test_finance_hub_crm_excel_export_keeps_applied_filters(self):
         from io import BytesIO

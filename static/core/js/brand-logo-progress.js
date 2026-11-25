@@ -235,6 +235,7 @@
       if (!form || form.tagName !== 'FORM') return;
       if (e.defaultPrevented) return;
       if (form.hasAttribute('data-rm-loader-skip')) return;
+      if (e.submitter && e.submitter.hasAttribute('data-rm-loader-skip')) return;
       if (form.getAttribute('target') === '_blank') return;
       begin(form.getAttribute('data-rm-loader-label') || 'Saving');
     });
