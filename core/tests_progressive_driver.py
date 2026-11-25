@@ -92,19 +92,52 @@ class DriverTests(SimpleTestCase):
             drv(FakePage()).go_to_point_of_sale()
 
 
-class WiringTests(SimpleTestCase):
-    def test_not_enabled_without_env(self):
-        import os
-        from core.quote_engine.adapters import progressive_wiring as w
-        for k in ("PROGRESSIVE_AUTOMATION", "PROGRESSIVE_USER", "PROGRESSIVE_PASSWORD"):
-            os.environ.pop(k, None)
-        self.assertFalse(w.enabled())
-        self.assertFalse(w.install())
+class FakeCred:
+    class Status:
+        LOCKED = "locked"
+    enabled = True
+    username = "u"
+    portal_url = ""
+    def __init__(self): self.results = []
+    def has_password(self): return True
+    def get_password(self, actor="", purpose=""): return "p"
+    def record_result(self, ok, status=None, error=""): self.results.append((ok, status))
 
-    def test_needs_otp_provider(self):
+
+REQ = {"line_of_business": "auto", "contact": {"phone": "7185550142"}, "effective_date": "2099-01-01",
+       "garaging_address": {"street": "1 Centre Street", "city": "New York", "state": "NY", "zip": "10007"},
+       "drivers": [{"first_name": "A", "last_name": "B", "date_of_birth": "1985-01-15", "gender": "male"}],
+       "vehicles": [{"vin": "1HGCM82633A004352"}]}
+
+
+class WiringTests(SimpleTestCase):
+    def test_converts_request_for_driver(self):
         from core.quote_engine.adapters import progressive_wiring as w
-        r = w.make_quote_fn(page_factory=lambda: FakePage(), env={"PROGRESSIVE_USER": "u", "PROGRESSIVE_PASSWORD": "p"})({})
+        d, v, why = w.to_driver_input(REQ)
+        self.assertIsNone(why)
+        self.assertEqual(d[0]["dob"], "01/15/1985")
+        self.assertEqual(d[0]["address"]["line1"], "1 Centre Street")
+        self.assertEqual(v[0]["effective_date"], "01/01/2099")
+
+    def test_missing_gender_is_asked_not_guessed(self):
+        from core.quote_engine.adapters import progressive_wiring as w
+        req = {**REQ, "drivers": [{**REQ["drivers"][0], "gender": ""}]}
+        r = w.make_quote_fn(page_factory=lambda: FakePage())({**req, "_credential": FakeCred(), "otp_provider": lambda: "1"})
         self.assertEqual(r.status, "needs_input")
+        self.assertIn("gender", r.detail)
+
+    def test_needs_credential_and_otp_provider(self):
+        from core.quote_engine.adapters import progressive_wiring as w
+        fn = w.make_quote_fn(page_factory=lambda: FakePage())
+        self.assertEqual(fn(dict(REQ)).status, "needs_input")
+        self.assertEqual(fn({**REQ, "_credential": FakeCred()}).status, "needs_input")
+
+    def test_challenge_locks_the_login(self):
+        from core.quote_engine.adapters import progressive_wiring as w
+        cred = FakeCred()
+        r = w.make_quote_fn(page_factory=lambda: FakePage(text="Access Denied unusual activity"))({**REQ, "_credential": cred, "otp_provider": lambda: "1"})
+        self.assertEqual(r.status, "error")
+        self.assertEqual(cred.results[-1], (False, "locked"))
 
     def test_set_coverage_order_and_values(self):
         p = FakePage(text="Total Auto Premium: $6,332.00")

@@ -98,6 +98,8 @@ def run_progressive(req: dict, driver: ProgressiveDriver, otp: Callable[[], str]
     except PortalQuestion as q:
         return QuoteResult(name, "needs_input", detail=f"Portal asked: {q.question}", extra={"steps_done": run.steps_done})
     except Exception as exc:
+        if type(exc).__name__ in ("PortalBlocked", "PortalValidation"):
+            raise  # the caller records a lockout or shows the portal's own message
         return QuoteResult(name, "error", detail=f"{type(exc).__name__} after {run.steps_done[-1] if run.steps_done else 'start'}", extra={"steps_done": run.steps_done})
     finally:
         try:

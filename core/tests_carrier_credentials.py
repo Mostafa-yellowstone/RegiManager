@@ -159,7 +159,7 @@ class LeadBridgeTests(TestCase):
         from .quote_followup_models import mark_step
         r = run_for_lead(self.lead, extra)
         st = {x.carrier: x.status for x in r.results}
-        self.assertEqual(st["Progressive"], "not_implemented")
+        self.assertEqual(st["Progressive"], "needs_input")  # driver is wired; no code entry channel in this call
 
 
 class EnginePageTests(TestCase):
@@ -191,17 +191,62 @@ class EnginePageTests(TestCase):
         self.assertTrue(run.blocked)
         self.assertEqual(run.results, [])
 
+    def _inline_jobs(self):
+        from unittest import mock
+        from .quote_engine.lead_bridge import run_job
+        return mock.patch("core.quote_engine_views.start_job", lambda job_id, extra: run_job(job_id, extra, poll=0, wait_s=1))
+
     def test_save_then_run_with_login(self):
+        from .quote_engine_models import QuoteEngineJob
         c = mk(self.org, otp_email="otp@agency.com"); c.set_password("x"); c.enabled = True; c.save()
         self.client.post(self.url, {"action": "save", "effective_date": "2099-01-01", "bodily_injury_limit": "25/50"})
         self.lead.refresh_from_db()
         self.assertEqual(self.lead.quote_details["bodily_injury_limit"], "25/50")
-        r = self.client.post(self.url, {"action": "run", "effective_date": "2099-01-01", "bodily_injury_limit": "25/50"})
-        self.assertContains(r, "Progressive")
-        self.assertContains(r, "Not")  # not implemented, no fake price
+        with self._inline_jobs():
+            r = self.client.post(self.url, {"action": "run", "effective_date": "2099-01-01", "bodily_injury_limit": "25/50"})
+        self.assertEqual(r.status_code, 302)
+        job = QuoteEngineJob.objects.get()
+        self.assertEqual(job.status, "done")
         run = self.lead.engine_runs.get()
         self.assertFalse(run.blocked)
+        st = self.client.get(reverse("quote-engine-job-status", args=[self.lead.id, job.id])).json()
+        self.assertEqual(st["status"], "done")
+        self.assertTrue(all(x["status"] != "quoted" for x in st["results"]))  # nothing fake without a real portal run
         self.assertNotIn("123456789", str(run.issues) + str(run.results))  # no license number stored
+
+    def test_otp_endpoint_only_when_waiting_and_code_is_encrypted(self):
+        from .quote_engine_models import QuoteEngineJob
+        job = QuoteEngineJob.objects.create(lead=self.lead, created_by=self.su)
+        url = reverse("quote-engine-job-otp", args=[self.lead.id, job.id])
+        self.assertEqual(self.client.post(url, {"code": "123456"}).status_code, 409)
+        job.status = "waiting_otp"; job.save()
+        self.assertEqual(self.client.post(url, {"code": "12"}).status_code, 400)
+        self.assertEqual(self.client.post(url, {"code": "123 456"}).status_code, 200)
+        job.refresh_from_db()
+        self.assertNotIn("123456", job.otp_code_enc)
+        self.assertEqual(decrypt_secret(job.otp_code_enc), "123456")
+
+    def test_run_job_waits_for_modal_code_then_clears_it(self):
+        from .quote_engine_models import QuoteEngineJob
+        from .quote_engine.lead_bridge import run_job
+        from .quote_engine import carriers as cmod
+        c = mk(self.org); c.set_password("x"); c.enabled = True; c.save()
+        got = {}
+        def fn(req):
+            got["code"] = req["otp_provider"](); got["user"] = req["_credential"].username
+            return QuoteResult("Progressive", "quoted", premium_term=1234.5, term_months=6)
+        adapter = [a for a in cmod.get_carriers() if a.key == "progressive"][0]
+        old, adapter.quote_fn = adapter.quote_fn, fn
+        self.addCleanup(setattr, adapter, "quote_fn", old)
+        job = QuoteEngineJob.objects.create(lead=self.lead, created_by=self.su, spend_approved=True)
+        def answer():
+            if QuoteEngineJob.objects.get(id=job.id).status == "waiting_otp":
+                QuoteEngineJob.objects.filter(id=job.id).update(otp_code_enc=encrypt_secret("654321"))
+        run_job(job.id, {"effective_date": "2099-01-01", "bodily_injury_limit": "25/50"}, poll=0, wait_s=5, _tick=answer)
+        job.refresh_from_db()
+        self.assertEqual(got["code"], "654321")
+        self.assertEqual(job.otp_code_enc, "")
+        self.assertEqual(job.status, "done")
 
     def test_otp_email_reaches_adapter_only_for_that_carrier(self):
         from .carrier_credentials_models import carrier_otp_emails
@@ -324,7 +369,10 @@ class FollowUpAndProgressiveTests(TestCase):
         self.assertEqual(seen, [False, True])
 
     def test_run_button_approval_records_consent_step(self):
-        self.client.post(self.url, {"action": "run", "effective_date": "2099-01-01", "bodily_injury_limit": "25/50", "spend_approved": "1"})
+        from unittest import mock
+        from .quote_engine.lead_bridge import run_job
+        with mock.patch("core.quote_engine_views.start_job", lambda job_id, extra: run_job(job_id, extra, poll=0, wait_s=1)):
+            self.client.post(self.url, {"action": "run", "effective_date": "2099-01-01", "bodily_injury_limit": "25/50", "spend_approved": "1"})
         s = self.lead.followup_steps.get(key="consent")
         self.assertEqual(s.status, "done"); self.assertEqual(s.done_by, self.su)
         self.assertContains(self.client.get(self.url), "Approve and run")

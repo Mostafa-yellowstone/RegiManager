@@ -23,7 +23,8 @@ class RunReport:
 
 def run_quotes(req: dict, carriers: list[CarrierAdapter] | None = None, today: date | None = None,
                max_workers: int = 6, per_carrier_timeout: float = 600.0,
-               allowed_keys: set[str] | None = None, carrier_emails: dict[str, str] | None = None, spend_approved: bool = False) -> RunReport:
+               allowed_keys: set[str] | None = None, carrier_emails: dict[str, str] | None = None, spend_approved: bool = False,
+               carrier_context: dict[str, dict] | None = None) -> RunReport:
     issues = validate_quote_request(req, today)
     if has_errors(issues):
         return RunReport(issues=issues, blocked=True)
@@ -46,13 +47,16 @@ def run_quotes(req: dict, carriers: list[CarrierAdapter] | None = None, today: d
             creq["spend_approved"] = spend_approved
             if carrier_emails and carrier_emails.get(c.key):
                 creq["otp_email"] = carrier_emails[c.key]
+            creq.update((carrier_context or {}).get(c.key, {}))
             r = c.quote(creq)
         except Exception as exc:  # one carrier failing must never stop the others
             r = QuoteResult(c.name, "error", detail=f"{type(exc).__name__}: {exc}")
         r.duration_s = round(time.monotonic() - t, 3)
         return r
 
-    if todo:
+    if len(todo) == 1:  # no pool for a single carrier: same thread, same DB connection
+        report.results.append(one(todo[0]))
+    elif todo:
         with ThreadPoolExecutor(max_workers=max_workers) as ex:
             futs = {ex.submit(one, c): c for c in todo}
             for f in as_completed(futs, timeout=per_carrier_timeout * max(1, len(todo))):

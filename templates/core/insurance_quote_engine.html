@@ -130,6 +130,36 @@
     </dialog>
   </form>
 
+
+  {% if job_id %}
+  <dialog id="qe-otp" class="qe-dialog">
+    <h3>Progressive login code</h3>
+    <p id="qe-otp-msg">Progressive sent a code to <strong id="qe-otp-email">the agent email</strong>. Type it here.</p>
+    <input id="qe-otp-code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="6-digit code">
+    <p id="qe-otp-err" style="color:#b00020"></p>
+    <div class="qe-actions">
+      <button type="button" class="qe-btn qe-btn--ghost" id="qe-otp-cancel">Cancel run</button>
+      <button type="button" class="qe-btn qe-btn--primary" id="qe-otp-send">Continue</button>
+    </div>
+  </dialog>
+  <section class="qe-card" id="qe-job"><h2>Run in progress</h2><p id="qe-job-msg">Starting...</p><ul id="qe-job-res"></ul></section>
+  <script>
+  (function(){
+    var base="{% url 'quote-engine-job-status' lead.id job_id %}", otpUrl="{% url 'quote-engine-job-otp' lead.id job_id %}";
+    var csrf="{{ csrf_token }}", dlg=document.getElementById('qe-otp'), msg=document.getElementById('qe-job-msg');
+    function post(data){var f=new URLSearchParams(data);return fetch(otpUrl,{method:'POST',headers:{'X-CSRFToken':csrf,'Content-Type':'application/x-www-form-urlencoded'},body:f}).then(function(r){return r.json();});}
+    document.getElementById('qe-otp-send').onclick=function(){post({code:document.getElementById('qe-otp-code').value}).then(function(j){if(j.ok){dlg.close();document.getElementById('qe-otp-code').value='';}else{document.getElementById('qe-otp-err').textContent=j.error||'Could not send the code.';}});};
+    document.getElementById('qe-otp-cancel').onclick=function(){post({cancel:'1'}).then(function(){dlg.close();});};
+    function tick(){fetch(base).then(function(r){return r.json();}).then(function(j){
+      if(j.status==='waiting_otp'){document.getElementById('qe-otp-email').textContent=j.email||'the agent email';document.getElementById('qe-otp-err').textContent='';if(!dlg.open)dlg.showModal();msg.textContent='Waiting for the login code.';}
+      else if(j.status==='running'){msg.textContent=j.message||'Running. Nothing to do.';}
+      if(j.status==='done'||j.status==='failed'){msg.textContent=j.message||j.status;var ul=document.getElementById('qe-job-res');(j.results||[]).forEach(function(r){var li=document.createElement('li');li.textContent=r.carrier+': '+r.status+(r.premium_term?' $'+r.premium_term:'')+(r.detail?' ('+r.detail+')':'');ul.appendChild(li);});(j.issues||[]).forEach(function(t){var li=document.createElement('li');li.textContent=t;ul.appendChild(li);});return;}
+      setTimeout(tick,2000);}).catch(function(){setTimeout(tick,4000);});}
+    tick();
+  })();
+  </script>
+  {% endif %}
+
   {% if report and not report.blocked %}
   <section class="qe-card">
     <h2>Results</h2>
