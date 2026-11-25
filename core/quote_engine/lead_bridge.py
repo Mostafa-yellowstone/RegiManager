@@ -80,7 +80,8 @@ def lead_to_request(lead, extra: dict | None = None) -> dict[str, Any]:
     return merged
 
 
-def run_for_lead(lead, extra: dict | None = None, organization=None, user=None, save: bool = False) -> RunReport:
+def run_for_lead(lead, extra: dict | None = None, organization=None, user=None, save: bool = False,
+                 spend_approved: bool = False) -> RunReport:
     """Validate the lead data and, if clean, run all carriers with an enabled login."""
     from ..carrier_credentials_models import carrier_otp_emails, usable_carrier_keys
 
@@ -89,9 +90,16 @@ def run_for_lead(lead, extra: dict | None = None, organization=None, user=None, 
     allowed = usable_carrier_keys(org, req["line_of_business"]) if req["line_of_business"] in ("auto", "commercial_auto") else set()
     lob = req["line_of_business"]
     emails = carrier_otp_emails(org, lob) if lob in ("auto", "commercial_auto") else {}
-    from ..quote_followup_models import consent_given, mark_step
+    from ..quote_followup_models import mark_step
 
-    report = run_quotes(req, allowed_keys=allowed, carrier_emails=emails, consent_given=consent_given(lead))
+    if spend_approved and save and user is not None:
+        # The modal approval covers the money step and the customer-consent attestation. Recorded with who and when.
+        for k in ("data_entry", "consent"):
+            try:
+                mark_step(lead, k, "done", user=user, note="Approved at run (MVR/POS fees, customer consent)")
+            except ValueError:
+                pass
+    report = run_quotes(req, allowed_keys=allowed, carrier_emails=emails, spend_approved=spend_approved)
     if save:
         if not report.blocked:
             try:

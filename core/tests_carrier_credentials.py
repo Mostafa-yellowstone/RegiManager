@@ -157,7 +157,6 @@ class LeadBridgeTests(TestCase):
         self.assertTrue(all(x.status == "skipped" for x in r.results))
         c = mk(self.org); c.set_password("x"); c.enabled = True; c.save()
         from .quote_followup_models import mark_step
-        mark_step(self.lead, "data_entry", "done"); mark_step(self.lead, "consent", "done")
         r = run_for_lead(self.lead, extra)
         st = {x.carrier: x.status for x in r.results}
         self.assertEqual(st["Progressive"], "not_implemented")
@@ -317,10 +316,24 @@ class FollowUpAndProgressiveTests(TestCase):
         self.assertEqual(self.lead.followup_steps.get(key="mvr").status, "pending")
         self.assertContains(self.client.get(self.url), "Follow-up")
 
-    def test_progressive_needs_consent_in_runner(self):
-        r = run_quotes(base_auto(), today=TODAY, consent_given=False,
-                       carriers=[CarrierAdapter("progressive", "Progressive", ("auto",), requires_consent=True, quote_fn=lambda q: QuoteResult("P", "quoted", premium_term=1))])
-        self.assertEqual(r.results[0].status, "needs_input")
+    def test_runner_passes_spend_approval_flag(self):
+        seen = []
+        c = CarrierAdapter("progressive", "Progressive", ("auto",), spend_gate=True, quote_fn=lambda q: (seen.append(q["spend_approved"]), QuoteResult("P", "quoted", premium_term=1))[1])
+        run_quotes(base_auto(), today=TODAY, carriers=[c])
+        run_quotes(base_auto(), today=TODAY, carriers=[c], spend_approved=True)
+        self.assertEqual(seen, [False, True])
+
+    def test_run_button_approval_records_consent_step(self):
+        self.client.post(self.url, {"action": "run", "effective_date": "2099-01-01", "bodily_injury_limit": "25/50", "spend_approved": "1"})
+        s = self.lead.followup_steps.get(key="consent")
+        self.assertEqual(s.status, "done"); self.assertEqual(s.done_by, self.su)
+        self.assertContains(self.client.get(self.url), "Approve and run")
+
+    def test_otp_provider_unconfigured_raises(self):
+        from .quote_engine.otp import OtpNotFound
+        c = mk(self.org)
+        with self.assertRaises(OtpNotFound):
+            c.otp_provider()()
 
     def test_progressive_flow_with_fake_driver(self):
         from .quote_engine.adapters.progressive import PortalQuestion, run_progressive
@@ -341,29 +354,32 @@ class FollowUpAndProgressiveTests(TestCase):
             def close(self): self.calls.append("close")
         req = base_auto()
         # no consent: nothing touches the portal
-        d = Fake(); r = run_progressive(req, d, lambda: "123456", consent_given=False)
-        self.assertEqual((r.status, d.calls), ("needs_input", []))
+        d = Fake(); r = run_progressive(req, d, lambda: "123456", spend_approved=False)
+        self.assertEqual(r.status, "needs_approval")
+        self.assertNotIn("pos", d.calls)  # stopped right before the money step
+        self.assertIn("login", d.calls)   # but everything before ran automatically, OTP included
+        self.assertEqual(d.otp, "123456")
         d = Fake(rate={"premium_term": 900.0, "premium_monthly": 150.0, "term_months": 6, "ref": "Q9", "alerts": ["PBV required"]})
-        r = run_progressive(req, d, lambda: "123456", consent_given=True)
+        r = run_progressive(req, d, lambda: "123456", spend_approved=True)
         self.assertEqual((r.status, r.premium_term, r.quote_ref), ("quoted", 900.0, "Q9"))
         self.assertEqual(d.cov["bi_pd"], "25/50/25"); self.assertEqual(d.answers["annual_miles"], 10000)
         self.assertEqual(d.calls[:2], ["login", ("new", "NY")]); self.assertEqual(d.calls[-1], "close")
         d = Fake(ask="Prior carrier?")
-        r = run_progressive(req, d, lambda: "1", consent_given=True)
+        r = run_progressive(req, d, lambda: "1", spend_approved=True)
         self.assertEqual(r.status, "needs_input"); self.assertIn("Prior carrier?", r.detail)
         self.assertEqual(r.extra["steps_done"], ["login", "new_quote", "drivers"])
         d = Fake(rate={"premium_term": 0, "alerts": ["Not eligible"]})
-        self.assertEqual(run_progressive(req, d, lambda: "1", consent_given=True).status, "declined")
+        self.assertEqual(run_progressive(req, d, lambda: "1", spend_approved=True).status, "declined")
         # liability vs full, owned vs financed
         d = Fake(rate={"premium_term": 500.0})
-        run_progressive(req, d, lambda: "1", consent_given=True)
+        run_progressive(req, d, lambda: "1", spend_approved=True)
         self.assertFalse(d.cov["vehicles"][0]["comp_collision"])
         r2 = copy.deepcopy(req); r2["vehicles"][0].update(coverage="full", ownership="financed", lienholder="Chase")
-        d = Fake(rate={"premium_term": 700.0}); run_progressive(r2, d, lambda: "1", consent_given=True)
+        d = Fake(rate={"premium_term": 700.0}); run_progressive(r2, d, lambda: "1", spend_approved=True)
         self.assertEqual((d.cov["vehicles"][0]["comp_collision"], d.cov["vehicles"][0]["lienholder"]), (True, "Chase"))
         r3 = copy.deepcopy(req); r3["vehicles"][0].update(coverage="liability", ownership="financed", lienholder="Chase")
-        self.assertIn("lender requires full", run_progressive(r3, Fake(), lambda: "1", consent_given=True).detail)
+        self.assertIn("lender requires full", run_progressive(r3, Fake(), lambda: "1", spend_approved=True).detail)
         r4 = copy.deepcopy(req); r4["vehicles"][0].update(coverage="full", ownership="financed")
-        self.assertIn("lienholder", run_progressive(r4, Fake(), lambda: "1", consent_given=True).detail)
+        self.assertIn("lienholder", run_progressive(r4, Fake(), lambda: "1", spend_approved=True).detail)
         c = base_commercial()
-        self.assertEqual(run_progressive(c, Fake(), lambda: "1", consent_given=True).status, "skipped")
+        self.assertEqual(run_progressive(c, Fake(), lambda: "1", spend_approved=True).status, "skipped")

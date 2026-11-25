@@ -40,7 +40,8 @@ def quote_engine_page(request, lead_id: int):
         lead.quote_details = flat
         lead.save(update_fields=["quote_details", "updated_at"])
         if request.POST.get("action") == "run":
-            report = run_for_lead(lead, flat_to_extra(flat), user=request.user, save=True)
+            report = run_for_lead(lead, flat_to_extra(flat), user=request.user, save=True,
+                                  spend_approved=request.POST.get("spend_approved") == "1")
             if not report.blocked:
                 n = file_results_to_pipeline(lead, report, user=request.user)
                 if n:

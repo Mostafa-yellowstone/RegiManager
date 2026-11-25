@@ -96,6 +96,20 @@ class CarrierCredential(models.Model):
         CarrierCredentialLog.objects.create(credential=self, action="otp_mailbox_used", actor=actor[:100], detail="read OTP mailbox")
         return ImapMailbox(self.otp_imap_host, self.otp_email, decrypt_secret(self.otp_imap_password_enc))
 
+    def otp_provider(self, actor: str = "quote-engine", timeout_s: float = 90):
+        """Callable for adapters: asks the portal's code from the mailbox, newest email after the call time."""
+        from datetime import datetime, timezone
+
+        from .quote_engine.otp import OtpNotFound, fetch_otp
+
+        def get() -> str:
+            mb = self.otp_mailbox(actor=actor)
+            if mb is None:
+                raise OtpNotFound("OTP mailbox is not configured for this login.")
+            return fetch_otp(mb, self.otp_sender_list(), datetime.now(timezone.utc), timeout_s=timeout_s)
+
+        return get
+
     def otp_sender_list(self) -> list[str]:
         return [x.strip() for x in self.otp_sender_hints.split(",") if x.strip()]
 

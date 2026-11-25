@@ -5,7 +5,9 @@ the real site is a `ProgressiveDriver` (browser) that must be written and verifi
 portal; none exists yet, so nothing here has touched Progressive. Tested with a fake driver.
 
 Safety rules baked in:
-- No consent, no POS: ordering CLUE/MVR needs the agent's recorded consent for this customer.
+- Fully automatic up to the money step, including the login OTP (read from the carrier's OTP mailbox).
+- The only human gate is spend: Point of Sale orders CLUE/MVR and can cost money. Without
+  `spend_approved` the run stops right before it with status "needs_approval".
 - The driver interface has no bind/pay method. The flow ends at Point of Sale (rate visible).
 - Any unknown question the portal asks that has no default stops the run with needs_input.
 """
@@ -15,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Protocol
 
 from ..carriers import QuoteResult
+from ..otp import OtpNotFound
 
 # Defaults the owner stated ("ثبت دول لحد ما تسمع غير كدا") and used on the second quote.
 DEFAULT_COVERAGE = {"bi_pd": "25/50/25", "med_pay": 5000, "obel": 25000}
@@ -52,12 +55,10 @@ class ProgressiveRun:
     steps_done: list[str] = field(default_factory=list)
 
 
-def run_progressive(req: dict, driver: ProgressiveDriver, otp: Callable[[], str], consent_given: bool,
+def run_progressive(req: dict, driver: ProgressiveDriver, otp: Callable[[], str], spend_approved: bool,
                     answers: dict | None = None, coverage: dict | None = None, name: str = "Progressive") -> QuoteResult:
     if req.get("line_of_business") != "auto":
         return QuoteResult(name, "skipped", detail="Automation covers personal auto only for now.")
-    if not consent_given:
-        return QuoteResult(name, "needs_input", detail="Record the customer's CLUE/MVR consent first.")
     ans = {**DEFAULT_ANSWERS, **(answers or {})}
     cov = {**DEFAULT_COVERAGE, **(coverage or {})}
     # Liability only vs full coverage, owned vs financed. Everything else stays default.
@@ -84,10 +85,16 @@ def run_progressive(req: dict, driver: ProgressiveDriver, otp: Callable[[], str]
         run.steps_done.append("vehicles")
         driver.set_coverage(cov)
         run.steps_done.append("coverage")
+        if not spend_approved:
+            return QuoteResult(name, "needs_approval", detail="Ready for Point of Sale. Approve the MVR/Point of Sale charge to continue.",
+                               extra={"steps_done": run.steps_done})
         driver.go_to_point_of_sale()
         run.steps_done.append("point_of_sale")
         rate = driver.read_rate()
         run.steps_done.append("rate")
+    except OtpNotFound:
+        return QuoteResult(name, "needs_input", detail="Login code did not arrive in the OTP mailbox (check the mailbox settings).",
+                           extra={"steps_done": run.steps_done})
     except PortalQuestion as q:
         return QuoteResult(name, "needs_input", detail=f"Portal asked: {q.question}", extra={"steps_done": run.steps_done})
     except Exception as exc:

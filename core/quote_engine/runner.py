@@ -23,7 +23,7 @@ class RunReport:
 
 def run_quotes(req: dict, carriers: list[CarrierAdapter] | None = None, today: date | None = None,
                max_workers: int = 6, per_carrier_timeout: float = 600.0,
-               allowed_keys: set[str] | None = None, carrier_emails: dict[str, str] | None = None, consent_given: bool = True) -> RunReport:
+               allowed_keys: set[str] | None = None, carrier_emails: dict[str, str] | None = None, spend_approved: bool = False) -> RunReport:
     issues = validate_quote_request(req, today)
     if has_errors(issues):
         return RunReport(issues=issues, blocked=True)
@@ -36,8 +36,6 @@ def run_quotes(req: dict, carriers: list[CarrierAdapter] | None = None, today: d
             why = f"No enabled login for {c.name} (turn it on in Carrier credentials)."
         if why:
             report.results.append(QuoteResult(c.name, "skipped", detail=why))
-        elif c.requires_consent and not consent_given:
-            report.results.append(QuoteResult(c.name, "needs_input", detail="Record the customer's CLUE/MVR consent first."))
         else:
             todo.append(c)
 
@@ -45,6 +43,7 @@ def run_quotes(req: dict, carriers: list[CarrierAdapter] | None = None, today: d
         t = time.monotonic()
         try:
             creq = dict(req)
+            creq["spend_approved"] = spend_approved
             if carrier_emails and carrier_emails.get(c.key):
                 creq["otp_email"] = carrier_emails[c.key]
             r = c.quote(creq)

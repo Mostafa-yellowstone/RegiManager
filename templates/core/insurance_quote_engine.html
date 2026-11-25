@@ -116,8 +116,18 @@
     {% endif %}
     <div class="qe-actions">
       <button type="submit" name="action" value="save" class="qe-btn qe-btn--ghost">Save details</button>
-      <button type="submit" name="action" value="run" class="qe-btn qe-btn--primary">Run quotes</button>
+      <button type="button" class="qe-btn qe-btn--primary" onclick="document.getElementById('qe-confirm').showModal()">Run quotes</button>
     </div>
+    <dialog id="qe-confirm" class="qe-dialog">
+      <h3>Run quotes and order MVR?</h3>
+      <p>Everything up to Point of Sale runs by itself. Point of Sale orders CLUE and MVR, and the carrier may charge a fee.</p>
+      <label class="qe-check"><input type="checkbox" required> The customer was given the consumer-report disclosure and agreed to the CLUE/MVR pull.</label>
+      <div class="qe-actions">
+        <button type="button" class="qe-btn qe-btn--ghost" onclick="document.getElementById('qe-confirm').close()">Cancel</button>
+        <button type="submit" name="action" value="run" class="qe-btn qe-btn--primary">Approve and run</button>
+        <input type="hidden" name="spend_approved" value="1">
+      </div>
+    </dialog>
   </form>
 
   {% if report and not report.blocked %}
