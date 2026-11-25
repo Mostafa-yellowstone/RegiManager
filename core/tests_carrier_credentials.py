@@ -233,3 +233,60 @@ class EnginePageTests(TestCase):
         self.assertEqual((o.carrier_name, str(o.term_premium)), ("Progressive", "812.50"))
         self.lead.refresh_from_db()
         self.assertEqual(self.lead.stage, "quoted")
+
+
+class OtpTests(TestCase):
+    def test_extract_code_variants(self):
+        from .quote_engine.otp import extract_code
+        cases = {
+            "Your Progressive verification code is 482913. It expires in 10 minutes.": "482913",
+            "482913 is your security code": "482913",
+            "<p>Use passcode: <b>73 1 ...</b> 905511 to sign in</p>": "905511",
+            "Your OTP: 1234": "1234",
+            "Total due $123456 on invoice": None,
+            "Hello, nothing here": None,
+        }
+        for text, want in cases.items():
+            self.assertEqual(extract_code(text), want, text)
+
+    def _mb(self, items):
+        class MB:
+            def recent(self, since):
+                return items
+        return MB()
+
+    def test_picks_newest_fresh_trusted_code(self):
+        from datetime import datetime, timedelta, timezone
+        from .quote_engine.otp import MailItem, fetch_otp
+        t0 = datetime(2026, 11, 25, 12, 0, tzinfo=timezone.utc)
+        items = [
+            MailItem("no-reply@progressive.com", "Code", "Your code is 111111", t0 - timedelta(minutes=5)),  # stale
+            MailItem("phisher@evil.com", "Code", "Your code is 222222", t0 + timedelta(seconds=5)),  # wrong sender
+            MailItem("no-reply@progressive.com", "Code", "Your code is 333333", t0 + timedelta(seconds=10)),
+            MailItem("no-reply@progressive.com", "Code", "Your code is 444444", t0 + timedelta(seconds=20)),
+        ]
+        self.assertEqual(fetch_otp(self._mb(items), ["progressive.com"], t0, sleep=lambda s: None), "444444")
+
+    def test_timeout_raises(self):
+        from datetime import datetime, timezone
+        from .quote_engine.otp import OtpNotFound, fetch_otp
+        clock = iter(range(0, 1000, 30))
+        with self.assertRaises(OtpNotFound):
+            fetch_otp(self._mb([]), ["x.com"], datetime(2026, 1, 1, tzinfo=timezone.utc), timeout_s=60,
+                      sleep=lambda s: None, now=lambda: next(clock))
+
+    def test_naive_time_rejected(self):
+        from datetime import datetime
+        from .quote_engine.otp import fetch_otp
+        with self.assertRaises(ValueError):
+            fetch_otp(self._mb([]), [], datetime(2026, 1, 1))
+
+    def test_mailbox_password_encrypted_and_logged(self):
+        org = Organization.objects.create(name="O")
+        c = mk(org, otp_email="otp@a.com", otp_imap_host="imap.example.com")
+        self.assertIsNone(c.otp_mailbox())
+        c.set_otp_mailbox_password("mailpw-XYZ"); c.save()
+        self.assertNotIn("mailpw-XYZ", c.otp_imap_password_enc)
+        mb = c.otp_mailbox(actor="t")
+        self.assertEqual((mb.host, mb.user, mb.password), ("imap.example.com", "otp@a.com", "mailpw-XYZ"))
+        self.assertTrue(c.logs.filter(action="otp_mailbox_used").exists())
