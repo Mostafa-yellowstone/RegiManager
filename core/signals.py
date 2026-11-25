@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import date, datetime
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.signals import user_logged_in, user_logged_out
@@ -13,6 +13,24 @@ from .models import BankTransaction, InsurancePolicy, OrganizationMembership, Se
 from .owner_notifications import notify_owners_dmv_transaction, notify_owners_policy_bound
 
 logger = logging.getLogger(__name__)
+
+
+def _as_date(value):
+    if isinstance(value, datetime):
+        if timezone.is_aware(value):
+            return timezone.localtime(value).date()
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            return date.fromisoformat(text[:10])
+        except ValueError:
+            return None
+    return None
 
 
 @receiver(user_logged_in)
@@ -146,9 +164,8 @@ def notify_on_dmv_transaction(sender, instance, created, **kwargs):
     if instance.status == "refund" or instance.refunded_from_id:
         return
     # Back-dated entries are history being keyed in, not new desk activity.
-    tx_date = instance.transaction_date
-    if isinstance(tx_date, datetime):
-        tx_date = timezone.localtime(tx_date).date() if timezone.is_aware(tx_date) else tx_date.date()
+    # A restore can still be holding the JSON date string when this runs.
+    tx_date = _as_date(instance.transaction_date)
     if tx_date and (timezone.localdate() - tx_date).days > 2:
         return
     try:
