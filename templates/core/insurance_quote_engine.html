@@ -163,6 +163,9 @@
       <li data-label="Point of sale">Point of sale</li>
       <li data-label="Reading the rate">Reading the rate</li>
     </ol>
+    <div class="qe-actions">
+      <button type="button" class="qe-btn qe-btn--primary" id="qe-progress-continue" hidden>Show the page</button>
+    </div>
   </dialog>
 
   {% if report and not report.blocked %}
@@ -200,7 +203,9 @@
   var steps = Array.prototype.slice.call(document.querySelectorAll('#qe-runsteps li'));
   var title = document.getElementById('qe-progress-title');
   var status = document.getElementById('qe-progress-status');
-  if (!form || !confirmBox || !progress) return;
+  var next = document.getElementById('qe-progress-continue');
+  var reloadAfter = false;
+  if (!form || !confirmBox || !progress || !next) return;
 
   document.getElementById('qe-open-confirm').addEventListener('click', function () {
     confirmBox.showModal();
@@ -262,32 +267,41 @@
         paint(0, 'blocked');
         title.textContent = 'The run did not finish';
         status.textContent = 'The page could not read the result. You can run it again.';
+        next.textContent = 'Close';
+        next.hidden = false;
         return;
       }
+      reloadAfter = true;
       if (blocked) {
         paint(0, 'blocked');
         title.textContent = 'The lead still needs details';
         status.textContent = 'Nothing was sent to a carrier.';
+        next.textContent = 'Show what is missing';
       } else if (notBuilt) {
         paint(0, 'skipped');
         title.textContent = 'The lead checked out';
         status.textContent = 'The carrier portal is not connected yet, so the run stopped before sign-in.';
+        next.textContent = 'Show the page';
       } else {
         paint(steps.length, 'done');
         title.textContent = 'Quote run finished';
-        status.textContent = 'Opening the results.';
+        status.textContent = 'The stages above are done. The rates are on the page.';
+        next.textContent = 'Show the rates';
       }
-      setTimeout(function () {
-        document.open();
-        document.write(result.html);
-        document.close();
-      }, 2600);
+      next.hidden = false;
     }).catch(function () {
       clearInterval(timer);
       paint(active, 'blocked');
       title.textContent = 'The run did not finish';
       status.textContent = 'The page lost the connection. You can run it again.';
+      next.textContent = 'Close';
+      next.hidden = false;
     });
+  });
+
+  next.addEventListener('click', function () {
+    if (reloadAfter) window.location.reload();
+    else progress.close();
   });
 })();
 </script>

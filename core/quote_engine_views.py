@@ -1,6 +1,8 @@
 """Quote engine page for one pipeline lead: fill the missing details, run, see results."""
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
@@ -52,7 +54,11 @@ def quote_engine_page(request, lead_id: int):
             messages.success(request, "Details saved.")
             return redirect(reverse("quote-engine-lead", args=[lead.id]))
     flat = {k: (lead.quote_details or {}).get(k, "") for k in FLAT_FIELDS}
-    issues = report.issues if report else validate_quote_request(lead_to_request(lead, flat_to_extra(flat)))
+    if report is None:
+        latest = lead.engine_runs.exclude(results=[]).first()
+        if latest is not None:
+            report = SimpleNamespace(blocked=False, results=latest.results)
+    issues = report.issues if report and hasattr(report, "issues") else validate_quote_request(lead_to_request(lead, flat_to_extra(flat)))
     errors = [i for i in issues if i.severity == "error"]
     warnings = [i for i in issues if i.severity != "error"]
     line = lead_to_request(lead, flat_to_extra(flat))["line_of_business"]
