@@ -11,7 +11,8 @@ from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
 from .http import deny_access
-from .insurance_quote_permissions import can_edit_quote_lead, membership_for_org
+from .carrier_credentials_models import CarrierCredential
+from .insurance_quote_permissions import can_edit_quote_lead, can_manage_quote_distribution, membership_for_org
 from .insurance_quote_pipeline_models import InsuranceQuoteLead
 from .insurance_quote_pipeline_views import _active_org
 from .quote_followup_models import STEP_KEYS, mark_step
@@ -94,6 +95,10 @@ def quote_engine_page(request, lead_id: int):
     errors = [i for i in issues if i.severity == "error"]
     warnings = [i for i in issues if i.severity != "error"]
     line = lead_to_request(lead, flat_to_extra(flat))["line_of_business"]
+    progressive = (
+        CarrierCredential.objects.filter(organization=org, carrier_key="progressive", line="auto").order_by("id").first()
+    )
+    can_manage = can_manage_quote_distribution(request.user, org, membership=membership_for_org(request.user, org))
     return render(request, "core/insurance_quote_engine.html", {
         "lead": lead, "flat": flat, "errors": errors, "warnings": warnings, "report": report,
         "is_commercial": line == "commercial_auto", "line": line,
@@ -102,4 +107,6 @@ def quote_engine_page(request, lead_id: int):
         "bi_limits": BODILY_INJURY_LIMITS,
         "extra_vehicles": lead.additional_vehicles.all(),
         "insurance_space": True,
+        "progressive_login": progressive,
+        "progressive_login_url": reverse("insurance-progressive") if can_manage else "",
     })

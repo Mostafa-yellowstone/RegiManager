@@ -827,6 +827,7 @@ urlpatterns = [
     path("insurance/finance/", insurance_area_views.insurance_finance, name="insurance-finance"),
     path("insurance/finance/commission-statement/", insurance_desk_views.import_commission_statement, name="insurance-commission-import"),
     path("insurance/companies/", insurance_area_views.insurance_companies, name="insurance-companies"),
+    path("insurance/progressive/", insurance_area_views.insurance_progressive, name="insurance-progressive"),
     path("insurance/wholesalers/save/", insurance_wholesaler_views.save_insurance_wholesaler, name="insurance-wholesaler-save"),
     path(
         "insurance/wholesalers/<int:wholesaler_id>/delete/",

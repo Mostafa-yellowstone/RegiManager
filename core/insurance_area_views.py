@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from urllib.parse import urlencode
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, QueryDict
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.views.decorators.http import require_http_methods
 
 from .http import deny_access
 from .insurance_permissions import can_manage_insurance_finance
@@ -87,6 +89,7 @@ PAGE_SECTIONS = {
     "esign": {"esign"},
     "renewals": set(),
     "radar": set(),
+    "progressive": set(),
 }
 
 
@@ -130,7 +133,7 @@ def _knowledge_hub_for(organization, membership, is_owner):
     return None
 
 
-def _nav_groups(current_tab, can_view_banking, has_dmv_data=False):
+def _nav_groups(current_tab, can_view_banking, has_dmv_data=False, can_manage_quotes=False):
     groups = []
     for title, items in NAV_GROUPS:
         items = [i for i in items if has_dmv_data or i[0] not in PSB_DATA_TABS]
@@ -147,6 +150,17 @@ def _nav_groups(current_tab, can_view_banking, has_dmv_data=False):
         ]
         if links:
             groups.append({"title": title, "links": links})
+    if can_manage_quotes:
+        groups.append({
+            "title": "Progressive",
+            "links": [{
+                "tab": "progressive",
+                "url": reverse("insurance-progressive"),
+                "label": "Progressive",
+                "icon": "progressive",
+                "active": current_tab == "progressive",
+            }],
+        })
     return groups
 
 
@@ -170,7 +184,12 @@ def _render_page(request, tab, template, *, finance_only=False, extra=None, labe
             return added
         context.update(added)
 
-    groups = _nav_groups(tab, can_view_banking, has_dmv_data=organization.has_psb_portal)
+    from .insurance_quote_permissions import can_manage_quote_distribution
+
+    can_manage_quotes = can_manage_quote_distribution(request.user, organization, membership=membership)
+    groups = _nav_groups(
+        tab, can_view_banking, has_dmv_data=organization.has_psb_portal, can_manage_quotes=can_manage_quotes
+    )
     links_by_tab = {link["tab"]: link for group in groups for link in group["links"]}
     context.update(
         {
@@ -384,3 +403,61 @@ def insurance_agents(request):
 @login_required
 def insurance_esign(request):
     return _render_page(request, "esign", "core/insurance_area/esign.html")
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def insurance_progressive(request):
+    """Progressive portal login and OTP mailbox. Its own section, not part of Companies."""
+    from .carrier_credentials_models import CarrierCredential, CarrierCredentialLog
+    from .insurance_quote_permissions import can_manage_quote_distribution
+
+    def extra(organization, membership):
+        if not can_manage_quote_distribution(request.user, organization, membership=membership):
+            deny_access("Only an owner or manager can open the Progressive login.")
+        cred = (
+            CarrierCredential.objects.filter(organization=organization, carrier_key="progressive", line="auto")
+            .order_by("id")
+            .first()
+        )
+        if request.method == "POST":
+            existed = cred is not None
+            cred = cred or CarrierCredential(
+                organization=organization, carrier_key="progressive", line="auto", label=""
+            )
+            cred.username = (request.POST.get("username") or "").strip()[:200]
+            portal_url = (request.POST.get("portal_url") or "").strip()
+            cred.portal_url = portal_url if portal_url.startswith(("http://", "https://")) else ""
+            cred.otp_email = (request.POST.get("otp_email") or "").strip()
+            cred.otp_imap_host = (request.POST.get("otp_imap_host") or "").strip()[:120]
+            hints = (request.POST.get("otp_sender_hints") or "").strip()
+            cred.otp_sender_hints = hints or "progressive.com"
+            new_password = request.POST.get("new_password") or ""
+            new_mailbox = request.POST.get("new_otp_mailbox_password") or ""
+            if new_password:
+                cred.set_password(new_password)
+                cred.consecutive_failures = 0
+            if new_mailbox:
+                cred.set_otp_mailbox_password(new_mailbox)
+            want_enabled = request.POST.get("enabled") == "1"
+            if want_enabled and not cred.has_password():
+                messages.error(request, "Save the Progressive password before turning the login on.")
+                want_enabled = False
+            cred.enabled = want_enabled
+            if not cred.username:
+                messages.error(request, "The Progressive username is required.")
+                return redirect("insurance-progressive")
+            cred.save()
+            CarrierCredentialLog.objects.create(
+                credential=cred,
+                action="updated" if existed else "created",
+                actor=str(request.user)[:100],
+                detail="password changed" if new_password else "",
+            )
+            messages.success(request, "Progressive login saved.")
+            return redirect("insurance-progressive")
+        return {"progressive_login": cred}
+
+    return _render_page(
+        request, "progressive", "core/insurance_area/progressive.html", extra=extra, label="Progressive"
+    )

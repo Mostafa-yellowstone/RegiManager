@@ -33,7 +33,7 @@ def run_quotes(req: dict, carriers: list[CarrierAdapter] | None = None, today: d
     for c in pool:
         why = c.eligibility(req)
         if not why and allowed_keys is not None and c.key not in allowed_keys:
-            why = f"No enabled login for {c.name} (turn it on in Carrier credentials)."
+            why = f"No enabled login for {c.name}. Save it in the Progressive section."
         if why:
             report.results.append(QuoteResult(c.name, "skipped", detail=why))
         else:

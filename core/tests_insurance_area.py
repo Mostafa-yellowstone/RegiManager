@@ -370,6 +370,45 @@ class PolicyAgentChangeTests(InsuranceAreaBase):
         self.assertContains(res, ">Nadia<")
 
 
+class ProgressiveSectionTests(InsuranceAreaBase):
+    def test_owner_saves_portal_login_and_otp_mailbox(self):
+        self.client.force_login(self.owner)
+        page = self.client.get(reverse("insurance-progressive"))
+        self.assertEqual(page.status_code, 200)
+        html = page.content.decode()
+        self.assertIn("Portal sign-in", html)
+        self.assertIn("OTP email", html)
+        self.assertNotIn("Travelers", html)
+        self.assertNotIn("Safeco", html)
+        saved = self.client.post(reverse("insurance-progressive"), {
+            "username": "agency-user",
+            "new_password": "portal-secret-xyz",
+            "portal_url": "https://www.foragentsonly.com/",
+            "otp_email": "quotes@agency.com",
+            "otp_imap_host": "imap.gmail.com",
+            "new_otp_mailbox_password": "mailbox-secret-xyz",
+            "otp_sender_hints": "progressive.com",
+            "enabled": "1",
+        })
+        self.assertEqual(saved.status_code, 302)
+        from core.carrier_credentials_models import CarrierCredential
+        cred = CarrierCredential.objects.get(organization=self.org, carrier_key="progressive")
+        self.assertEqual(cred.username, "agency-user")
+        self.assertEqual(cred.otp_email, "quotes@agency.com")
+        self.assertTrue(cred.enabled)
+        self.assertTrue(cred.has_password())
+        self.assertNotIn("portal-secret-xyz", cred.password_enc)
+        self.assertNotIn("mailbox-secret-xyz", cred.otp_imap_password_enc)
+        self.assertEqual(cred.get_password(actor="test"), "portal-secret-xyz")
+        self.assertEqual(cred.otp_mailbox(actor="test").password, "mailbox-secret-xyz")
+
+    def test_agent_cannot_open_progressive(self):
+        self.client.force_login(self.agent)
+        self.assertEqual(self.client.get(reverse("insurance-progressive")).status_code, 403)
+        home = self.client.get(reverse("insurance-home"))
+        self.assertNotContains(home, reverse("insurance-progressive"))
+
+
 class ProductForPathTests(TestCase):
     def test_paths(self):
         self.assertEqual(product_for_path("/insurance/policies/"), "insurance")

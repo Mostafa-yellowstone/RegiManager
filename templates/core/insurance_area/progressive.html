@@ -1,0 +1,119 @@
+{% extends "core/insurance_area/base.html" %}
+
+{% block insurance_page %}
+<style>
+  .prg { display: grid; gap: 16px; max-width: 760px; }
+  .prg-card {
+    background: var(--portal-surface);
+    border: 1px solid var(--portal-border);
+    border-radius: 18px;
+    padding: 20px 22px;
+  }
+  .prg-card h2 { margin: 0 0 6px; font-size: 1.15rem; }
+  .prg-card p { margin: 0 0 14px; color: var(--portal-text-muted); }
+  .prg-grid { display: grid; gap: 12px; }
+  .prg-grid label { display: grid; gap: 4px; font-size: 0.82rem; font-weight: 700; }
+  .prg-grid input[type="text"],
+  .prg-grid input[type="email"],
+  .prg-grid input[type="url"],
+  .prg-grid input[type="password"] {
+    font: inherit;
+    font-weight: 500;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--portal-border);
+    background: var(--portal-surface);
+    color: var(--portal-text);
+  }
+  .prg-row { display: flex; align-items: center; gap: 8px; font-weight: 650; }
+  .prg-status { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .prg-pill {
+    font-size: 0.75rem;
+    font-weight: 750;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: var(--portal-primary-soft);
+    color: var(--portal-text);
+  }
+  .prg-pill.is-off { background: var(--portal-warning-bg); }
+  .prg-pill.is-on { background: var(--portal-success-bg); }
+  .prg-save {
+    margin-top: 4px;
+    border: 0;
+    border-radius: 12px;
+    padding: 10px 16px;
+    font: inherit;
+    font-weight: 750;
+    color: #fff;
+    background: var(--portal-primary);
+    cursor: pointer;
+  }
+</style>
+<section class="prg">
+  <article class="prg-card">
+    <h2>Progressive only</h2>
+    <p>This section is just the Progressive agent portal. It is not connected to the Companies list. Other carriers are not part of the quote run.</p>
+    <div class="prg-status">
+      {% if progressive_login and progressive_login.has_password %}
+      <span class="prg-pill is-on">Portal password saved</span>
+      {% else %}
+      <span class="prg-pill is-off">Portal password not saved</span>
+      {% endif %}
+      {% if progressive_login and progressive_login.otp_email and progressive_login.otp_imap_host and progressive_login.otp_imap_password_enc %}
+      <span class="prg-pill is-on">OTP mailbox ready</span>
+      {% else %}
+      <span class="prg-pill is-off">OTP mailbox not ready</span>
+      {% endif %}
+      {% if progressive_login and progressive_login.enabled %}
+      <span class="prg-pill is-on">Login is on</span>
+      {% else %}
+      <span class="prg-pill is-off">Login is off</span>
+      {% endif %}
+    </div>
+    <p>The live Progressive browser is not connected yet. Saving this login does not start a sign-in. A quote run still stops before sign-in.</p>
+  </article>
+
+  <form method="post" class="prg" autocomplete="off">
+    {% csrf_token %}
+    <article class="prg-card">
+      <h2>1. Portal sign-in</h2>
+      <p>The username and password for the Progressive agent portal. The password is saved encrypted and is never shown again.</p>
+      <div class="prg-grid">
+        <label>Portal address
+          <input type="url" name="portal_url" value="{{ progressive_login.portal_url|default:'' }}" placeholder="https://www.foragentsonly.com/">
+        </label>
+        <label>Username
+          <input type="text" name="username" required maxlength="200" value="{{ progressive_login.username|default:'' }}" autocomplete="off">
+        </label>
+        <label>Password
+          <input type="password" name="new_password" autocomplete="new-password" placeholder="{% if progressive_login and progressive_login.has_password %}Leave blank to keep the saved password{% else %}Portal password{% endif %}">
+        </label>
+      </div>
+    </article>
+
+    <article class="prg-card">
+      <h2>2. OTP email</h2>
+      <p>The mailbox Progressive emails the sign-in code to. The run reads that inbox over IMAP and uses the newest code from progressive.com.</p>
+      <div class="prg-grid">
+        <label>Email address
+          <input type="email" name="otp_email" value="{{ progressive_login.otp_email|default:'' }}" placeholder="quotes@youragency.com" autocomplete="off">
+        </label>
+        <label>IMAP host
+          <input type="text" name="otp_imap_host" value="{{ progressive_login.otp_imap_host|default:'' }}" placeholder="imap.gmail.com" autocomplete="off">
+        </label>
+        <label>Mailbox password
+          <input type="password" name="new_otp_mailbox_password" autocomplete="new-password" placeholder="{% if progressive_login and progressive_login.otp_imap_password_enc %}Leave blank to keep the saved mailbox password{% else %}App password for that inbox{% endif %}">
+        </label>
+        <label>Trusted sender
+          <input type="text" name="otp_sender_hints" value="{{ progressive_login.otp_sender_hints|default:'progressive.com' }}" placeholder="progressive.com">
+        </label>
+        <label class="prg-row">
+          <input type="checkbox" name="enabled" value="1" {% if progressive_login and progressive_login.enabled %}checked{% endif %}>
+          Use this login when a quote runs
+        </label>
+      </div>
+    </article>
+    <button type="submit" class="prg-save">Save Progressive login</button>
+  </form>
+</section>
+{% endblock %}

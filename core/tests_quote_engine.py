@@ -214,5 +214,7 @@ class RunnerTests(SimpleTestCase):
         self.assertIsNone(r.best())
 
     def test_registry_lines(self):
-        self.assertTrue(all("auto" in c.lines for c in get_carriers("auto")))
-        self.assertTrue(all("commercial_auto" in c.lines for c in get_carriers("commercial_auto")))
+        auto = get_carriers("auto")
+        commercial = get_carriers("commercial_auto")
+        self.assertEqual([c.key for c in auto], ["progressive"])
+        self.assertEqual([c.key for c in commercial], ["progressive"])

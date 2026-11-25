@@ -71,12 +71,6 @@ def get_carriers(line: str | None = None) -> list[CarrierAdapter]:
     return [c for c in _REGISTRY.values() if line is None or line in c.lines]
 
 
-# Auto (personal). Carrier list is a starting set; the user decides which have portal logins.
+# Progressive is the only carrier in the run for now. It is not mixed with the
+# office's company list. Other portals stay out until each one has its own section.
 register(CarrierAdapter("progressive", "Progressive", ("auto", "commercial_auto"), spend_gate=True))
-register(CarrierAdapter("travelers", "Travelers", ("auto", "commercial_auto")))
-register(CarrierAdapter("national_general", "National General", ("auto",)))
-register(CarrierAdapter("safeco", "Safeco", ("auto",)))
-register(CarrierAdapter("foremost", "Foremost", ("auto",)))
-register(CarrierAdapter("hanover", "Hanover", ("auto", "commercial_auto")))
-register(CarrierAdapter("nationwide", "Nationwide", ("commercial_auto",)))
-register(CarrierAdapter("berkshire_guard", "Berkshire Hathaway GUARD", ("commercial_auto",)))

@@ -5,12 +5,18 @@
 
 {% block portal_head %}
 <link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=26">
-<link rel="stylesheet" href="{% static 'core/css/quote_engine.css' %}?v=3">
+<link rel="stylesheet" href="{% static 'core/css/quote_engine.css' %}?v=4">
 {% endblock %}
 
 {% block portal_content %}
 <main class="dashboard-shell iqp qe">
   <a class="iqp-records__back" href="{% url 'insurance-pipeline' %}">← Back to pipeline</a>
+  {% if progressive_login_url %}
+  <p class="qe-sub" style="margin: 0 0 12px;">This run uses Progressive only.
+    {% if progressive_login and progressive_login.enabled and progressive_login.has_password %}Portal password is saved{% if progressive_login.otp_email %} · codes go to {{ progressive_login.otp_email }}{% endif %}.{% else %}The portal login is not turned on yet.{% endif %}
+    <a href="{{ progressive_login_url }}">Open the Progressive section</a>
+  </p>
+  {% endif %}
   <header class="qe-hero">
     <div>
       <p class="qe-kicker">Run quotes</p>
@@ -188,7 +194,7 @@
           <td>{% if r.premium_term %}${{ r.premium_term|floatformat:2 }}{% else %}—{% endif %}</td>
           <td>{{ r.detail }}</td>
         </tr>
-      {% empty %}<tr><td colspan="5">No carrier has an enabled login for this line. Turn one on in Carrier credentials.</td></tr>{% endfor %}
+      {% empty %}<tr><td colspan="5">Progressive has no enabled login.{% if progressive_login_url %} Save it in the <a href="{{ progressive_login_url }}">Progressive</a> section.{% endif %}</td></tr>{% endfor %}
       </tbody>
     </table>
   </section>

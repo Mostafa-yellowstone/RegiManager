@@ -50,6 +50,7 @@ body.portal-body .qe-hero .qe-kicker { color: #fff; }
 .qe-card--errors { border-color: #fecaca; background: var(--portal-danger-bg); }
 .qe-card--warnings { border-color: #fde68a; background: var(--portal-warning-bg); }
 .qe-sub { margin: 0 0 14px; color: var(--portal-text-muted); font-size: 0.9rem; }
+.qe-sub a { color: var(--portal-primary); font-weight: 700; text-decoration: none; }
 .qe-muted { color: var(--portal-text-muted); }
 .qe-snapshot__grid {
   display: grid;
