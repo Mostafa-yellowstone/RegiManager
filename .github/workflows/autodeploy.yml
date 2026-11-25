@@ -39,9 +39,21 @@ jobs:
           chmod 600 ~/.ssh/key
           ssh-keyscan -H ${{ vars.VPS_HOST }} >> ~/.ssh/known_hosts
           ssh -i ~/.ssh/key ${{ secrets.VPS_USER }}@${{ vars.VPS_HOST }} bash -s <<'EOF'
-          set -u
+          set -eu
           cd "$HOME/RegiManager"
-          echo "user=$(id -un) pwd=$(pwd)"
+          echo "user=$(id -un) head=$(git rev-parse --short HEAD)"
+          restart_units() {
+            if sudo -n true; then
+              while read -r unit _; do
+                case "$unit" in
+                  *gunicorn*|*regimanager*|*celery*)
+                    echo "Restarting $unit"
+                    sudo -n systemctl restart "$unit" || true
+                    ;;
+                esac
+              done < <(sudo -n systemctl list-units --type=service --all --no-legend --no-pager 2>/dev/null || true)
+            fi
+          }
           if sudo -n true; then
             echo "Giving the deploy user ownership of the app checkout"
             sudo -n chown -R "$(id -un):$(id -gn)" "$HOME/RegiManager"
@@ -54,16 +66,45 @@ jobs:
             exit 1
           fi
           rm -f .git/objects/.perm-test
-          bash -l /home/Projects/sc.sh
-          bash "$HOME/RegiManager/scripts/install_quote_browser.sh"
-          if sudo -n true; then
-            while read -r unit _; do
-              case "$unit" in
-                *gunicorn*|*regimanager*|*celery*)
-                  echo "Restarting $unit"
-                  sudo -n systemctl restart "$unit" || true
-                  ;;
-              esac
-            done < <(sudo -n systemctl list-units --type=service --all --no-legend --no-pager 2>/dev/null || true)
+          stamp=$(date -u +%Y%m%dT%H%M%SZ)
+          mkdir -p "$HOME/regi-deploy-backups"
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            echo "Tracked files differ from the last deploy; saving a copy before the pull"
+            git status --porcelain --untracked-files=no
+            git diff --stat
+            git diff > "$HOME/regi-deploy-backups/dirty-$stamp.diff"
+            if [ -f RegiManager/settings.py ]; then
+              cp RegiManager/settings.py "$HOME/regi-deploy-backups/settings-$stamp.py"
+            fi
+            git checkout -- .
           fi
+          before=$(git rev-parse HEAD)
+          bash -l /home/Projects/sc.sh
+          git fetch origin main
+          after=$(git rev-parse HEAD)
+          echo "HEAD ${before:0:7} -> ${after:0:7} origin=$(git rev-parse --short origin/main)"
+          if ! git merge-base --is-ancestor origin/main HEAD; then
+            echo "The checkout is still behind origin/main"
+            git status --porcelain --untracked-files=no
+            exit 1
+          fi
+          bash "$HOME/RegiManager/scripts/install_quote_browser.sh"
+          restart_units
+          sleep 3
+          health=$(curl -sS -H 'Accept: application/json' --max-time 15 https://www.regimanager.com/healthz/ || true)
+          echo "healthz ${health:-empty}"
+          case "$health" in
+            *'"database": "ok"'*|*"\"database\":\"ok\""*)
+              echo "Database is up"
+              ;;
+            *)
+              echo "Database check failed after deploy"
+              if [ -f "$HOME/regi-deploy-backups/settings-$stamp.py" ]; then
+                echo "Restoring the previous settings.py and restarting"
+                cp "$HOME/regi-deploy-backups/settings-$stamp.py" RegiManager/settings.py
+                restart_units
+              fi
+              exit 1
+              ;;
+          esac
           EOF
