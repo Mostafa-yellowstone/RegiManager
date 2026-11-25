@@ -51,3 +51,16 @@ def miles_band(miles: int) -> str:
         if miles >= lo:
             out = label
     return out
+
+
+# Coverages screen, recorded live Nov 25 2026 (existing test quote reopened; no new quote was created).
+COVERAGE = {"bi_pd": "Bodily Injury & Property", "um_uim": "Uninsured & Supplementary", "pip": "Personal Injury Protection",
+            "add_pip": "Additional Personal Injury", "obel": "Optional Basic Economic", "med_pay": "Medical Payment",
+            "comp": "Comprehensive Deductible", "collision": "Collision Deductible", "rental": "Rental", "roadside": "Roadside",
+            "snapshot": "Snapshot Enrollment"}
+COVERAGE_OPTIONS = {"bi_pd": ["25/50/25"], "um_uim": {"25/50/25": "25/50 Excluding Supplementary"},
+                    "med_pay": {5000: "$5,000 Per Person", 10000: "$10,000 Per Person"}, "obel": {25000: "$25,000"}}
+# Rules learned: changing BI/PD clears UM/UIM (set it again after). After changes the premium shows "$ --" until
+# RECALCULATE is clicked. Snapshot Enrollment is required (blank by default). A PBV modal appears on entry (close X).
+COVERAGE_RULES = ["set bi_pd first, then um_uim", "click RECALCULATE after the last change", "snapshot must be chosen",
+                  "close the PBV modal", "if another browser session holds the quote click RECOVER QUOTE"]
