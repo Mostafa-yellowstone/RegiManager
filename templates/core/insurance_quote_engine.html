@@ -5,7 +5,7 @@
 
 {% block portal_head %}
 <link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=26">
-<link rel="stylesheet" href="{% static 'core/css/quote_engine.css' %}?v=1">
+<link rel="stylesheet" href="{% static 'core/css/quote_engine.css' %}?v=2">
 {% endblock %}
 
 {% block portal_content %}
@@ -13,8 +13,9 @@
   <a class="iqp-records__back" href="{% url 'insurance-pipeline' %}">← Back to pipeline</a>
   <header class="qe-hero">
     <div>
+      <p class="qe-kicker">Run quotes</p>
       <h1>{{ lead.client_name }}</h1>
-      <p>{% if is_commercial %}Commercial auto{% else %}Personal auto{% endif %} quote &middot; {{ lead.city }}{% if lead.state %}, {{ lead.state }}{% endif %}</p>
+      <p>{% if is_commercial %}Commercial auto{% else %}Personal auto{% endif %} · {{ lead.phone }}{% if lead.city %} · {{ lead.city }}{% if lead.state %}, {{ lead.state }}{% endif %}{% endif %}</p>
     </div>
     <span class="qe-pill {% if ready %}qe-pill--ok{% else %}qe-pill--warn{% endif %}">
       {% if ready %}Ready to run{% else %}{{ errors|length }} item{{ errors|length|pluralize }} missing{% endif %}
@@ -23,30 +24,48 @@
 
   {% if messages %}{% for m in messages %}<div class="qe-note qe-note--{{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
 
-  <section class="qe-card qe-steps">
-    <h2>Follow-up{% if next_step %} <span class="qe-sub">Next: {{ next_step.label }}</span>{% else %} <span class="qe-sub">All steps finished</span>{% endif %}</h2>
-    <ol class="qe-steplist">
-    {% for s in steps %}
-      <li class="qe-step qe-step--{{ s.status }}{% if next_step and s.pk == next_step.pk %} qe-step--next{% endif %}">
-        <div class="qe-step__main">
-          <strong>{{ s.label }}</strong>
-          <span>{{ s.help }}</span>
-          {% if s.note %}<em>{{ s.note }}</em>{% endif %}
-          {% if s.status == "done" %}<small>Done{% if s.done_by_system %} by the engine{% elif s.done_by %} by {{ s.done_by }}{% endif %}{% if s.done_at %} &middot; {{ s.done_at|date:"M j, H:i" }}{% endif %}</small>{% endif %}
-        </div>
-        <form method="post" class="qe-step__form">
-          {% csrf_token %}<input type="hidden" name="action" value="step"><input type="hidden" name="key" value="{{ s.key }}">
-          {% if s.status == "done" %}
-            <button class="qe-btn qe-btn--ghost" name="status" value="pending">Undo</button>
-          {% else %}
-            <input name="note" placeholder="Note (optional)">
-            <button class="qe-btn qe-btn--primary" name="status" value="done">Mark done</button>
-            <button class="qe-btn qe-btn--ghost" name="status" value="blocked">Blocked</button>
-          {% endif %}
-        </form>
-      </li>
-    {% endfor %}
-    </ol>
+  <section class="qe-card qe-snapshot">
+    <h2>From the lead</h2>
+    <p class="qe-sub">This is the car, contact, and paperwork already saved on the quote. It is what the run uses.</p>
+    <div class="qe-snapshot__grid">
+      <article class="qe-snap">
+        <h3>Contact</h3>
+        <p>{{ lead.client_name }}</p>
+        <p>{{ lead.phone }}{% if lead.email %} · {{ lead.email }}{% endif %}</p>
+        <p class="qe-muted">
+          {% if lead.street_address %}{{ lead.street_address }}{% if lead.apartment %}, Apt {{ lead.apartment }}{% endif %}<br>{% endif %}
+          {{ lead.city }}{% if lead.city and lead.state %}, {% endif %}{{ lead.state }} {{ lead.zip_code }}
+        </p>
+      </article>
+      <article class="qe-snap">
+        <h3>Car</h3>
+        {% if lead.vehicle_year or lead.vehicle_make or lead.vehicle_model %}
+        <p class="qe-car">{{ lead.vehicle_year }} {{ lead.vehicle_make }} {{ lead.vehicle_model }}</p>
+        {% else %}
+        <p class="qe-muted">No car on the lead yet.</p>
+        {% endif %}
+        {% if lead.vin %}<p><code>{{ lead.vin }}</code></p>{% endif %}
+        <p class="qe-muted">
+          {% if lead.vehicle_ownership and lead.vehicle_ownership != "blank" %}{{ lead.get_vehicle_ownership_display }}{% endif %}
+          {% if lead.coverage_type %}{% if lead.vehicle_ownership and lead.vehicle_ownership != "blank" %} · {% endif %}{{ lead.get_coverage_type_display }}{% endif %}
+        </p>
+        {% for v in extra_vehicles %}
+        <p class="qe-extra">+ {{ v.year }} {{ v.make }} {{ v.model }}{% if v.vin %} · {{ v.vin }}{% endif %}</p>
+        {% endfor %}
+      </article>
+      <article class="qe-snap">
+        <h3>Documents</h3>
+        {% if documents %}
+        <ul class="qe-docs">
+          {% for doc in documents %}
+          <li><a href="{% url 'download-quote-lead-document' doc.id %}">{{ doc.original_name|default:"Document" }}</a></li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="qe-muted">No documents uploaded on this lead.</p>
+        {% endif %}
+      </article>
+    </div>
   </section>
 
   {% if errors %}
@@ -62,10 +81,10 @@
   </section>
   {% endif %}
 
-  <form method="post" class="qe-card qe-form">
+  <form method="post" class="qe-card qe-form" id="qe-form">
     {% csrf_token %}
     <h2>Quote details</h2>
-    <p class="qe-sub">Everything already on the lead is used automatically. Fill only what is missing.</p>
+    <p class="qe-sub">The lead already filled the car and the customer. Add only what the carrier still needs.</p>
     <div class="qe-grid">
       <label>Effective date<input type="date" name="effective_date" value="{{ flat.effective_date }}"></label>
       {% if is_commercial %}
@@ -83,7 +102,8 @@
     <h3>Business</h3>
     <div class="qe-grid">
       <label>Legal name<input name="legal_name" value="{{ flat.legal_name }}"></label>
-      <label>Entity type<select name="entity_type">        <option value="">Select</option>
+      <label>Entity type<select name="entity_type">
+        <option value="">Select</option>
         <option value="llc" {% if flat.entity_type == "llc" %}selected{% endif %}>LLC</option>
         <option value="corporation" {% if flat.entity_type == "corporation" %}selected{% endif %}>Corporation</option>
         <option value="sole_proprietor" {% if flat.entity_type == "sole_proprietor" %}selected{% endif %}>Sole proprietor</option>
@@ -116,19 +136,34 @@
     {% endif %}
     <div class="qe-actions">
       <button type="submit" name="action" value="save" class="qe-btn qe-btn--ghost">Save details</button>
-      <button type="button" class="qe-btn qe-btn--primary" onclick="document.getElementById('qe-confirm').showModal()">Run quotes</button>
+      <button type="button" class="qe-btn qe-btn--primary" id="qe-open-confirm">Run quotes</button>
     </div>
     <dialog id="qe-confirm" class="qe-dialog">
       <h3>Run quotes and order MVR?</h3>
-      <p>Everything up to Point of Sale runs by itself. Point of Sale orders CLUE and MVR, and the carrier may charge a fee.</p>
-      <label class="qe-check"><input type="checkbox" required> The customer was given the consumer-report disclosure and agreed to the CLUE/MVR pull.</label>
+      <p>The run goes through the carrier steps on its own. Point of Sale orders CLUE and MVR, and the carrier may charge a fee.</p>
+      <label class="qe-check"><input type="checkbox" id="qe-consent"> The customer was given the consumer-report disclosure and agreed to the CLUE/MVR pull.</label>
       <div class="qe-actions">
-        <button type="button" class="qe-btn qe-btn--ghost" onclick="document.getElementById('qe-confirm').close()">Cancel</button>
-        <button type="submit" name="action" value="run" class="qe-btn qe-btn--primary">Approve and run</button>
-        <input type="hidden" name="spend_approved" value="1">
+        <button type="button" class="qe-btn qe-btn--ghost" id="qe-confirm-cancel">Cancel</button>
+        <button type="button" class="qe-btn qe-btn--primary" id="qe-approve">Approve and run</button>
       </div>
     </dialog>
   </form>
+
+  <dialog id="qe-progress" class="qe-dialog qe-progress">
+    <p class="qe-kicker">Running the quote</p>
+    <h3 id="qe-progress-title">Working through the carrier</h3>
+    <p class="qe-sub" id="qe-progress-status">Checking the lead…</p>
+    <ol class="qe-runsteps" id="qe-runsteps">
+      <li data-label="Checking the lead">Checking the lead</li>
+      <li data-label="Opening the carrier">Opening the carrier</li>
+      <li data-label="Signing in">Signing in</li>
+      <li data-label="Entering the drivers">Entering the drivers</li>
+      <li data-label="Entering the vehicles">Entering the vehicles</li>
+      <li data-label="Setting coverage">Setting coverage</li>
+      <li data-label="Point of sale">Point of sale</li>
+      <li data-label="Reading the rate">Reading the rate</li>
+    </ol>
+  </dialog>
 
   {% if report and not report.blocked %}
   <section class="qe-card">
@@ -140,8 +175,8 @@
         <tr class="qe-row qe-row--{{ r.status }}">
           <td>{{ r.carrier }}</td>
           <td><span class="qe-pill qe-pill--{{ r.status }}">{{ r.status|cut:"_"|title }}</span></td>
-          <td>{% if r.premium_monthly %}${{ r.premium_monthly|floatformat:2 }}{% else %}-{% endif %}</td>
-          <td>{% if r.premium_term %}${{ r.premium_term|floatformat:2 }}{% else %}-{% endif %}</td>
+          <td>{% if r.premium_monthly %}${{ r.premium_monthly|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td>{% if r.premium_term %}${{ r.premium_term|floatformat:2 }}{% else %}—{% endif %}</td>
           <td>{{ r.detail }}</td>
         </tr>
       {% empty %}<tr><td colspan="5">No carrier has an enabled login for this line. Turn one on in Carrier credentials.</td></tr>{% endfor %}
@@ -153,8 +188,97 @@
   {% if past_runs %}
   <section class="qe-card">
     <h2>Recent runs</h2>
-    <ul class="qe-runs">{% for r in past_runs %}<li>{{ r.created_at|date:"M j, H:i" }} &middot; {% if r.blocked %}blocked ({{ r.issues|length }} issues){% else %}{{ r.results|length }} carriers{% endif %}</li>{% endfor %}</ul>
+    <ul class="qe-runs">{% for r in past_runs %}<li>{{ r.created_at|date:"M j, H:i" }} · {% if r.blocked %}blocked ({{ r.issues|length }} issues){% else %}{{ r.results|length }} carriers{% endif %}</li>{% endfor %}</ul>
   </section>
   {% endif %}
 </main>
+<script>
+(function () {
+  var form = document.getElementById('qe-form');
+  var confirmBox = document.getElementById('qe-confirm');
+  var progress = document.getElementById('qe-progress');
+  var steps = Array.prototype.slice.call(document.querySelectorAll('#qe-runsteps li'));
+  var title = document.getElementById('qe-progress-title');
+  var status = document.getElementById('qe-progress-status');
+  if (!form || !confirmBox || !progress) return;
+
+  document.getElementById('qe-open-confirm').addEventListener('click', function () {
+    confirmBox.showModal();
+  });
+  document.getElementById('qe-confirm-cancel').addEventListener('click', function () {
+    confirmBox.close();
+  });
+
+  function paint(active, mode) {
+    steps.forEach(function (li, index) {
+      li.className = '';
+      if (mode === 'blocked' && index === 0) li.classList.add('is-blocked');
+      else if (mode === 'skipped' && index > active) li.classList.add('is-skipped');
+      else if (index < active) li.classList.add('is-done');
+      else if (index === active && mode === 'working') li.classList.add('is-active');
+      else if (mode === 'done') li.classList.add('is-done');
+    });
+  }
+
+  document.getElementById('qe-approve').addEventListener('click', function () {
+    var consent = document.getElementById('qe-consent');
+    if (!consent.checked) {
+      consent.focus();
+      return;
+    }
+    confirmBox.close();
+    progress.showModal();
+    var active = 0;
+    paint(active, 'working');
+    status.textContent = steps[0].getAttribute('data-label') + '…';
+    var timer = setInterval(function () {
+      if (active < steps.length - 1) {
+        active += 1;
+        paint(active, 'working');
+        status.textContent = steps[active].getAttribute('data-label') + '…';
+      }
+    }, 700);
+    var body = new FormData(form);
+    body.set('action', 'run');
+    body.set('spend_approved', '1');
+    fetch(form.action || window.location.href, {
+      method: 'POST',
+      body: body,
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'quote-engine' }
+    }).then(function (response) {
+      return response.text().then(function (html) {
+        return { ok: response.ok, html: html };
+      });
+    }).then(function (result) {
+      clearInterval(timer);
+      var blocked = result.html.indexOf('qe-card--errors') !== -1;
+      var notBuilt = result.html.indexOf('qe-pill--not_implemented') !== -1;
+      if (blocked) {
+        paint(0, 'blocked');
+        title.textContent = 'The lead still needs details';
+        status.textContent = 'Nothing was sent to a carrier.';
+      } else if (notBuilt) {
+        paint(0, 'skipped');
+        title.textContent = 'The lead checked out';
+        status.textContent = 'The carrier portal is not connected yet, so the run stopped before sign-in.';
+      } else {
+        paint(steps.length, 'done');
+        title.textContent = 'Quote run finished';
+        status.textContent = 'Opening the results.';
+      }
+      setTimeout(function () {
+        document.open();
+        document.write(result.html);
+        document.close();
+      }, 700);
+    }).catch(function () {
+      clearInterval(timer);
+      paint(active, 'blocked');
+      title.textContent = 'The run did not finish';
+      status.textContent = 'The page lost the connection. You can run it again.';
+    });
+  });
+})();
+</script>
 {% endblock %}

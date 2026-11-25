@@ -102,6 +102,35 @@
               </div>
               {% endif %}
 
+              {% if lead.vehicle_year or lead.vehicle_make or lead.vehicle_model or lead.vin or lead.vehicle_ownership and lead.vehicle_ownership != 'blank' or lead.coverage_type or lead.additional_vehicles.all %}
+              <div class="iqp-card__section iqp-card__section--wide">
+                <span class="iqp-card__section-label">Vehicle</span>
+                {% if lead.vehicle_year or lead.vehicle_make or lead.vehicle_model %}
+                <p class="iqp-card__detail">{{ lead.vehicle_year }} {{ lead.vehicle_make }} {{ lead.vehicle_model }}</p>
+                {% endif %}
+                {% if lead.vin %}<p class="iqp-card__detail iqp-card__detail--muted"><code class="iqp-card__vin">{{ lead.vin }}</code></p>{% endif %}
+                {% if lead.vehicle_ownership and lead.vehicle_ownership != 'blank' or lead.coverage_type %}
+                <p class="iqp-card__detail iqp-card__detail--muted">
+                  {% if lead.vehicle_ownership and lead.vehicle_ownership != 'blank' %}{{ lead.get_vehicle_ownership_display }}{% endif %}{% if lead.vehicle_ownership and lead.vehicle_ownership != 'blank' and lead.coverage_type %} · {% endif %}{% if lead.coverage_type %}{{ lead.get_coverage_type_display }}{% endif %}
+                </p>
+                {% endif %}
+                {% for v in lead.additional_vehicles.all %}
+                <p class="iqp-card__detail iqp-card__detail--extra">+ {{ v.year }} {{ v.make }} {{ v.model }}{% if v.vin %} · {{ v.vin }}{% endif %}</p>
+                {% endfor %}
+              </div>
+              {% endif %}
+
+              {% if lead.documents.all %}
+              <div class="iqp-card__docs">
+                <span class="iqp-card__section-label">Documents</span>
+                <div class="iqp-card__doc-list">
+                  {% for doc in lead.documents.all %}
+                  <a href="{% url 'download-quote-lead-document' doc.id %}">{{ doc.original_name|default:"file"|truncatechars:28 }}</a>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+
             </div>
 
             {% if can_assign_quote_leads or can_manage_quote_distribution %}

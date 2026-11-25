@@ -183,6 +183,11 @@ class EnginePageTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "Needs fixing")
         self.assertContains(r, "Run quotes")
+        self.assertContains(r, "Honda")
+        self.assertContains(r, "Accord")
+        self.assertContains(r, "1HGCM82633A004352")
+        self.assertContains(r, "Running the quote")
+        self.assertNotContains(r, "Follow-up")
 
     def test_blocked_run_saves_history_and_sends_nothing(self):
         r = self.client.post(self.url, {"action": "run"})
@@ -314,7 +319,9 @@ class FollowUpAndProgressiveTests(TestCase):
         self.assertEqual(self.lead.followup_steps.get(key="data_entry").status, "done")
         self.client.post(self.url, {"action": "step", "key": "mvr", "status": "done"})
         self.assertEqual(self.lead.followup_steps.get(key="mvr").status, "pending")
-        self.assertContains(self.client.get(self.url), "Follow-up")
+        page = self.client.get(self.url)
+        self.assertNotContains(page, "Follow-up")
+        self.assertContains(page, "Running the quote")
 
     def test_runner_passes_spend_approval_flag(self):
         seen = []

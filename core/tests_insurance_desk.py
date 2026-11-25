@@ -18,7 +18,11 @@ from core.insurance_desk_models import (
     InsurancePolicyTransaction,
     InsuranceQuoteOption,
 )
-from core.insurance_quote_pipeline_models import InsuranceQuoteLead, InsuranceQuoteLeadDriver
+from core.insurance_quote_pipeline_models import (
+    InsuranceQuoteLead,
+    InsuranceQuoteLeadDocument,
+    InsuranceQuoteLeadDriver,
+)
 from core.models import (
     Client,
     InsuranceCompany,
@@ -341,6 +345,10 @@ class InsuranceDeskTests(TestCase):
                 "state": "NY",
                 "zip_code": "11201",
                 "notes": "Call after 5",
+                "vehicle_year": "2020",
+                "vehicle_make": "Toyota",
+                "vehicle_model": "Camry",
+                "vin": "1HGCM82633A004352",
             },
         )
         self.assertEqual(created.status_code, 302)
@@ -348,8 +356,13 @@ class InsuranceDeskTests(TestCase):
         self.assertEqual(lead.phone, "5550100199")
         self.assertEqual(lead.city, "Brooklyn")
         self.assertEqual(lead.notes, "Call after 5")
-        self.assertEqual(lead.vehicle_make, "")
-        self.assertEqual(lead.vin, "")
+        self.assertEqual(lead.vehicle_make, "Toyota")
+        self.assertEqual(lead.vin, "1HGCM82633A004352")
+        InsuranceQuoteLeadDocument.objects.create(
+            lead=lead,
+            file=SimpleUploadedFile("dec-page.pdf", b"%PDF-1.4"),
+            original_name="dec-page.pdf",
+        )
 
         moved = self.client.post(
             reverse("update-quote-lead-stage", args=[lead.id]),
@@ -370,12 +383,18 @@ class InsuranceDeskTests(TestCase):
             "New quote lead",
             "Edit quote lead",
             "Quoted",
+            "2020",
+            "Toyota",
+            "Camry",
+            "1HGCM82633A004352",
+            "dec-page.pdf",
+            "Car info",
+            "Upload documents",
         ):
             self.assertIn(text, html)
         for text in (
             "Compare carriers",
             "Shop sites and save premiums",
-            "Car info",
             "Driver license",
             "Recommended companies",
             "iqp-compare",

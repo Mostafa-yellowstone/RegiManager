@@ -11,9 +11,9 @@ from .http import deny_access
 from .insurance_quote_permissions import can_edit_quote_lead, membership_for_org
 from .insurance_quote_pipeline_models import InsuranceQuoteLead
 from .insurance_quote_pipeline_views import _active_org
-from .quote_followup_models import STEP_KEYS, QuoteFollowUpStep, ensure_steps, mark_step
+from .quote_followup_models import STEP_KEYS, mark_step
 from .quote_engine.lead_bridge import FLAT_FIELDS, file_results_to_pipeline, flat_to_extra, lead_to_request, run_for_lead
-from .quote_engine.validators import Issue, validate_quote_request
+from .quote_engine.validators import validate_quote_request
 
 
 @login_required
@@ -59,7 +59,8 @@ def quote_engine_page(request, lead_id: int):
     return render(request, "core/insurance_quote_engine.html", {
         "lead": lead, "flat": flat, "errors": errors, "warnings": warnings, "report": report,
         "is_commercial": line == "commercial_auto", "line": line,
-        "ready": not errors, "steps": ensure_steps(lead),
-        "next_step": next((s for s in ensure_steps(lead) if s.status in ("pending", "blocked")), None), "past_runs": lead.engine_runs.all()[:5],
+        "ready": not errors, "past_runs": lead.engine_runs.all()[:5],
+        "documents": lead.documents.all(),
+        "extra_vehicles": lead.additional_vehicles.all(),
         "insurance_space": True,
     })
