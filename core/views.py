@@ -5456,6 +5456,85 @@ def ocr_vehicle_title_ajax(request):
 
     return JsonResponse({"status": "success", "data": data})
             
+def _finance_crm_xlsx_response(records):
+    """Excel of the Transaction CRM rows the current filters already selected."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Transactions"
+    headers = [
+        "Transaction Date",
+        "Receipt No",
+        "PSB",
+        "Service Type",
+        "Client",
+        "Phone",
+        "Status",
+        "Agent",
+        "Payment Method",
+        "Source",
+        "Referral",
+        "Plate Type",
+        "DMV Fee",
+        "Other DMV",
+        "DMV Tax",
+        "Processing",
+        "Other PSB",
+        "Sales Tax",
+        "CC Fee",
+        "Total",
+    ]
+    sheet.append(headers)
+    for cell in sheet[1]:
+        cell.font = Font(bold=True)
+
+    plate_labels = dict(Vehicle.PLATE_TYPES)
+    money_start = headers.index("DMV Fee") + 1
+    for record in records:
+        vehicle = record.vehicle if record.vehicle_id else None
+        client = vehicle.client if vehicle and vehicle.client_id else None
+        agent = record.handled_by
+        tx_date = record.transaction_date
+        sheet.append([
+            tx_date.isoformat() if tx_date else "",
+            record.receipt_number or "",
+            record.organization.name if record.organization_id else "",
+            record.service_type_label,
+            client.name if client else (record.client_name or ""),
+            (client.phone_number if client and client.phone_number else "") or (record.phone_no or ""),
+            record.get_status_display(),
+            (agent.get_full_name() or agent.username) if agent else "",
+            record.get_payment_method_display() if record.payment_method else "",
+            record.source or "",
+            record.referral.name if record.referral_id else "",
+            plate_labels.get(vehicle.plate_type, vehicle.plate_type or "") if vehicle else "",
+            float(record.dmv_fee or 0),
+            float(record.other_dmv_fee or 0),
+            float(record.dmv_sales_tax or 0),
+            float(record.processing_fee or 0),
+            float(record.other_fees or 0),
+            float(record.sales_tax or 0),
+            float(record.credit_card_fee or 0),
+            float(record.service_fee or 0),
+        ])
+
+    for row in sheet.iter_rows(min_row=2, min_col=money_start, max_col=len(headers)):
+        for cell in row:
+            cell.number_format = "#,##0.00"
+
+    output = BytesIO()
+    workbook.save(output)
+    output.seek(0)
+    response = HttpResponse(
+        output.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = 'attachment; filename="finance-transactions.xlsx"'
+    return response
+
+
 @login_required
 def finance_hub(request):
     """
@@ -5778,10 +5857,14 @@ def finance_hub(request):
         crm_sort_field = sort_map.get(sort_by, "-transaction_date")
         crm_qs = crm_qs.order_by(crm_sort_field, "-created_at")
 
+        if request.GET.get("export", "").strip().lower() == "xlsx":
+            return _finance_crm_xlsx_response(crm_qs[:MAX_SERVICE_EXPORT_ROWS])
+
         crm_paginator = Paginator(crm_qs, 15)
         crm_page_obj = crm_paginator.get_page(request.GET.get("page"))
         crm_query = request.GET.copy()
         crm_query.pop("page", None)
+        crm_query.pop("export", None)
         crm_query["tab"] = "crm"
         crm_query_string_no_page = crm_query.urlencode()
 

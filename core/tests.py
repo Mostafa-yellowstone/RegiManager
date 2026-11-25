@@ -3253,6 +3253,148 @@ class FinanceBiTransactionDateTests(TestCase):
         self.assertContains(response, "2026-06-10")
         self.assertNotContains(response, "RCPT-MAY")
 
+    def test_finance_hub_crm_shows_excel_export_for_the_open_filters(self):
+        response = self.http.get(reverse("finance-hub"), {"tab": "crm"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Export Excel")
+        self.assertContains(response, 'name="export" value="xlsx"')
+
+    def test_finance_hub_crm_excel_export_keeps_applied_filters(self):
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_date=date(2026, 5, 10),
+            service_fee=Decimal("50.00"),
+            dmv_fee=Decimal("10.00"),
+            receipt_number=f"RCPT-MAY-{self.org.id}",
+            client_name="May Client",
+        )
+        june = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="title_only",
+            transaction_date=date(2026, 6, 10),
+            dmv_fee=Decimal("20.00"),
+            processing_fee=Decimal("5.00"),
+            payment_method="zelle",
+            receipt_number=f"RCPT-JUN-{self.org.id}",
+            client_name="June Client",
+        )
+        other_org = Organization.objects.create(name="Other Finance Org", city="NYC")
+        other_user = User.objects.create_user(username="otherfinance", password="password123")
+        other_client = Client.objects.create(
+            organization=other_org,
+            first_name="Other",
+            last_name="Client",
+        )
+        other_vehicle = Vehicle.objects.create(
+            client=other_client,
+            vin="VINOTHER123456789",
+            vehicle_number="VEH-O1",
+        )
+        ServiceRecord.objects.create(
+            organization=other_org,
+            handled_by=other_user,
+            vehicle=other_vehicle,
+            service_type="title_only",
+            transaction_date=date(2026, 6, 12),
+            service_fee=Decimal("90.00"),
+            receipt_number=f"RCPT-OTHER-{other_org.id}",
+            client_name="Other Client",
+        )
+
+        response = self.http.get(
+            reverse("finance-hub"),
+            {
+                "tab": "crm",
+                "date_from": "2026-06-01",
+                "date_to": "2026-06-30",
+                "service_type": "title_only",
+                "export": "xlsx",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("spreadsheetml", response["Content-Type"])
+        self.assertIn("finance-transactions.xlsx", response["Content-Disposition"])
+
+        sheet = load_workbook(BytesIO(response.content)).active
+        rows = list(sheet.iter_rows(values_only=True))
+        self.assertEqual(rows[0][0], "Transaction Date")
+        self.assertIn("Total", rows[0])
+        receipts = [row[1] for row in rows[1:]]
+        self.assertEqual(receipts, [june.receipt_number])
+        total_idx = rows[0].index("Total")
+        dmv_idx = rows[0].index("DMV Fee")
+        self.assertEqual(rows[1][total_idx], 25)
+        self.assertEqual(rows[1][dmv_idx], 20)
+        self.assertEqual(rows[1][0], "2026-06-10")
+        self.assertEqual(rows[1][rows[0].index("Payment Method")], "Zelle")
+
+    def test_finance_hub_crm_excel_export_respects_search(self):
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=self.vehicle,
+            service_type="vehicle_registration",
+            transaction_date=date(2026, 6, 2),
+            service_fee=Decimal("40.00"),
+            receipt_number=f"RCPT-PAT-{self.org.id}",
+            client_name="Pat Lee",
+        )
+        sam_client = Client.objects.create(
+            organization=self.org,
+            first_name="Sam",
+            last_name="Jones",
+        )
+        sam_vehicle = Vehicle.objects.create(
+            client=sam_client,
+            vin="VINSAMJONES123456",
+            vehicle_number="VEH-SAM",
+        )
+        sam = ServiceRecord.objects.create(
+            organization=self.org,
+            handled_by=self.user,
+            vehicle=sam_vehicle,
+            service_type="vehicle_registration",
+            transaction_date=date(2026, 6, 3),
+            service_fee=Decimal("80.00"),
+            receipt_number=f"RCPT-SAM-{self.org.id}",
+            client_name="Sam Jones",
+        )
+        response = self.http.get(
+            reverse("finance-hub"),
+            {"tab": "crm", "q": "Sam Jones", "export": "xlsx"},
+        )
+        sheet = load_workbook(BytesIO(response.content)).active
+        receipts = [row[1] for row in sheet.iter_rows(min_row=2, values_only=True)]
+        self.assertEqual(receipts, [sam.receipt_number])
+
+    def test_finance_hub_crm_excel_export_requires_finance_access(self):
+        agent = User.objects.create_user(username="nofinance", password="password123")
+        OrganizationMembership.objects.create(
+            user=agent,
+            organization=self.org,
+            is_active=True,
+            role="agent",
+            can_view_reports=False,
+        )
+        client = TestClient()
+        client.login(username="nofinance", password="password123")
+        response = client.get(reverse("finance-hub"), {"tab": "crm", "export": "xlsx"})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("dashboard"), response["Location"])
+
     def test_finance_hub_daily_intake_not_cleared_by_unrelated_date_filters(self):
         tx_date = date(2026, 6, 8)
         ServiceRecord.objects.create(
