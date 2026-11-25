@@ -144,6 +144,7 @@
               </form>
               <div class="iqp-card__btn-group">
                 {% if can_edit_quote_leads %}
+                <a class="iqp-btn iqp-btn--tiny iqp-btn--ghost" href="{% url 'quote-engine-lead' lead.id %}">Run quotes</a>
                 <button type="button" class="iqp-btn iqp-btn--tiny iqp-btn--ghost" data-iqp-edit-lead>Edit</button>
                 {% endif %}
                 {% if can_delete_quote_leads %}

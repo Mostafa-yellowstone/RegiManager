@@ -383,6 +383,7 @@ class InsuranceDeskTests(TestCase):
             self.assertNotIn(text, html)
         self.assertContains(page, reverse("update-quote-lead-stage", args=[lead.id]))
         self.assertContains(page, reverse("assign-quote-lead", args=[lead.id]))
+        self.assertContains(page, reverse("quote-engine-lead", args=[lead.id]))
 
 
 @override_settings(
