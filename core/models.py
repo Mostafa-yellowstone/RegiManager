@@ -4016,6 +4016,9 @@ from .insurance_quote_pipeline_models import (  # noqa: E402,F401
     InsuranceQuoteLead,
 )
 
+# Quote engine run history
+from .quote_engine_models import QuoteEngineRun  # noqa: E402,F401
+
 # Quote engine carrier logins (encrypted)
 from .carrier_credentials_models import (  # noqa: E402,F401
     CarrierCredential,

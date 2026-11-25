@@ -56,6 +56,7 @@ class CarrierCredential(models.Model):
     line = models.CharField(max_length=20, choices=[("auto", "Auto"), ("commercial_auto", "Commercial auto")], default="auto")
     label = models.CharField(max_length=120, blank=True, default="", help_text="Which agency login this is, e.g. 'Brooklyn office'.")
     portal_url = models.URLField(blank=True, default="")
+    otp_email = models.EmailField(blank=True, default="", help_text="Inbox where this carrier sends the login verification code (OTP) for this login.")
     username = models.CharField(max_length=200)
     password_enc = models.TextField(blank=True, default="")
     enabled = models.BooleanField(default=False, help_text="Off by default. Only enabled logins are used by quote runs.")
@@ -120,3 +121,9 @@ def usable_carrier_keys(organization, line: str) -> set[str]:
     """Carrier keys with an enabled login and a stored password for this org and line."""
     qs = CarrierCredential.objects.filter(organization=organization, line=line, enabled=True).exclude(password_enc="")
     return set(qs.values_list("carrier_key", flat=True))
+
+
+def carrier_otp_emails(organization, line: str) -> dict[str, str]:
+    """carrier_key -> inbox where the carrier sends the login OTP (enabled logins with a saved email only)."""
+    qs = CarrierCredential.objects.filter(organization=organization, line=line, enabled=True).exclude(otp_email="")
+    return {c.carrier_key: c.otp_email for c in qs}

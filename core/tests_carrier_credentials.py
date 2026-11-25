@@ -158,3 +158,78 @@ class LeadBridgeTests(TestCase):
         r = run_for_lead(self.lead, extra)
         st = {x.carrier: x.status for x in r.results}
         self.assertEqual(st["Progressive"], "not_implemented")
+
+
+class EnginePageTests(TestCase):
+    def setUp(self):
+        from datetime import date
+        from .models import InsuranceQuoteLead
+        self.org = Organization.objects.create(name="Org")
+        self.su = get_user_model().objects.create_superuser("root2", "r2@x.com", "pw")
+        self.client.force_login(self.su)
+        s = self.client.session; s["active_org_id"] = self.org.id; s.save()
+        self.lead = InsuranceQuoteLead.objects.create(
+            organization=self.org, client_name="Ann Lee", phone="(718) 623-0134", email="a@b.com",
+            street_address="12 Main St", city="Brooklyn", state="NY", zip_code="11201",
+            insurance_type="auto_personal", vin="1HGCM82633A004352", vehicle_year="2003",
+            vehicle_make="Honda", vehicle_model="Accord", dl_number="123456789",
+            date_of_birth=date(1985, 4, 2), vehicle_ownership="owned")
+        self.url = reverse("quote-engine-lead", args=[self.lead.id])
+
+    def test_page_lists_missing_fields(self):
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Needs fixing")
+        self.assertContains(r, "Run quotes")
+
+    def test_blocked_run_saves_history_and_sends_nothing(self):
+        r = self.client.post(self.url, {"action": "run"})
+        self.assertEqual(r.status_code, 200)
+        run = self.lead.engine_runs.get()
+        self.assertTrue(run.blocked)
+        self.assertEqual(run.results, [])
+
+    def test_save_then_run_with_login(self):
+        c = mk(self.org, otp_email="otp@agency.com"); c.set_password("x"); c.enabled = True; c.save()
+        self.client.post(self.url, {"action": "save", "effective_date": "2099-01-01", "bodily_injury_limit": "25/50"})
+        self.lead.refresh_from_db()
+        self.assertEqual(self.lead.quote_details["bodily_injury_limit"], "25/50")
+        r = self.client.post(self.url, {"action": "run", "effective_date": "2099-01-01", "bodily_injury_limit": "25/50"})
+        self.assertContains(r, "Progressive")
+        self.assertContains(r, "Not")  # not implemented, no fake price
+        run = self.lead.engine_runs.get()
+        self.assertFalse(run.blocked)
+        self.assertNotIn("123456789", str(run.issues) + str(run.results))  # no license number stored
+
+    def test_otp_email_reaches_adapter_only_for_that_carrier(self):
+        from .carrier_credentials_models import carrier_otp_emails
+        c = mk(self.org, otp_email="otp@agency.com"); c.set_password("x"); c.enabled = True; c.save()
+        seen = {}
+        def fn(req):
+            seen.update(req); return QuoteResult("P", "quoted", premium_term=1)
+        cs = [CarrierAdapter("progressive", "P", ("auto",), quote_fn=fn), CarrierAdapter("other", "O", ("auto",), quote_fn=lambda r: (seen.update(o=r.get("otp_email")), QuoteResult("O", "quoted", premium_term=2))[1])]
+        run_quotes(base_auto(), carriers=cs, today=TODAY, carrier_emails=carrier_otp_emails(self.org, "auto"))
+        self.assertEqual(seen["otp_email"], "otp@agency.com")
+        self.assertIsNone(seen["o"])
+
+    def test_additional_driver_and_vehicle_included(self):
+        from .insurance_quote_pipeline_models import InsuranceQuoteLeadDriver, InsuranceQuoteLeadVehicle
+        from .quote_engine.lead_bridge import lead_to_request
+        InsuranceQuoteLeadDriver.objects.create(lead=self.lead, full_name="Bob Lee", dl_number="987654321")
+        InsuranceQuoteLeadVehicle.objects.create(lead=self.lead, make="Toyota", model="Camry", year="2010", vin="")
+        r = lead_to_request(self.lead)
+        self.assertEqual(len(r["drivers"]), 2)
+        self.assertEqual(len(r["vehicles"]), 2)
+
+    def test_quoted_results_go_to_pipeline_once(self):
+        from .insurance_desk_models import InsuranceQuoteOption
+        from .quote_engine.lead_bridge import file_results_to_pipeline
+        from .quote_engine.runner import RunReport
+        rep = RunReport(issues=[], results=[QuoteResult("Progressive", "quoted", premium_term=812.5, term_months=6, quote_ref="Q1"),
+                                            QuoteResult("Travelers", "declined"), QuoteResult("Safeco", "not_implemented")])
+        self.assertEqual(file_results_to_pipeline(self.lead, rep), 1)
+        self.assertEqual(file_results_to_pipeline(self.lead, rep), 0)
+        o = InsuranceQuoteOption.objects.get(lead=self.lead)
+        self.assertEqual((o.carrier_name, str(o.term_premium)), ("Progressive", "812.50"))
+        self.lead.refresh_from_db()
+        self.assertEqual(self.lead.stage, "quoted")

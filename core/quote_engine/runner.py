@@ -23,7 +23,7 @@ class RunReport:
 
 def run_quotes(req: dict, carriers: list[CarrierAdapter] | None = None, today: date | None = None,
                max_workers: int = 6, per_carrier_timeout: float = 600.0,
-               allowed_keys: set[str] | None = None) -> RunReport:
+               allowed_keys: set[str] | None = None, carrier_emails: dict[str, str] | None = None) -> RunReport:
     issues = validate_quote_request(req, today)
     if has_errors(issues):
         return RunReport(issues=issues, blocked=True)
@@ -42,7 +42,10 @@ def run_quotes(req: dict, carriers: list[CarrierAdapter] | None = None, today: d
     def one(c: CarrierAdapter) -> QuoteResult:
         t = time.monotonic()
         try:
-            r = c.quote(req)
+            creq = dict(req)
+            if carrier_emails and carrier_emails.get(c.key):
+                creq["otp_email"] = carrier_emails[c.key]
+            r = c.quote(creq)
         except Exception as exc:  # one carrier failing must never stop the others
             r = QuoteResult(c.name, "error", detail=f"{type(exc).__name__}: {exc}")
         r.duration_s = round(time.monotonic() - t, 3)

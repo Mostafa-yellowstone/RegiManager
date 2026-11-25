@@ -1,0 +1,124 @@
+{% extends "base_portal.html" %}
+{% load static %}
+
+{% block title %}Quote engine | RegiManager{% endblock %}
+
+{% block portal_head %}
+<link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=26">
+<link rel="stylesheet" href="{% static 'core/css/quote_engine.css' %}?v=1">
+{% endblock %}
+
+{% block portal_content %}
+<main class="dashboard-shell iqp qe">
+  <a class="iqp-records__back" href="{% url 'insurance-pipeline' %}">← Back to pipeline</a>
+  <header class="qe-hero">
+    <div>
+      <h1>{{ lead.client_name }}</h1>
+      <p>{% if is_commercial %}Commercial auto{% else %}Personal auto{% endif %} quote &middot; {{ lead.city }}{% if lead.state %}, {{ lead.state }}{% endif %}</p>
+    </div>
+    <span class="qe-pill {% if ready %}qe-pill--ok{% else %}qe-pill--warn{% endif %}">
+      {% if ready %}Ready to run{% else %}{{ errors|length }} item{{ errors|length|pluralize }} missing{% endif %}
+    </span>
+  </header>
+
+  {% if messages %}{% for m in messages %}<div class="qe-note qe-note--{{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
+
+  {% if errors %}
+  <section class="qe-card qe-card--errors">
+    <h2>Needs fixing before it can run</h2>
+    <ul>{% for i in errors %}<li><code>{{ i.field }}</code> {{ i.message }}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+  {% if warnings %}
+  <section class="qe-card qe-card--warnings">
+    <h2>Heads up</h2>
+    <ul>{% for i in warnings %}<li><code>{{ i.field }}</code> {{ i.message }}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+
+  <form method="post" class="qe-card qe-form">
+    {% csrf_token %}
+    <h2>Quote details</h2>
+    <p class="qe-sub">Everything already on the lead is used automatically. Fill only what is missing.</p>
+    <div class="qe-grid">
+      <label>Effective date<input type="date" name="effective_date" value="{{ flat.effective_date }}"></label>
+      {% if is_commercial %}
+      <label>Combined single limit ($)<input name="csl_limit" value="{{ flat.csl_limit }}" placeholder="1000000"></label>
+      {% else %}
+      <label>Bodily injury limit<input name="bodily_injury_limit" value="{{ flat.bodily_injury_limit }}" placeholder="25/50"></label>
+      {% endif %}
+      <label>License state<input name="license_state" maxlength="2" value="{{ flat.license_state }}" placeholder="{{ lead.state }}"></label>
+      <label>Prior carrier<input name="prior_carrier" value="{{ flat.prior_carrier }}"></label>
+      <label>Prior policy expires<input type="date" name="prior_expiration" value="{{ flat.prior_expiration }}"></label>
+      <label>Months with prior carrier<input type="number" min="0" name="months_with_carrier" value="{{ flat.months_with_carrier }}"></label>
+      <label class="qe-wide">Accident dates (one per line)<textarea name="accident_dates" rows="2">{{ flat.accident_dates }}</textarea></label>
+    </div>
+    {% if is_commercial %}
+    <h3>Business</h3>
+    <div class="qe-grid">
+      <label>Legal name<input name="legal_name" value="{{ flat.legal_name }}"></label>
+      <label>Entity type<select name="entity_type">        <option value="">Select</option>
+        <option value="llc" {% if flat.entity_type == "llc" %}selected{% endif %}>LLC</option>
+        <option value="corporation" {% if flat.entity_type == "corporation" %}selected{% endif %}>Corporation</option>
+        <option value="sole_proprietor" {% if flat.entity_type == "sole_proprietor" %}selected{% endif %}>Sole proprietor</option>
+        <option value="partnership" {% if flat.entity_type == "partnership" %}selected{% endif %}>Partnership</option>
+        <option value="nonprofit" {% if flat.entity_type == "nonprofit" %}selected{% endif %}>Nonprofit</option>
+        <option value="other" {% if flat.entity_type == "other" %}selected{% endif %}>Other</option>
+      </select></label>
+      <label>FEIN<input name="fein" value="{{ flat.fein }}" placeholder="12-3456789"></label>
+      <label>USDOT<input name="usdot" value="{{ flat.usdot }}"></label>
+      <label>Years in business<input type="number" min="0" name="years_in_business" value="{{ flat.years_in_business }}"></label>
+      <label>What the business does or hauls<input name="operation_type" value="{{ flat.operation_type }}"></label>
+      <label>Vehicle class<select name="vehicle_class">
+        <option value="">Select</option>
+        <option value="van" {% if flat.vehicle_class == "van" %}selected{% endif %}>Van</option>
+        <option value="pickup" {% if flat.vehicle_class == "pickup" %}selected{% endif %}>Pickup</option>
+        <option value="light_truck" {% if flat.vehicle_class == "light_truck" %}selected{% endif %}>Light truck</option>
+        <option value="box_truck" {% if flat.vehicle_class == "box_truck" %}selected{% endif %}>Box truck</option>
+        <option value="dump_truck" {% if flat.vehicle_class == "dump_truck" %}selected{% endif %}>Dump truck</option>
+        <option value="tractor" {% if flat.vehicle_class == "tractor" %}selected{% endif %}>Tractor</option>
+        <option value="trailer" {% if flat.vehicle_class == "trailer" %}selected{% endif %}>Trailer</option>
+        <option value="bus" {% if flat.vehicle_class == "bus" %}selected{% endif %}>Bus</option>
+        <option value="limo" {% if flat.vehicle_class == "limo" %}selected{% endif %}>Limo</option>
+        <option value="taxi_tlc" {% if flat.vehicle_class == "taxi_tlc" %}selected{% endif %}>Taxi / TLC</option>
+        <option value="tow_truck" {% if flat.vehicle_class == "tow_truck" %}selected{% endif %}>Tow truck</option>
+        <option value="other" {% if flat.vehicle_class == "other" %}selected{% endif %}>Other</option>
+      </select></label>
+      <label>GVW (lbs)<input type="number" name="gvw" value="{{ flat.gvw }}"></label>
+      <label>Radius (miles)<input type="number" name="radius_miles" value="{{ flat.radius_miles }}"></label>
+    </div>
+    {% endif %}
+    <div class="qe-actions">
+      <button type="submit" name="action" value="save" class="qe-btn qe-btn--ghost">Save details</button>
+      <button type="submit" name="action" value="run" class="qe-btn qe-btn--primary">Run quotes</button>
+    </div>
+  </form>
+
+  {% if report and not report.blocked %}
+  <section class="qe-card">
+    <h2>Results</h2>
+    <table class="qe-table">
+      <thead><tr><th>Carrier</th><th>Status</th><th>Per month</th><th>Term total</th><th>Note</th></tr></thead>
+      <tbody>
+      {% for r in report.results %}
+        <tr class="qe-row qe-row--{{ r.status }}">
+          <td>{{ r.carrier }}</td>
+          <td><span class="qe-pill qe-pill--{{ r.status }}">{{ r.status|cut:"_"|title }}</span></td>
+          <td>{% if r.premium_monthly %}${{ r.premium_monthly|floatformat:2 }}{% else %}-{% endif %}</td>
+          <td>{% if r.premium_term %}${{ r.premium_term|floatformat:2 }}{% else %}-{% endif %}</td>
+          <td>{{ r.detail }}</td>
+        </tr>
+      {% empty %}<tr><td colspan="5">No carrier has an enabled login for this line. Turn one on in Carrier credentials.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  {% if past_runs %}
+  <section class="qe-card">
+    <h2>Recent runs</h2>
+    <ul class="qe-runs">{% for r in past_runs %}<li>{{ r.created_at|date:"M j, H:i" }} &middot; {% if r.blocked %}blocked ({{ r.issues|length }} issues){% else %}{{ r.results|length }} carriers{% endif %}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+</main>
+{% endblock %}

@@ -54,6 +54,7 @@ from core.insurance_report_views import (
     export_insurance_targets_pdf,
     export_insurance_unearned_pdf,
 )
+from core.quote_engine_views import quote_engine_page
 from core.insurance_quote_pipeline_views import (
     add_insurance_agent_off_day,
     assign_quote_lead,
@@ -763,6 +764,11 @@ urlpatterns = [
         "dashboard/insurance-quotes/<int:lead_id>/stage/",
         update_quote_lead_stage,
         name="update-quote-lead-stage",
+    ),
+    path(
+        "dashboard/insurance-quotes/<int:lead_id>/quote-engine/",
+        quote_engine_page,
+        name="quote-engine-lead",
     ),
     path(
         "dashboard/insurance-quotes/<int:lead_id>/edit/",

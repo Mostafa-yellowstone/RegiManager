@@ -45,7 +45,7 @@ class LogInline(admin.TabularInline):
 @admin.register(CarrierCredential)
 class CarrierCredentialAdmin(admin.ModelAdmin):
     form = CarrierCredentialForm
-    list_display = ("carrier_key", "line", "label", "organization", "enabled", "status", "password_saved", "last_checked_at")
+    list_display = ("carrier_key", "line", "label", "organization", "otp_email", "enabled", "status", "password_saved", "last_checked_at")
     list_filter = ("enabled", "status", "line", "carrier_key", "organization")
     search_fields = ("carrier_key", "label", "username")
     readonly_fields = ("last_checked_at", "last_error", "consecutive_failures")

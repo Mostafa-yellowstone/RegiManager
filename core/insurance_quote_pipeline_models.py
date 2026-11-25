@@ -93,6 +93,7 @@ class InsuranceQuoteLead(models.Model):
     dl_number = models.CharField(max_length=40, blank=True, default="")
     date_of_birth = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True, default="")
+    quote_details = models.JSONField(default=dict, blank=True, help_text="Extra fields the quote engine needs (limits, prior carrier, business data).")
     recommended_companies = models.ManyToManyField(
         "InsuranceCompany",
         blank=True,
