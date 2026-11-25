@@ -36,6 +36,7 @@ class CarrierAdapter:
     max_drivers: int = 99
     min_driver_age: int = 16
     portal_login_required: bool = True
+    requires_consent: bool = False  # needs the customer's recorded CLUE/MVR consent before running
     quote_fn: Callable[[dict], QuoteResult] | None = None
 
     def eligibility(self, req: dict) -> str | None:
@@ -71,7 +72,7 @@ def get_carriers(line: str | None = None) -> list[CarrierAdapter]:
 
 
 # Auto (personal). Carrier list is a starting set; the user decides which have portal logins.
-register(CarrierAdapter("progressive", "Progressive", ("auto", "commercial_auto")))
+register(CarrierAdapter("progressive", "Progressive", ("auto", "commercial_auto"), requires_consent=True))
 register(CarrierAdapter("travelers", "Travelers", ("auto", "commercial_auto")))
 register(CarrierAdapter("national_general", "National General", ("auto",)))
 register(CarrierAdapter("safeco", "Safeco", ("auto",)))

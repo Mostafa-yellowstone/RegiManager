@@ -8,9 +8,10 @@ from .carrier_credentials_models import (
 from .models import Organization
 from .quote_engine.carriers import CarrierAdapter, QuoteResult
 from .quote_engine.runner import run_quotes
-from .tests_quote_engine import TODAY, base_auto
+from .tests_quote_engine import TODAY, base_auto, base_commercial
 
 
+import copy
 import os
 from cryptography.fernet import Fernet
 
@@ -155,6 +156,8 @@ class LeadBridgeTests(TestCase):
         self.assertFalse(r.blocked)
         self.assertTrue(all(x.status == "skipped" for x in r.results))
         c = mk(self.org); c.set_password("x"); c.enabled = True; c.save()
+        from .quote_followup_models import mark_step
+        mark_step(self.lead, "data_entry", "done"); mark_step(self.lead, "consent", "done")
         r = run_for_lead(self.lead, extra)
         st = {x.carrier: x.status for x in r.results}
         self.assertEqual(st["Progressive"], "not_implemented")
@@ -290,3 +293,77 @@ class OtpTests(TestCase):
         mb = c.otp_mailbox(actor="t")
         self.assertEqual((mb.host, mb.user, mb.password), ("imap.example.com", "otp@a.com", "mailpw-XYZ"))
         self.assertTrue(c.logs.filter(action="otp_mailbox_used").exists())
+
+
+class FollowUpAndProgressiveTests(TestCase):
+    def setUp(self):
+        EnginePageTests.setUp(self)
+
+    def test_steps_order_enforced_and_bind_human_only(self):
+        from .quote_followup_models import ensure_steps, mark_step
+        self.assertEqual(len(ensure_steps(self.lead)), 8)
+        with self.assertRaises(ValueError):
+            mark_step(self.lead, "mvr", "done")
+        mark_step(self.lead, "data_entry", "done"); mark_step(self.lead, "consent", "done", user=self.su)
+        mark_step(self.lead, "run_quote", "done", system=True)
+        with self.assertRaises(ValueError):
+            mark_step(self.lead, "bind", "done", system=True)
+
+    def test_step_endpoint(self):
+        r = self.client.post(self.url, {"action": "step", "key": "data_entry", "status": "done", "note": "ok"})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(self.lead.followup_steps.get(key="data_entry").status, "done")
+        self.client.post(self.url, {"action": "step", "key": "mvr", "status": "done"})
+        self.assertEqual(self.lead.followup_steps.get(key="mvr").status, "pending")
+        self.assertContains(self.client.get(self.url), "Follow-up")
+
+    def test_progressive_needs_consent_in_runner(self):
+        r = run_quotes(base_auto(), today=TODAY, consent_given=False,
+                       carriers=[CarrierAdapter("progressive", "Progressive", ("auto",), requires_consent=True, quote_fn=lambda q: QuoteResult("P", "quoted", premium_term=1))])
+        self.assertEqual(r.results[0].status, "needs_input")
+
+    def test_progressive_flow_with_fake_driver(self):
+        from .quote_engine.adapters.progressive import PortalQuestion, run_progressive
+
+        class Fake:
+            def __init__(self, rate=None, ask=None):
+                self.calls, self.rate, self.ask = [], rate, ask
+            def login(self, otp): self.calls.append("login"); self.otp = otp()
+            def new_auto_quote(self, state): self.calls.append(("new", state))
+            def enter_drivers(self, d, a): self.calls.append("drivers"); self.answers = a
+            def enter_vehicles(self, v, a):
+                if self.ask: raise PortalQuestion(self.ask)
+                self.calls.append("vehicles")
+            def set_coverage(self, c): self.calls.append("cov"); self.cov = c
+            def go_to_point_of_sale(self): self.calls.append("pos")
+            def read_rate(self): return self.rate
+            def screenshot(self): return ""
+            def close(self): self.calls.append("close")
+        req = base_auto()
+        # no consent: nothing touches the portal
+        d = Fake(); r = run_progressive(req, d, lambda: "123456", consent_given=False)
+        self.assertEqual((r.status, d.calls), ("needs_input", []))
+        d = Fake(rate={"premium_term": 900.0, "premium_monthly": 150.0, "term_months": 6, "ref": "Q9", "alerts": ["PBV required"]})
+        r = run_progressive(req, d, lambda: "123456", consent_given=True)
+        self.assertEqual((r.status, r.premium_term, r.quote_ref), ("quoted", 900.0, "Q9"))
+        self.assertEqual(d.cov["bi_pd"], "25/50/25"); self.assertEqual(d.answers["annual_miles"], 10000)
+        self.assertEqual(d.calls[:2], ["login", ("new", "NY")]); self.assertEqual(d.calls[-1], "close")
+        d = Fake(ask="Prior carrier?")
+        r = run_progressive(req, d, lambda: "1", consent_given=True)
+        self.assertEqual(r.status, "needs_input"); self.assertIn("Prior carrier?", r.detail)
+        self.assertEqual(r.extra["steps_done"], ["login", "new_quote", "drivers"])
+        d = Fake(rate={"premium_term": 0, "alerts": ["Not eligible"]})
+        self.assertEqual(run_progressive(req, d, lambda: "1", consent_given=True).status, "declined")
+        # liability vs full, owned vs financed
+        d = Fake(rate={"premium_term": 500.0})
+        run_progressive(req, d, lambda: "1", consent_given=True)
+        self.assertFalse(d.cov["vehicles"][0]["comp_collision"])
+        r2 = copy.deepcopy(req); r2["vehicles"][0].update(coverage="full", ownership="financed", lienholder="Chase")
+        d = Fake(rate={"premium_term": 700.0}); run_progressive(r2, d, lambda: "1", consent_given=True)
+        self.assertEqual((d.cov["vehicles"][0]["comp_collision"], d.cov["vehicles"][0]["lienholder"]), (True, "Chase"))
+        r3 = copy.deepcopy(req); r3["vehicles"][0].update(coverage="liability", ownership="financed", lienholder="Chase")
+        self.assertIn("lender requires full", run_progressive(r3, Fake(), lambda: "1", consent_given=True).detail)
+        r4 = copy.deepcopy(req); r4["vehicles"][0].update(coverage="full", ownership="financed")
+        self.assertIn("lienholder", run_progressive(r4, Fake(), lambda: "1", consent_given=True).detail)
+        c = base_commercial()
+        self.assertEqual(run_progressive(c, Fake(), lambda: "1", consent_given=True).status, "skipped")

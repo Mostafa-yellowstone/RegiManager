@@ -89,7 +89,15 @@ def run_for_lead(lead, extra: dict | None = None, organization=None, user=None, 
     allowed = usable_carrier_keys(org, req["line_of_business"]) if req["line_of_business"] in ("auto", "commercial_auto") else set()
     lob = req["line_of_business"]
     emails = carrier_otp_emails(org, lob) if lob in ("auto", "commercial_auto") else {}
-    report = run_quotes(req, allowed_keys=allowed, carrier_emails=emails)
+    from ..quote_followup_models import consent_given, mark_step
+
+    report = run_quotes(req, allowed_keys=allowed, carrier_emails=emails, consent_given=consent_given(lead))
+    if save:
+        if not report.blocked:
+            try:
+                mark_step(lead, "data_entry", "done", note="Validated by quote engine", system=True)
+            except ValueError:
+                pass
     if save:
         from ..quote_engine_models import QuoteEngineRun
         QuoteEngineRun.objects.create(
@@ -156,6 +164,8 @@ def file_results_to_pipeline(lead, report: RunReport, user=None) -> int:
     from ..models import InsuranceCompany
 
     added = 0
+    from ..quote_followup_models import mark_step
+
     for r in report.results:
         if r.status != "quoted" or not r.premium_term:
             continue
@@ -172,4 +182,9 @@ def file_results_to_pipeline(lead, report: RunReport, user=None) -> int:
     if added and lead.stage in (InsuranceQuoteLead.Stage.NEW, InsuranceQuoteLead.Stage.ASSIGNED, InsuranceQuoteLead.Stage.QUOTING):
         lead.stage = InsuranceQuoteLead.Stage.QUOTED
         lead.save(update_fields=["stage", "updated_at"])
+    if added:
+        try:
+            mark_step(lead, "run_quote", "done", note=f"{added} quote(s) returned", system=True)
+        except ValueError:
+            pass  # earlier step (e.g. consent) not done yet; leave it for the agent
     return added

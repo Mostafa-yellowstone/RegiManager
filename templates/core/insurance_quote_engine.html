@@ -23,6 +23,32 @@
 
   {% if messages %}{% for m in messages %}<div class="qe-note qe-note--{{ m.tags }}">{{ m }}</div>{% endfor %}{% endif %}
 
+  <section class="qe-card qe-steps">
+    <h2>Follow-up{% if next_step %} <span class="qe-sub">Next: {{ next_step.label }}</span>{% else %} <span class="qe-sub">All steps finished</span>{% endif %}</h2>
+    <ol class="qe-steplist">
+    {% for s in steps %}
+      <li class="qe-step qe-step--{{ s.status }}{% if next_step and s.pk == next_step.pk %} qe-step--next{% endif %}">
+        <div class="qe-step__main">
+          <strong>{{ s.label }}</strong>
+          <span>{{ s.help }}</span>
+          {% if s.note %}<em>{{ s.note }}</em>{% endif %}
+          {% if s.status == "done" %}<small>Done{% if s.done_by_system %} by the engine{% elif s.done_by %} by {{ s.done_by }}{% endif %}{% if s.done_at %} &middot; {{ s.done_at|date:"M j, H:i" }}{% endif %}</small>{% endif %}
+        </div>
+        <form method="post" class="qe-step__form">
+          {% csrf_token %}<input type="hidden" name="action" value="step"><input type="hidden" name="key" value="{{ s.key }}">
+          {% if s.status == "done" %}
+            <button class="qe-btn qe-btn--ghost" name="status" value="pending">Undo</button>
+          {% else %}
+            <input name="note" placeholder="Note (optional)">
+            <button class="qe-btn qe-btn--primary" name="status" value="done">Mark done</button>
+            <button class="qe-btn qe-btn--ghost" name="status" value="blocked">Blocked</button>
+          {% endif %}
+        </form>
+      </li>
+    {% endfor %}
+    </ol>
+  </section>
+
   {% if errors %}
   <section class="qe-card qe-card--errors">
     <h2>Needs fixing before it can run</h2>

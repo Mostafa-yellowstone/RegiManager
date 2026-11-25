@@ -11,6 +11,7 @@ from .http import deny_access
 from .insurance_quote_permissions import can_edit_quote_lead, membership_for_org
 from .insurance_quote_pipeline_models import InsuranceQuoteLead
 from .insurance_quote_pipeline_views import _active_org
+from .quote_followup_models import STEP_KEYS, QuoteFollowUpStep, ensure_steps, mark_step
 from .quote_engine.lead_bridge import FLAT_FIELDS, file_results_to_pipeline, flat_to_extra, lead_to_request, run_for_lead
 from .quote_engine.validators import Issue, validate_quote_request
 
@@ -26,6 +27,14 @@ def quote_engine_page(request, lead_id: int):
         deny_access("You cannot run quotes for this lead.")
 
     report = None
+    if request.method == "POST" and request.POST.get("action") == "step":
+        key, status = request.POST.get("key", ""), request.POST.get("status", "")
+        if key in STEP_KEYS and status in ("done", "pending", "blocked", "skipped"):
+            try:
+                mark_step(lead, key, status, user=request.user, note=(request.POST.get("note") or "").strip())
+            except ValueError as exc:
+                messages.error(request, str(exc))
+        return redirect(reverse("quote-engine-lead", args=[lead.id]))
     if request.method == "POST":
         flat = {k: (request.POST.get(k) or "").strip() for k in FLAT_FIELDS}
         lead.quote_details = flat
@@ -49,6 +58,7 @@ def quote_engine_page(request, lead_id: int):
     return render(request, "core/insurance_quote_engine.html", {
         "lead": lead, "flat": flat, "errors": errors, "warnings": warnings, "report": report,
         "is_commercial": line == "commercial_auto", "line": line,
-        "ready": not errors, "past_runs": lead.engine_runs.all()[:5],
+        "ready": not errors, "steps": ensure_steps(lead),
+        "next_step": next((s for s in ensure_steps(lead) if s.status in ("pending", "blocked")), None), "past_runs": lead.engine_runs.all()[:5],
         "insurance_space": True,
     })

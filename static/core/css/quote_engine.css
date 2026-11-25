@@ -31,3 +31,16 @@
 .qe-table th{text-align:left;color:#64748b;font-weight:600;padding:8px 10px;border-bottom:1px solid #e2e8f0}
 .qe-table td{padding:10px;border-bottom:1px solid #f1f5f9}
 .qe-runs{color:#64748b;font-size:.88rem}
+
+.qe-steplist{list-style:none;margin:0;padding:0;counter-reset:s}
+.qe-step{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px 14px;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:8px;counter-increment:s}
+.qe-step__main{display:flex;flex-direction:column;gap:2px}
+.qe-step__main span{color:#64748b;font-size:.85rem}
+.qe-step__main em{font-size:.85rem;color:#334155}
+.qe-step__main small{color:#166534}
+.qe-step--done{background:#f0fdf4;border-color:#bbf7d0}
+.qe-step--blocked{background:#fef2f2;border-color:#fecaca}
+.qe-step--next{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+.qe-step__form{display:flex;gap:6px;align-items:center}
+.qe-step__form input{border:1px solid #cbd5e1;border-radius:8px;padding:7px 9px;width:160px}
+.qe-step__form .qe-btn{padding:7px 12px;font-size:.85rem}
