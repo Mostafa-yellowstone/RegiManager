@@ -1,8 +1,7 @@
 """Per-carrier portal logins for the quote engine, encrypted at rest.
 
 Passwords are write-only: stored with Fernet, never shown in admin or logs.
-Key comes from CARRIER_CRED_KEY (a Fernet key). In DEBUG only, a key derived
-from SECRET_KEY is used so local tests work. Rotate with rotate_key().
+Key comes from CARRIER_CRED_KEY (a Fernet key); until it is set, a key derived from SECRET_KEY is used.
 """
 from __future__ import annotations
 
@@ -20,14 +19,26 @@ class CredentialKeyError(RuntimeError):
     pass
 
 
-def _fernet(key: str | None = None) -> Fernet:
-    key = key or os.getenv("CARRIER_CRED_KEY", "")
-    if not key:
-        if not getattr(settings, "DEBUG", False):
-            raise CredentialKeyError("CARRIER_CRED_KEY is not set.")
-        key = base64.urlsafe_b64encode(hashlib.sha256(("carrier-cred:" + settings.SECRET_KEY).encode()).digest()).decode()
+def _derived_key() -> str:
+    return base64.urlsafe_b64encode(hashlib.sha256(("carrier-cred:" + settings.SECRET_KEY).encode()).digest()).decode()
+
+
+def _fernet(key: str | None = None):
+    """MultiFernet: encrypts with CARRIER_CRED_KEY when set, else a key derived from SECRET_KEY.
+
+    Decrypts with either, so logins saved before CARRIER_CRED_KEY was set stay readable after it is set.
+    Set CARRIER_CRED_KEY in production: the derived key is only as safe as SECRET_KEY, and changing
+    SECRET_KEY would make logins saved with the derived key unreadable.
+    """
+    from cryptography.fernet import MultiFernet
+
+    keys = []
+    env = key or os.getenv("CARRIER_CRED_KEY", "")
+    if env:
+        keys.append(env)
+    keys.append(_derived_key())
     try:
-        return Fernet(key.encode() if isinstance(key, str) else key)
+        return MultiFernet([Fernet(k.encode() if isinstance(k, str) else k) for k in keys])
     except Exception as exc:
         raise CredentialKeyError("CARRIER_CRED_KEY is not a valid Fernet key.") from exc
 

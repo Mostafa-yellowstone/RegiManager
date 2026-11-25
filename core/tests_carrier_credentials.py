@@ -383,3 +383,20 @@ class FollowUpAndProgressiveTests(TestCase):
         self.assertIn("lienholder", run_progressive(r4, Fake(), lambda: "1", spend_approved=True).detail)
         c = base_commercial()
         self.assertEqual(run_progressive(c, Fake(), lambda: "1", spend_approved=True).status, "skipped")
+
+
+class KeyFallbackTests(TestCase):
+    def test_works_without_env_key_and_survives_adding_it_later(self):
+        os.environ.pop("CARRIER_CRED_KEY", None)
+        token = encrypt_secret("pw1")  # saved with the derived key
+        self.assertEqual(decrypt_secret(token), "pw1")
+        os.environ["CARRIER_CRED_KEY"] = Fernet.generate_key().decode()
+        try:
+            self.assertEqual(decrypt_secret(token), "pw1")       # old data still readable
+            new = encrypt_secret("pw2")                          # new data uses the env key
+            self.assertEqual(decrypt_secret(new), "pw2")
+            os.environ.pop("CARRIER_CRED_KEY")
+            with self.assertRaises(CredentialKeyError):
+                decrypt_secret(new)                              # env key lost: new data unreadable
+        finally:
+            os.environ["CARRIER_CRED_KEY"] = Fernet.generate_key().decode()
