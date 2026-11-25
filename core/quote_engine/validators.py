@@ -182,7 +182,7 @@ def validate_person(p: dict, prefix: str, today: date, state: str = "", require_
             out.append(Issue(f("age_first_licensed"), "licensed_age_invalid", "Age first licensed must be a number."))
     rel = _clean(p.get("relationship")).lower()
     if rel and rel not in RELATIONSHIPS:
-        out.append(Issue(f("relationship"), "relationship_invalid", f"Relationship must be one of: {', '.join(sorted(RELATIONSHIPS))}."))
+        out.append(Issue(f("relationship"), "relationship_invalid", "Relationship must be one of: " + ", ".join(sorted(RELATIONSHIPS)) + "."))
     for k, label in (("accidents", "accident"), ("violations", "violation"), ("claims", "claim")):
         items = p.get(k) or []
         if not isinstance(items, list):
@@ -253,7 +253,7 @@ def validate_vehicle(v: dict, idx: int, today: date, commercial: bool) -> list[I
     for k in ("deductible_comp", "deductible_collision"):
         d = v.get(k)
         if d not in (None, "") and int(d) not in DEDUCTIBLES:
-            out.append(Issue(f"{prefix}.{k}", "deductible_invalid", f"Deductible must be one of {sorted(DEDUCTIBLES)}."))
+            out.append(Issue(f"{prefix}.{k}", "deductible_invalid", "Deductible must be one of: " + ", ".join(f"${n:,}" for n in sorted(DEDUCTIBLES)) + "."))
     if own in ("financed", "leased") and v.get("coverage") == "liability":
         out.append(Issue(f"{prefix}.coverage", "lien_needs_full", "Lienholders require comp and collision, liability-only will be declined.", "warning"))
     if commercial:
@@ -309,12 +309,12 @@ def validate_policy(data: dict, today: date, commercial: bool) -> list[Issue]:
     if commercial:
         try:
             if int(data.get("csl_limit")) not in COMMERCIAL_CSL:
-                out.append(Issue("csl_limit", "csl_invalid", f"Combined single limit must be one of {sorted(COMMERCIAL_CSL)}."))
+                out.append(Issue("csl_limit", "csl_invalid", "Combined single limit must be one of: " + ", ".join(f"${n:,}" for n in sorted(COMMERCIAL_CSL)) + "."))
         except (TypeError, ValueError):
             out.append(Issue("csl_limit", "csl_required", "Combined single limit is required."))
     else:
         if lim not in BODILY_INJURY_LIMITS:
-            out.append(Issue("bodily_injury_limit", "limit_invalid", f"Bodily injury limit must be one of {sorted(BODILY_INJURY_LIMITS)}."))
+            out.append(Issue("bodily_injury_limit", "limit_invalid", "Bodily injury limit must be one of: " + ", ".join(sorted(BODILY_INJURY_LIMITS, key=lambda x: tuple(int(n) for n in x.split("/")))) + "."))
     return out
 
 
@@ -323,7 +323,7 @@ def validate_business(b: dict) -> list[Issue]:
     if not _clean(b.get("legal_name")):
         out.append(Issue("business.legal_name", "required", "Legal business name is required."))
     if _clean(b.get("entity_type")).lower() not in COMMERCIAL_ENTITY:
-        out.append(Issue("business.entity_type", "entity_invalid", f"Entity type must be one of {sorted(COMMERCIAL_ENTITY)}."))
+        out.append(Issue("business.entity_type", "entity_invalid", "Entity type must be one of: " + ", ".join(sorted(COMMERCIAL_ENTITY)) + "."))
     fein = re.sub(r"\D", "", str(b.get("fein") or ""))
     if b.get("fein") and (len(fein) != 9 or fein[:2] in ("00", "07", "08", "09", "17", "18", "19", "28", "29", "49", "69", "70", "78", "79", "89", "96", "97")):
         out.append(Issue("business.fein", "fein_invalid", "FEIN must be 9 digits with a valid IRS prefix."))
