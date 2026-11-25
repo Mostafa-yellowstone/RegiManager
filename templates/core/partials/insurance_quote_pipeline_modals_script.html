@@ -301,9 +301,12 @@
       document.getElementById('iqpEditType').value = card.getAttribute('data-insurance-type') || '';
       document.getElementById('iqpEditStage').value = card.getAttribute('data-stage') || 'new';
       document.getElementById('iqpEditNotes').value = card.getAttribute('data-notes') || '';
-      document.getElementById('iqpEditPrior').checked = card.getAttribute('data-has-prior') === '1';
-      document.getElementById('iqpEditExperienced').checked = card.getAttribute('data-is-experienced') === '1';
-      document.getElementById('iqpEditAccident').checked = card.getAttribute('data-has-accident') === '1';
+      var priorEl = document.getElementById('iqpEditPrior');
+      if (priorEl) priorEl.checked = card.getAttribute('data-has-prior') === '1';
+      var experiencedEl = document.getElementById('iqpEditExperienced');
+      if (experiencedEl) experiencedEl.checked = card.getAttribute('data-is-experienced') === '1';
+      var accidentEl = document.getElementById('iqpEditAccident');
+      if (accidentEl) accidentEl.checked = card.getAttribute('data-has-accident') === '1';
       var vehicleEl = document.getElementById('iqpEditVehicle');
       if (vehicleEl) vehicleEl.value = card.getAttribute('data-vehicle-ownership') || '';
       var coverageEl = document.getElementById('iqpEditCoverage');
