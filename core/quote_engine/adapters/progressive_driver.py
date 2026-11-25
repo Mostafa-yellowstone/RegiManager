@@ -154,14 +154,76 @@ class ProgressiveBrowserDriver:
         self._next("Additional Details")
 
     def set_coverage(self, coverage: dict) -> None:
-        # Coverages screen recorded live; setting each coverage is the next live pass.
+        """Set the coverages recorded on the Coverages screen. Order matters: BI/PD first (it clears UM/UIM)."""
         self._guard()
+        cl = spec.COVERAGE
+        bi = coverage.get("bi_pd", "25/50/25")
+        self._set(cl["bi_pd"], bi, "select")
+        um = spec.UM_UIM_OPTIONS.get(bi)
+        if um is None:
+            raise PortalQuestion(f"No recorded UM/UIM option for liability {bi}.")
+        self._set(cl["um_uim"], um, "select")
+        self._set(cl["obel"], spec.COVERAGE_OPTIONS["obel"][int(coverage.get("obel", 25000))], "select")
+        self._set(cl["med_pay"], spec.COVERAGE_OPTIONS["med_pay"][int(coverage.get("med_pay", 5000))], "select")
+        self._set(cl["snapshot"], spec.SNAPSHOT_DEFAULT, "select")
+        self.page.click("RECALCULATE")
+        _pause(4, 7, sleep=self._sleep)
+        self._guard()
+        errs = self._errors()
+        if errs:
+            self.errors_seen += errs
+            raise PortalValidation(errs)
+        if "$ --" in self.page.text():
+            raise PortalQuestion("The portal did not return a premium after Recalculate.")
+
+    def go_to_portfolio(self) -> None:
+        self.page.click("PORTFOLIO (SUBMIT")
+        _pause(2, 4, sleep=self._sleep)
+        self._guard()
+        errs = self._errors()
+        if errs:
+            self.errors_seen += errs
+            raise PortalValidation(errs)
 
     def go_to_point_of_sale(self) -> None:
-        raise PortalQuestion("Portfolio and Point of Sale screens are not recorded yet, so the driver cannot go past Coverages.")
+        """Only called after the user approved the money gate. Orders CLUE and MVR. Never binds."""
+        self.go_to_portfolio()
+        self.rate_before_pos = self._read_total()
+        self.page.click("POINT OF SALE")
+        _pause(2, 4, sleep=self._sleep)
+        self._guard()
+        t = self.page.text()
+        if spec.POINT_OF_SALE["order_button"] not in t.upper():
+            raise PortalQuestion("The Point of Sale page did not look as recorded.")
+        self.page.click(spec.POINT_OF_SALE["order_button"])
+        _pause(15, 25, sleep=self._sleep)
+        self._guard()
+        t = self.page.text()
+        if t.count("Ordered") - t.count("Not Ordered") < 2:
+            raise PortalQuestion("CLUE and MVR did not show as Ordered.")
+        self._pos_text = t
+
+    def _read_total(self) -> float | None:
+        import re
+        m = re.search(r"Total Premium:\s*\$?([\d,]+\.\d{2})", self.page.text()) or re.search(r"TOTAL PREMIUM\s*\$?([\d,]+\.\d{2})", self.page.text())
+        return float(m.group(1).replace(",", "")) if m else None
 
     def read_rate(self) -> dict:
-        raise PortalQuestion("Rate page not recorded yet.")
+        """Post-POS rate is read from the Portfolio page, with the alerts seen on Point of Sale."""
+        t = getattr(self, "_pos_text", "")
+        alerts = [ln.strip() for ln in t.splitlines()
+                  if any(k.lower() in ln.lower() for k in ("prior damage", "pre-binding", "no lapse", "may impact rate"))]
+        self.page.click("PORTFOLIO")
+        _pause(3, 5, sleep=self._sleep)
+        self._guard()
+        after = self._read_total()
+        before = getattr(self, "rate_before_pos", None)
+        if after is None:
+            raise PortalQuestion("Could not read the premium on the Portfolio page.")
+        if before and after > before * 1.10:
+            alerts.append(f"Rate rose after Point of Sale: {before:,.2f} -> {after:,.2f}.")
+        return {"premium_term": after, "premium_monthly": None, "term_months": 6, "ref": "", "alerts": alerts,
+                "rate_before_pos": before}
 
     def screenshot(self) -> str:
         return self.page.screenshot()

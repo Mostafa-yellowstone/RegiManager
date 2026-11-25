@@ -90,3 +90,36 @@ class DriverTests(SimpleTestCase):
     def test_stops_at_coverages(self):
         with self.assertRaises(PortalQuestion):
             drv(FakePage()).go_to_point_of_sale()
+
+
+class WiringTests(SimpleTestCase):
+    def test_not_enabled_without_env(self):
+        import os
+        from core.quote_engine.adapters import progressive_wiring as w
+        for k in ("PROGRESSIVE_AUTOMATION", "PROGRESSIVE_USER", "PROGRESSIVE_PASSWORD"):
+            os.environ.pop(k, None)
+        self.assertFalse(w.enabled())
+        self.assertFalse(w.install())
+
+    def test_needs_otp_provider(self):
+        from core.quote_engine.adapters import progressive_wiring as w
+        r = w.make_quote_fn(page_factory=lambda: FakePage(), env={"PROGRESSIVE_USER": "u", "PROGRESSIVE_PASSWORD": "p"})({})
+        self.assertEqual(r.status, "needs_input")
+
+    def test_set_coverage_order_and_values(self):
+        p = FakePage(text="Total Auto Premium: $6,332.00")
+        d = drv(p)
+        d.set_coverage({"bi_pd": "25/50/25", "med_pay": 5000, "obel": 25000})
+        self.assertEqual(p.vals[spec.COVERAGE["um_uim"]], "25/50 Excluding Supplementary")
+        self.assertEqual(p.vals[spec.COVERAGE["med_pay"]], "$5,000 Per Person")
+        self.assertEqual(p.clicks[-1], "RECALCULATE")
+
+    def test_set_coverage_stops_when_no_premium(self):
+        with self.assertRaises(PortalQuestion):
+            drv(FakePage(text="$ --.--")).set_coverage({})
+
+    def test_pos_requires_ordered_state(self):
+        p = FakePage(text="TOTAL PREMIUM $6,408.00 ORDER POINT OF SALE Not Ordered Not Ordered")
+        with self.assertRaises(PortalQuestion):
+            drv(p).go_to_point_of_sale()
+        self.assertNotIn("BIND", " ".join(p.clicks).upper())

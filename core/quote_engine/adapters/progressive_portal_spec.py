@@ -93,3 +93,8 @@ POINT_OF_SALE = {
 }
 # Evidence that the POS rate can move a lot: quote A 6,408 -> 6,408 (unchanged); quote B 6,332 -> alert 12,022, later 10,299.
 # So the engine must report the post-POS rate separately and flag any jump. Bind/Final Sale are never clicked.
+
+
+UM_UIM_OPTIONS = {"25/50/25": "25/50 Excluding Supplementary", "100/300/100": "100/300"}  # 25/50 also offers "Including Supplementary"
+COVERAGE_OPTIONS["obel"] = {25000: "$25,000"}
+COVERAGE_OPTIONS["med_pay"] = {5000: "$5,000 Per Person", 10000: "$10,000 Per Person"}
