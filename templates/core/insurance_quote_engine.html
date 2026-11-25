@@ -214,6 +214,7 @@
       li.className = '';
       if (mode === 'blocked' && index === 0) li.classList.add('is-blocked');
       else if (mode === 'skipped' && index > active) li.classList.add('is-skipped');
+      else if (mode === 'skipped') li.classList.add('is-done');
       else if (index < active) li.classList.add('is-done');
       else if (index === active && mode === 'working') li.classList.add('is-active');
       else if (mode === 'done') li.classList.add('is-done');
@@ -241,7 +242,9 @@
     var body = new FormData(form);
     body.set('action', 'run');
     body.set('spend_approved', '1');
-    fetch(form.action || window.location.href, {
+    // The Save button is named "action", so form.action is that button, not the URL.
+    var postUrl = window.location.pathname + window.location.search;
+    fetch(postUrl, {
       method: 'POST',
       body: body,
       credentials: 'same-origin',
@@ -252,8 +255,15 @@
       });
     }).then(function (result) {
       clearInterval(timer);
-      var blocked = result.html.indexOf('qe-card--errors') !== -1;
-      var notBuilt = result.html.indexOf('qe-pill--not_implemented') !== -1;
+      var looksLikePage = result.ok && result.html.indexOf('id="qe-form"') !== -1;
+      var blocked = looksLikePage && result.html.indexOf('qe-card--errors') !== -1;
+      var notBuilt = looksLikePage && result.html.indexOf('qe-pill--not_implemented') !== -1;
+      if (!looksLikePage) {
+        paint(0, 'blocked');
+        title.textContent = 'The run did not finish';
+        status.textContent = 'The page could not read the result. You can run it again.';
+        return;
+      }
       if (blocked) {
         paint(0, 'blocked');
         title.textContent = 'The lead still needs details';
@@ -271,7 +281,7 @@
         document.open();
         document.write(result.html);
         document.close();
-      }, 700);
+      }, 2600);
     }).catch(function () {
       clearInterval(timer);
       paint(active, 'blocked');

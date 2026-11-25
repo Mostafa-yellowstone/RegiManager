@@ -46,7 +46,7 @@ def quote_engine_page(request, lead_id: int):
                 n = file_results_to_pipeline(lead, report, user=request.user)
                 if n:
                     messages.success(request, f"{n} quote{'s' if n != 1 else ''} added to this lead in the pipeline.")
-            if report.blocked:
+            if report.blocked and request.headers.get("X-Requested-With") != "quote-engine":
                 messages.error(request, "Fix the items below, then run again. Nothing was sent to any carrier.")
         else:
             messages.success(request, "Details saved.")
