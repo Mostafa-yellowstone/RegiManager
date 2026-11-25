@@ -279,8 +279,7 @@ class InsuranceDeskTests(TestCase):
             ClientChatMessage.objects.filter(client=self.customer, body="Your ID card is ready.").exists()
         )
 
-    def test_owner_chooses_which_carriers_the_team_compares(self):
-        other = InsuranceCompany.objects.create(organization=self.org, name="Geico Desk")
+    def test_compare_carriers_page_returns_to_the_pipeline(self):
         lead = InsuranceQuoteLead.objects.create(
             organization=self.org,
             client_name="Nora Quote",
@@ -289,20 +288,10 @@ class InsuranceDeskTests(TestCase):
             stage=InsuranceQuoteLead.Stage.QUOTED,
         )
         url = reverse("insurance-quote-worksheet", args=[lead.id])
-        saved = self.client.post(
-            url,
-            {"desk_action": "quote_carriers", "quote_line": "auto", "company_ids": [str(self.company.id)]},
-        )
-        self.assertEqual(saved.status_code, 302)
-        self.company.refresh_from_db()
-        other.refresh_from_db()
-        self.assertTrue(self.company.quote_for_auto)
-        self.assertFalse(other.quote_for_auto)
-        self.assertFalse(self.company.quote_for_commercial)
         page = self.client.get(url)
-        self.assertEqual(page.status_code, 200)
-        self.assertEqual(page.content.decode().count("Add a quote site"), 1)
-        self.assertContains(page, "Geico Desk")
+        self.assertRedirects(page, reverse("insurance-pipeline"), fetch_redirect_response=False)
+        packet = self.client.get(reverse("insurance-rating-packet", args=[lead.id]))
+        self.assertRedirects(packet, reverse("insurance-pipeline"), fetch_redirect_response=False)
 
 
 @override_settings(
