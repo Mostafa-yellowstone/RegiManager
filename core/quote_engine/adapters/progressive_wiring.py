@@ -53,8 +53,12 @@ def make_quote_fn(page_factory=None):
         req = {**req, "drivers": drivers, "vehicles": vehicles}
         try:
             if page_factory is None:
+                proxy = cred.proxy_settings()
+                if proxy is None and os.environ.get("QUOTE_ALLOW_NO_PROXY") != "1":
+                    return QuoteResult("Progressive", "needs_input",
+                                       detail="Set the US proxy for this login in Carrier credentials. The portal must be opened from a US address.")
                 from .playwright_page import PlaywrightPage
-                page = PlaywrightPage(os.environ.get("QUOTE_BROWSER_PROFILE_DIR", "/var/lib/regi/progressive-profile"))
+                page = PlaywrightPage(os.environ.get("QUOTE_BROWSER_PROFILE_DIR", "/var/lib/regi/progressive-profile"), proxy=proxy)
                 page.goto(cred.portal_url or LOGIN_URL)
             else:
                 page = page_factory()

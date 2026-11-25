@@ -385,3 +385,13 @@ class KeyFallbackTests(TestCase):
                 decrypt_secret(new)                              # env key lost: new data unreadable
         finally:
             os.environ["CARRIER_CRED_KEY"] = Fernet.generate_key().decode()
+
+
+class ProxyCredentialTests(TestCase):
+    def test_proxy_password_encrypted_and_returned_only_in_settings(self):
+        org = Organization.objects.create(name="O")
+        c = mk(org, proxy_server="http://us.example:8000", proxy_username="pu")
+        self.assertIsNone(mk(org, label="b").proxy_settings())
+        c.set_proxy_password("proxy-secret-XYZ"); c.save()
+        self.assertNotIn("proxy-secret-XYZ", c.proxy_password_enc)
+        self.assertEqual(c.proxy_settings(), {"server": "http://us.example:8000", "username": "pu", "password": "proxy-secret-XYZ"})

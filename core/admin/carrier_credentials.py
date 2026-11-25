@@ -11,9 +11,15 @@ class CarrierCredentialForm(forms.ModelForm):
         help_text="Write-only. Leave empty to keep the saved password.",
     )
 
+    new_proxy_password = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}),
+        help_text="Write-only password for the US proxy. Leave empty to keep the saved one.",
+    )
+
     class Meta:
         model = CarrierCredential
-        exclude = ("password_enc", "consecutive_failures", "last_checked_at", "last_error")
+        exclude = ("password_enc", "proxy_password_enc", "consecutive_failures", "last_checked_at", "last_error")
 
     def clean(self):
         data = super().clean()
@@ -26,6 +32,8 @@ class CarrierCredentialForm(forms.ModelForm):
         if self.cleaned_data.get("new_password"):
             obj.set_password(self.cleaned_data["new_password"])
             obj.consecutive_failures = 0
+        if self.cleaned_data.get("new_proxy_password"):
+            obj.set_proxy_password(self.cleaned_data["new_proxy_password"])
         if commit:
             obj.save()
         return obj

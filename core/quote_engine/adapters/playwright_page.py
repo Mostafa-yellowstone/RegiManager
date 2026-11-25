@@ -8,11 +8,16 @@ import time
 
 
 class PlaywrightPage:
-    def __init__(self, profile_dir: str, headless: bool = True):
+    def __init__(self, profile_dir: str, headless: bool = True, proxy: dict | None = None, nav_timeout_ms: int = 45000):
         from playwright.sync_api import sync_playwright  # imported late: optional dependency
         self._pw = sync_playwright().start()
         os.makedirs(profile_dir, exist_ok=True)
-        self._ctx = self._pw.chromium.launch_persistent_context(profile_dir, headless=headless, viewport={"width": 1280, "height": 720})
+        self._ctx = self._pw.chromium.launch_persistent_context(profile_dir, headless=headless, viewport={"width": 1280, "height": 720},
+                                                         proxy=proxy, locale="en-US", timezone_id="America/New_York")
+        self._ctx.set_default_timeout(nav_timeout_ms)
+        self._ctx.set_default_navigation_timeout(nav_timeout_ms)
+        # Fonts and media add load time and the portal does not need them. Stylesheets and scripts stay.
+        self._ctx.route("**/*", lambda r: r.abort() if r.request.resource_type in ("font", "media") else r.continue_())
         self.page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()
 
     def goto(self, url: str) -> None:

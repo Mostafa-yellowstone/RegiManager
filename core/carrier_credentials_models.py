@@ -69,6 +69,9 @@ class CarrierCredential(models.Model):
     portal_url = models.URLField(blank=True, default="")
     otp_email = models.EmailField(blank=True, default="", help_text="Display only. Where the carrier sends the login code. A person types the code in the Regi modal; nothing reads this mailbox.")
     username = models.CharField(max_length=200)
+    proxy_server = models.CharField(max_length=200, blank=True, default="", help_text="US exit for the browser, e.g. http://us.proxy.example:8000 or socks5://host:1080. The Progressive portal must be opened from a US address. Leave empty only if the server itself is in the US.")
+    proxy_username = models.CharField(max_length=200, blank=True, default="")
+    proxy_password_enc = models.TextField(blank=True, default="")
     password_enc = models.TextField(blank=True, default="")
     enabled = models.BooleanField(default=False, help_text="Off by default. Only enabled logins are used by quote runs.")
     status = models.CharField(max_length=24, choices=Status.choices, default=Status.UNTESTED)
@@ -91,6 +94,20 @@ class CarrierCredential(models.Model):
 
     def set_password(self, plain: str) -> None:
         self.password_enc = encrypt_secret(plain) if plain else ""
+
+    def set_proxy_password(self, plain: str) -> None:
+        self.proxy_password_enc = encrypt_secret(plain) if plain else ""
+
+    def proxy_settings(self) -> dict | None:
+        """Playwright proxy dict, or None when no exit is configured. The password is decrypted only here."""
+        if not self.proxy_server:
+            return None
+        out = {"server": self.proxy_server}
+        if self.proxy_username:
+            out["username"] = self.proxy_username
+        if self.proxy_password_enc:
+            out["password"] = decrypt_secret(self.proxy_password_enc)
+        return out
 
     def has_password(self) -> bool:
         return bool(self.password_enc)

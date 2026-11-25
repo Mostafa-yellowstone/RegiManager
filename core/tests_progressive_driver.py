@@ -167,3 +167,12 @@ class GenderTests(SimpleTestCase):
         self.assertNotIn("_gender", flat_to_extra({"gender": "other"}))
         req = {**REQ, "drivers": [{**REQ["drivers"][0], "gender": flat_to_extra({"gender": "female"})["_gender"]}]}
         self.assertEqual(w.to_driver_input(req)[0][0]["gender"], "F")
+
+
+class ProxyTests(SimpleTestCase):
+    def test_no_proxy_stops_before_opening_the_portal(self):
+        from core.quote_engine.adapters import progressive_wiring as w
+        cred = FakeCred(); cred.proxy_settings = lambda: None
+        r = w.make_quote_fn()({**REQ, "_credential": cred, "otp_provider": lambda: "1"})
+        self.assertEqual(r.status, "needs_input")
+        self.assertIn("US proxy", r.detail)
