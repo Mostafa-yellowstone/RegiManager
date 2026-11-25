@@ -103,3 +103,58 @@ class AdminTests(TestCase):
         })
         self.assertEqual(r.status_code, 200)
         self.assertEqual(CarrierCredential.objects.count(), 0)
+
+
+class LeadBridgeTests(TestCase):
+    def setUp(self):
+        from datetime import date
+        from .models import InsuranceQuoteLead
+        self.org = Organization.objects.create(name="Org")
+        self.lead = InsuranceQuoteLead.objects.create(
+            organization=self.org, client_name="Ann Lee", phone="(718) 623-0134", email="a@b.com",
+            street_address="12 Main St", city="Brooklyn", state="NY", zip_code="11201",
+            insurance_type="auto_personal", vin="1HGCM82633A004352", vehicle_year="2003",
+            vehicle_make="Honda", vehicle_model="Accord", dl_number="123456789",
+            date_of_birth=date(1985, 4, 2), vehicle_ownership="owned", has_prior=False,
+        )
+
+    def test_maps_lead_data_without_inventing(self):
+        from .quote_engine.lead_bridge import lead_to_request
+        r = lead_to_request(self.lead)
+        self.assertEqual(r["line_of_business"], "auto")
+        self.assertEqual(r["drivers"][0]["first_name"], "Ann")
+        self.assertEqual(r["drivers"][0]["last_name"], "Lee")
+        self.assertEqual(r["vehicles"][0]["vin"], "1HGCM82633A004352")
+        self.assertNotIn("effective_date", r)
+        self.assertNotIn("bodily_injury_limit", r)
+
+    def test_missing_fields_reported_then_extra_fills_them(self):
+        from .quote_engine.lead_bridge import missing_fields
+        codes_ = {m["code"] for m in missing_fields(self.lead)}
+        self.assertTrue({"date_invalid", "limit_invalid"} <= codes_)
+        extra = {"effective_date": "2099-01-01", "bodily_injury_limit": "25/50"}
+        self.assertEqual(missing_fields(self.lead, extra), [])
+
+    def test_commercial_lead_needs_business_data(self):
+        from .quote_engine.lead_bridge import missing_fields
+        self.lead.insurance_type = "trucking"
+        c = {m["field"] for m in missing_fields(self.lead)}
+        self.assertIn("business.legal_name", c)
+
+    def test_unsupported_line_blocked(self):
+        from .quote_engine.lead_bridge import run_for_lead
+        self.lead.insurance_type = "home_owners"
+        r = run_for_lead(self.lead)
+        self.assertTrue(r.blocked)
+        self.assertEqual(r.issues[0].code, "lob_invalid")
+
+    def test_run_uses_only_enabled_logins(self):
+        from .quote_engine.lead_bridge import run_for_lead
+        extra = {"effective_date": "2099-01-01", "bodily_injury_limit": "25/50"}
+        r = run_for_lead(self.lead, extra)
+        self.assertFalse(r.blocked)
+        self.assertTrue(all(x.status == "skipped" for x in r.results))
+        c = mk(self.org); c.set_password("x"); c.enabled = True; c.save()
+        r = run_for_lead(self.lead, extra)
+        st = {x.carrier: x.status for x in r.results}
+        self.assertEqual(st["Progressive"], "not_implemented")
