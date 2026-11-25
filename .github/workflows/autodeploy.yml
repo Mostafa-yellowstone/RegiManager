@@ -68,6 +68,9 @@ jobs:
           rm -f .git/objects/.perm-test
           stamp=$(date -u +%Y%m%dT%H%M%SZ)
           mkdir -p "$HOME/regi-deploy-backups"
+          if [ -f RegiManager/settings.py ]; then
+            cp -a RegiManager/settings.py "$HOME/regi-deploy-backups/settings-$stamp.py"
+          fi
           while IFS= read -r line; do
             flag=${line:0:1}
             path=${line:2}
@@ -78,18 +81,15 @@ jobs:
                 ;;
             esac
           done < <(git ls-files -v)
-          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-            echo "Tracked files differ from the last deploy; saving a copy before the pull"
-            git status --porcelain --untracked-files=no
-            git diff --stat
-            git diff > "$HOME/regi-deploy-backups/dirty-$stamp.diff"
-            if [ -f RegiManager/settings.py ]; then
-              cp RegiManager/settings.py "$HOME/regi-deploy-backups/settings-$stamp.py"
-            fi
-            git checkout -- .
-          fi
+          echo "Worktree before reset:"
+          git status --porcelain --untracked-files=no || true
+          git diff --stat || true
           before=$(git rev-parse HEAD)
-          git pull --ff-only origin main
+          git fetch origin main
+          git reset --hard origin/main
+          git show HEAD:RegiManager/settings.py > RegiManager/settings.py.deploy
+          mv RegiManager/settings.py.deploy RegiManager/settings.py
+          echo "HEAD ${before:0:7} -> $(git rev-parse --short HEAD)"
           bash -l /home/Projects/sc.sh
           git fetch origin main
           after=$(git rev-parse HEAD)
