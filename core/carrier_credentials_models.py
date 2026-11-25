@@ -67,12 +67,9 @@ class CarrierCredential(models.Model):
     line = models.CharField(max_length=20, choices=[("auto", "Auto"), ("commercial_auto", "Commercial auto")], default="auto")
     label = models.CharField(max_length=120, blank=True, default="", help_text="Which agency login this is, e.g. 'Brooklyn office'.")
     portal_url = models.URLField(blank=True, default="")
-    otp_email = models.EmailField(blank=True, default="", help_text="Inbox where this carrier sends the login verification code (OTP) for this login.")
+    otp_email = models.EmailField(blank=True, default="", help_text="Display only. Where the carrier sends the login code. A person types the code in the Regi modal; nothing reads this mailbox.")
     username = models.CharField(max_length=200)
     password_enc = models.TextField(blank=True, default="")
-    otp_imap_host = models.CharField(max_length=120, blank=True, default="", help_text="IMAP server of the OTP mailbox, e.g. imap.gmail.com.")
-    otp_imap_password_enc = models.TextField(blank=True, default="")
-    otp_sender_hints = models.CharField(max_length=200, blank=True, default="", help_text="Comma-separated sender domains the OTP email comes from, e.g. progressive.com. Mail from anyone else is ignored.")
     enabled = models.BooleanField(default=False, help_text="Off by default. Only enabled logins are used by quote runs.")
     status = models.CharField(max_length=24, choices=Status.choices, default=Status.UNTESTED)
     last_checked_at = models.DateTimeField(null=True, blank=True)
@@ -94,35 +91,6 @@ class CarrierCredential(models.Model):
 
     def set_password(self, plain: str) -> None:
         self.password_enc = encrypt_secret(plain) if plain else ""
-
-    def set_otp_mailbox_password(self, plain: str) -> None:
-        self.otp_imap_password_enc = encrypt_secret(plain) if plain else ""
-
-    def otp_mailbox(self, actor: str = ""):
-        """Read-only mailbox for this login's OTP inbox, or None if not configured. Decrypt is logged."""
-        from .quote_engine.otp import ImapMailbox
-
-        if not (self.otp_email and self.otp_imap_host and self.otp_imap_password_enc):
-            return None
-        CarrierCredentialLog.objects.create(credential=self, action="otp_mailbox_used", actor=actor[:100], detail="read OTP mailbox")
-        return ImapMailbox(self.otp_imap_host, self.otp_email, decrypt_secret(self.otp_imap_password_enc))
-
-    def otp_provider(self, actor: str = "quote-engine", timeout_s: float = 90):
-        """Callable for adapters: asks the portal's code from the mailbox, newest email after the call time."""
-        from datetime import datetime, timezone
-
-        from .quote_engine.otp import OtpNotFound, fetch_otp
-
-        def get() -> str:
-            mb = self.otp_mailbox(actor=actor)
-            if mb is None:
-                raise OtpNotFound("OTP mailbox is not configured for this login.")
-            return fetch_otp(mb, self.otp_sender_list(), datetime.now(timezone.utc), timeout_s=timeout_s)
-
-        return get
-
-    def otp_sender_list(self) -> list[str]:
-        return [x.strip() for x in self.otp_sender_hints.split(",") if x.strip()]
 
     def has_password(self) -> bool:
         return bool(self.password_enc)

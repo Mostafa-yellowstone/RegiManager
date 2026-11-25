@@ -66,9 +66,12 @@ def lead_to_request(lead, extra: dict | None = None) -> dict[str, Any]:
         req["drivers"][0]["accidents"] = [{}]
     extra = dict(extra or {})
     lic_state = extra.pop("_license_state", "")
+    gender = extra.pop("_gender", "")
     acc_dates = extra.pop("_accident_dates", [])
     if lic_state:
         req["drivers"][0]["license_state"] = lic_state
+    if gender:
+        req["drivers"][0]["gender"] = gender
     if acc_dates:
         req["drivers"][0]["accidents"] = [{"date": d} for d in acc_dates]
     merged = _merge(req, extra)
@@ -129,7 +132,7 @@ def missing_fields(lead, extra: dict | None = None) -> list[dict[str, str]]:
 
 
 FLAT_FIELDS = (
-    "effective_date", "bodily_injury_limit", "csl_limit", "license_state", "prior_carrier",
+    "effective_date", "bodily_injury_limit", "csl_limit", "license_state", "gender", "prior_carrier",
     "prior_expiration", "months_with_carrier", "accident_dates",
     "legal_name", "entity_type", "fein", "usdot", "years_in_business", "operation_type",
     "vehicle_class", "gvw", "radius_miles",
@@ -158,6 +161,8 @@ def flat_to_extra(flat: dict) -> dict:
         ex["_vehicle_all"] = vall
     if g("license_state"):
         ex["_license_state"] = g("license_state").upper()
+    if g("gender").lower() in ("male", "female", "m", "f"):
+        ex["_gender"] = g("gender")[0].upper()
     dates = [d.strip() for d in g("accident_dates").replace(",", "\n").splitlines() if d.strip()]
     if dates:
         ex["_accident_dates"] = dates

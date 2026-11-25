@@ -74,6 +74,7 @@
       <label>Bodily injury limit<input name="bodily_injury_limit" value="{{ flat.bodily_injury_limit }}" placeholder="25/50"></label>
       {% endif %}
       <label>License state<input name="license_state" maxlength="2" value="{{ flat.license_state }}" placeholder="{{ lead.state }}"></label>
+      <label>Gender (the portal requires it)<select name="gender"><option value="">Select</option><option value="male" {% if flat.gender == "male" %}selected{% endif %}>Male</option><option value="female" {% if flat.gender == "female" %}selected{% endif %}>Female</option></select></label>
       <label>Prior carrier<input name="prior_carrier" value="{{ flat.prior_carrier }}"></label>
       <label>Prior policy expires<input type="date" name="prior_expiration" value="{{ flat.prior_expiration }}"></label>
       <label>Months with prior carrier<input type="number" min="0" name="months_with_carrier" value="{{ flat.months_with_carrier }}"></label>

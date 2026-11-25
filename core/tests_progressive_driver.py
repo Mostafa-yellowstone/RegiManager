@@ -156,3 +156,14 @@ class WiringTests(SimpleTestCase):
         with self.assertRaises(PortalQuestion):
             drv(p).go_to_point_of_sale()
         self.assertNotIn("BIND", " ".join(p.clicks).upper())
+
+
+class GenderTests(SimpleTestCase):
+    def test_gender_from_details_form_reaches_driver_input(self):
+        from core.quote_engine.lead_bridge import flat_to_extra, FLAT_FIELDS
+        from core.quote_engine.adapters import progressive_wiring as w
+        self.assertIn("gender", FLAT_FIELDS)
+        self.assertEqual(flat_to_extra({"gender": "female"})["_gender"], "F")
+        self.assertNotIn("_gender", flat_to_extra({"gender": "other"}))
+        req = {**REQ, "drivers": [{**REQ["drivers"][0], "gender": flat_to_extra({"gender": "female"})["_gender"]}]}
+        self.assertEqual(w.to_driver_input(req)[0][0]["gender"], "F")
