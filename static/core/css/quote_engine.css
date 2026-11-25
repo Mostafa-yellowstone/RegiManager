@@ -51,6 +51,17 @@ body.portal-body .qe-hero .qe-kicker { color: #fff; }
 .qe-card--warnings { border-color: #fde68a; background: var(--portal-warning-bg); }
 .qe-sub { margin: 0 0 14px; color: var(--portal-text-muted); font-size: 0.9rem; }
 .qe-sub a { color: var(--portal-primary); font-weight: 700; text-decoration: none; }
+.qe-otp { margin-top: 14px; }
+.qe-otp[hidden] { display: none; }
+#qe-otp-code {
+  display: block; width: 100%; box-sizing: border-box; margin: 8px 0;
+  padding: 12px 14px; font: inherit; font-size: 1.4rem; letter-spacing: 0.28em; text-align: center;
+  border: 1px solid var(--portal-border); border-radius: 12px;
+  background: var(--portal-surface); color: var(--portal-text);
+}
+.qe-otp-err { color: var(--portal-danger, #b42318); min-height: 1.2em; margin: 0; }
+#qe-missing, #qe-results { scroll-margin-top: 96px; }
+.qe-otp-err:empty { display: none; }
 .qe-muted { color: var(--portal-text-muted); }
 .qe-snapshot__grid {
   display: grid;

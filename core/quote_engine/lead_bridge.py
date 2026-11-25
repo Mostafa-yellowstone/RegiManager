@@ -89,9 +89,12 @@ def lead_to_request(lead, extra: dict | None = None) -> dict[str, Any]:
         req["drivers"][0]["accidents"] = [{}]
     extra = dict(extra or {})
     lic_state = extra.pop("_license_state", "")
+    gender = extra.pop("_gender", "")
     acc_dates = extra.pop("_accident_dates", [])
     if lic_state:
         req["drivers"][0]["license_state"] = lic_state
+    if gender:
+        req["drivers"][0]["gender"] = gender
     if acc_dates:
         req["drivers"][0]["accidents"] = [{"date": d} for d in acc_dates]
     merged = _merge(req, extra)
@@ -104,7 +107,7 @@ def lead_to_request(lead, extra: dict | None = None) -> dict[str, Any]:
 
 
 def run_for_lead(lead, extra: dict | None = None, organization=None, user=None, save: bool = False,
-                 spend_approved: bool = False) -> RunReport:
+                 spend_approved: bool = False, otp_provider=None) -> RunReport:
     """Validate the lead data and, if clean, run all carriers with an enabled login."""
     from ..carrier_credentials_models import carrier_otp_emails, usable_carrier_keys
 
@@ -122,7 +125,14 @@ def run_for_lead(lead, extra: dict | None = None, organization=None, user=None, 
                 mark_step(lead, k, "done", user=user, note="Approved at run (MVR/POS fees, customer consent)")
             except ValueError:
                 pass
-    report = run_quotes(req, allowed_keys=allowed, carrier_emails=emails, spend_approved=spend_approved)
+    from ..carrier_credentials_models import CarrierCredential
+
+    ctx: dict[str, dict] = {}
+    for cred in CarrierCredential.objects.filter(organization=org, line=lob, enabled=True).exclude(password_enc=""):
+        ctx.setdefault(cred.carrier_key, {"_credential": cred, "otp_provider": otp_provider})
+    report = run_quotes(
+        req, allowed_keys=allowed, carrier_emails=emails, spend_approved=spend_approved, carrier_context=ctx
+    )
     if save:
         if not report.blocked:
             try:
@@ -147,7 +157,7 @@ def missing_fields(lead, extra: dict | None = None) -> list[dict[str, str]]:
 
 
 FLAT_FIELDS = (
-    "effective_date", "bodily_injury_limit", "csl_limit", "license_state", "prior_carrier",
+    "effective_date", "bodily_injury_limit", "csl_limit", "license_state", "gender", "prior_carrier",
     "prior_expiration", "months_with_carrier", "accident_dates",
     "legal_name", "entity_type", "fein", "usdot", "years_in_business", "operation_type",
     "vehicle_class", "gvw", "radius_miles",
@@ -176,6 +186,8 @@ def flat_to_extra(flat: dict) -> dict:
         ex["_vehicle_all"] = vall
     if g("license_state"):
         ex["_license_state"] = g("license_state").upper()
+    if g("gender").lower() in ("male", "female", "m", "f"):
+        ex["_gender"] = "M" if g("gender").lower() in ("male", "m") else "F"
     dates = [d.strip() for d in g("accident_dates").replace(",", "\n").splitlines() if d.strip()]
     if dates:
         ex["_accident_dates"] = dates
@@ -219,3 +231,60 @@ def file_results_to_pipeline(lead, report: RunReport, user=None) -> int:
         except ValueError:
             pass  # earlier step (e.g. consent) not done yet; leave it for the agent
     return added
+
+
+OTP_WAIT_SECONDS = 240
+
+
+def run_job(job_id: int, extra: dict, poll: float = 1.5, wait_s: float = OTP_WAIT_SECONDS, _tick=None) -> None:
+    """Background run for a QuoteEngineJob. Asks for the login code through the job row and waits for the modal."""
+    import time
+
+    from django.db import close_old_connections
+
+    from ..carrier_credentials_models import decrypt_secret
+    from ..quote_engine_models import QuoteEngineJob
+    from .otp import OtpNotFound
+
+    close_old_connections()
+    job = QuoteEngineJob.objects.select_related("lead").get(id=job_id)
+
+    def otp() -> str:
+        QuoteEngineJob.objects.filter(id=job_id).update(
+            status="waiting_otp", otp_code_enc="", otp_cancelled=False,
+            message="Enter the login code Progressive sent.",
+        )
+        deadline = time.monotonic() + wait_s
+        while time.monotonic() < deadline:
+            if _tick:
+                _tick()
+            current = QuoteEngineJob.objects.get(id=job_id)
+            if current.otp_cancelled:
+                raise OtpNotFound("Login code entry was cancelled.")
+            if current.otp_code_enc:
+                code = decrypt_secret(current.otp_code_enc)
+                QuoteEngineJob.objects.filter(id=job_id).update(otp_code_enc="", status="running", message="Continuing.")
+                return code
+            time.sleep(poll)
+        raise OtpNotFound("No login code was entered in time.")
+
+    try:
+        report = run_for_lead(
+            job.lead, extra, user=job.created_by, save=True,
+            spend_approved=job.spend_approved, otp_provider=otp,
+        )
+        n = 0
+        if not report.blocked:
+            n = file_results_to_pipeline(job.lead, report, user=job.created_by)
+        run = job.lead.engine_runs.first()
+        if report.blocked:
+            message = "Fix the items listed, then run again."
+        elif n:
+            message = f"{n} quote(s) added to the lead."
+        else:
+            message = "Finished. No quote was added."
+        QuoteEngineJob.objects.filter(id=job_id).update(status="done", run=run, otp_code_enc="", message=message)
+    except Exception as exc:
+        QuoteEngineJob.objects.filter(id=job_id).update(status="failed", otp_code_enc="", message=type(exc).__name__)
+    finally:
+        close_old_connections()

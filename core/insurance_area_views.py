@@ -429,16 +429,10 @@ def insurance_progressive(request):
             portal_url = (request.POST.get("portal_url") or "").strip()
             cred.portal_url = portal_url if portal_url.startswith(("http://", "https://")) else ""
             cred.otp_email = (request.POST.get("otp_email") or "").strip()
-            cred.otp_imap_host = (request.POST.get("otp_imap_host") or "").strip()[:120]
-            hints = (request.POST.get("otp_sender_hints") or "").strip()
-            cred.otp_sender_hints = hints or "progressive.com"
             new_password = request.POST.get("new_password") or ""
-            new_mailbox = request.POST.get("new_otp_mailbox_password") or ""
             if new_password:
                 cred.set_password(new_password)
                 cred.consecutive_failures = 0
-            if new_mailbox:
-                cred.set_otp_mailbox_password(new_mailbox)
             want_enabled = request.POST.get("enabled") == "1"
             if want_enabled and not cred.has_password():
                 messages.error(request, "Save the Progressive password before turning the login on.")

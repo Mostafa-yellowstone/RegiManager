@@ -4020,7 +4020,7 @@ from .insurance_quote_pipeline_models import (  # noqa: E402,F401
 from .quote_followup_models import QuoteFollowUpStep  # noqa: E402,F401
 
 # Quote engine run history
-from .quote_engine_models import QuoteEngineRun  # noqa: E402,F401
+from .quote_engine_models import QuoteEngineJob, QuoteEngineRun  # noqa: E402,F401
 
 # Quote engine carrier logins (encrypted)
 from .carrier_credentials_models import (  # noqa: E402,F401

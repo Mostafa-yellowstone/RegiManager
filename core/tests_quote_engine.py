@@ -210,7 +210,7 @@ class RunnerTests(SimpleTestCase):
     def test_unbuilt_carrier_never_fakes_a_price(self):
         r = run_quotes(base_auto(), today=TODAY)
         self.assertFalse(r.blocked)
-        self.assertTrue(all(x.status in ("not_implemented", "skipped") for x in r.results))
+        self.assertTrue(all(x.status in ("not_implemented", "skipped", "needs_input") for x in r.results))
         self.assertIsNone(r.best())
 
     def test_registry_lines(self):

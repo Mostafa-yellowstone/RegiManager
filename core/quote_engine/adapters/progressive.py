@@ -93,11 +93,13 @@ def run_progressive(req: dict, driver: ProgressiveDriver, otp: Callable[[], str]
         rate = driver.read_rate()
         run.steps_done.append("rate")
     except OtpNotFound:
-        return QuoteResult(name, "needs_input", detail="Login code did not arrive in the OTP mailbox (check the mailbox settings).",
+        return QuoteResult(name, "needs_input", detail="The login code was not entered. Type the code from the Progressive email, or run again.",
                            extra={"steps_done": run.steps_done})
     except PortalQuestion as q:
         return QuoteResult(name, "needs_input", detail=f"Portal asked: {q.question}", extra={"steps_done": run.steps_done})
     except Exception as exc:
+        if type(exc).__name__ in ("PortalBlocked", "PortalValidation"):
+            raise
         return QuoteResult(name, "error", detail=f"{type(exc).__name__} after {run.steps_done[-1] if run.steps_done else 'start'}", extra={"steps_done": run.steps_done})
     finally:
         try:

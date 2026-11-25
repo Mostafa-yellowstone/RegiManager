@@ -5,7 +5,7 @@
 
 {% block portal_head %}
 <link rel="stylesheet" href="{% static 'core/css/insurance_quote_pipeline.css' %}?v=26">
-<link rel="stylesheet" href="{% static 'core/css/quote_engine.css' %}?v=4">
+<link rel="stylesheet" href="{% static 'core/css/quote_engine.css' %}?v=6">
 {% endblock %}
 
 {% block portal_content %}
@@ -13,7 +13,7 @@
   <a class="iqp-records__back" href="{% url 'insurance-pipeline' %}">← Back to pipeline</a>
   {% if progressive_login_url %}
   <p class="qe-sub" style="margin: 0 0 12px;">This run uses Progressive only.
-    {% if progressive_login and progressive_login.enabled and progressive_login.has_password %}Portal password is saved{% if progressive_login.otp_email %} · codes go to {{ progressive_login.otp_email }}{% endif %}.{% else %}The portal login is not turned on yet.{% endif %}
+    {% if progressive_login and progressive_login.enabled and progressive_login.has_password %}Portal password is saved{% if progressive_login.otp_email %} · the login code goes to {{ progressive_login.otp_email }}{% endif %}. You type that code here when the portal asks.{% else %}The portal login is not turned on yet.{% endif %}
     <a href="{{ progressive_login_url }}">Open the Progressive section</a>
   </p>
   {% endif %}
@@ -105,6 +105,12 @@
       </select></label>
       {% endif %}
       <label>License state<input name="license_state" maxlength="2" value="{{ flat.license_state }}" placeholder="{{ lead.state }}"></label>
+      <label>Gender<select name="gender">
+        <option value="">Select</option>
+        <option value="male" {% if flat.gender == "male" %}selected{% endif %}>Male</option>
+        <option value="female" {% if flat.gender == "female" %}selected{% endif %}>Female</option>
+        <option value="other" {% if flat.gender == "other" %}selected{% endif %}>Other</option>
+      </select></label>
       <label>Prior carrier<input name="prior_carrier" value="{{ flat.prior_carrier }}"></label>
       <label>Prior policy expires<input type="date" name="prior_expiration" value="{{ flat.prior_expiration }}"></label>
       <label>Months with prior carrier<input type="number" min="0" name="months_with_carrier" value="{{ flat.months_with_carrier }}"></label>
@@ -175,6 +181,15 @@
       <li data-label="Point of sale">Point of sale</li>
       <li data-label="Reading the rate">Reading the rate</li>
     </ol>
+    <div class="qe-otp" id="qe-otp" hidden>
+      <p>Progressive sent a code to <strong id="qe-otp-email">the email on the Progressive login</strong>. Type it here.</p>
+      <input id="qe-otp-code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Code">
+      <p id="qe-otp-err" class="qe-otp-err"></p>
+      <div class="qe-actions">
+        <button type="button" class="qe-btn qe-btn--ghost" id="qe-otp-cancel">Cancel run</button>
+        <button type="button" class="qe-btn qe-btn--primary" id="qe-otp-send">Continue</button>
+      </div>
+    </div>
     <div class="qe-actions">
       <button type="button" class="qe-btn qe-btn--primary" id="qe-progress-continue" hidden>Show the page</button>
     </div>
@@ -247,16 +262,9 @@
     }
     confirmBox.close();
     progress.showModal();
-    var active = 0;
-    paint(active, 'working');
-    status.textContent = steps[0].getAttribute('data-label') + '…';
-    var timer = setInterval(function () {
-      if (active < steps.length - 1) {
-        active += 1;
-        paint(active, 'working');
-        status.textContent = steps[active].getAttribute('data-label') + '…';
-      }
-    }, 700);
+    paint(0, 'working');
+    status.textContent = 'Checking the lead…';
+    document.getElementById('qe-otp').hidden = true;
     var body = new FormData(form);
     body.set('action', 'run');
     body.set('spend_approved', '1');
@@ -268,14 +276,18 @@
       credentials: 'same-origin',
       headers: { 'X-Requested-With': 'quote-engine' }
     }).then(function (response) {
-      return response.text().then(function (html) {
-        return { ok: response.ok, html: html };
-      });
+      var type = response.headers.get('content-type') || '';
+      if (type.indexOf('application/json') !== -1) {
+        return response.json().then(function (data) { return { json: data, ok: response.ok }; });
+      }
+      return response.text().then(function (html) { return { ok: response.ok, html: html }; });
     }).then(function (result) {
-      clearInterval(timer);
-      var looksLikePage = result.ok && result.html.indexOf('id="qe-form"') !== -1;
+      if (result.json && result.json.status_url) {
+        watchJob(result.json.status_url, result.json.otp_url);
+        return;
+      }
+      var looksLikePage = result.ok && result.html && result.html.indexOf('id="qe-form"') !== -1;
       var blocked = looksLikePage && result.html.indexOf('qe-card--errors') !== -1;
-      var notBuilt = looksLikePage && result.html.indexOf('qe-pill--not_implemented') !== -1;
       if (!looksLikePage) {
         paint(0, 'blocked');
         title.textContent = 'The run did not finish';
@@ -291,22 +303,15 @@
         status.textContent = 'Nothing was sent to a carrier.';
         next.textContent = 'Show what is missing';
         landOn = '#qe-missing';
-      } else if (notBuilt) {
+      } else {
         paint(0, 'skipped');
         title.textContent = 'The lead checked out';
-        status.textContent = 'The carrier portal is not connected yet, so the run stopped before sign-in.';
+        status.textContent = 'The run stopped before a rate came back.';
         next.textContent = 'Show the page';
-      } else {
-        paint(steps.length, 'done');
-        title.textContent = 'Quote run finished';
-        status.textContent = 'The stages above are done. The rates are on the page.';
-        next.textContent = 'Show the rates';
-        landOn = '#qe-results';
       }
       next.hidden = false;
     }).catch(function () {
-      clearInterval(timer);
-      paint(active, 'blocked');
+      paint(0, 'blocked');
       title.textContent = 'The run did not finish';
       status.textContent = 'The page lost the connection. You can run it again.';
       next.textContent = 'Close';
@@ -314,13 +319,112 @@
     });
   });
 
-  next.addEventListener('click', function () {
-    if (reloadAfter) {
-      var target = window.location.pathname + window.location.search + landOn;
-      if ((window.location.pathname + window.location.search + window.location.hash) === target) window.location.reload();
-      else window.location.assign(target);
+  var csrf = form.querySelector('[name=csrfmiddlewaretoken]').value;
+  var otpBox = document.getElementById('qe-otp');
+  var otpSent = false;
+
+  function postCode(url, data) {
+    return fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(data)
+    }).then(function (r) { return r.json(); });
+  }
+
+  document.getElementById('qe-otp-send').addEventListener('click', function () {
+    if (!window.__qeOtpUrl) return;
+    postCode(window.__qeOtpUrl, { code: document.getElementById('qe-otp-code').value }).then(function (j) {
+      if (j.ok) {
+        otpSent = true;
+        otpBox.hidden = true;
+        document.getElementById('qe-otp-code').value = '';
+        document.getElementById('qe-otp-err').textContent = '';
+        paint(3, 'working');
+        status.textContent = 'Entering the drivers…';
+      } else {
+        document.getElementById('qe-otp-err').textContent = j.error || 'Could not send the code.';
+      }
+    });
+  });
+  document.getElementById('qe-otp-cancel').addEventListener('click', function () {
+    if (!window.__qeOtpUrl) return;
+    postCode(window.__qeOtpUrl, { cancel: '1' }).then(function () { otpBox.hidden = true; });
+  });
+
+  function showOutcome(j) {
+    var first = (j.results || [])[0] || {};
+    var detail = first.detail || j.message || '';
+    reloadAfter = true;
+    dropSearch = true;
+    otpBox.hidden = true;
+    if (first.status === 'quoted') {
+      paint(steps.length, 'done');
+      title.textContent = 'Quote run finished';
+      status.textContent = 'The rate is on the page.';
+      next.textContent = 'Show the rates';
+      landOn = '#qe-results';
+    } else if (first.status === 'skipped') {
+      paint(0, 'skipped');
+      title.textContent = 'Progressive login is off';
+      status.textContent = detail || 'Turn the login on in the Progressive section.';
+      next.textContent = 'Show the page';
+      landOn = '';
+    } else if (first.status === 'needs_approval') {
+      paint(6, 'working');
+      title.textContent = 'Stopped before Point of Sale';
+      status.textContent = detail || 'Approve the MVR charge to continue.';
+      next.textContent = 'Show the page';
+      landOn = '#qe-results';
+    } else {
+      paint(2, 'blocked');
+      title.textContent = 'The run stopped';
+      status.textContent = detail || j.message || 'Nothing was quoted.';
+      next.textContent = 'Show the page';
+      landOn = '#qe-results';
     }
-    else progress.close();
+    next.hidden = false;
+  }
+
+  function watchJob(statusUrl, otpUrl) {
+    window.__qeOtpUrl = otpUrl;
+    paint(1, 'working');
+    status.textContent = 'Opening the carrier…';
+    function tick() {
+      fetch(statusUrl, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+        if (j.status === 'waiting_otp' && !otpSent) {
+          document.getElementById('qe-otp-email').textContent = j.email || 'the email on the Progressive login';
+          otpBox.hidden = false;
+          paint(2, 'working');
+          title.textContent = 'Signing in';
+          status.textContent = 'Waiting for the login code.';
+        } else if (j.status === 'running' && otpSent) {
+          paint(3, 'working');
+          status.textContent = j.message || 'Continuing through the portal.';
+        } else if (j.status === 'running') {
+          paint(1, 'working');
+          status.textContent = j.message || 'Opening the carrier…';
+        }
+        if (j.status === 'done' || j.status === 'failed') {
+          showOutcome(j);
+          return;
+        }
+        setTimeout(tick, 2000);
+      }).catch(function () { setTimeout(tick, 4000); });
+    }
+    tick();
+  }
+
+  var dropSearch = false;
+  next.addEventListener('click', function () {
+    if (!reloadAfter) {
+      progress.close();
+      return;
+    }
+    // Change the query so this is a real page load. A hash-only jump would leave the dialog open.
+    var stamp = 'show=' + Date.now();
+    var search = dropSearch ? ('?' + stamp) : (window.location.search ? window.location.search + '&' + stamp : '?' + stamp);
+    window.location.assign(window.location.pathname + search + landOn);
   });
 })();
 </script>

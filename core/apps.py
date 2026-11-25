@@ -9,3 +9,5 @@ class CoreConfig(AppConfig):
     def ready(self):
         import core.signals  # noqa: F401
         import core.agent_portal_signals  # noqa: F401
+        from core.quote_engine.adapters.progressive_wiring import install
+        install()
