@@ -69,7 +69,7 @@
   </section>
 
   {% if errors %}
-  <section class="qe-card qe-card--errors">
+  <section id="qe-missing" class="qe-card qe-card--errors">
     <h2>Needs fixing before it can run</h2>
     <ul>{% for i in errors %}<li><code>{{ i.field }}</code> {{ i.message }}</li>{% endfor %}</ul>
   </section>
@@ -169,7 +169,7 @@
   </dialog>
 
   {% if report and not report.blocked %}
-  <section class="qe-card">
+  <section id="qe-results" class="qe-card">
     <h2>Results</h2>
     <table class="qe-table">
       <thead><tr><th>Carrier</th><th>Status</th><th>Per month</th><th>Term total</th><th>Note</th></tr></thead>
@@ -205,6 +205,7 @@
   var status = document.getElementById('qe-progress-status');
   var next = document.getElementById('qe-progress-continue');
   var reloadAfter = false;
+  var landOn = '';
   if (!form || !confirmBox || !progress || !next) return;
 
   document.getElementById('qe-open-confirm').addEventListener('click', function () {
@@ -277,6 +278,7 @@
         title.textContent = 'The lead still needs details';
         status.textContent = 'Nothing was sent to a carrier.';
         next.textContent = 'Show what is missing';
+        landOn = '#qe-missing';
       } else if (notBuilt) {
         paint(0, 'skipped');
         title.textContent = 'The lead checked out';
@@ -287,6 +289,7 @@
         title.textContent = 'Quote run finished';
         status.textContent = 'The stages above are done. The rates are on the page.';
         next.textContent = 'Show the rates';
+        landOn = '#qe-results';
       }
       next.hidden = false;
     }).catch(function () {
@@ -300,7 +303,11 @@
   });
 
   next.addEventListener('click', function () {
-    if (reloadAfter) window.location.reload();
+    if (reloadAfter) {
+      var target = window.location.pathname + window.location.search + landOn;
+      if ((window.location.pathname + window.location.search + window.location.hash) === target) window.location.reload();
+      else window.location.assign(target);
+    }
     else progress.close();
   });
 })();

@@ -186,6 +186,7 @@ class EnginePageTests(TestCase):
         self.assertContains(r, "Honda")
         self.assertContains(r, "Accord")
         self.assertContains(r, "1HGCM82633A004352")
+        self.assertContains(r, "id=\"qe-missing\"")
         self.assertContains(r, "Running the quote")
         self.assertContains(r, "window.location.pathname + window.location.search")
         self.assertNotContains(r, "Follow-up")
