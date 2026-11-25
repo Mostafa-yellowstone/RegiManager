@@ -15,6 +15,20 @@ from .progressive import run_progressive
 from .progressive_driver import PortalBlocked, PortalValidation, ProgressiveBrowserDriver
 
 LOGIN_URL = "https://www.foragentsonly.com"
+BROWSER_MISSING = "The browser (Playwright/Chromium) is not installed on the server yet."
+
+
+def _browser_missing(exc: BaseException) -> bool:
+    """True when Playwright or Chromium is not installed. A quote must not invent a premium then."""
+    if isinstance(exc, ImportError):
+        return True
+    text = str(exc).lower()
+    return (
+        "executable doesn't exist" in text
+        or "please run the following command to download new browsers" in text
+        or "missing dependencies to run browsers" in text
+        or "missing system dependencies" in text
+    )
 
 
 def to_driver_input(req: dict) -> tuple[list[dict], list[dict], str | None]:
@@ -51,6 +65,7 @@ def make_quote_fn(page_factory=None):
         if why:
             return QuoteResult("Progressive", "needs_input", detail=why)
         req = {**req, "drivers": drivers, "vehicles": vehicles}
+        page = None
         try:
             if page_factory is None:
                 from .playwright_page import PlaywrightPage
@@ -58,8 +73,15 @@ def make_quote_fn(page_factory=None):
                 page.goto(cred.portal_url or LOGIN_URL)
             else:
                 page = page_factory()
-        except ImportError:
-            return QuoteResult("Progressive", "needs_input", detail="The browser (Playwright/Chromium) is not installed on the server yet.")
+        except Exception as exc:
+            if page is not None:
+                try:
+                    page.close()
+                except Exception:
+                    pass
+            if _browser_missing(exc):
+                return QuoteResult("Progressive", "needs_input", detail=BROWSER_MISSING)
+            raise
         driver = ProgressiveBrowserDriver(page, cred.username, cred.get_password(actor="quote-engine", purpose="progressive quote"))
         try:
             res = run_progressive(req, driver, otp, bool(req.get("spend_approved")), answers=req.get("answers"), coverage=req.get("coverage"))

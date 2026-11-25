@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.test import SimpleTestCase
 
 from core.quote_engine.adapters import progressive_portal_spec as spec
@@ -131,6 +133,34 @@ class WiringTests(SimpleTestCase):
         fn = w.make_quote_fn(page_factory=lambda: FakePage())
         self.assertEqual(fn(dict(REQ)).status, "needs_input")
         self.assertEqual(fn({**REQ, "_credential": FakeCred()}).status, "needs_input")
+
+    def _quote_without_browser(self, exc):
+        from core.quote_engine.adapters import progressive_wiring as w
+        req = {**REQ, "_credential": FakeCred(), "otp_provider": lambda: "1"}
+        with patch("core.quote_engine.adapters.playwright_page.PlaywrightPage", side_effect=exc):
+            return w.make_quote_fn()(req)
+
+    def test_missing_browser_does_not_invent_a_premium(self):
+        r = self._quote_without_browser(ImportError("no playwright"))
+        self.assertEqual(r.status, "needs_input")
+        self.assertEqual(r.detail, "The browser (Playwright/Chromium) is not installed on the server yet.")
+        self.assertIsNone(r.premium_term)
+        self.assertIsNone(r.premium_monthly)
+
+    def test_missing_chromium_binary_does_not_invent_a_premium(self):
+        r = self._quote_without_browser(RuntimeError(
+            "Executable doesn't exist at /ms-playwright/chromium\n"
+            "Please run the following command to download new browsers:\nplaywright install"))
+        self.assertEqual(r.status, "needs_input")
+        self.assertIsNone(r.premium_term)
+        self.assertIsNone(r.premium_monthly)
+
+    def test_other_browser_startup_error_is_not_a_premium(self):
+        from core.quote_engine.adapters import progressive_wiring as w
+        req = {**REQ, "_credential": FakeCred(), "otp_provider": lambda: "1"}
+        with patch("core.quote_engine.adapters.playwright_page.PlaywrightPage", side_effect=RuntimeError("connection reset")):
+            with self.assertRaises(RuntimeError):
+                w.make_quote_fn()(req)
 
     def test_challenge_locks_the_login(self):
         from core.quote_engine.adapters import progressive_wiring as w

@@ -1,6 +1,10 @@
-"""Playwright implementation of the driver's Page interface. Needs `pip install playwright` and
-`playwright install chromium` on the server (not installed in the review sandbox, so this file has only
-been checked for syntax). Uses one persistent profile so the portal keeps the session between runs."""
+"""Playwright implementation of the driver's Page interface.
+
+The Python package is pinned in requirements.txt. Chromium and its OS libraries are installed by
+scripts/install_quote_browser.sh (the deploy runs that after pip install). Uses one persistent profile
+so the portal keeps the session between runs. Profile directory: QUOTE_BROWSER_PROFILE_DIR or
+/var/lib/regi/progressive-profile.
+"""
 from __future__ import annotations
 
 import os
@@ -11,9 +15,16 @@ class PlaywrightPage:
     def __init__(self, profile_dir: str, headless: bool = True):
         from playwright.sync_api import sync_playwright  # imported late: optional dependency
         self._pw = sync_playwright().start()
-        os.makedirs(profile_dir, exist_ok=True)
-        self._ctx = self._pw.chromium.launch_persistent_context(profile_dir, headless=headless, viewport={"width": 1280, "height": 720})
-        self.page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()
+        try:
+            os.makedirs(profile_dir, exist_ok=True)
+            self._ctx = self._pw.chromium.launch_persistent_context(
+                profile_dir, headless=headless, viewport={"width": 1280, "height": 720})
+            self.page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()
+        except Exception:
+            # start() keeps an event loop in this thread. Stop it before the error leaves,
+            # or the next database call in the same request fails.
+            self._pw.stop()
+            raise
 
     def goto(self, url: str) -> None:
         self.page.goto(url, wait_until="domcontentloaded")

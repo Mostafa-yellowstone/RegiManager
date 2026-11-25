@@ -55,9 +55,17 @@ class ProgressiveRun:
     steps_done: list[str] = field(default_factory=list)
 
 
+def _close(driver: ProgressiveDriver) -> None:
+    try:
+        driver.close()
+    except Exception:
+        pass
+
+
 def run_progressive(req: dict, driver: ProgressiveDriver, otp: Callable[[], str], spend_approved: bool,
                     answers: dict | None = None, coverage: dict | None = None, name: str = "Progressive") -> QuoteResult:
     if req.get("line_of_business") != "auto":
+        _close(driver)
         return QuoteResult(name, "skipped", detail="Automation covers personal auto only for now.")
     ans = {**DEFAULT_ANSWERS, **(answers or {})}
     cov = {**DEFAULT_COVERAGE, **(coverage or {})}
@@ -67,8 +75,10 @@ def run_progressive(req: dict, driver: ProgressiveDriver, otp: Callable[[], str]
         full = (v.get("coverage") or "liability") == "full"
         fin = (v.get("ownership") or "owned") in ("financed", "leased")
         if fin and not full:
+            _close(driver)
             return QuoteResult(name, "needs_input", detail=f"Vehicle {i + 1} is financed/leased but set to liability only. The lender requires full coverage: confirm.")
         if fin and not (v.get("lienholder") or "").strip():
+            _close(driver)
             return QuoteResult(name, "needs_input", detail=f"Vehicle {i + 1} is financed/leased: lienholder name is needed.")
         veh_cov.append({"index": i, "comp_collision": full, "lienholder": (v.get("lienholder") or "").strip() if fin else "",
                         "deductible_comp": v.get("deductible_comp"), "deductible_collision": v.get("deductible_collision")})
